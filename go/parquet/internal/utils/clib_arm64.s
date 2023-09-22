@@ -127,7 +127,7 @@ TEXT ·_ClibMemcpy(SB), NOSPLIT, $16-24
 // https://elixir.bootlin.com/linux/v6.5.4/source/arch/arm64/lib/memset.S
 
 // void *memset(void *str, int c, size_t n)
-TEXT clib·_memset(SB), NOSPLIT|NOFRAME, $0-0
+TEXT clib·_memset(SB), NOSPLIT|NOFRAME, $0
 	MOVD R0, R8
 	ANDW $255, R1, R7
 	ORRW R7<<8, R7, R7

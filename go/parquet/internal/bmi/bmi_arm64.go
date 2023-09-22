@@ -20,6 +20,7 @@
 package bmi
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -30,26 +31,34 @@ func init() {
 	// Added ability to enable extension via environment:
 	// ARM_ENABLE_EXT=NEON go test
 	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
-		exts := strings.Split(ext, ",")
+		if ext == "DISABLE" {
+			cpuid.CPU.Disable(cpuid.ASIMD, cpuid.AESARM, cpuid.PMULL)
+		} else {
+			exts := strings.Split(ext, ",")
 
-		for _, x := range exts {
-			switch x {
-			case "NEON":
-				cpuid.CPU.Enable(cpuid.ASIMD)
-			case "AES":
-				cpuid.CPU.Enable(cpuid.AESARM)
-			case "PMULL":
-				cpuid.CPU.Enable(cpuid.PMULL)
-			default:
-				cpuid.CPU.Disable(cpuid.ASIMD, cpuid.AESARM, cpuid.PMULL)
+			for _, x := range exts {
+				switch x {
+				case "NEON":
+					cpuid.CPU.Enable(cpuid.ASIMD)
+				case "AES":
+					cpuid.CPU.Enable(cpuid.AESARM)
+				case "PMULL":
+					cpuid.CPU.Enable(cpuid.PMULL)
+				default:
+					fmt.Fprintln(os.Stderr, "unrecognized value for ARM_ENABLE_EXT:", x)
+				}
 			}
 		}
 	}
+
+	// after benchmarking, turns out the pure go lookup table version
+	// is nearly twice as fast as the non-lookup table assembly
+	// because arm doesn't have a PEXT instruction.
+	funclist.extractBits = extractBitsGo
+
 	if cpuid.CPU.Has(cpuid.ASIMD) {
-		funclist.extractBits = extractBitsNEON
 		funclist.gtbitmap = greaterThanBitmapNEON
 	} else {
-		funclist.extractBits = extractBitsGo
 		funclist.gtbitmap = greaterThanBitmapGo
 	}
 }
