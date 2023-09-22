@@ -26,20 +26,24 @@ function text = display(names, data)
     % names and data must have the same number of columns
     assert(size(names, 2) == size(data, 2));
 
+    % Determine the maximum text length per column 
     namesLength = strlength(names);
     dataLength = strlength(data);
-    
     columnWidths = max([namesLength; dataLength]);
+
+    % Create the "_" dividers for each column
     dividers = arrayfun(@(width) string(repmat('_', [1 width])), columnWidths);
 
     extraNumPadding = 0;
     if usejava("desktop")
         names = compose("<strong>%s</strong>", names);
-        % To account for the extra characters required for bold-font, we
-        % need to add 17 to the minumum column width for the names.
+        % To account for the extra characters required to bold the names,
+        % we must add 17 to the minimum column width when padding the
+        % names.
         extraNumPadding = 17;
     end
 
+    % Pad and center align the strings
     numColumns = numel(names);
     for ii = 1:numColumns
         names(ii) = strjust(pad(names(ii), columnWidths(ii) + extraNumPadding), "center");
