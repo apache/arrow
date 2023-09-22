@@ -251,6 +251,16 @@ namespace Apache.Arrow.Ipc
                 case ArrowTypeId.Null:
                     return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, System.Array.Empty<ArrowBuffer>());
                 case ArrowTypeId.Union:
+                    if (fieldNullCount > 0)
+                    {
+                        if (recordBatchEnumerator.CurrentBuffer.Length > 0)
+                        {
+                            // With V4 metadata we can get a validity bitmap. Fixing up union data is hard,
+                            // so we will just quit.
+                            throw new NotSupportedException("Cannot read pre-1.0.0 Union array with top-level validity bitmap");
+                        }
+                        recordBatchEnumerator.MoveNextBuffer();
+                    }
                     buffers = ((UnionType)field.DataType).Mode == Types.UnionMode.Dense ? 2 : 1;
                     break;
                 case ArrowTypeId.Struct:
