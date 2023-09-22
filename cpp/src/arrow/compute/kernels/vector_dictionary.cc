@@ -75,7 +75,7 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
         continue;
       }
 
-      CType cur_indice = indices_data[i + offset];
+      CType current_index = indices_data[i + offset];
       if (!dict_used[cur_indice]) {
         dict_used[cur_indice] = true;
         dict_used_count++;
