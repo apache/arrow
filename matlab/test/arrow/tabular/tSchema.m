@@ -526,7 +526,69 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Compare schema to double
             testCase.verifyFalse(isequal(schema4, 5));
+        end
 
+        function TestDisplaySchemaZeroFields(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            schema = arrow.schema(arrow.type.Field.empty(0, 0)); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            expectedDisplay = "  Arrow " + classnameLink + " with 0 fields" + newline;
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
+        end
+
+        function TestDisplaySchemaOneField(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            schema = arrow.schema(arrow.field("TestField", arrow.boolean())); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            header = "  Arrow " + classnameLink + " with 1 field:" + newline;
+            indent = "    ";
+
+            if usejava("desktop")
+                fieldNameLine = indent + strjust(pad("<strong>TestField</strong>", 28), "center");    
+            else
+                fieldNameLine = indent + strjust(pad("TestField", 11), "center");       
+            end
+            dividerLine = indent + string(repmat('_', [1 11])) + newline;
+            fieldTypeLine = indent + "BooleanType" + newline;
+            expectedDisplay = join([header, fieldNameLine, dividerLine, fieldTypeLine], newline);
+
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
+        end
+
+        function TestDisplaySchemaField(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            field1 = arrow.field("Field1", arrow.timestamp());
+            field2 = arrow.field("Field2", arrow.string());
+            schema = arrow.schema([field1, field2]); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            header = "  Arrow " + classnameLink + " with 2 fields:" + newline;
+
+            indent = "    ";
+            if usejava("desktop")
+                fieldNameLine = indent + strjust(pad("<strong>Field1</strong>", 30), "center");
+                fieldNameLine = fieldNameLine + indent + strjust(pad("<strong>Field2</strong>", 27), "center");
+            else
+                fieldNameLine = indent + strjust(pad("Field1", 13), "center");      
+                fieldNameLine = fieldNameLine + indent + strjust(pad("Field2", 10), "center") + newline;
+            end
+
+            dividerLine = indent + repmat('_', [1 13]) + indent + repmat('_', [1 10]) + newline;
+            fieldTypeLine = indent + "TimestampType" + indent + "StringType" + newline;
+            expectedDisplay = join([header, fieldNameLine, dividerLine, fieldTypeLine], newline);
+
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
         end
 
     end
