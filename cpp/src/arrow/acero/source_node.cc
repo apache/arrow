@@ -19,7 +19,6 @@
 #include <mutex>
 #include <optional>
 
-#include <iostream>
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
@@ -245,13 +244,10 @@ struct SourceNode : ExecNode, public TracedNode {
       // Could happen if we get something like Pause(1) Pause(3) Resume(2)
       return;
     }
-
-    std::cout << "Pausing " << counter << " bp counter " << backpressure_counter_ << std::endl;
     backpressure_future_ = Future<>::Make();
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-    std::cout << "Resuming " << counter << " bp counter " << backpressure_counter_ << std::endl;
     Future<> to_finish;
     {
       std::lock_guard<std::mutex> lg(mutex_);

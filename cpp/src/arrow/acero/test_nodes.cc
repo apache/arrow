@@ -298,25 +298,11 @@ struct GatedNode : public ExecNode, public TracedNode {
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
-      std::cout << "PAUSE" << std::endl;
-    std::lock_guard<std::mutex> lg(mutex_);
     inputs_[0]->PauseProducing(this, counter);
-    if (!backpressure_future_.is_finished()) {
-      return;
-    }
-    backpressure_future_ = Future<>::Make();
   }
 
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-      std::cout << "RESUME" << std::endl;
-    Future<> to_finish;
-    {
-      std::lock_guard<std::mutex> lg(mutex_);
-      inputs_[0]->ResumeProducing(this, counter);
-      to_finish = backpressure_future_;
-      backpressure_future_ = Future<>::MakeFinished();
-    }
-    to_finish.MarkFinished();
+    inputs_[0]->ResumeProducing(this, counter);
   }
 
   Status StopProducingImpl() override { return Status::OK(); }
@@ -339,32 +325,11 @@ struct GatedNode : public ExecNode, public TracedNode {
       if (callback_added) {
         break;
       }
-
-      //if (!backpressure_future_.is_finished()) {
-      //  backpressure_future_.Wait();
-      //}
-      callback_added = backpressure_future_.TryAddCallback([this] {
-        return [this](const Status& st) {
-          DCHECK_OK(st);
-          plan_->query_context()->ScheduleTask(
-              [this] {
-                std::unique_lock lk(mutex_);
-                return SendBatchesUnlocked(std::move(lk));
-              },
-              "GatedNode::BackpressureApplied");
-        };
-      });
-      if (callback_added) {
-        break;
-      }
-
       // Otherwise, the future is already finished which means the gate is unlocked
       // and we are allowed to send a batch
       ExecBatch next = std::move(queued_batches_.front());
       queued_batches_.pop();
       lock.unlock();
-
-      // TODO: this deadlocks
       ARROW_RETURN_NOT_OK(output_->InputReceived(this, std::move(next)));
       lock.lock();
     }
@@ -386,10 +351,6 @@ struct GatedNode : public ExecNode, public TracedNode {
   Gate* gate_;
   std::queue<ExecBatch> queued_batches_;
   std::mutex mutex_;
-  // We preemptively pause inputs to more aggressively cover
-  // race conditions in tests, since source nodes may send
-  // extra batches before inputs are paused
-  Future<> backpressure_future_ = Future<>::MakeFinished();
 };
 
 }  // namespace

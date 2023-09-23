@@ -26,8 +26,6 @@ namespace arrow {
 namespace acero {
 namespace asofjoin {
 
-class ExecNode;
-
 using AsofJoinKeys = AsofJoinNodeOptions::Keys;
 
 /// \brief Make the output schema of an as-of-join node

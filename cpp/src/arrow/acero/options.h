@@ -710,8 +710,7 @@ class ARROW_ACERO_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
     std::vector<FieldRef> by_key;
   };
 
-  AsofJoinNodeOptions(std::vector<Keys> input_keys, int64_t tolerance,
-                      std::function<void()> finishCallback = {})
+  AsofJoinNodeOptions(std::vector<Keys> input_keys, int64_t tolerance)
       : input_keys(std::move(input_keys)), tolerance(tolerance) {}
 
   /// \brief AsofJoin keys per input table. At least two keys must be given. The first key
@@ -728,9 +727,6 @@ class ARROW_ACERO_EXPORT AsofJoinNodeOptions : public ExecNodeOptions {
   ///
   /// The tolerance is interpreted in the same units as the "on" key.
   int64_t tolerance;
-
-  /// \brief TODO
-  std::function<void()> finishedCallback;
 };
 
 /// \brief a node which select top_k/bottom_k rows passed through it

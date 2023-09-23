@@ -74,8 +74,10 @@ class Gate {
 
 // A node that holds all input batches until a given gate is released
 struct GatedNodeOptions : public ExecNodeOptions {
-  explicit GatedNodeOptions(Gate* gate) : gate(gate) {}
+  explicit GatedNodeOptions(Gate* gate, bool input_finished_at_end = false)
+      : gate(gate), input_finished_at_end(input_finished_at_end) {}
   Gate* gate;
+  bool input_finished_at_end;
 
   static constexpr std::string_view kName = "gated";
 };

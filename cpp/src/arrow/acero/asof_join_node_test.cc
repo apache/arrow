@@ -1424,7 +1424,8 @@ AsyncGenerator<std::optional<ExecBatch>> GetGen(BatchesWithSchema bws) {
 }
 
 template <typename BatchesMaker>
-void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
+void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
+                      int num_r0_batches, int num_r1_batches, bool slow_r0) {
   auto l_schema =
       schema({field("time", int32()), field("key", int32()), field("l_value", int32())});
   auto r0_schema =
@@ -1432,25 +1433,17 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
   auto r1_schema =
       schema({field("time", int32()), field("key", int32()), field("r1_value", int32())});
 
-  auto make_shift = [&maker, num_batches, batch_size](
-                        const std::shared_ptr<Schema>& schema, int shift) {
+  auto make_shift = [&maker, batch_size](int num_batches,
+                                         const std::shared_ptr<Schema>& schema,
+                                         int shift) {
     return maker({[](int row) -> int64_t { return row; },
                   [num_batches](int row) -> int64_t { return row / num_batches; },
                   [shift](int row) -> int64_t { return row * 10 + shift; }},
                  schema, num_batches, batch_size);
   };
-  auto make_shift_gated = [&maker, batch_size](
-                        const std::shared_ptr<Schema>& schema, int shift) {
-      int n = 100;
-    return maker({[](int row) -> int64_t { return row; },
-                  [n](int row) -> int64_t { return row / n; },
-                  [shift](int row) -> int64_t { return row * 10 + shift; }},
-                 schema, n, batch_size);
-  };
-  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
-  // CHANGED
-  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift_gated(r0_schema, 1));
-  ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(r1_schema, 2));
+  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(num_l_batches, l_schema, 0));
+  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(num_r0_batches, r0_schema, 1));
+  ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(num_r1_batches, r1_schema, 2));
 
   BackpressureCountingNode::Register();
   RegisterTestNodes();  // for GatedNode
@@ -1458,6 +1451,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
   struct BackpressureSourceConfig {
     std::string name_prefix;
     bool is_gated;
+    bool is_delayed;
     std::shared_ptr<Schema> schema;
     decltype(l_batches) batches;
 
@@ -1472,9 +1466,9 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
 
   // Two ungated and one gated
   std::vector<BackpressureSourceConfig> source_configs = {
-      {"0", false, l_schema, l_batches},
-      {"1", true, r0_schema, r0_batches},
-      {"2", false, r1_schema, r1_batches},
+      {"0", false, false, l_schema, l_batches},
+      {"1", true, slow_r0, r0_schema, r0_batches},
+      {"2", false, false, r1_schema, r1_batches},
   };
 
   std::vector<BackpressureCounters> bp_counters(source_configs.size());
@@ -1483,9 +1477,16 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
   std::vector<Declaration::Input> bp_decls;
   for (size_t i = 0; i < source_configs.size(); i++) {
     const auto& config = source_configs[i];
-
-    src_decls.emplace_back("source",
-                           SourceNodeOptions(config.schema, GetGen(config.batches)));
+    if (config.is_delayed) {
+      src_decls.emplace_back(
+          "source",
+          SourceNodeOptions(config.schema, MakeDelayedGen(config.batches, "slow_source",
+                                                          /*delay_sec=*/0.5,
+                                                          /*noisy=*/false)));
+    } else {
+      src_decls.emplace_back("source",
+                             SourceNodeOptions(config.schema, GetGen(config.batches)));
+    }
     bp_options.push_back(
         std::make_shared<BackpressureCountingNodeOptions>(&bp_counters[i]));
     std::shared_ptr<ExecNodeOptions> options = bp_options.back();
@@ -1498,17 +1499,9 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
     bp_decls.emplace_back(bp_decl);
   }
 
-  bool finished = false;
-
   auto opts = GetRepeatedOptions(source_configs.size(), "time", {"key"}, 0);
-  opts.finishedCallback = [&finished, &gate] { 
-      std::cout << "IN FINISHED CALLBACK" << std::endl;
-      finished = true; 
-      gate.ReleaseAllBatches();
-  };
 
-  Declaration asofjoin = {"asofjoin", bp_decls,
-                          opts};
+  Declaration asofjoin = {"asofjoin", bp_decls, opts};
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<internal::ThreadPool> tpool,
                        internal::ThreadPool::Make(1));
@@ -1533,29 +1526,23 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
   BusyWait(60.0, has_bp_been_applied);
   ASSERT_TRUE(has_bp_been_applied());
 
-  for (int i = 0 ; i < 25; i++) {
-      gate.ReleaseOneBatch();
-  }
-
-  auto has_finished = [&] { return finished; };
-  BusyWait(60.0, has_finished);
-
+  gate.ReleaseAllBatches();
   ASSERT_FINISHES_OK_AND_ASSIGN(BatchesWithCommonSchema batches, batches_fut);
 
-  // One of the inputs is gated and was released. The other two will eventually be resumed by the asof
-  // join node
+  // One of the inputs is gated and was released. The other two will eventually be resumed
+  // by the asof join node
   for (size_t i = 0; i < source_configs.size(); i++) {
     const auto& counters = bp_counters[i];
     if (!source_configs[i].is_gated) {
       ASSERT_GE(counters.resume_count, 0);
     }
   }
-
-  ASSERT_TRUE(false);
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
-  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/20, /*batch_size=*/1);
+  // Give the first right hand table a delay to stress test race conditions
+  return TestBackpressure(MakeIntegerBatches, /*batch_size=*/1, /*num_l_batches=*/20,
+                          /*num_r0_batches=*/50, /*num_r1_batches=*/20, /*slow_r0=*/true);
 }
 
 template <typename BatchesMaker>
@@ -1621,7 +1608,10 @@ TEST(AsofJoinTest, BackpressureWithBatchesGen) {
   GTEST_SKIP() << "Skipping - see GH-36331";
   int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 20);
   int batch_size = GetEnvValue("ARROW_BACKPRESSURE_DEMO_BATCH_SIZE", 1);
-  return TestBackpressure(MakeIntegerBatchGenForTest, num_batches, batch_size);
+  return TestBackpressure(MakeIntegerBatchGenForTest, /*batch_size=*/batch_size,
+                          /*num_l_batches=*/num_batches,
+                          /*num_r0_batches=*/num_batches, /*num_r1_batches=*/num_batches,
+                          /*slow_r0=*/false);
 }
 
 }  // namespace acero

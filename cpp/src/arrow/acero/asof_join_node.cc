@@ -17,9 +17,9 @@
 
 #include "arrow/acero/asof_join_node.h"
 
-#include <iostream>
 #include <atomic>
 #include <condition_variable>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -539,13 +539,8 @@ class BackpressureController : public BackpressureControl {
                          std::atomic<int32_t>& backpressure_counter)
       : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
 
-  void Pause() override { 
-      std::cout << "PAUSE PRODUCING" << std::endl;
-      node_->PauseProducing(output_, ++backpressure_counter_); }
-  void Resume() override { 
-
-      std::cout << "RESUME PRODUCING" << std::endl;
-      node_->ResumeProducing(output_, ++backpressure_counter_); }
+  void Pause() override { node_->PauseProducing(output_, ++backpressure_counter_); }
+  void Resume() override { node_->ResumeProducing(output_, ++backpressure_counter_); }
 
  private:
   ExecNode* node_;
@@ -690,9 +685,9 @@ class InputState {
     std::unique_ptr<BackpressureControl> backpressure_control =
         std::make_unique<BackpressureController>(
             /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
-    ARROW_ASSIGN_OR_RAISE(auto handler,
-                          BackpressureHandler::Make(asof_input, low_threshold, high_threshold,
-                                                    std::move(backpressure_control)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto handler, BackpressureHandler::Make(asof_input, low_threshold, high_threshold,
+                                                std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
                                         key_hasher, asof_node, std::move(handler), schema,
                                         time_col_index, key_col_index);
@@ -1337,7 +1332,8 @@ class AsofJoinNode : public ExecNode {
   };
 
   void EndFromProcessThread(Status st = Status::OK()) {
-    // We must spawn a new task to transfer off the process thread when marking this finished.  Otherwise there is a chance that doing so could
+    // We must spawn a new task to transfer off the process thread when
+    // marking this finished.  Otherwise there is a chance that doing so could
     // mark the plan finished which may destroy the plan which will destroy this
     // node which will cause us to join on ourselves.
     ARROW_UNUSED(
@@ -1346,21 +1342,12 @@ class AsofJoinNode : public ExecNode {
           if (st.ok()) {
             st = output_->InputFinished(this, batches_produced_);
           }
-          //for (const auto& s : state_) {
-          //  auto shutdownResult = s->ForceShutdown();
-          //  if (!shutdownResult.ok()) {
-          //    st = shutdownResult;
-          //  }
-          //}
-          DEBUG_SYNC(this, "Done producing", DEBUG_MANIP(std::endl));
-#ifndef NDEBUG
-          if (thread_finished_callback_) {
-            DEBUG_SYNC(this, "Calling callback", DEBUG_MANIP(std::endl));
-            thread_finished_callback_();
-          } else {
-            DEBUG_SYNC(this, "No callback", DEBUG_MANIP(std::endl));
+          for (const auto& s : state_) {
+            auto shutdownResult = s->ForceShutdown();
+            if (!shutdownResult.ok()) {
+              st = shutdownResult;
+            }
           }
-#endif
         }));
   }
 
@@ -1720,10 +1707,6 @@ class AsofJoinNode : public ExecNode {
     // InputReceived may be called after execution was finished. Pushing it to the
     // InputState may cause the BackPressureController to pause the input, causing a
     // deadlock
-    if (process_task_.is_finished()) {
-        DEBUG_SYNC(this, "Input received while done. Num rows: ", batch.length, DEBUG_MANIP(std::endl));
-      //return Status::OK();
-    }
 
     // Get the input
     ARROW_DCHECK(std_has(inputs_, input));
@@ -1731,8 +1714,12 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
-    DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
-               rb->ToString(), DEBUG_MANIP(std::endl));
+    if (process_task_.is_finished()) {
+      DEBUG_SYNC(this, "Input received while done. Short circuiting.",
+                 DEBUG_MANIP(std::endl));
+      return Status::OK();
+    }
+
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
     return Status::OK();
@@ -1778,10 +1765,7 @@ class AsofJoinNode : public ExecNode {
   }
 
 #ifndef NDEBUG
-  std::ostream* GetDebugStream() { 
-      return &std::cout;
-      //return debug_os_; 
-  }
+  std::ostream* GetDebugStream() { return debug_os_; }
 
   std::mutex* GetDebugMutex() { return debug_mutex_; }
 #endif
@@ -1802,7 +1786,6 @@ class AsofJoinNode : public ExecNode {
 #ifndef NDEBUG
   std::ostream* debug_os_;
   std::mutex* debug_mutex_;
-  std::function<void()> thread_finished_callback_;
 #endif
 
   // Backpressure counter common to all inputs
@@ -1838,7 +1821,6 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
 #ifndef NDEBUG
       debug_os_(join_options.debug_opts ? join_options.debug_opts->os : nullptr),
       debug_mutex_(join_options.debug_opts ? join_options.debug_opts->mutex : nullptr),
-      thread_finished_callback_(join_options.finishedCallback),
 #endif
       backpressure_counter_(1),
       process_(),
