@@ -16,10 +16,12 @@
 # under the License.
 
 import contextlib
+import functools
 import os
 import subprocess
 
-from .tester import Tester
+from . import cdata
+from .tester import Tester, CDataExporter, CDataImporter
 from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
 
@@ -39,12 +41,19 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
+_dll_suffix = ".dll" if os.name == "nt" else ".so"
 
-class CPPTester(Tester):
+_DLL_PATH = _EXE_PATH
+_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + _dll_suffix)
+
+
+class CppTester(Tester):
     PRODUCER = True
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
+    C_DATA_EXPORTER = True
+    C_DATA_IMPORTER = True
 
     name = 'C++'
 
@@ -133,3 +142,104 @@ class CPPTester(Tester):
         if self.debug:
             log(' '.join(cmd))
         run_cmd(cmd)
+
+    def make_c_data_exporter(self):
+        return CppCDataExporter(self.debug, self.args)
+
+    def make_c_data_importer(self):
+        return CppCDataImporter(self.debug, self.args)
+
+
+_cpp_c_data_entrypoints = """
+    const char* ArrowCpp_CDataIntegration_ExportSchemaFromJson(
+        const char* json_path, struct ArrowSchema* out);
+    const char* ArrowCpp_CDataIntegration_ImportSchemaAndCompareToJson(
+        const char* json_path, struct ArrowSchema* schema);
+
+    const char* ArrowCpp_CDataIntegration_ExportBatchFromJson(
+        const char* json_path, int num_batch, struct ArrowArray* out);
+    const char* ArrowCpp_CDataIntegration_ImportBatchAndCompareToJson(
+        const char* json_path, int num_batch, struct ArrowArray* batch);
+
+    int64_t ArrowCpp_BytesAllocated();
+    """
+
+
+@functools.lru_cache
+def _load_ffi(ffi, lib_path=_ARROW_DLL):
+    ffi.cdef(_cpp_c_data_entrypoints)
+    dll = ffi.dlopen(lib_path)
+    dll.ArrowCpp_CDataIntegration_ExportSchemaFromJson
+    return dll
+
+
+class _CDataBase:
+
+    def __init__(self, debug, args):
+        self.debug = debug
+        self.args = args
+        self.ffi = cdata.ffi()
+        self.dll = _load_ffi(self.ffi)
+
+    def _check_c_error(self, c_error):
+        """
+        Check a `const char*` error return from an integration entrypoint.
+
+        A null means success, a non-empty string is an error message.
+        The string is statically allocated on the C++ side.
+        """
+        assert self.ffi.typeof(c_error) is self.ffi.typeof("const char*")
+        if c_error != self.ffi.NULL:
+            error = self.ffi.string(c_error).decode('utf8',
+                                                    errors='replace')
+            raise RuntimeError(
+                f"C++ C Data Integration call failed: {error}")
+
+
+class CppCDataExporter(CDataExporter, _CDataBase):
+
+    def export_schema_from_json(self, json_path, c_schema_ptr):
+        c_error = self.dll.ArrowCpp_CDataIntegration_ExportSchemaFromJson(
+            str(json_path).encode(), c_schema_ptr)
+        self._check_c_error(c_error)
+
+    def export_batch_from_json(self, json_path, num_batch, c_array_ptr):
+        c_error = self.dll.ArrowCpp_CDataIntegration_ExportBatchFromJson(
+            str(json_path).encode(), num_batch, c_array_ptr)
+        self._check_c_error(c_error)
+
+    @property
+    def supports_releasing_memory(self):
+        return True
+
+    def record_allocation_state(self):
+        return self.dll.ArrowCpp_BytesAllocated()
+
+    def compare_allocation_state(self, recorded, gc_until):
+        def pred():
+            # No GC on our side, so just compare allocation state
+            return self.record_allocation_state() == recorded
+
+        return gc_until(pred)
+
+
+class CppCDataImporter(CDataImporter, _CDataBase):
+
+    def import_schema_and_compare_to_json(self, json_path, c_schema_ptr):
+        c_error = self.dll.ArrowCpp_CDataIntegration_ImportSchemaAndCompareToJson(
+            str(json_path).encode(), c_schema_ptr)
+        self._check_c_error(c_error)
+
+    def import_batch_and_compare_to_json(self, json_path, num_batch,
+                                         c_array_ptr):
+        c_error = self.dll.ArrowCpp_CDataIntegration_ImportBatchAndCompareToJson(
+            str(json_path).encode(), num_batch, c_array_ptr)
+        self._check_c_error(c_error)
+
+    @property
+    def supports_releasing_memory(self):
+        return True
+
+    def gc_until(self, predicate):
+        # No GC on our side, so can evaluate predicate immediately
+        return predicate()

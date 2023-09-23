@@ -16,7 +16,7 @@
 classdef UInt8Array < arrow.array.NumericArray
 % arrow.array.UInt8Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = uint8(0)
     end
 

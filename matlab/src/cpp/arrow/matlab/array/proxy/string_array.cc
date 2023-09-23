@@ -28,7 +28,9 @@
 namespace arrow::matlab::array::proxy {
 
         StringArray::StringArray(const std::shared_ptr<arrow::StringArray> string_array) 
-            : arrow::matlab::array::proxy::Array(std::move(string_array)) {}
+            : arrow::matlab::array::proxy::Array(std::move(string_array)) {
+                REGISTER_METHOD(StringArray, toMATLAB);
+            }
 
         libmexclass::proxy::MakeResult StringArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             namespace mda = ::matlab::data;

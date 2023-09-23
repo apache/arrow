@@ -15,13 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
+#pragma once
 
-namespace arrow {
-namespace matlab {
-namespace test {
-// TODO: Remove this placeholder test.
-TEST(PlaceholderTestSuite, PlaceholderTestCase) { ASSERT_TRUE(true); }
-}  // namespace test
-}  // namespace matlab
-}  // namespace arrow
+#include "libmexclass/proxy/Proxy.h"
+
+namespace arrow::matlab::io::csv::proxy {
+
+    class TableWriter : public libmexclass::proxy::Proxy {
+        public:
+            TableWriter(const std::string& filename);
+            ~TableWriter() {}
+            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+        protected:
+            void getFilename(libmexclass::proxy::method::Context& context);
+            void write(libmexclass::proxy::method::Context& context);
+
+        private:
+            const std::string filename;
+    };
+
+}
