@@ -1707,6 +1707,11 @@ class AsofJoinNode : public ExecNode {
     // InputReceived may be called after execution was finished. Pushing it to the
     // InputState may cause the BackPressureController to pause the input, causing a
     // deadlock
+    if (process_task_.is_finished()) {
+      DEBUG_SYNC(this, "Input received while done. Short circuiting.",
+                 DEBUG_MANIP(std::endl));
+      return Status::OK();
+    }
 
     // Get the input
     ARROW_DCHECK(std_has(inputs_, input));
@@ -1714,11 +1719,6 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
-    if (process_task_.is_finished()) {
-      DEBUG_SYNC(this, "Input received while done. Short circuiting.",
-                 DEBUG_MANIP(std::endl));
-      return Status::OK();
-    }
 
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
