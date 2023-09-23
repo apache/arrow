@@ -1719,6 +1719,8 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
+    DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
+               rb->ToString(), DEBUG_MANIP(std::endl));
 
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
