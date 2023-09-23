@@ -220,7 +220,7 @@ test_that("readr parse options", {
 
   # With not yet supported readr parse options
   expect_error(
-    open_dataset(tsv_dir, partitioning = "part", delim = "\t", quoted_na = TRUE),
+    open_dataset(tsv_dir, partitioning = "part", delim = "\t", col_select = "integer"),
     "supported"
   )
 
@@ -253,7 +253,7 @@ test_that("readr parse options", {
       tsv_dir,
       partitioning = "part",
       format = "text",
-      quo = "\"",
+      del = ","
     ),
     "Ambiguous"
   )
@@ -564,7 +564,7 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   # quoted_na
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
-  df <- data.frame(text = c('one', 'two', '', 'four'))
+  df <- data.frame(text = c('one', 'two', '', 'four'), num = 1:4)
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
   ds <- open_csv_dataset(dst_dir, quoted_na = TRUE) %>% collect()
