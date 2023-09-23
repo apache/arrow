@@ -295,7 +295,9 @@ test_that("schema name assignment", {
 
 test_that("schema extraction", {
   skip_if_not_available("dataset")
+
   tbl <- arrow_table(example_data)
+  expect_equal(schema(example_data), tbl$schema)
   expect_equal(schema(tbl), tbl$schema)
 
   ds <- InMemoryDataset$create(example_data)
