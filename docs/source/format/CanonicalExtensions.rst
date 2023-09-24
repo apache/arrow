@@ -204,6 +204,12 @@ Variable shape tensor
     take advantage of the uniformity. uniform_dimensions can be left out,
     in which case it is assumed that all dimensions might be variable.
 
+  * **uniform_shape** = shape over dimensions that are guaranteed to stay
+    constant over of all tensors in the array if all their ragged dimension
+    sizes were replaced by 0.
+    An array containing tensor with shape (2, 3, 4) and uniform dimensions
+    (0, 2) would have uniform shape (2, 0, 4).
+
 * Description of the serialization:
 
   The metadata must be a valid JSON object including number of

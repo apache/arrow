@@ -1620,6 +1620,17 @@ cdef class VariableShapeTensorType(BaseExtensionType):
         else:
             return None
 
+    @property
+    def uniform_shape(self):
+        """
+        Shape over dimensions that are guaranteed to be constant.
+        """
+        uniform_shape = self.tensor_ext_type.uniform_shape()
+        if len(uniform_shape) != 0:
+            return uniform_shape
+        else:
+            return None
+
     def __arrow_ext_serialize__(self):
         """
         Serialized representation of metadata to reconstruct the type object.
@@ -4911,7 +4922,8 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     return out
 
 
-def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation=None, uniform_dimensions=None):
+def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation=None,
+                          uniform_dimensions=None, uniform_shape=None):
     """
     Create instance of variable shape tensor extension type with number of
     dimensions and optional names of tensor dimensions and indices of the
@@ -4936,6 +4948,11 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         Indices of the dimensions that are guaranteed to remain constant over the
         whole array. The indices contain a subset of the values ``[0, 1, .., N-1]``
         where N is the number of dimensions.
+    uniform_shape : tuple or list of integers, default None
+        Shape over dimensions that are guaranteed to stay constant over all tensors
+        in the array if all their ragged dimensions sizes were replaced by 0.
+        An array containing tensor with shape (2, 3, 4) and uniform dimensions
+        (0, 2) would have uniform shape (2, 0, 4).
 
     Examples
     --------
@@ -4994,6 +5011,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         vector[int64_t] c_permutation
         vector[c_string] c_dim_names
         vector[int64_t] c_uniform_dimensions
+        vector[int64_t] c_uniform_shape
         shared_ptr[CDataType] c_tensor_ext_type
 
     assert value_type is not None
@@ -5013,10 +5031,14 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         for i in uniform_dimensions:
             c_uniform_dimensions.push_back(i)
 
+    if uniform_shape is not None:
+        for i in uniform_shape:
+            c_uniform_shape.push_back(i)
+
     cdef VariableShapeTensorType out = VariableShapeTensorType.__new__(VariableShapeTensorType)
 
     c_tensor_ext_type = GetResultValue(CVariableShapeTensorType.Make(
-        value_type.sp_type, c_ndim, c_permutation, c_dim_names, c_uniform_dimensions))
+        value_type.sp_type, c_ndim, c_permutation, c_dim_names, c_uniform_dimensions, c_uniform_shape))
 
     out.init(c_tensor_ext_type)
 

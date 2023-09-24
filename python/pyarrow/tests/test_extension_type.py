@@ -1292,10 +1292,11 @@ def test_variable_shape_tensor_class_method(value_type):
         dim_names=["H", "W"],
         permutation=[0, 1],
         uniform_dimensions=[0],
+        uniform_shape=[2, 0],
     )
     fields = [pa.field("shape", shape_type), pa.field("data", pa.list_(arrow_type))]
 
-    shapes = pa.array([[2, 3], [1, 2]], shape_type)
+    shapes = pa.array([[2, 3], [2, 1]], shape_type)
     values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(arrow_type))
     struct_arr = pa.StructArray.from_arrays([shapes, values], fields=fields)
     arr = pa.ExtensionArray.from_storage(tensor_type, struct_arr)
@@ -1304,7 +1305,7 @@ def test_variable_shape_tensor_class_method(value_type):
     )
 
     storage = pa.array(
-        [([2, 3], [1, 2, 3, 4, 5, 6]), ([1, 2], [7, 8])], type=pa.struct(fields)
+        [([2, 3], [1, 2, 3, 4, 5, 6]), ([2, 1], [7, 8])], type=pa.struct(fields)
     )
     assert pa.ExtensionArray.from_storage(tensor_type, storage).equals(arr)
 
