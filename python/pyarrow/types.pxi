@@ -1680,7 +1680,7 @@ cdef class FixedShapeTensorType(BaseExtensionType):
                                     self.dim_names, self.permutation)
 
     def __arrow_ext_scalar_class__(self):
-        return FixedShapeTensorScalarType
+        return FixedShapeTensorScalar
 
 
 _py_extension_type_auto_load = False
