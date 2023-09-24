@@ -3529,9 +3529,9 @@ cdef class ExtensionArray(Array):
         return result
 
 
-class FixedShapeTensorScalarType(ExtensionScalar):
+class FixedShapeTensorScalar(ExtensionScalar):
     """
-    Concrete class for fixed shape tensor extension scalar type.
+    Concrete class for fixed shape tensor extension scalar.
     """
 
     def to_numpy_ndarray(self):
