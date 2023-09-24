@@ -1027,6 +1027,28 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
+class FixedShapeTensorScalar(ExtensionScalar):
+    """
+    Concrete class for fixed shape tensor extension scalar.
+    """
+
+    def to_numpy_ndarray(self):
+        # TODO: allow any permutation
+        """
+        Convert fixed shape tensor extension scalar to a numpy array (with dim).
+
+        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        """
+
+        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
+            np_flat = np.asarray(self.storage.flatten())
+            numpy_tensor = np_flat.reshape(tuple(self.type.shape))
+            return numpy_tensor
+        else:
+            raise ValueError(
+                'Only non-permuted tensors can be converted to numpy tensors.')
+
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,

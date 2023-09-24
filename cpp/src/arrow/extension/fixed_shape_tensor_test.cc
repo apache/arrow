@@ -493,6 +493,7 @@ TEST_F(TestExtensionType, GetScalar) {
 }
 
 TEST_F(TestExtensionType, GetTensor) {
+  // Get tensor from extension array
   auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
   auto arr = ArrayFromJSON(cell_type_,
                            "[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],"
@@ -507,8 +508,26 @@ TEST_F(TestExtensionType, GetTensor) {
   ASSERT_EQ(expected_tensor->shape(), actual_tensor->shape());
   ASSERT_EQ(expected_tensor->dim_names(), actual_tensor->dim_names());
   ASSERT_EQ(expected_tensor->strides(), actual_tensor->strides());
+  ASSERT_EQ(actual_tensor->strides(), std::vector<int64_t>({32, 8}));
   ASSERT_EQ(expected_tensor->type(), actual_tensor->type());
   ASSERT_TRUE(expected_tensor->Equals(*actual_tensor));
+
+  // Get tensor from extension array with non-trivial permutation
+  auto permuted_ext_type = fixed_shape_tensor(value_type_, {3, 4}, {1, 0}, {"x", "y"});
+  auto permuted_array = std::static_pointer_cast<FixedShapeTensorArray>(
+      ExtensionType::WrapArray(permuted_ext_type, arr));
+
+  std::vector<int64_t> values_second_cell = {12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
+  ASSERT_OK_AND_ASSIGN(auto expected_permuted_tensor,
+                       Tensor::Make(value_type_, Buffer::Wrap(values_second_cell), {4, 3},
+                                    {8, 24}, {"y", "x"}));
+
+  ASSERT_OK_AND_ASSIGN(auto actual_permuted_tensor, permuted_array->GetTensor(1));
+  ASSERT_EQ(expected_permuted_tensor->shape(), actual_permuted_tensor->shape());
+  ASSERT_EQ(expected_permuted_tensor->dim_names(), actual_permuted_tensor->dim_names());
+  ASSERT_EQ(expected_permuted_tensor->strides(), actual_permuted_tensor->strides());
+  ASSERT_EQ(expected_permuted_tensor->type(), actual_permuted_tensor->type());
+  ASSERT_TRUE(expected_permuted_tensor->Equals(*actual_permuted_tensor));
 }
 
 }  // namespace arrow

@@ -3529,27 +3529,7 @@ cdef class ExtensionArray(Array):
         return result
 
 
-class FixedShapeTensorScalar(ExtensionScalar):
-    """
-    Concrete class for fixed shape tensor extension scalar.
-    """
-
-    def to_numpy_ndarray(self):
-        """
-        Convert fixed shape tensor extension scalar to a numpy array (with dim).
-
-        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
-        """
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            np_flat = self.value.values.to_numpy()
-            numpy_tensor = np_flat.reshape(tuple(self.type.shape))
-            return numpy_tensor
-        else:
-            raise ValueError(
-                'Only non-permuted tensors can be converted to numpy tensors.')
-
-
-class FixedShapeTensorArray(ExtensionArray):
+cdef class FixedShapeTensorArray(ExtensionArray):
     """
     Concrete class for fixed shape tensor extension arrays.
 
@@ -3591,16 +3571,24 @@ class FixedShapeTensorArray(ExtensionArray):
     def to_numpy_ndarray(self):
         """
         Convert fixed shape tensor extension array to a numpy array (with dim+1).
-
-        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            np_flat = np.asarray(self.storage.flatten())
-            numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
-            return numpy_tensor
-        else:
-            raise ValueError(
-                'Only non-permuted tensors can be converted to numpy tensors.')
+        cdef:
+            CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
+            CResult[shared_ptr[CTensor]] ctensor
+        with nogil:
+            ctensor = ext_array.ToTensor()
+        return pyarrow_wrap_tensor(GetResultValue(ctensor)).to_numpy()
+
+    def get_tensor(self, int64_t i):
+        """
+        Convert variable shape tensor extension array to list of numpy arrays.
+        """
+        cdef:
+            CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
+            CResult[shared_ptr[CTensor]] ctensor
+        with nogil:
+            ctensor = ext_array.GetTensor(i)
+        return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
     def from_numpy_ndarray(obj):
