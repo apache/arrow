@@ -2770,7 +2770,8 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
                                             const uint32_t ndim,
                                             const vector[int64_t]& permutation,
                                             const vector[c_string]& dim_names,
-                                            const vector[int64_t]& uniform_dimensions)
+                                            const vector[int64_t]& uniform_dimensions,
+                                            const vector[int64_t]& uniform_shape)
 
         CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
                                                    const c_string& serialized_data) const
@@ -2782,6 +2783,7 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
         const vector[int64_t] uniform_dimensions()
+        const vector[int64_t] uniform_shape()
 
     cdef cppclass CVariableShapeTensorArray \
             " arrow::extension::VariableShapeTensorArray"(CExtensionArray) nogil:
