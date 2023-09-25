@@ -32,7 +32,6 @@ namespace arrow::matlab::type::proxy {
     Field::Field(std::shared_ptr<arrow::Field> field) : field{std::move(field)} {
         REGISTER_METHOD(Field, getName);
         REGISTER_METHOD(Field, getType);
-        REGISTER_METHOD(Field, toString);
     }
 
     std::shared_ptr<arrow::Field> Field::unwrap() {
@@ -62,16 +61,6 @@ namespace arrow::matlab::type::proxy {
         output[0]["ProxyID"] = factory.createScalar(proxy_id);
         output[0]["TypeID"] = factory.createScalar(type_id);
         context.outputs[0] = output;
-    }
-
-    void Field::toString(libmexclass::proxy::method::Context& context) {
-        namespace mda = ::matlab::data;
-        mda::ArrayFactory factory;
-
-        const auto str_utf8 = field->ToString();
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
-        auto str_mda = factory.createScalar(str_utf16);
-        context.outputs[0] = str_mda;
     }
 
     libmexclass::proxy::MakeResult Field::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
