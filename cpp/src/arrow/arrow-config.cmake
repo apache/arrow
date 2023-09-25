@@ -19,8 +19,7 @@ message(WARNING "find_package(arrow) is deprecated. Use find_package(Arrow) inst
 find_package(Arrow CONFIG)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(arrow
-                                  REQUIRED_VARS
-                                  ARROW_INCLUDE_DIR
-                                  VERSION_VAR
-                                  ARROW_VERSION)
+find_package_handle_standard_args(
+  arrow
+  REQUIRED_VARS ARROW_INCLUDE_DIR
+  VERSION_VAR ARROW_VERSION)
