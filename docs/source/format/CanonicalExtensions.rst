@@ -211,10 +211,16 @@ Variable shape tensor
 
 * Description of the serialization:
 
-  The metadata must be a valid JSON object including number of
-  dimensions of the contained tensors as an integer with key **"ndim"**
-  plus optional dimension names with keys **"dim_names"** and ordering of
-  the dimensions with key **"permutation"**.
+  The metadata must be a valid JSON object, that optionally includes
+  dimension names with keys **"dim_names"**, ordering of
+  dimensions with key **"permutation"**, indices of dimensions whose sizes
+  are guaranteed to remain constant with key **"uniform_dimensions"** and
+  shape of those dimensions with key **"uniform_shape"**.
+  Minimal metadata is an empty JSON object.
+
+  - Example of minimal metadata is:
+
+    ``{}``
 
   - Example with ``dim_names`` metadata for NCHW ordered data:
 
