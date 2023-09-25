@@ -59,12 +59,14 @@
 #include <llvm/Passes/PassPlugin.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Host.h>
-#include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/IPO/GlobalDCE.h>
+#include <llvm/Transforms/IPO/GlobalOpt.h>
 #include <llvm/Transforms/IPO/Internalize.h>
-#include <llvm/Transforms/IPO/PassManagerBuilder.h>
-#include <llvm/Transforms/Scalar.h>
-#include <llvm/Transforms/Vectorize.h>
+#include <llvm/Transforms/Scalar/NewGVN.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#include <llvm/Transforms/Utils/Mem2Reg.h>
+#include <llvm/Transforms/Vectorize/LoopVectorize.h>
+#include <llvm/Transforms/Vectorize/SLPVectorizer.h>
 #if LLVM_VERSION_MAJOR >= 14
 #include <llvm/MC/TargetRegistry.h>
 #else
@@ -302,28 +304,43 @@ Status Engine::FinalizeModule() {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
     if (optimize_) {
-      // misc passes to allow for inlining, vectorization, ..
-      std::unique_ptr<llvm::legacy::PassManager> pass_manager(
-          new llvm::legacy::PassManager());
+      // Setup an optimiser pipeline
+      llvm::PassBuilder pass_builder;
+      llvm::LoopAnalysisManager loop_am;
+      llvm::FunctionAnalysisManager function_am;
+      llvm::CGSCCAnalysisManager cgscc_am;
+      llvm::ModuleAnalysisManager module_am;
 
-      llvm::TargetIRAnalysis target_analysis =
-          execution_engine_->getTargetMachine()->getTargetIRAnalysis();
-      pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
-      pass_manager->add(llvm::createFunctionInliningPass());
-      pass_manager->add(llvm::createInstructionCombiningPass());
-      pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
-      pass_manager->add(llvm::createGVNPass());
-      pass_manager->add(llvm::createNewGVNPass());
-      pass_manager->add(llvm::createCFGSimplificationPass());
-      pass_manager->add(llvm::createLoopVectorizePass());
-      pass_manager->add(llvm::createSLPVectorizerPass());
-      pass_manager->add(llvm::createGlobalOptimizerPass());
+      function_am.registerPass(
+          [&] { return execution_engine_->getTargetMachine()->getTargetIRAnalysis(); });
 
-      // run the optimiser
-      llvm::PassManagerBuilder pass_builder;
-      pass_builder.OptLevel = 3;
-      pass_builder.populateModulePassManager(*pass_manager);
-      pass_manager->run(*module_);
+      // Register required analysis managers
+      pass_builder.registerModuleAnalyses(module_am);
+      pass_builder.registerCGSCCAnalyses(cgscc_am);
+      pass_builder.registerFunctionAnalyses(function_am);
+      pass_builder.registerLoopAnalyses(loop_am);
+      pass_builder.crossRegisterProxies(loop_am, function_am, cgscc_am, module_am);
+
+      pass_builder.registerPipelineStartEPCallback(
+          [&](llvm::ModulePassManager& module_pm, llvm::OptimizationLevel Level) {
+            module_pm.addPass(llvm::ModuleInlinerPass());
+
+            llvm::FunctionPassManager function_pm;
+            function_pm.addPass(llvm::InstCombinePass());
+            function_pm.addPass(llvm::PromotePass());
+            function_pm.addPass(llvm::GVNPass());
+            function_pm.addPass(llvm::NewGVNPass());
+            function_pm.addPass(llvm::SimplifyCFGPass());
+            function_pm.addPass(llvm::LoopVectorizePass());
+            function_pm.addPass(llvm::SLPVectorizerPass());
+            module_pm.addPass(
+                llvm::createModuleToFunctionPassAdaptor(std::move(function_pm)));
+
+            module_pm.addPass(llvm::GlobalOptPass());
+          });
+
+      pass_builder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O3)
+          .run(*module_, module_am);
     }
 
     ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
