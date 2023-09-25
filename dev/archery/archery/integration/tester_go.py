@@ -161,7 +161,6 @@ _go_c_data_entrypoints = """
 def _load_ffi(ffi, lib_path=_INTEGRATION_DLL):
     ffi.cdef(_go_c_data_entrypoints)
     dll = ffi.dlopen(lib_path)
-    dll.ArrowGo_ExportSchemaFromJson
     return dll
 
 

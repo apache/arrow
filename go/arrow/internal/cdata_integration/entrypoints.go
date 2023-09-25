@@ -20,7 +20,6 @@
 package main
 
 import (
-	"C"
 	"fmt"
 	"os"
 	"runtime"
@@ -80,7 +79,7 @@ func newJsonReader(cJsonPath *C.char) (*arrjson.Reader, error) {
 	return jsonReader, nil
 }
 
-func exportSchemaFromJson(cJsonPath *C.char, out *cdata.CArrowSchema) (err error) {
+func exportSchemaFromJson(cJsonPath *C.char, out *cdata.CArrowSchema) error {
 	jsonReader, err := newJsonReader(cJsonPath)
 	if err != nil {
 		return err
@@ -92,7 +91,7 @@ func exportSchemaFromJson(cJsonPath *C.char, out *cdata.CArrowSchema) (err error
 	return err
 }
 
-func importSchemaAndCompareToJson(cJsonPath *C.char, cSchema *cdata.CArrowSchema) (err error) {
+func importSchemaAndCompareToJson(cJsonPath *C.char, cSchema *cdata.CArrowSchema) error {
 	jsonReader, err := newJsonReader(cJsonPath)
 	if err != nil {
 		return err
@@ -109,10 +108,10 @@ func importSchemaAndCompareToJson(cJsonPath *C.char, cSchema *cdata.CArrowSchema
 			schema.String(),
 			importedSchema.String())
 	}
-	return err
+	return nil
 }
 
-func exportBatchFromJson(cJsonPath *C.char, num_batch int, out *cdata.CArrowArray) (err error) {
+func exportBatchFromJson(cJsonPath *C.char, num_batch int, out *cdata.CArrowArray) error {
 	// XXX this function exports a single batch at a time, but the JSON reader
 	// reads all batches at construction.
 	jsonReader, err := newJsonReader(cJsonPath)
@@ -129,7 +128,7 @@ func exportBatchFromJson(cJsonPath *C.char, num_batch int, out *cdata.CArrowArra
 	return err
 }
 
-func importBatchAndCompareToJson(cJsonPath *C.char, num_batch int, cArray *cdata.CArrowArray) (err error) {
+func importBatchAndCompareToJson(cJsonPath *C.char, num_batch int, cArray *cdata.CArrowArray) error {
 	jsonReader, err := newJsonReader(cJsonPath)
 	if err != nil {
 		return err
@@ -151,7 +150,7 @@ func importBatchAndCompareToJson(cJsonPath *C.char, num_batch int, cArray *cdata
 			"Batches are different:\n- Json Batch: %v\n- Imported Batch: %v",
 			batch, importedBatch)
 	}
-	return err
+	return nil
 }
 
 //export ArrowGo_ExportSchemaFromJson
