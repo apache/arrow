@@ -981,6 +981,49 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == [0]
 
 
+@pytest.mark.parquet
+def test_make_fragment_with_size(s3_example_simple):
+    table, path, fs, uri, host, port, access_key, secret_key = s3_example_simple
+
+    file_format = ds.ParquetFileFormat()
+    paths = [path]
+    
+    fragments = [file_format.make_fragment(path, fs)
+                 for path in paths]
+    
+    dataset = ds.FileSystemDataset(
+        fragments, format=file_format, schema=table.schema,
+        filesystem = fs
+    )
+
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    sizes_toosmall = [1]
+    fragments_with_size = [file_format.make_fragment(path, fs, size=size)
+                 for path, size in zip(paths, sizes_toosmall)]
+    
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema,
+        filesystem = fs
+    )
+
+    with pytest.raises(pyarrow.lib.ArrowInvalid, match='Parquet file size is 1 bytes'):
+        table = dataset_with_size.to_table()
+    
+    sizes_toolarge = [1000000]
+    fragments_with_size = [file_format.make_fragment(path, fs, size=size)
+                 for path, size in zip(paths, sizes_toolarge)]
+    
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema,
+        filesystem = fs
+    )
+
+    # invalid range
+    with pytest.raises(OSError, match='HTTP status 416'):
+        table = dataset_with_size.to_table()
+
 def test_make_csv_fragment_from_buffer(dataset_reader, pickle_module):
     content = textwrap.dedent("""
         alpha,num,animal

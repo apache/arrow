@@ -25,7 +25,7 @@ from pyarrow.lib cimport *
 from pyarrow._fs cimport FileSystem
 
 
-cdef CFileSource _make_file_source(object file, FileSystem filesystem=*)
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=*, int size=*)
 
 
 cdef class DatasetFactory(_Weakrefable):

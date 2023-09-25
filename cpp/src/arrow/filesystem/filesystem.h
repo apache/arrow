@@ -60,6 +60,8 @@ struct ARROW_EXPORT FileInfo : public util::EqualityComparable<FileInfo> {
 
   explicit FileInfo(std::string path, FileType type = FileType::Unknown)
       : path_(std::move(path)), type_(type) {}
+  explicit FileInfo(std::string path, int64_t size, FileType type = FileType::Unknown)
+      : path_(std::move(path)), type_(type), size_(size) {}
 
   /// The file type
   FileType type() const { return type_; }
