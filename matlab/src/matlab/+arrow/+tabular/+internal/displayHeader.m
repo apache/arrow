@@ -19,13 +19,14 @@ function text = displayHeader(schema)
     types = [fields.Type];
     typeIDs = string([types.ID]);
 
+    % Limit the name length displayed to the first 15 characters.
     nameLength = strlength(names);
     idx = nameLength > 15;
     numCutOff = nameLength(idx) - 15;
     names(idx) = extractBefore(names(idx), 16) + compose("... (+%d chars)", numCutOff);
 
+    % When using the desktop, bold "Name:" and "Type:".
     boldFont = usejava("desktop");
-
     if boldFont
        names = compose(" <strong>Name:</strong> %s ", names);
        typeIDs = compose(" <strong>Type:</strong> %s ", typeIDs);
@@ -37,22 +38,30 @@ function text = displayHeader(schema)
     numColumns = numel(typeIDs);
     columnWidth = max([strlength(names); strlength(typeIDs)]);
 
+    % Pad each string with whitespace as needed to ensure rows in the same
+    % columns are properly aligned.
     body = [names; typeIDs];
     for ii = 1:numColumns
         body(:, ii) = pad(body(:, ii), columnWidth(ii));
     end
-        
-    body = "│" + join(body, "│", 2) + "│";
+
+    indent = "    ";
+    body = indent + "│" + join(body, "│", 2) + "│";
     body = join(body, newline);
     
+
     if boldFont
+        % Because the literal text "<strong></strong>" is not rendered,
+        % remove 17 from each columnWidth.
        columnWidth = columnWidth - 17;
     end
     
     top = getBorderRow(ColumnWidth=columnWidth, LeftCorner="┌", ...
         RightCorner="┐", Divider="┬");
     bottom = getBorderRow(ColumnWidth=columnWidth, LeftCorner="└", ...
-        RightCorner="┘", Divider="┴");    
+        RightCorner="┘", Divider="┴");
+
+
     text = join([top; body; bottom], newline);
 
 end
@@ -75,5 +84,6 @@ function borderRow = getBorderRow(opts)
         index = index + 2;
     end
     borderRow(2:2:end-1) = opts.Divider;
-    borderRow = opts.LeftCorner + strjoin(borderRow, "") + opts.RightCorner;
+    indent = "    ";
+    borderRow = indent + opts.LeftCorner + strjoin(borderRow, "") + opts.RightCorner;
 end
