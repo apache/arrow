@@ -139,6 +139,14 @@ namespace Apache.Arrow
             Values = values;
         }
 
+        // Constructor for child MapArray
+        internal ListArray(ArrayData data, IArrowArray values, ArrowTypeId typeId) : base(data)
+        {
+            data.EnsureBufferCount(2);
+            data.EnsureDataType(typeId);
+            Values = values;
+        }
+
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
 
