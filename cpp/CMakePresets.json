@@ -68,9 +68,9 @@
         "ARROW_WITH_BROTLI": "OFF",
         "ARROW_WITH_OPENTELEMETRY": "OFF",
         "CMAKE_C_BYTE_ORDER": "LITTLE_ENDIAN",
-        "CMAKE_TOOLCHAIN_FILE": {
+        "CMAKE_PROJECT_INCLUDE": {
           "type": "PATH",
-          "value": "${sourceDir}/cmake_modules/Emscripten/Platform/EmscriptenOverrides.cmake"
+          "value": "${sourceDir}/cmake_modules/EmscriptenOverrides.cmake"
         },
         "ZLIB_SOURCE": "SYSTEM"
       }

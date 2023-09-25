@@ -24,7 +24,7 @@ include(CheckCXXSourceCompiles)
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
-  if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(ARROW_CPU_FLAG "emscripten")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
     set(ARROW_CPU_FLAG "x86")
@@ -698,4 +698,25 @@ if(MSVC)
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
   endif()
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  # flags are:
+  # 1) We're using zlib from Emscripten ports
+  # 2) We are building library code
+  # 3) We force *everything* to build as position independent
+  # 4) And with support for C++ exceptions
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
+
+  # flags for creating shared libraries (only used in pyarrow, because
+  # Emscripten builds libarrow as static)
+  # flags are: 
+  # 1) Tell it to use zlib from Emscripten ports
+  # 2) Tell it to use javascript / webassembly 64 bit number support.
+  # 3) Tell it to build with support for C++ exceptions
+  set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
+  set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
+  set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
+  set(CMAKE_SHARED_LINKER_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
 endif()

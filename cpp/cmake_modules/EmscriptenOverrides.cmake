@@ -15,42 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Force some variables for emscripten
+# Force some variables for Emscripten
 # to disable things that won't work there
 
-# make us be on the platforms list for cmake
-get_filename_component(PLATFORM_FOLDER_PARENT ${CMAKE_CURRENT_LIST_DIR} DIRECTORY)
-list(APPEND CMAKE_MODULE_PATH "${PLATFORM_FOLDER_PARENT}")
-
-include($ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake)
-
-# ensure zlib is built with -fpic
-# and force us to link to the version in emscripten ports
-if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
-  execute_process(COMMAND embuilder --pic --force build zlib)
-endif()
-set(ZLIB_LIBRARY ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
-
-# # override default in emscripten which is to not use shared libs
+# # override default in Emscripten which is to not use shared libs
 set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
 
-# if we leave the system name as Emscripten, then it reloads the original Emscripten.cmake every time a project() command
-# is run, which does bad things like disabling shared libraries
-set(CMAKE_SYSTEM_NAME EmscriptenOverrides)
 
-set(CMAKE_C_FLAGS "-sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
-set(CMAKE_CXX_FLAGS "-sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
-
-#set(PYARROW_CPP_HOME "$ENV{ARROW_HOME}/lib")
-#list(APPEND CMAKE_FIND_ROOT_PATH "${CMAKE_INSTALL_PREFIX}/cmake")
-
+# these are needed for building pyarrow
+# if they aren't set, cmake cross compiling fails for python 
+# modules (at least under pyodide it does)
 set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
 set(Python3_LIBRARY $ENV{CPYTHONLIB})
 set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
 set(Python3_EXECUTABLE)
+set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
+
+# flags for creating shared libraries (only used in pyarrow, because
+# emscripten builds libarrow as static)
+set(CMAKE_C_FLAGS "-sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
+set(CMAKE_CXX_FLAGS "-sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
+
 set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
 set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
 set(CMAKE_SHARED_LINKER_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
+
+# stripping doesn't work on emscripten
 set(CMAKE_STRIP FALSE)
 
-set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})

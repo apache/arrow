@@ -258,6 +258,19 @@ macro(resolve_dependency DEPENDENCY_NAME)
     set(ARG_IS_RUNTIME_DEPENDENCY TRUE)
   endif()
 
+  # ensure zlib is built with -fpic
+  # and make sure that the build finds the version in Emscripten ports
+  # - n.b. the actual linking happens because -sUSE_ZLIB=1 is 
+  # set in the compiler variables, but cmake expects
+  # it to exist at configuration time if we aren't building it as 
+  # bundled
+  if(PACKAGE_NAME STREQUAL "ZLIB" AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
+      execute_process(COMMAND embuilder --pic --force build zlib)
+    endif()
+    set(ZLIB_LIBRARY ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
+  endif()
+
   if(ARG_HAVE_ALT)
     set(PACKAGE_NAME "${DEPENDENCY_NAME}Alt")
   else()
@@ -958,6 +971,10 @@ set(EP_COMMON_CMAKE_ARGS
 # if building with a toolchain file, pass that through
 if(CMAKE_TOOLCHAIN_FILE)
   list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+endif()
+
+if(CMAKE_PROJECT_INCLUDE)
+  list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_PROJECT_INCLUDE=${CMAKE_PROJECT_INCLUDE})
 endif()
 
 # Enable s/ccache if set by parent.
