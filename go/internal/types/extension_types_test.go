@@ -18,13 +18,13 @@ package types_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v14/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

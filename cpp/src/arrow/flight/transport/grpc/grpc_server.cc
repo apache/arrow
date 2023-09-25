@@ -25,12 +25,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/util/config.h"
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
-#else
-#include <grpc++/grpc++.h>
-#endif
 
 #include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"
@@ -116,6 +111,7 @@ class GrpcServerAuthSender : public ServerAuthSender {
 };
 
 class GrpcServerCallContext : public ServerCallContext {
+ public:
   explicit GrpcServerCallContext(::grpc::ServerContext* context)
       : context_(context), peer_(context_->peer()) {
     for (const auto& entry : context->client_metadata()) {
@@ -146,6 +142,14 @@ class GrpcServerCallContext : public ServerCallContext {
     // Set custom headers to map the exact Arrow status for clients
     // who want it.
     return ToGrpcStatus(status, context_);
+  }
+
+  void AddHeader(const std::string& key, const std::string& value) const override {
+    context_->AddInitialMetadata(key, value);
+  }
+
+  void AddTrailer(const std::string& key, const std::string& value) const override {
+    context_->AddTrailingMetadata(key, value);
   }
 
   ServerMiddleware* GetMiddleware(const std::string& key) const override {
@@ -408,6 +412,32 @@ class GrpcServiceHandler final : public FlightService::Service {
     RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::OK);
   }
 
+  ::grpc::Status PollFlightInfo(ServerContext* context,
+                                const pb::FlightDescriptor* request,
+                                pb::PollInfo* response) {
+    GrpcServerCallContext flight_context(context);
+    GRPC_RETURN_NOT_GRPC_OK(
+        CheckAuth(FlightMethod::PollFlightInfo, context, flight_context));
+
+    CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
+
+    FlightDescriptor descr;
+    SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
+
+    std::unique_ptr<PollInfo> info;
+    SERVICE_RETURN_NOT_OK(flight_context,
+                          impl_->base()->PollFlightInfo(flight_context, descr, &info));
+
+    if (!info) {
+      // Treat null listing as no flights available
+      RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status(::grpc::StatusCode::NOT_FOUND,
+                                                            "Flight not found"));
+    }
+
+    SERVICE_RETURN_NOT_OK(flight_context, internal::ToProto(*info, response));
+    RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::OK);
+  }
+
   ::grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
                            pb::SchemaResult* response) {
     GrpcServerCallContext flight_context(context);
@@ -590,9 +620,13 @@ class GrpcServerTransport : public internal::ServerTransport {
     }
 
     if (scheme == kSchemeGrpcTls) {
-      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTls(uri.host(), port));
+      ARROW_ASSIGN_OR_RAISE(
+          location_,
+          Location::ForGrpcTls(arrow::internal::UriEncodeHost(uri.host()), port));
     } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTcp(uri.host(), port));
+      ARROW_ASSIGN_OR_RAISE(
+          location_,
+          Location::ForGrpcTcp(arrow::internal::UriEncodeHost(uri.host()), port));
     }
     return Status::OK();
   }

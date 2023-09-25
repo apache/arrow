@@ -19,7 +19,8 @@
 
 #include <vector>
 
-#include "arrow/acero/groupby.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/compute/api.h"
 #include "arrow/table.h"
@@ -345,6 +346,18 @@ std::shared_ptr<RecordBatch> RecordBatchFromArrays(
     all_arrays.push_back(key);
   }
   return RecordBatch::Make(schema(std::move(fields)), length, std::move(all_arrays));
+}
+
+Result<std::shared_ptr<Table>> BatchGroupBy(
+    std::shared_ptr<RecordBatch> batch, std::vector<Aggregate> aggregates,
+    std::vector<FieldRef> keys, bool use_threads = false,
+    MemoryPool* memory_pool = default_memory_pool()) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
+                        Table::FromRecordBatches({std::move(batch)}));
+  Declaration plan = Declaration::Sequence(
+      {{"table_source", TableSourceNodeOptions(std::move(table))},
+       {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys))}});
+  return DeclarationToTable(std::move(plan), use_threads, memory_pool);
 }
 
 static void BenchmarkGroupBy(benchmark::State& state, std::vector<Aggregate> aggregates,

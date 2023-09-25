@@ -192,8 +192,9 @@ class RecordBatchSerializer {
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
     int64_t prefixed_length = buffer.size();
 
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          AllocateResizableBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result,
+        AllocateResizableBuffer(maximum_length + sizeof(int64_t), options_.memory_pool));
     ARROW_ASSIGN_OR_RAISE(auto actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
@@ -213,6 +214,10 @@ class RecordBatchSerializer {
       actual_length = buffer.size();
       // Size of -1 indicates to the reader that the body doesn't need to be decompressed
       prefixed_length = -1;
+    } else {
+      // Shrink compressed buffer
+      RETURN_NOT_OK(
+          result->Resize(actual_length + sizeof(int64_t), /* shrink_to_fit= */ true));
     }
     *reinterpret_cast<int64_t*>(result->mutable_data()) =
         bit_util::ToLittleEndian(prefixed_length);
@@ -399,7 +404,7 @@ class RecordBatchSerializer {
   }
 
   template <typename T>
-  enable_if_base_list<typename T::TypeClass, Status> Visit(const T& array) {
+  enable_if_var_size_list<typename T::TypeClass, Status> Visit(const T& array) {
     using offset_type = typename T::offset_type;
 
     std::shared_ptr<Buffer> value_offsets;
@@ -1065,6 +1070,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteRecordBatch(
       const RecordBatch& batch,
       const std::shared_ptr<const KeyValueMetadata>& custom_metadata) override {
+    if (closed_) {
+      return Status::Invalid("Destination already closed");
+    }
     if (!batch.schema()->Equals(schema_, false /* check_metadata */)) {
       return Status::Invalid("Tried to write record batch with different schema");
     }
@@ -1096,7 +1104,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
   Status Close() override {
     RETURN_NOT_OK(CheckStarted());
-    return payload_writer_->Close();
+    RETURN_NOT_OK(payload_writer_->Close());
+    closed_ = true;
+    return Status::OK();
   }
 
   Status Start() {
@@ -1208,6 +1218,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   std::unordered_map<int64_t, std::shared_ptr<Array>> last_dictionaries_;
 
   bool started_ = false;
+  bool closed_ = false;
   IpcWriteOptions options_;
   WriteStats stats_;
 };

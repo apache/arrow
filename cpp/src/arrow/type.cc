@@ -276,6 +276,17 @@ std::shared_ptr<Field> MaybePromoteNullTypes(const Field& existing, const Field&
   // `other` must be null.
   return existing.WithNullable(true);
 }
+
+FieldVector MakeFields(
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> init_list) {
+  FieldVector fields;
+  fields.reserve(init_list.size());
+  for (const auto& [name, type] : init_list) {
+    fields.push_back(field(name, type));
+  }
+  return fields;
+}
+
 }  // namespace
 
 Field::~Field() {}
@@ -346,8 +357,8 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& ot
   return MergeWith(*other, options);
 }
 
-std::vector<std::shared_ptr<Field>> Field::Flatten() const {
-  std::vector<std::shared_ptr<Field>> flattened;
+FieldVector Field::Flatten() const {
+  FieldVector flattened;
   if (type_->id() == Type::STRUCT) {
     for (const auto& child : type_->fields()) {
       auto flattened_child = child->Copy();
@@ -709,8 +720,7 @@ UnionMode::type UnionType::mode() const {
   return id_ == Type::SPARSE_UNION ? UnionMode::SPARSE : UnionMode::DENSE;
 }
 
-UnionType::UnionType(std::vector<std::shared_ptr<Field>> fields,
-                     std::vector<int8_t> type_codes, Type::type id)
+UnionType::UnionType(FieldVector fields, std::vector<int8_t> type_codes, Type::type id)
     : NestedType(id),
       type_codes_(std::move(type_codes)),
       child_ids_(kMaxTypeCode + 1, kInvalidChildId) {
@@ -722,7 +732,7 @@ UnionType::UnionType(std::vector<std::shared_ptr<Field>> fields,
   }
 }
 
-Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
+Status UnionType::ValidateParameters(const FieldVector& fields,
                                      const std::vector<int8_t>& type_codes,
                                      UnionMode::type mode) {
   if (fields.size() != type_codes.size()) {
@@ -768,24 +778,22 @@ std::string UnionType::ToString() const {
   return s.str();
 }
 
-SparseUnionType::SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                                 std::vector<int8_t> type_codes)
-    : UnionType(fields, type_codes, Type::SPARSE_UNION) {}
+SparseUnionType::SparseUnionType(FieldVector fields, std::vector<int8_t> type_codes)
+    : UnionType(std::move(fields), std::move(type_codes), Type::SPARSE_UNION) {}
 
-Result<std::shared_ptr<DataType>> SparseUnionType::Make(
-    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+Result<std::shared_ptr<DataType>> SparseUnionType::Make(FieldVector fields,
+                                                        std::vector<int8_t> type_codes) {
   RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::SPARSE));
-  return std::make_shared<SparseUnionType>(fields, type_codes);
+  return std::make_shared<SparseUnionType>(std::move(fields), std::move(type_codes));
 }
 
-DenseUnionType::DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                               std::vector<int8_t> type_codes)
-    : UnionType(fields, type_codes, Type::DENSE_UNION) {}
+DenseUnionType::DenseUnionType(FieldVector fields, std::vector<int8_t> type_codes)
+    : UnionType(std::move(fields), std::move(type_codes), Type::DENSE_UNION) {}
 
-Result<std::shared_ptr<DataType>> DenseUnionType::Make(
-    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+Result<std::shared_ptr<DataType>> DenseUnionType::Make(FieldVector fields,
+                                                       std::vector<int8_t> type_codes) {
   RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::DENSE));
-  return std::make_shared<DenseUnionType>(fields, type_codes);
+  return std::make_shared<DenseUnionType>(std::move(fields), std::move(type_codes));
 }
 
 // ----------------------------------------------------------------------
@@ -818,7 +826,7 @@ bool RunEndEncodedType::RunEndTypeValid(const DataType& run_end_type) {
 namespace {
 
 std::unordered_multimap<std::string, int> CreateNameToIndexMap(
-    const std::vector<std::shared_ptr<Field>>& fields) {
+    const FieldVector& fields) {
   std::unordered_multimap<std::string, int> name_to_index;
   for (size_t i = 0; i < fields.size(); ++i) {
     name_to_index.emplace(fields[i]->name(), static_cast<int>(i));
@@ -847,13 +855,13 @@ int LookupNameIndex(const std::unordered_multimap<std::string, int>& name_to_ind
 
 class StructType::Impl {
  public:
-  explicit Impl(const std::vector<std::shared_ptr<Field>>& fields)
+  explicit Impl(const FieldVector& fields)
       : name_to_index_(CreateNameToIndexMap(fields)) {}
 
   const std::unordered_multimap<std::string, int> name_to_index_;
 };
 
-StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
+StructType::StructType(const FieldVector& fields)
     : NestedType(Type::STRUCT), impl_(new Impl(fields)) {
   children_ = fields;
 }
@@ -895,9 +903,8 @@ std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
   return result;
 }
 
-std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
-    const std::string& name) const {
-  std::vector<std::shared_ptr<Field>> result;
+FieldVector StructType::GetAllFieldsByName(const std::string& name) const {
+  FieldVector result;
   auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(children_[it->second]);
@@ -1047,7 +1054,7 @@ std::string DictionaryType::ToString() const {
 std::string NullType::ToString() const { return name(); }
 
 // ----------------------------------------------------------------------
-// FieldRef
+// FieldPath
 
 size_t FieldPath::hash() const {
   return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
@@ -1066,241 +1073,248 @@ std::string FieldPath::ToString() const {
   return repr;
 }
 
-class ChunkedColumn;
-using ChunkedColumnVector = std::vector<std::shared_ptr<ChunkedColumn>>;
-
-class ChunkedColumn {
- public:
-  virtual ~ChunkedColumn() = default;
-
-  explicit ChunkedColumn(const std::shared_ptr<DataType>& type = nullptr) : type_(type) {}
-
-  virtual int num_chunks() const = 0;
-  virtual const std::shared_ptr<ArrayData>& chunk(int i) const = 0;
-
-  const std::shared_ptr<DataType>& type() const { return type_; }
-
-  ChunkedColumnVector Flatten() const;
-
-  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() const {
-    if (num_chunks() == 0) {
-      return ChunkedArray::MakeEmpty(type());
-    }
-    ArrayVector chunks(num_chunks());
-    for (int i = 0; i < num_chunks(); ++i) {
-      chunks[i] = MakeArray(chunk(i));
-    }
-    return ChunkedArray::Make(std::move(chunks), type());
+struct NestedSelectorUtil {
+  static Status NonStructError() {
+    return Status::NotImplemented("Get child data of non-struct array");
   }
 
- private:
-  const std::shared_ptr<DataType>& type_;
-};
-
-// References a chunk vector owned by another ChunkedArray.
-// This can be used to avoid transforming a top-level ChunkedArray's ArrayVector into an
-// ArrayDataVector if flattening isn't needed.
-class ChunkedArrayRef : public ChunkedColumn {
- public:
-  explicit ChunkedArrayRef(const ChunkedArray& chunked_array)
-      : ChunkedColumn(chunked_array.type()), chunks_(chunked_array.chunks()) {}
-
-  int num_chunks() const override { return static_cast<int>(chunks_.size()); }
-  const std::shared_ptr<ArrayData>& chunk(int i) const override {
-    return chunks_[i]->data();
-  }
-
- private:
-  const ArrayVector& chunks_;
-};
-
-// Owns a chunked ArrayDataVector (created after flattening its parent).
-class ChunkedArrayData : public ChunkedColumn {
- public:
-  explicit ChunkedArrayData(const std::shared_ptr<DataType>& type,
-                            ArrayDataVector chunks = {})
-      : ChunkedColumn(type), chunks_(std::move(chunks)) {}
-
-  int num_chunks() const override { return static_cast<int>(chunks_.size()); }
-  const std::shared_ptr<ArrayData>& chunk(int i) const override { return chunks_[i]; }
-
- private:
-  ArrayDataVector chunks_;
-};
-
-// Return a vector of ChunkedColumns - one for each struct field.
-// Unlike ChunkedArray::Flatten, this is zero-copy and doesn't merge parent/child
-// validity bitmaps.
-ChunkedColumnVector ChunkedColumn::Flatten() const {
-  DCHECK_EQ(type()->id(), Type::STRUCT);
-
-  ChunkedColumnVector columns(type()->num_fields());
-  for (int column_idx = 0; column_idx < type()->num_fields(); ++column_idx) {
-    const auto& child_type = type()->field(column_idx)->type();
-    ArrayDataVector chunks(num_chunks());
-    for (int chunk_idx = 0; chunk_idx < num_chunks(); ++chunk_idx) {
-      const auto& child_data = chunk(chunk_idx)->child_data;
-      DCHECK_EQ(columns.size(), child_data.size());
-      DCHECK(child_type->Equals(child_data[column_idx]->type));
-      chunks[chunk_idx] = child_data[column_idx];
+  template <typename T>
+  static const DataType* GetType(const T& input) {
+    if constexpr (std::is_same_v<T, ArrayData>) {
+      return input.type.get();
+    } else {
+      return input.type().get();
     }
-    columns[column_idx] =
-        std::make_shared<ChunkedArrayData>(child_type, std::move(chunks));
+  }
+};
+
+// Utility class for retrieving a child field/column from a top-level Field, Array,
+// ArrayData, or ChunkedArray. The "root" value can either be a single parent or a vector
+// of its children.
+template <typename T, bool IsFlattening = false>
+class NestedSelector {
+ public:
+  using ArrowType = T;
+  using Util = NestedSelectorUtil;
+
+  explicit NestedSelector(const std::vector<std::shared_ptr<T>>& children)
+      : parent_or_children_(&children) {}
+  explicit NestedSelector(const T& parent) : parent_or_children_(&parent) {}
+  explicit NestedSelector(std::shared_ptr<T> parent)
+      : owned_parent_(std::move(parent)), parent_or_children_(owned_parent_.get()) {}
+  template <typename Arg>
+  NestedSelector(Arg&& arg, MemoryPool* pool) : NestedSelector(std::forward<Arg>(arg)) {
+    if (pool) {
+      pool_ = pool;
+    }
   }
 
-  return columns;
-}
+  // If the index is out of bounds, this returns an invalid selector rather than an
+  // error.
+  Result<NestedSelector> GetChild(int i) const {
+    std::shared_ptr<T> child;
+    if (auto parent = get_parent()) {
+      const DataType* type = Util::GetType(*parent);
+      // We avoid this check for schema fields since it's inconsequential (plus there are
+      // tests elsewhere that rely on it not happening)
+      if constexpr (!std::is_same_v<T, Field>) {
+        if (ARROW_PREDICT_FALSE(type->id() != Type::STRUCT)) {
+          return Util::NonStructError();
+        }
+      }
+      // Bounds-check the index *once* using the parent's type
+      if (ARROW_PREDICT_TRUE(i >= 0 && i < type->num_fields())) {
+        ARROW_ASSIGN_OR_RAISE(child, GetChild(*parent, i, pool_));
+      }
+    } else if (auto children = get_children()) {
+      if (ARROW_PREDICT_TRUE(i >= 0 && static_cast<size_t>(i) < children->size())) {
+        child = (*children)[i];
+      }
+    }
+    return NestedSelector(std::move(child), pool_);
+  }
+
+  Result<std::shared_ptr<T>> Finish() const {
+    DCHECK(get_parent() && owned_parent_);
+    return owned_parent_;
+  }
+
+  template <typename OStream, typename U = T>
+  std::enable_if_t<std::is_same_v<U, Field>> Summarize(OStream* os) const {
+    const FieldVector* fields = get_children();
+    if (!fields && get_parent()) {
+      fields = &get_parent()->type()->fields();
+    }
+    *os << "fields: { ";
+    if (fields) {
+      for (const auto& field : *fields) {
+        *os << field->ToString() << ", ";
+      }
+    }
+    *os << "}";
+  }
+
+  template <typename OStream, typename U = T>
+  std::enable_if_t<!std::is_same_v<U, Field>> Summarize(OStream* os) const {
+    *os << "column types: { ";
+    if (auto children = get_children()) {
+      for (const auto& child : *children) {
+        *os << *Util::GetType(*child) << ", ";
+      }
+    } else if (auto parent = get_parent()) {
+      for (const auto& field : Util::GetType(*parent)->fields()) {
+        *os << *field->type() << ", ";
+      }
+    }
+    *os << "}";
+  }
+
+  bool is_valid() const { return get_parent() || get_children(); }
+  operator bool() const { return is_valid(); }
+
+ private:
+  // Accessors for the variant
+  auto get_parent() const { return get_value<const T*>(); }
+  auto get_children() const {
+    return get_value<const std::vector<std::shared_ptr<T>>*>();
+  }
+  template <typename U>
+  U get_value() const {
+    auto ptr = std::get_if<U>(&parent_or_children_);
+    return ptr ? *ptr : nullptr;
+  }
+
+  static Result<std::shared_ptr<Field>> GetChild(const Field& field, int i, MemoryPool*) {
+    return field.type()->field(i);
+  }
+
+  static Result<std::shared_ptr<ArrayData>> GetChild(const ArrayData& data, int i,
+                                                     MemoryPool* pool) {
+    std::shared_ptr<ArrayData> child_data;
+    if constexpr (IsFlattening) {
+      // First, convert to an Array so we can use StructArray::GetFlattenedField
+      auto array = MakeArray(data.Copy());
+      ARROW_ASSIGN_OR_RAISE(auto child_array, GetChild(*array, i, pool));
+      child_data = child_array->data();
+    } else {
+      // We could achieve the same result by converting to an Array (via MakeArray),
+      // calling StructArray::field(i), and pulling out the new ArrayData. However, this
+      // process can be very expensive when there are many columns - so we just
+      // reimplement the functionality that we need
+      child_data = data.child_data[i];
+      if (data.offset != 0 || data.child_data[i]->length != data.length) {
+        child_data = child_data->Slice(data.offset, data.length);
+      }
+    }
+
+    return std::move(child_data);
+  }
+
+  static Result<std::shared_ptr<Array>> GetChild(const Array& array, int i,
+                                                 MemoryPool* pool) {
+    const auto& struct_array = checked_cast<const StructArray&>(array);
+    if constexpr (IsFlattening) {
+      return struct_array.GetFlattenedField(i, pool);
+    } else {
+      return struct_array.field(i);
+    }
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> GetChild(const ChunkedArray& chunked_array,
+                                                        int i, MemoryPool* pool) {
+    const auto& type = *chunked_array.type();
+
+    ArrayVector chunks;
+    chunks.reserve(chunked_array.num_chunks());
+    for (const auto& parent_chunk : chunked_array.chunks()) {
+      ARROW_ASSIGN_OR_RAISE(auto chunk, GetChild(*parent_chunk, i, pool));
+      chunks.push_back(std::move(chunk));
+    }
+
+    return std::make_shared<ChunkedArray>(std::move(chunks), type.field(i)->type());
+  }
+
+  std::shared_ptr<T> owned_parent_;
+  std::variant<const T*, const std::vector<std::shared_ptr<T>>*> parent_or_children_;
+  MemoryPool* pool_ = default_memory_pool();
+};
+
+using FieldSelector = NestedSelector<Field>;
+template <typename T>
+using ZeroCopySelector = NestedSelector<T, false>;
+template <typename T>
+using FlatteningSelector = NestedSelector<T, true>;
 
 struct FieldPathGetImpl {
-  static const DataType& GetType(const ArrayData& data) { return *data.type; }
-  static const DataType& GetType(const ChunkedColumn& column) { return *column.type(); }
-
-  static void Summarize(const FieldVector& fields, std::stringstream* ss) {
-    *ss << "{ ";
-    for (const auto& field : fields) {
-      *ss << field->ToString() << ", ";
-    }
-    *ss << "}";
-  }
-
-  template <typename T>
-  static void Summarize(const std::vector<T>& columns, std::stringstream* ss) {
-    *ss << "{ ";
-    for (const auto& column : columns) {
-      *ss << GetType(*column) << ", ";
-    }
-    *ss << "}";
-  }
-
-  template <typename T>
+  template <typename Selector>
   static Status IndexError(const FieldPath* path, int out_of_range_depth,
-                           const std::vector<T>& children) {
+                           const Selector& selector) {
     std::stringstream ss;
     ss << "index out of range. ";
 
     ss << "indices=[ ";
     int depth = 0;
     for (int i : path->indices()) {
-      if (depth != out_of_range_depth) {
+      if (depth++ != out_of_range_depth) {
         ss << i << " ";
-        continue;
+      } else {
+        ss << ">" << i << "< ";
       }
-      ss << ">" << i << "< ";
-      ++depth;
     }
     ss << "] ";
 
-    if (std::is_same<T, std::shared_ptr<Field>>::value) {
-      ss << "fields were: ";
-    } else {
-      ss << "columns had types: ";
-    }
-    Summarize(children, &ss);
+    selector.Summarize(&ss);
 
     return Status::IndexError(ss.str());
   }
 
-  template <typename T, typename GetChildren>
-  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
-                       GetChildren&& get_children, int* out_of_range_depth) {
-    if (path->indices().empty()) {
+  template <typename Selector, typename T = typename Selector::ArrowType>
+  static Result<std::shared_ptr<T>> Get(const FieldPath* path, Selector selector,
+                                        int* out_of_range_depth = nullptr) {
+    if (path->empty()) {
       return Status::Invalid("empty indices cannot be traversed");
     }
 
     int depth = 0;
-    const T* out;
-    while (true) {
-      if (children == nullptr) {
-        return Status::NotImplemented("Get child data of non-struct array");
+    for (auto index : *path) {
+      ARROW_ASSIGN_OR_RAISE(auto next_selector, selector.GetChild(index));
+
+      // Handle failed bounds check
+      if (!next_selector) {
+        if (out_of_range_depth) {
+          *out_of_range_depth = depth;
+          return nullptr;
+        }
+        return IndexError(path, depth, selector);
       }
 
-      auto index = (*path)[depth];
-      if (index < 0 || static_cast<size_t>(index) >= children->size()) {
-        *out_of_range_depth = depth;
-        return nullptr;
-      }
-
-      out = &children->at(index);
-      if (static_cast<size_t>(++depth) == path->indices().size()) {
-        break;
-      }
-      children = get_children(*out);
+      selector = std::move(next_selector);
+      ++depth;
     }
 
-    return *out;
-  }
-
-  template <typename T, typename GetChildren>
-  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
-                       GetChildren&& get_children) {
-    int out_of_range_depth = -1;
-    ARROW_ASSIGN_OR_RAISE(auto child,
-                          Get(path, children, std::forward<GetChildren>(get_children),
-                              &out_of_range_depth));
-    if (child != nullptr) {
-      return std::move(child);
-    }
-    return IndexError(path, out_of_range_depth, *children);
-  }
-
-  static Result<std::shared_ptr<Field>> Get(const FieldPath* path,
-                                            const FieldVector& fields) {
-    return FieldPathGetImpl::Get(path, &fields, [](const std::shared_ptr<Field>& field) {
-      return &field->type()->fields();
-    });
-  }
-
-  static Result<std::shared_ptr<ChunkedArray>> Get(
-      const FieldPath* path, const ChunkedColumnVector& toplevel_children) {
-    ChunkedColumnVector children;
-
-    ARROW_ASSIGN_OR_RAISE(
-        auto child,
-        FieldPathGetImpl::Get(path, &toplevel_children,
-                              [&children](const std::shared_ptr<ChunkedColumn>& parent)
-                                  -> const ChunkedColumnVector* {
-                                if (parent->type()->id() != Type::STRUCT) {
-                                  return nullptr;
-                                }
-                                children = parent->Flatten();
-                                return &children;
-                              }));
-
-    return child->ToChunkedArray();
-  }
-
-  static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
-                                                const ArrayDataVector& child_data) {
-    return FieldPathGetImpl::Get(
-        path, &child_data,
-        [](const std::shared_ptr<ArrayData>& data) -> const ArrayDataVector* {
-          if (data->type->id() != Type::STRUCT) {
-            return nullptr;
-          }
-          return &data->child_data;
-        });
+    return selector.Finish();
   }
 };
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
-  return FieldPathGetImpl::Get(this, schema.fields());
+  return Get(schema.fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Field& field) const {
-  return FieldPathGetImpl::Get(this, field.type()->fields());
+  return Get(field.type()->fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
-  return FieldPathGetImpl::Get(this, type.fields());
+  return Get(type.fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
-  return FieldPathGetImpl::Get(this, fields);
+  return FieldPathGetImpl::Get(this, FieldSelector(fields));
 }
 
 Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
                                                   const std::vector<FieldPath>& paths) {
-  std::vector<std::shared_ptr<Field>> fields;
+  FieldVector fields;
   fields.reserve(paths.size());
   for (const auto& path : paths) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Field> field, path.Get(schm));
@@ -1310,39 +1324,62 @@ Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
-  return MakeArray(std::move(data));
+  // Deliberately calling `column_data` here because `RecordBatch::columns` is nontrivial
+  ARROW_ASSIGN_OR_RAISE(
+      auto data,
+      FieldPathGetImpl::Get(this, ZeroCopySelector<ArrayData>(batch.column_data())));
+  return MakeArray(data);
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
-  ChunkedColumnVector columns(table.num_columns());
-  std::transform(table.columns().cbegin(), table.columns().cend(), columns.begin(),
-                 [](const std::shared_ptr<ChunkedArray>& chunked_array) {
-                   return std::make_shared<ChunkedArrayRef>(*chunked_array);
-                 });
-  return FieldPathGetImpl::Get(this, columns);
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<ChunkedArray>(table.columns()));
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
-  ARROW_ASSIGN_OR_RAISE(auto data, Get(*array.data()));
-  return MakeArray(std::move(data));
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<Array>(array));
 }
 
 Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
-  if (data.type->id() != Type::STRUCT) {
-    return Status::NotImplemented("Get child data of non-struct array");
-  }
-  return FieldPathGetImpl::Get(this, data.child_data);
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<ArrayData>(data));
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(
     const ChunkedArray& chunked_array) const {
-  if (chunked_array.type()->id() != Type::STRUCT) {
-    return Status::NotImplemented("Get child data of non-struct chunked array");
-  }
-  auto columns = ChunkedArrayRef(chunked_array).Flatten();
-  return FieldPathGetImpl::Get(this, columns);
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<ChunkedArray>(chunked_array));
 }
+
+Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const Array& array,
+                                                       MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this, FlatteningSelector<Array>(array, pool));
+}
+
+Result<std::shared_ptr<ArrayData>> FieldPath::GetFlattened(const ArrayData& data,
+                                                           MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this, FlatteningSelector<ArrayData>(data, pool));
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(
+    const ChunkedArray& chunked_array, MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this,
+                               FlatteningSelector<ChunkedArray>(chunked_array, pool));
+}
+
+Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const RecordBatch& batch,
+                                                       MemoryPool* pool) const {
+  ARROW_ASSIGN_OR_RAISE(
+      auto data, FieldPathGetImpl::Get(
+                     this, FlatteningSelector<ArrayData>(batch.column_data(), pool)));
+  return MakeArray(data);
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(const Table& table,
+                                                              MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this,
+                               FlatteningSelector<ChunkedArray>(table.columns(), pool));
+}
+
+// ----------------------------------------------------------------------
+// FieldRef
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {}
 
@@ -1573,10 +1610,8 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
     std::vector<FieldPath> operator()(const FieldPath& path) {
       // skip long IndexError construction if path is out of range
       int out_of_range_depth;
-      auto maybe_field = FieldPathGetImpl::Get(
-          &path, &fields_,
-          [](const std::shared_ptr<Field>& field) { return &field->type()->fields(); },
-          &out_of_range_depth);
+      auto maybe_field =
+          FieldPathGetImpl::Get(&path, FieldSelector(fields_), &out_of_range_depth);
 
       DCHECK_OK(maybe_field.status());
 
@@ -1698,26 +1733,25 @@ std::string EndiannessToString(Endianness endianness) {
 
 class Schema::Impl {
  public:
-  Impl(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+  Impl(FieldVector fields, Endianness endianness,
        std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
         endianness_(endianness),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)) {}
 
-  std::vector<std::shared_ptr<Field>> fields_;
+  FieldVector fields_;
   Endianness endianness_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-Schema::Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+Schema::Schema(FieldVector fields, Endianness endianness,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
       impl_(new Impl(std::move(fields), endianness, std::move(metadata))) {}
 
-Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
-               std::shared_ptr<const KeyValueMetadata> metadata)
+Schema::Schema(FieldVector fields, std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
       impl_(new Impl(std::move(fields), Endianness::Native, std::move(metadata))) {}
 
@@ -1742,9 +1776,7 @@ const std::shared_ptr<Field>& Schema::field(int i) const {
   return impl_->fields_[i];
 }
 
-const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
-  return impl_->fields_;
-}
+const FieldVector& Schema::fields() const { return impl_->fields_; }
 
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
@@ -1826,9 +1858,8 @@ Status Schema::CanReferenceFieldsByNames(const std::vector<std::string>& names) 
   return Status::OK();
 }
 
-std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
-    const std::string& name) const {
-  std::vector<std::shared_ptr<Field>> result;
+FieldVector Schema::GetAllFieldsByName(const std::string& name) const {
+  FieldVector result;
   auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(impl_->fields_[it->second]);
@@ -1940,9 +1971,8 @@ class SchemaBuilder::Impl {
   Impl(ConflictPolicy policy, Field::MergeOptions field_merge_options)
       : policy_(policy), field_merge_options_(field_merge_options) {}
 
-  Impl(std::vector<std::shared_ptr<Field>> fields,
-       std::shared_ptr<const KeyValueMetadata> metadata, ConflictPolicy conflict_policy,
-       Field::MergeOptions field_merge_options)
+  Impl(FieldVector fields, std::shared_ptr<const KeyValueMetadata> metadata,
+       ConflictPolicy conflict_policy, Field::MergeOptions field_merge_options)
       : fields_(std::move(fields)),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)),
@@ -2007,7 +2037,7 @@ class SchemaBuilder::Impl {
   }
 
  private:
-  std::vector<std::shared_ptr<Field>> fields_;
+  FieldVector fields_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
   ConflictPolicy policy_;
@@ -2019,8 +2049,7 @@ SchemaBuilder::SchemaBuilder(ConflictPolicy policy,
   impl_ = std::make_unique<Impl>(policy, field_merge_options);
 }
 
-SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
-                             ConflictPolicy policy,
+SchemaBuilder::SchemaBuilder(FieldVector fields, ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
   impl_ = std::make_unique<Impl>(std::move(fields), nullptr, policy, field_merge_options);
 }
@@ -2048,7 +2077,7 @@ Status SchemaBuilder::AddField(const std::shared_ptr<Field>& field) {
   return impl_->AddField(field);
 }
 
-Status SchemaBuilder::AddFields(const std::vector<std::shared_ptr<Field>>& fields) {
+Status SchemaBuilder::AddFields(const FieldVector& fields) {
   for (const auto& field : fields) {
     RETURN_NOT_OK(AddField(field));
   }
@@ -2092,15 +2121,26 @@ Status SchemaBuilder::AreCompatible(const std::vector<std::shared_ptr<Schema>>& 
   return Merge(schemas, policy).status();
 }
 
-std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
+std::shared_ptr<Schema> schema(FieldVector fields,
                                std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(std::move(fields), std::move(metadata));
 }
 
-std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
-                               Endianness endianness,
+std::shared_ptr<Schema> schema(
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
+    std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Schema>(MakeFields(fields), std::move(metadata));
+}
+
+std::shared_ptr<Schema> schema(FieldVector fields, Endianness endianness,
                                std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(std::move(fields), endianness, std::move(metadata));
+}
+
+std::shared_ptr<Schema> schema(
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
+    Endianness endianness, std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Schema>(MakeFields(fields), endianness, std::move(metadata));
 }
 
 Result<std::shared_ptr<Schema>> UnifySchemas(
@@ -2609,11 +2649,16 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_fi
   return std::make_shared<FixedSizeListType>(value_field, list_size);
 }
 
-std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
+std::shared_ptr<DataType> struct_(const FieldVector& fields) {
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<arrow::DataType> run_end_type,
+std::shared_ptr<DataType> struct_(
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields) {
+  return std::make_shared<StructType>(MakeFields(fields));
+}
+
+std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<DataType> run_end_type,
                                           std::shared_ptr<DataType> value_type) {
   return std::make_shared<RunEndEncodedType>(std::move(run_end_type),
                                              std::move(value_type));

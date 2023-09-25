@@ -17,14 +17,15 @@
 
 import datetime
 import decimal
-import pickle
 import pytest
+import sys
 import weakref
 
 import numpy as np
 
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.tests import util
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -66,7 +67,7 @@ import pyarrow.compute as pc
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
-def test_basics(value, ty, klass):
+def test_basics(value, ty, klass, pickle_module):
     s = pa.scalar(value, type=ty)
     s.validate()
     s.validate(full=True)
@@ -85,7 +86,7 @@ def test_basics(value, ty, klass):
     assert s != pa.scalar(value, type=ty)
 
     # test pickle roundtrip
-    restored = pickle.loads(pickle.dumps(s))
+    restored = pickle_module.loads(pickle_module.dumps(s))
     assert s.equals(restored)
 
     # test that scalars are weak-referenceable
@@ -108,7 +109,7 @@ def test_null_singleton():
         pa.NullScalar()
 
 
-def test_nulls():
+def test_nulls(pickle_module):
     null = pa.scalar(None)
     assert null is pa.NA
     assert null.as_py() is None
@@ -124,7 +125,7 @@ def test_nulls():
         assert v.as_py() is None
 
     # test pickle roundtrip
-    restored = pickle.loads(pickle.dumps(null))
+    restored = pickle_module.loads(pickle_module.dumps(null))
     assert restored.equals(null)
 
     # test that scalars are weak-referenceable
@@ -141,6 +142,29 @@ def test_hashing():
     set_from_array = set(arr)
     assert isinstance(set_from_array, set)
     assert len(set_from_array) == 500
+
+
+def test_hashing_struct_scalar():
+    # GH-35360
+    a = pa.array([[{'a': 5}, {'a': 6}], [{'a': 7}, None]])
+    b = pa.array([[{'a': 7}, None]])
+    hash1 = hash(a[1])
+    hash2 = hash(b[0])
+    assert hash1 == hash2
+
+
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
+def test_timestamp_scalar():
+    a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
+    assert a == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
+    b = repr(pa.scalar(datetime.datetime(2015, 1, 1), type=pa.timestamp('s', tz='UTC')))
+    assert b == "<pyarrow.TimestampScalar: '2015-01-01T00:00:00+0000'>"
+    c = repr(pa.scalar(datetime.datetime(2015, 1, 1), type=pa.timestamp('us')))
+    assert c == "<pyarrow.TimestampScalar: '2015-01-01T00:00:00.000000'>"
+    d = repr(pc.assume_timezone(
+        pa.scalar("2000-01-01").cast(pa.timestamp("s")), "America/New_York"))
+    assert d == "<pyarrow.TimestampScalar: '2000-01-01T00:00:00-0500'>"
 
 
 def test_bool():
@@ -295,6 +319,8 @@ def test_cast():
         pa.scalar('foo').cast('int32')
 
 
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_cast_timestamp_to_string():
     # GH-35370
     pytest.importorskip("pytz")
@@ -656,7 +682,7 @@ def test_struct_duplicate_fields():
         s.as_py()
 
 
-def test_map():
+def test_map(pickle_module):
     ty = pa.map_(pa.string(), pa.int8())
     v = [('a', 1), ('b', 2)]
     s = pa.scalar(v, type=ty)
@@ -674,6 +700,10 @@ def test_map():
     for i, j in zip(s, v):
         assert i == j
 
+    # test iteration with missing values
+    for _ in pa.scalar(None, type=ty):
+        pass
+
     assert s.as_py() == v
     assert s[1] == (
         pa.scalar('b', type=pa.string()),
@@ -686,11 +716,11 @@ def test_map():
     with pytest.raises(IndexError):
         s[2]
 
-    restored = pickle.loads(pickle.dumps(s))
+    restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
 
 
-def test_dictionary():
+def test_dictionary(pickle_module):
     indices = pa.array([2, None, 1, 2, 0, None])
     dictionary = pa.array(['foo', 'bar', 'baz'])
 
@@ -706,7 +736,7 @@ def test_dictionary():
         assert s.index.equals(i)
         assert s.dictionary.equals(dictionary)
 
-        restored = pickle.loads(pickle.dumps(s))
+        restored = pickle_module.loads(pickle_module.dumps(s))
         assert restored.equals(s)
 
 
@@ -731,7 +761,7 @@ def test_run_end_encoded():
         pa.scalar(1, pa.run_end_encoded(pa.int64(), pa.int64()))
 
 
-def test_union():
+def test_union(pickle_module):
     # sparse
     arr = pa.UnionArray.from_sparse(
         pa.array([0, 0, 1, 1], type=pa.int8()),
@@ -746,7 +776,7 @@ def test_union():
         assert s.type.equals(arr.type)
         assert s.is_valid is True
         with pytest.raises(pa.ArrowNotImplementedError):
-            pickle.loads(pickle.dumps(s))
+            pickle_module.loads(pickle_module.dumps(s))
 
     assert arr[0].type_code == 0
     assert arr[0].as_py() == "a"
@@ -772,9 +802,32 @@ def test_union():
         assert s.type.equals(arr.type)
         assert s.is_valid is True
         with pytest.raises(pa.ArrowNotImplementedError):
-            pickle.loads(pickle.dumps(s))
+            pickle_module.loads(pickle_module.dumps(s))
 
     assert arr[0].type_code == 0
     assert arr[0].as_py() == b'a'
     assert arr[5].type_code == 1
     assert arr[5].as_py() == 3
+
+
+def test_map_scalar_as_py_with_custom_field_name():
+    """
+    Check we can call `MapScalar.as_py` with custom field names
+
+    See https://github.com/apache/arrow/issues/36809
+    """
+    assert pa.scalar(
+        [("foo", "bar")],
+        pa.map_(
+            pa.string(),
+            pa.string()
+        ),
+    ).as_py() == [("foo", "bar")]
+
+    assert pa.scalar(
+        [("foo", "bar")],
+        pa.map_(
+            pa.field("custom_key", pa.string(), nullable=False),
+            pa.field("custom_value", pa.string()),
+        ),
+    ).as_py() == [("foo", "bar")]

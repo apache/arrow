@@ -137,12 +137,15 @@ namespace Apache.Arrow
             return Instance;
         }
 
+        public TBuilder Append(T? value) =>
+            (value == null) ? AppendNull() : Append(value.Value);
+
         public TBuilder Append(ReadOnlySpan<T> span)
         {
             int len = ValueBuffer.Length;
             ValueBuffer.Append(span);
             int additionalBitsCount = ValueBuffer.Length - len;
-            ValidityBuffer.Reserve(additionalBitsCount).AppendRange(Enumerable.Repeat(true, additionalBitsCount));
+            ValidityBuffer.AppendRange(true, additionalBitsCount);
             return Instance;
         }
 
@@ -151,7 +154,7 @@ namespace Apache.Arrow
             int len = ValueBuffer.Length;
             ValueBuffer.AppendRange(values);
             var additionalBitsCount = ValueBuffer.Length - len;
-            ValidityBuffer.Reserve(additionalBitsCount).AppendRange(Enumerable.Repeat(true, additionalBitsCount));
+            ValidityBuffer.AppendRange(true, additionalBitsCount);
             return Instance;
         }
 

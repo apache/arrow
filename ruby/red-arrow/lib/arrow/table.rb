@@ -127,7 +127,7 @@ module Arrow
     #     You can also specify schema as primitive Ruby objects.
     #     See {Arrow::Schema#initialize} for details.
     #
-    #   @param arrays [::Array<Arrow::RecordBatch>] The data of the table.
+    #   @param record_batches [::Array<Arrow::RecordBatch>] The data of the table.
     #
     #   @example Create a table from schema and record batches
     #     count_field = Arrow::Field.new("count", :uint32)
@@ -145,7 +145,7 @@ module Arrow
     #     You can also specify schema as primitive Ruby objects.
     #     See {Arrow::Schema#initialize} for details.
     #
-    #   @param arrays [::Array<::Array>] The data of the table as primitive
+    #   @param raw_records [::Array<::Array>] The data of the table as primitive
     #     Ruby objects.
     #
     #   @example Create a table from schema and raw records

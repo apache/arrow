@@ -46,7 +46,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    :class-container: sd-text-center
 
    .. grid-item-card:: Community
-      :img-top: /developers/images/users-solid.svg
+      :img-top: ./images/users-solid.svg
       :class-card: contrib-card
       :shadow: md
 
@@ -63,7 +63,7 @@ All participation in the Apache Arrow project is governed by the ASF's
          Apache Arrow Community
 
    .. grid-item-card:: Bug reports
-      :img-top: /developers/images/bug-solid.svg
+      :img-top: ./images/bug-solid.svg
       :class-card: contrib-card
       :shadow: md
 
@@ -122,7 +122,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    :class-container: sd-text-center
 
    .. grid-item-card:: New Contributors
-      :img-top: /developers/images/book-open-solid.svg
+      :img-top: ./images/book-open-solid.svg
       :class-card: contrib-card
       :shadow: md
 
@@ -142,7 +142,7 @@ All participation in the Apache Arrow project is governed by the ASF's
          New Contributor's guide
 
    .. grid-item-card:: Overview
-      :img-top: /developers/images/code-solid.svg
+      :img-top: ./images/code-solid.svg
       :class-card: contrib-card
       :shadow: md
 

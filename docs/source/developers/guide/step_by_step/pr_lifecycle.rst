@@ -145,21 +145,21 @@ You will see checks running at the bottom of the pull request page
 on GitHub. In case of an error, click on the details and research the cause
 of the failing build.
 
-.. figure:: /developers/images/ci_process_docs.jpeg
+.. figure:: ../../images/ci_process_docs.jpeg
    :scale: 60 %
    :alt: CI window showing the status of the code checks
          in case of changes made to the documentation.
 
    CI checks for changes made to the documentation.
 
-.. figure:: /developers/images/ci_process_python.jpeg
+.. figure:: ../../images/ci_process_python.jpeg
    :scale: 58 %
    :alt: CI window showing the status of the code checks
          in case of changes made to the python files
 
    CI checks for changes made to the python files.
 
-.. figure:: /developers/images/ci_process_r.jpeg
+.. figure:: ../../images/ci_process_r.jpeg
    :scale: 58 %
    :alt: CI window showing the status of the code checks
          in case of changes made to the R files.

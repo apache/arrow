@@ -22,13 +22,10 @@ FROM ${repo}:${arch}-conda-cpp
 # install python specific packages
 ARG python=3.8
 COPY ci/conda_env_python.txt \
-     ci/conda_env_sphinx.txt \
      /arrow/ci/
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
-        --file arrow/ci/conda_env_sphinx.txt \
         gdb \
-        $([ "$python" == "3.7" ] && echo "pickle5") \
         python=${python} \
         nomkl && \
     mamba clean --all
@@ -46,7 +43,9 @@ ENV ARROW_ACERO=ON \
     ARROW_CSV=ON \
     ARROW_DATASET=ON \
     ARROW_FILESYSTEM=ON \
+    ARROW_GDB=ON \
     ARROW_HDFS=ON \
     ARROW_JSON=ON \
+    ARROW_SUBSTRAIT=OFF \
     ARROW_TENSORFLOW=ON \
     ARROW_USE_GLOG=OFF

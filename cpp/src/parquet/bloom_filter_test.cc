@@ -29,6 +29,7 @@
 #include "arrow/io/file.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
@@ -97,7 +98,7 @@ TEST(BasicTest, TestBloomFilter) {
     for (const auto v : kNegativeIntLookups) {
       false_positives += bloom_filter.FindHash(bloom_filter.Hash(v));
     }
-    // (this is a crude check, see FPPTest below for a more rigourous formula)
+    // (this is a crude check, see FPPTest below for a more rigorous formula)
     EXPECT_LE(false_positives, 2);
 
     // Serialize Bloom filter to memory output stream
@@ -323,16 +324,112 @@ const int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_0[32] = {
  * }
  */
 TEST(XxHashTest, TestBloomFilter) {
-  uint8_t bytes[32] = {};
+  constexpr int kNumValues = 32;
+  uint8_t bytes[kNumValues] = {};
 
-  for (int i = 0; i < 32; i++) {
-    ByteArray byteArray(i, bytes);
+  for (int i = 0; i < kNumValues; i++) {
+    ByteArray byte_array(i, bytes);
     bytes[i] = i;
 
     auto hasher_seed_0 = std::make_unique<XxHasher>();
-    EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hasher_seed_0->Hash(&byteArray))
+    EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hasher_seed_0->Hash(&byte_array))
         << "Hash with seed 0 Error: " << i;
   }
+}
+
+// Same as TestBloomFilter but using Batch interface
+TEST(XxHashTest, TestBloomFilterHashes) {
+  constexpr int kNumValues = 32;
+  uint8_t bytes[kNumValues] = {};
+
+  std::vector<ByteArray> byte_array_vector;
+  for (int i = 0; i < kNumValues; i++) {
+    bytes[i] = i;
+    byte_array_vector.emplace_back(i, bytes);
+  }
+  auto hasher_seed_0 = std::make_unique<XxHasher>();
+  std::vector<uint64_t> hashes;
+  hashes.resize(kNumValues);
+  hasher_seed_0->Hashes(byte_array_vector.data(),
+                        static_cast<int>(byte_array_vector.size()), hashes.data());
+  for (int i = 0; i < kNumValues; i++) {
+    EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hashes[i])
+        << "Hash with seed 0 Error: " << i;
+  }
+}
+
+template <typename DType>
+class TestBatchBloomFilter : public testing::Test {
+ public:
+  constexpr static int kTestDataSize = 64;
+
+  // GenerateTestData with size 64.
+  std::vector<typename DType::c_type> GenerateTestData();
+
+  // The Lifetime owner for Test data
+  std::vector<uint8_t> members;
+};
+
+template <typename DType>
+std::vector<typename DType::c_type> TestBatchBloomFilter<DType>::GenerateTestData() {
+  std::vector<typename DType::c_type> values(kTestDataSize);
+  GenerateData(kTestDataSize, values.data(), &members);
+  return values;
+}
+
+// Note: BloomFilter doesn't support BooleanType.
+using BloomFilterTestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType,
+                                              Int96Type, FLBAType, ByteArrayType>;
+
+TYPED_TEST_SUITE(TestBatchBloomFilter, BloomFilterTestTypes);
+
+TYPED_TEST(TestBatchBloomFilter, Basic) {
+  using Type = typename TypeParam::c_type;
+  std::vector<Type> test_data = TestFixture::GenerateTestData();
+  BlockSplitBloomFilter batch_insert_filter;
+  BlockSplitBloomFilter filter;
+
+  // Bloom filter fpp parameter
+  const double fpp = 0.05;
+  filter.Init(BlockSplitBloomFilter::OptimalNumOfBytes(TestFixture::kTestDataSize, fpp));
+  batch_insert_filter.Init(
+      BlockSplitBloomFilter::OptimalNumOfBytes(TestFixture::kTestDataSize, fpp));
+
+  std::vector<uint64_t> hashes;
+  for (const Type& value : test_data) {
+    uint64_t hash = 0;
+    if constexpr (std::is_same_v<Type, FLBA>) {
+      hash = filter.Hash(&value, kGenerateDataFLBALength);
+    } else {
+      hash = filter.Hash(&value);
+    }
+    hashes.push_back(hash);
+  }
+
+  std::vector<uint64_t> batch_hashes(test_data.size());
+  if constexpr (std::is_same_v<Type, FLBA>) {
+    batch_insert_filter.Hashes(test_data.data(), kGenerateDataFLBALength,
+                               static_cast<int>(test_data.size()), batch_hashes.data());
+  } else {
+    batch_insert_filter.Hashes(test_data.data(), static_cast<int>(test_data.size()),
+                               batch_hashes.data());
+  }
+
+  EXPECT_EQ(hashes, batch_hashes);
+
+  std::shared_ptr<Buffer> buffer;
+  std::shared_ptr<Buffer> batch_insert_buffer;
+  {
+    auto sink = CreateOutputStream();
+    filter.WriteTo(sink.get());
+    ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
+  }
+  {
+    auto sink = CreateOutputStream();
+    batch_insert_filter.WriteTo(sink.get());
+    ASSERT_OK_AND_ASSIGN(batch_insert_buffer, sink->Finish());
+  }
+  AssertBufferEqual(*buffer, *batch_insert_buffer);
 }
 
 }  // namespace test

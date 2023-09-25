@@ -23,9 +23,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
@@ -73,22 +73,27 @@ func (a *String) ValueOffset64(i int) int64 {
 	return int64(a.ValueOffset(i))
 }
 
+func (a *String) ValueLen(i int) int {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	beg := a.array.data.offset + i
+	return int(a.offsets[beg+1] - a.offsets[beg])
+}
+
 func (a *String) ValueOffsets() []int32 {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length + 1
 	return a.offsets[beg:end]
 }
 
-func (a *String) ValueBytes() (ret []byte) {
+func (a *String) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	data := a.values[a.offsets[beg]:a.offsets[end]]
-
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
-	s.Data = (*reflect.StringHeader)(unsafe.Pointer(&data)).Data
-	s.Len = len(data)
-	s.Cap = len(data)
-	return
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
 }
 
 func (a *String) String() string {
@@ -221,16 +226,13 @@ func (a *LargeString) ValueOffsets() []int64 {
 	return a.offsets[beg:end]
 }
 
-func (a *LargeString) ValueBytes() (ret []byte) {
+func (a *LargeString) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	data := a.values[a.offsets[beg]:a.offsets[end]]
-
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
-	s.Data = (*reflect.StringHeader)(unsafe.Pointer(&data)).Data
-	s.Len = len(data)
-	s.Cap = len(data)
-	return
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
 }
 
 func (a *LargeString) String() string {

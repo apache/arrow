@@ -74,7 +74,9 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<UInt16Array>,
             IArrowArrayVisitor<UInt32Array>,
             IArrowArrayVisitor<UInt64Array>,
+#if NET5_0_OR_GREATER
             IArrowArrayVisitor<HalfFloatArray>,
+#endif
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
@@ -84,13 +86,16 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<StructArray>,
+            IArrowArrayVisitor<UnionArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
-            IArrowArrayVisitor<DictionaryArray>
+            IArrowArrayVisitor<DictionaryArray>,
+            IArrowArrayVisitor<NullArray>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -111,7 +116,9 @@ namespace Apache.Arrow.Tests
             public void Visit(UInt16Array array) => CompareArrays(array);
             public void Visit(UInt32Array array) => CompareArrays(array);
             public void Visit(UInt64Array array) => CompareArrays(array);
+#if NET5_0_OR_GREATER
             public void Visit(HalfFloatArray array) => CompareArrays(array);
+#endif
             public void Visit(FloatArray array) => CompareArrays(array);
             public void Visit(DoubleArray array) => CompareArrays(array);
             public void Visit(BooleanArray array) => CompareArrays(array);
@@ -121,6 +128,7 @@ namespace Apache.Arrow.Tests
             public void Visit(Time32Array array) => CompareArrays(array);
             public void Visit(Time64Array array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
+            public void Visit(FixedSizeListArray array) => CompareArrays(array);
             public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
             public void Visit(Decimal128Array array) => CompareArrays(array);
             public void Visit(Decimal256Array array) => CompareArrays(array);
@@ -144,6 +152,24 @@ namespace Apache.Arrow.Tests
                 }
             }
 
+            public void Visit(UnionArray array)
+            {
+                Assert.IsAssignableFrom<UnionArray>(_expectedArray);
+                UnionArray expectedArray = (UnionArray)_expectedArray;
+
+                Assert.Equal(expectedArray.Mode, array.Mode);
+                Assert.Equal(expectedArray.Length, array.Length);
+                Assert.Equal(expectedArray.NullCount, array.NullCount);
+                Assert.Equal(expectedArray.Offset, array.Offset);
+                Assert.Equal(expectedArray.Data.Children.Length, array.Data.Children.Length);
+                Assert.Equal(expectedArray.Fields.Count, array.Fields.Count);
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(new ArrayComparer(expectedArray.Fields[i], _strictCompare));
+                }
+            }
+
             public void Visit(DictionaryArray array)
             {
                 Assert.IsAssignableFrom<DictionaryArray>(_expectedArray);
@@ -152,6 +178,14 @@ namespace Apache.Arrow.Tests
                 var dictionaryComparer = new ArrayComparer(expectedArray.Dictionary, _strictCompare);
                 array.Indices.Accept(indicesComparer);
                 array.Dictionary.Accept(dictionaryComparer);
+            }
+
+            public void Visit(NullArray array)
+            {
+                Assert.IsAssignableFrom<NullArray>(_expectedArray);
+                Assert.Equal(_expectedArray.Length, array.Length);
+                Assert.Equal(_expectedArray.NullCount, array.NullCount);
+                Assert.Equal(_expectedArray.Offset, array.Offset);
             }
 
             public void Visit(IArrowArray array) => throw new NotImplementedException();
@@ -284,7 +318,32 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Offset, actualArray.Offset);
 
                 CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
-                Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+
+                if (_strictCompare)
+                {
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+                }
+                else
+                {
+                    int offsetsLength = (expectedArray.Length + 1) * sizeof(int);
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.Slice(0, offsetsLength).SequenceEqual(actualArray.ValueOffsetsBuffer.Span.Slice(0, offsetsLength)));
+                }
+
+                actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
+            }
+
+            private void CompareArrays(FixedSizeListArray actualArray)
+            {
+                Assert.IsAssignableFrom<FixedSizeListArray>(_expectedArray);
+                FixedSizeListArray expectedArray = (FixedSizeListArray)_expectedArray;
+
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
 
                 actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
             }

@@ -88,11 +88,28 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   return properties;
 }
 
-template <typename M>
+parquet::ArrowReaderProperties MakeArrowReaderProperties(
+    const ParquetFileFormat& format, const parquet::FileMetaData& metadata,
+    const ScanOptions& options, const ParquetFragmentScanOptions& parquet_scan_options) {
+  auto arrow_properties = MakeArrowReaderProperties(format, metadata);
+  arrow_properties.set_batch_size(options.batch_size);
+  // Must be set here since the sync ScanTask handles pre-buffering itself
+  arrow_properties.set_pre_buffer(
+      parquet_scan_options.arrow_reader_properties->pre_buffer());
+  arrow_properties.set_cache_options(
+      parquet_scan_options.arrow_reader_properties->cache_options());
+  arrow_properties.set_io_context(
+      parquet_scan_options.arrow_reader_properties->io_context());
+  arrow_properties.set_use_threads(options.use_threads);
+  return arrow_properties;
+}
+
 Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
-    const M& metadata, const parquet::ArrowReaderProperties& properties) {
+    const parquet::FileMetaData& metadata,
+    const parquet::ArrowReaderProperties& properties) {
   auto manifest = std::make_shared<SchemaManifest>();
-  const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata = nullptr;
+  const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata =
+      metadata.key_value_metadata();
   RETURN_NOT_OK(SchemaManifest::Make(metadata.schema(), key_value_metadata, properties,
                                      manifest.get()));
   return manifest;
@@ -224,6 +241,28 @@ Status ResolveOneFieldRef(
   return Status::OK();
 }
 
+// Converts a field ref into a position-independent ref (containing only a sequence of
+// names) based on the dataset schema. Returns `false` if no conversion was needed.
+Result<FieldRef> MaybeConvertFieldRef(FieldRef ref, const Schema& dataset_schema) {
+  if (ARROW_PREDICT_TRUE(ref.IsNameSequence())) {
+    return std::move(ref);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(dataset_schema));
+  std::vector<FieldRef> named_refs;
+  named_refs.reserve(path.indices().size());
+
+  const FieldVector* child_fields = &dataset_schema.fields();
+  for (auto index : path) {
+    const auto& child_field = *(*child_fields)[index];
+    named_refs.emplace_back(child_field.name());
+    child_fields = &child_field.type()->fields();
+  }
+
+  return named_refs.size() == 1 ? std::move(named_refs[0])
+                                : FieldRef(std::move(named_refs));
+}
+
 // Compute the column projection based on the scan options
 Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader& reader,
                                                const ScanOptions& options) {
@@ -248,7 +287,13 @@ Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader&
   }
 
   std::vector<int> columns_selection;
-  for (const auto& ref : field_refs) {
+  for (auto& ref : field_refs) {
+    // In the (unlikely) absence of a known dataset schema, we require that all
+    // materialized refs are named.
+    if (options.dataset_schema) {
+      ARROW_ASSIGN_OR_RAISE(
+          ref, MaybeConvertFieldRef(std::move(ref), *options.dataset_schema));
+    }
     RETURN_NOT_OK(ResolveOneFieldRef(manifest, ref, field_lookup, duplicate_fields,
                                      &columns_selection));
   }
@@ -382,13 +427,42 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 
 Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
-  return GetReaderAsync(source, options, nullptr).result();
+  return GetReader(source, options, /*metadata=*/nullptr);
 }
 
 Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<parquet::FileMetaData>& metadata) const {
-  return GetReaderAsync(source, options, metadata).result();
+  ARROW_ASSIGN_OR_RAISE(
+      auto parquet_scan_options,
+      GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
+                                                         default_fragment_scan_options));
+  auto properties =
+      MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+  // `parquet::ParquetFileReader::Open` will not wrap the exception as status,
+  // so using `open_parquet_file` to wrap it.
+  auto open_parquet_file = [&]() -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    auto reader = parquet::ParquetFileReader::Open(std::move(input),
+                                                   std::move(properties), metadata);
+    return reader;
+    END_PARQUET_CATCH_EXCEPTIONS
+  };
+
+  auto reader_opt = open_parquet_file();
+  if (!reader_opt.ok()) {
+    return WrapSourceError(reader_opt.status(), source.path());
+  }
+  auto reader = std::move(reader_opt).ValueOrDie();
+
+  std::shared_ptr<parquet::FileMetaData> reader_metadata = reader->metadata();
+  auto arrow_properties =
+      MakeArrowReaderProperties(*this, *reader_metadata, *options, *parquet_scan_options);
+  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
+      options->pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
+  return arrow_reader;
 }
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
@@ -417,16 +491,8 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
         ARROW_ASSIGN_OR_RAISE(std::unique_ptr<parquet::ParquetFileReader> reader,
                               reader_fut.MoveResult());
         std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-        auto arrow_properties = MakeArrowReaderProperties(*self, *metadata);
-        arrow_properties.set_batch_size(options->batch_size);
-        // Must be set here since the sync ScanTask handles pre-buffering itself
-        arrow_properties.set_pre_buffer(
-            parquet_scan_options->arrow_reader_properties->pre_buffer());
-        arrow_properties.set_cache_options(
-            parquet_scan_options->arrow_reader_properties->cache_options());
-        arrow_properties.set_io_context(
-            parquet_scan_options->arrow_reader_properties->io_context());
-        arrow_properties.set_use_threads(options->use_threads);
+        auto arrow_properties =
+            MakeArrowReaderProperties(*this, *metadata, *options, *parquet_scan_options);
         std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
         RETURN_NOT_OK(parquet::arrow::FileReader::Make(options->pool, std::move(reader),
                                                        std::move(arrow_properties),

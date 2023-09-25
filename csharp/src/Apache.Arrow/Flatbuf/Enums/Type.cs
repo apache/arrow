@@ -33,8 +33,6 @@ internal enum Type : byte
   LargeUtf8 = 20,
   LargeList = 21,
   RunEndEncoded = 22,
-  BinaryView = 23,
-  Utf8View = 24,
 };
 
 
@@ -111,12 +109,6 @@ static internal class TypeVerify
         break;
       case Type.RunEndEncoded:
         result = RunEndEncodedVerify.Verify(verifier, tablePos);
-        break;
-      case Type.BinaryView:
-        result = BinaryViewVerify.Verify(verifier, tablePos);
-        break;
-      case Type.Utf8View:
-        result = Utf8ViewVerify.Verify(verifier, tablePos);
         break;
       default: result = true;
         break;

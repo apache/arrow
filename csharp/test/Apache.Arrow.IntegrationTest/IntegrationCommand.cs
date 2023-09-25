@@ -128,7 +128,7 @@ namespace Apache.Arrow.IntegrationTest
             for (int i = 0; i < jsonRecordBatch.Columns.Count; i++)
             {
                 JsonFieldData data = jsonRecordBatch.Columns[i];
-                Field field = schema.GetFieldByName(data.Name);
+                Field field = schema.FieldsList[i];
                 ArrayCreator creator = new ArrayCreator(data);
                 field.DataType.Accept(creator);
                 arrays.Add(creator.Array);
@@ -149,8 +149,20 @@ namespace Apache.Arrow.IntegrationTest
 
         private static void CreateField(Field.Builder builder, JsonField jsonField)
         {
+            Field[] children = null;
+            if (jsonField.Children?.Count > 0)
+            {
+                children = new Field[jsonField.Children.Count];
+                for (int i = 0; i < jsonField.Children.Count; i++)
+                {
+                    Field.Builder field = new Field.Builder();
+                    CreateField(field, jsonField.Children[i]);
+                    children[i] = field.Build();
+                }
+            }
+
             builder.Name(jsonField.Name)
-                .DataType(ToArrowType(jsonField.Type))
+                .DataType(ToArrowType(jsonField.Type, children))
                 .Nullable(jsonField.Nullable);
 
             if (jsonField.Metadata != null)
@@ -159,7 +171,7 @@ namespace Apache.Arrow.IntegrationTest
             }
         }
 
-        private static IArrowType ToArrowType(JsonArrowType type)
+        private static IArrowType ToArrowType(JsonArrowType type, Field[] children)
         {
             return type.Name switch
             {
@@ -173,6 +185,11 @@ namespace Apache.Arrow.IntegrationTest
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
+                "list" => ToListArrowType(type, children),
+                "fixedsizelist" => ToFixedSizeListArrowType(type, children),
+                "struct" => ToStructArrowType(type, children),
+                "union" => ToUnionArrowType(type, children),
+                "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
         }
@@ -250,6 +267,32 @@ namespace Apache.Arrow.IntegrationTest
             };
         }
 
+        private static IArrowType ToListArrowType(JsonArrowType type, Field[] children)
+        {
+            return new ListType(children[0]);
+        }
+
+        private static IArrowType ToFixedSizeListArrowType(JsonArrowType type, Field[] children)
+        {
+            return new FixedSizeListType(children[0], type.ListSize);
+        }
+
+        private static IArrowType ToStructArrowType(JsonArrowType type, Field[] children)
+        {
+            return new StructType(children);
+        }
+
+        private static IArrowType ToUnionArrowType(JsonArrowType type, Field[] children)
+        {
+            UnionMode mode = type.Mode switch
+            {
+                "SPARSE" => UnionMode.Sparse,
+                "DENSE" => UnionMode.Dense,
+                _ => throw new NotSupportedException($"Union mode not supported: {type.Mode}"),
+            };
+            return new UnionType(children, type.TypeIds, mode);
+        }
+
         private class ArrayCreator :
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<Int8Type>,
@@ -273,9 +316,12 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<FixedSizeListType>,
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>,
+            IArrowTypeVisitor<NullType>
         {
-            private JsonFieldData JsonFieldData { get; }
+            private JsonFieldData JsonFieldData { get; set; }
             public IArrowArray Array { get; private set; }
 
             public ArrayCreator(JsonFieldData jsonFieldData)
@@ -323,6 +369,11 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(Decimal256Type type)
             {
                 Array = new Decimal256Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(NullType type)
+            {
+                Array = new NullArray(JsonFieldData.Count);
             }
 
             private ArrayData GetDecimalArrayData(FixedSizeBinaryType type)
@@ -471,12 +522,88 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(ListType type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetOffsetBuffer();
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.ValueDataType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
+                Array = new ListArray(arrayData);
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.ValueDataType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer }, new[] { Array.Data });
+                Array = new FixedSizeListArray(arrayData);
             }
 
             public void Visit(StructType type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrayData[] children = new ArrayData[type.Fields.Count];
+
+                var data = JsonFieldData;
+                for (int i = 0; i < children.Length; i++)
+                {
+                    JsonFieldData = data.Children[i];
+                    type.Fields[i].DataType.Accept(this);
+                    children[i] = Array.Data;
+                }
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer }, children);
+                Array = new StructArray(arrayData);
+            }
+
+            public void Visit(UnionType type)
+            {
+                ArrowBuffer[] buffers;
+                if (type.Mode == UnionMode.Dense)
+                {
+                    buffers = new ArrowBuffer[2];
+                    buffers[1] = GetOffsetBuffer();
+                }
+                else
+                {
+                    buffers = new ArrowBuffer[1];
+                }
+                buffers[0] = GetTypeIdBuffer();
+
+                ArrayData[] children = GetChildren(type);
+
+                int nullCount = 0;
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, buffers, children);
+                Array = UnionArray.Create(arrayData);
+            }
+
+            private ArrayData[] GetChildren(NestedType type)
+            {
+                ArrayData[] children = new ArrayData[type.Fields.Count];
+
+                var data = JsonFieldData;
+                for (int i = 0; i < children.Length; i++)
+                {
+                    JsonFieldData = data.Children[i];
+                    type.Fields[i].DataType.Accept(this);
+                    children[i] = Array.Data;
+                }
+                JsonFieldData = data;
+
+                return children;
             }
 
             private static byte[] ConvertHexStringToByteArray(string hexString)
@@ -542,9 +669,20 @@ namespace Apache.Arrow.IntegrationTest
 
             private ArrowBuffer GetOffsetBuffer()
             {
+                if (JsonFieldData.Count == 0) { return ArrowBuffer.Empty; }
                 ArrowBuffer.Builder<int> valueOffsets = new ArrowBuffer.Builder<int>(JsonFieldData.Offset.Length);
                 valueOffsets.AppendRange(JsonFieldData.Offset);
                 return valueOffsets.Build(default);
+            }
+
+            private ArrowBuffer GetTypeIdBuffer()
+            {
+                ArrowBuffer.Builder<byte> typeIds = new ArrowBuffer.Builder<byte>(JsonFieldData.TypeId.Length);
+                for (int i = 0; i < JsonFieldData.TypeId.Length; i++)
+                {
+                    typeIds.Append(checked((byte)JsonFieldData.TypeId[i]));
+                }
+                return typeIds.Build(default);
             }
 
             private ArrowBuffer GetValidityBuffer(out int nullCount)

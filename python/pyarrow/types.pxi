@@ -19,6 +19,7 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
 
 import atexit
 from collections.abc import Mapping
+import pickle
 import re
 import sys
 import warnings
@@ -40,10 +41,21 @@ cdef dict _pandas_type_map = {
     _Type_HALF_FLOAT: np.float16,
     _Type_FLOAT: np.float32,
     _Type_DOUBLE: np.float64,
-    _Type_DATE32: np.dtype('datetime64[ns]'),
-    _Type_DATE64: np.dtype('datetime64[ns]'),
-    _Type_TIMESTAMP: np.dtype('datetime64[ns]'),
-    _Type_DURATION: np.dtype('timedelta64[ns]'),
+    # Pandas does not support [D]ay, so default to [ms] for date32
+    _Type_DATE32: np.dtype('datetime64[ms]'),
+    _Type_DATE64: np.dtype('datetime64[ms]'),
+    _Type_TIMESTAMP: {
+        's': np.dtype('datetime64[s]'),
+        'ms': np.dtype('datetime64[ms]'),
+        'us': np.dtype('datetime64[us]'),
+        'ns': np.dtype('datetime64[ns]'),
+    },
+    _Type_DURATION: {
+        's': np.dtype('timedelta64[s]'),
+        'ms': np.dtype('timedelta64[ms]'),
+        'us': np.dtype('timedelta64[us]'),
+        'ns': np.dtype('timedelta64[ns]'),
+    },
     _Type_BINARY: np.object_,
     _Type_FIXED_SIZE_BINARY: np.object_,
     _Type_STRING: np.object_,
@@ -115,6 +127,44 @@ def _is_primitive(Type type):
     return is_primitive(type)
 
 
+def _get_pandas_type(arrow_type, coerce_to_ns=False):
+    cdef Type type_id = arrow_type.id
+    if type_id not in _pandas_type_map:
+        return None
+    if coerce_to_ns:
+        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
+        if type_id == _Type_DURATION:
+            return np.dtype('timedelta64[ns]')
+        return np.dtype('datetime64[ns]')
+    pandas_type = _pandas_type_map[type_id]
+    if isinstance(pandas_type, dict):
+        unit = getattr(arrow_type, 'unit', None)
+        pandas_type = pandas_type.get(unit, None)
+    return pandas_type
+
+
+def _get_pandas_tz_type(arrow_type, coerce_to_ns=False):
+    from pyarrow.pandas_compat import make_datetimetz
+    unit = 'ns' if coerce_to_ns else arrow_type.unit
+    return make_datetimetz(unit, arrow_type.tz)
+
+
+def _to_pandas_dtype(arrow_type, options=None):
+    coerce_to_ns = (options and options.get('coerce_temporal_nanoseconds', False)) or (
+        _pandas_api.is_v1() and arrow_type.id in
+        [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION])
+
+    if getattr(arrow_type, 'tz', None):
+        dtype = _get_pandas_tz_type(arrow_type, coerce_to_ns)
+    else:
+        dtype = _get_pandas_type(arrow_type, coerce_to_ns)
+
+    if not dtype:
+        raise NotImplementedError(str(arrow_type))
+
+    return dtype
+
+
 # Workaround for Cython parsing bug
 # https://github.com/cython/cython/issues/2143
 ctypedef CFixedWidthType* _CFixedWidthTypePtr
@@ -150,6 +200,15 @@ cdef class DataType(_Weakrefable):
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
     cpdef Field field(self, i):
+        """
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        pyarrow.Field
+        """
         if not isinstance(i, int):
             raise TypeError(f"Expected int index, got type '{type(i)}'")
         cdef int index = <int> _normalize_index(i, self.type.num_fields())
@@ -274,11 +333,7 @@ cdef class DataType(_Weakrefable):
         >>> pa.int64().to_pandas_dtype()
         <class 'numpy.int64'>
         """
-        cdef Type type_id = self.type.id()
-        if type_id in _pandas_type_map:
-            return _pandas_type_map[type_id]
-        else:
-            raise NotImplementedError(str(self))
+        return _to_pandas_dtype(self)
 
     def _export_to_c(self, out_ptr):
         """
@@ -1005,24 +1060,6 @@ cdef class TimestampType(DataType):
         else:
             return None
 
-    def to_pandas_dtype(self):
-        """
-        Return the equivalent NumPy / Pandas dtype.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> t = pa.timestamp('s', tz='UTC')
-        >>> t.to_pandas_dtype()
-        datetime64[ns, UTC]
-        """
-        if self.tz is None:
-            return _pandas_type_map[_Type_TIMESTAMP]
-        else:
-            # Return DatetimeTZ
-            from pyarrow.pandas_compat import make_datetimetz
-            return make_datetimetz(self.tz)
-
     def __reduce__(self):
         return timestamp, (self.unit, self.tz)
 
@@ -1487,6 +1524,9 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return NotImplementedError
 
+    def __reduce__(self):
+        return self.__arrow_ext_deserialize__, (self.storage_type, self.__arrow_ext_serialize__())
+
     def __arrow_ext_class__(self):
         """Return an extension array class to be used for building or
         deserializing arrays with this extension type.
@@ -1586,6 +1626,10 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     def __arrow_ext_class__(self):
         return FixedShapeTensorArray
 
+    def __reduce__(self):
+        return fixed_shape_tensor, (self.value_type, self.shape,
+                                    self.dim_names, self.permutation)
+
 
 cdef class PyExtensionType(ExtensionType):
     """
@@ -1656,12 +1700,12 @@ cdef class PyExtensionType(ExtensionType):
                                   .format(type(self).__name__))
 
     def __arrow_ext_serialize__(self):
-        return builtin_pickle.dumps(self)
+        return pickle.dumps(self)
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         try:
-            ty = builtin_pickle.loads(serialized)
+            ty = pickle.loads(serialized)
         except Exception:
             # For some reason, it's impossible to deserialize the
             # ExtensionType instance.  Perhaps the serialized data is
@@ -1852,6 +1896,15 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return self.wrapped
 
     def equals(self, KeyValueMetadata other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.KeyValueMetadata
+
+        Returns
+        -------
+        bool
+        """
         return self.metadata.Equals(deref(other.wrapped))
 
     def __repr__(self):
@@ -1891,9 +1944,27 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return KeyValueMetadata, (list(self.items()),)
 
     def key(self, i):
+        """
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        byte
+        """
         return self.metadata.key(i)
 
     def value(self, i):
+        """
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        byte
+        """
         return self.metadata.value(i)
 
     def keys(self):
@@ -1909,6 +1980,15 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
             yield (self.metadata.key(i), self.metadata.value(i))
 
     def get_all(self, key):
+        """
+        Parameters
+        ----------
+        key : str
+
+        Returns
+        -------
+        list[byte]
+        """
         key = tobytes(key)
         return [v for k, v in self.items() if k == key]
 
@@ -3571,9 +3651,9 @@ def timestamp(unit, tz=None):
 
     >>> from datetime import datetime
     >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('s', tz='UTC'))
-    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0, tzinfo=<UTC>)>
+    <pyarrow.TimestampScalar: '2012-01-01T00:00:00+0000'>
     >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('us'))
-    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0)>
+    <pyarrow.TimestampScalar: '2012-01-01T00:00:00.000000'>
 
     Returns
     -------
@@ -4056,6 +4136,7 @@ def binary(int length=-1):
     FixedSizeBinaryType(fixed_size_binary[3])
 
     and use the fixed-length binary type to create an array:
+
     >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary(3))
     <pyarrow.lib.FixedSizeBinaryArray object at ...>
     [

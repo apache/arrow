@@ -65,6 +65,8 @@ RUN apt-get update -y -q && \
         libgoogle-glog-dev \
         libgrpc++-dev \
         liblz4-dev \
+        libprotobuf-dev \
+        libprotoc-dev \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
@@ -106,6 +108,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
+    ARROW_SUBSTRAIT=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
@@ -121,5 +124,4 @@ ENV absl_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

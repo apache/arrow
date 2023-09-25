@@ -52,6 +52,9 @@ class Executor;
 
 namespace acero {
 
+/// \brief This must not be used in release-mode
+struct DebugOptions;
+
 using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 
 /// \addtogroup acero-nodes
@@ -63,6 +66,9 @@ using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 class ARROW_ACERO_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
+
+  /// \brief This must not be used in release-mode
+  std::shared_ptr<DebugOptions> debug_opts;
 };
 
 /// \brief A node representing a generic source of data for Acero
@@ -74,7 +80,7 @@ class ARROW_ACERO_EXPORT ExecNodeOptions {
 ///
 /// For each batch received a new task will be created to push that batch downstream.
 /// This task will slice smaller units of size `ExecPlan::kMaxBatchSize` from the
-/// parent batch and call InputRecieved.  Thus, if the `generator` yields a large
+/// parent batch and call InputReceived.  Thus, if the `generator` yields a large
 /// batch it may result in several calls to InputReceived.
 ///
 /// The SourceNode will, by default, assign an implicit ordering to outgoing batches.
@@ -109,7 +115,7 @@ class ARROW_ACERO_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   /// Create an instance from values
   TableSourceNodeOptions(std::shared_ptr<Table> table,
                          int64_t max_batch_size = kDefaultMaxBatchSize)
-      : table(table), max_batch_size(max_batch_size) {}
+      : table(std::move(table)), max_batch_size(max_batch_size) {}
 
   /// \brief a table which acts as the data source
   std::shared_ptr<Table> table;
@@ -129,7 +135,7 @@ class ARROW_ACERO_EXPORT NamedTableNodeOptions : public ExecNodeOptions {
  public:
   /// Create an instance from values
   NamedTableNodeOptions(std::vector<std::string> names, std::shared_ptr<Schema> schema)
-      : names(std::move(names)), schema(schema) {}
+      : names(std::move(names)), schema(std::move(schema)) {}
 
   /// \brief the names to put in the serialized plan
   std::vector<std::string> names;
@@ -150,7 +156,7 @@ class ARROW_ACERO_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
   /// Create an instance that will create a new task on io_executor for each iteration
   SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
                           arrow::internal::Executor* io_executor)
-      : schema(schema),
+      : schema(std::move(schema)),
         it_maker(std::move(it_maker)),
         io_executor(io_executor),
         requires_io(true) {}
@@ -159,7 +165,7 @@ class ARROW_ACERO_EXPORT SchemaSourceNodeOptions : public ExecNodeOptions {
   /// executor
   SchemaSourceNodeOptions(std::shared_ptr<Schema> schema, ItMaker it_maker,
                           bool requires_io = false)
-      : schema(schema),
+      : schema(std::move(schema)),
         it_maker(std::move(it_maker)),
         io_executor(NULLPTR),
         requires_io(requires_io) {}
@@ -333,7 +339,7 @@ class ARROW_ACERO_EXPORT AggregateNodeOptions : public ExecNodeOptions {
         keys(std::move(keys)),
         segment_keys(std::move(segment_keys)) {}
 
-  // aggregations which will be applied to the targetted fields
+  // aggregations which will be applied to the targeted fields
   std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped (optional)
   std::vector<FieldRef> keys;

@@ -163,7 +163,8 @@ class ARROW_EXPORT SwissTable {
   //
   void early_filter_imp(const int num_keys, const uint32_t* hashes,
                         uint8_t* out_match_bitvector, uint8_t* out_local_slots) const;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2) && defined(ARROW_HAVE_RUNTIME_BMI2)
+  // The functions below use BMI2 instructions, be careful before calling!
   int early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* hashes,
                                uint8_t* out_match_bitvector,
                                uint8_t* out_local_slots) const;

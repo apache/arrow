@@ -23,6 +23,7 @@ on:
       - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'dev/archery/**'
+      - 'docker-compose.yml'
       - 'go/**'
       - 'integration/**'
       - 'js/**'
@@ -34,6 +35,7 @@ on:
       - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'dev/archery/**'
+      - 'docker-compose.yml'
       - 'go/**'
       - 'integration/**'
       - 'js/**'
@@ -60,15 +62,18 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Checkout Arrow Rust
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: apache/arrow-rs
           path: rust
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v3
         with:
@@ -91,7 +96,11 @@ jobs:
             -e ARCHERY_INTEGRATION_WITH_RUST=1 \
             conda-integration
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}

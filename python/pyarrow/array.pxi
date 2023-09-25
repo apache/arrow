@@ -700,7 +700,8 @@ cdef class _PandasConvertible(_Weakrefable):
             bint split_blocks=False,
             bint self_destruct=False,
             str maps_as_pydicts=None,
-            types_mapper=None
+            types_mapper=None,
+            bint coerce_temporal_nanoseconds=False
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -721,12 +722,15 @@ cdef class _PandasConvertible(_Weakrefable):
         integer_object_nulls : bool, default False
             Cast integers with nulls to objects
         date_as_object : bool, default True
-            Cast dates to objects. If False, convert to datetime64[ns] dtype.
+            Cast dates to objects. If False, convert to datetime64 dtype with
+            the equivalent time unit (if supported). Note: in pandas version
+            < 2.0, only datetime64[ns] conversion is supported.
         timestamp_as_object : bool, default False
             Cast non-nanosecond timestamps (np.datetime64) to objects. This is
-            useful if you have timestamps that don't fit in the normal date
-            range of nanosecond timestamps (1678 CE-2262 CE).
-            If False, all timestamps are converted to datetime64[ns] dtype.
+            useful in pandas version 1.x if you have timestamps that don't fit
+            in the normal date range of nanosecond timestamps (1678 CE-2262 CE).
+            Non-nanosecond timestamps are supported in pandas version 2.0.
+            If False, all timestamps are converted to datetime64 dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default True
@@ -775,6 +779,13 @@ cdef class _PandasConvertible(_Weakrefable):
             expected to return a pandas ExtensionDtype or ``None`` if the
             default conversion should be used for that type. If you have
             a dictionary mapping, you can pass ``dict.get`` as function.
+        coerce_temporal_nanoseconds : bool, default False
+            Only applicable to pandas version >= 2.0.
+            A legacy option to coerce date32, date64, duration, and timestamp
+            time units to nanoseconds when converting to pandas. This is the
+            default behavior in pandas version 1.x. Set this option to True if
+            you'd like to use this coercion when using pandas version >= 2.0
+            for backwards compatibility (not recommended otherwise).
 
         Returns
         -------
@@ -850,7 +861,8 @@ cdef class _PandasConvertible(_Weakrefable):
             safe=safe,
             split_blocks=split_blocks,
             self_destruct=self_destruct,
-            maps_as_pydicts=maps_as_pydicts
+            maps_as_pydicts=maps_as_pydicts,
+            coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
@@ -870,6 +882,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
+    result.coerce_temporal_nanoseconds = options['coerce_temporal_nanoseconds']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
 
     maps_as_pydicts = options['maps_as_pydicts']
@@ -1252,6 +1265,17 @@ cdef class Array(_PandasConvertible):
         return frombytes(result, safe=True)
 
     def format(self, **kwargs):
+        """
+        DEPRECATED, use pyarrow.Array.to_string
+
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        str
+        """
         import warnings
         warnings.warn('Array.format is deprecated, use Array.to_string')
         return self.to_string(**kwargs)
@@ -1268,6 +1292,15 @@ cdef class Array(_PandasConvertible):
             return NotImplemented
 
     def equals(Array self, Array other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.Array
+
+        Returns
+        -------
+        bool
+        """
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
@@ -1525,6 +1558,7 @@ cdef class Array(_PandasConvertible):
         # so it can't be done if the user requested a zero_copy.
         c_options.decode_dictionaries = not zero_copy_only
         c_options.zero_copy_only = zero_copy_only
+        c_options.to_numpy = True
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
@@ -1673,9 +1707,25 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
 
     original_type = obj.type
     name = obj._name
+    dtype = None
 
-    # ARROW-3789(wesm): Convert date/timestamp types to datetime64[ns]
-    c_options.coerce_temporal_nanoseconds = True
+    if types_mapper:
+        dtype = types_mapper(original_type)
+    elif original_type.id == _Type_EXTENSION:
+        try:
+            dtype = original_type.to_pandas_dtype()
+        except NotImplementedError:
+            pass
+
+    # Only call __from_arrow__ for Arrow extension types or when explicitly
+    # overridden via types_mapper
+    if hasattr(dtype, '__from_arrow__'):
+        arr = dtype.__from_arrow__(obj)
+        return pandas_api.series(arr, name=name, copy=False)
+
+    if pandas_api.is_v1():
+        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
+        c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
         with nogil:
@@ -1914,7 +1964,7 @@ cdef class BaseListArray(Array):
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.
 
-        Note that this method is different from ``self.values()`` in that
+        Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
         by non-empty sub-lists.
 
@@ -2053,6 +2103,72 @@ cdef class ListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the ListArray
+        ignoring the array's offset.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        ListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from sub-lists:
+
+        >>> import pyarrow as pa
+        >>> array = pa.array([[1, 2], None, [3, 4, None, 6]])
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.ListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        """
         cdef CListArray* arr = <CListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2140,6 +2256,74 @@ cdef class LargeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the LargeListArray
+        ignoring the array's offset.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        LargeListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from the sub-lists:
+
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, 4, None, 6]],
+        ...     type=pa.large_list(pa.int32()),
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.LargeListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+        """
         cdef CLargeListArray* arr = <CLargeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2179,6 +2363,79 @@ cdef class MapArray(ListArray):
         Returns
         -------
         map_array : MapArray
+
+        Examples
+        --------
+        First, let's understand the structure of our dataset when viewed in a rectangular data model. 
+        The total of 5 respondents answered the question "How much did you like the movie x?".
+        The value -1 in the integer array means that the value is missing. The boolean array
+        represents the null bitmask corresponding to the missing values in the integer array.
+
+        >>> import pyarrow as pa
+        >>> movies_rectangular = np.ma.masked_array([
+        ...     [10, -1, -1],
+        ...     [8, 4, 5],
+        ...     [-1, 10, 3],
+        ...     [-1, -1, -1],
+        ...     [-1, -1, -1]
+        ... ],
+        ... [
+        ...     [False, True, True],
+        ...     [False, False, False],
+        ...     [True, False, False],
+        ...     [True, True, True],
+        ...     [True, True, True],
+        ... ])
+
+        To represent the same data with the MapArray and from_arrays, the data is
+        formed like this:
+
+        >>> offsets = [
+        ...     0, #  -- row 1 start
+        ...     1, #  -- row 2 start
+        ...     4, #  -- row 3 start
+        ...     6, #  -- row 4 start
+        ...     6, #  -- row 5 start
+        ...     6, #  -- row 5 end
+        ... ]
+        >>> movies = [
+        ...     "Dark Knight", #  ---------------------------------- row 1
+        ...     "Dark Knight", "Meet the Parents", "Superman", #  -- row 2
+        ...     "Meet the Parents", "Superman", #  ----------------- row 3
+        ... ]
+        >>> likings = [
+        ...     10, #  -------- row 1
+        ...     8, 4, 5, #  --- row 2
+        ...     10, 3 #  ------ row 3
+        ... ]
+        >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
+        0                                  [(Dark Knight, 10)]
+        1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
+        2              [(Meet the Parents, 10), (Superman, 3)]
+        3                                                   []
+        4                                                   []
+        dtype: object
+
+        If the data in the empty rows needs to be marked as missing, it's possible
+        to do so by modifying the offsets argument, so that we specify `None` as
+        the starting positions of the rows we want marked as missing. The end row
+        offset still has to refer to the existing value from keys (and values):
+
+        >>> offsets = [
+        ...     0, #  ----- row 1 start
+        ...     1, #  ----- row 2 start
+        ...     4, #  ----- row 3 start
+        ...     None, #  -- row 4 start
+        ...     None, #  -- row 5 start
+        ...     6, #  ----- row 5 end
+        ... ]
+        >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
+        0                                  [(Dark Knight, 10)]
+        1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
+        2              [(Meet the Parents, 10), (Superman, 3)]
+        3                                                 None
+        4                                                 None
+        dtype: object
         """
         cdef:
             Array _offsets, _keys, _items
@@ -2296,6 +2553,42 @@ cdef class FixedSizeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the
+        FixedSizeListArray.
+
+        Note even null elements are included.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        sub-list values.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        FixedSizeListArray.flatten : ...
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, None]],
+        ...     type=pa.list_(pa.int32(), 2)
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          null,
+          null,
+          3,
+          null
+        ]
+
+        """
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2306,6 +2599,19 @@ cdef class UnionArray(Array):
     """
 
     def child(self, int pos):
+        """
+        DEPRECATED, use field() instead.
+
+        Parameters
+        ----------
+        pos : int
+            The physical index of the union child field (not its type code).
+
+        Returns
+        -------
+        field : pyarrow.Field
+            The given child field.
+        """
         import warnings
         warnings.warn("child is deprecated, use field", FutureWarning)
         return self.field(pos)
@@ -3091,21 +3397,6 @@ cdef class ExtensionArray(Array):
         result.validate()
         return result
 
-    def _to_pandas(self, options, **kwargs):
-        pandas_dtype = None
-        try:
-            pandas_dtype = self.type.to_pandas_dtype()
-        except NotImplementedError:
-            pass
-
-        # pandas ExtensionDtype that implements conversion from pyarrow
-        if hasattr(pandas_dtype, '__from_arrow__'):
-            arr = pandas_dtype.__from_arrow__(self)
-            return pandas_api.series(arr, copy=False)
-
-        # otherwise convert the storage array with the base implementation
-        return Array._to_pandas(self.storage, options, **kwargs)
-
 
 class FixedShapeTensorArray(ExtensionArray):
     """
@@ -3153,7 +3444,7 @@ class FixedShapeTensorArray(ExtensionArray):
         Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
         if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            np_flat = np.asarray(self.storage.values)
+            np_flat = np.asarray(self.storage.flatten())
             numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
             return numpy_tensor
         else:

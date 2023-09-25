@@ -36,6 +36,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
@@ -762,6 +763,23 @@ TEST(ExecPlanExecution, DeclarationToReader) {
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> out, reader->ToTable());
   ASSERT_EQ(5, out->num_rows());
+  ASSERT_OK(reader->Close());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
+                                  reader->Next());
+}
+
+TEST(ExecPlanExecution, DeclarationToReaderWithEarlyClose) {
+  auto random_data = MakeRandomBatches(schema({field("a", int8())}), /*num_batches=*/100);
+  auto plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions(random_data.schema, random_data.gen(false, false))}});
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                       DeclarationToReader(plan, /*use_threads=*/false));
+
+  // read only a few batches
+  for (size_t i = 0; i < 10; i++) {
+    ASSERT_OK(reader->Next());
+  }
+  // then close
   ASSERT_OK(reader->Close());
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
                                   reader->Next());
@@ -1602,6 +1620,12 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
 }
 
 TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif
+  if (internal::GetCpuThreadPool()->GetCapacity() < 2) {
+    GTEST_SKIP() << "Test requires at least 2 threads";
+  }
   BatchesWithSchema data;
   data.batches = {ExecBatchFromJSON({int32()}, "[[1]]")};
   data.schema = schema({field("i32", int32())});
@@ -1702,6 +1726,46 @@ TEST(ExecPlanExecution, SegmentedAggregationWithBatchCrossingSegment) {
                                     R"([[1, 1, 2, 1], [2, 2, 4, 2], [3, 3, 6, 3]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
+}
+
+TEST(ExecPlanExecution, UnalignedInput) {
+  std::shared_ptr<Array> array = ArrayFromJSON(int32(), "[1, 2, 3]");
+  std::shared_ptr<Array> unaligned = UnalignBuffers(*array);
+  ASSERT_OK_AND_ASSIGN(ExecBatch sample_batch,
+                       ExecBatch::Make({unaligned}, array->length()));
+
+  BatchesWithSchema data;
+  data.batches = {std::move(sample_batch)};
+  data.schema = schema({field("i32", int32())});
+
+  Declaration plan = Declaration::Sequence({
+      {"exec_batch_source", ExecBatchSourceNodeOptions(data.schema, data.batches)},
+  });
+
+  int64_t initial_bytes_allocated = default_memory_pool()->total_bytes_allocated();
+
+  // By default we should warn and so the plan should finish ok
+  ASSERT_OK(DeclarationToStatus(plan));
+  ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+
+  QueryOptions query_options;
+
+#ifndef ARROW_UBSAN
+  // Nothing should happen if we ignore alignment
+  query_options.unaligned_buffer_handling = UnalignedBufferHandling::kIgnore;
+  ASSERT_OK(DeclarationToStatus(plan, query_options));
+  ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+#endif
+
+  query_options.unaligned_buffer_handling = UnalignedBufferHandling::kError;
+  ASSERT_THAT(DeclarationToStatus(plan, query_options),
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("An input buffer was poorly aligned")));
+  ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+
+  query_options.unaligned_buffer_handling = UnalignedBufferHandling::kReallocate;
+  ASSERT_OK(DeclarationToStatus(plan, query_options));
+  ASSERT_LT(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
 }
 
 }  // namespace acero

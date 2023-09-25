@@ -30,7 +30,7 @@ if (test_mode && is.na(VERSION)) {
 dev_version <- package_version(VERSION)[1, 4]
 
 # Small dev versions are added for R-only changes during CRAN submission.
-if (is.na(dev_version) || dev_version < 100) {
+if (is.na(dev_version) || dev_version < "100") {
   VERSION <- package_version(VERSION)[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
@@ -197,7 +197,14 @@ compile_test_program <- function(code) {
   # Note: if we wanted to check for openssl on macOS, we'd have to set the brew
   # path as a -I directory. But since we (currently) only run this code to
   # determine whether we can download a Linux binary, it's not relevant.
-  runner <- "`R CMD config CXX17` `R CMD config CPPFLAGS` `R CMD config CXX17FLAGS` `R CMD config CXX17STD` -E -xc++"
+  runner <- paste(
+    R_CMD_config("CXX17"),
+    R_CMD_config("CPPFLAGS"),
+    R_CMD_config("CXX17FLAGS"),
+    R_CMD_config("CXX17STD"),
+    "-E",
+    "-xc++"
+  )
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
@@ -466,28 +473,36 @@ build_libarrow <- function(src_dir, dst_dir) {
   env_vars <- env_vars_as_string(env_var_list)
 
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
-  status <- suppressWarnings(system(
-    paste(env_vars, "inst/build_arrow_static.sh"),
-    ignore.stdout = quietly, ignore.stderr = quietly
+
+  build_log_path <- tempfile(fileext = ".log")
+  status <- suppressWarnings(system2(
+    "bash",
+    "inst/build_arrow_static.sh",
+    env = env_vars,
+    stdout = ifelse(quietly, build_log_path, ""),
+    stderr = ifelse(quietly, build_log_path, "")
   ))
+
   if (status != 0) {
     # It failed :(
-    cat(
-      "**** Error building Arrow C++.",
-      ifelse(env_is("ARROW_R_DEV", "true"), "", "Re-run with ARROW_R_DEV=true for debug information."),
-      "\n"
-    )
+    cat("**** Error building Arrow C++.", "\n")
+    if (quietly) {
+      cat("**** Printing contents of build log because the build failed", 
+          "while ARROW_R_DEV was set to FALSE\n")
+      cat(readLines(build_log_path), sep = "\n")
+      cat("**** Complete build log may still be present at", build_log_path, "\n")
+    }
   }
   invisible(status)
 }
 
-ensure_cmake <- function() {
-  cmake <- find_cmake()
+ensure_cmake <- function(cmake_minimum_required = "3.16") {
+  cmake <- find_cmake(version_required = cmake_minimum_required)
 
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.21.4")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.26.4")
     if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
       postfix <- "-macos-universal.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) %in% c("arm64", "aarch64")) {
@@ -497,7 +512,8 @@ ensure_cmake <- function() {
     } else {
       stop(paste0(
         "*** cmake was not found locally.\n",
-        "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
+        "    Please make sure cmake >= ", cmake_minimum_required,
+        " is installed and available on your PATH.\n"
       ))
     }
     cmake_binary_url <- paste0(
@@ -510,7 +526,8 @@ ensure_cmake <- function() {
     if (!download_successful) {
       cat(paste0(
         "*** cmake was not found locally and download failed.\n",
-        "    Make sure cmake >= 3.10 is installed and available on your PATH,\n",
+        "    Make sure cmake >= ", cmake_minimum_required,
+        " is installed and available on your PATH,\n",
         "    or download ", cmake_binary_url, "\n",
         "    and define the CMAKE environment variable.\n"
       ))
@@ -536,7 +553,7 @@ find_cmake <- function(paths = c(
                          Sys.which("cmake"),
                          Sys.which("cmake3")
                        ),
-                       version_required = "3.10") {
+                       version_required = "3.16") {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
   # version_required should be a string or packageVersion; numeric version
   # can be misleading (e.g. 3.10 is actually 3.1)

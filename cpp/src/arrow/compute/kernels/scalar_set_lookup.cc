@@ -20,6 +20,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
@@ -30,22 +31,34 @@ namespace arrow {
 using internal::checked_cast;
 using internal::HashTraits;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 namespace {
 
+// This base class enables non-templated access to the value set type
+struct SetLookupStateBase : public KernelState {
+  std::shared_ptr<DataType> value_set_type;
+};
+
 template <typename Type>
-struct SetLookupState : public KernelState {
-  explicit SetLookupState(MemoryPool* pool) : lookup_table(pool, 0) {}
+struct SetLookupState : public SetLookupStateBase {
+  explicit SetLookupState(MemoryPool* pool) : memory_pool(pool) {}
 
   Status Init(const SetLookupOptions& options) {
+    this->null_matching_behavior = options.GetNullMatchingBehavior();
     if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
+      lookup_table =
+          MemoTable(memory_pool,
+                    ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length);
       RETURN_NOT_OK(AddArrayValueSet(options, *options.value_set.array()));
     } else if (options.value_set.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
       memo_index_to_value_index.reserve(value_set.length());
+      lookup_table =
+          MemoTable(memory_pool,
+                    ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length());
+
       int64_t offset = 0;
       for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
         RETURN_NOT_OK(AddArrayValueSet(options, *chunk->data(), offset));
@@ -54,9 +67,11 @@ struct SetLookupState : public KernelState {
     } else {
       return Status::Invalid("value_set should be an array or chunked array");
     }
-    if (!options.skip_nulls && lookup_table.GetNull() >= 0) {
-      null_index = memo_index_to_value_index[lookup_table.GetNull()];
+    if (this->null_matching_behavior != SetLookupOptions::SKIP &&
+        lookup_table->GetNull() >= 0) {
+      null_index = memo_index_to_value_index[lookup_table->GetNull()];
     }
+    value_set_type = options.value_set.type();
     return Status::OK();
   }
 
@@ -75,7 +90,7 @@ struct SetLookupState : public KernelState {
         DCHECK_EQ(memo_index, memo_size);
         memo_index_to_value_index.push_back(index);
       };
-      RETURN_NOT_OK(lookup_table.GetOrInsert(
+      RETURN_NOT_OK(lookup_table->GetOrInsert(
           v, std::move(on_found), std::move(on_not_found), &unused_memo_index));
       ++index;
       return Status::OK();
@@ -89,7 +104,7 @@ struct SetLookupState : public KernelState {
         DCHECK_EQ(memo_index, memo_size);
         memo_index_to_value_index.push_back(index);
       };
-      lookup_table.GetOrInsertNull(std::move(on_found), std::move(on_not_found));
+      lookup_table->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
       ++index;
       return Status::OK();
     };
@@ -98,23 +113,29 @@ struct SetLookupState : public KernelState {
   }
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;
-  MemoTable lookup_table;
+  std::optional<MemoTable> lookup_table;  // use optional for delayed initialization
+  MemoryPool* memory_pool;
   // When there are duplicates in value_set, the MemoTable indices must
   // be mapped back to indices in the value_set.
   std::vector<int32_t> memo_index_to_value_index;
   int32_t null_index = -1;
+  SetLookupOptions::NullMatchingBehavior null_matching_behavior;
 };
 
 template <>
-struct SetLookupState<NullType> : public KernelState {
+struct SetLookupState<NullType> : public SetLookupStateBase {
   explicit SetLookupState(MemoryPool*) {}
 
-  Status Init(const SetLookupOptions& options) {
-    value_set_has_null = (options.value_set.length() > 0) && !options.skip_nulls;
+  Status Init(SetLookupOptions& options) {
+    null_matching_behavior = options.GetNullMatchingBehavior();
+    value_set_has_null = (options.value_set.length() > 0) &&
+                         this->null_matching_behavior != SetLookupOptions::SKIP;
+    value_set_type = null();
     return Status::OK();
   }
 
   bool value_set_has_null;
+  SetLookupOptions::NullMatchingBehavior null_matching_behavior;
 };
 
 // TODO: Put this concept somewhere reusable
@@ -194,7 +215,7 @@ struct InitStateVisitor {
       const auto& ty1 = checked_cast<const TimestampType&>(*arg_type);
       const auto& ty2 = checked_cast<const TimestampType&>(*options.value_set.type());
       if (ty1.timezone().empty() ^ ty2.timezone().empty()) {
-        return Status::Invalid(
+        return Status::TypeError(
             "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
             ty1, " and ", ty2);
       }
@@ -203,19 +224,34 @@ struct InitStateVisitor {
       // This is a bit of a hack, but don't implicitly cast from a non-binary
       // type to string, since most types support casting to string and that
       // may lead to surprises. However, we do want most other implicit casts.
-      return Status::Invalid("Array type didn't match type of values set: ", *arg_type,
-                             " vs ", *options.value_set.type());
+      return Status::TypeError("Array type doesn't match type of values set: ", *arg_type,
+                               " vs ", *options.value_set.type());
     }
+
     if (!options.value_set.is_arraylike()) {
       return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
     } else if (!options.value_set.type()->Equals(*arg_type)) {
-      ARROW_ASSIGN_OR_RAISE(
-          options.value_set,
+      auto cast_result =
           Cast(options.value_set, CastOptions::Safe(arg_type.GetSharedPtr()),
-               ctx->exec_context()));
+               ctx->exec_context());
+      if (cast_result.ok()) {
+        options.value_set = *cast_result;
+      } else if (CanCast(*arg_type.type, *options.value_set.type())) {
+        // Avoid casting from non binary types to string like above
+        // Otherwise, will try to cast input array to value set type during kernel exec
+        if ((options.value_set.type()->id() == Type::STRING ||
+             options.value_set.type()->id() == Type::LARGE_STRING) &&
+            !is_base_binary_like(arg_type.id())) {
+          return Status::TypeError("Array type doesn't match type of values set: ",
+                                   *arg_type, " vs ", *options.value_set.type());
+        }
+      } else {
+        return Status::TypeError("Array type doesn't match type of values set: ",
+                                 *arg_type, " vs ", *options.value_set.type());
+      }
     }
 
-    RETURN_NOT_OK(VisitTypeInline(*arg_type, this));
+    RETURN_NOT_OK(VisitTypeInline(*options.value_set.type(), this));
     return std::move(result);
   }
 };
@@ -240,31 +276,34 @@ struct IndexInVisitor {
       : ctx(ctx), data(data), out(out), out_bitmap(out->buffers[0].data) {}
 
   Status Visit(const DataType& type) {
-    DCHECK_EQ(type.id(), Type::NA);
+    DCHECK(false) << "IndexIn " << type;
+    return Status::NotImplemented("IndexIn has no implementation with value type ", type);
+  }
+
+  Status Visit(const NullType&) {
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
 
     if (data.length != 0) {
-      // skip_nulls is honored for consistency with other types
-      bit_util::SetBitsTo(out_bitmap, out->offset, out->length, state.value_set_has_null);
+      bit_util::SetBitsTo(out_bitmap, out->offset, out->length,
+                          state.null_matching_behavior == SetLookupOptions::MATCH &&
+                              state.value_set_has_null);
 
       // Set all values to 0, which will be unmasked only if null is in the value_set
+      // and null_matching_behavior is equal to MATCH
       std::memset(out->GetValues<int32_t>(1), 0x00, out->length * sizeof(int32_t));
     }
     return Status::OK();
   }
 
   template <typename Type>
-  Status ProcessIndexIn() {
+  Status ProcessIndexIn(const SetLookupState<Type>& state, const ArraySpan& input) {
     using T = typename GetViewType<Type>::T;
-
-    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
-
     FirstTimeBitmapWriter bitmap_writer(out_bitmap, out->offset, out->length);
     int32_t* out_data = out->GetValues<int32_t>(1);
     VisitArraySpanInline<Type>(
-        data,
+        input,
         [&](T v) {
-          int32_t index = state.lookup_table.Get(v);
+          int32_t index = state.lookup_table->Get(v);
           if (index != -1) {
             bitmap_writer.Set();
 
@@ -278,7 +317,8 @@ struct IndexInVisitor {
           bitmap_writer.Next();
         },
         [&]() {
-          if (state.null_index != -1) {
+          if (state.null_index != -1 &&
+              state.null_matching_behavior == SetLookupOptions::MATCH) {
             bitmap_writer.Set();
 
             // value_set included null
@@ -292,6 +332,26 @@ struct IndexInVisitor {
         });
     bitmap_writer.Finish();
     return Status::OK();
+  }
+
+  template <typename Type>
+  Status ProcessIndexIn() {
+    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
+    if (!data.type->Equals(state.value_set_type)) {
+      auto materialized_input = data.ToArrayData();
+      auto cast_result = Cast(*materialized_input, state.value_set_type,
+                              CastOptions::Safe(), ctx->exec_context());
+      if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
+        if (cast_result.status().IsNotImplemented()) {
+          return Status::TypeError("Array type doesn't match type of values set: ",
+                                   *data.type, " vs ", *state.value_set_type);
+        }
+        return cast_result.status();
+      }
+      auto casted_input = *cast_result;
+      return ProcessIndexIn(state, *casted_input.array());
+    }
+    return ProcessIndexIn(state, data);
   }
 
   template <typename Type>
@@ -322,59 +382,118 @@ struct IndexInVisitor {
     return ProcessIndexIn<MonthDayNanoIntervalType>();
   }
 
-  Status Execute() { return VisitTypeInline(*data.type, this); }
+  Status Execute() {
+    const auto& state = checked_cast<const SetLookupStateBase&>(*ctx->state());
+    return VisitTypeInline(*state.value_set_type, this);
+  }
 };
 
 Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return IndexInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
-// ----------------------------------------------------------------------
-
 // IsIn writes the results into a preallocated boolean data bitmap
 struct IsInVisitor {
   KernelContext* ctx;
   const ArraySpan& data;
   ArraySpan* out;
+  uint8_t* out_boolean_bitmap;
+  uint8_t* out_null_bitmap;
 
   IsInVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
-      : ctx(ctx), data(data), out(out) {}
+      : ctx(ctx),
+        data(data),
+        out(out),
+        out_boolean_bitmap(out->buffers[1].data),
+        out_null_bitmap(out->buffers[0].data) {}
 
   Status Visit(const DataType& type) {
-    DCHECK_EQ(type.id(), Type::NA);
+    DCHECK(false) << "IndexIn " << type;
+    return Status::NotImplemented("IsIn has no implementation with value type ", type);
+  }
+
+  Status Visit(const NullType&) {
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
-    // skip_nulls is honored for consistency with other types
-    bit_util::SetBitsTo(out->buffers[1].data, out->offset, out->length,
-                        state.value_set_has_null);
+
+    if (state.null_matching_behavior == SetLookupOptions::MATCH &&
+        state.value_set_has_null) {
+      bit_util::SetBitsTo(out_boolean_bitmap, out->offset, out->length, true);
+      bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, true);
+    } else if (state.null_matching_behavior == SetLookupOptions::SKIP ||
+               (!state.value_set_has_null &&
+                state.null_matching_behavior == SetLookupOptions::MATCH)) {
+      bit_util::SetBitsTo(out_boolean_bitmap, out->offset, out->length, false);
+      bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, true);
+    } else {
+      bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, false);
+    }
+    return Status::OK();
+  }
+
+  template <typename Type>
+  Status ProcessIsIn(const SetLookupState<Type>& state, const ArraySpan& input) {
+    using T = typename GetViewType<Type>::T;
+    FirstTimeBitmapWriter writer_boolean(out_boolean_bitmap, out->offset, out->length);
+    FirstTimeBitmapWriter writer_null(out_null_bitmap, out->offset, out->length);
+    bool value_set_has_null = state.null_index != -1;
+    VisitArraySpanInline<Type>(
+        input,
+        [&](T v) {
+          if (state.lookup_table->Get(v) != -1) {  // true
+            writer_boolean.Set();
+            writer_null.Set();
+          } else if (state.null_matching_behavior == SetLookupOptions::INCONCLUSIVE &&
+                     value_set_has_null) {  // null
+            writer_boolean.Clear();
+            writer_null.Clear();
+          } else {  // false
+            writer_boolean.Clear();
+            writer_null.Set();
+          }
+          writer_boolean.Next();
+          writer_null.Next();
+        },
+        [&]() {
+          if (state.null_matching_behavior == SetLookupOptions::MATCH &&
+              value_set_has_null) {  // true
+            writer_boolean.Set();
+            writer_null.Set();
+          } else if (state.null_matching_behavior == SetLookupOptions::SKIP ||
+                     (!value_set_has_null && state.null_matching_behavior ==
+                                                 SetLookupOptions::MATCH)) {  // false
+            writer_boolean.Clear();
+            writer_null.Set();
+          } else {  // null
+            writer_boolean.Clear();
+            writer_null.Clear();
+          }
+          writer_boolean.Next();
+          writer_null.Next();
+        });
+    writer_boolean.Finish();
+    writer_null.Finish();
     return Status::OK();
   }
 
   template <typename Type>
   Status ProcessIsIn() {
-    using T = typename GetViewType<Type>::T;
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
 
-    FirstTimeBitmapWriter writer(out->buffers[1].data, out->offset, out->length);
-    VisitArraySpanInline<Type>(
-        this->data,
-        [&](T v) {
-          if (state.lookup_table.Get(v) != -1) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
-        },
-        [&]() {
-          if (state.null_index != -1) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
-        });
-    writer.Finish();
-    return Status::OK();
+    if (!data.type->Equals(state.value_set_type)) {
+      auto materialized_input = data.ToArrayData();
+      auto cast_result = Cast(*materialized_input, state.value_set_type,
+                              CastOptions::Safe(), ctx->exec_context());
+      if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
+        if (cast_result.status().IsNotImplemented()) {
+          return Status::TypeError("Array type doesn't match type of values set: ",
+                                   *data.type, " vs ", *state.value_set_type);
+        }
+        return cast_result.status();
+      }
+      auto casted_input = *cast_result;
+      return ProcessIsIn(state, *casted_input.array());
+    }
+    return ProcessIsIn(state, data);
   }
 
   template <typename Type>
@@ -404,7 +523,10 @@ struct IsInVisitor {
     return ProcessIsIn<MonthDayNanoIntervalType>();
   }
 
-  Status Execute() { return VisitTypeInline(*data.type, this); }
+  Status Execute() {
+    const auto& state = checked_cast<const SetLookupStateBase&>(*ctx->state());
+    return VisitTypeInline(*state.value_set_type, this);
+  }
 };
 
 Status ExecIsIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -433,6 +555,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   AddKernels(BaseBinaryTypes());
   AddKernels(NumericTypes());
   AddKernels(TemporalTypes());
+  AddKernels(DurationTypes());
   AddKernels({month_day_nano_interval()});
 
   std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL128, Type::DECIMAL256,
@@ -525,7 +648,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
     isin_base.exec = ExecIsIn;
-    isin_base.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), is_in_doc);
 
     AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());
@@ -556,6 +679,5 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   }
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

@@ -178,7 +178,7 @@ open_dataset <- function(sources,
                          partitioning = hive_partition(),
                          hive_style = NA,
                          unify_schemas = NULL,
-                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
                          factory_options = list(),
                          ...) {
   stop_if_no_datasets()

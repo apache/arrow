@@ -19,29 +19,28 @@ package pqarrow_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
-	"github.com/apache/arrow/go/v13/internal/types"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/compress"
-	"github.com/apache/arrow/go/v13/parquet/file"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v13/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v13/parquet/pqarrow"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/types"
+	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/compress"
+	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v14/parquet/pqarrow"
+	"github.com/apache/arrow/go/v14/parquet/schema"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -322,6 +321,7 @@ func writeTableToBuffer(t *testing.T, mem memory.Allocator, tbl arrow.Table, row
 }
 
 func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
+	t.Helper()
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
@@ -340,6 +340,7 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 
 		chunked, err := crdr.NextBatch(tbl.NumRows())
 		require.NoError(t, err)
+		defer chunked.Release()
 
 		require.EqualValues(t, tbl.NumRows(), chunked.Len())
 
@@ -357,6 +358,83 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 		}
 		crdr.Release()
 	}
+}
+
+func TestWriteKeyValueMetadata(t *testing.T) {
+	kv := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "int32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+	)
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		require.NoError(t, fw.AppendKeyValueMetadata(key, value))
+	}
+
+	err = fw.Close()
+	require.NoError(t, err)
+
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		got := reader.MetaData().KeyValueMetadata().FindValue(key)
+		require.NotNil(t, got)
+		assert.Equal(t, value, *got)
+	}
+}
+
+func TestWriteEmptyLists(t *testing.T) {
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
+		{Name: "f2", Type: arrow.ListOf(arrow.FixedWidthTypes.Date64)},
+		{Name: "f3", Type: arrow.ListOf(arrow.FixedWidthTypes.Timestamp_us)},
+		{Name: "f4", Type: arrow.ListOf(arrow.FixedWidthTypes.Timestamp_ms)},
+		{Name: "f5", Type: arrow.ListOf(arrow.FixedWidthTypes.Time32ms)},
+		{Name: "f6", Type: arrow.ListOf(arrow.FixedWidthTypes.Time64ns)},
+		{Name: "f7", Type: arrow.ListOf(arrow.FixedWidthTypes.Time64us)},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+	)
+	arrprops := pqarrow.DefaultWriterProps()
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, arrprops)
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+	err = fw.Close()
+	require.NoError(t, err)
 }
 
 func TestArrowReadWriteTableChunkedCols(t *testing.T) {
@@ -442,9 +520,9 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 		default:
 			panic("only micro and nano seconds are supported for arrow TIME64")
 		}
-	case arrow.DECIMAL:
-		dec := typ.(*arrow.Decimal128Type)
-		return schema.NewDecimalLogicalType(dec.Precision, dec.Scale)
+	case arrow.DECIMAL, arrow.DECIMAL256:
+		dec := typ.(arrow.DecimalType)
+		return schema.NewDecimalLogicalType(dec.GetPrecision(), dec.GetScale())
 	}
 	return schema.NoLogicalType{}
 }
@@ -520,15 +598,15 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 	switch typ := typ.(type) {
 	case *arrow.FixedSizeBinaryType:
 		byteWidth = int32(typ.ByteWidth)
-	case *arrow.Decimal128Type:
-		byteWidth = pqarrow.DecimalSize(typ.Precision)
+	case arrow.DecimalType:
+		byteWidth = pqarrow.DecimalSize(typ.GetPrecision())
 	case *arrow.DictionaryType:
 		valuesType := typ.ValueType
 		switch dt := valuesType.(type) {
 		case *arrow.FixedSizeBinaryType:
 			byteWidth = int32(dt.ByteWidth)
-		case *arrow.Decimal128Type:
-			byteWidth = pqarrow.DecimalSize(dt.Precision)
+		case arrow.DecimalType:
+			byteWidth = pqarrow.DecimalSize(dt.GetPrecision())
 		}
 	}
 
@@ -694,6 +772,7 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRead(mem memory.Allocator, typ ar
 
 	chunked, err := cr.NextBatch(smallSize)
 	ps.NoError(err)
+	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
 	ps.True(array.Equal(values, chunked.Chunk(0)))
@@ -899,6 +978,94 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 	ps.True(array.Equal(expected, chunked.Chunk(0)))
 }
 
+func (ps *ParquetIOTestSuite) TestReadDecimal256() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bigEndian := []parquet.ByteArray{
+		// 123456
+		[]byte{1, 226, 64},
+		// 987654
+		[]byte{15, 18, 6},
+		// -123456
+		[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29, 192},
+	}
+
+	bldr := array.NewDecimal256Builder(mem, &arrow.Decimal256Type{Precision: 40, Scale: 3})
+	defer bldr.Release()
+
+	bldr.Append(decimal256.FromU64(123456))
+	bldr.Append(decimal256.FromU64(987654))
+	bldr.Append(decimal256.FromI64(-123456))
+
+	expected := bldr.NewDecimal256Array()
+	defer expected.Release()
+
+	sc := schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.NewPrimitiveNodeLogical("decimals", parquet.Repetitions.Required, schema.NewDecimalLogicalType(40, 3), parquet.Types.ByteArray, -1, -1)),
+	}, -1))
+
+	sink := encoding.NewBufferWriter(0, mem)
+	defer sink.Release()
+	writer := file.NewParquetWriter(sink, sc)
+
+	rgw := writer.AppendRowGroup()
+	cw, _ := rgw.NextColumn()
+	cw.(*file.ByteArrayColumnChunkWriter).WriteBatch(bigEndian, nil, nil)
+	cw.Close()
+	rgw.Close()
+	writer.Close()
+
+	rdr := ps.createReader(mem, sink.Bytes())
+	cr, err := rdr.GetColumn(context.TODO(), 0)
+	ps.NoError(err)
+
+	chunked, err := cr.NextBatch(smallSize)
+	ps.NoError(err)
+	defer chunked.Release()
+
+	ps.Len(chunked.Chunks(), 1)
+	ps.Truef(array.Equal(expected, chunked.Chunk(0)), "expected: %s\ngot: %s", expected, chunked.Chunk(0))
+}
+
+func (ps *ParquetIOTestSuite) TestReadNestedStruct() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	dt := arrow.StructOf(arrow.Field{
+		Name: "nested",
+		Type: arrow.StructOf(
+			arrow.Field{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
+			arrow.Field{Name: "int32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "int64", Type: arrow.PrimitiveTypes.Int64},
+		),
+	})
+	field := arrow.Field{Name: "struct", Type: dt, Nullable: true}
+
+	builder := array.NewStructBuilder(mem, dt)
+	defer builder.Release()
+	nested := builder.FieldBuilder(0).(*array.StructBuilder)
+
+	builder.Append(true)
+	nested.Append(true)
+	nested.FieldBuilder(0).(*array.BooleanBuilder).Append(true)
+	nested.FieldBuilder(1).(*array.Int32Builder).Append(int32(-1))
+	nested.FieldBuilder(2).(*array.Int64Builder).Append(int64(-2))
+	builder.AppendNull()
+
+	arr := builder.NewStructArray()
+	defer arr.Release()
+
+	expected := array.NewTable(
+		arrow.NewSchema([]arrow.Field{field}, nil),
+		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(dt, []arrow.Array{arr}))},
+		-1,
+	)
+	defer arr.Release() // NewChunked
+	defer expected.Release()
+	ps.roundTripTable(mem, expected, true)
+}
+
 func (ps *ParquetIOTestSuite) writeColumn(mem memory.Allocator, sc *schema.GroupNode, values arrow.Array) []byte {
 	var buf bytes.Buffer
 	arrsc, err := pqarrow.FromParquet(schema.NewSchema(sc), nil, nil)
@@ -925,6 +1092,7 @@ func (ps *ParquetIOTestSuite) readAndCheckSingleColumnFile(mem memory.Allocator,
 
 	chunked, err := cr.NextBatch(smallSize)
 	ps.NoError(err)
+	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
 	ps.NotNil(chunked.Chunk(0))
@@ -972,10 +1140,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {
 	}
 }
 
-func (ps *ParquetIOTestSuite) roundTripTable(_ memory.Allocator, expected arrow.Table, storeSchema bool) {
-	mem := memory.NewCheckedAllocator(memory.DefaultAllocator) // FIXME: currently overriding allocator to isolate leaks between roundTripTable and caller
-	//defer mem.AssertSize(ps.T(), 0)                            // FIXME: known leak
-
+func (ps *ParquetIOTestSuite) roundTripTable(mem memory.Allocator, expected arrow.Table, storeSchema bool) {
 	var buf bytes.Buffer
 	var props pqarrow.ArrowWriterProperties
 	if storeSchema {
@@ -1000,29 +1165,9 @@ func (ps *ParquetIOTestSuite) roundTripTable(_ memory.Allocator, expected arrow.
 	tblChunk := tbl.Column(0).Data()
 
 	ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
-	if exChunk.DataType().ID() != arrow.STRUCT {
-		exc := exChunk.Chunk(0)
-		tbc := tblChunk.Chunk(0)
-		ps.Truef(array.Equal(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
-	} else {
-		// current impl of ArrayEquals for structs doesn't correctly handle nulls in the parent
-		// with a non-nullable child when comparing. Since after the round trip, the data in the
-		// child will have the nulls, not the original data.
-		ex := exChunk.Chunk(0)
-		tb := tblChunk.Chunk(0)
-		ps.Equal(ex.NullN(), tb.NullN())
-		if ex.NullN() > 0 {
-			ps.Equal(ex.NullBitmapBytes()[:int(bitutil.BytesForBits(int64(ex.Len())))], tb.NullBitmapBytes()[:int(bitutil.BytesForBits(int64(tb.Len())))])
-		}
-		ps.Equal(ex.Len(), tb.Len())
-		// only compare the non-null values
-		ps.NoErrorf(bitutils.VisitSetBitRuns(ex.NullBitmapBytes(), int64(ex.Data().Offset()), int64(ex.Len()), func(pos, length int64) error {
-			if !ps.True(array.SliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
-				return errors.New("failed")
-			}
-			return nil
-		}), "expected: %s\ngot: %s", ex, tb)
-	}
+	exc := exChunk.Chunk(0)
+	tbc := tblChunk.Chunk(0)
+	ps.Truef(array.ApproxEqual(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
 }
 
 func makeEmptyListsArray(size int) arrow.Array {
@@ -1132,7 +1277,7 @@ func prepareListOfListTable(dt arrow.DataType, size, nullCount int, nullablePare
 
 func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
-	//defer mem.AssertSize(ps.T(), 0) // FIXME: known leak
+	defer mem.AssertSize(ps.T(), 0)
 
 	expected := prepareEmptyListsTable(smallSize)
 	defer expected.Release()

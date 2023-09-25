@@ -21,11 +21,11 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-cdef class ScalarUdfContext(_Weakrefable):
+cdef class UdfContext(_Weakrefable):
     cdef:
-        CScalarUdfContext c_context
+        CUdfContext c_context
 
-    cdef void init(self, const CScalarUdfContext& c_context)
+    cdef void init(self, const CUdfContext& c_context)
 
 
 cdef class FunctionOptions(_Weakrefable):

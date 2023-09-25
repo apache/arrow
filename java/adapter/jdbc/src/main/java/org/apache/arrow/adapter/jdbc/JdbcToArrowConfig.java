@@ -22,8 +22,10 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Function;
 
+import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
@@ -76,6 +78,7 @@ public final class JdbcToArrowConfig {
   private final int targetBatchSize;
 
   private final Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
+  private final JdbcConsumerFactory jdbcConsumerGetter;
 
   /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
@@ -195,6 +198,38 @@ public final class JdbcToArrowConfig {
       Map<String, String> schemaMetadata,
       Map<Integer, Map<String, String>> columnMetadataByColumnIndex,
       RoundingMode bigDecimalRoundingMode) {
+    this(
+        allocator,
+        calendar,
+        includeMetadata,
+        reuseVectorSchemaRoot,
+        arraySubTypesByColumnIndex,
+        arraySubTypesByColumnName,
+        targetBatchSize,
+        jdbcToArrowTypeConverter,
+        null,
+        explicitTypesByColumnIndex,
+        explicitTypesByColumnName,
+        schemaMetadata,
+        columnMetadataByColumnIndex,
+        bigDecimalRoundingMode);
+  }
+
+  JdbcToArrowConfig(
+      BufferAllocator allocator,
+      Calendar calendar,
+      boolean includeMetadata,
+      boolean reuseVectorSchemaRoot,
+      Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
+      Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
+      int targetBatchSize,
+      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      JdbcConsumerFactory jdbcConsumerGetter,
+      Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
+      Map<String, JdbcFieldInfo> explicitTypesByColumnName,
+      Map<String, String> schemaMetadata,
+      Map<Integer, Map<String, String>> columnMetadataByColumnIndex,
+      RoundingMode bigDecimalRoundingMode) {
     Preconditions.checkNotNull(allocator, "Memory allocator cannot be null");
     this.allocator = allocator;
     this.calendar = calendar;
@@ -212,6 +247,8 @@ public final class JdbcToArrowConfig {
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
         (jdbcFieldInfo) -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
+
+    this.jdbcConsumerGetter = jdbcConsumerGetter != null ? jdbcConsumerGetter : JdbcToArrowUtils::getConsumer;
   }
 
   /**
@@ -262,6 +299,13 @@ public final class JdbcToArrowConfig {
    */
   public Function<JdbcFieldInfo, ArrowType> getJdbcToArrowTypeConverter() {
     return jdbcToArrowTypeConverter;
+  }
+
+  /**
+   * Gets the JDBC consumer getter.
+   */
+  public JdbcConsumerFactory getJdbcConsumerGetter() {
+    return jdbcConsumerGetter;
   }
 
   /**
@@ -337,5 +381,14 @@ public final class JdbcToArrowConfig {
 
   public RoundingMode getBigDecimalRoundingMode() {
     return bigDecimalRoundingMode;
+  }
+
+  /**
+   * Interface for a function that gets a JDBC consumer for the given values.
+   */
+  @FunctionalInterface
+  public interface JdbcConsumerFactory {
+    JdbcConsumer apply(ArrowType arrowType, int columnIndex, boolean nullable, FieldVector vector,
+                       JdbcToArrowConfig config);
   }
 }

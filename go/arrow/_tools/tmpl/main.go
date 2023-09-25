@@ -18,7 +18,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"go/format"
@@ -28,6 +27,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 const Ext = ".tmpl"
@@ -180,7 +181,7 @@ func process(data interface{}, specs []pathSpec) {
 			}
 		}
 
-		ioutil.WriteFile(spec.out, generated, fileMode(spec.in))
+		os.WriteFile(spec.out, generated, fileMode(spec.in))
 	}
 }
 

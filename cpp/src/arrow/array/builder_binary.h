@@ -67,7 +67,7 @@ class BaseBinaryBuilder
 
   Status Append(const uint8_t* value, offset_type length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    ARROW_RETURN_NOT_OK(AppendNextOffset());
+    UnsafeAppendNextOffset();
     // Safety check for UBSAN.
     if (ARROW_PREDICT_TRUE(length > 0)) {
       ARROW_RETURN_NOT_OK(ValidateOverflow(length));
@@ -114,15 +114,15 @@ class BaseBinaryBuilder
   }
 
   Status AppendNull() final {
-    ARROW_RETURN_NOT_OK(AppendNextOffset());
     ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendNextOffset();
     UnsafeAppendToBitmap(false);
     return Status::OK();
   }
 
   Status AppendEmptyValue() final {
-    ARROW_RETURN_NOT_OK(AppendNextOffset());
     ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendNextOffset();
     UnsafeAppendToBitmap(true);
     return Status::OK();
   }
@@ -193,8 +193,7 @@ class BaseBinaryBuilder
         values.begin(), values.end(), 0ULL,
         [](uint64_t sum, const std::string& str) { return sum + str.size(); });
     ARROW_RETURN_NOT_OK(Reserve(values.size()));
-    ARROW_RETURN_NOT_OK(value_data_builder_.Reserve(total_length));
-    ARROW_RETURN_NOT_OK(offsets_builder_.Reserve(values.size()));
+    ARROW_RETURN_NOT_OK(ReserveData(total_length));
 
     if (valid_bytes != NULLPTR) {
       for (std::size_t i = 0; i < values.size(); ++i) {
@@ -288,13 +287,16 @@ class BaseBinaryBuilder
     auto bitmap = array.GetValues<uint8_t>(0, 0);
     auto offsets = array.GetValues<offset_type>(1);
     auto data = array.GetValues<uint8_t>(2, 0);
+    auto total_length = offsets[offset + length] - offsets[offset];
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(ReserveData(total_length));
     for (int64_t i = 0; i < length; i++) {
       if (!bitmap || bit_util::GetBit(bitmap, array.offset + offset + i)) {
         const offset_type start = offsets[offset + i];
         const offset_type end = offsets[offset + i + 1];
-        ARROW_RETURN_NOT_OK(Append(data + start, end - start));
+        UnsafeAppend(data + start, end - start);
       } else {
-        ARROW_RETURN_NOT_OK(AppendNull());
+        UnsafeAppendNull();
       }
     }
     return Status::OK();

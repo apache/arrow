@@ -80,7 +80,7 @@ class RowArrayAccessor {
                          const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
 
  private:
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   // This is equivalent to Visit method, but processing 8 rows at a time in a
   // loop.
   // Returns the number of processed rows, which may be less than requested (up

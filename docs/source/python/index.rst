@@ -47,6 +47,7 @@ files into Arrow structures.
    filesystems_deprecated
    numpy
    pandas
+   interchange_protocol
    timestamps
    orc
    csv

@@ -33,6 +33,7 @@ from pyarrow._compute import (  # noqa
     AssumeTimezoneOptions,
     CastOptions,
     CountOptions,
+    CumulativeOptions,
     CumulativeSumOptions,
     DayOfWeekOptions,
     DictionaryEncodeOptions,
@@ -49,6 +50,7 @@ from pyarrow._compute import (  # noqa
     ModeOptions,
     NullOptions,
     PadOptions,
+    PairwiseOptions,
     PartitionNthOptions,
     QuantileOptions,
     RandomOptions,
@@ -84,7 +86,9 @@ from pyarrow._compute import (  # noqa
     call_tabular_function,
     register_scalar_function,
     register_tabular_function,
-    ScalarUdfContext,
+    register_aggregate_function,
+    register_vector_function,
+    UdfContext,
     # Expressions
     Expression,
 )
@@ -483,10 +487,16 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
 
 
 def fill_null(values, fill_value):
-    """
-    Replace each null element in values with fill_value. The fill_value must be
-    the same type as values or able to be implicitly casted to the array's
-    type.
+    """Replace each null element in values with a corresponding
+    element from fill_value.
+
+    If fill_value is scalar-like, then every null element in values
+    will be replaced with fill_value. If fill_value is array-like,
+    then the i-th element in values will be replaced with the i-th
+    element in fill_value.
+
+    The fill_value's type must be the same as that of values, or it
+    must be able to be implicitly casted to the array's type.
 
     This is an alias for :func:`coalesce`.
 
@@ -496,7 +506,7 @@ def fill_null(values, fill_value):
         Each null element is replaced with the corresponding value
         from fill_value.
     fill_value : Array, ChunkedArray, or Scalar-like object
-        If not same type as data will attempt to cast.
+        If not same type as values, will attempt to cast.
 
     Returns
     -------
@@ -515,6 +525,16 @@ def fill_null(values, fill_value):
       2,
       5,
       3
+    ]
+    >>> arr = pa.array([1, 2, None, 4, None])
+    >>> arr.fill_null(pa.array([10, 20, 30, 40, 50]))
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      1,
+      2,
+      30,
+      4,
+      50
     ]
     """
     if not isinstance(fill_value, (pa.Array, pa.ChunkedArray, pa.Scalar)):

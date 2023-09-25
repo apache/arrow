@@ -53,6 +53,33 @@ struct JitterNodeOptions : public ExecNodeOptions {
   static constexpr std::string_view kName = "jitter";
 };
 
+class GateImpl;
+
+class Gate {
+ public:
+  static std::shared_ptr<Gate> Make();
+
+  Gate();
+  virtual ~Gate();
+
+  void ReleaseAllBatches();
+  void ReleaseOneBatch();
+  Future<> WaitForNextReleasedBatch();
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Gate);
+
+  GateImpl* impl_;
+};
+
+// A node that holds all input batches until a given gate is released
+struct GatedNodeOptions : public ExecNodeOptions {
+  explicit GatedNodeOptions(Gate* gate) : gate(gate) {}
+  Gate* gate;
+
+  static constexpr std::string_view kName = "gated";
+};
+
 void RegisterTestNodes();
 
 }  // namespace acero

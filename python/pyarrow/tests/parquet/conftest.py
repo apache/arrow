@@ -29,9 +29,10 @@ def datadir(base_datadir):
 def s3_bucket(s3_server):
     boto3 = pytest.importorskip('boto3')
     botocore = pytest.importorskip('botocore')
+    s3_bucket_name = 'test-s3fs'
 
     host, port, access_key, secret_key = s3_server['connection']
-    s3 = boto3.resource(
+    s3_client = boto3.client(
         's3',
         endpoint_url='http://{}:{}'.format(host, port),
         aws_access_key_id=access_key,
@@ -39,13 +40,15 @@ def s3_bucket(s3_server):
         config=botocore.client.Config(signature_version='s3v4'),
         region_name='us-east-1'
     )
-    bucket = s3.Bucket('test-s3fs')
+
     try:
-        bucket.create()
+        s3_client.create_bucket(Bucket=s3_bucket_name)
     except Exception:
-        # we get BucketAlreadyOwnedByYou error with fsspec handler
-        pass
-    return 'test-s3fs'
+        pass  # we get BucketAlreadyOwnedByYou error with fsspec handler
+    finally:
+        s3_client.close()
+
+    return s3_bucket_name
 
 
 @pytest.fixture

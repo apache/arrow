@@ -16,7 +16,7 @@
 # under the License.
 
 #' @include arrow-object.R
-#' @title class arrow::DataType
+#' @title DataType class
 #'
 #' @usage NULL
 #' @format NULL
@@ -35,7 +35,7 @@
 #' - `$num_fields`: number of child fields.
 #'
 #' @seealso [infer_type()]
-#' @rdname DataType
+#' @rdname DataType-class
 #' @name DataType
 #' @seealso [`data-type`]
 DataType <- R6Class("DataType",
@@ -143,7 +143,7 @@ infer_type.Expression <- function(x, ...) x$type()
 
 #----- metadata
 
-#' @title class arrow::FixedWidthType
+#' @title FixedWidthType class
 #'
 #' @usage NULL
 #' @format NULL
@@ -304,7 +304,7 @@ Decimal256Type <- R6Class("Decimal256Type", inherit = DecimalType)
 
 NestedType <- R6Class("NestedType", inherit = DataType)
 
-#' Apache Arrow data types
+#' Create Arrow data types
 #'
 #' These functions create type objects corresponding to Arrow types. Use them
 #' when defining a [schema()] or as inputs to other types, like `struct`. Most
@@ -378,6 +378,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
 #' @name data-type
+#' @rdname data-type
 #' @return An Arrow type object inheriting from [DataType].
 #' @export
 #' @seealso [dictionary()] for creating a dictionary (factor-like) type.

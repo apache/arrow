@@ -58,6 +58,7 @@ RUN (python3 -m pip install meson || \
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN bundle install --gemfile /arrow/c_glib/Gemfile
 
-ENV ARROW_BUILD_TESTS=OFF \
+ENV ARROW_BUILD_STATIC=OFF \
+    ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_INSTALL_NAME_RPATH=OFF

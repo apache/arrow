@@ -46,7 +46,7 @@
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
-#include "generated/parquet_types.h"  // IYWU pragma: export
+#include "generated/parquet_types.h"  // IWYU pragma: export
 
 namespace parquet {
 
@@ -435,8 +435,7 @@ class ThriftDeserializer {
 #if PARQUET_THRIFT_VERSION_MAJOR > 0 || PARQUET_THRIFT_VERSION_MINOR >= 14
     auto conf = std::make_shared<apache::thrift::TConfiguration>();
     conf->setMaxMessageSize(std::numeric_limits<int>::max());
-    return std::shared_ptr<ThriftBuffer>(
-        new ThriftBuffer(buf, len, ThriftBuffer::OBSERVE, conf));
+    return std::make_shared<ThriftBuffer>(buf, len, ThriftBuffer::OBSERVE, conf);
 #else
     return std::make_shared<ThriftBuffer>(buf, len);
 #endif

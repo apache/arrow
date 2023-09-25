@@ -71,6 +71,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"
@@ -4458,6 +4459,9 @@ TEST(Substrait, SetRelationBasic) {
 }
 
 TEST(Substrait, PlanWithAsOfJoinExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5257,7 +5261,230 @@ TEST(Substrait, CompoundEmitWithFilter) {
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
+TEST(Substrait, SortAndFetch) {
+  // Sort by A, ascending, take items [2, 5), then sort by B descending
+  std::string substrait_json = R"({
+    "version": {
+        "major_number": 9999,
+        "minor_number": 9999,
+        "patch_number": 9999
+    },
+    "relations": [
+        {
+            "rel": {
+                "sort": {
+                    "input": {
+                        "fetch": {
+                            "input": {
+                                "sort": {
+                                    "input": {
+                                        "read": {
+                                            "base_schema": {
+                                                "names": [
+                                                    "A",
+                                                    "B"
+                                                ],
+                                                "struct": {
+                                                    "types": [
+                                                        {
+                                                            "i32": {}
+                                                        },
+                                                        {
+                                                            "i32": {}
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "namedTable": {
+                                                "names": [
+                                                    "table"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "sorts": [
+                                        {
+                                            "expr": {
+                                                "selection": {
+                                                    "directReference": {
+                                                        "structField": {
+                                                            "field": 0
+                                                        }
+                                                    },
+                                                    "rootReference": {}
+                                                }
+                                            },
+                                            "direction": "SORT_DIRECTION_ASC_NULLS_FIRST"
+                                        }
+                                    ]
+                                }
+                            },
+                            "offset": 2,
+                            "count": 3
+                        }
+                    },
+                    "sorts": [
+                        {
+                            "expr": {
+                                "selection": {
+                                    "directReference": {
+                                        "structField": {
+                                            "field": 1
+                                        }
+                                    },
+                                    "rootReference": {}
+                                }
+                            },
+                            "direction": "SORT_DIRECTION_DESC_NULLS_LAST"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "extension_uris": [],
+    "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32()), field("B", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [null, null],
+      [5, 8],
+      [null, null],
+      [null, null],
+      [3, 4],
+      [9, 6],
+      [4, 5]
+  ])"});
+
+  // First sort by A, ascending, nulls first to yield rows:
+  // 0, 2, 3, 4, 6, 1, 5
+  // Apply fetch to grab rows 3, 4, 6
+  // Then sort by B, descending, to yield rows 6, 4, 3
+
+  auto output_table = TableFromJSON(test_schema, {R"([
+    [4, 5],
+    [3, 4],
+    [null, null]
+  ])"});
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(std::move(input_table));
+
+  CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
+}
+
+TEST(Substrait, MixedSort) {
+  // Substrait allows two sort keys with differing direction but Acero
+  // does not.  We should detect this and reject it.
+  std::string substrait_json = R"({
+  "version": {
+    "major_number": 9999,
+    "minor_number": 9999,
+    "patch_number": 9999
+  },
+  "relations": [
+    {
+      "rel": {
+        "sort": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": [
+                  "A",
+                  "B"
+                ],
+                "struct": {
+                  "types": [
+                    {
+                      "i32": {}
+                    },
+                    {
+                      "i32": {}
+                    }
+                  ]
+                }
+              },
+              "namedTable": {
+                "names": [
+                  "table"
+                ]
+              }
+            }
+          },
+          "sorts": [
+            {
+              "expr": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {}
+                }
+              },
+              "direction": "SORT_DIRECTION_ASC_NULLS_FIRST"
+            },
+            {
+              "expr": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {}
+                }
+              },
+              "direction": "SORT_DIRECTION_ASC_NULLS_LAST"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "extension_uris": [],
+  "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32()), field("B", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [null, null],
+      [5, 8],
+      [null, null],
+      [null, null],
+      [3, 4],
+      [9, 6],
+      [4, 5]
+  ])"});
+
+  NamedTableProvider table_provider = [&](const std::vector<std::string>& names,
+                                          const Schema&) {
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(input_table);
+    return acero::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  ASSERT_THAT(
+      DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
+                      conversion_options),
+      Raises(StatusCode::NotImplemented, testing::HasSubstr("mixed null placement")));
+}
+
 TEST(Substrait, PlanWithExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
+
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5446,6 +5673,9 @@ TEST(Substrait, PlanWithExtension) {
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   std::string substrait_json = R"({
     "extensionUris": [],
     "extensions": [],
@@ -5838,6 +6068,101 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   auto expected_table =
       TableFromJSON(output_schema, {"[[1, 1, 4], [1, 2, 2], [2, 2, 10], [2, 1, 5]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
+}
+
+void CheckExpressionRoundTrip(const Schema& schema,
+                              const compute::Expression& expression) {
+  ASSERT_OK_AND_ASSIGN(compute::Expression bound_expression, expression.Bind(schema));
+  BoundExpressions bound_expressions;
+  bound_expressions.schema = std::make_shared<Schema>(schema);
+  bound_expressions.named_expressions = {{std::move(bound_expression), "some_name"}};
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf,
+                       SerializeExpressions(bound_expressions));
+
+  ASSERT_OK_AND_ASSIGN(BoundExpressions round_tripped, DeserializeExpressions(*buf));
+
+  AssertSchemaEqual(schema, *round_tripped.schema);
+  ASSERT_EQ(1, round_tripped.named_expressions.size());
+  ASSERT_EQ("some_name", round_tripped.named_expressions[0].name);
+  ASSERT_EQ(bound_expressions.named_expressions[0].expression,
+            round_tripped.named_expressions[0].expression);
+}
+
+TEST(Substrait, ExtendedExpressionSerialization) {
+  std::shared_ptr<Schema> test_schema =
+      schema({field("a", int32()), field("b", int32()), field("c", float32()),
+              field("nested", struct_({field("x", float32()), field("y", float32())}))});
+  // Basic a + b
+  CheckExpressionRoundTrip(
+      *test_schema, compute::call("add", {compute::field_ref(0), compute::field_ref(1)}));
+  // Nested struct reference
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(FieldPath{3, 0}));
+  // Struct return type
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(3));
+  // c + nested.y
+  CheckExpressionRoundTrip(
+      *test_schema,
+      compute::call("add", {compute::field_ref(2), compute::field_ref(FieldPath{3, 1})}));
+}
+
+TEST(Substrait, ExtendedExpressionInvalidPlans) {
+  // The schema defines the type as {"x", "y"} but output_names has {"a", "y"}
+  constexpr std::string_view kBadOuptutNames = R"(
+    {
+      "referredExpr":[
+        {
+          "expression":{
+            "selection":{
+              "directReference":{
+                "structField":{
+                  "field":3
+                }
+              },
+              "rootReference":{}
+            }
+          },
+          "outputNames":["a", "y", "some_name"]
+        }
+      ],
+      "baseSchema":{
+        "names":["a","b","c","nested","x","y"],
+        "struct":{
+          "types":[
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "struct":{
+                "types":[
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  },
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  }
+                ],
+                "nullability":"NULLABILITY_NULLABLE"
+              }
+            }
+          ]
+        }
+      },
+      "version":{"majorNumber":9999}
+    }
+  )";
+
+  ASSERT_OK_AND_ASSIGN(
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOuptutNames));
+
+  ASSERT_THAT(DeserializeExpressions(*buf),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
 }
 
 }  // namespace engine

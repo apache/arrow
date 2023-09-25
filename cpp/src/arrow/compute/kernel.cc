@@ -338,6 +338,10 @@ std::shared_ptr<TypeMatcher> RunEndEncoded(
                                                 std::move(value_type_matcher));
 }
 
+std::shared_ptr<TypeMatcher> RunEndEncoded(Type::type value_type_id) {
+  return RunEndEncoded(SameTypeId(value_type_id));
+}
+
 std::shared_ptr<TypeMatcher> RunEndEncoded(
     std::shared_ptr<TypeMatcher> run_end_type_matcher,
     std::shared_ptr<TypeMatcher> value_type_matcher) {

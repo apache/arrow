@@ -177,9 +177,9 @@ class ARROW_ACERO_EXPORT ExecNode {
   /// non-deterministic.  For example, a hash-join has no predictable output order.
   ///
   /// If the ordering is Ordering::Implicit then there is a meaningful order but that
-  /// odering is not represented by any column in the data.  The most common case for this
-  /// is when reading data from an in-memory table.  The data has an implicit "row order"
-  /// which is not neccesarily represented in the data set.
+  /// ordering is not represented by any column in the data.  The most common case for
+  /// this is when reading data from an in-memory table.  The data has an implicit "row
+  /// order" which is not necessarily represented in the data set.
   ///
   /// A filter or project node will not modify the ordering.  Nothing needs to be done
   /// other than ensure the index assigned to output batches is the same as the
@@ -325,7 +325,7 @@ class ARROW_ACERO_EXPORT ExecNode {
   ///
   /// This is not a pause.  There will be no way to start the source again after this has
   /// been called.
-  Status StopProducing();
+  virtual Status StopProducing();
 
   std::string ToString(int indent = 0) const;
 
@@ -496,6 +496,16 @@ struct ARROW_ACERO_EXPORT Declaration {
   std::string label;
 };
 
+/// \brief How to handle unaligned buffers
+enum class UnalignedBufferHandling { kWarn, kIgnore, kReallocate, kError };
+
+/// \brief get the default behavior of unaligned buffer handling
+///
+/// This is configurable via the ACERO_ALIGNMENT_HANDLING environment variable which
+/// can be set to "warn", "ignore", "reallocate", or "error".  If the environment
+/// variable is not set, or is set to an invalid value, this will return kWarn
+UnalignedBufferHandling GetDefaultUnalignedBufferHandling();
+
 /// \brief plan-wide options that can be specified when executing an execution plan
 struct ARROW_ACERO_EXPORT QueryOptions {
   /// \brief Should the plan use a legacy batching strategy
@@ -516,7 +526,7 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   /// otherwise.
   ///
   /// If explicitly set to true then plan execution will fail if there is no
-  /// meaningful ordering.  This can be useful to valdiate a query that should
+  /// meaningful ordering.  This can be useful to validate a query that should
   /// be emitting ordered results.
   ///
   /// If explicitly set to false then batches will be emit immediately even if there
@@ -540,6 +550,13 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   /// the `use_threads` option.
   ::arrow::internal::Executor* custom_cpu_executor = NULLPTR;
 
+  /// \brief custom executor to use for IO work
+  ///
+  /// Must be null or remain valid for the duration of the plan.  If this is null then
+  /// the global io thread pool will be chosen whose behavior will be controlled by
+  /// the "ARROW_IO_THREADS" environment.
+  ::arrow::internal::Executor* custom_io_executor = NULLPTR;
+
   /// \brief a memory pool to use for allocations
   ///
   /// Must remain valid for the duration of the plan.
@@ -555,6 +572,36 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   ///
   /// If set then the number of names must equal the number of output columns
   std::vector<std::string> field_names;
+
+  /// \brief Policy for unaligned buffers in source data
+  ///
+  /// Various compute functions and acero internals will type pun array
+  /// buffers from uint8_t* to some kind of value type (e.g. we might
+  /// cast to int32_t* to add two int32 arrays)
+  ///
+  /// If the buffer is poorly aligned (e.g. an int32 array is not aligned
+  /// on a 4-byte boundary) then this is technically undefined behavior in C++.
+  /// However, most modern compilers and CPUs are fairly tolerant of this
+  /// behavior and nothing bad (beyond a small hit to performance) is likely
+  /// to happen.
+  ///
+  /// Note that this only applies to source buffers.  All buffers allocated internally
+  /// by Acero will be suitably aligned.
+  ///
+  /// If this field is set to kWarn then Acero will check if any buffers are unaligned
+  /// and, if they are, will emit a warning.
+  ///
+  /// If this field is set to kReallocate then Acero will allocate a new, suitably aligned
+  /// buffer and copy the contents from the old buffer into this new buffer.
+  ///
+  /// If this field is set to kError then Acero will gracefully abort the plan instead.
+  ///
+  /// If this field is set to kIgnore then Acero will not even check if the buffers are
+  /// unaligned.
+  ///
+  /// If this field is not set then it will be treated as kWarn unless overridden
+  /// by the ACERO_ALIGNMENT_HANDLING environment variable
+  std::optional<UnalignedBufferHandling> unaligned_buffer_handling;
 };
 
 /// \brief Calculate the output schema of a declaration
@@ -692,7 +739,7 @@ DeclarationToBatchesAsync(Declaration declaration, ExecContext exec_context);
 /// \brief Utility method to run a declaration and return results as a RecordBatchReader
 ///
 /// If an exec context is not provided then a default exec context will be used based
-/// on the value of `use_threads`.  If `use_threads` is false then the CPU exeuctor will
+/// on the value of `use_threads`.  If `use_threads` is false then the CPU executor will
 /// be a serial executor and all CPU work will be done on the calling thread.  I/O tasks
 /// will still happen on the I/O executor and may be multi-threaded.
 ///
@@ -704,6 +751,10 @@ DeclarationToBatchesAsync(Declaration declaration, ExecContext exec_context);
 /// fills up.
 ///
 /// If a custom exec context is provided then the value of `use_threads` will be ignored.
+///
+/// The returned RecordBatchReader can be closed early to cancel the computation of record
+/// batches. In this case, only errors encountered by the computation may be reported. In
+/// particular, no cancellation error may be reported.
 ARROW_ACERO_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     Declaration declaration, bool use_threads = true,
     MemoryPool* memory_pool = default_memory_pool(),

@@ -574,12 +574,12 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
 
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
-  io::BufferReader reader(data);
-  ASSERT_RAISES(Invalid, ReadMessage(&reader));
+  auto reader = io::BufferReader::FromString(data);
+  ASSERT_RAISES(Invalid, ReadMessage(reader.get()));
 
   // But no error on unsignaled EOS
-  io::BufferReader reader2("");
-  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(&reader2));
+  auto reader2 = io::BufferReader::FromString("");
+  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(reader2.get()));
   ASSERT_EQ(nullptr, message);
 }
 
@@ -1184,6 +1184,13 @@ struct FileWriterHelper {
     return reader->metadata();
   }
 
+  Result<std::shared_ptr<Table>> ReadAll() {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
+    return reader->ToTable();
+  }
+
   std::shared_ptr<ResizableBuffer> buffer_;
   std::unique_ptr<io::BufferOutputStream> sink_;
   std::shared_ptr<RecordBatchWriter> writer_;
@@ -1510,6 +1517,22 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
                     RoundTripHelper(writer_helper, {batch}, IpcWriteOptions::Defaults(),
                                     options, &out_batches));
     }
+  }
+
+  void TestWriteAfterClose() {
+    // Part of GH-35095.
+    std::shared_ptr<RecordBatch> batch_ints;
+    ASSERT_OK(MakeIntRecordBatch(&batch_ints));
+
+    auto schema = batch_ints->schema();
+
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(schema, IpcWriteOptions::Defaults()));
+    ASSERT_OK(writer_helper.WriteBatch(batch_ints));
+    ASSERT_OK(writer_helper.Finish());
+
+    // Write after close raises status
+    ASSERT_RAISES(Invalid, writer_helper.WriteBatch(batch_ints));
   }
 
   void TestWriteDifferentSchema() {
@@ -1875,6 +1898,21 @@ TEST(TestIpcFileFormat, FooterMetaData) {
   ASSERT_TRUE(out_metadata->Equals(*metadata));
 }
 
+TEST(TestIpcFileFormat, ReaderToTable) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  FileWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto out_table, helper.ReadAll());
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch, batch}));
+  ASSERT_TABLES_EQUAL(*expected_table, *out_table);
+}
+
 TEST_F(TestWriteRecordBatch, RawAndSerializedSizes) {
   // ARROW-8823: Recording total raw and serialized record batch sizes in WriteStats
   FileWriterHelper helper;
@@ -1969,6 +2007,9 @@ TEST_F(TestFileFormatGenerator, DictionaryRoundTrip) { TestDictionaryRoundtrip()
 TEST_F(TestFileFormatGeneratorCoalesced, DictionaryRoundTrip) {
   TestDictionaryRoundtrip();
 }
+TEST_F(TestFileFormat, WriteAfterClose) { TestWriteAfterClose(); }
+
+TEST_F(TestStreamFormat, WriteAfterClose) { TestWriteAfterClose(); }
 
 TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
@@ -2082,29 +2123,28 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // error
   ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
-  auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
+  auto Read = [](std::shared_ptr<Buffer> stream) -> Status {
     io::BufferReader reader(stream);
-    ASSERT_OK_AND_ASSIGN(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
+    ARROW_ASSIGN_OR_RAISE(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
     std::shared_ptr<RecordBatch> batch;
-    Status s = ipc_reader->ReadNext(&batch);
-    ASSERT_TRUE(s.IsInvalid());
-    ASSERT_EQ(ex_error, s.message().substr(0, ex_error.size()));
+    return ipc_reader->ReadNext(&batch);
   };
 
   // Stream terminates before reading all dictionaries
   std::shared_ptr<Buffer> truncated_stream;
   SpliceMessages(buffer, {0, 1}, &truncated_stream);
-  std::string ex_message =
-      ("IPC stream ended without reading the expected number (3)"
-       " of dictionaries");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream ended without "
+                             "reading the expected number (3) of dictionaries",
+                             Read(truncated_stream));
 
   // One of the dictionaries is missing, then we see a record batch
   SpliceMessages(buffer, {0, 1, 2, 4}, &truncated_stream);
-  ex_message =
-      ("IPC stream did not have the expected number (3) of dictionaries "
-       "at the start of the stream");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream did not have "
+                             "the expected number (3) of dictionaries "
+                             "at the start of the stream",
+                             Read(truncated_stream));
 }
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
@@ -3013,11 +3053,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
     auto read_options = IpcReadOptions::Defaults();
     EXPECT_OK_AND_ASSIGN(auto reader,
                          RecordBatchFileReader::Open(buffer_reader.get(), read_options));
-    std::vector<std::shared_ptr<RecordBatch>> expected_batches;
-    for (int i = 0; i < reader->num_record_batches(); i++) {
-      EXPECT_OK_AND_ASSIGN(auto expected_batch, reader->ReadRecordBatch(i));
-      expected_batches.push_back(expected_batch);
-    }
+    EXPECT_OK_AND_ASSIGN(auto expected_batches, reader->ToRecordBatches());
     return expected_batches;
   }
 

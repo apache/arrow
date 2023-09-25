@@ -41,7 +41,6 @@ import org.apache.arrow.vector.util.TransferPair;
 public final class IntervalDayVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
   private static final byte MILLISECOND_OFFSET = 4;
-  private final FieldReader reader;
 
   /**
    * Instantiate a IntervalDayVector. This doesn't allocate any memory for
@@ -75,17 +74,11 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
    */
   public IntervalDayVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new IntervalDayReaderImpl(IntervalDayVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new IntervalDayReaderImpl(IntervalDayVector.this);
   }
 
   /**
@@ -175,11 +168,21 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long startIndex = (long) index * TYPE_WIDTH;
-      final int days = valueBuffer.getInt(startIndex);
-      final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-      return Duration.ofDays(days).plusMillis(milliseconds);
+      return getObjectNotNull(index);
     }
+  }
+
+  /**
+   * Same as {@link #getObject(int)} but does not check for null.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Duration getObjectNotNull(int index) {
+    final long startIndex = (long) index * TYPE_WIDTH;
+    final int days = valueBuffer.getInt(startIndex);
+    final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
+    return Duration.ofDays(days).plusMillis(milliseconds);
   }
 
   /**
@@ -376,7 +379,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -386,6 +389,19 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new TransferImpl(ref, allocator);
+  }
+
+  /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
   }
 
   /**
@@ -404,6 +420,10 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new IntervalDayVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new IntervalDayVector(field, allocator);
     }
 
     public TransferImpl(IntervalDayVector to) {

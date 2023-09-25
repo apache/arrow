@@ -24,7 +24,7 @@ ARG maven=3.5
 ARG node=16
 ARG yarn=1.22
 ARG jdk=8
-ARG go=1.15
+ARG go=1.19.13
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
@@ -57,6 +57,7 @@ ENV DOTNET_ROOT=/opt/dotnet \
 RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 7.0 -InstallDir /opt/dotnet
 
 ENV ARROW_ACERO=OFF \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_INTEGRATION=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
@@ -67,11 +68,13 @@ ENV ARROW_ACERO=OFF \
     ARROW_FLIGHT=ON \
     ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=OFF \
+    ARROW_GCS=OFF \
     ARROW_HDFS=OFF \
     ARROW_JEMALLOC=OFF \
     ARROW_JSON=OFF \
     ARROW_ORC=OFF \
     ARROW_PARQUET=OFF \
     ARROW_S3=OFF \
+    ARROW_SUBSTRAIT=OFF \
     ARROW_USE_GLOG=OFF \
     CMAKE_UNITY_BUILD=ON

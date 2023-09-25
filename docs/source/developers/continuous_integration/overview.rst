@@ -26,7 +26,6 @@ Some files central to Arrow CI are:
 
 - ``docker-compose.yml`` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
 - ``.env`` - here we define default values to configure the services in ``docker-compose.yml``
-- ``.travis.yml`` - here we define workflows which run on Travis
 - ``appveyor.yml`` - here we define workflows that run on Appveyor
 
 We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help co-ordinate the various CI tasks.
@@ -60,7 +59,6 @@ The ``.yml`` files in ``.github/worflows`` are workflows which are run on GitHub
 
 There are two other files which define action-triggered builds:
 
-- ``.travis.yml`` - runs on all commits and is used to test on architectures such as ARM and S390x
 - ``appveyor.yml`` - runs on commits related to Python or C++
 
 Extended builds

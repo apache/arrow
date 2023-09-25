@@ -18,12 +18,14 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/test_util_internal.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
 #include "arrow/io/util_internal.h"
@@ -63,11 +65,15 @@ class ParquetFormatHelper {
  public:
   using FormatType = ParquetFileFormat;
 
-  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
+  static Result<std::shared_ptr<Buffer>> Write(
+      RecordBatchReader* reader,
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+          default_arrow_writer_properties()) {
     auto pool = ::arrow::default_memory_pool();
     std::shared_ptr<Buffer> out;
     auto sink = CreateOutputStream(pool);
-    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink, default_writer_properties(),
+                                         arrow_properties));
     return sink->Finish();
   }
   static std::shared_ptr<ParquetFileFormat> MakeFormat() {
@@ -365,6 +371,29 @@ TEST_F(TestParquetFileFormat, MultithreadedScan) {
   ASSERT_OK_AND_ASSIGN(auto batches, collect_fut.result());
 
   ASSERT_EQ(batches.size(), kNumRowGroups);
+}
+
+TEST_F(TestParquetFileFormat, SingleThreadExecutor) {
+  // Reset capacity for io executor
+  struct PoolResetGuard {
+    int original_capacity = io::GetIOThreadPoolCapacity();
+    ~PoolResetGuard() { DCHECK_OK(io::SetIOThreadPoolCapacity(original_capacity)); }
+  } guard;
+  ASSERT_OK(io::SetIOThreadPoolCapacity(1));
+
+  auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto source = std::make_shared<FileSource>(std::move(buffer_reader), buffer->size());
+  auto options = std::make_shared<ScanOptions>();
+
+  {
+    auto fragment = MakeFragment(*source);
+    auto count_rows = fragment->CountRows(literal(true), options);
+    ASSERT_OK_AND_ASSIGN(auto result, count_rows.MoveResult());
+    ASSERT_EQ(expected_rows(), result);
+  }
 }
 
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
@@ -676,6 +705,65 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDurationColumn) {
+  // GH-37111: Parquet arrow stores writer schema and possible field_id in
+  // key_value_metadata when store_schema enabled. When storing `arrow::duration`, it will
+  // be stored as int64. This test ensures that dataset can parse the writer schema
+  // correctly.
+  auto table = TableFromJSON(schema({field("t", duration(TimeUnit::NANO))}),
+                             {
+                                 R"([{"t": 1}])",
+                                 R"([{"t": 2}, {"t": 3}])",
+                             });
+  TableBatchReader table_reader(*table);
+  ASSERT_OK_AND_ASSIGN(
+      auto buffer,
+      ParquetFormatHelper::Write(
+          &table_reader, ArrowWriterProperties::Builder().store_schema()->build()));
+  auto source = std::make_shared<FileSource>(buffer);
+  SetSchema({field("t", duration(TimeUnit::NANO))});
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  auto expr = equal(field_ref("t"), literal(::arrow::DurationScalar(1, TimeUnit::NANO)));
+  CountRowGroupsInFragment(fragment, {0}, expr);
+}
+
+// Tests projection with nested/indexed FieldRefs.
+// https://github.com/apache/arrow/issues/35579
+TEST_P(TestParquetFileFormatScan, ProjectWithNonNamedFieldRefs) {
+  auto table_schema = schema(
+      {field("info", struct_({field("name", utf8()),
+                              field("data", struct_({field("amount", float64()),
+                                                     field("percent", float32())}))}))});
+  auto table = TableFromJSON(table_schema, {R"([
+    {"info": {"name": "a", "data": {"amount": 10.3, "percent": 0.1}}},
+    {"info": {"name": "b", "data": {"amount": 11.6, "percent": 0.2}}},
+    {"info": {"name": "c", "data": {"amount": 12.9, "percent": 0.3}}},
+    {"info": {"name": "d", "data": {"amount": 14.2, "percent": 0.4}}},
+    {"info": {"name": "e", "data": {"amount": 15.5, "percent": 0.5}}},
+    {"info": {"name": "f", "data": {"amount": 16.8, "percent": 0.6}}}])"});
+  ASSERT_OK_AND_ASSIGN(auto expected_batch, table->CombineChunksToBatch());
+
+  TableBatchReader reader(*table);
+  SetSchema(reader.schema()->fields());
+
+  auto source = GetFileSource(&reader);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  std::vector<FieldRef> equivalent_refs = {
+      FieldRef("info", "data", "percent"), FieldRef("info", 1, 1),
+      FieldRef(0, 1, "percent"),           FieldRef(0, 1, 1),
+      FieldRef(0, FieldRef("data", 1)),    FieldRef(FieldRef(0), FieldRef(1, 1)),
+  };
+  for (const auto& ref : equivalent_refs) {
+    ARROW_SCOPED_TRACE("ref = ", ref.ToString());
+
+    Project({field_ref(ref)}, {"value"});
+    auto batch = SingleBatch(fragment);
+    AssertBatchesEqual(*expected_batch, *batch);
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,

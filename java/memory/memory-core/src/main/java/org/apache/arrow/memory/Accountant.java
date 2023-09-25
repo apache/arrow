@@ -169,9 +169,14 @@ class Accountant implements AutoCloseable {
    */
   private AllocationOutcome.Status allocate(final long size, final boolean incomingUpdatePeak,
       final boolean forceAllocation, AllocationOutcomeDetails details) {
-    final long newLocal = locallyHeldMemory.addAndGet(size);
+    final long oldLocal = locallyHeldMemory.getAndAdd(size);
+    final long newLocal = oldLocal + size;
+    // Borrowed from Math.addExact (but avoid exception here)
+    // Overflow if result has opposite sign of both arguments
+    // No need to reset locallyHeldMemory on overflow; allocateBytesInternal will releaseBytes on failure
+    final boolean overflow = ((oldLocal ^ newLocal) & (size ^ newLocal)) < 0;
     final long beyondReservation = newLocal - reservation;
-    final boolean beyondLimit = newLocal > allocationLimit.get();
+    final boolean beyondLimit = overflow || newLocal > allocationLimit.get();
     final boolean updatePeak = forceAllocation || (incomingUpdatePeak && !beyondLimit);
 
     if (details != null) {

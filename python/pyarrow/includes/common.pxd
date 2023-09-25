@@ -38,9 +38,20 @@ cdef extern from * namespace "std" nogil:
 
 cdef extern from "<optional>" namespace "std" nogil:
     cdef cppclass optional[T]:
+        ctypedef T value_type
+        optional()
+        optional(nullopt_t)
+        optional(optional&) except +
+        optional(T&) except +
         c_bool has_value()
-        T value()
-        optional(T&)
+        T& value()
+        T& value_or[U](U& default_value)
+        void swap(optional&)
+        void reset()
+        T& emplace(...)
+        T& operator*()
+        # T* operator->() # Not Supported
+        optional& operator=(optional&)
         optional& operator=[U](U&)
 
 
@@ -136,6 +147,20 @@ cdef extern from "arrow/result.h" namespace "arrow" nogil:
         CStatus status()
         CStatus Value(T*)
         T operator*()
+
+
+cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
+    cdef cppclass CFuture "arrow::Future"[T]:
+        CFuture()
+
+
+cdef extern from "arrow/python/async.h" namespace "arrow::py" nogil:
+    # BindFuture's third argument is really a C++ callable with
+    # the signature `object(T*)`, but Cython does not allow declaring that.
+    # We use an ellipsis as a workaround.
+    # Another possibility is to type-erase the argument by making it
+    # `object(void*)`, but it would lose compile-time C++ type safety.
+    void BindFuture[T](CFuture[T], object cb, ...)
 
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:

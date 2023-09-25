@@ -72,6 +72,37 @@ T GetResultValue(Result<T> result) {
   }
 }
 
+/// \brief Wrap a Result and return the corresponding Python object.
+///
+/// If the Result is successful, py_wrapper is called with its result value
+/// and should return a PyObject*. If py_wrapper is successful (returns
+/// a non-NULL value), its return value is returned.
+///
+/// If either the Result or py_wrapper fails, the associated Python exception
+/// is raised and NULL is returned.
+//
+/// \param result The Result whose value to wrap in a Python object.
+/// \param py_wrapper A function (likely defined in Cython) to convert the C++
+///   value of the Result to a Python object.
+/// \return A new Python reference, or NULL if an exception occurred
+template <typename T, typename PyWrapper = PyObject* (*)(T)>
+PyObject* WrapResult(Result<T> result, PyWrapper&& py_wrapper) {
+  static_assert(std::is_same_v<PyObject*, decltype(py_wrapper(std::declval<T>()))>,
+                "PyWrapper argument to WrapResult should return a PyObject* "
+                "when called with a T*");
+  Status st = result.status();
+  if (st.ok()) {
+    PyObject* py_value = py_wrapper(result.MoveValueUnsafe());
+    st = CheckPyError();
+    if (st.ok()) {
+      return py_value;
+    }
+    Py_XDECREF(py_value);  // should be null, but who knows
+  }
+  // Status is an error, convert it to an exception.
+  return internal::convert_status(st);
+}
+
 // A RAII-style helper that ensures the GIL is acquired inside a lexical block.
 class ARROW_PYTHON_EXPORT PyAcquireGIL {
  public:
@@ -129,6 +160,19 @@ auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
     PyErr_Restore(exc_type, exc_value, exc_traceback);
   }
   return maybe_status;
+}
+
+template <typename Function>
+auto SafeCallIntoPythonVoid(Function&& func) -> decltype(func()) {
+  PyAcquireGIL lock;
+  PyObject* exc_type;
+  PyObject* exc_value;
+  PyObject* exc_traceback;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+  func();
+  if (exc_type != NULLPTR) {
+    PyErr_Restore(exc_type, exc_value, exc_traceback);
+  }
 }
 
 // A RAII primitive that DECREFs the underlying PyObject* when it

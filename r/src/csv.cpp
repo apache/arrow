@@ -31,8 +31,12 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
       std::make_shared<arrow::csv::WriteOptions>(arrow::csv::WriteOptions::Defaults());
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
-  res->io_context = MainRThread::GetInstance().CancellableIOContext();
+  res->delimiter = cpp11::as_cpp<char>(options["delimiter"]);
   res->null_string = cpp11::as_cpp<std::string>(options["null_string"]);
+  res->io_context = MainRThread::GetInstance().CancellableIOContext();
+  res->eol = cpp11::as_cpp<std::string>(options["eol"]);
+  res->quoting_style =
+      cpp11::as_cpp<enum arrow::csv::QuotingStyle>(options["quoting_style"]);
   return res;
 }
 
@@ -75,6 +79,36 @@ SEXP csv___ReadOptions__column_names(
   }
 
   return cpp11::as_sexp(options->column_names);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__block_size(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->block_size);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__skip_rows(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->skip_rows);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__autogenerate_column_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->autogenerate_column_names);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__use_threads(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->use_threads);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__skip_rows_after_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->skip_rows_after_names);
 }
 
 // [[arrow::export]]

@@ -463,6 +463,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
+  // Create an empty stats.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
         pool_(pool),
@@ -471,10 +472,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     auto comp = Comparator::Make(descr);
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
     TypedStatisticsImpl::Reset();
-    has_null_count_ = true;
-    has_distinct_count_ = true;
   }
 
+  // Create stats from provided values.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
@@ -482,24 +482,29 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         max_buffer_(AllocateBuffer(pool_, 0)) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
     TypedStatisticsImpl::IncrementNullCount(null_count);
-    IncrementDistinctCount(distinct_count);
+    SetDistinctCount(distinct_count);
 
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
   }
 
+  // Create stats from a thrift Statistics object.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
-    if (has_null_count_) {
+    if (has_null_count) {
       TypedStatisticsImpl::IncrementNullCount(null_count);
+    } else {
+      has_null_count_ = false;
     }
     if (has_distinct_count) {
-      IncrementDistinctCount(distinct_count);
+      SetDistinctCount(distinct_count);
+    } else {
+      has_distinct_count_ = false;
     }
 
     if (!encoded_min.empty()) {
@@ -541,9 +546,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Reset() override {
     ResetCounts();
-    has_min_max_ = false;
-    has_distinct_count_ = false;
-    has_null_count_ = false;
+    ResetHasFlags();
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
@@ -552,12 +555,25 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
+    // null_count is always valid when merging page statistics into
+    // column chunk statistics.
     if (other.HasNullCount()) {
       this->statistics_.null_count += other.null_count();
+    } else {
+      this->has_null_count_ = false;
     }
-    if (other.HasDistinctCount()) {
-      this->statistics_.distinct_count += other.distinct_count();
+    if (has_distinct_count_ && other.HasDistinctCount() &&
+        (distinct_count() == 0 || other.distinct_count() == 0)) {
+      // We can merge distinct counts if either side is zero.
+      statistics_.distinct_count =
+          std::max(statistics_.distinct_count, other.distinct_count());
+    } else {
+      // Otherwise clear has_distinct_count_ as distinct count cannot be merged.
+      this->has_distinct_count_ = false;
     }
+    // Do not clear min/max here if the other side does not provide
+    // min/max which may happen when other is an empty stats or all
+    // its values are null and/or NaN.
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
     }
@@ -609,9 +625,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
+      // num_values_ is reliable and it means number of non-null values.
+      s.all_null_value = num_values_ == 0;
     }
-    // num_values_ is reliable and it means number of non-null values.
-    s.all_null_value = num_values_ == 0;
+    if (HasDistinctCount()) {
+      s.set_distinct_count(this->distinct_count());
+    }
     return s;
   }
 
@@ -627,7 +646,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
-  int64_t num_values_ = 0;  // # of non-null values.
+  // Number of non-null values.
+  // Please note that num_values_ is reliable when has_null_count_ is set.
+  // When has_null_count_ is not set, e.g. a page statistics created from
+  // a statistics thrift message which doesn't have the optional null_count,
+  // `num_values_` may include null values.
+  int64_t num_values_ = 0;
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
@@ -637,8 +661,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void IncrementDistinctCount(int64_t n) {
-    statistics_.distinct_count += n;
+  void SetDistinctCount(int64_t n) {
+    // distinct count can only be "set", and cannot be incremented.
+    statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
 
@@ -646,6 +671,17 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->statistics_.null_count = 0;
     this->statistics_.distinct_count = 0;
     this->num_values_ = 0;
+  }
+
+  void ResetHasFlags() {
+    // has_min_max_ will only be set when it meets any valid value.
+    this->has_min_max_ = false;
+    // has_distinct_count_ will only be set once SetDistinctCount()
+    // is called because distinct count calculation is not cheap and
+    // disabled by default.
+    this->has_distinct_count_ = false;
+    // Null count calculation is cheap and enabled by default.
+    this->has_null_count_ = true;
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
