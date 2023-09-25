@@ -666,7 +666,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Disabled by default.
     buffer_size : int, default 8192
         Size of buffered stream, if enabled. Default is 8KB.
-    pre_buffer : bool, default False
+    pre_buffer : bool, default True
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
         filesystems.
@@ -688,7 +688,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
 
     def __init__(self, *, bint use_buffered_stream=False,
                  buffer_size=8192,
-                 bint pre_buffer=False,
+                 bint pre_buffer=True,
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None):
         self.init(shared_ptr[CFragmentScanOptions](
