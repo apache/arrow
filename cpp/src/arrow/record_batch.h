@@ -114,6 +114,11 @@ class ARROW_EXPORT RecordBatch {
   /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
+  /// \brief Replace the schema with another schema with the same types, but potentially
+  /// different field names and/or metadata.
+  Result<std::shared_ptr<RecordBatch>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const;
+
   /// \brief Retrieve all columns at once
   virtual const std::vector<std::shared_ptr<Array>>& columns() const = 0;
 
@@ -326,14 +331,8 @@ class ARROW_EXPORT RecordBatchReader {
   /// \brief Consume entire stream as a vector of record batches
   Result<RecordBatchVector> ToRecordBatches();
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
-  Status ReadAll(RecordBatchVector* batches);
-
   /// \brief Read all batches and concatenate as arrow::Table
   Result<std::shared_ptr<Table>> ToTable();
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
-  Status ReadAll(std::shared_ptr<Table>* table);
 
   /// \brief Create a RecordBatchReader from a vector of RecordBatch.
   ///

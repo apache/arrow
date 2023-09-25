@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -104,21 +105,25 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentNullException(nameof(cArray));
                 }
-                if (cArray->release == null)
+                if (cArray->release == default)
                 {
                     throw new ArgumentException("Tried to import an array that has already been released.", nameof(cArray));
                 }
                 _cArray = *cArray;
-                cArray->release = null;
+                cArray->release = default;
             }
 
             protected override void FinalRelease()
             {
-                if (_cArray.release != null)
+                if (_cArray.release != default)
                 {
                     fixed (CArrowArray* cArray = &_cArray)
                     {
+#if NET5_0_OR_GREATER
                         cArray->release(cArray);
+#else
+                        Marshal.GetDelegateForFunctionPointer<CArrowArrayExporter.ReleaseArrowArray>(cArray->release)(cArray);
+#endif
                     }
                 }
             }
@@ -155,6 +160,10 @@ namespace Apache.Arrow.C
                     case ArrowTypeId.List:
                         children = ProcessListChildren(cArray, ((ListType)type).ValueDataType);
                         buffers = ImportListBuffers(cArray);
+                        break;
+                    case ArrowTypeId.FixedSizeList:
+                        children = ProcessListChildren(cArray, ((FixedSizeListType)type).ValueDataType);
+                        buffers = ImportFixedSizeListBuffers(cArray);
                         break;
                     case ArrowTypeId.Struct:
                         children = ProcessStructChildren(cArray, ((StructType)type).Fields);
@@ -231,7 +240,7 @@ namespace Apache.Arrow.C
             {
                 if (cArray->n_buffers != 3)
                 {
-                    throw new InvalidOperationException("Byte arrays are expected to have exactly three child arrays");
+                    throw new InvalidOperationException("Byte arrays are expected to have exactly three buffers");
                 }
 
                 int length = checked((int)cArray->length);
@@ -251,7 +260,7 @@ namespace Apache.Arrow.C
             {
                 if (cArray->n_buffers != 2)
                 {
-                    throw new InvalidOperationException("List arrays are expected to have exactly two children");
+                    throw new InvalidOperationException("List arrays are expected to have exactly two buffers");
                 }
 
                 int length = checked((int)cArray->length);
@@ -264,11 +273,24 @@ namespace Apache.Arrow.C
                 return buffers;
             }
 
+            private ArrowBuffer[] ImportFixedSizeListBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 1)
+                {
+                    throw new InvalidOperationException("Fixed-size list arrays are expected to have exactly one buffer");
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[1];
+                buffers[0] = ImportValidityBuffer(cArray);
+
+                return buffers;
+            }
+
             private ArrowBuffer[] ImportFixedWidthBuffers(CArrowArray* cArray, int bitWidth)
             {
                 if (cArray->n_buffers != 2)
                 {
-                    throw new InvalidOperationException("Arrays of fixed-width type are expected to have exactly two children");
+                    throw new InvalidOperationException("Arrays of fixed-width type are expected to have exactly two buffers");
                 }
 
                 // validity, data

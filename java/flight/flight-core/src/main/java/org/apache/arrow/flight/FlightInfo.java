@@ -23,8 +23,10 @@ import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.impl.Flight;
@@ -36,7 +38,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 
 /**
@@ -93,10 +94,11 @@ public class FlightInfo {
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
                     long records, boolean ordered, IpcOption option) {
-    Objects.requireNonNull(schema);
     Objects.requireNonNull(descriptor);
     Objects.requireNonNull(endpoints);
-    MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
+    if (schema != null) {
+      MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
+    }
     this.schema = schema;
     this.descriptor = descriptor;
     this.endpoints = endpoints;
@@ -114,8 +116,10 @@ public class FlightInfo {
       final ByteBuffer schemaBuf = pbFlightInfo.getSchema().asReadOnlyByteBuffer();
       schema = pbFlightInfo.getSchema().size() > 0 ?
           MessageSerializer.deserializeSchema(
-              new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
-          : new Schema(ImmutableList.of());
+                          new ReadChannel(
+                                  Channels.newChannel(
+                                          new ByteBufferBackedInputStream(schemaBuf))))
+          : null;
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -130,8 +134,17 @@ public class FlightInfo {
     option = IpcOption.DEFAULT;
   }
 
+  public Optional<Schema> getSchemaOptional() {
+    return Optional.ofNullable(schema);
+  }
+
+  /**
+   * Returns the schema, or an empty schema if no schema is present.
+   * @deprecated Deprecated. Use {@link #getSchemaOptional()} instead.
+   */
+  @Deprecated
   public Schema getSchema() {
-    return schema;
+    return schema != null ? schema : new Schema(Collections.emptyList());
   }
 
   public long getBytes() {
@@ -158,21 +171,25 @@ public class FlightInfo {
    * Converts to the protocol buffer representation.
    */
   Flight.FlightInfo toProtocol() {
-    // Encode schema in a Message payload
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    try {
-      MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema, option);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    Flight.FlightInfo.Builder builder = Flight.FlightInfo.newBuilder()
+            .addAllEndpoint(endpoints.stream().map(t -> t.toProtocol()).collect(Collectors.toList()))
+            .setFlightDescriptor(descriptor.toProtocol())
+            .setTotalBytes(FlightInfo.this.bytes)
+            .setTotalRecords(records)
+            .setOrdered(ordered);
+    if (schema != null) {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      try {
+        MessageSerializer.serialize(
+                new WriteChannel(Channels.newChannel(baos)),
+                schema,
+                option);
+        builder.setSchema(ByteString.copyFrom(baos.toByteArray()));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
-    return Flight.FlightInfo.newBuilder()
-        .addAllEndpoint(endpoints.stream().map(t -> t.toProtocol()).collect(Collectors.toList()))
-        .setSchema(ByteString.copyFrom(baos.toByteArray()))
-        .setFlightDescriptor(descriptor.toProtocol())
-        .setTotalBytes(FlightInfo.this.bytes)
-        .setTotalRecords(records)
-        .setOrdered(ordered)
-        .build();
+    return builder.build();
   }
 
   /**

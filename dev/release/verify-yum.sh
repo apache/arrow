@@ -211,7 +211,7 @@ pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
 ./arrow-example
 popd
 echo "::endgroup::"
@@ -234,7 +234,7 @@ if [ "${have_glib}" = "yes" ]; then
 
   if [ "${have_ruby}" = "yes" ]; then
     ${install_command} "${ruby_devel_packages[@]}"
-    gem install gobject-introspection
+    MAKEFLAGS="-j$(nproc)" gem install gobject-introspection
     ruby -r gi -e "p GI.load('Arrow')"
   fi
   echo "::endgroup::"

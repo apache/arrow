@@ -19,17 +19,18 @@ package array_test
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -1421,6 +1422,55 @@ func TestDictionaryUnifierString(t *testing.T) {
 	checkTransposeMap(t, b2, []int32{2, 0})
 }
 
+func TestDictionaryUnifierBinary(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := arrow.BinaryTypes.Binary
+	d1, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["Zm9vCg==", "YmFyCg=="]`)) // base64("foo\n"), base64("bar\n")
+	require.NoError(t, err)
+	defer d1.Release()
+
+	d2, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["cXV1eAo=", "Zm9vCg=="]`)) // base64("quux\n"), base64("foo\n")
+	require.NoError(t, err)
+	defer d2.Release()
+
+	expected := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: dictType}
+	expectedDict, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["Zm9vCg==", "YmFyCg==", "cXV1eAo="]`))
+	defer expectedDict.Release()
+
+	unifier := array.NewBinaryDictionaryUnifier(mem)
+	defer unifier.Release()
+
+	assert.NoError(t, unifier.Unify(d1))
+	assert.NoError(t, unifier.Unify(d2))
+	outType, outDict, err := unifier.GetResult()
+	assert.NoError(t, err)
+	defer outDict.Release()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	b1, err := unifier.UnifyAndTranspose(d1)
+	assert.NoError(t, err)
+	b2, err := unifier.UnifyAndTranspose(d2)
+	assert.NoError(t, err)
+
+	outType, outDict, err = unifier.GetResult()
+	assert.NoError(t, err)
+	defer func() {
+		outDict.Release()
+		b1.Release()
+		b2.Release()
+	}()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	checkTransposeMap(t, b1, []int32{0, 1})
+	checkTransposeMap(t, b2, []int32{2, 0})
+}
+
 func TestDictionaryUnifierFixedSizeBinary(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -1798,5 +1848,69 @@ func TestDictionaryAppendIndices(t *testing.T) {
 
 			assert.Equal(t, fmt.Sprint(indices), arrIndices.String())
 		})
+	}
+}
+
+type panicAllocator struct {
+	n       int
+	paniced bool
+	memory.Allocator
+}
+
+func (p *panicAllocator) Allocate(size int) []byte {
+	if size > p.n {
+		p.paniced = true
+		panic("panic allocator")
+	}
+	return p.Allocator.Allocate(size)
+}
+
+func (p *panicAllocator) Reallocate(size int, b []byte) []byte {
+	return p.Allocator.Reallocate(size, b)
+}
+
+func (p *panicAllocator) Free(b []byte) {
+	p.Allocator.Free(b)
+}
+
+func TestBinaryDictionaryPanic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	allocator := &panicAllocator{
+		n:         400,
+		Allocator: mem,
+	}
+
+	expectedType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(allocator, expectedType)
+	defer bldr.Release()
+
+	bldr.AppendNull()
+	allocator.n = 0 // force panic
+	func() {
+		defer func() {
+			recover()
+		}()
+		bldr.NewArray()
+	}()
+	assert.True(t, allocator.paniced)
+}
+
+func BenchmarkBinaryDictionaryBuilder(b *testing.B) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(b, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int32Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(mem, dictType)
+	defer bldr.Release()
+
+	randString := func() string {
+		return fmt.Sprintf("test-%d", rand.Intn(30))
+	}
+
+	builder := bldr.(*array.BinaryDictionaryBuilder)
+	for i := 0; i < b.N; i++ {
+		assert.NoError(b, builder.AppendString(randString()))
 	}
 }

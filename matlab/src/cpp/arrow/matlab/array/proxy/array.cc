@@ -20,8 +20,8 @@
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/bit/unpack.h"
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/type/proxy/wrap.h"
 #include "arrow/type_traits.h"
-#include "arrow/visit_array_inline.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -31,13 +31,14 @@ namespace arrow::matlab::array::proxy {
 
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
-        REGISTER_METHOD(Array, toMATLAB);
-        REGISTER_METHOD(Array, length);
-        REGISTER_METHOD(Array, valid);
-        REGISTER_METHOD(Array, type);
+        REGISTER_METHOD(Array, getLength);
+        REGISTER_METHOD(Array, getValid);
+        REGISTER_METHOD(Array, getType);
+        REGISTER_METHOD(Array, isEqual);
+
     }
 
-    std::shared_ptr<arrow::Array> Array::getArray() {
+    std::shared_ptr<arrow::Array> Array::unwrap() {
         return array;
     }
 
@@ -49,13 +50,13 @@ namespace arrow::matlab::array::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void Array::length(libmexclass::proxy::method::Context& context) {
+    void Array::getLength(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
         auto length_mda = factory.createScalar(array->length());
         context.outputs[0] = length_mda;
     }
 
-    void Array::valid(libmexclass::proxy::method::Context& context) {
+    void Array::getValid(libmexclass::proxy::method::Context& context) {
         auto array_length = static_cast<size_t>(array->length());
 
         // If the Arrow array has no null values, then return a MATLAB
@@ -75,17 +76,44 @@ namespace arrow::matlab::array::proxy {
         context.outputs[0] = valid_elements_mda;
     }
 
-    void Array::type(libmexclass::proxy::method::Context& context) {
+    void Array::getType(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
 
         mda::ArrayFactory factory;
 
-        auto type_proxy = typeProxy();
-        auto type_id = type_proxy->unwrap()->id();
-        auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy,
+                                            type::proxy::wrap(array->type()),
+                                            context,
+                                            error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
 
-        context.outputs[0] = factory.createScalar(proxy_id);
-        context.outputs[1] = factory.createScalar(static_cast<int64_t>(type_id));
+        const auto type_id = static_cast<int32_t>(type_proxy->unwrap()->id());
+        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
 
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(proxy_id);
+        output[0]["TypeID"] = factory.createScalar(type_id);
+        context.outputs[0] = output;
+    }
+
+    void Array::isEqual(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+
+        const mda::TypedArray<uint64_t> array_proxy_ids = context.inputs[0];
+
+        bool is_equal = true;
+        const auto equals_options = arrow::EqualOptions::Defaults();
+        for (const auto& array_proxy_id : array_proxy_ids) {
+           // Retrieve the Array proxy from the ProxyManager
+            auto proxy = libmexclass::proxy::ProxyManager::getProxy(array_proxy_id);
+            auto array_proxy = std::static_pointer_cast<proxy::Array>(proxy);
+            auto array_to_compare = array_proxy->unwrap();
+
+            if (!array->Equals(array_to_compare, equals_options)) {
+                is_equal = false;
+                break;
+            }
+        }
+        mda::ArrayFactory factory;
+        context.outputs[0] = factory.createScalar(is_equal);
     }
 }

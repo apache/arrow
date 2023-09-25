@@ -49,42 +49,48 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
   if(MSVC)
     set(ARROW_SSE4_2_FLAG "")
     set(ARROW_AVX2_FLAG "/arch:AVX2")
+    # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
+    set(ARROW_BMI2_FLAG "/arch:AVX2")
     set(ARROW_AVX512_FLAG "/arch:AVX512")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
     set(ARROW_AVX2_FLAG "-march=haswell")
+    set(ARROW_BMI2_FLAG "-mbmi2")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
-    set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
+    set(ARROW_AVX512_FLAG "-march=skylake-avx512")
     # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
     set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
     set(ARROW_AVX512_FLAG
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
-  check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
-  if(MINGW)
-    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-    message(STATUS "Disable AVX512 support on MINGW for now")
-  else()
-    # Check for AVX512 support in the compiler.
-    set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
-    check_cxx_source_compiles("
-      #ifdef _MSC_VER
-      #include <intrin.h>
-      #else
-      #include <immintrin.h>
-      #endif
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Check for AVX extensions on 64-bit systems only, as 32-bit support seems iffy
+    check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
+    if(MINGW)
+      # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
+      message(STATUS "Disable AVX512 support on MINGW for now")
+    else()
+      # Check for AVX512 support in the compiler.
+      set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+      set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
+      check_cxx_source_compiles("
+        #ifdef _MSC_VER
+        #include <intrin.h>
+        #else
+        #include <immintrin.h>
+        #endif
 
-      int main() {
-        __m512i mask = _mm512_set1_epi32(0x1);
-        char out[32];
-        _mm512_storeu_si512(out, mask);
-        return 0;
-      }"
-                              CXX_SUPPORTS_AVX512)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+        int main() {
+          __m512i mask = _mm512_set1_epi32(0x1);
+          char out[32];
+          _mm512_storeu_si512(out, mask);
+          return 0;
+        }"
+                                CXX_SUPPORTS_AVX512)
+      set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+    endif()
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
   if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
@@ -92,13 +98,16 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
+  # Note: for now we assume that AVX2 support should also enable BMI2 support,
+  # at least at compile-time (more care may be required for runtime dispatch).
   if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX2 ON)
+    set(ARROW_HAVE_RUNTIME_BMI2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX2 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
   if(CXX_SUPPORTS_AVX512 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX512 ON)
-    add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
+    add_definitions(-DARROW_HAVE_RUNTIME_AVX512)
   endif()
   if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
     set(ARROW_SIMD_LEVEL "SSE4_2")
@@ -320,7 +329,8 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wno-deprecated")
@@ -351,7 +361,8 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     else()
@@ -374,7 +385,8 @@ else()
          OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
          OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     else()

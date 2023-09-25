@@ -38,10 +38,9 @@ jobs:
           # remove after https://issues.apache.org/jira/browse/ARROW-16376
           r-version: '4.1'
       - uses: r-lib/actions/setup-pandoc@v2
-      - name: Install knitr, rmarkdown
-        run: |
-          install.packages(c("rmarkdown", "knitr", "sessioninfo"))
-        shell: Rscript {0}
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: "rmarkdown, knitr, sessioninfo"
       - name: Session info
         run: |
           options(width = 100)

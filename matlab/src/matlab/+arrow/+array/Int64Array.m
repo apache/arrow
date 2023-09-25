@@ -16,18 +16,28 @@
 classdef Int64Array < arrow.array.NumericArray
 % arrow.array.Int64Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = int64(0);
     end
 
     methods
-        function obj = Int64Array(data, varargin)
-          obj@arrow.array.NumericArray(data, "int64", ...
-                "arrow.array.proxy.Int64Array", varargin{:});
+        function obj = Int64Array(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Int64Array")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = int64(obj)
             data = obj.toMATLAB();
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.Int64Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

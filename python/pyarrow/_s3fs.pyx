@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from cython cimport binding
+
 from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
 from pyarrow.lib import frombytes, tobytes, KeyValueMetadata
@@ -140,13 +142,19 @@ cdef class S3FileSystem(FileSystem):
     """
     S3-backed FileSystem implementation
 
-    If neither access_key nor secret_key are provided, and role_arn is also not
-    provided, then attempts to initialize from AWS environment variables,
-    otherwise both access_key and secret_key must be provided.
+    AWS access_key and secret_key can be provided explicitly.
 
     If role_arn is provided instead of access_key and secret_key, temporary
     credentials will be fetched by issuing a request to STS to assume the
     specified role.
+
+    If neither access_key nor secret_key are provided, and role_arn is also not
+    provided, then attempts to establish the credentials automatically.
+    S3FileSystem will try the following methods, in order:
+
+    * ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, and ``AWS_SESSION_TOKEN`` environment variables
+    * configuration files such as ``~/.aws/credentials`` and ``~/.aws/config``
+    * for nodes on Amazon EC2, the EC2 Instance Metadata Service
 
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
@@ -382,9 +390,12 @@ cdef class S3FileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.s3fs = <CS3FileSystem*> wrapped.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return S3FileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()

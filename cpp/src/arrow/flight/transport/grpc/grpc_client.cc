@@ -17,15 +17,19 @@
 
 #include "arrow/flight/transport/grpc/grpc_client.h"
 
+#include <condition_variable>
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/support/client_callback.h>
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
 #include <grpcpp/security/tls_credentials_options.h>
 #endif
@@ -51,6 +55,7 @@
 #include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"
 
 namespace arrow {
 
@@ -107,9 +112,9 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
  public:
   explicit GrpcClientInterceptorAdapter(
       std::vector<std::unique_ptr<ClientMiddleware>> middleware)
-      : middleware_(std::move(middleware)), received_headers_(false) {}
+      : middleware_(std::move(middleware)) {}
 
-  void Intercept(::grpc::experimental::InterceptorBatchMethods* methods) {
+  void Intercept(::grpc::experimental::InterceptorBatchMethods* methods) override {
     using InterceptionHookPoints = ::grpc::experimental::InterceptionHookPoints;
     if (methods->QueryInterceptionHookPoint(
             InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
@@ -142,10 +147,6 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
  private:
   void ReceivedHeaders(
       const std::multimap<::grpc::string_ref, ::grpc::string_ref>& metadata) {
-    if (received_headers_) {
-      return;
-    }
-    received_headers_ = true;
     CallHeaders headers;
     for (const auto& entry : metadata) {
       headers.insert({std::string_view(entry.first.data(), entry.first.length()),
@@ -157,20 +158,14 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
   }
 
   std::vector<std::unique_ptr<ClientMiddleware>> middleware_;
-  // When communicating with a gRPC-Java server, the server may not
-  // send back headers if the call fails right away. Instead, the
-  // headers will be consolidated into the trailers. We don't want to
-  // call the client middleware callback twice, so instead track
-  // whether we saw headers - if not, then we need to check trailers.
-  bool received_headers_;
 };
 
 class GrpcClientInterceptorAdapterFactory
     : public ::grpc::experimental::ClientInterceptorFactoryInterface {
  public:
-  GrpcClientInterceptorAdapterFactory(
+  explicit GrpcClientInterceptorAdapterFactory(
       std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
-      : middleware_(middleware) {}
+      : middleware_(std::move(middleware)) {}
 
   ::grpc::experimental::Interceptor* CreateClientInterceptor(
       ::grpc::experimental::ClientRpcInfo* info) override {
@@ -184,6 +179,8 @@ class GrpcClientInterceptorAdapterFactory
       flight_method = FlightMethod::ListFlights;
     } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
+    } else if (EndsWith(method, "/PollFlightInfo")) {
+      flight_method = FlightMethod::PollFlightInfo;
     } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
     } else if (EndsWith(method, "/DoGet")) {
@@ -559,6 +556,127 @@ class GrpcResultStream : public ResultStream {
   std::unique_ptr<::grpc::ClientReader<pb::Result>> stream_;
 };
 
+#ifdef GRPC_ENABLE_ASYNC
+/// Force destruction to wait for RPC completion.
+class FinishedFlag {
+ public:
+  ~FinishedFlag() { Wait(); }
+
+  void Finish() {
+    std::lock_guard<std::mutex> guard(mutex_);
+    finished_ = true;
+    cv_.notify_all();
+  }
+  void Wait() const {
+    std::unique_lock<std::mutex> guard(mutex_);
+    cv_.wait(guard, [&]() { return finished_; });
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cv_;
+  bool finished_{false};
+};
+
+// XXX: it appears that if we destruct gRPC resources (like a
+// ClientContext) from a gRPC callback, we will be running on a gRPC
+// thread and we may attempt to join ourselves (because gRPC
+// apparently refcounts threads).  Avoid that by transferring gRPC
+// resources to a dedicated thread for destruction.
+class GrpcGarbageBin {
+ public:
+  GrpcGarbageBin() {
+    grpc_destructor_thread_ = std::thread([&]() {
+      while (true) {
+        std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
+        grpc_destructor_cv_.wait(guard,
+                                 [&]() { return !running_ || !garbage_bin_.empty(); });
+
+        garbage_bin_.clear();
+
+        if (!running_) return;
+      }
+    });
+  }
+
+  void Dispose(std::unique_ptr<internal::AsyncRpc> trash) {
+    std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
+    if (!running_) return;
+    garbage_bin_.push_back(std::move(trash));
+    grpc_destructor_cv_.notify_all();
+  }
+
+  void Stop() {
+    {
+      std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
+      running_ = false;
+      grpc_destructor_cv_.notify_all();
+    }
+    grpc_destructor_thread_.join();
+  }
+
+ private:
+  bool running_ = true;
+  std::thread grpc_destructor_thread_;
+  std::mutex grpc_destructor_mutex_;
+  std::condition_variable grpc_destructor_cv_;
+  std::deque<std::unique_ptr<internal::AsyncRpc>> garbage_bin_;
+};
+
+template <typename Result, typename Request, typename Response>
+class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::AsyncRpc {
+ public:
+  ClientRpc rpc;
+  std::shared_ptr<AsyncListener<Result>> listener;
+  std::shared_ptr<GrpcGarbageBin> garbage_bin_;
+
+  Request pb_request;
+  Response pb_response;
+  Status client_status;
+
+  // Destruct last
+  FinishedFlag finished;
+
+  explicit UnaryUnaryAsyncCall(const FlightCallOptions& options,
+                               std::shared_ptr<AsyncListener<Result>> listener,
+                               std::shared_ptr<GrpcGarbageBin> garbage_bin)
+      : rpc(options),
+        listener(std::move(listener)),
+        garbage_bin_(std::move(garbage_bin)) {}
+
+  void TryCancel() override { rpc.context.TryCancel(); }
+
+  void OnDone(const ::grpc::Status& status) override {
+    if (status.ok()) {
+      auto result = internal::FromProto(pb_response);
+      client_status = result.status();
+      if (client_status.ok()) {
+        listener->OnNext(std::move(result).MoveValueUnsafe());
+      }
+    }
+    Finish(status);
+  }
+
+  void Finish(const ::grpc::Status& status) {
+    auto listener = std::move(this->listener);
+    listener->OnFinish(
+        CombinedTransportStatus(status, std::move(client_status), &rpc.context));
+    // SetAsyncRpc may trigger destruction, so Finish() first
+    finished.Finish();
+    // Instead of potentially destructing gRPC resources here,
+    // transfer it to a dedicated background thread
+    garbage_bin_->Dispose(
+        flight::internal::ClientTransport::ReleaseAsyncRpc(listener.get()));
+  }
+};
+
+#define LISTENER_NOT_OK(LISTENER, EXPR)                 \
+  if (auto arrow_status = (EXPR); !arrow_status.ok()) { \
+    (LISTENER)->OnFinish(std::move(arrow_status));      \
+    return;                                             \
+  }
+#endif
+
 class GrpcClientImpl : public internal::ClientTransport {
  public:
   static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
@@ -712,14 +830,30 @@ class GrpcClientImpl : public internal::ClientTransport {
     stub_ = pb::FlightService::NewStub(
         ::grpc::experimental::CreateCustomChannelWithInterceptors(
             grpc_uri.str(), creds, args, std::move(interceptors)));
+
+#ifdef GRPC_ENABLE_ASYNC
+    garbage_bin_ = std::make_shared<GrpcGarbageBin>();
+#endif
+
     return Status::OK();
   }
 
   Status Close() override {
-    // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
-    // gRPC does not offer a real Close(). We could reset() the gRPC
-    // client but that can cause gRPC to hang in shutdown
-    // (ARROW-15793).
+#ifdef GRPC_ENABLE_ASYNC
+    // TODO(https://github.com/apache/arrow/issues/30949): if there are async
+    // RPCs running when the client is stopped, then when they go to use the
+    // garbage bin, they'll instead synchronously dispose of resources from
+    // the callback thread, and will likely crash. We could instead cancel
+    // them first and wait for completion before stopping the thread, but
+    // tracking all of the RPCs may be unacceptable overhead for clients that
+    // are making many small concurrent RPC calls, so it remains to be seen
+    // whether there's a pressing need for this.
+    garbage_bin_->Stop();
+#endif
+    // TODO(https://github.com/apache/arrow/issues/30949): if we track ongoing
+    // RPCs, we can cancel them first gRPC does not offer a real Close(). We
+    // could reset() the gRPC client but that can cause gRPC to hang in
+    // shutdown (https://github.com/apache/arrow/issues/31235).
     return Status::OK();
   }
 
@@ -755,8 +889,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     pb::FlightInfo pb_info;
     while (!options.stop_token.IsStopRequested() && stream->Read(&pb_info)) {
-      FlightInfo::Data info_data;
-      RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
+      ARROW_ASSIGN_OR_RAISE(FlightInfo info_data, internal::FromProto(pb_info));
       flights.emplace_back(std::move(info_data));
     }
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
@@ -806,9 +939,27 @@ class GrpcClientImpl : public internal::ClientTransport {
         stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
-    FlightInfo::Data info_data;
-    RETURN_NOT_OK(internal::FromProto(pb_response, &info_data));
-    info->reset(new FlightInfo(std::move(info_data)));
+    ARROW_ASSIGN_OR_RAISE(auto info_data, internal::FromProto(pb_response));
+    *info = std::make_unique<FlightInfo>(std::move(info_data));
+    return Status::OK();
+  }
+
+  Status PollFlightInfo(const FlightCallOptions& options,
+                        const FlightDescriptor& descriptor,
+                        std::unique_ptr<PollInfo>* info) override {
+    pb::FlightDescriptor pb_descriptor;
+    pb::PollInfo pb_response;
+
+    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+
+    ClientRpc rpc(options);
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    Status s = FromGrpcStatus(
+        stub_->PollFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
+    RETURN_NOT_OK(s);
+
+    info->reset(new PollInfo());
+    RETURN_NOT_OK(internal::FromProto(pb_response, info->get()));
     return Status::OK();
   }
 
@@ -865,6 +1016,37 @@ class GrpcClientImpl : public internal::ClientTransport {
     return Status::OK();
   }
 
+#ifdef GRPC_ENABLE_ASYNC
+  void GetFlightInfoAsync(const FlightCallOptions& options,
+                          const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener) override {
+    using AsyncCall =
+        UnaryUnaryAsyncCall<FlightInfo, pb::FlightDescriptor, pb::FlightInfo>;
+    auto call = std::make_unique<AsyncCall>(options, listener, garbage_bin_);
+    LISTENER_NOT_OK(listener, internal::ToProto(descriptor, &call->pb_request));
+    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_.get()));
+
+    stub_->experimental_async()->GetFlightInfo(&call->rpc.context, &call->pb_request,
+                                               &call->pb_response, call.get());
+    ClientTransport::SetAsyncRpc(listener.get(), std::move(call));
+    arrow::internal::checked_cast<AsyncCall*>(
+        ClientTransport::GetAsyncRpc(listener.get()))
+        ->StartCall();
+  }
+
+  Status CheckAsyncSupport() const override { return Status::OK(); }
+#else
+  void GetFlightInfoAsync(const FlightCallOptions& options,
+                          const FlightDescriptor& descriptor,
+                          std::shared_ptr<AsyncListener<FlightInfo>> listener) override {
+    listener->OnFinish(CheckAsyncSupport());
+  }
+
+  Status CheckAsyncSupport() const override {
+    return Status::NotImplemented("gRPC 1.40 or newer is required to use async");
+  }
+#endif
+
  private:
   Status AuthenticateInternal(ClientRpc& rpc) {
     std::shared_ptr<
@@ -904,6 +1086,10 @@ class GrpcClientImpl : public internal::ClientTransport {
       ::GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
       noop_auth_check_;
 #endif
+
+#ifdef GRPC_ENABLE_ASYNC
+  std::shared_ptr<GrpcGarbageBin> garbage_bin_;
+#endif
 };
 std::once_flag kGrpcClientTransportInitialized;
 }  // namespace
@@ -916,6 +1102,8 @@ void InitializeFlightGrpcClient() {
     }
   });
 }
+
+#undef LISTENER_NOT_OK
 
 }  // namespace grpc
 }  // namespace transport

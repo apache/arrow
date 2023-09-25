@@ -15,6 +15,7 @@ license:  #  Licensed to the Apache Software Foundation (ASF) under one
   #  specific language governing permissions and limitations
   #  under the License.
 linters: linters_with_defaults(
+  indentation_linter = NULL,
   line_length_linter = line_length_linter(120),
   object_name_linter = NULL,
   # Even with a liberal definition of name styles, some of our names cause issues due to `.`s for s3 classes or NA in the name

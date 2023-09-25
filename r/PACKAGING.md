@@ -31,7 +31,7 @@ For a high-level overview of the release process see the
 - [ ] Ensure the contents of the README are accurate and up to date.
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
-- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later).
+- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline aa057d0..HEAD | grep "\[R\]"`
 - [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
 - [ ] For major releases, prepare tweet thread highlighting new features.
 
@@ -126,7 +126,7 @@ Wait for CRAN...
 - [ ] Tag the tip of the CRAN-specific release branch
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`
-- [ ] (CRAN-only releases) Rebuild the docs with `pkgdown::build_site(examples = FALSE, lazy = TRUE, install = FALSE)` and submit a PR to [the `asf-site` branch of the docs site](https://github.com/apache/arrow-site) with the contents of `r/docs/news/index.html`.
+- [ ] (CRAN-only releases) Rebuild news page with `pkgdown::build_news()` and submit a PR to the asf-site branch of the docs site with the contents of `arrow/r/docs/news/index.html` replacing the current contents of `arrow-site/docs/r/news/index.html`
 - [ ] (CRAN-only releases) Bump the version number in `r/pkgdown/assets/versions.json`, and update this on the [the `asf-site` branch of the docs site](https://github.com/apache/arrow-site) too.
 - [ ] Update the packaging checklist template to reflect any new realities of the
   packaging process.

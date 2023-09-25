@@ -34,7 +34,7 @@
 #' to a `dbplyr::tbl_lazy`. This means that the verbs do not eagerly evaluate
 #' the query on the data. To run the query, call either `compute()`,
 #' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
-#' Table into an R `data.frame`.
+#' Table into an R `tibble`.
 #'
 #' * [`anti_join()`][dplyr::anti_join()]: the `copy` and `na_matches` arguments are ignored
 #' * [`arrange()`][dplyr::arrange()]

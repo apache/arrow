@@ -64,8 +64,12 @@ add_arrow_lib(arrow_flight_sql
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_flight_shared
+              SHARED_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_shared
               STATIC_LINK_LIBS
               arrow_flight_static
+              STATIC_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_static
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 

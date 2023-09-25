@@ -27,6 +27,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/vector_selection_filter_internal.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
@@ -49,8 +50,7 @@ using internal::CopyBitmap;
 using internal::CountSetBits;
 using internal::OptionalBitBlockCounter;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -863,20 +863,29 @@ Status ExtensionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   return Status::OK();
 }
 
-Status StructFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  // Transform filter to selection indices and then use Take.
+// Transform filter to selection indices and then use Take.
+Status FilterWithTakeExec(const ArrayKernelExec& take_exec, KernelContext* ctx,
+                          const ExecSpan& batch, ExecResult* out) {
   std::shared_ptr<ArrayData> indices;
   RETURN_NOT_OK(GetTakeIndices(batch[1].array,
                                FilterState::Get(ctx).null_selection_behavior,
                                ctx->memory_pool())
                     .Value(&indices));
+  KernelContext take_ctx(*ctx);
+  TakeState state{TakeOptions::NoBoundsCheck()};
+  take_ctx.SetState(&state);
+  ExecSpan take_batch({batch[0], ArraySpan(*indices)}, batch.length);
+  return take_exec(&take_ctx, take_batch, out);
+}
 
-  Datum result;
-  RETURN_NOT_OK(Take(batch[0].array.ToArrayData(), Datum(indices),
-                     TakeOptions::NoBoundsCheck(), ctx->exec_context())
-                    .Value(&result));
-  out->value = result.array();
-  return Status::OK();
+// Due to the special treatment with their Take kernels, we filter Struct and SparseUnion
+// arrays by transforming filter to selection indices and call Take.
+Status StructFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return FilterWithTakeExec(StructTakeExec, ctx, batch, out);
+}
+
+Status SparseUnionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return FilterWithTakeExec(SparseUnionTakeExec, ctx, batch, out);
 }
 
 // ----------------------------------------------------------------------
@@ -1047,6 +1056,7 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::LARGE_LIST), plain_filter, LargeListFilterExec},
       {InputType(Type::FIXED_SIZE_LIST), plain_filter, FSLFilterExec},
       {InputType(Type::DENSE_UNION), plain_filter, DenseUnionFilterExec},
+      {InputType(Type::SPARSE_UNION), plain_filter, SparseUnionFilterExec},
       {InputType(Type::STRUCT), plain_filter, StructFilterExec},
       {InputType(Type::MAP), plain_filter, MapFilterExec},
 
@@ -1064,12 +1074,12 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::LARGE_LIST), ree_filter, LargeListFilterExec},
       {InputType(Type::FIXED_SIZE_LIST), ree_filter, FSLFilterExec},
       {InputType(Type::DENSE_UNION), ree_filter, DenseUnionFilterExec},
+      {InputType(Type::SPARSE_UNION), ree_filter, SparseUnionFilterExec},
       {InputType(Type::STRUCT), ree_filter, StructFilterExec},
       {InputType(Type::MAP), ree_filter, MapFilterExec},
   };
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 
 }  // namespace arrow

@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v14/internal/json"
 
 	"golang.org/x/xerrors"
 )
@@ -192,10 +192,16 @@ func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
 }
 
 func (t Timestamp) ToTime(unit TimeUnit) time.Time {
-	if unit == Second {
+	switch unit {
+	case Second:
 		return time.Unix(int64(t), 0).UTC()
+	case Millisecond:
+		return time.UnixMilli(int64(t)).UTC()
+	case Microsecond:
+		return time.UnixMicro(int64(t)).UTC()
+	default:
+		return time.Unix(0, int64(t)).UTC()
 	}
-	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
 }
 
 // TimestampFromTime allows converting time.Time to Timestamp
@@ -327,6 +333,8 @@ const (
 
 var TimeUnitValues = []TimeUnit{Second, Millisecond, Microsecond, Nanosecond}
 
+// Multiplier returns a time.Duration value to multiply by in order to
+// convert the value into nanoseconds
 func (u TimeUnit) Multiplier() time.Duration {
 	return [...]time.Duration{time.Second, time.Millisecond, time.Microsecond, time.Nanosecond}[uint(u)&3]
 }
@@ -366,9 +374,9 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
-func (TimestampType) Bytes() int { return Int64SizeBytes }
+func (*TimestampType) Bytes() int { return Int64SizeBytes }
 
-func (TimestampType) Layout() DataTypeLayout {
+func (*TimestampType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
 }
 
@@ -436,15 +444,9 @@ func (t *TimestampType) GetToTimeFunc() (func(Timestamp) time.Time, error) {
 	case Second:
 		return func(v Timestamp) time.Time { return time.Unix(int64(v), 0).In(tz) }, nil
 	case Millisecond:
-		factor := int64(time.Second / time.Millisecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Millisecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMilli(int64(v)).In(tz) }, nil
 	case Microsecond:
-		factor := int64(time.Second / time.Microsecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Microsecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMicro(int64(v)).In(tz) }, nil
 	case Nanosecond:
 		return func(v Timestamp) time.Time { return time.Unix(0, int64(v)).In(tz) }, nil
 	}

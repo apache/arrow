@@ -33,9 +33,9 @@ class TimestampType : public arrow::matlab::type::proxy::FixedWidthType {
 
     protected:
 
-        void timeZone(libmexclass::proxy::method::Context& context);
+        void getTimeZone(libmexclass::proxy::method::Context& context);
 
-        void timeUnit(libmexclass::proxy::method::Context& context);
+        void getTimeUnit(libmexclass::proxy::method::Context& context);
 };
 
 }

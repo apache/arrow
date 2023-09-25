@@ -22,10 +22,12 @@ set -ex
 arrow_dir=${1}
 gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
-pip install -e $arrow_dir/dev/archery
+pip install -e $arrow_dir/dev/archery[integration]
 
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
-archery integration \
+time archery integration \
+    --run-c-data \
+    --run-ipc \
     --run-flight \
     --with-cpp=1 \
     --with-csharp=1 \
