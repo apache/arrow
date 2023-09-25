@@ -21,20 +21,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(pyarrow)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  include(EmscriptenOverrides)
-
-  # these variables are needed for building pyarrow on Emscripten
-  # if they aren't set, cmake cross compiling fails for python 
-  # modules (at least under pyodide it does)
-  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
-  set(Python3_LIBRARY $ENV{CPYTHONLIB})
-  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
-  set(Python3_EXECUTABLE)
-  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
-endif()
-
-
 set(PYARROW_VERSION "14.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
@@ -52,6 +38,19 @@ endif()
 
 if(PYARROW_CPP_HOME)
   list(INSERT CMAKE_PREFIX_PATH 0 "${PYARROW_CPP_HOME}")
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  include(EmscriptenOverrides)
+
+  # these variables are needed for building pyarrow on Emscripten
+  # if they aren't set, cmake cross compiling fails for python 
+  # modules (at least under pyodide it does)
+  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
+  set(Python3_LIBRARY $ENV{CPYTHONLIB})
+  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  set(Python3_EXECUTABLE)
+  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
 endif()
 
 include(CMakeParseArguments)

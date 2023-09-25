@@ -264,7 +264,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
   # set in the compiler variables, but cmake expects
   # it to exist at configuration time if we aren't building it as 
   # bundled
-  if(PACKAGE_NAME STREQUAL "ZLIB" AND CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  # n.b. we need to do this for all packages
+  # as some depend on zlib
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
       execute_process(COMMAND embuilder --pic --force build zlib)
     endif()

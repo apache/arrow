@@ -21,25 +21,6 @@
 # # override default in Emscripten which is to not use shared libs
 set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
 
-
-# these are needed for building pyarrow
-# if they aren't set, cmake cross compiling fails for python 
-# modules (at least under pyodide it does)
-set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
-set(Python3_LIBRARY $ENV{CPYTHONLIB})
-set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
-set(Python3_EXECUTABLE)
-set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
-
-# flags for creating shared libraries (only used in pyarrow, because
-# emscripten builds libarrow as static)
-set(CMAKE_C_FLAGS "-sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
-set(CMAKE_CXX_FLAGS "-sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
-
-set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
-set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
-set(CMAKE_SHARED_LINKER_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
-
 # stripping doesn't work on emscripten
 set(CMAKE_STRIP FALSE)
 
