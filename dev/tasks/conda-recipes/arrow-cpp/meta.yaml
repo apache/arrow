@@ -389,8 +389,6 @@ outputs:
         # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
         # currently broken
         {% set tests_to_skip = tests_to_skip + " or test_fastparquet_cross_compatibility" %}
-        # new fsspec changed behaviour, see https://github.com/apache/arrow/issues/37555
-        {% set tests_to_skip = tests_to_skip + " or test_get_file_info_with_selector" %}
         # gandiva tests are segfaulting on ppc
         {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                                # [ppc64le]
         # test failures on ppc (both failing with: Float value was truncated converting to int32)
