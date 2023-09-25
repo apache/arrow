@@ -16,16 +16,17 @@
 .. under the License.
 
 
-.. highlight:: console .. _developers-cpp-emscripten:
+.. highlight:: console
 
+.. _developers-cpp-emscripten:
 #################################################
- Cross compiling for Webassembly with Emscripten
+Cross compiling for WebAssembly with Emscripten
 #################################################
 
 ***************
  Prerequisites
 ***************
-You need cmake and compilers etc. installed as per the normal build instructions. Before building with emscripten, you also need to install emscripten and
+You need CMake and compilers etc. installed as per the normal build instructions. Before building with Emscripten, you also need to install Emscripten and
 activate it using the commands below (see https://emscripten.org/docs/getting_started/downloads.html for details).
 
 .. code:: shell
@@ -38,9 +39,9 @@ activate it using the commands below (see https://emscripten.org/docs/getting_st
    ./emsdk activate <version>
    source ./emsdk_env.sh
 
-If you want to build pyarrow for `pyodide <https://pyodide.org>`_, you
+If you want to build PyArrow for `Pyodide <https://pyodide.org>`_, you
 need ``pyodide-build`` installed via ``pip``, and to be running with the
-same version of python that pyodide is built for, along with the same
+same version of Python that Pyodide is built for, along with the same
 versions of emsdk.
 
 .. code:: shell
@@ -57,11 +58,11 @@ like below:
    cmake --preset "ninja-release-emscripten-python"
    ninja install
 
-This will install a built static library version of libarrow it into the
-emscripten sysroot cache, meaning you can build things that depend on it
-and they will find libarrow.
+This will install a built static library version of ``libarrow`` it into the
+Emscripten sysroot cache, meaning you can build things that depend on it
+and they will find ``libarrow``.
 
-e.g. if you want to build for pyodide, run the commands above, and then
+e.g. if you want to build for Pyodide, run the commands above, and then
 go to ``arrow/python`` and run
 
 .. code:: shell
@@ -76,8 +77,8 @@ pyodide (i.e. the version corresponding to the currently installed
  Manual Build
 **************
 
-If you want to manually build for emscripten, take a look at the
-CMakePresets.json file in the arrow/cpp directory for a list of things
+If you want to manually build for Emscripten, take a look at the
+``CMakePresets.json`` file in the ``arrow/cpp`` directory for a list of things
 you will need to override. In particular you will need:
 
 #. Build dependencies set to ``BUNDLED``, so it uses properly cross
@@ -87,7 +88,7 @@ you will need to override. In particular you will need:
    ``arrow/cpp/cmake_modules/Emscripten/Platform/EmscriptenOverrides.cmake``
 
 #. You will quite likely need to set ``ARROW_ENABLE_THREADING`` to ``OFF``
-   for builds targeting single threaded emscripten environments such as
+   for builds targeting single threaded Emscripten environments such as
    pyodide.
 
 #. ``ARROW_IPC`` and anything else that uses network probably won't
