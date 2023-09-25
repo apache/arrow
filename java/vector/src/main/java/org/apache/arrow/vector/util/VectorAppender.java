@@ -116,7 +116,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // make sure there is enough capacity
     while (targetVector.getValueCapacity() < newValueCount) {
-      targetVector.reAlloc();
+      ((BaseVariableWidthVector) targetVector).reallocValidityAndOffsetBuffers();
     }
     while (targetVector.getDataBuffer().capacity() < newValueCapacity) {
       ((BaseVariableWidthVector) targetVector).reallocDataBuffer();
@@ -170,7 +170,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // make sure there is enough capacity
     while (targetVector.getValueCapacity() < newValueCount) {
-      targetVector.reAlloc();
+      ((BaseLargeVariableWidthVector) targetVector).reallocValidityAndOffsetBuffers();
     }
     while (targetVector.getDataBuffer().capacity() < newValueCapacity) {
       ((BaseLargeVariableWidthVector) targetVector).reallocDataBuffer();
