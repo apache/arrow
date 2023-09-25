@@ -564,14 +564,14 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   # quoted_na
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv")
-  df <- data.frame(text = c('one', 'two', '', 'four'), num = 1:4)
+  df <- data.frame(text = c("one", "two", "", "four"), num = 1:4)
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
   ds <- open_csv_dataset(dst_dir, quoted_na = TRUE) %>% collect()
-  expect_equal(ds$text, c('one', 'two', NA, 'four'))
+  expect_equal(ds$text, c("one", "two", NA, "four"))
 
   ds <- open_csv_dataset(dst_dir, quoted_na = FALSE) %>% collect()
-  expect_equal(ds$text, c('one', 'two', '', 'four'))
+  expect_equal(ds$text, c("one", "two", "", "four"))
 
   # timestamp_parsers
   skip("GH-33708: timestamp_parsers don't appear to be working properly")

@@ -276,7 +276,7 @@ open_delim_dataset <- function(sources,
                                convert_options = NULL,
                                read_options = NULL,
                                timestamp_parsers = NULL,
-                               quoted_na = TRUE){
+                               quoted_na = TRUE) {
   open_dataset(
     sources = sources,
     schema = schema,
