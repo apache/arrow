@@ -16,7 +16,7 @@
 classdef NumericArray < arrow.array.Array
     % arrow.array.NumericArray
 
-    properties(Abstract, Access=protected)
+    properties(Abstract, Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue;
     end
 
