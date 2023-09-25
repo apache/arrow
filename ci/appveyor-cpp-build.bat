@@ -146,6 +146,9 @@ move tzdata %USERPROFILE%\Downloads\test\tzdata
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
+@echo == PYARROW_TZDATA_PATH contents ==
+dir /n %PYARROW_TZDATA_PATH%
+@echo == /PYARROW_TZDATA_PATH contents ==
 
 python setup.py develop -q || exit /B
 
