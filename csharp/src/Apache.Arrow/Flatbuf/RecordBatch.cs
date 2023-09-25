@@ -66,7 +66,7 @@ internal struct RecordBatch : IFlatbufferObject
     return RecordBatch.EndRecordBatch(builder);
   }
 
-  public static void StartRecordBatch(FlatBufferBuilder builder) { builder.StartTable(4); }
+  public static void StartRecordBatch(FlatBufferBuilder builder) { builder.StartTable(5); }
   public static void AddLength(FlatBufferBuilder builder, long length) { builder.AddLong(0, length, 0); }
   public static void AddNodes(FlatBufferBuilder builder, VectorOffset nodesOffset) { builder.AddOffset(1, nodesOffset.Value, 0); }
   public static void StartNodesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(16, numElems, 8); }
