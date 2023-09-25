@@ -60,6 +60,8 @@ namespace Apache.Arrow.Tests
                     builder.Field(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
                     builder.Field(CreateField(new FixedSizeBinaryType(16), i));
                     builder.Field(CreateField(new FixedSizeListType(Int32Type.Default, 3), i));
+                    builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Sparse), i));
+                    builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Dense), -i));
                 }
 
                 //builder.Field(CreateField(HalfFloatType.Default));
@@ -125,6 +127,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
@@ -313,6 +316,67 @@ namespace Apache.Arrow.Tests
                 }
 
                 Array = new StructArray(type, Length, childArrays, nullBitmap.Build());
+            }
+
+            public void Visit(UnionType type)
+            {
+                int[] lengths = new int[type.Fields.Count];
+                if (type.Mode == UnionMode.Sparse)
+                {
+                    for (int i = 0; i < lengths.Length; i++)
+                    {
+                        lengths[i] = Length;
+                    }
+                }
+                else
+                {
+                    int totalLength = Length;
+                    int oneLength = Length / lengths.Length;
+                    for (int i = 1; i < lengths.Length; i++)
+                    {
+                        lengths[i] = oneLength;
+                        totalLength -= oneLength;
+                    }
+                    lengths[0] = totalLength;
+                }
+
+                ArrayData[] childArrays = new ArrayData[type.Fields.Count];
+                for (int i = 0; i < childArrays.Length; i++)
+                {
+                    childArrays[i] = CreateArray(type.Fields[i], lengths[i]).Data;
+                }
+
+                ArrowBuffer.Builder<byte> typeIdBuilder = new ArrowBuffer.Builder<byte>(Length);
+                byte index = 0;
+                for (int i = 0; i < Length; i++)
+                {
+                    typeIdBuilder.Append(index);
+                    index++;
+                    if (index == lengths.Length)
+                    {
+                        index = 0;
+                    }
+                }
+
+                ArrowBuffer[] buffers;
+                if (type.Mode == UnionMode.Sparse)
+                {
+                    buffers = new ArrowBuffer[1];
+                }
+                else
+                {
+                    ArrowBuffer.Builder<int> offsetBuilder = new ArrowBuffer.Builder<int>(Length);
+                    for (int i = 0; i < Length; i++)
+                    {
+                        offsetBuilder.Append(i / lengths.Length);
+                    }
+
+                    buffers = new ArrowBuffer[2];
+                    buffers[1] = offsetBuilder.Build();
+                }
+                buffers[0] = typeIdBuilder.Build();
+
+                Array = UnionArray.Create(new ArrayData(type, Length, 0, 0, buffers, childArrays));
             }
 
             public void Visit(DictionaryType type)

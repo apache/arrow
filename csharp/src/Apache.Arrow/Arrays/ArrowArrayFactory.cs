@@ -62,7 +62,7 @@ namespace Apache.Arrow
                 case ArrowTypeId.Struct:
                     return new StructArray(data);
                 case ArrowTypeId.Union:
-                    return new UnionArray(data);
+                    return UnionArray.Create(data);
                 case ArrowTypeId.Date64:
                     return new Date64Array(data);
                 case ArrowTypeId.Date32:
@@ -90,6 +90,20 @@ namespace Apache.Arrow
                 default:
                     throw new NotSupportedException($"An ArrowArray cannot be built for type {data.DataType.TypeId}.");
             }
+        }
+
+        public static IArrowArray Slice(IArrowArray array, int offset, int length)
+        {
+            if (offset > array.Length)
+            {
+                throw new ArgumentException($"Offset {offset} cannot be greater than Length {array.Length} for Array.Slice");
+            }
+
+            length = Math.Min(array.Data.Length - offset, length);
+            offset += array.Data.Offset;
+
+            ArrayData newData = array.Data.Slice(offset, length);
+            return BuildArray(newData);
         }
     }
 }
