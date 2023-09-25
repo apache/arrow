@@ -404,6 +404,12 @@ class ARROW_EXPORT StructArray : public Array {
   /// Returns null if name not found
   std::shared_ptr<Array> GetFieldByName(const std::string& name) const;
 
+  /// Indicate if field named `name` can be found unambiguously in the struct.
+  Status CanReferenceFieldByName(const std::string& name) const;
+
+  /// Indicate if fields named `names` can be found unambiguously in the struct.
+  Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;
+
   /// \brief Flatten this array as a vector of arrays, one for each field
   ///
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary

@@ -303,6 +303,58 @@ TEST(StructArray, FlattenOfSlice) {
   ASSERT_OK(arr->ValidateFull());
 }
 
+TEST(StructArray, CanReferenceFieldByName) {
+  auto a = ArrayFromJSON(int8(), "[4, 5]");
+  auto b = ArrayFromJSON(int16(), "[6, 7]");
+  auto c = ArrayFromJSON(int32(), "[8, 9]");
+  auto d = ArrayFromJSON(int64(), "[10, 11]");
+  auto children = std::vector<std::shared_ptr<Array>>{a, b, c, d};
+
+  auto f0 = field("f0", int8());
+  auto f1 = field("f1", int16());
+  auto f2 = field("f2", int32());
+  auto f3 = field("f1", int64());
+  auto type = struct_({f0, f1, f2, f3});
+
+  auto arr = std::make_shared<StructArray>(type, 2, children);
+
+  ASSERT_OK(arr->CanReferenceFieldByName("f0"));
+  ASSERT_OK(arr->CanReferenceFieldByName("f2"));
+  // Not found
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldByName("nope"));
+
+  // Duplicates
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldByName("f1"));
+}
+
+TEST(StructArray, CanReferenceFieldsByNames) {
+  auto a = ArrayFromJSON(int8(), "[4, 5]");
+  auto b = ArrayFromJSON(int16(), "[6, 7]");
+  auto c = ArrayFromJSON(int32(), "[8, 9]");
+  auto d = ArrayFromJSON(int64(), "[10, 11]");
+  auto children = std::vector<std::shared_ptr<Array>>{a, b, c, d};
+
+  auto f0 = field("f0", int8());
+  auto f1 = field("f1", int16());
+  auto f2 = field("f2", int32());
+  auto f3 = field("f1", int64());
+  auto type = struct_({f0, f1, f2, f3});
+
+  auto arr = std::make_shared<StructArray>(type, 2, children);
+
+  ASSERT_OK(arr->CanReferenceFieldsByNames({"f0", "f2"}));
+  ASSERT_OK(arr->CanReferenceFieldsByNames({"f2", "f0"}));
+
+  // Not found
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"nope"}));
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "nope"}));
+  // Duplicates
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f1"}));
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "f1"}));
+  // Both
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "f1", "nope"}));
+}
+
 // ----------------------------------------------------------------------------------
 // Struct test
 class TestStructBuilder : public ::testing::Test {
