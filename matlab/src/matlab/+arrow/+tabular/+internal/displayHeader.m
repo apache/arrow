@@ -33,42 +33,47 @@ function text = displayHeader(schema)
         names = compose(" Name: %s ", names);
         typeIDs = compose(" Type: %s ", typeIDs);
     end
-    
-    maxNameWidth = max(strlength(names));
-    maxTypeWidth = max(strlength(typeIDs));
-    maxWidth = max([maxNameWidth maxTypeWidth]);
+
+    numColumns = numel(typeIDs);
+    columnWidth = max([strlength(names); strlength(typeIDs)]);
+
+    body = [names; typeIDs];
+    for ii = 1:numColumns
+        body(:, ii) = pad(body(:, ii), columnWidth(ii));
+    end
         
-    body = pad([names ; typeIDs], maxWidth);
     body = "│" + join(body, "│", 2) + "│";
     body = join(body, newline);
     
     if boldFont
-       maxWidth = maxWidth - 17;
+       columnWidth = columnWidth - 17;
     end
     
-    top =  getTopRow(numel(typeIDs), maxWidth);
-    bottom = getBottomRow(numel(typeIDs), maxWidth);
-    
+    top = getBorderRow(ColumnWidth=columnWidth, LeftCorner="┌", ...
+        RightCorner="┐", Divider="┬");
+    bottom = getBorderRow(ColumnWidth=columnWidth, LeftCorner="└", ...
+        RightCorner="┘", Divider="┴");    
     text = join([top; body; bottom], newline);
 
 end
 
-function topRow = getTopRow(numFields, maxWidth)
-    horizontalBars = string(repmat('─', [1 maxWidth]));
-    topRow = strings([1 3 + numFields - 1]);
-    topRow(1) = "┌";
-    topRow(2) = horizontalBars;
-    topRow(3:end-1) = "┬" + horizontalBars;
-    topRow(end) = "┐";
-    topRow = strjoin(topRow, "");
-end
+function borderRow = getBorderRow(opts)
+    arguments
+        opts.ColumnWidth
+        opts.LeftCorner
+        opts.RightCorner
+        opts.Divider
+    end
 
-function bottomRow = getBottomRow(numFields, maxWidth)
-    horizontalBars = string(repmat('─', [1 maxWidth]));
-    bottomRow = strings([1 3 + numFields - 1]);
-    bottomRow(1) = "└";
-    bottomRow(2) = horizontalBars;
-    bottomRow(3:end-1) = "┴" + horizontalBars;
-    bottomRow(end) = "┘";
-    bottomRow = strjoin(bottomRow, "");
+    numDividers = numel(opts.ColumnWidth) - 1;
+    numHorizontalSections = numel(opts.ColumnWidth);
+    borderRow = strings([1 numDividers + numHorizontalSections]);
+    
+    index = 1;
+    for ii = 1:numHorizontalSections
+        borderRow(index) = repmat('─', [1 opts.ColumnWidth(ii)]);
+        index = index + 2;
+    end
+    borderRow(2:2:end-1) = opts.Divider;
+    borderRow = opts.LeftCorner + strjoin(borderRow, "") + opts.RightCorner;
 end
