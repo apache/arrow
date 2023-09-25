@@ -34,6 +34,10 @@ namespace Apache.Arrow.Tests
             public void ReturnsAppendedValue(string firstValue, string secondValue)
             {
                 // Arrange
+                // Create an array with two elements. The second element being null,
+                // empty, or non-empty may influence the underlying BinaryArray
+                // storage such that retrieving an empty first element could result
+                // in an empty span or a 0-length span backed by storage.
                 var array = new StringArray.Builder()
                     .Append(firstValue)
                     .Append(secondValue)
