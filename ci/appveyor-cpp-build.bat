@@ -141,6 +141,7 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
 mkdir tzdata
 tar --extract --file tzdata.tar.gz --directory tzdata
+mkdir %USERPROFILE%\Downloads\test
 move tzdata %USERPROFILE%\Downloads\test\
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml
