@@ -51,11 +51,20 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/MC/SubtargetFeature.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/PassPlugin.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Host.h>
+#include <llvm/Transforms/IPO.h>
+#include <llvm/Transforms/IPO/GlobalDCE.h>
+#include <llvm/Transforms/IPO/Internalize.h>
+#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Vectorize.h>
 #if LLVM_VERSION_MAJOR >= 14
 #include <llvm/MC/TargetRegistry.h>
 #else
@@ -268,18 +277,22 @@ Status Engine::LoadPreCompiledIR() {
 // a pass for dead code elimination.
 Status Engine::RemoveUnusedFunctions() {
   // Setup an optimiser pipeline
-  std::unique_ptr<llvm::legacy::PassManager> pass_manager(
-      new llvm::legacy::PassManager());
+  llvm::PassBuilder pass_builder;
+  llvm::ModuleAnalysisManager module_am;
+
+  pass_builder.registerModuleAnalyses(module_am);
+  llvm::ModulePassManager module_pm;
 
   std::unordered_set<std::string> used_functions;
   used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
 
-  pass_manager->add(
-      llvm::createInternalizePass([&used_functions](const llvm::GlobalValue& func) {
-        return (used_functions.find(func.getName().str()) != used_functions.end());
+  module_pm.addPass(
+      llvm::InternalizePass([&used_functions](const llvm::GlobalValue& GV) -> bool {
+        return used_functions.find(GV.getName().str()) != used_functions.end();
       }));
-  pass_manager->add(llvm::createGlobalDCEPass());
-  pass_manager->run(*module_);
+  module_pm.addPass(llvm::GlobalDCEPass());
+
+  module_pm.run(*module_, module_am);
   return Status::OK();
 }
 
