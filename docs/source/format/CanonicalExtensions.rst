@@ -216,9 +216,9 @@ Variable shape tensor
     take advantage of the uniformity. uniform_dimensions can be left out,
     in which case it is assumed that all dimensions might be variable.
 
-  * **uniform_shape** = shape over dimensions that are guaranteed to stay
-    constant over of all tensors in the array if all their ragged dimension
-    sizes were replaced by 0.
+  * **uniform_shape** = shape of the dimensions that are guaranteed to stay
+    constant over all tensors in the array, with the shape of the ragged dimensions
+    set to 0.
     An array containing tensor with shape (2, 3, 4) and uniform dimensions
     (0, 2) would have uniform shape (2, 0, 4).
 
