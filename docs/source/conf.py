@@ -312,9 +312,7 @@ html_theme_options = {
     ],
     "show_version_warning_banner": True,
     "switcher": {
-        # TODO: update versions.json on the arrow-site and change the link here
-        # "json_url": "/docs/_static/versions.json"
-        "json_url": "https://gist.githubusercontent.com/AlenkaF/9cc5820d3030cefcd2eee48e1ea58dc5/raw/3c0fa34dae3926f05958a5a7b3cfa8a07f0846d0/versions.json",
+        "json_url": "/docs/_static/versions.json",
         "version_match": version,
     },
 }
