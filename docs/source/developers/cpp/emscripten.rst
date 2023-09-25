@@ -50,12 +50,12 @@ versions of emsdk.
    # e.g. for version 0.24 of pyodide:
    pip install pyodide-build==0.24
 
-Then build with the ``ninja-release-emscripten-python`` cmake preset,
+Then build with the ``ninja-release-python-emscripten`` cmake preset,
 like below:
 
 .. code:: shell
 
-   cmake --preset "ninja-release-emscripten-python"
+   cmake --preset "ninja-release-python-emscripten"
    ninja install
 
 This will install a built static library version of ``libarrow`` it into the
