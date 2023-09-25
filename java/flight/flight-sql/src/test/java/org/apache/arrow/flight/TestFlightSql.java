@@ -20,7 +20,7 @@ package org.apache.arrow.flight;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
-import static java.util.Objects.isNull;
+import static org.apache.arrow.flight.sql.util.FlightStreamUtils.getResults;
 import static org.apache.arrow.util.AutoCloseables.close;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
@@ -29,16 +29,12 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.channels.Channels;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -52,18 +48,9 @@ import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.UInt1Vector;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.DenseUnionVector;
-import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.ipc.ReadChannel;
-import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -657,197 +644,202 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testGetCommandExportedKeys() {
-    final FlightStream stream =
+  public void testGetCommandExportedKeys() throws Exception {
+    try (final FlightStream stream =
         sqlClient.getStream(
             sqlClient.getExportedKeys(TableRef.of(null, null, "FOREIGNTABLE"))
-                .getEndpoints().get(0).getTicket());
+                .getEndpoints().get(0).getTicket())) {
 
-    final List<List<String>> results = getResults(stream);
+      final List<List<String>> results = getResults(stream);
 
-    final List<Matcher<String>> matchers = asList(
-        nullValue(String.class), // pk_catalog_name
-        is("APP"), // pk_schema_name
-        is("FOREIGNTABLE"), // pk_table_name
-        is("ID"), // pk_column_name
-        nullValue(String.class), // fk_catalog_name
-        is("APP"), // fk_schema_name
-        is("INTTABLE"), // fk_table_name
-        is("FOREIGNID"), // fk_column_name
-        is("1"), // key_sequence
-        containsString("SQL"), // fk_key_name
-        containsString("SQL"), // pk_key_name
-        is("3"), // update_rule
-        is("3")); // delete_rule
+      final List<Matcher<String>> matchers = asList(
+          nullValue(String.class), // pk_catalog_name
+          is("APP"), // pk_schema_name
+          is("FOREIGNTABLE"), // pk_table_name
+          is("ID"), // pk_column_name
+          nullValue(String.class), // fk_catalog_name
+          is("APP"), // fk_schema_name
+          is("INTTABLE"), // fk_table_name
+          is("FOREIGNID"), // fk_column_name
+          is("1"), // key_sequence
+          containsString("SQL"), // fk_key_name
+          containsString("SQL"), // pk_key_name
+          is("3"), // update_rule
+          is("3")); // delete_rule
 
-    final List<Executable> assertions = new ArrayList<>();
-    Assertions.assertEquals(1, results.size());
-    for (int i = 0; i < matchers.size(); i++) {
-      final String actual = results.get(0).get(i);
-      final Matcher<String> expected = matchers.get(i);
-      assertions.add(() -> MatcherAssert.assertThat(actual, expected));
+      final List<Executable> assertions = new ArrayList<>();
+      Assertions.assertEquals(1, results.size());
+      for (int i = 0; i < matchers.size(); i++) {
+        final String actual = results.get(0).get(i);
+        final Matcher<String> expected = matchers.get(i);
+        assertions.add(() -> MatcherAssert.assertThat(actual, expected));
+      }
+      Assertions.assertAll(assertions);
     }
-    Assertions.assertAll(assertions);
   }
 
   @Test
-  public void testGetCommandImportedKeys() {
-    final FlightStream stream =
+  public void testGetCommandImportedKeys() throws Exception {
+    try (final FlightStream stream =
         sqlClient.getStream(
             sqlClient.getImportedKeys(TableRef.of(null, null, "INTTABLE"))
-                .getEndpoints().get(0).getTicket());
+                .getEndpoints().get(0).getTicket())) {
 
-    final List<List<String>> results = getResults(stream);
+      final List<List<String>> results = getResults(stream);
 
-    final List<Matcher<String>> matchers = asList(
-        nullValue(String.class), // pk_catalog_name
-        is("APP"), // pk_schema_name
-        is("FOREIGNTABLE"), // pk_table_name
-        is("ID"), // pk_column_name
-        nullValue(String.class), // fk_catalog_name
-        is("APP"), // fk_schema_name
-        is("INTTABLE"), // fk_table_name
-        is("FOREIGNID"), // fk_column_name
-        is("1"), // key_sequence
-        containsString("SQL"), // fk_key_name
-        containsString("SQL"), // pk_key_name
-        is("3"), // update_rule
-        is("3")); // delete_rule
+      final List<Matcher<String>> matchers = asList(
+          nullValue(String.class), // pk_catalog_name
+          is("APP"), // pk_schema_name
+          is("FOREIGNTABLE"), // pk_table_name
+          is("ID"), // pk_column_name
+          nullValue(String.class), // fk_catalog_name
+          is("APP"), // fk_schema_name
+          is("INTTABLE"), // fk_table_name
+          is("FOREIGNID"), // fk_column_name
+          is("1"), // key_sequence
+          containsString("SQL"), // fk_key_name
+          containsString("SQL"), // pk_key_name
+          is("3"), // update_rule
+          is("3")); // delete_rule
 
-    Assertions.assertEquals(1, results.size());
-    final List<Executable> assertions = new ArrayList<>();
-    for (int i = 0; i < matchers.size(); i++) {
-      final String actual = results.get(0).get(i);
-      final Matcher<String> expected = matchers.get(i);
-      assertions.add(() -> MatcherAssert.assertThat(actual, expected));
+      Assertions.assertEquals(1, results.size());
+      final List<Executable> assertions = new ArrayList<>();
+      for (int i = 0; i < matchers.size(); i++) {
+        final String actual = results.get(0).get(i);
+        final Matcher<String> expected = matchers.get(i);
+        assertions.add(() -> MatcherAssert.assertThat(actual, expected));
+      }
+      Assertions.assertAll(assertions);
     }
-    Assertions.assertAll(assertions);
   }
 
   @Test
-  public void testGetTypeInfo() {
+  public void testGetTypeInfo() throws Exception {
     FlightInfo flightInfo = sqlClient.getXdbcTypeInfo();
 
-    FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
+    try (FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket())) {
 
-    final List<List<String>> results = getResults(stream);
+      final List<List<String>> results = getResults(stream);
 
-    final List<List<String>> matchers = ImmutableList.of(
-        asList("BIGINT", "-5", "19", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
-            "BIGINT", "0", "0",
-            null, null, "10", null),
-        asList("LONG VARCHAR FOR BIT DATA", "-4", "32700", "X'", "'", emptyList().toString(), "1", "false", "0", "true",
-            "false", "false",
-            "LONG VARCHAR FOR BIT DATA", null, null, null, null, null, null),
-        asList("VARCHAR () FOR BIT DATA", "-3", "32672", "X'", "'", singletonList("length").toString(), "1", "false",
-            "2", "true", "false",
-            "false", "VARCHAR () FOR BIT DATA", null, null, null, null, null, null),
-        asList("CHAR () FOR BIT DATA", "-2", "254", "X'", "'", singletonList("length").toString(), "1", "false", "2",
-            "true", "false", "false",
-            "CHAR () FOR BIT DATA", null, null, null, null, null, null),
-        asList("LONG VARCHAR", "-1", "32700", "'", "'", emptyList().toString(), "1", "true", "1", "true", "false",
-            "false",
-            "LONG VARCHAR", null, null, null, null, null, null),
-        asList("CHAR", "1", "254", "'", "'", singletonList("length").toString(), "1", "true", "3", "true", "false",
-            "false", "CHAR", null, null,
-            null, null, null, null),
-        asList("NUMERIC", "2", "31", null, null, Arrays.asList("precision", "scale").toString(), "1", "false", "2",
-            "false", "true", "false",
-            "NUMERIC", "0", "31", null, null, "10", null),
-        asList("DECIMAL", "3", "31", null, null, Arrays.asList("precision", "scale").toString(), "1", "false", "2",
-            "false", "true", "false",
-            "DECIMAL", "0", "31", null, null, "10", null),
-        asList("INTEGER", "4", "10", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
-            "INTEGER", "0", "0",
-            null, null, "10", null),
-        asList("SMALLINT", "5", "5", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
-            "SMALLINT", "0",
-            "0", null, null, "10", null),
-        asList("FLOAT", "6", "52", null, null, singletonList("precision").toString(), "1", "false", "2", "false",
-            "false", "false", "FLOAT", null,
-            null, null, null, "2", null),
-        asList("REAL", "7", "23", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "false",
-            "REAL", null, null,
-            null, null, "2", null),
-        asList("DOUBLE", "8", "52", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "false",
-            "DOUBLE", null,
-            null, null, null, "2", null),
-        asList("VARCHAR", "12", "32672", "'", "'", singletonList("length").toString(), "1", "true", "3", "true",
-            "false", "false", "VARCHAR",
-            null, null, null, null, null, null),
-        asList("BOOLEAN", "16", "1", null, null, emptyList().toString(), "1", "false", "2", "true", "false", "false",
-            "BOOLEAN", null,
-            null, null, null, null, null),
-        asList("DATE", "91", "10", "DATE'", "'", emptyList().toString(), "1", "false", "2", "true", "false", "false",
-            "DATE", "0", "0",
-            null, null, "10", null),
-        asList("TIME", "92", "8", "TIME'", "'", emptyList().toString(), "1", "false", "2", "true", "false", "false",
-            "TIME", "0", "0",
-            null, null, "10", null),
-        asList("TIMESTAMP", "93", "29", "TIMESTAMP'", "'", emptyList().toString(), "1", "false", "2", "true", "false",
-            "false",
-            "TIMESTAMP", "0", "9", null, null, "10", null),
-        asList("OBJECT", "2000", null, null, null, emptyList().toString(), "1", "false", "2", "true", "false", "false",
-            "OBJECT", null,
-            null, null, null, null, null),
-        asList("BLOB", "2004", "2147483647", null, null, singletonList("length").toString(), "1", "false", "0", null,
-            "false", null, "BLOB", null,
-            null, null, null, null, null),
-        asList("CLOB", "2005", "2147483647", "'", "'", singletonList("length").toString(), "1", "true", "1", null,
-            "false", null, "CLOB", null,
-            null, null, null, null, null),
-        asList("XML", "2009", null, null, null, emptyList().toString(), "1", "true", "0", "false", "false", "false",
-            "XML", null, null,
-            null, null, null, null));
-    MatcherAssert.assertThat(results, is(matchers));
+      final List<List<String>> matchers = ImmutableList.of(
+          asList("BIGINT", "-5", "19", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
+              "BIGINT", "0", "0",
+              null, null, "10", null),
+          asList("LONG VARCHAR FOR BIT DATA", "-4", "32700", "X'", "'", emptyList().toString(), "1", "false", "0",
+              "true", "false", "false",
+              "LONG VARCHAR FOR BIT DATA", null, null, null, null, null, null),
+          asList("VARCHAR () FOR BIT DATA", "-3", "32672", "X'", "'", singletonList("length").toString(), "1", "false",
+              "2", "true", "false",
+              "false", "VARCHAR () FOR BIT DATA", null, null, null, null, null, null),
+          asList("CHAR () FOR BIT DATA", "-2", "254", "X'", "'", singletonList("length").toString(), "1", "false", "2",
+              "true", "false", "false",
+              "CHAR () FOR BIT DATA", null, null, null, null, null, null),
+          asList("LONG VARCHAR", "-1", "32700", "'", "'", emptyList().toString(), "1", "true", "1", "true", "false",
+              "false",
+              "LONG VARCHAR", null, null, null, null, null, null),
+          asList("CHAR", "1", "254", "'", "'", singletonList("length").toString(), "1", "true", "3", "true", "false",
+              "false", "CHAR", null, null,
+              null, null, null, null),
+          asList("NUMERIC", "2", "31", null, null, Arrays.asList("precision", "scale").toString(), "1", "false", "2",
+              "false", "true", "false",
+              "NUMERIC", "0", "31", null, null, "10", null),
+          asList("DECIMAL", "3", "31", null, null, Arrays.asList("precision", "scale").toString(), "1", "false", "2",
+              "false", "true", "false",
+              "DECIMAL", "0", "31", null, null, "10", null),
+          asList("INTEGER", "4", "10", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
+              "INTEGER", "0", "0",
+              null, null, "10", null),
+          asList("SMALLINT", "5", "5", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
+              "SMALLINT", "0",
+              "0", null, null, "10", null),
+          asList("FLOAT", "6", "52", null, null, singletonList("precision").toString(), "1", "false", "2", "false",
+              "false", "false", "FLOAT", null,
+              null, null, null, "2", null),
+          asList("REAL", "7", "23", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "false",
+              "REAL", null, null,
+              null, null, "2", null),
+          asList("DOUBLE", "8", "52", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "false",
+              "DOUBLE", null,
+              null, null, null, "2", null),
+          asList("VARCHAR", "12", "32672", "'", "'", singletonList("length").toString(), "1", "true", "3", "true",
+              "false", "false", "VARCHAR",
+              null, null, null, null, null, null),
+          asList("BOOLEAN", "16", "1", null, null, emptyList().toString(), "1", "false", "2", "true", "false", "false",
+              "BOOLEAN", null,
+              null, null, null, null, null),
+          asList("DATE", "91", "10", "DATE'", "'", emptyList().toString(), "1", "false", "2", "true", "false", "false",
+              "DATE", "0", "0",
+              null, null, "10", null),
+          asList("TIME", "92", "8", "TIME'", "'", emptyList().toString(), "1", "false", "2", "true", "false", "false",
+              "TIME", "0", "0",
+              null, null, "10", null),
+          asList("TIMESTAMP", "93", "29", "TIMESTAMP'", "'", emptyList().toString(), "1", "false", "2", "true", "false",
+              "false",
+              "TIMESTAMP", "0", "9", null, null, "10", null),
+          asList("OBJECT", "2000", null, null, null, emptyList().toString(), "1", "false", "2", "true", "false",
+              "false", "OBJECT", null,
+              null, null, null, null, null),
+          asList("BLOB", "2004", "2147483647", null, null, singletonList("length").toString(), "1", "false", "0", null,
+              "false", null, "BLOB", null,
+              null, null, null, null, null),
+          asList("CLOB", "2005", "2147483647", "'", "'", singletonList("length").toString(), "1", "true", "1", null,
+              "false", null, "CLOB", null,
+              null, null, null, null, null),
+          asList("XML", "2009", null, null, null, emptyList().toString(), "1", "true", "0", "false", "false", "false",
+              "XML", null, null,
+              null, null, null, null));
+      MatcherAssert.assertThat(results, is(matchers));
+    }
   }
 
   @Test
-  public void testGetTypeInfoWithFiltering() {
+  public void testGetTypeInfoWithFiltering() throws Exception {
     FlightInfo flightInfo = sqlClient.getXdbcTypeInfo(-5);
 
-    FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
+    try (FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket())) {
 
-    final List<List<String>> results = getResults(stream);
+      final List<List<String>> results = getResults(stream);
 
-    final List<List<String>> matchers = ImmutableList.of(
-        asList("BIGINT", "-5", "19", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
-            "BIGINT", "0", "0",
-            null, null, "10", null));
-    MatcherAssert.assertThat(results, is(matchers));
+      final List<List<String>> matchers = ImmutableList.of(
+          asList("BIGINT", "-5", "19", null, null, emptyList().toString(), "1", "false", "2", "false", "false", "true",
+              "BIGINT", "0", "0",
+              null, null, "10", null));
+      MatcherAssert.assertThat(results, is(matchers));
+    }
   }
 
   @Test
-  public void testGetCommandCrossReference() {
+  public void testGetCommandCrossReference() throws Exception {
     final FlightInfo flightInfo = sqlClient.getCrossReference(TableRef.of(null, null,
         "FOREIGNTABLE"), TableRef.of(null, null, "INTTABLE"));
-    final FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
+    try (final FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket())) {
 
-    final List<List<String>> results = getResults(stream);
+      final List<List<String>> results = getResults(stream);
 
-    final List<Matcher<String>> matchers = asList(
-        nullValue(String.class), // pk_catalog_name
-        is("APP"), // pk_schema_name
-        is("FOREIGNTABLE"), // pk_table_name
-        is("ID"), // pk_column_name
-        nullValue(String.class), // fk_catalog_name
-        is("APP"), // fk_schema_name
-        is("INTTABLE"), // fk_table_name
-        is("FOREIGNID"), // fk_column_name
-        is("1"), // key_sequence
-        containsString("SQL"), // fk_key_name
-        containsString("SQL"), // pk_key_name
-        is("3"), // update_rule
-        is("3")); // delete_rule
+      final List<Matcher<String>> matchers = asList(
+          nullValue(String.class), // pk_catalog_name
+          is("APP"), // pk_schema_name
+          is("FOREIGNTABLE"), // pk_table_name
+          is("ID"), // pk_column_name
+          nullValue(String.class), // fk_catalog_name
+          is("APP"), // fk_schema_name
+          is("INTTABLE"), // fk_table_name
+          is("FOREIGNID"), // fk_column_name
+          is("1"), // key_sequence
+          containsString("SQL"), // fk_key_name
+          containsString("SQL"), // pk_key_name
+          is("3"), // update_rule
+          is("3")); // delete_rule
 
-    Assertions.assertEquals(1, results.size());
-    final List<Executable> assertions = new ArrayList<>();
-    for (int i = 0; i < matchers.size(); i++) {
-      final String actual = results.get(0).get(i);
-      final Matcher<String> expected = matchers.get(i);
-      assertions.add(() -> MatcherAssert.assertThat(actual, expected));
+      Assertions.assertEquals(1, results.size());
+      final List<Executable> assertions = new ArrayList<>();
+      for (int i = 0; i < matchers.size(); i++) {
+        final String actual = results.get(0).get(i);
+        final Matcher<String> expected = matchers.get(i);
+        assertions.add(() -> MatcherAssert.assertThat(actual, expected));
+      }
+      Assertions.assertAll(assertions);
     }
-    Assertions.assertAll(assertions);
   }
 
   @Test
@@ -876,90 +868,6 @@ public class TestFlightSql {
           }
       );
     }
-  }
-
-  List<List<String>> getResults(FlightStream stream) {
-    final List<List<String>> results = new ArrayList<>();
-    while (stream.next()) {
-      try (final VectorSchemaRoot root = stream.getRoot()) {
-        final long rowCount = root.getRowCount();
-        for (int i = 0; i < rowCount; ++i) {
-          results.add(new ArrayList<>());
-        }
-
-        root.getSchema().getFields().forEach(field -> {
-          try (final FieldVector fieldVector = root.getVector(field.getName())) {
-            if (fieldVector instanceof VarCharVector) {
-              final VarCharVector varcharVector = (VarCharVector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Text data = varcharVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : data.toString());
-              }
-            } else if (fieldVector instanceof IntVector) {
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                Object data = fieldVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof VarBinaryVector) {
-              final VarBinaryVector varbinaryVector = (VarBinaryVector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final byte[] data = varbinaryVector.getObject(rowIndex);
-                final String output;
-                try {
-                  output = isNull(data) ?
-                      null :
-                      MessageSerializer.deserializeSchema(
-                          new ReadChannel(Channels.newChannel(new ByteArrayInputStream(data)))).toJson();
-                } catch (final IOException e) {
-                  throw new RuntimeException("Failed to deserialize schema", e);
-                }
-                results.get(rowIndex).add(output);
-              }
-            } else if (fieldVector instanceof DenseUnionVector) {
-              final DenseUnionVector denseUnionVector = (DenseUnionVector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Object data = denseUnionVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof ListVector) {
-              for (int i = 0; i < fieldVector.getValueCount(); i++) {
-                if (!fieldVector.isNull(i)) {
-                  List<Text> elements = (List<Text>) ((ListVector) fieldVector).getObject(i);
-                  List<String> values = new ArrayList<>();
-
-                  for (Text element : elements) {
-                    values.add(element.toString());
-                  }
-                  results.get(i).add(values.toString());
-                }
-              }
-
-            } else if (fieldVector instanceof UInt4Vector) {
-              final UInt4Vector uInt4Vector = (UInt4Vector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Object data = uInt4Vector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof UInt1Vector) {
-              final UInt1Vector uInt1Vector = (UInt1Vector) fieldVector;
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                final Object data = uInt1Vector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else if (fieldVector instanceof BitVector) {
-              for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-                Object data = fieldVector.getObject(rowIndex);
-                results.get(rowIndex).add(isNull(data) ? null : Objects.toString(data));
-              }
-            } else {
-              throw new UnsupportedOperationException("Not yet implemented");
-            }
-          }
-        });
-      }
-    }
-
-    return results;
   }
 
   @Test
