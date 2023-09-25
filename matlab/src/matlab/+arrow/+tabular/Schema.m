@@ -116,10 +116,7 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
             numFields = obj.NumFields;
 
             if numFields > 0
-                names = [obj.FieldNames];
-                types = arrayfun(@(type) string(class(type)), [obj.Fields.Type]);
-                types = extractAfter(types, "arrow.type.");
-                text = arrow.tabular.internal.display(names, types);
+                text = arrow.tabular.internal.displaySchema(obj);
                 disp(text + newline);
             end
 
