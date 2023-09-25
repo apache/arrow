@@ -138,13 +138,13 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 @REM move %USERPROFILE%\Downloads\tzdata %USERPROFILE%\Downloads\test\tzdata
 
 @rem Download IANA Timezone Database to another location
-curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
 mkdir tzdata
 tar --extract --file tzdata.tar.gz --directory tzdata
 mkdir %USERPROFILE%\Downloads\test
 move tzdata %USERPROFILE%\Downloads\test\
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
-  --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml
+  --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml || exit /B
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 @echo == PYARROW_TZDATA_PATH contents ==
 dir /n %PYARROW_TZDATA_PATH%
