@@ -203,6 +203,10 @@ namespace Apache.Arrow.Ipc
                 case Flatbuf.Type.Struct_:
                     Debug.Assert(childFields != null);
                     return new Types.StructType(childFields);
+                case Flatbuf.Type.Union:
+                    Debug.Assert(childFields != null);
+                    Flatbuf.Union unionMetadata = field.Type<Flatbuf.Union>().Value;
+                    return new Types.UnionType(childFields, unionMetadata.GetTypeIdsArray(), unionMetadata.Mode.ToArrow());
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

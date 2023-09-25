@@ -55,6 +55,7 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
+            IArrowArrayVisitor<UnionArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -156,6 +157,22 @@ namespace Apache.Arrow.Ipc
                 }
             }
 
+            public void Visit(UnionArray array)
+            {
+                _buffers.Add(CreateBuffer(array.TypeBuffer));
+
+                ArrowBuffer? offsets = (array as DenseUnionArray)?.ValueOffsetBuffer;
+                if (offsets != null)
+                {
+                    _buffers.Add(CreateBuffer(offsets.Value));
+                }
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(this);
+                }
+            }
+
             public void Visit(DictionaryArray array)
             {
                 // Dictionary is serialized separately in Dictionary serialization.
@@ -218,7 +235,7 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
 
-        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V4;
+        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
         private static readonly byte[] s_padding = new byte[64];
 

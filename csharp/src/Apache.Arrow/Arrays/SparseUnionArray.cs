@@ -13,35 +13,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Types;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Apache.Arrow.Types
+namespace Apache.Arrow
 {
-    public enum UnionMode
+    public class SparseUnionArray : UnionArray
     {
-        Sparse,
-        Dense
-    }
-
-    public sealed class UnionType : NestedType
-    {
-        public override ArrowTypeId TypeId => ArrowTypeId.Union;
-        public override string Name => "union";
-
-        public UnionMode Mode { get; }
-
-        public int[] TypeIds { get; }
-
-        public UnionType(
-            IEnumerable<Field> fields, IEnumerable<int> typeIds,
-            UnionMode mode = UnionMode.Sparse)
-            : base(fields.ToArray())
+        public SparseUnionArray(
+            IArrowType dataType,
+            int length,
+            IEnumerable<IArrowArray> children,
+            ArrowBuffer typeIds,
+            int nullCount = 0,
+            int offset = 0)
+            : base(new ArrayData(
+                dataType, length, nullCount, offset, new[] { typeIds },
+                children.Select(child => child.Data)))
         {
-            TypeIds = typeIds.ToArray();
-            Mode = mode;
+            _fields = children.ToArray();
+            ValidateMode(UnionMode.Sparse, Type.Mode);
         }
 
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+        public SparseUnionArray(ArrayData data) 
+            : base(data)
+        {
+            ValidateMode(UnionMode.Sparse, Type.Mode);
+            data.EnsureBufferCount(1);
+        }
     }
 }

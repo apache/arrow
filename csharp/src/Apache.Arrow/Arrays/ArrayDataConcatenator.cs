@@ -49,7 +49,8 @@ namespace Apache.Arrow
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>
         {
             public ArrayData Result { get; private set; }
             private readonly IReadOnlyList<ArrayData> _arrayDataList;
@@ -121,6 +122,33 @@ namespace Apache.Arrow
                 }
 
                 Result = new ArrayData(type, _arrayDataList[0].Length, _arrayDataList[0].NullCount, 0, _arrayDataList[0].Buffers, children);
+            }
+
+            public void Visit(UnionType type)
+            {
+                int bufferCount = type.Mode switch
+                {
+                    UnionMode.Sparse => 1,
+                    UnionMode.Dense => 2,
+                    _ => throw new InvalidOperationException("TODO"),
+                };
+
+                CheckData(type, bufferCount);
+                List<ArrayData> children = new List<ArrayData>(type.Fields.Count);
+
+                for (int i = 0; i < type.Fields.Count; i++)
+                {
+                    children.Add(Concatenate(SelectChildren(i), _allocator));
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[bufferCount];
+                buffers[0] = ConcatenateUnionTypeBuffer();
+                if (bufferCount > 1)
+                {
+                    buffers[1] = ConcatenateUnionOffsetBuffer();
+                }
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, buffers, children);
             }
 
             public void Visit(IArrowType type)
@@ -226,6 +254,38 @@ namespace Apache.Arrow
 
                     // The next offset must start from the current last offset.
                     baseOffset += span[arrayData.Length - 1];
+                }
+
+                return builder.Build(_allocator);
+            }
+
+            private ArrowBuffer ConcatenateUnionTypeBuffer()
+            {
+                var builder = new ArrowBuffer.Builder<byte>(_totalLength);
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    builder.Append(arrayData.Buffers[0]);
+                }
+
+                return builder.Build(_allocator);
+            }
+
+            private ArrowBuffer ConcatenateUnionOffsetBuffer()
+            {
+                var builder = new ArrowBuffer.Builder<int>(_totalLength);
+                int baseOffset = 0;
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>();
+                    foreach (int offset in span)
+                    {
+                        builder.Append(baseOffset + offset);
+                    }
+
+                    // The next offset must start from the current last offset.
+                    baseOffset += span[arrayData.Length];
                 }
 
                 return builder.Build(_allocator);

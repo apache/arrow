@@ -37,10 +37,10 @@ namespace Apache.Arrow
             List<Column> columns = new List<Column>(nColumns);
             for (int icol = 0; icol < nColumns; icol++)
             {
-                List<Array> columnArrays = new List<Array>(nBatches);
+                List<IArrowArray> columnArrays = new List<IArrowArray>(nBatches);
                 for (int jj = 0; jj < nBatches; jj++)
                 {
-                    columnArrays.Add(recordBatches[jj].Column(icol) as Array);
+                    columnArrays.Add(recordBatches[jj].Column(icol));
                 }
                 columns.Add(new Column(schema.GetFieldByIndex(icol), columnArrays));
             }
