@@ -215,19 +215,25 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   untar_dir <- tempfile()
   on.exit(unlink(untar_dir, recursive = TRUE), add = TRUE)
   utils::untar(source_file, exdir = untar_dir)
-  tools_dir <- file.path(untar_dir, "arrow/tools")
+  tools_dir <- file.path(normalizePath(untar_dir, winslash = "/"), "arrow/tools")
   download_dependencies_sh <- file.path(tools_dir, "download_dependencies_R.sh")
   # If you change this path, also need to edit nixlibs.R
   download_dir <- file.path(tools_dir, "thirdparty_dependencies")
   dir.create(download_dir)
   download_script <- tempfile(fileext = ".R")
+
+  if (isTRUE(Sys.info()["sysname"] == "Windows")) {
+    download_dependencies_sh <- wslify_path(download_dependencies_sh)
+  }
+
   parse_versions_success <- system2(
     "bash", c(download_dependencies_sh, download_dir),
     stdout = download_script,
     stderr = FALSE
   ) == 0
+
   if (!parse_versions_success) {
-    stop("Failed to parse versions.txt")
+    stop(paste("Failed to parse versions.txt; view ", download_script, "for more information", collapse = ""))
   }
   # `source` the download_script to use R to download all the dependency bundles
   source(download_script)
@@ -249,4 +255,15 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
     stop("Failed to create new tar.gz file")
   }
   invisible(dest_file)
+}
+
+# Convert a Windows path to a WSL path
+# e.g. wslify_path("C:/Users/user/AppData/") returns "/mnt/c/Users/user/AppData"
+wslify_path <- function(path) {
+  m <- regexpr("[A-Z]:/", path)
+  drive_expr <- regmatches(path, m)
+  drive_letter <- strsplit(drive_expr, ":/")[[1]]
+  wslified_drive <- paste0("/mnt/", tolower(drive_letter))
+  end_path <- strsplit(path, drive_expr)[[1]][-1]
+  file.path(wslified_drive, end_path)
 }
