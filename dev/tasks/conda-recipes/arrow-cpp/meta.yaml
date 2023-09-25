@@ -377,7 +377,8 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or test_cuda" %}
         # skip tests that raise SIGINT and crash the test suite
         {% set tests_to_skip = tests_to_skip + " or (test_csv and test_cancellation)" %}  # [linux]
-        {% set tests_to_skip = tests_to_skip + " or (test_flight and test_interrupt)" %}  # [linux]
+        # skip test that intentionally writes out of bounds and then expects no error message
+        {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled[system_memory_pool]" %}  # [osx]
         # skip tests that make invalid(-for-conda) assumptions about the compilers setup
         {% set tests_to_skip = tests_to_skip + " or test_cython_api" %}                   # [unix]
         {% set tests_to_skip = tests_to_skip + " or test_visit_strings" %}                # [unix]
