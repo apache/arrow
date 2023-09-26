@@ -1332,9 +1332,9 @@ def test_concat_tables():
 
 def test_concat_tables_permissive():
     t1 = pa.Table.from_arrays([list(range(10))], names=('a',))
-    t2 = pa.Table.from_arrays([list('a', 'b', 'c')], names=('a',))
+    t2 = pa.Table.from_arrays([list(('a', 'b', 'c'))], names=('a',))
 
-    with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
+    with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
         _ = pa.concat_tables([t1, t2], field_merge_options="permissive")
 
 
