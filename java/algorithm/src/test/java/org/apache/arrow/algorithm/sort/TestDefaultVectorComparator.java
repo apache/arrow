@@ -35,6 +35,8 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.LargeVarBinaryVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -47,6 +49,9 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -910,5 +915,26 @@ public class TestDefaultVectorComparator {
       comparator.attachVectors(vec, vec2);
       assertTrue(comparator.checkNullsOnCompare());
     }
+  }
+
+  @Test
+  public void testVariableWidthDefaultComparators() {
+    try (VarCharVector vec = new VarCharVector("test", allocator)) {
+      verifyVariableWidthComparatorReturned(vec);
+    }
+    try (VarBinaryVector vec = new VarBinaryVector("test", allocator)) {
+      verifyVariableWidthComparatorReturned(vec);
+    }
+    try (LargeVarCharVector vec = new LargeVarCharVector("test", allocator)) {
+      verifyVariableWidthComparatorReturned(vec);
+    }
+    try (LargeVarBinaryVector vec = new LargeVarBinaryVector("test", allocator)) {
+      verifyVariableWidthComparatorReturned(vec);
+    }
+  }
+
+  private static <V extends ValueVector> void verifyVariableWidthComparatorReturned(V vec) {
+    VectorValueComparator<V> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+    assertEquals(DefaultVectorComparators.VariableWidthComparator.class, comparator.getClass());
   }
 }
