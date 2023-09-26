@@ -594,7 +594,7 @@ Result<Datum> DictionaryEncode(
 /// \param[in] ctx the function execution context, optional
 /// \return compacted dictionary array
 ///
-/// \since 13.0.0
+/// \since 14.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> DictionaryCompact(const Datum& value, ExecContext* ctx = NULLPTR);
