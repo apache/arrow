@@ -208,6 +208,7 @@ class ArrayLoader {
   Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
 
   Status Load(const Field* field, ArrayData* out) {
+    DCHECK_NE(nullptr, out);
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
@@ -223,6 +224,9 @@ class ArrayLoader {
     skip_io_ = true;
     Status status = Load(field, &dummy);
     skip_io_ = false;
+    // GH-37851: Reset state. Load will set `out_` to `&dummy`, which would
+    // be a dangling pointer.
+    out_ = nullptr;
     return status;
   }
 
@@ -2010,7 +2014,7 @@ class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
 };
 
 StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener, IpcReadOptions options) {
-  impl_.reset(new StreamDecoderImpl(std::move(listener), options));
+  impl_ = std::make_unique<StreamDecoderImpl>(std::move(listener), options);
 }
 
 StreamDecoder::~StreamDecoder() {}
