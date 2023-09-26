@@ -233,8 +233,10 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(
   const auto& value_type = list_view_type.value_type();
   const auto list_type = std::make_shared<DestListType>(value_type);
 
+  auto sum_of_list_view_sizes = SumOfListViewSizes<offset_type>(*list_view_data);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayBuilder> value_builder,
                         MakeBuilder(value_type, pool));
+  RETURN_NOT_OK(value_builder->Reserve(sum_of_list_view_sizes));
   auto list_builder = std::make_shared<ListBuilderType>(pool, value_builder, list_type);
   RETURN_NOT_OK(list_builder->Reserve(list_view_data->length));
 
