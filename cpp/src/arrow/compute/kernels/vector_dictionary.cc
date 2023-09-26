@@ -46,7 +46,7 @@ class DictionaryCompactKernel : public KernelState {
                                               ExecContext* ctx) const = 0;
 };
 
-template <typename IndiceArrowType>
+template <typename IndexArrowType>
 class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
   using BuilderType = NumericBuilder<IndiceArrowType>;
   using CType = typename IndiceArrowType::c_type;
