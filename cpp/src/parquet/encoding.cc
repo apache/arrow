@@ -3369,6 +3369,9 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
       if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
         throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
       }
+      if (buffer[i].len == 0 || prefix_len_ptr[i] == 0) {
+        continue;
+      }
       if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
                               AddWithOverflow(data_size, buffer[i].len, &data_size))) {
         throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
@@ -3381,6 +3384,15 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
     for (int i = 0; i < max_values; ++i) {
       if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix.length())) {
         throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
+      }
+      if (prefix_len_ptr[i] == 0) {
+        prefix = std::string_view{buffer[i]};
+        continue;
+      }
+      if (buffer[i].len == 0) {
+        buffer[i] = {static_cast<uint32_t>(prefix_len_ptr[i]),
+                     reinterpret_cast<const uint8_t*>(prefix.data())};
+        continue;
       }
       memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
       // buffer[i] currently points to the string suffix
