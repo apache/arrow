@@ -35,7 +35,7 @@
   "author": "Apache Software Foundation",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://issues.apache.org/jira/projects/ARROW"
+    "url": "https://github.com/apache/arrow/issues"
   },
   "homepage": "https://github.com/apache/arrow/blob/main/js/README.md",
   "files": [
