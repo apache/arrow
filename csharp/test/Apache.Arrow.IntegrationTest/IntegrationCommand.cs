@@ -189,6 +189,7 @@ namespace Apache.Arrow.IntegrationTest
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
                 "struct" => ToStructArrowType(type, children),
                 "union" => ToUnionArrowType(type, children),
+                "map" => ToMapArrowType(type, children),
                 "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
@@ -272,6 +273,11 @@ namespace Apache.Arrow.IntegrationTest
             return new ListType(children[0]);
         }
 
+        private static IArrowType ToMapArrowType(JsonArrowType type, Field[] children)
+        {
+            return new MapType(children[0], type.KeysSorted);
+        }
+
         private static IArrowType ToFixedSizeListArrowType(JsonArrowType type, Field[] children)
         {
             return new FixedSizeListType(children[0], type.ListSize);
@@ -319,6 +325,7 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
+            IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; set; }
@@ -588,6 +595,21 @@ namespace Apache.Arrow.IntegrationTest
                 int nullCount = 0;
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, buffers, children);
                 Array = UnionArray.Create(arrayData);
+            }
+
+            public void Visit(MapType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetOffsetBuffer();
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.KeyValueType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
+                Array = new MapArray(arrayData);
             }
 
             private ArrayData[] GetChildren(NestedType type)
