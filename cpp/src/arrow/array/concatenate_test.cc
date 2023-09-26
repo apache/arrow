@@ -50,6 +50,7 @@ class ConcatenateTest : public ::testing::Test {
         sizes_({0, 1, 2, 4, 16, 31, 1234}),
         null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
 
+ public:
   template <typename OffsetType>
   std::vector<OffsetType> Offsets(int32_t length, int32_t slice_count) {
     std::vector<OffsetType> offsets(static_cast<std::size_t>(slice_count + 1));
@@ -77,6 +78,7 @@ class ConcatenateTest : public ::testing::Test {
     return rng_.Numeric<PrimitiveType, uint8_t>(size, 0, 127, null_probability);
   }
 
+ protected:
   void CheckTrailingBitsAreZeroed(const std::shared_ptr<Buffer>& bitmap, int64_t length) {
     if (auto preceding_bits = bit_util::kPrecedingBitmask[length % 8]) {
       auto last_byte = bitmap->data()[length / 8];
@@ -187,87 +189,88 @@ TEST_F(ConcatenateTest, FixedSizeListType) {
   });
 }
 
-TEST_F(ConcatenateTest, ListType) {
-  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+template <typename ListType>
+struct ListConcatenationChecker {
+  using offset_type = typename ListType::offset_type;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+  using ListArrayType = typename TypeTraits<ListType>::ArrayType;
+
+  template <typename Self>
+  static void Check(Self& self, int32_t size, double null_probability,
+                    std::shared_ptr<Array>* out) {
     auto values_size = size * 4;
-    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
-    auto offsets_vector = this->Offsets<int32_t>(values_size, size);
+    auto values =
+        self.template GeneratePrimitive<Int8Type>(values_size, null_probability);
+    auto offsets_vector = self.template Offsets<offset_type>(values_size, size);
     // Ensure first and last offsets encompass the whole values array
     offsets_vector.front() = 0;
-    offsets_vector.back() = static_cast<int32_t>(values_size);
+    offsets_vector.back() = static_cast<offset_type>(values_size);
     std::shared_ptr<Array> offsets;
-    ArrayFromVector<Int32Type>(offsets_vector, &offsets);
-    ASSERT_OK_AND_ASSIGN(*out, ListArray::FromArrays(*offsets, *values));
+    ArrayFromVector<OffsetArrowType>(offsets_vector, &offsets);
+    ASSERT_OK_AND_ASSIGN(*out, ListArrayType::FromArrays(*offsets, *values));
     ASSERT_OK((**out).ValidateFull());
+  }
+};
+
+TEST_F(ConcatenateTest, ListType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    ListConcatenationChecker<ListType>::Check(*this, size, null_probability, out);
   });
 }
 
 TEST_F(ConcatenateTest, LargeListType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto values_size = size * 4;
-    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
-    auto offsets_vector = this->Offsets<int64_t>(values_size, size);
-    // Ensure first and last offsets encompass the whole values array
-    offsets_vector.front() = 0;
-    offsets_vector.back() = static_cast<int64_t>(values_size);
-    std::shared_ptr<Array> offsets;
-    ArrayFromVector<Int64Type>(offsets_vector, &offsets);
-    ASSERT_OK_AND_ASSIGN(*out, LargeListArray::FromArrays(*offsets, *values));
-    ASSERT_OK((**out).ValidateFull());
+    ListConcatenationChecker<LargeListType>::Check(*this, size, null_probability, out);
   });
 }
 
-TEST_F(ConcatenateTest, ListViewType) {
-  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto values_size = size * 4;
-    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+template <typename ListViewType>
+struct ListViewConcatenationChecker {
+  using offset_type = typename ListViewType::offset_type;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+  using ListViewArrayType = typename TypeTraits<ListViewType>::ArrayType;
+
+  template <typename Self>
+  static void Check(Self& self, int32_t size, double null_probability,
+                    std::shared_ptr<Array>* out) {
+    auto values_size = 4 * size;
+    auto values =
+        self.template GeneratePrimitive<Int8Type>(values_size, null_probability);
 
     std::shared_ptr<Array> offsets;
-    auto offsets_vector = this->Offsets<int32_t>(values_size, size);
+    auto offsets_vector = self.template Offsets<offset_type>(values_size, size);
     offsets_vector.front() = 0;
-    offsets_vector.back() = values_size;
-    ArrayFromVector<Int32Type>(offsets_vector, &offsets);
+    ArrayFromVector<OffsetArrowType>(offsets_vector, &offsets);
 
     std::shared_ptr<Array> sizes;
-    std::vector<int32_t> sizes_vector;
+    std::vector<offset_type> sizes_vector;
     sizes_vector.reserve(size);
     for (int32_t i = 0; i < size; ++i) {
       // Make list-views share values with the next list-view by extending the size to a
       // point after the next offset.
-      int32_t size = offsets_vector[i + 1] - offsets_vector[i];
+      offset_type size = offsets_vector[i + 1] - offsets_vector[i];
       size = std::min(2 * size / 3, values_size - offsets_vector[i]);
       sizes_vector.push_back(size);
       ASSERT_LE(offsets_vector[i] + sizes_vector.back(), values_size);
     }
     ASSERT_EQ(offsets_vector.size(), sizes_vector.size() + 1);
-    ArrayFromVector<Int32Type>(sizes_vector, &sizes);
+    ArrayFromVector<OffsetArrowType>(sizes_vector, &sizes);
 
-    ASSERT_OK_AND_ASSIGN(*out, ListViewArray::FromArrays(*offsets, *sizes, *values));
+    ASSERT_OK_AND_ASSIGN(*out, ListViewArrayType::FromArrays(*offsets, *sizes, *values));
     ASSERT_OK((**out).ValidateFull());
+  }
+};
+
+TEST_F(ConcatenateTest, ListViewType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    ListViewConcatenationChecker<ListViewType>::Check(*this, size, null_probability, out);
   });
 }
 
 TEST_F(ConcatenateTest, LargeListViewType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto values_size = size * 4;
-    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
-    auto offsets_vector = this->Offsets<int64_t>(values_size, size);
-    // Ensure first and last offsets encompass the whole values array
-    offsets_vector.front() = 0;
-    offsets_vector.back() = static_cast<int64_t>(values_size);
-    std::vector<int64_t> sizes_vector;
-    sizes_vector.reserve(size);
-    for (int64_t i = 0; i < size; ++i) {
-      int64_t size = offsets_vector[i + 1] - offsets_vector[i];
-      size = std::min(2 * size / 3, values_size - offsets_vector[i]);
-      sizes_vector.push_back(size);
-    }
-    ASSERT_EQ(offsets_vector.size(), sizes_vector.size() + 1);
-    std::shared_ptr<Array> offsets, sizes;
-    ArrayFromVector<Int64Type>(offsets_vector, &offsets);
-    ArrayFromVector<Int64Type>(sizes_vector, &sizes);
-    ASSERT_OK_AND_ASSIGN(*out, LargeListViewArray::FromArrays(*offsets, *sizes, *values));
-    ASSERT_OK((**out).ValidateFull());
+    ListViewConcatenationChecker<LargeListViewType>::Check(*this, size, null_probability,
+                                                           out);
   });
 }
 
