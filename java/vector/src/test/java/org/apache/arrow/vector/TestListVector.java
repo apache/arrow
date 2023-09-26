@@ -1115,6 +1115,26 @@ public class TestListVector {
     }
   }
 
+  @Test
+  public void testTotalCapacity() {
+    final FieldType type = FieldType.nullable(MinorType.INT.getType());
+    try (final ListVector vector = new ListVector("list", allocator, type, null)) {
+      // Force the child vector to be allocated based on the type
+      // (this is a bad API: we have to track and repeat the type twice)
+      vector.addOrGetVector(type);
+
+      // Specify the allocation size but do not actually allocate
+      vector.setInitialTotalCapacity(10, 100);
+
+      // Finally actually do the allocation
+      vector.allocateNewSafe();
+
+      // Note: allocator rounds up and can be greater than the requested allocation.
+      assertTrue(vector.getValueCapacity() >= 10);
+      assertTrue(vector.getDataVector().getValueCapacity() >= 100);
+    }
+  }
+
   private void writeIntValues(UnionListWriter writer, int[] values) {
     writer.startList();
     for (int v: values) {
