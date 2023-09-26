@@ -32,5 +32,12 @@ namespace Apache.Arrow.Types
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+
+        public MapType UnsortedKey()
+        {
+            if (!KeySorted) { return this; }
+
+            return new MapType(Fields[0], keySorted: false);
+        }
     }
 }
