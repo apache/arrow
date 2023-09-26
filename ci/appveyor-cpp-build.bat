@@ -132,12 +132,8 @@ set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
-@rem Move tzdata to a non-standard location to test the
-@rem configurability of the timezone database path
-@REM mkdir %USERPROFILE%\Downloads\test\tzdata
-@REM move %USERPROFILE%\Downloads\tzdata %USERPROFILE%\Downloads\test\tzdata
-
-@rem Download IANA Timezone Database to another location
+@rem Download IANA Timezone Database to a non-standard location to
+@rem test the configurability of the timezone database path
 curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
 mkdir tzdata
 tar --extract --file tzdata.tar.gz --directory tzdata
@@ -146,9 +142,6 @@ move tzdata %USERPROFILE%\Downloads\test\
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml || exit /B
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
-@echo == PYARROW_TZDATA_PATH contents ==
-dir /n %PYARROW_TZDATA_PATH%
-@echo == /PYARROW_TZDATA_PATH contents ==
 
 python setup.py develop -q || exit /B
 
