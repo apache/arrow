@@ -44,10 +44,10 @@ class DictionaryCompactKernel : public KernelState {
                                               ExecContext* ctx) const = 0;
 };
 
-template <typename IndiceArrowType>
+template <typename IndexArrowType>
 class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
-  using BuilderType = NumericBuilder<IndiceArrowType>;
-  using CType = typename IndiceArrowType::c_type;
+  using BuilderType = NumericBuilder<IndexArrowType>;
+  using CType = typename IndexArrowType::c_type;
 
  public:
   Result<std::shared_ptr<Array>> Exec(std::shared_ptr<Array> dict_array,
