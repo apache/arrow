@@ -41,3 +41,22 @@ pushd ${source_dir}/parquet
 go install -v ./...
 
 popd
+
+if [[ -n "${ARROW_GO_INTEGRATION}" ]]; then
+    pushd ${source_dir}/arrow/internal/cdata_integration
+
+    case "$(uname)" in
+        Linux)
+            go_lib="arrow_go_integration.so"
+            ;;
+        Darwin)
+            go_lib="arrow_go_integration.so"
+            ;;
+        MINGW*)
+            go_lib="arrow_go_integration.dll"
+            ;;
+    esac
+    go build -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+
+    popd
+fi
