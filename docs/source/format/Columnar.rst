@@ -108,7 +108,7 @@ are the different physical layouts defined by Arrow:
 * **Variable-size Binary**: a sequence of values each having a variable
   byte length. Two variants of this layout are supported using 32-bit
   and 64-bit length encoding.
-* **Views of Variable-size Binary**: a sequence of values each having a
+* **View of Variable-size Binary**: a sequence of values each having a
   variable byte length. In contrast to Variable-size Binary, the values
   of this layout are distributed across potentially multiple buffers
   instead of densely and sequentially packed in a single buffer.
