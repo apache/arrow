@@ -173,7 +173,7 @@ Result<std::unique_ptr<KernelState>> DictionaryCompactInit(KernelContext* ctx,
 
 Status DictionaryCompactExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (batch[0].is_scalar()) {
-    return Status::TypeError("Expected an Array or a Chunked Array");
+    return Status::NotImplemented("DictionaryCompacting Scalars");
   }
 
   const DictionaryCompactKernel& Kernel =
