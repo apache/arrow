@@ -107,7 +107,7 @@ TEST_F(TestDictionaryCompactKernel, DictionaryArray) {
     CheckDictionaryCompact(dict_type, "[true, false]", "[0, null]", "[true]",
                            "[0, null]");
 
-    // input isn't compacted && its indice needs to be adjusted
+    // input isn't compacted && its indices needs to be adjusted
     CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, 1]", "[null, false]",
                            "[1, 0]");
     CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, null, 1]",
@@ -116,7 +116,7 @@ TEST_F(TestDictionaryCompactKernel, DictionaryArray) {
     type = int64();
     dict_type = dictionary(index_type, type);
 
-    // input isn't compacted && its indice needs to be adjusted
+    // input isn't compacted && its indices needs to be adjusted
     CheckDictionaryCompact(dict_type, "[3, 4, 7, 0, 12, 191, 21, 8]",
                            "[0, 2, 4, 4, 6, 4, 2, 0, 6]", "[3, 7, 12, 21]",
                            "[0, 1, 2, 2, 3, 2, 1, 0, 3]");

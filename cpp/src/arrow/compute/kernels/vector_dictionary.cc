@@ -130,14 +130,14 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
       out->value = res->data();
       return Status::OK();
     }
-    std::vector<CType> indice_minus_number(dict->length(), 0);
+    std::vector<CType> index_minus_number(dict->length(), 0);
     if (!dict_used[0]) {
-      indice_minus_number[0] = 1;
+      index_minus_number[0] = 1;
     }
     for (int64_t i = 1; i < dict->length(); i++) {
-      indice_minus_number[i] = indice_minus_number[i - 1];
+      index_minus_number[i] = index_minus_number[i - 1];
       if (!dict_used[i]) {
-        indice_minus_number[i] = indice_minus_number[i] + 1;
+        index_minus_number[i] = index_minus_number[i] + 1;
       }
     }
 
@@ -148,7 +148,7 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
       } else {
         CType current_index = indices_data[i];
         ARROW_RETURN_NOT_OK(
-            indices_builder.Append(current_index - indice_minus_number[current_index]));
+            indices_builder.Append(current_index - index_minus_number[current_index]));
       }
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
@@ -185,7 +185,7 @@ Result<std::unique_ptr<KernelState>> DictionaryCompactInit(KernelContext* ctx,
       return std::make_unique<DictionaryCompactKernelImpl<Int64Type>>();
     default:
       ARROW_CHECK(false) << "unreachable";
-      return Status::TypeError("Expected an Indice Type of Int or UInt");
+      return Status::TypeError("Expected an Index Type of Int or UInt");
   }
 }
 
