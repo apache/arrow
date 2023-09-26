@@ -142,18 +142,16 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
     }
 
     BuilderType indices_builder(ctx->memory_pool());
-    for (int64_t i = 0; i < indices->length(); i++) {
-      if (indices->IsNull(i)) {
-        ARROW_RETURN_NOT_OK(indices_builder.AppendNull());
-      } else {
-        CType current_index = indices_data[i];
-        ARROW_RETURN_NOT_OK(
-            indices_builder.Append(current_index - index_minus_number[current_index]));
-      }
-    }
+    auto visit_null = [&]() {
+      ARROW_RETURN_NOT_OK(indices_builder.AppendNull());
+      return Status::OK();
+    };
+    auto visit_value = [&](CType index) {
+      ARROW_RETURN_NOT_OK(indices_builder.Append(index - index_minus_number[index]));
+    };
+    RETURN_NOT_OK(VisitArraySpanInline<CType>(batch[0].array, visit_value, visit_null));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
                           indices_builder.Finish());
-
     ARROW_ASSIGN_OR_RAISE(
         auto res,
         DictionaryArray::FromArrays(dict_array->type(), changed_indice, compacted_dict));
