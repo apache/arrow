@@ -205,6 +205,27 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     }
   }
 
+  /**
+   * Specialized version of setInitialTotalCapacity() for ListVector. This is
+   * used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector. This is
+   * very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In
+   * such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount but the multiplier
+   * forces the memory requirement to go beyond what was needed.
+   *
+   * @param numRecords value count
+   * @param totalNumberOfElements the total number of elements to to allow
+   *                              for in this vector across all records.
+   */
+  public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
+    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    vector.setInitialCapacity(totalNumberOfElements);
+  }
+
   @Override
   public int getValueCapacity() {
     final int offsetValueCapacity = Math.max(getOffsetBufferValueCapacity() - 1, 0);
