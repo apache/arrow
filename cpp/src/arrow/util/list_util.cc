@@ -158,6 +158,36 @@ std::pair<int64_t, int64_t> RangeOfValuesUsedByList(const ArraySpan& input) {
   return {min_offset, max_end - min_offset};
 }
 
+template <typename offset_type>
+int64_t SumOfListSizes(const ArraySpan& input) {
+  DCHECK(is_var_length_list(*input.type));
+  const uint8_t* validity = input.buffers[0].data;
+  const auto* offsets = input.GetValues<offset_type>(1);
+  int64_t sum = 0;
+  arrow::internal::VisitSetBitRunsVoid(
+      validity, input.offset, input.length,
+      [&sum, offsets](int64_t run_start, int64_t run_length) {
+        sum += offsets[run_start + run_length + 1] - offsets[run_start];
+      });
+  return sum;
+}
+
+template <typename offset_type>
+int64_t SumOfListViewSizes(const ArraySpan& input) {
+  DCHECK(is_list_view(*input.type));
+  const uint8_t* validity = input.buffers[0].data;
+  const auto* sizes = input.GetValues<offset_type>(2);
+  int64_t sum = 0;
+  arrow::internal::VisitSetBitRunsVoid(
+      validity, input.offset, input.length,
+      [&sum, sizes](int64_t run_start, int64_t run_length) {
+        for (int64_t i = run_start; i < run_start + run_length; ++i) {
+          sum += sizes[i];
+        }
+      });
+  return sum;
+}
+
 template <typename DestListViewType, typename SrcListType>
 Result<std::shared_ptr<ArrayData>> ListViewFromListImpl(
     const std::shared_ptr<ArrayData>& list_data, MemoryPool* pool) {
@@ -245,6 +275,26 @@ Result<std::pair<int64_t, int64_t>> RangeOfValuesUsed(const ArraySpan& input) {
   DCHECK(!is_var_length_list_like(*input.type));
   return Status::TypeError(
       "RangeOfValuesUsed: input is not a var-length list-like array");
+}
+
+Result<int64_t> SumOfLogicalListSizes(const ArraySpan& input) {
+  switch (input.type->id()) {
+    case Type::LIST:
+      return SumOfListSizes<ListType::offset_type>(input);
+    case Type::MAP:
+      return SumOfListSizes<MapType::offset_type>(input);
+    case Type::LARGE_LIST:
+      return SumOfListSizes<LargeListType::offset_type>(input);
+    case Type::LIST_VIEW:
+      return SumOfListViewSizes<ListViewType::offset_type>(input);
+    case Type::LARGE_LIST_VIEW:
+      return SumOfListViewSizes<LargeListViewType::offset_type>(input);
+    default:
+      break;
+  }
+  DCHECK(!is_var_length_list_like(*input.type));
+  return Status::TypeError(
+      "SumOfLogicalListSizes: input is not a var-length list-like array");
 }
 
 Result<std::shared_ptr<ListViewArray>> ListViewFromList(const ListArray& source,

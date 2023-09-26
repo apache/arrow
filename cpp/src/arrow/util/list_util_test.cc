@@ -143,6 +143,10 @@ class TestListUtils : public ::testing::Test {
     } else {
       ASSERT_EQ(range.second, 9);
     }
+    // Check the sum of logical sizes as well
+    ASSERT_OK_AND_ASSIGN(int64_t sum_of_logical_sizes,
+                         list_util::internal::SumOfLogicalListSizes(*array->data()));
+    ASSERT_EQ(sum_of_logical_sizes, 9);
   }
 
  protected:

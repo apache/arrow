@@ -40,6 +40,19 @@ namespace internal {
 ARROW_EXPORT Result<std::pair<int64_t, int64_t>> RangeOfValuesUsed(
     const ArraySpan& input);
 
+/// \brief Calculate the sum of the sizes of all valid lists or list-views
+///
+/// This is usally the same as the length of the RangeOfValuesUsed() range, but
+/// it can be:
+/// - Smaller: when the child array constains many values that are not
+/// referenced by the lists or list-views in the parent array
+/// - Greater: when the list-views share child array ranges
+///
+/// \param input The input array such that is_var_length_list_like(input.type)
+/// is true
+/// \return The sum of all list or list-view sizes
+ARROW_EXPORT Result<int64_t> SumOfLogicalListSizes(const ArraySpan& input);
+
 /// \brief Build a ListViewArray from a ListArray
 ARROW_EXPORT Result<std::shared_ptr<ListViewArray>> ListViewFromList(
     const ListArray& source, MemoryPool* pool);
