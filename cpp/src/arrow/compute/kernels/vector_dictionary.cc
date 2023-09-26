@@ -150,7 +150,8 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
       ARROW_RETURN_NOT_OK(indices_builder.Append(index - index_minus_number[index]));
       return Status::OK();
     };
-    RETURN_NOT_OK(VisitArraySpanInline<CType>(batch[0].array, visit_value, visit_null));
+    RETURN_NOT_OK(
+        VisitArraySpanInline<IndexArrowType>(batch[0].array, visit_value, visit_null));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
                           indices_builder.Finish());
     ARROW_ASSIGN_OR_RAISE(
