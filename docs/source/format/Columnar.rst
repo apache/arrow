@@ -382,7 +382,7 @@ In both the long and short string cases, the first four bytes encode the
 length of the string and can be used to determine how the rest of the view
 should be interpreted.
 
-In the short string case the string's bytes are inlined- stored inside the
+In the short string case the string's bytes are inlined — stored inside the
 view itself, in the twelve bytes which follow the length.
 
 In the long string case, a buffer index indicates which data buffer
@@ -858,19 +858,19 @@ are held in the second child array.
 For the purposes of determining field names and schemas, these child arrays
 are prescribed the standard names of **run_ends** and **values** respectively.
 
-The values in the first child array represent the accumulated length of all runs 
+The values in the first child array represent the accumulated length of all runs
 from the first to the current one, i.e. the logical index where the
 current run ends. This allows relatively efficient random access from a logical
 index using binary search. The length of an individual run can be determined by
 subtracting two adjacent values. (Contrast this with run-length encoding, in
 which the lengths of the runs are represented directly, and in which random
-access is less efficient.) 
+access is less efficient.)
 
 .. note::
    Because the ``run_ends`` child array cannot have nulls, it's reasonable
    to consider why the ``run_ends`` are a child array instead of just a
    buffer, like the offsets for a :ref:`variable-size-list-layout`. This
-   layout was considered, but it was decided to use the child arrays. 
+   layout was considered, but it was decided to use the child arrays.
 
    Child arrays allow us to keep the "logical length" (the decoded length)
    associated with the parent array and the "physical length" (the number
