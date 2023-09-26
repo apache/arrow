@@ -745,7 +745,10 @@ class TestListArray : public ::testing::Test {
                          std::shared_ptr<Array> values, int64_t offset = 0) {
     if constexpr (kTypeClassIsListView) {
       std::vector<offset_type> sizes;
-      sizes.reserve(offsets.empty() ? 0 : offsets.size() - 1);
+      // Always reserve some space so Buffer::Wrap doesn't create a null buffer
+      // when length of the sizes buffer is 0.
+      sizes.reserve(
+          std::max(static_cast<size_t>(1), offsets.empty() ? 0 : offsets.size() - 1));
       for (size_t i = 1; i < offsets.size(); ++i) {
         sizes.push_back(offsets[i] - offsets[i - 1]);
       }
@@ -763,8 +766,10 @@ class TestListArray : public ::testing::Test {
     auto empty_values = ArrayFromJSON(int16(), "[]");
     auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, 5, 6, 7]");
 
-    // An empty list array can have omitted or 0-length offsets
-    ASSERT_OK(ValidateOffsets(0, {}, empty_values));
+    if constexpr (!kTypeClassIsListView) {
+      // An empty list array can have omitted or 0-length offsets
+      ASSERT_OK(ValidateOffsets(0, {}, empty_values));
+    }
 
     ASSERT_OK(ValidateOffsets(0, {0}, empty_values));
     ASSERT_OK(ValidateOffsets(1, {0, 7}, values));

@@ -895,14 +895,18 @@ struct ValidateArrayImpl {
     constexpr bool is_list_view = is_list_view_type<TypeClass>::value;
 
     const bool non_empty = data.length > 0;
-    if (!IsBufferValid(1)) {
-      // For length 0, an empty offsets buffer is accepted (ARROW-544).
-      return non_empty ? Status::Invalid("Non-empty array but offsets are null")
-                       : Status::OK();
-    }
     if constexpr (is_list_view) {
+      if (!IsBufferValid(1)) {
+        // For length 0, an empty offsets buffer is accepted (ARROW-544).
+        return Status::Invalid("offsets buffer is null");
+      }
       if (!IsBufferValid(2)) {
-        return non_empty ? Status::Invalid("Non-empty array but sizes are null")
+        return Status::Invalid("sizes buffer is null");
+      }
+    } else {
+      if (!IsBufferValid(1)) {
+        // For length 0, an empty offsets buffer is accepted (ARROW-544).
+        return non_empty ? Status::Invalid("Non-empty array but offsets are null")
                          : Status::OK();
       }
     }
