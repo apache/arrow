@@ -32,9 +32,9 @@ yarn lint:ci
 yarn build
 
 if [ "${BUILD_DOCS_JS}" == "ON" ]; then
-  if [ "$(git config --get remote.origin.url)" == "https://github.com/apache/arrow.git" ]; then
+  if [[ "$(git config --get remote.origin.url)" =~ "https://github.com/apache/arrow" ]]; then
     yarn doc
-  elif [ "$(git config --get remote.upstream.url)" == "https://github.com/apache/arrow.git" ]; then
+  elif [[ "$(git config --get remote.upstream.url)" =~ "https://github.com/apache/arrow" ]]; then
     yarn doc --gitRemote upstream
   elif [ "$(git config --get remote.apache.url)" == "git@github.com:apache/arrow.git" ]; then
     yarn doc --gitRemote apache
