@@ -37,5 +37,11 @@ classdef ID < uint64
         Timestamp (18)
         Time32    (19)
         Time64    (20)
+        % IntervalMonths  (21)
+        % IntervalDayTime (22)
+        % Decimal128      (23)
+        % Decimal256      (24)
+        % List            (25)
+        Struct            (26)
     end
 end

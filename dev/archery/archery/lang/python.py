@@ -16,6 +16,7 @@
 # under the License.
 
 from contextlib import contextmanager
+from enum import EnumMeta
 import inspect
 import tokenize
 
@@ -112,6 +113,10 @@ def inspect_signature(obj):
 
 
 class NumpyDoc:
+    IGNORE_VALIDATION_ERRORS_FOR_TYPE = {
+        # Enum function signatures should never be documented
+        EnumMeta: ["PR01"]
+    }
 
     def __init__(self, symbols=None):
         if not have_numpydoc:
@@ -228,6 +233,10 @@ class NumpyDoc:
                 if allow_rules and errcode not in allow_rules:
                     continue
                 if disallow_rules and errcode in disallow_rules:
+                    continue
+                if any(isinstance(obj, obj_type) and errcode in errcode_list
+                       for obj_type, errcode_list
+                       in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items()):
                     continue
                 errors.append((errcode, errmsg))
 

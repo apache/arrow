@@ -15,13 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
+#pragma once
 
-namespace arrow {
-namespace matlab {
-namespace test {
-// TODO: Remove this placeholder test.
-TEST(PlaceholderTestSuite, PlaceholderTestCase) { ASSERT_TRUE(true); }
-}  // namespace test
-}  // namespace matlab
-}  // namespace arrow
+#include "arrow/status.h"
+
+namespace arrow::matlab::index {
+
+    arrow::Status validateNonEmptyContainer(const int32_t num_fields);
+    arrow::Status validateInRange(const int32_t matlab_index, const int32_t num_fields);
+}
