@@ -1208,6 +1208,18 @@ TEST_F(TestUnifySchemas, Numeric) {
   CheckUnifyFailsTypeError(int32(), {float16(), float32()}, options);
   CheckPromoteTo(int32(), {float64()}, options);
   CheckPromoteTo(int64(), {float64()}, options);
+
+  CheckPromoteTo(uint8(), int8(), int16(), options);
+  CheckPromoteTo(uint16(), int8(), int32(), options);
+  CheckPromoteTo(uint32(), int8(), int64(), options);
+  CheckPromoteTo(uint32(), int32(), int64(), options);
+  CheckPromoteTo(int64(), float32(), float64(), options);
+  CheckPromoteTo(int64(), float32(), float64(), options);
+  CheckPromoteTo(int64(), float32(), float64(), options);
+  CheckPromoteTo(uint64(), int8(), float64(), options);
+  CheckPromoteTo(uint64(), int16(), float64(), options);
+  CheckPromoteTo(uint64(), int32(), float64(), options);
+  CheckPromoteTo(uint64(), int64(), float64(), options);
 }
 
 TEST_F(TestUnifySchemas, Decimal) {

@@ -496,7 +496,9 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
     const int max_width =
         std::max<int>(1 + bit_width(promoted_type->id()), bit_width(other_type->id()));
 
-    if (max_width > 32) {
+    if (max_width > 64) {
+      promoted_type = float64();
+    } else if (max_width > 32) {
       promoted_type = int64();
     } else if (max_width > 16) {
       promoted_type = int32();
