@@ -36,7 +36,7 @@
 #include <gandiva/selection_vector.h>
 #include <gandiva/tree_expr_builder.h>
 
-#include "Types.pb.h"
+#include "types.pb.h"
 #include "config_holder.h"
 #include "env_helper.h"
 #include "id_to_module_map.h"

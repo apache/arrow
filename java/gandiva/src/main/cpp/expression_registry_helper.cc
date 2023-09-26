@@ -21,7 +21,7 @@
 #include <gandiva/arrow.h>
 #include <gandiva/expression_registry.h>
 
-#include "Types.pb.h"
+#include "types.pb.h"
 #include "org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper.h"
 
 using gandiva::DataTypePtr;
