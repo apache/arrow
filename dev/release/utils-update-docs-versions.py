@@ -50,7 +50,7 @@ if release_type != "patch":
     # Create new versions
     new_versions = [
         {"name": f"{dev_compatible_version} (dev)",
-         "version": "dev",
+         "version": "dev/",
          "url": "https://arrow.apache.org/docs/dev/"},
         {"name": f"{stable_compatible_version} (stable)",
          "version": "",
