@@ -3300,7 +3300,11 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_) {
+      decoder_->Reset(data, len);
+    } else {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    }
     prefix_len_decoder_.SetDecoder(num_values, decoder_);
 
     // get the number of encoded prefix lengths
@@ -3323,7 +3327,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
 
     // TODO: read corrupted files written with bug(PARQUET-246). last_value_ should be set
     // to last_value_in_previous_page_ when decoding a new page(except the first page)
-    last_value_ = "";
+    last_value_.clear();
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
