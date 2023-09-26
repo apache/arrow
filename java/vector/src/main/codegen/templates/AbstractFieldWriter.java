@@ -142,6 +142,16 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
   </#if>
 
+  <#if minor.class?ends_with("VarChar")>
+  public void write${minor.class}(${friendlyType} value) {
+    fail("${name}");
+  }
+
+  public void write${minor.class}(String value) {
+    fail("${name}");
+  }
+  </#if>
+
   </#list></#list>
 
   public void writeNull() {
