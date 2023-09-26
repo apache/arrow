@@ -323,9 +323,8 @@ class CastOptions;
 /// If a field in the schema does not have a corresponding column in
 /// the table, a column of nulls will be added to the resulting table.
 /// If the corresponding column is of type Null, it will be promoted
-/// to the type specified by schema, with null values filled. If Arrow
-/// was built with ARROW_COMPUTE, then the column will be casted to
-/// the type specified by the schema.
+/// to the type specified by schema, with null values filled. The
+/// column will be casted to the type specified by the schema.
 ///
 /// Returns an error:
 /// - if the corresponding column's type is not compatible with the
@@ -347,9 +346,8 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(
 /// If a field in the schema does not have a corresponding column in
 /// the table, a column of nulls will be added to the resulting table.
 /// If the corresponding column is of type Null, it will be promoted
-/// to the type specified by schema, with null values filled. If Arrow
-/// was built with ARROW_COMPUTE, then the column will be casted to
-/// the type specified by the schema.
+/// to the type specified by schema, with null values filled. The column
+/// will be casted to the type specified by the schema.
 ///
 /// Returns an error:
 /// - if the corresponding column's type is not compatible with the
