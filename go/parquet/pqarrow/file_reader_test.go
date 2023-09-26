@@ -19,9 +19,11 @@ package pqarrow_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v14/arrow"
@@ -215,4 +217,69 @@ func TestFileReaderWriterMetadata(t *testing.T) {
 	kvMeta := pf.MetaData().KeyValueMetadata()
 	assert.Equal(t, []string{"foo", "bar"}, kvMeta.Keys())
 	assert.Equal(t, []string{"bar", "baz"}, kvMeta.Values())
+}
+
+func TestFileReaderColumnChunkBoundsErrors(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "zero", Type: arrow.PrimitiveTypes.Float64},
+		{Name: "g", Type: arrow.StructOf(
+			arrow.Field{Name: "one", Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: "two", Type: arrow.PrimitiveTypes.Float64},
+			arrow.Field{Name: "three", Type: arrow.PrimitiveTypes.Float64},
+		)},
+	}, nil)
+
+	// generate Parquet data with four columns
+	// that are represented by two logical fields
+	data := `[
+		{
+			"zero": 1,
+			"g": {
+				"one": 1,
+				"two": 1,
+				"three": 1
+			}
+		},
+		{
+			"zero": 2,
+			"g": {
+				"one": 2,
+				"two": 2,
+				"three": 2
+			}
+		}
+	]`
+
+	record, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, strings.NewReader(data))
+	require.NoError(t, err)
+
+	output := &bytes.Buffer{}
+	writer, err := pqarrow.NewFileWriter(schema, output, parquet.NewWriterProperties(), pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Write(record))
+	require.NoError(t, writer.Close())
+
+	fileReader, err := file.NewParquetReader(bytes.NewReader(output.Bytes()))
+	require.NoError(t, err)
+
+	arrowReader, err := pqarrow.NewFileReader(fileReader, pqarrow.ArrowReadProperties{BatchSize: 1024}, memory.DefaultAllocator)
+	require.NoError(t, err)
+
+	// assert that errors are returned for indexes outside the bounds of the logical fields (instead of the physical columns)
+	ctx := pqarrow.NewArrowWriteContext(context.Background(), nil)
+	assert.Greater(t, fileReader.NumRowGroups(), 0)
+	for rowGroupIndex := 0; rowGroupIndex < fileReader.NumRowGroups(); rowGroupIndex += 1 {
+		rowGroupReader := arrowReader.RowGroup(rowGroupIndex)
+		for fieldNum := 0; fieldNum < schema.NumFields(); fieldNum += 1 {
+			_, err := rowGroupReader.Column(fieldNum).Read(ctx)
+			assert.NoError(t, err, "reading field num: %d", fieldNum)
+		}
+
+		_, subZeroErr := rowGroupReader.Column(-1).Read(ctx)
+		assert.Error(t, subZeroErr)
+
+		_, tooHighErr := rowGroupReader.Column(schema.NumFields()).Read(ctx)
+		assert.ErrorContains(t, tooHighErr, fmt.Sprintf("there are only %d columns", schema.NumFields()))
+	}
 }
