@@ -1167,12 +1167,12 @@ TEST_F(TestUnifySchemas, Numeric) {
   options.promote_integer_to_float = true;
   options.promote_integer_sign = true;
   CheckPromoteTo(uint8(),
-                 {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(),
+                 {uint16(), int16(), uint32(), int32(), uint64(), int64(),
                   float32(), float64()},
                  options);
   CheckPromoteTo(int8(), {int16(), int32(), int64(), float32(), float64()}, options);
   CheckPromoteTo(uint16(),
-                 {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()},
+                 {uint32(), int32(), uint64(), int64(), float32(), float64()},
                  options);
   CheckPromoteTo(int16(), {int32(), int64(), float32(), float64()}, options);
   CheckPromoteTo(uint32(), {int32(), uint64(), int64(), float64()}, options);

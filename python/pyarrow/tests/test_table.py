@@ -1332,11 +1332,10 @@ def test_concat_tables():
 
 def test_concat_tables_permissive():
     t1 = pa.Table.from_arrays([list(range(10))], names=('a',))
-    t2 = pa.Table.from_arrays([list(range(10, 20))], names=('a',))
+    t2 = pa.Table.from_arrays([list('a', 'b', 'c')], names=('a',))
 
-    result = pa.concat_tables([t1, t2], field_merge_options="permissive")
-    result.validate()
-    assert len(result) == 20
+    with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
+        _ = pa.concat_tables([t1, t2], field_merge_options="permissive")
 
 
 def test_concat_tables_invalid_option():

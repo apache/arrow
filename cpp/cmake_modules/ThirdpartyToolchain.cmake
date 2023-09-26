@@ -4302,7 +4302,8 @@ if(NOT EXISTS ${HDFS_H_PATH})
 endif()
 message(STATUS "Found hdfs.h at: ${HDFS_H_PATH}")
 
-add_library(arrow::hadoop INTERFACE IMPORTED)
+add_library(arrow::hadoop INTERFACE IMPORTED
+        ../src/arrow/type_test.cc)
 target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 
 # ----------------------------------------------------------------------

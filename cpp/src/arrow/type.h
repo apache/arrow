@@ -416,7 +416,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
     /// Allow an integer to be promoted to a decimal.
     ///
     /// May fail if the decimal has insufficient precision to
-    /// accommodate the integer. (See increase_decimal_precision.)
+    /// accommodate the integer (see promote_numeric_width).
     bool promote_integer_to_decimal = false;
 
     /// Allow an integer of a given bit width to be promoted to a
