@@ -40,8 +40,8 @@ const FunctionDoc dictionary_compact_doc{
 
 class DictionaryCompactKernel : public KernelState {
  public:
-  virtual Result<std::shared_ptr<Array>> Exec(std::shared_ptr<Array> dict_array,
-                                              ExecContext* ctx) const = 0;
+  virtual Status Exec(KernelContext* ctx, const ExecSpan& batch,
+                      ExecResult* out) const = 0;
 };
 
 template <typename IndexArrowType>
@@ -50,32 +50,41 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
   using CType = typename IndexArrowType::c_type;
 
  public:
-  Result<std::shared_ptr<Array>> Exec(std::shared_ptr<Array> dict_array,
-                                      ExecContext* ctx) const override {
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) const override {
+    if (batch[0].is_scalar()) {
+      return Status::NotImplemented("DictionaryCompacting Scalars");
+    }
+
+    auto dict_array = batch[0].array.ToArray();
     const DictionaryArray& casted_dict_array =
         checked_cast<const DictionaryArray&>(*dict_array);
     const std::shared_ptr<Array>& dict = casted_dict_array.dictionary();
     if (dict->length() == 0) {
-      return dict_array;
+      out->value = dict_array->data();
+      return Status::OK();
     }
     const std::shared_ptr<Array>& indices = casted_dict_array.indices();
     if (indices->length() == 0) {
       ARROW_ASSIGN_OR_RAISE(auto empty_dict,
                             MakeEmptyArray(dict->type(), ctx->memory_pool()));
-      return DictionaryArray::FromArrays(dict_array->type(), indices, empty_dict);
+      ARROW_ASSIGN_OR_RAISE(
+          auto res, DictionaryArray::FromArrays(dict_array->type(), indices, empty_dict));
+      out->value = res->data();
+      return Status::OK();
     }
     const CType* indices_data = indices->data()->GetValues<CType>(1);
 
     // check whether the input is compacted
     std::vector<bool> dict_used(dict->length(), false);
     int64_t dict_used_count = 0;
+    CType dict_len = static_cast<CType>(dict->length());
     for (int64_t i = 0; i < indices->length(); i++) {
       if (indices->IsNull(i)) {
         continue;
       }
 
       CType current_index = indices_data[i];
-      if (current_index < 0 || current_index >= dict->length()) {
+      if (current_index < 0 || current_index >= dict_len) {
         return Status::IndexError("indice out of bound:", current_index);
       }
       if (!dict_used[current_index]) {
@@ -83,7 +92,8 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
         dict_used_count++;
 
         if (dict_used_count == dict->length()) {  // input is already compacted
-          return dict_array;
+          out->value = dict_array->data();
+          return Status::OK();
         }
       }
     }
@@ -92,28 +102,33 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
     if (dict_used_count == 0) {
       ARROW_ASSIGN_OR_RAISE(auto empty_dict,
                             MakeEmptyArray(dict->type(), ctx->memory_pool()));
-      return DictionaryArray::FromArrays(dict_array->type(), indices, empty_dict);
+      ARROW_ASSIGN_OR_RAISE(
+          auto res, DictionaryArray::FromArrays(dict_array->type(), indices, empty_dict));
+      out->value = res->data();
+      return Status::OK();
     }
     BuilderType dict_indices_builder(ctx->memory_pool());
     bool need_change_indice = false;
-    CType len = static_cast<CType>(dict->length());
-    for (CType i = 0; i < len; i++) {
+    for (CType i = 0; i < dict_len; i++) {
       if (dict_used[i]) {
         ARROW_RETURN_NOT_OK(dict_indices_builder.Append(i));
-      } else if (i + 1 < len && dict_used[i + 1]) {
+      } else if (i + 1 < dict_len && dict_used[i + 1]) {
         need_change_indice = true;
       }
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
                           dict_indices_builder.Finish());
-    ARROW_ASSIGN_OR_RAISE(
-        auto compacted_dict_res,
-        Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(), ctx));
+    ARROW_ASSIGN_OR_RAISE(auto compacted_dict_res,
+                          Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(),
+                               ctx->exec_context()));
     std::shared_ptr<arrow::Array> compacted_dict = compacted_dict_res.make_array();
 
     // indices changes
     if (!need_change_indice) {
-      return DictionaryArray::FromArrays(dict_array->type(), indices, compacted_dict);
+      ARROW_ASSIGN_OR_RAISE(auto res, DictionaryArray::FromArrays(
+                                          dict_array->type(), indices, compacted_dict));
+      out->value = res->data();
+      return Status::OK();
     }
     std::vector<CType> indice_minus_number(dict->length(), 0);
     if (!dict_used[0]) {
@@ -139,8 +154,11 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
                           indices_builder.Finish());
 
-    return DictionaryArray::FromArrays(dict_array->type(), changed_indice,
-                                       compacted_dict);
+    ARROW_ASSIGN_OR_RAISE(
+        auto res,
+        DictionaryArray::FromArrays(dict_array->type(), changed_indice, compacted_dict));
+    out->value = res->data();
+    return Status::OK();
   }
 };
 
@@ -172,16 +190,9 @@ Result<std::unique_ptr<KernelState>> DictionaryCompactInit(KernelContext* ctx,
 }
 
 Status DictionaryCompactExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  if (batch[0].is_scalar()) {
-    return Status::NotImplemented("DictionaryCompacting Scalars");
-  }
-
-  const DictionaryCompactKernel& Kernel =
+  const DictionaryCompactKernel& kernel =
       checked_cast<const DictionaryCompactKernel&>(*ctx->state());
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> compacted_dict_array,
-                        Kernel.Exec(batch[0].array.ToArray(), ctx->exec_context()));
-  out->value = compacted_dict_array->data();
-  return Status::OK();
+  return kernel.Exec(ctx, batch, out);
 }
 }  // namespace
 
