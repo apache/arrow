@@ -35,7 +35,7 @@ namespace {
 const FunctionDoc dictionary_compact_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
-     "which removes unused values in dictionary.\n"),
+     "which removes unused values in dictionary."),
     {"dictionary_array"}};
 
 class DictionaryCompactKernel : public KernelState {
