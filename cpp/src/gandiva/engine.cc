@@ -54,7 +54,11 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
+#if LLVM_VERSION_MAJOR >= 17
+#include <llvm/TargetParser/SubtargetFeature.h>
+#else
 #include <llvm/MC/SubtargetFeature.h>
+#endif
 #include <llvm/Passes/PassBuilder.h>
 #include <llvm/Passes/PassPlugin.h>
 #include <llvm/Support/DynamicLibrary.h>
