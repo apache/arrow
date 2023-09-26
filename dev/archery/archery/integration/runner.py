@@ -70,6 +70,7 @@ class IntegrationRunner(object):
         self.serial = serial
         self.gold_dirs = gold_dirs
         self.failures: List[Outcome] = []
+        self.skips: List[Outcome] = []
         self.match = match
 
         if self.match is not None:
@@ -207,6 +208,8 @@ class IntegrationRunner(object):
                     self.failures.append(outcome.failure)
                     if self.stop_on_error:
                         break
+                elif outcome.skipped:
+                    self.skips.append(outcome)
 
         else:
             with ThreadPoolExecutor() as executor:
@@ -215,6 +218,8 @@ class IntegrationRunner(object):
                         self.failures.append(outcome.failure)
                         if self.stop_on_error:
                             break
+                    elif outcome.skipped:
+                        self.skips.append(outcome)
 
     def _compare_ipc_implementations(
         self,
@@ -638,7 +643,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                 log(f'{exc_type}: {exc_value}')
             log()
 
-    log(fail_count, "failures")
+    log(f"{fail_count} failures, {len(runner.skips)} skips")
     if fail_count > 0:
         sys.exit(1)
 
