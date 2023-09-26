@@ -77,7 +77,7 @@ namespace Apache.Arrow.IntegrationTest
 
         // map fields
         [JsonIgnore]
-        public bool KeysSorted => ExtensionData["keysSorted"].GetBoolean();
+        public bool KeysSorted => ExtensionData.TryGetValue("keysSorted", out JsonElement value) && value.GetBoolean();
 
         [JsonExtensionData]
         public Dictionary<string, JsonElement> ExtensionData { get; set; }
