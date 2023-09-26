@@ -35,9 +35,7 @@ namespace {
 const FunctionDoc dictionary_compact_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
-     "which removes unused values in dictionary.\n"
-     "The function assumes every indices has its corresponding value\n"
-     "in dictionary."),
+     "which removes unused values in dictionary.\n"),
     {"dictionary_array"}};
 
 class DictionaryCompactKernel : public KernelState {
@@ -77,6 +75,9 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
       }
 
       CType current_index = indices_data[i];
+      if (current_index < 0 || current_index >= dict->length()) {
+        return Status::IndexError("indice out of bound:", current_index);
+      }
       if (!dict_used[current_index]) {
         dict_used[current_index] = true;
         dict_used_count++;
