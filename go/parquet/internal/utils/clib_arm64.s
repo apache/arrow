@@ -151,7 +151,7 @@ L04:
 	RET
 
 Lover16_proc:
-	NEG R6, R4
+	NEG R8, R4
 	ANDS $15, R4, R4
 	BEQ Laligned
 
