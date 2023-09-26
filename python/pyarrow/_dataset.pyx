@@ -114,9 +114,13 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int 
                              "a path without a FileSystem")
         c_filesystem = filesystem.unwrap()
         c_path = tobytes(_stringify_path(file))
-        c_size = size
-        c_source = CFileSource(move(c_path), move(c_size), move(c_filesystem))
 
+        if size >= 0:
+            c_size = size
+            c_source = CFileSource(move(c_path), move(c_size), move(c_filesystem))
+        else:
+            c_size = size
+            c_source = CFileSource(move(c_path), move(c_filesystem))
     elif hasattr(file, 'read'):
         # Optimistically hope this is file-like
         c_file = get_native_file(file, False).get_random_access_file()
