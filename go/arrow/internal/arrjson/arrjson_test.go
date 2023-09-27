@@ -34,7 +34,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["primitives"] = makePrimitiveWantJSONs()
 	wantJSONs["structs"] = makeStructsWantJSONs()
 	wantJSONs["lists"] = makeListsWantJSONs()
-	wantJSONs["listviews"] = makeListViewsWantJSONs()
+	wantJSONs["list_views"] = makeListViewsWantJSONs()
 	wantJSONs["strings"] = makeStringsWantJSONs()
 	wantJSONs["fixed_size_lists"] = makeFixedSizeListsWantJSONs()
 	wantJSONs["fixed_width_types"] = makeFixedWidthTypesWantJSONs()
@@ -1367,7 +1367,7 @@ func makeListsWantJSONs() string {
             1,
             1,
             1
-          ],          
+          ],
           "children": [
             {
               "name": "item",
@@ -1564,7 +1564,7 @@ func makeListViewsWantJSONs() string {
   "schema": {
     "fields": [
       {
-        "name": "listview_nullable",
+        "name": "list_view_nullable",
         "type": {
           "name": "listview"
         },
@@ -1589,7 +1589,7 @@ func makeListViewsWantJSONs() string {
       "count": 3,
       "columns": [
         {
-          "name": "listview_nullable",
+          "name": "list_view_nullable",
           "count": 3,
           "VALIDITY": [
             1,
@@ -1653,7 +1653,7 @@ func makeListViewsWantJSONs() string {
       "count": 3,
       "columns": [
         {
-          "name": "listview_nullable",
+          "name": "list_view_nullable",
           "count": 3,
           "VALIDITY": [
             1,
@@ -1717,7 +1717,7 @@ func makeListViewsWantJSONs() string {
       "count": 3,
       "columns": [
         {
-          "name": "listview_nullable",
+          "name": "list_view_nullable",
           "count": 3,
           "VALIDITY": [
             1,
@@ -1727,13 +1727,8 @@ func makeListViewsWantJSONs() string {
           "children": [
             {
               "name": "item",
-              "count": 15,
+              "count": 10,
               "VALIDITY": [
-                1,
-                0,
-                0,
-                1,
-                1,
                 1,
                 0,
                 0,
@@ -1751,11 +1746,6 @@ func makeListViewsWantJSONs() string {
                 0,
                 -4,
                 -5,
-                -11,
-                0,
-                0,
-                -14,
-                -15,
                 -21,
                 0,
                 0,
@@ -1767,11 +1757,11 @@ func makeListViewsWantJSONs() string {
           "OFFSET": [
             0,
             5,
-            10
+            5
           ],
           "SIZE": [
             5,
-            5,
+            0,
             5
           ]
         }
@@ -1781,7 +1771,7 @@ func makeListViewsWantJSONs() string {
       "count": 0,
       "columns": [
         {
-          "name": "listview_nullable",
+          "name": "list_view_nullable",
           "count": 0,
           "children": [
             {
@@ -3817,7 +3807,7 @@ func makeMapsWantJSONs() string {
           "VALIDITY": [
             1,
             0
-          ],          
+          ],
           "children": [
             {
               "name": "entries",

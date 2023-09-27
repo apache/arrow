@@ -1116,7 +1116,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		var offsets, sizes *memory.Buffer
 		if arr.Count == 0 {
 			emptyBuffer := memory.NewBufferBytes(nil)
-			offsets, sizes =  emptyBuffer, emptyBuffer
+			offsets, sizes = emptyBuffer, emptyBuffer
 		} else {
 			offsets = memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))
 			sizes = memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Size.([]int32)))
@@ -1135,7 +1135,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		var offsets, sizes *memory.Buffer
 		if arr.Count == 0 {
 			emptyBuffer := memory.NewBufferBytes(nil)
-			offsets, sizes =  emptyBuffer, emptyBuffer
+			offsets, sizes = emptyBuffer, emptyBuffer
 		} else {
 			offsets = memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Offset.([]int64)))
 			sizes = memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Size.([]int64)))
@@ -1524,6 +1524,9 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Children: []Array{
 				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.ListViewType).Elem()}, arr.ListValues()),
 			},
+		}
+		if arr.Len() == 0 {
+			o.Offset, o.Size = []int32{}, []int32{}
 		}
 		return o
 
