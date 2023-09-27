@@ -595,11 +595,10 @@ test_that("CSVReadOptions field access", {
 })
 
 test_that("GH-34640 - CSV datasets are read in correctly when both schema and partitioning supplied", {
-
   target_schema <- schema(
-      int = int64(), dbl = float16(), lgl = bool(), chr = utf8(),
-      fct = utf8(), ts = timestamp(unit = "s"), part = int32()
-    )
+    int = int32(), dbl = float32(), lgl = bool(), chr = utf8(),
+    fct = utf8(), ts = timestamp(unit = "s"), part = int8()
+  )
 
   ds <- open_dataset(
     csv_dir,
@@ -611,6 +610,8 @@ test_that("GH-34640 - CSV datasets are read in correctly when both schema and pa
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
+  expect_identical(names(collect(ds)), c(names(df1), "part"))
+
   expect_identical(dim(ds), c(20L, 7L))
   expect_equal(schema(ds), target_schema)
 
