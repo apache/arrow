@@ -240,16 +240,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--FIXME! To solve: Unused declared dependencies found: org.checkerframework:checker-qual:jar:3.38.0:compile-->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <usedDependencies>
-                        <dependency>org.checkerframework:checker-qual</dependency>
-                    </usedDependencies>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 </project>

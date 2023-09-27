@@ -43,7 +43,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
   public static final int DEBUG_LOG_LENGTH = 6;
-  public static final @Nullable boolean DEBUG;
+  public static final boolean DEBUG;
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
 
   // Initialize this before DEFAULT_CONFIG as DEFAULT_CONFIG will eventually initialize the allocation manager,
@@ -66,13 +66,13 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   private final String name;
   private final RootAllocator root;
 
-  private final @Nullable Object DEBUG_LOCK = DEBUG ? new Object() : null;
+  private final Object DEBUG_LOCK = new Object();
   private final AllocationListener listener;
   private final BaseAllocator parentAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
   // members used purely for debugging
-  private final @Nullable IdentityHashMap<BufferLedger, Object> childLedgers;
+  private final @Nullable IdentityHashMap<BufferLedger, @Nullable Object> childLedgers;
   private final @Nullable IdentityHashMap<Reservation, Object> reservations;
   private final @Nullable HistoricalLog historicalLog;
   private final RoundingPolicy roundingPolicy;
@@ -157,7 +157,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
   }
 
-  public static @Nullable boolean isDebug() {
+  public static boolean isDebug() {
     return DEBUG;
   }
 
@@ -186,12 +186,14 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    * we have a new ledger
    * associated with this allocator.
    */
-  @SuppressWarnings({"nullness:locking.nullable", "nullness:argument"})
+  // @SuppressWarnings({"nullness:locking.nullable", "nullness:argument"})
   void associateLedger(BufferLedger ledger) {
     assertOpen();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
-        childLedgers.put(ledger, null);
+        if (childLedgers != null) {
+          childLedgers.put(ledger, null);
+        }
       }
     }
   }
