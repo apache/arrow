@@ -247,6 +247,7 @@ class ArrayLoader {
   }
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
+    DCHECK_NE(nullptr, out_);
     auto nodes = metadata_->nodes();
     CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
     // pop off a field
@@ -280,6 +281,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadPrimitive(Type::type type_id) {
+    DCHECK_NE(nullptr, out_);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -294,6 +296,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadBinary(Type::type type_id) {
+    DCHECK_NE(nullptr, out_);
     out_->buffers.resize(3);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -303,6 +306,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadList(const TYPE& type) {
+    DCHECK_NE(nullptr, out_);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type.id()));
@@ -317,6 +321,7 @@ class ArrayLoader {
   }
 
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
+    DCHECK_NE(nullptr, out_);
     ArrayData* parent = out_;
 
     parent->child_data.resize(child_fields.size());
