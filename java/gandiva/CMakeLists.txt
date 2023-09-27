@@ -29,8 +29,8 @@ add_jar(arrow_java_jni_gandiva_jar
         arrow_java_jni_gandiva_headers)
 
 set(GANDIVA_PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(GANDIVA_PROTO_OUTPUT_FILES "${GANDIVA_PROTO_OUTPUT_DIR}/types.pb.cc"
-                               "${GANDIVA_PROTO_OUTPUT_DIR}/types.pb.h")
+set(GANDIVA_PROTO_OUTPUT_FILES "${GANDIVA_PROTO_OUTPUT_DIR}/gandiva/types.pb.cc"
+                               "${GANDIVA_PROTO_OUTPUT_DIR}/gandiva/types.pb.h")
 
 set_source_files_properties(${GANDIVA_PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
