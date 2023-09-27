@@ -138,6 +138,7 @@ x-hierarchy:
   - debian-java
   - debian-js
   - eclipse-java
+  - amazon-java
   - fedora-cpp:
     - fedora-python
   - python-sdist
@@ -1701,6 +1702,18 @@ services:
     #   MAVEN: 3.9.3
     #   JDK: 17, 20
     image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
+    shm_size: *shm-size
+    volumes: *java-volumes
+    command: *java-command
+
+  amazon-java:
+    # Usage:
+    #   docker-compose build amazon-java
+    #   docker-compose run amazon-java
+    # Parameters:
+    #   MAVEN: 3.9.4
+    #   JDK: 21
+    image: ${ARCH}/maven:${MAVEN}-amazoncorretto-${JDK}
     shm_size: *shm-size
     volumes: *java-volumes
     command: *java-command
