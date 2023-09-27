@@ -82,6 +82,11 @@ if($ENV{PYODIDE} STREQUAL 1)
   set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
   set(Python3_EXECUTABLE)
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
+
+  # remove any c++ standard settings from cflags and let cmake set it.
+  # n.b. this is here because pyodide sets -stdc++=14, which breaks pyarrow builds
+  string(REGEX REPLACE "-std=c\\+\\+[0-9]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} )
+
 endif()
 
 # Use the first Python installation on PATH, not the newest one
