@@ -53,10 +53,21 @@ jobs:
       # TODO(kszucs): auditwheel show
       - name: Test wheel
         shell: bash
+        if: |
+          '{{ python_version }}' != '3.12'
         run: |
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
+      - name: Test wheel fo3 Python 3.12 RC
+        shell: bash
+        if: |
+          '{{ python_version }}' == '3.12'
+        env:
+          PYTHON: "3.12.0rc3"
+        run: |
+          archery docker run python-wheel-manylinux-test-imports
+          archery docker run python-wheel-manylinux-test-unittests
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
