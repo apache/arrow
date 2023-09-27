@@ -223,7 +223,8 @@ std::shared_ptr<Decryptor> GetColumnDecryptor(
     const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor,
     const std::function<std::shared_ptr<Decryptor>(
         InternalFileDecryptor* file_decryptor, const std::string& column_path,
-        const std::string& column_key_metadata, const std::string& aad)>& func) {
+        const std::string& column_key_metadata, const std::string& aad)>& func,
+    bool metadata) {
   if (crypto_metadata == nullptr) {
     return nullptr;
   }
@@ -233,7 +234,8 @@ std::shared_ptr<Decryptor> GetColumnDecryptor(
   }
 
   if (crypto_metadata->encrypted_with_footer_key()) {
-    return file_decryptor->GetFooterDecryptorForColumnMeta();
+    return metadata ? file_decryptor->GetFooterDecryptorForColumnMeta()
+                    : file_decryptor->GetFooterDecryptorForColumnData();
   }
 
   // The column is encrypted with its own key
@@ -247,13 +249,15 @@ std::shared_ptr<Decryptor> GetColumnDecryptor(
 std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
     const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
   return GetColumnDecryptor(crypto_metadata, file_decryptor,
-                            &InternalFileDecryptor::GetColumnMetaDecryptor);
+                            &InternalFileDecryptor::GetColumnMetaDecryptor,
+                            /*metadata=*/true);
 }
 
 std::shared_ptr<Decryptor> GetColumnDataDecryptor(
     const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor) {
   return GetColumnDecryptor(crypto_metadata, file_decryptor,
-                            &InternalFileDecryptor::GetColumnDataDecryptor);
+                            &InternalFileDecryptor::GetColumnDataDecryptor,
+                            /*metadata=*/false);
 }
 
 void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,

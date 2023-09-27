@@ -18,17 +18,13 @@
 #pragma once
 
 #include "arrow/io/interfaces.h"
+#include "parquet/encryption/type_fwd.h"
 #include "parquet/types.h"
 
 #include <optional>
 #include <vector>
 
 namespace parquet {
-
-class Decryptor;
-class Encryptor;
-class InternalFileDecryptor;
-class InternalFileEncryptor;
 
 class EncodedStatistics;
 struct PageIndexLocation;
