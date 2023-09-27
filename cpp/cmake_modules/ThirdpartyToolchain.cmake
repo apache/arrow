@@ -1313,13 +1313,13 @@ macro(build_snappy)
          "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error")
   endif()
 
-  # if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
+  if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
     # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
     # This can be removed once CRAN no longer checks on macOS 10.13
     find_program(PATCH patch REQUIRED)
     set(SNAPPY_PATCH_COMMAND
         ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
-  # endif()
+  endif()
 
   externalproject_add(snappy_ep
                       ${EP_COMMON_OPTIONS}
