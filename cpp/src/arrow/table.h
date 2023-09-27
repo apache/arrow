@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/chunked_array.h"  // IWYU pragma: keep
-#include "arrow/compute/cast.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
