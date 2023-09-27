@@ -254,6 +254,11 @@ set_pkg_vars () {
   if [ "$ARROW_R_CXXFLAGS" ]; then
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
+
+  if [ "$UNAME" = "Darwin" -a ${OSTYPE:6} -lt 20]; then
+    # avoid C++17 availability warnings on macOS < 11
+    PKG_CFLAGS="$PKG_CFLAGS -D_LIBCPP_DISABLE_AVAILABILITY"
+  fi
 }
 
 # If we have pkg-config, it will tell us what libarrow needs
