@@ -96,7 +96,7 @@ def _get_parquet_symbol(name):
     return _dataset_pq and getattr(_dataset_pq, name)
 
 
-cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int size=-1):
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int64_t size=-1):
 
     cdef:
         CFileSource c_source
@@ -119,7 +119,6 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int 
             c_size = size
             c_source = CFileSource(move(c_path), move(c_size), move(c_filesystem))
         else:
-            c_size = size
             c_source = CFileSource(move(c_path), move(c_filesystem))
     elif hasattr(file, 'read'):
         # Optimistically hope this is file-like
@@ -1234,7 +1233,7 @@ cdef class FileFormat(_Weakrefable):
             The schema inferred from the file
         """
         cdef:
-            CFileSource c_source = _make_file_source(file, filesystem=filesystem, size=-1)
+            CFileSource c_source = _make_file_source(file, filesystem=filesystem)
             CResult[shared_ptr[CSchema]] c_result
         with nogil:
             c_result = self.format.Inspect(c_source)
@@ -1243,7 +1242,7 @@ cdef class FileFormat(_Weakrefable):
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None,
-                      size=-1):
+                      size=None):
         """
         Make a FileFragment from a given file.
 
@@ -1266,9 +1265,14 @@ cdef class FileFormat(_Weakrefable):
         fragment : Fragment
             The file fragment
         """
+        cdef:
+            # default value, will not be passed to constructor
+            int64_t c_size = -1
         if partition_expression is None:
             partition_expression = _true
-        c_source = _make_file_source(file, filesystem=filesystem, size=size)
+        if size is not None:
+            c_size = size
+        c_source = _make_file_source(file, filesystem=filesystem, size=c_size)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.format.MakeFragment(move(c_source),
                                      partition_expression.unwrap(),
