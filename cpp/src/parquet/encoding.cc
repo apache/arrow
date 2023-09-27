@@ -3390,8 +3390,10 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         continue;
       }
       if (buffer[i].len == 0) {
+        // postfix length == 0, point to the prefix.
         buffer[i] = {static_cast<uint32_t>(prefix_len_ptr[i]),
                      reinterpret_cast<const uint8_t*>(prefix.data())};
+        prefix = prefix.substr(0, prefix_len_ptr[i]);
         continue;
       }
       memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
