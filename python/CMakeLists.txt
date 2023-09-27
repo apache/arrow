@@ -1,5 +1,5 @@
 # Licensed to the Apache Software Foundation (ASF) under one
-# or more cod ntributor license agreements.  See the NOTICE file
+# or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
 # to you under the Apache License, Version 2.0 (the
@@ -40,18 +40,7 @@ if(PYARROW_CPP_HOME)
   list(INSERT CMAKE_PREFIX_PATH 0 "${PYARROW_CPP_HOME}")
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  include(EmscriptenOverrides)
 
-  # these variables are needed for building pyarrow on Emscripten
-  # if they aren't set, cmake cross compiling fails for python 
-  # modules (at least under pyodide it does)
-  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
-  set(Python3_LIBRARY $ENV{CPYTHONLIB})
-  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
-  set(Python3_EXECUTABLE)
-  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
-endif()
 
 include(CMakeParseArguments)
 
@@ -79,6 +68,20 @@ endif()
 # https://cmake.org/cmake/help/latest/policy/CMP0095.html
 if(POLICY CMP0095)
   cmake_policy(SET CMP0095 NEW)
+endif()
+
+# this option is used to auto-set defaults for pyarrow build
+option(DUMP_ARROW_ARGUMENTS "Dump the arrow arguments then quit" OFF)
+
+if($ENV{PYODIDE} STREQUAL 1)
+  # these variables are needed for building pyarrow on Emscripten
+  # if they aren't set, cmake cross compiling fails for python 
+  # modules (at least under pyodide it does)
+  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
+  set(Python3_LIBRARY $ENV{CPYTHONLIB})
+  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  set(Python3_EXECUTABLE)
+  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
 endif()
 
 # Use the first Python installation on PATH, not the newest one
@@ -181,44 +184,37 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYARROW_CXXFLAGS}")
 
 if(MSVC)
   # MSVC version of -Wno-return-type-c-linkage
-  string(APPEND CMAKE_CXX_FLAGS " /wd4190")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
 
   # Cython generates some bitshift expressions that MSVC does not like in
   # __Pyx_PyFloat_DivideObjC
-  string(APPEND CMAKE_CXX_FLAGS " /wd4293")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4293")
 
   # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
   # seem harmless, and probably not worth the effort of working around it
-  string(APPEND CMAKE_CXX_FLAGS " /wd4800")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4800")
 
   # See https://github.com/cython/cython/issues/2731. Change introduced in
   # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
-  string(APPEND CMAKE_CXX_FLAGS " /wd4804")
-
-  # See https://github.com/cython/cython/issues/4445.
-  #
-  # Cython 3 emits "(void)__Pyx_PyObject_CallMethod0;" to suppress a
-  # "unused function" warning but the code emits another "function
-  # call missing argument list" warning.
-  string(APPEND CMAKE_CXX_FLAGS " /wd4551")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4804")
 else()
   # Enable perf and other tools to work properly
-  string(APPEND CMAKE_CXX_FLAGS " -fno-omit-frame-pointer")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
   # Suppress Cython warnings
-  string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-variable -Wno-maybe-uninitialized")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                     "Clang")
     # Cython warnings in clang
-    string(APPEND CMAKE_CXX_FLAGS " -Wno-parentheses-equality")
-    string(APPEND CMAKE_CXX_FLAGS " -Wno-constant-logical-operand")
-    string(APPEND CMAKE_CXX_FLAGS " -Wno-missing-declarations")
-    string(APPEND CMAKE_CXX_FLAGS " -Wno-sometimes-uninitialized")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sometimes-uninitialized")
 
     # We have public Cython APIs which return C++ types, which are in an extern
     # "C" blog (no symbol mangling) and clang doesn't like this
-    string(APPEND CMAKE_CXX_FLAGS " -Wno-return-type-c-linkage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-type-c-linkage")
   endif()
 endif()
 
@@ -279,6 +275,22 @@ include(UseCython)
 include(GNUInstallDirs)
 
 find_package(Arrow REQUIRED)
+
+if(DUMP_ARROW_ARGUMENTS)
+  message(STATUS "----- ARROW_SETTINGS_DUMP -----")
+  get_cmake_property(_variableNames VARIABLES)
+  list(SORT _variableNames)
+  foreach(_variableName ${_variableNames})
+    unset(MATCHED)
+    string(REGEX MATCH ^ARROW_.* MATCHED ${_variableName})
+    if(NOT MATCHED)
+      continue()
+    endif()
+    message(STATUS "${_variableName}=${${_variableName}}")
+  endforeach()
+  message(STATUS "----- ARROW_SETTINGS_END -----")
+  return()
+endif()
 
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
@@ -590,28 +602,42 @@ endif()
 
 # Acero
 if(PYARROW_BUILD_ACERO)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_ACERO_IMPORT_LIB})
-    endif()
-  endif()
+  if(ARROW_BUILD_SHARED)
 
-  set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
-  list(APPEND CYTHON_EXTENSIONS _acero)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_ACERO_IMPORT_LIB})
+      endif()
+    endif()
+
+    set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
+    list(APPEND CYTHON_EXTENSIONS _acero)
+  else()
+    # ACERO is statically linked into libarrow_python already
+    set(ACERO_LINK_LIBS)
+    list(APPEND CYTHON_EXTENSIONS _acero)
+  endif()
 endif()
 
 # Dataset
 if(PYARROW_BUILD_DATASET)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_DATASET_IMPORT_LIB})
-    endif()
-  endif()
+  if(ARROW_BUILD_SHARED)
 
-  set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_DATASET_IMPORT_LIB})
+      endif()
+    endif()
+
+    set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+  else()
+    # dataset is sttically linked into libarrow_python already
+    set(DATASET_LINK_LIBS)
+  endif()
   list(APPEND CYTHON_EXTENSIONS _dataset)
+
 endif()
 
 # Parquet
@@ -632,7 +658,9 @@ if(PYARROW_BUILD_PARQUET)
     endif()
     set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
-    set(PARQUET_LINK_LIBS Parquet::parquet_static)
+    # parquet is linked into libarrow_python already
+    # so isn't needed in the extension
+    set(PARQUET_LINK_LIBS "")
   endif()
   list(APPEND CYTHON_EXTENSIONS _parquet)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
