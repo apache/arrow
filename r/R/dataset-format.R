@@ -227,7 +227,7 @@ check_csv_file_format_args <- function(args, partitioning = NULL) {
   }
 
   if (is.null(args$read_options)) {
-    options$read_options <- do.call(csv_file_format_read_opts, c(args, partitioning = partitioning))
+    options$read_options <- do.call(csv_file_format_read_opts, c(args, list(partitioning = partitioning)))
   } else if (is.list(args$read_options)) {
     options$read_options <- do.call(CsvReadOptions$create, args$read_options)
   }
