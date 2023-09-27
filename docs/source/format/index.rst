@@ -15,10 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _format:
+
+Specifications and Protocols
+============================
+
 .. toctree::
    :maxdepth: 2
-   :caption: Specifications and Protocols
-   :hidden:
 
    Versioning
    Columnar

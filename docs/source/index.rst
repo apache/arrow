@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+:html_theme.sidebar_secondary.remove:
+
 Apache Arrow
 ============
 
@@ -35,11 +37,71 @@ such topics as:
 **To learn how to use Arrow refer to the documentation specific to your
 target environment.**
 
+.. grid:: 2
+   :gutter: 4
+   :padding: 2 2 0 0
+   :class-container: sd-text-center
+
+   .. grid-item-card:: Specifications and Protocols
+      :class-card: contrib-card
+      :shadow: none
+
+      Read about the Apache Arrow format
+      specifications and Protocols.
+
+      +++
+
+      .. button-ref:: format
+         :ref-type: ref
+         :click-parent:
+         :color: primary
+         :expand:
+
+         To the Specifications and Protocols
+
+   .. grid-item-card:: Development
+      :class-card: contrib-card
+      :shadow: none
+
+      Find the documentation on the topic of
+      contributions, reviews, building of the libraries
+      from source, building of the documentation, 
+      continuous integration, benchmarks and the
+      release process.
+
+      +++
+
+      .. button-ref:: developers
+         :ref-type: ref
+         :click-parent:
+         :color: primary
+         :expand:
+
+         To the Development
+
+.. _toc.columnar:
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   format/index
+
+.. _toc.development:
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   developers/index
+
+Implementations
+---------------
+
 .. _toc.usage:
 
 .. toctree::
    :maxdepth: 1
-   :caption: Supported Environments
 
    C/GLib <c_glib/index>
    C++ <cpp/index>
@@ -55,52 +117,15 @@ target environment.**
    Rust <https://docs.rs/crate/arrow/>
    status
 
+Examples
+--------
+
 .. _toc.cookbook:
 
 .. toctree::
    :maxdepth: 1
-   :caption: Cookbooks
 
-   C++ <https://arrow.apache.org/cookbook/cpp/>
-   Java <https://arrow.apache.org/cookbook/java/>
-   Python <https://arrow.apache.org/cookbook/py/>
-   R <https://arrow.apache.org/cookbook/r/>
-
-.. _toc.columnar:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Specifications and Protocols
-
-   format/Versioning
-   format/Columnar
-   format/CanonicalExtensions
-   format/Flight
-   format/FlightSql
-   format/Integration
-   format/CDataInterface
-   format/CStreamInterface
-   format/CDeviceDataInterface
-   format/ADBC
-   format/Other
-   format/Changing
-   format/Glossary
-
-.. _toc.development:
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Development
-
-   developers/contributing
-   developers/bug_reports
-   developers/guide/index
-   developers/overview
-   developers/reviewing
-   developers/cpp/index
-   developers/java/index
-   developers/python
-   developers/continuous_integration/index
-   developers/benchmarks
-   developers/documentation
-   developers/release
+   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
+   Java cookbook <https://arrow.apache.org/cookbook/java/>
+   Python cookbook <https://arrow.apache.org/cookbook/py/>
+   R cookbook <https://arrow.apache.org/cookbook/r/>
