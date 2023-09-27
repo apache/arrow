@@ -86,7 +86,6 @@ jobs:
           ARROW_DEPENDENCY_SOURCE: BUNDLED
           CMAKE_GENERATOR: Ninja
           LIBARROW_MINIMAL: false
-          EXTRA_CMAKE_FLAGS: '-DARROW_CXXFLAGS="-D_LIBCPP_DISABLE_AVAILABILITY"'
         run: |
           sccache --start-server
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl@{{'${{ matrix.openssl }}' }})
