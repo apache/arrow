@@ -203,9 +203,6 @@ test_for_curl_and_openssl <- "
 "
 
 compile_test_program <- function(code) {
-  # Note: if we wanted to check for openssl on macOS, we'd have to set the brew
-  # path as a -I directory. But since we (currently) only run this code to
-  # determine whether we can download a Linux binary, it's not relevant.
   openssl_dir <- ""
   if(on_macos) {
     openssl_root_dir <- get_macos_openssl_dir()
@@ -236,7 +233,7 @@ get_macos_openssl_dir <- function(){
       openssl_root_dir <- "/usr/local"
     }
   }
-  return(paste0(openssl_root_dir, "/include"))
+  return(openssl_root_dir)
 }
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
