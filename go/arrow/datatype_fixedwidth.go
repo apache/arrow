@@ -347,7 +347,7 @@ type TemporalWithUnit interface {
 }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
-// The zero-value is a nanosecond and time zone neutral. Time zone neutral can be
+// The zero-value is a second and time zone neutral. Time zone neutral can be
 // considered UTC without having "UTC" as a time zone.
 type TimestampType struct {
 	Unit     TimeUnit
