@@ -20,9 +20,8 @@
 #include <arrow/util/logging.h>
 #include <gandiva/arrow.h>
 #include <gandiva/expression_registry.h>
-
-#include "types.pb.h"
-#include "org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper.h"
+#include <gandiva/types.pb.h>
+#include <org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper.h>
 
 using gandiva::DataTypePtr;
 using gandiva::ExpressionRegistry;
