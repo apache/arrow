@@ -67,7 +67,8 @@ namespace Apache.Arrow.IntegrationTest
         /// <summary>
         /// Decode this JSON schema as a Schema instance.
         /// </summary>
-        public Schema ToArrow() {
+        public Schema ToArrow()
+        {
             return CreateSchema(this);
         }
 
@@ -293,7 +294,8 @@ namespace Apache.Arrow.IntegrationTest
         /// <summary>
         /// Decode this JSON record batch as a RecordBatch instance.
         /// </summary>
-        public RecordBatch ToArrow(Schema schema) {
+        public RecordBatch ToArrow(Schema schema)
+        {
             return CreateRecordBatch(schema, this);
         }
 

@@ -195,7 +195,8 @@ namespace Apache.Arrow.C
             {
                 CArrowArray.CallReleaseFunc(cArray->children[i]);
             }
-            if (cArray->dictionary != null) {
+            if (cArray->dictionary != null)
+            {
                 CArrowArray.CallReleaseFunc(cArray->dictionary);
             }
             DisposePrivateData(&cArray->private_data);

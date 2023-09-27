@@ -76,8 +76,10 @@ namespace Apache.Arrow.C
         /// <summary>
         /// Call the array's release func, if set.
         /// </summary>
-        public static void CallReleaseFunc(CArrowArray* array) {
-            if (array->release != default) {
+        public static void CallReleaseFunc(CArrowArray* array)
+        {
+            if (array->release != default)
+            {
                 // Call release if not already called.
 #if NET5_0_OR_GREATER
                 array->release(array);

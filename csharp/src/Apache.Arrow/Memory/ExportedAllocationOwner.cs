@@ -58,14 +58,16 @@ namespace Apache.Arrow.Memory
 
         public void DecRef()
         {
-            if (Interlocked.Decrement(ref _referenceCount) == 0) {
+            if (Interlocked.Decrement(ref _referenceCount) == 0)
+            {
                 Dispose();
             }
         }
 
         public void Dispose()
         {
-            if (_disposed) {
+            if (_disposed)
+            {
                 return;
             }
             for (int i = 0; i < _pointers.Count; i++)

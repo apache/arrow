@@ -241,7 +241,8 @@ namespace Apache.Arrow.C
                     };
 
                     string timezone = format.Substring(format.IndexOf(':') + 1);
-                    if (timezone.Length == 0) {
+                    if (timezone.Length == 0)
+                    {
                         timezone = null;
                     }
                     return new TimestampType(timeUnit, timezone);
