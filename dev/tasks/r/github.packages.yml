@@ -351,8 +351,11 @@ jobs:
         with:
           name: r-pkg_centos7
           path: arrow_*
+
   test-centos-binary:
-    needs: test-linux-binary
+    #arrow binary package not on ppm currently
+    if: false
+    needs: test-linux-binaryO
     runs-on: ubuntu-latest
     container: "rstudio/r-base:4.2-centos7"
     steps:
@@ -376,9 +379,9 @@ jobs:
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
           print(arrow_info())
-
-  test-source:
-#TODO add macos (m1)source build
+  
+  #TODO test macos source build?
+  test-linux-source:
     needs: source
     name: Test linux source build
     runs-on: ubuntu-latest
