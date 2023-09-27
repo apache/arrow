@@ -3346,7 +3346,7 @@ garrow_set_lookup_options_get_property(GObject *object,
     g_value_set_object(value, priv->value_set);
     break;
   case PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS:
-    g_value_set_boolean(value, options->skip_nulls);
+    g_value_set_boolean(value, options->skip_nulls.has_value() && options->skip_nulls.value());
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -3398,13 +3398,11 @@ garrow_set_lookup_options_class_init(GArrowSetLookupOptionsClass *klass)
    *
    * Since: 6.0.0
    */
-  spec = g_param_spec_boolean("skip-nulls",
-                              "Skip NULLs",
-                              "Whether NULLs are skipped or not",
-                              options.skip_nulls,
-                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS,
+  auto skip_nulls = (options.skip_nulls.has_value() && options.skip_nulls.value());
+  spec =
+      g_param_spec_boolean("skip-nulls", "Skip NULLs", "Whether NULLs are skipped or not",
+                           skip_nulls, static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS,
                                   spec);
 }
 
@@ -6458,9 +6456,10 @@ garrow_set_lookup_options_new_raw(
       arrow_copied_options.get());
   auto value_set =
     garrow_datum_new_raw(&(arrow_copied_set_lookup_options->value_set));
+  auto skip_nulls = (arrow_options->skip_nulls.has_value() && arrow_options->skip_nulls.value());
   auto options = g_object_new(GARROW_TYPE_SET_LOOKUP_OPTIONS,
                               "value-set", value_set,
-                              "skip-nulls", arrow_options->skip_nulls,
+                              "skip-nulls", skip_nulls,
                               NULL);
   return GARROW_SET_LOOKUP_OPTIONS(options);
 }

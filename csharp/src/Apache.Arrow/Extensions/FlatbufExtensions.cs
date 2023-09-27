@@ -80,6 +80,16 @@ namespace Apache.Arrow
                     throw new ArgumentException($"Unexpected Flatbuf TimeUnit", nameof(unit));
             }
         }
+
+        public static Types.UnionMode ToArrow(this Flatbuf.UnionMode mode)
+        {
+            return mode switch
+            {
+                Flatbuf.UnionMode.Dense => Types.UnionMode.Dense,
+                Flatbuf.UnionMode.Sparse => Types.UnionMode.Sparse,
+                _ => throw new ArgumentException($"Unsupported Flatbuf UnionMode", nameof(mode)),
+            };
+        }
     }
 }
 

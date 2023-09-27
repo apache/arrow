@@ -1078,7 +1078,8 @@ cdef class FileSystemDataset(Dataset):
     @classmethod
     def from_paths(cls, paths, schema=None, format=None,
                    filesystem=None, partitions=None, root_partition=None):
-        """A Dataset created from a list of paths on a particular filesystem.
+        """
+        A Dataset created from a list of paths on a particular filesystem.
 
         Parameters
         ----------

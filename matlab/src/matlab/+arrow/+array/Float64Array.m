@@ -16,7 +16,7 @@
 classdef Float64Array < arrow.array.NumericArray
 % arrow.array.Float64Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = NaN;
     end
 
