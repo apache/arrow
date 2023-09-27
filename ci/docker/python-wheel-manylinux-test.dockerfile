@@ -27,4 +27,5 @@ COPY python/requirements-wheel-test.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN PYTHON=python /arrow/ci/scripts/install_gcs_testbench.sh default
+# TODO: Temporarily disable installing GCS testbench
+# RUN PYTHON=python /arrow/ci/scripts/install_gcs_testbench.sh default
