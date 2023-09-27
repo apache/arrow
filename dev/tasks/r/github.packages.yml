@@ -231,15 +231,23 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
-      - name: Install openssl
-        if: contains(matrix.platform.runs_on, 'self-hosted')
-        run: brew install openssl@3
+      - name: Install CRAN like openssl
+        if: contains(matrix.platform.runs_on, 'arm64')
+        run: |
+          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
+          if [ -d "/opt/R/arm64/include/openssl/" ]; then
+            exit 0
+          fi
+          git clone https://github.com/R-macos/recipes
+          cd recipes
+          ./build.sh openssl
       - name: Build Binary
         id: build
         shell: Rscript {0}
         env:
-          NOT_CRAN: "true" # actions/setup-r sets this implicitly
+          NOT_CRAN: "false" # actions/setup-r sets this implicitly
           ARROW_R_DEV: "true"
+          LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -262,9 +270,10 @@ jobs:
             repos = sub("file://", "file:", getOption("arrow.dev_repo")),,
             INSTALL_opts = INSTALL_opts
           )
-
+          
           # Test
           library(arrow)
+          arrow_info()
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
           # encode contrib.url for artifact name
