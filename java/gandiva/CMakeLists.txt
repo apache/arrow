@@ -35,8 +35,8 @@ set(GANDIVA_PROTO_OUTPUT_FILES "${GANDIVA_PROTO_OUTPUT_DIR}/types.pb.cc"
 set_source_files_properties(${GANDIVA_PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
 set(GANDIVA_PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
-get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE ${GANDIVA_PROTO_DIR}/gandiva/types.proto
-                       ABSOLUTE)
+get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE
+                       ${GANDIVA_PROTO_DIR}/gandiva/types.proto ABSOLUTE)
 
 find_package(Protobuf REQUIRED)
 add_custom_command(OUTPUT ${GANDIVA_PROTO_OUTPUT_FILES}
