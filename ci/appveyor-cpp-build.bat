@@ -135,10 +135,8 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 @rem Download IANA Timezone Database to a non-standard location to
 @rem test the configurability of the timezone database path
 curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
-mkdir tzdata
-tar --extract --file tzdata.tar.gz --directory tzdata
-mkdir %USERPROFILE%\Downloads\test
-move tzdata %USERPROFILE%\Downloads\test\
+mkdir %USERPROFILE%\Downloads\test\tzdata
+tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml || exit /B
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
