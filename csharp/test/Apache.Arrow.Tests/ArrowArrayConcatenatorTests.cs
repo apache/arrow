@@ -77,6 +77,22 @@ namespace Apache.Arrow.Tests
                         new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
                     }),
                     new FixedSizeListType(Int32Type.Default, 1),
+                    new UnionType(
+                        new List<Field>{
+                            new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
+                            new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
+                        },
+                        new[] { 0, 1 },
+                        UnionMode.Sparse
+                    ),
+                    new UnionType(
+                        new List<Field>{
+                            new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
+                            new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
+                        },
+                        new[] { 0, 1 },
+                        UnionMode.Dense
+                    ),
                 };
 
             foreach (IArrowType type in targetTypes)
@@ -119,7 +135,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>
         {
 
             private List<List<int?>> _baseData;
@@ -392,6 +409,91 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = new StructArray(type, 3, new List<Array> { resultStringArray, resultInt32Array }, nullBitmapBuffer, 1);
             }
 
+            public void Visit(UnionType type)
+            {
+                bool isDense = type.Mode == UnionMode.Dense;
+
+                StringArray.Builder stringResultBuilder = new StringArray.Builder().Reserve(_baseDataTotalElementCount);
+                Int32Array.Builder intResultBuilder = new Int32Array.Builder().Reserve(_baseDataTotalElementCount);
+                ArrowBuffer.Builder<byte> typeResultBuilder = new ArrowBuffer.Builder<byte>().Reserve(_baseDataTotalElementCount);
+                ArrowBuffer.Builder<int> offsetResultBuilder = new ArrowBuffer.Builder<int>().Reserve(_baseDataTotalElementCount);
+                int resultNullCount = 0;
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    StringArray.Builder stringBuilder = new StringArray.Builder().Reserve(dataList.Count);
+                    Int32Array.Builder intBuilder = new Int32Array.Builder().Reserve(dataList.Count);
+                    ArrowBuffer.Builder<byte> typeBuilder = new ArrowBuffer.Builder<byte>().Reserve(dataList.Count);
+                    ArrowBuffer.Builder<int> offsetBuilder = new ArrowBuffer.Builder<int>().Reserve(dataList.Count);
+                    int nullCount = 0;
+
+                    for (int j = 0; j < dataList.Count; j++)
+                    {
+                        byte index = (byte)Math.Max(j % 3, 1);
+                        int? intValue = (index == 1) ? dataList[j] : null;
+                        string stringValue = (index == 1) ? null : dataList[j]?.ToString();
+                        typeBuilder.Append(index);
+
+                        if (isDense)
+                        {
+                            if (index == 0)
+                            {
+                                offsetBuilder.Append(stringBuilder.Length);
+                                offsetResultBuilder.Append(stringResultBuilder.Length);
+                                stringBuilder.Append(stringValue);
+                                stringResultBuilder.Append(stringValue);
+                            }
+                            else
+                            {
+                                offsetBuilder.Append(intBuilder.Length);
+                                offsetResultBuilder.Append(intResultBuilder.Length);
+                                intBuilder.Append(intValue);
+                                intResultBuilder.Append(intValue);
+                            }
+                        }
+                        else
+                        {
+                            stringBuilder.Append(stringValue);
+                            stringResultBuilder.Append(stringValue);
+                            intBuilder.Append(intValue);
+                            intResultBuilder.Append(intValue);
+                        }
+
+                        if (dataList[j] == null)
+                        {
+                            nullCount++;
+                            resultNullCount++;
+                        }
+                    }
+
+                    ArrowBuffer[] buffers;
+                    if (isDense)
+                    {
+                        buffers = new[] { typeBuilder.Build(), offsetBuilder.Build() };
+                    }
+                    else
+                    {
+                        buffers = new[] { typeBuilder.Build() };
+                    }
+                    TestTargetArrayList.Add(UnionArray.Create(new ArrayData(
+                        type, dataList.Count, nullCount, 0, buffers,
+                        new[] { stringBuilder.Build().Data, intBuilder.Build().Data })));
+                }
+
+                ArrowBuffer[] resultBuffers;
+                if (isDense)
+                {
+                    resultBuffers = new[] { typeResultBuilder.Build(), offsetResultBuilder.Build() };
+                }
+                else
+                {
+                    resultBuffers = new[] { typeResultBuilder.Build() };
+                }
+                ExpectedArray = UnionArray.Create(new ArrayData(
+                    type, _baseDataTotalElementCount, resultNullCount, 0, resultBuffers,
+                        new[] { stringResultBuilder.Build().Data, intResultBuilder.Build().Data }));
+            }
 
             public void Visit(IArrowType type)
             {

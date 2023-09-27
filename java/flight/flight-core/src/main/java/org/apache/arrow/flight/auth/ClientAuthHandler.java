@@ -19,9 +19,16 @@ package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
 
+import org.apache.arrow.flight.FlightClient;
+
 /**
  * Implement authentication for Flight on the client side.
+ *
+ * @deprecated As of 14.0.0. This implements a stateful "login" flow that does not play well with
+ *     distributed or stateless systems. It will not be removed, but should not be used. Instead
+ *     see {@link FlightClient#authenticateBasicToken(String, String)}.
  */
+@Deprecated
 public interface ClientAuthHandler {
   /**
    * Handle the initial handshake with the server.

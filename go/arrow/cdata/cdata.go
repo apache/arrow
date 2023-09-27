@@ -197,7 +197,7 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 
 	// handle types with params via colon
 	typs := strings.Split(f, ":")
-	defaulttz := "UTC"
+	defaulttz := ""
 	switch typs[0] {
 	case "tss":
 		tz := typs[1]
