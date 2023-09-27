@@ -20,7 +20,7 @@
 Continuous Integration
 ======================
 
-Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries, operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
+Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple software libraries, operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
 
 Some files central to Arrow CI are:
 
