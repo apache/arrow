@@ -350,4 +350,12 @@ class ARROW_EXPORT RecordBatchReader {
       Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
 
+/// \brief Concatenate record batches
+///
+/// \param[in] batches a vector of record batches to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \return the concatenated record batch
+Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
+    const RecordBatchVector& batches, MemoryPool* pool = default_memory_pool());
+
 }  // namespace arrow
