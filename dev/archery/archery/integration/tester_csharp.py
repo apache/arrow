@@ -16,6 +16,7 @@
 # under the License.
 
 from contextlib import contextmanager
+import gc
 import os
 
 from . import cdata
@@ -135,7 +136,12 @@ class CSharpCDataImporter(CDataImporter, _CDataBase):
 
     def gc_until(self, predicate):
         from Apache.Arrow.IntegrationTest import CDataInterface
-        CDataInterface.GetAllocatedBytes()  # implicit GC
+        for i in range(3):
+            if predicate():
+                return True
+            # Collect any C# objects hanging around through Python
+            gc.collect()
+            CDataInterface.RunGC()
         return predicate()
 
 

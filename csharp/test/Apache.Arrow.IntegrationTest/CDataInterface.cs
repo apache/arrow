@@ -68,9 +68,14 @@ namespace Apache.Arrow.IntegrationTest
             return JsonFile.Parse(new FileInfo(jsonPath));
         }
 
-        public static long GetAllocatedBytes()
+        public static void RunGC()
         {
             GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        public static long GetAllocatedBytes()
+        {
             // XXX this doesn't seem to give stable and reliable measurements
             var gcInfo = GC.GetGCMemoryInfo();
             return gcInfo.PromotedBytes;
