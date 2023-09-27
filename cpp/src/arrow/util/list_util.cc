@@ -36,103 +36,113 @@ namespace internal {
 namespace {
 
 using arrow::internal::checked_cast;
+using arrow::internal::ReverseSetBitRunReader;
+using arrow::internal::SetBitRunReader;
 
 /// \pre input.length() > 0 && input.null_count() != input.length()
 /// \param input A LIST_VIEW or LARGE_LIST_VIEW array
 template <typename offset_type>
 int64_t MinViewOffset(const ArraySpan& input) {
-  const uint8_t* validity = input.MayHaveNulls() ? input.buffers[0].data : nullptr;
-  const auto* offsets = reinterpret_cast<const offset_type*>(input.buffers[1].data);
-  const auto* sizes = reinterpret_cast<const offset_type*>(input.buffers[2].data);
+  const uint8_t* validity = input.buffers[0].data;
+  const auto* offsets = input.GetValues<offset_type>(1);
+  const auto* sizes = input.GetValues<offset_type>(2);
 
-  // It's very likely that the first non-null non-empty list-view starts at
-  // offset 0 of the child array.
-  int64_t i = 0;
-  while (i < input.length && (input.IsNull(i) || sizes[input.offset + i] == 0)) {
-    i += 1;
-  }
-  if (i >= input.length) {
-    return 0;
-  }
-  auto min_offset = offsets[input.offset + i];
-  if (ARROW_PREDICT_TRUE(min_offset == 0)) {
-    // Early exit: offset 0 found already.
-    return 0;
+  // Make an access to the sizes buffer only when strictly necessary.
+#define MINIMIZE_MIN_VIEW_OFFSET(i)             \
+  auto offset = offsets[i];                     \
+  if (min_offset.has_value()) {                 \
+    if (offset < *min_offset && sizes[i] > 0) { \
+      if (offset == 0) {                        \
+        return 0;                               \
+      }                                         \
+      min_offset = offset;                      \
+    }                                           \
+  } else {                                      \
+    if (sizes[i] > 0) {                         \
+      if (offset == 0) {                        \
+        return 0;                               \
+      }                                         \
+      min_offset = offset;                      \
+    }                                           \
   }
 
-  // Slow path: scan the buffers entirely.
-  arrow::internal::VisitSetBitRunsVoid(
-      validity, /*offset=*/input.offset + i + 1, /*length=*/input.length - i - 1,
-      [&](int64_t i, int64_t run_length) {
-        for (int64_t j = 0; j < run_length; j++) {
-          const auto offset = offsets[input.offset + i + j];
-          if (ARROW_PREDICT_FALSE(offset < min_offset)) {
-            if (sizes[input.offset + i + j] > 0) {
-              min_offset = offset;
-            }
-          }
-        }
-      });
-  return min_offset;
+  std::optional<offset_type> min_offset;
+  if (validity == nullptr) {
+    for (int64_t i = 0; i < input.length; i++) {
+      MINIMIZE_MIN_VIEW_OFFSET(i);
+    }
+  } else {
+    SetBitRunReader reader(validity, input.offset, input.length);
+    while (true) {
+      const auto run = reader.NextRun();
+      if (run.length == 0) {
+        break;
+      }
+      for (int64_t i = run.position; i < run.position + run.length; ++i) {
+        MINIMIZE_MIN_VIEW_OFFSET(i);
+      }
+    }
+  }
+  return min_offset.value_or(0);
+
+#undef MINIMIZE_MIN_VIEW_OFFSET
 }
 
 /// \pre input.length() > 0 && input.null_count() != input.length()
 /// \param input A LIST_VIEW or LARGE_LIST_VIEW array
 template <typename offset_type>
 int64_t MaxViewEnd(const ArraySpan& input) {
-  const uint8_t* validity = input.MayHaveNulls() ? input.buffers[0].data : NULLPTR;
-  const auto* offsets = reinterpret_cast<const offset_type*>(input.buffers[1].data);
-  const auto* sizes = reinterpret_cast<const offset_type*>(input.buffers[2].data);
-  const auto IsNull = [validity](int64_t i) -> bool {
-    return validity && !arrow::bit_util::GetBit(validity, i);
-  };
-
-  int64_t i = input.length - 1;  // safe because input.length() > 0
-  while (i != 0 && (IsNull(i) || sizes[input.offset + i] == 0)) {
-    i -= 1;
-  }
-  const auto offset = static_cast<int64_t>(offsets[input.offset + i]);
-  const auto size = sizes[input.offset + i];
-  if (i == 0) {
-    return (IsNull(i) || sizes[input.offset + i] == 0) ? 0 : offset + size;
-  }
   constexpr auto kInt64Max = std::numeric_limits<int64_t>::max();
-  if constexpr (sizeof(offset_type) == sizeof(int64_t)) {
-    if (ARROW_PREDICT_FALSE(offset > kInt64Max - size)) {
-      // Early-exit: 64-bit overflow detected. This is not possible on a
-      // valid list-view, but we return the maximum possible value to
-      // avoid undefined behavior.
-      return kInt64Max;
+  const auto values_length = input.child_data[0].length;
+
+  const uint8_t* validity = input.buffers[0].data;
+  const auto* offsets = input.GetValues<offset_type>(1);
+  const auto* sizes = input.GetValues<offset_type>(2);
+
+  // Early-exit: 64-bit overflow detected. This is not possible on a valid list-view,
+  // but we return the maximum possible value to avoid undefined behavior.
+#define MAX_VIEW_END_OVERFLOW_CHECK(offset, size)             \
+  if constexpr (sizeof(offset_type) == sizeof(int64_t)) {     \
+    if (ARROW_PREDICT_FALSE((offset) > kInt64Max - (size))) { \
+      return kInt64Max;                                       \
+    }                                                         \
+  }
+
+#define MAXIMIZE_MAX_VIEW_END(i)                        \
+  const auto offset = static_cast<int64_t>(offsets[i]); \
+  const offset_type size = sizes[i];                    \
+  if (size > 0) {                                       \
+    MAX_VIEW_END_OVERFLOW_CHECK(offset, size);          \
+    const int64_t end = offset + size;                  \
+    if (end > max_end) {                                \
+      if (end == values_length) {                       \
+        return values_length;                           \
+      }                                                 \
+      max_end = end;                                    \
+    }                                                   \
+  }
+
+  int64_t max_end = 0;
+  if (validity == nullptr) {
+    for (int64_t i = input.length - 1; i >= 0; --i) {
+      MAXIMIZE_MAX_VIEW_END(i);
+    }
+  } else {
+    ReverseSetBitRunReader reader(validity, input.offset, input.length);
+    while (true) {
+      const auto run = reader.NextRun();
+      if (run.length == 0) {
+        break;
+      }
+      for (int64_t i = run.position + run.length - 1; i >= run.position; --i) {
+        MAXIMIZE_MAX_VIEW_END(i);
+      }
     }
   }
-  int64_t max_end =
-      static_cast<int64_t>(offsets[input.offset + i]) + sizes[input.offset + i];
-  if (max_end == input.child_data[0].length) {
-    // Early-exit: maximum possible view-end found already.
-    return max_end;
-  }
-
-  // Slow path: scan the buffers entirely.
-  arrow::internal::VisitSetBitRunsVoid(
-      validity, input.offset, /*length=*/i + 1, [&](int64_t i, int64_t run_length) {
-        for (int64_t j = 0; j < run_length; ++j) {
-          const auto offset = static_cast<int64_t>(offsets[input.offset + i + j]);
-          const auto size = sizes[input.offset + i + j];
-          if (size > 0) {
-            if constexpr (sizeof(offset_type) == sizeof(int64_t)) {
-              if (ARROW_PREDICT_FALSE(offset > kInt64Max - size)) {
-                // 64-bit overflow detected. This is not possible on a valid list-view,
-                // but we saturate max_end to the maximum possible value to avoid
-                // undefined behavior.
-                max_end = kInt64Max;
-                return;
-              }
-            }
-            max_end = std::max(max_end, offset + size);
-          }
-        }
-      });
   return max_end;
+
+#undef MAX_VIEW_END_OVERFLOW_CHECK
+#undef MAXIMIZE_MAX_VIEW_END
 }
 
 template <typename offset_type>
