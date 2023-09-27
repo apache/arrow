@@ -255,7 +255,7 @@ set_pkg_vars () {
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
 
-  if [ "$UNAME" = "Darwin" -a ${OSTYPE:6} -lt 20 ]; then
+  if [ "$UNAME" = "Darwin" -a $(expr substr "$OSTYPE" 7 2) -lt 20 ]; then
     # avoid C++17 availability warnings on macOS < 11
     PKG_CFLAGS="$PKG_CFLAGS -D_LIBCPP_DISABLE_AVAILABILITY"
   fi
