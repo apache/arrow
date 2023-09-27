@@ -300,7 +300,7 @@ test_that("schema extraction", {
   expect_equal(schema(example_data), tbl$schema)
   expect_equal(schema(tbl), tbl$schema)
 
-  expect_equal(schema(data.frame(a = 1, a = "x")), schema(a = double(), a.1 = string()))
+  expect_equal(schema(data.frame(a = 1, a = "x", check.names = FALSE)), schema(a = double(), a = string()))
   expect_equal(schema(data.frame()), schema())
 
   ds <- InMemoryDataset$create(example_data)
