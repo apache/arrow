@@ -76,7 +76,7 @@ namespace Apache.Arrow
                 switch (DataType.Unit)
                 {
                     case TimeUnit.Nanosecond:
-                        return ticks * 100;
+                        return checked(ticks * 100);
                     case TimeUnit.Microsecond:
                         return ticks / 10;
                     case TimeUnit.Millisecond:
