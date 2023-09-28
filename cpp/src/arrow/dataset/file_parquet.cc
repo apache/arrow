@@ -483,17 +483,17 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
 
   auto path = source.path();
-  auto reader_fut = input_fut.Then(
-    [=](const std::shared_ptr<arrow::io::RandomAccessFile>&) mutable
-      -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
+  auto reader_fut =
+      input_fut.Then([=](const std::shared_ptr<arrow::io::RandomAccessFile>&) mutable
+                     -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::io::RandomAccessFile> input,
                               input_fut.MoveResult());
-        auto rfut = parquet::ParquetFileReader::OpenAsync(std::move(input), std::move(properties), metadata);
-        ARROW_ASSIGN_OR_RAISE(auto reader,
-                              rfut.MoveResult());
+        auto rfut = parquet::ParquetFileReader::OpenAsync(
+            std::move(input), std::move(properties), metadata);
+        ARROW_ASSIGN_OR_RAISE(auto reader, rfut.MoveResult());
         return reader;
       });
-    
+
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
   return reader_fut.Then(
       [=](const std::unique_ptr<parquet::ParquetFileReader>&) mutable
