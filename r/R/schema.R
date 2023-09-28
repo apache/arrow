@@ -286,6 +286,9 @@ infer_schema.Dataset <- function(x) x$schema
 infer_schema.arrow_dplyr_query <- function(x) implicit_schema(x)
 
 #' @export
+infer_schema.data.frame <- function(x) schema(!!!lapply(x, infer_type))
+
+#' @export
 names.Schema <- function(x) x$names
 
 #' @export
