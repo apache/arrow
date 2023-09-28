@@ -160,6 +160,7 @@ jobs:
           path: arrow/r/libarrow/dist/arrow-*.zip
 
   windows-cpp:
+    if: false
     name: C++ Binary Windows RTools (40 only)
     needs: source
     runs-on: windows-latest
@@ -195,7 +196,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: 'windows-latest', name: "Windows"}
+          #- { runs_on: 'windows-latest', name: "Windows"}
           - { runs_on: ["self-hosted", "macos-10.13"], name: "macOS High Sierra"}
           - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur" }
         r_version:
