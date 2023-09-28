@@ -593,3 +593,37 @@ test_that("CSVReadOptions field access", {
   expect_equal(options$block_size, 1048576L)
   expect_equal(options$encoding, "UTF-8")
 })
+
+test_that("GH-34640 - CSV datasets are read in correctly when both schema and partitioning supplied", {
+  target_schema <- schema(
+    int = int32(), dbl = float32(), lgl = bool(), chr = utf8(),
+    fct = utf8(), ts = timestamp(unit = "s"), part = int8()
+  )
+
+  ds <- open_dataset(
+    csv_dir,
+    partitioning = schema(part = int32()),
+    format = "csv",
+    schema = target_schema,
+    skip = 1
+  )
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_identical(names(ds), c(names(df1), "part"))
+  expect_identical(names(collect(ds)), c(names(df1), "part"))
+
+  expect_identical(dim(ds), c(20L, 7L))
+  expect_equal(schema(ds), target_schema)
+
+  expect_equal(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6 & part == 5) %>%
+      collect() %>%
+      summarize(mean = mean(as.numeric(integer))),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
