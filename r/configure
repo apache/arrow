@@ -39,8 +39,8 @@
 #
 # * Installing a released version from source, as from CRAN, with
 #   no other prior setup
-#   * On macOS, autobrew is used to retrieve libarrow and dependencies
-#   * On Linux, the nixlibs.R build script will download or build
+#   * On macOS and Linux, the nixlibs.R build script will download
+#     or build libarrow and dependencies
 # * Installing a released version but first installing libarrow.
 #   It will use pkg-config and brew to search for libraries.
 # * Installing a development version from source as a user.
