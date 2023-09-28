@@ -64,6 +64,31 @@ classdef tStringType < matlab.unittest.TestCase
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
 
+        function TestFieldsProperty(testCase)
+            % Verify Fields is a 0x0 arrow.type.Field array.
+            type = arrow.string();
+            fields = type.Fields;
+            testCase.verifyEqual(fields, arrow.type.Field.empty(0, 0));
+        end
+
+        function FieldsNoSetter(testCase)
+            % Verify the Fields property is not settable.
+            type = arrow.string();
+            testCase.verifyError(@() setfield(type, "Fields", "1"), "MATLAB:class:SetProhibited");
+        end
+
+        function InvalidFieldIndex(testCase)
+            % Verify the field() method throws the expected error message
+            % when given an invalid index.
+            type = arrow.string();
+
+            testCase.verifyError(@() type.field(0), "arrow:badsubscript:NonPositive");
+            testCase.verifyError(@() type.field("A"), "arrow:badsubscript:NonNumeric");
+
+            % NOTE: For StringType, Fields is always empty.
+            testCase.verifyError(@() type.field(1), "arrow:index:EmptyContainer");
+        end
+
     end
 
 end
