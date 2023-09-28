@@ -29,21 +29,21 @@ add_jar(arrow_java_jni_gandiva_jar
         arrow_java_jni_gandiva_headers)
 
 set(GANDIVA_PROTO_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
-set(GANDIVA_PROTO_OUTPUT_FILES "${GANDIVA_PROTO_OUTPUT_DIR}/Types.pb.cc"
-                               "${GANDIVA_PROTO_OUTPUT_DIR}/Types.pb.h")
+set(GANDIVA_PROTO_OUTPUT_FILES "${GANDIVA_PROTO_OUTPUT_DIR}/gandiva/types.pb.cc"
+                               "${GANDIVA_PROTO_OUTPUT_DIR}/gandiva/types.pb.h")
 
 set_source_files_properties(${GANDIVA_PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
 set(GANDIVA_PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
-get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE ${GANDIVA_PROTO_DIR}/Types.proto
-                       ABSOLUTE)
+get_filename_component(GANDIVA_PROTO_FILE_ABSOLUTE
+                       ${GANDIVA_PROTO_DIR}/gandiva/types.proto ABSOLUTE)
 
 find_package(Protobuf REQUIRED)
 add_custom_command(OUTPUT ${GANDIVA_PROTO_OUTPUT_FILES}
                    COMMAND protobuf::protoc --proto_path ${GANDIVA_PROTO_DIR} --cpp_out
                            ${GANDIVA_PROTO_OUTPUT_DIR} ${GANDIVA_PROTO_FILE_ABSOLUTE}
                    DEPENDS ${GANDIVA_PROTO_FILE_ABSOLUTE}
-                   COMMENT "Running Protobuf compiler on Types.proto"
+                   COMMENT "Running Protobuf compiler on gandiva/types.proto"
                    VERBATIM)
 
 add_custom_target(garrow_java_jni_gandiva_proto ALL DEPENDS ${GANDIVA_PROTO_OUTPUT_FILES})
