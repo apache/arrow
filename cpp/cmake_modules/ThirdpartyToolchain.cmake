@@ -1333,6 +1333,12 @@ macro(build_snappy)
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # ignore linker flag errors, as snappy sets
+    # -Werror -Wall, and emscripten doesn't support -soname
+    set(SNAPPY_CMAKE_ARGS ${SNAPPY_CMAKE_ARGS} "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS} -Wno-error=linkflags")
+  endif()
+
   externalproject_add(snappy_ep
                       ${EP_COMMON_OPTIONS}
                       BUILD_IN_SOURCE 1
@@ -1378,6 +1384,7 @@ macro(build_brotli)
   message(STATUS "Building brotli from source")
   set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
   set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
+  set(BROTLI_LIB_DIR "${BROTLI_PREFIX}/lib")
   set(BROTLI_STATIC_LIBRARY_ENC
       "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
@@ -1389,16 +1396,51 @@ macro(build_brotli)
   )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}")
 
-  externalproject_add(brotli_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${BROTLI_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
-                                       "${BROTLI_STATIC_LIBRARY_DEC}"
-                                       "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                       ${BROTLI_BUILD_BYPRODUCTS}
-                      CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-                      STEP_TARGETS headers_copy)
+  set(BROTLI_INSTALL_OVERRIDE)
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # cmake install is disabled for brotli on emscripten, so we have
+    # to manually copy the libraries to our install directory
+    set(BROTLI_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep-build)
+    set(BROTLI_BUILD_LIBS "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+    set(BROTLI_BUILD_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep/c/include/brotli)
+
+    externalproject_add(brotli_ep
+    ${EP_COMMON_OPTIONS}
+    URL ${BROTLI_SOURCE_URL}
+    URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
+    BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                     "${BROTLI_STATIC_LIBRARY_DEC}"
+                     "${BROTLI_STATIC_LIBRARY_COMMON}"
+                     ${BROTLI_BUILD_BYPRODUCTS}
+    CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
+    STEP_TARGETS headers_copy
+    INSTALL_COMMAND ""
+    )
+    add_custom_command(TARGET brotli_ep POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}*${CMAKE_STATIC_LIBRARY_SUFFIX}
+        ${BROTLI_LIB_DIR}
+      COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${BROTLI_BUILD_INCLUDE_DIR}
+            ${BROTLI_INCLUDE_DIR}/brotli
+        )
+  else() # not emscripten - just behave as normal
+    externalproject_add(brotli_ep
+    ${EP_COMMON_OPTIONS}
+    URL ${BROTLI_SOURCE_URL}
+    URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
+    BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                    "${BROTLI_STATIC_LIBRARY_DEC}"
+                    "${BROTLI_STATIC_LIBRARY_COMMON}"
+                    ${BROTLI_BUILD_BYPRODUCTS}
+    CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
+    STEP_TARGETS headers_copy
+    )
+  endif()
 
   add_dependencies(toolchain brotli_ep)
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
@@ -1850,6 +1892,41 @@ if(ARROW_WITH_PROTOBUF)
                                                         "${PROTOBUF_PROTOC_EXECUTABLE}")
     endif()
     set(ARROW_PROTOBUF_PROTOC protobuf::protoc)
+  endif()
+
+  if(CMAKE_CROSSCOMPILING)
+    # if we are cross compiling, we need to build protoc for the host
+    # system also, as it is used when building arrow 
+    # We do this by calling cmake as a child process
+    # with CXXFLAGS / CFLAGS and cmake flags cleared
+    set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
+    set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
+
+    set(PROTOBUF_HOST_CMAKE_ARGS
+    "-DCMAKE_CXX_FLAGS="
+    "-DCMAKE_C_FLAGS="
+    "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
+    -Dprotobuf_BUILD_TESTS=OFF
+    -Dprotobuf_DEBUG_POSTFIX=)
+
+    externalproject_add(protobuf_ep_host
+      ${EP_COMMON_OPTIONS}
+      CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
+      BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
+      BUILD_IN_SOURCE 1
+      URL ${PROTOBUF_SOURCE_URL}
+      URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+
+    add_executable(arrow::protobuf::host_protoc IMPORTED)
+    set_target_properties(arrow::protobuf::host_protoc PROPERTIES IMPORTED_LOCATION
+                                                             "${PROTOBUF_HOST_COMPILER}")  
+
+    add_dependencies(protobuf_ep protobuf_ep_host)
+
+    # make sure host protoc is used for compiling protobuf files
+    # during build of e.g. orc
+    set(ARROW_PROTOBUF_PROTOC arrow::protobuf::host_protoc)
+
   endif()
 
   # Log protobuf paths as we often see issues with mixed sources for
@@ -4358,6 +4435,8 @@ macro(build_orc)
   get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
 
+  set(LZ4_TARGET LZ4::lz4)
+
   set(ORC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
@@ -4374,6 +4453,10 @@ macro(build_orc)
       "-DPROTOBUF_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>"
       "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
+      "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
+      "-DLZ4_LIBRARY=$<TARGET_FILE:${LZ4_TARGET}>"
+      "-DLZ4_STATIC_LIBRARY=$<TARGET_FILE:${LZ4_TARGET}>"
+      "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
       "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
       "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
