@@ -137,7 +137,7 @@ export enum MessageHeader {
  * nested type consisting of other data types, or another data type (e.g. a
  * timestamp encoded as an int64).
  *
- * **Note**: Only enum values 0-17 (NONE through Map) are written to an Arrow
+ * **Note**: Only enum values 0-18 (NONE through Duration) are written to an Arrow
  * IPC payload.
  *
  * The rest of the values are specified here so TypeScript can narrow the type
@@ -174,6 +174,7 @@ export enum Type {
     FixedSizeBinary = 15, /** Fixed-size binary. Each value occupies the same number of bytes */
     FixedSizeList = 16, /** Fixed-size list. Each value occupies the same number of bytes */
     Map = 17, /** Map of named logical types */
+    Duration = 18, /** Measure of elapsed time in either seconds, miliseconds, microseconds or nanoseconds. */
 
     Dictionary = -1, /** Dictionary aka Category type */
     Int8 = -2,
@@ -201,6 +202,10 @@ export enum Type {
     SparseUnion = -24,
     IntervalDayTime = -25,
     IntervalYearMonth = -26,
+    DurationSecond = -27,
+    DurationMillisecond = -28,
+    DurationMicrosecond = -29,
+    DurationNanosecond = -30
 }
 
 export enum BufferType {

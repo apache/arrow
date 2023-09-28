@@ -1805,8 +1805,7 @@ def get_generated_json_files(tempdir=None):
         generate_datetime_case(),
 
         generate_duration_case()
-        .skip_tester('C#')
-        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
+        .skip_tester('C#'),
 
         generate_interval_case()
         .skip_tester('C#')

@@ -21,7 +21,7 @@ import { MapRow, kKeys } from './row/map.js';
 import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
-    Date_, Time, Timestamp, Interval,
+    Date_, Time, Timestamp, Interval, Duration,
     Utf8, Binary, List, Map_,
 } from './type.js';
 import { createIsValidFunction } from './builder/valid.js';
@@ -290,7 +290,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
             // Binary, Utf8
             data = _values?.flush(_offsets.last());
-        } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
+        } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, Duration and Interval)
             data = _values?.flush(length);
         }
 
@@ -342,7 +342,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 (Builder.prototype as any)._isValid = () => true;
 
 /** @ignore */
-export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
+export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval | Duration = any, TNull = any> extends Builder<T, TNull> {
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
         this._values = new DataBufferBuilder(new this.ArrayType(0), this.stride);

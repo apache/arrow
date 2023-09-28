@@ -34,6 +34,7 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
 } from '../type.js';
 
@@ -84,6 +85,11 @@ export interface GetVisitor extends Visitor {
     visitInterval<T extends Interval>(data: Data<T>, index: number): T['TValue'] | null;
     visitIntervalDayTime<T extends IntervalDayTime>(data: Data<T>, index: number): T['TValue'] | null;
     visitIntervalYearMonth<T extends IntervalYearMonth>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDuration<T extends Duration>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDurationSecond<T extends DurationSecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDurationMillisecond<T extends DurationMillisecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDurationMicrosecond<T extends DurationMicrosecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDurationNanosecond<T extends DurationNanosecond>(data: Data<T>, index: number): T['TValue'] | null;
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>, index: number): T['TValue'] | null;
     visitMap<T extends Map_>(data: Data<T>, index: number): T['TValue'] | null;
 }
@@ -280,6 +286,25 @@ const getIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, 
 };
 
 /** @ignore */
+const getDurationSecond = <T extends DurationSecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
+/** @ignore */
+const getDurationMillisecond = <T extends DurationMillisecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
+/** @ignore */
+const getDurationMicrosecond = <T extends DurationMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
+/** @ignore */
+const getDurationNanosecond = <T extends DurationNanosecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
+/* istanbul ignore next */
+/** @ignore */
+const getDuration = <T extends Duration>(data: Data<T>, index: number): T['TValue'] => {
+    switch (data.type.unit) {
+        case TimeUnit.SECOND: return getDurationSecond(data as Data<DurationSecond>, index);
+        case TimeUnit.MILLISECOND: return getDurationMillisecond(data as Data<DurationMillisecond>, index);
+        case TimeUnit.MICROSECOND: return getDurationMicrosecond(data as Data<DurationMicrosecond>, index);
+        case TimeUnit.NANOSECOND: return getDurationNanosecond(data as Data<DurationNanosecond>, index);
+    }
+};
+
+/** @ignore */
 const getFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number): T['TValue'] => {
     const { stride, children } = data;
     const child: Data<T['valueType']> = children[0];
@@ -328,6 +353,11 @@ GetVisitor.prototype.visitDictionary = wrapGet(getDictionary);
 GetVisitor.prototype.visitInterval = wrapGet(getInterval);
 GetVisitor.prototype.visitIntervalDayTime = wrapGet(getIntervalDayTime);
 GetVisitor.prototype.visitIntervalYearMonth = wrapGet(getIntervalYearMonth);
+GetVisitor.prototype.visitDuration = wrapGet(getDuration);
+GetVisitor.prototype.visitDurationSecond = wrapGet(getDurationSecond);
+GetVisitor.prototype.visitDurationMillisecond = wrapGet(getDurationMillisecond);
+GetVisitor.prototype.visitDurationMicrosecond = wrapGet(getDurationMicrosecond);
+GetVisitor.prototype.visitDurationNanosecond = wrapGet(getDurationNanosecond);
 GetVisitor.prototype.visitFixedSizeList = wrapGet(getFixedSizeList);
 GetVisitor.prototype.visitMap = wrapGet(getMap);
 
