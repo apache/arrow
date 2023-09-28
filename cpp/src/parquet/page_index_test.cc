@@ -436,7 +436,7 @@ TEST(PageIndex, WriteOffsetIndex) {
   offset_indexes.emplace_back(builder->Build());
   /// 2nd element is the offset index restored by serialize-then-deserialize round trip.
   auto sink = CreateOutputStream();
-  builder->WriteTo(sink.get(), /*encryptor=*/nullptr);
+  builder->WriteTo(sink.get());
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
   offset_indexes.emplace_back(OffsetIndex::Make(buffer->data(),
                                                 static_cast<uint32_t>(buffer->size()),
@@ -470,7 +470,7 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
   column_indexes.emplace_back(builder->Build());
   /// 2nd element is the column index restored by serialize-then-deserialize round trip.
   auto sink = CreateOutputStream();
-  builder->WriteTo(sink.get(), /*encryptor=*/nullptr);
+  builder->WriteTo(sink.get());
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
   column_indexes.emplace_back(ColumnIndex::Make(*descr, buffer->data(),
                                                 static_cast<uint32_t>(buffer->size()),
@@ -624,7 +624,7 @@ TEST(PageIndex, WriteColumnIndexWithCorruptedStats) {
   ASSERT_EQ(nullptr, builder->Build());
 
   auto sink = CreateOutputStream();
-  builder->WriteTo(sink.get(), /*encryptor=*/nullptr);
+  builder->WriteTo(sink.get());
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
   EXPECT_EQ(0, buffer->size());
 }
