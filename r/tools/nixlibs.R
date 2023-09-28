@@ -217,6 +217,7 @@ compile_test_program <- function(code) {
     "-xc++",
     openssl_dir
   )
+  cat("*** Test Program: ", runner)
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
