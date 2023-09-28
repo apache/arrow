@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-syntax = "proto2";
-package types;
+syntax = "proto3";
+package gandiva.types;
 
 option java_package = "org.apache.arrow.gandiva.ipc";
 option java_outer_classname = "GandivaTypes";
