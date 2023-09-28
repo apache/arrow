@@ -231,16 +231,6 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
-      - name: Install CRAN like openssl
-        if: contains(matrix.platform.runs_on, 'arm64')
-        run: |
-          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
-          if [ -d "/opt/R/arm64/include/openssl/" ]; then
-            exit 0
-          fi
-          git clone https://github.com/R-macos/recipes
-          cd recipes
-          ./build.sh openssl
       - name: Build Binary
         id: build
         shell: Rscript {0}
