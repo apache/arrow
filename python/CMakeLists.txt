@@ -73,7 +73,7 @@ endif()
 # this option is used to auto-set defaults for pyarrow build
 option(DUMP_ARROW_ARGUMENTS "Dump the arrow arguments then quit" OFF)
 
-if($ENV{PYODIDE} STREQUAL 1)
+if($ENV{PYODIDE})
   # these variables are needed for building pyarrow on Emscripten
   # if they aren't set, cmake cross compiling fails for python 
   # modules (at least under pyodide it does)
