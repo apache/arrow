@@ -178,7 +178,10 @@ class build_ext(_build_ext):
         """
         if name in os.environ:
             return strtobool(os.environ.get(name))
-        else:
+        elif sysconfig.get_config_var("SOABI").find("emscripten") != -1:
+            # on emscripten we need to compute the PYARROW_* flags based
+            # on the ARROW_* flags in the build system. This is because pyodide
+            # build clears environment variables before setup.py is run.
             special_cases = {
                 "PYARROW_WITH_PARQUET_ENCRYPTION": "PARQUET_REQUIRE_ENCRYPTION"}
             cmake_default_name = None
