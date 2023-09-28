@@ -30,7 +30,8 @@ const valueVectorGeneratorNames = [
     'float16', 'float32', 'float64', 'utf8', 'binary', 'fixedSizeBinary', 'dateDay', 'dateMillisecond',
     'timestampSecond', 'timestampMillisecond', 'timestampMicrosecond', 'timestampNanosecond',
     'timeSecond', 'timeMillisecond', 'timeMicrosecond', 'timeNanosecond', 'decimal',
-    'dictionary', 'intervalDayTime', 'intervalYearMonth'
+    'dictionary', 'intervalDayTime', 'intervalYearMonth',
+    'durationSecond', 'durationMillisecond', 'durationMicrosecond', 'durationNanosecond',
 ];
 
 const vectorGeneratorNames = [...valueVectorGeneratorNames, ...listVectorGeneratorNames, ...nestedVectorGeneratorNames];
