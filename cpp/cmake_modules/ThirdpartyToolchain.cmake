@@ -260,9 +260,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
 
   # ensure zlib is built with -fpic
   # and make sure that the build finds the version in Emscripten ports
-  # - n.b. the actual linking happens because -sUSE_ZLIB=1 is 
+  # - n.b. the actual linking happens because -sUSE_ZLIB=1 is
   # set in the compiler variables, but cmake expects
-  # it to exist at configuration time if we aren't building it as 
+  # it to exist at configuration time if we aren't building it as
   # bundled. We need to do this for all packages
   # not just zlib as some depend on zlib, but we don't rebuild
   # if it exists already
@@ -1336,7 +1336,9 @@ macro(build_snappy)
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # ignore linker flag errors, as snappy sets
     # -Werror -Wall, and emscripten doesn't support -soname
-    set(SNAPPY_CMAKE_ARGS ${SNAPPY_CMAKE_ARGS} "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS} -Wno-error=linkflags")
+    set(SNAPPY_CMAKE_ARGS
+        ${SNAPPY_CMAKE_ARGS}
+        "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS} -Wno-error=linkflags")
   endif()
 
   externalproject_add(snappy_ep
@@ -1402,44 +1404,44 @@ macro(build_brotli)
     # cmake install is disabled for brotli on emscripten, so we have
     # to manually copy the libraries to our install directory
     set(BROTLI_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep-build)
-    set(BROTLI_BUILD_LIBS "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    set(BROTLI_BUILD_LIBS
+        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
 
-    set(BROTLI_BUILD_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep/c/include/brotli)
+    set(BROTLI_BUILD_INCLUDE_DIR
+        ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep/c/include/brotli)
 
     externalproject_add(brotli_ep
-    ${EP_COMMON_OPTIONS}
-    URL ${BROTLI_SOURCE_URL}
-    URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
-    BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
-                     "${BROTLI_STATIC_LIBRARY_DEC}"
-                     "${BROTLI_STATIC_LIBRARY_COMMON}"
-                     ${BROTLI_BUILD_BYPRODUCTS}
-    CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-    STEP_TARGETS headers_copy
-    INSTALL_COMMAND ""
-    )
-    add_custom_command(TARGET brotli_ep POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}*${CMAKE_STATIC_LIBRARY_SUFFIX}
-        ${BROTLI_LIB_DIR}
-      COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${BROTLI_BUILD_INCLUDE_DIR}
-            ${BROTLI_INCLUDE_DIR}/brotli
-        )
+                        ${EP_COMMON_OPTIONS}
+                        URL ${BROTLI_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
+                        BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                                         "${BROTLI_STATIC_LIBRARY_DEC}"
+                                         "${BROTLI_STATIC_LIBRARY_COMMON}"
+                                         ${BROTLI_BUILD_BYPRODUCTS}
+                        CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
+                        STEP_TARGETS headers_copy
+                        INSTALL_COMMAND "")
+    add_custom_command(TARGET brotli_ep
+                       POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                               ${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}*${CMAKE_STATIC_LIBRARY_SUFFIX}
+                               ${BROTLI_LIB_DIR}
+                       COMMAND ${CMAKE_COMMAND} -E copy_directory
+                               ${BROTLI_BUILD_INCLUDE_DIR} ${BROTLI_INCLUDE_DIR}/brotli)
   else() # not emscripten - just behave as normal
     externalproject_add(brotli_ep
-    ${EP_COMMON_OPTIONS}
-    URL ${BROTLI_SOURCE_URL}
-    URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
-    BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
-                    "${BROTLI_STATIC_LIBRARY_DEC}"
-                    "${BROTLI_STATIC_LIBRARY_COMMON}"
-                    ${BROTLI_BUILD_BYPRODUCTS}
-    CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-    STEP_TARGETS headers_copy
-    )
+                        ${EP_COMMON_OPTIONS}
+                        URL ${BROTLI_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
+                        BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                                         "${BROTLI_STATIC_LIBRARY_DEC}"
+                                         "${BROTLI_STATIC_LIBRARY_COMMON}"
+                                         ${BROTLI_BUILD_BYPRODUCTS}
+                        CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
+                        STEP_TARGETS headers_copy)
   endif()
 
   add_dependencies(toolchain brotli_ep)
@@ -1896,30 +1898,30 @@ if(ARROW_WITH_PROTOBUF)
 
   if(CMAKE_CROSSCOMPILING)
     # if we are cross compiling, we need to build protoc for the host
-    # system also, as it is used when building arrow 
+    # system also, as it is used when building arrow
     # We do this by calling cmake as a child process
     # with CXXFLAGS / CFLAGS and cmake flags cleared
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
     set(PROTOBUF_HOST_CMAKE_ARGS
-    "-DCMAKE_CXX_FLAGS="
-    "-DCMAKE_C_FLAGS="
-    "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
-    -Dprotobuf_BUILD_TESTS=OFF
-    -Dprotobuf_DEBUG_POSTFIX=)
+        "-DCMAKE_CXX_FLAGS="
+        "-DCMAKE_C_FLAGS="
+        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
+        -Dprotobuf_BUILD_TESTS=OFF
+        -Dprotobuf_DEBUG_POSTFIX=)
 
     externalproject_add(protobuf_ep_host
-      ${EP_COMMON_OPTIONS}
-      CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
-      BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
-      BUILD_IN_SOURCE 1
-      URL ${PROTOBUF_SOURCE_URL}
-      URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+                        ${EP_COMMON_OPTIONS}
+                        CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
+                        BUILD_IN_SOURCE 1
+                        URL ${PROTOBUF_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
     add_executable(arrow::protobuf::host_protoc IMPORTED)
-    set_target_properties(arrow::protobuf::host_protoc PROPERTIES IMPORTED_LOCATION
-                                                             "${PROTOBUF_HOST_COMPILER}")  
+    set_target_properties(arrow::protobuf::host_protoc
+                          PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
 
     add_dependencies(protobuf_ep protobuf_ep_host)
 

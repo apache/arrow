@@ -40,8 +40,6 @@ if(PYARROW_CPP_HOME)
   list(INSERT CMAKE_PREFIX_PATH 0 "${PYARROW_CPP_HOME}")
 endif()
 
-
-
 include(CMakeParseArguments)
 
 # MACOSX_RPATH is enabled by default.
@@ -75,7 +73,7 @@ option(DUMP_ARROW_ARGUMENTS "Dump the arrow arguments then quit" OFF)
 
 if($ENV{PYODIDE})
   # these variables are needed for building pyarrow on Emscripten
-  # if they aren't set, cmake cross compiling fails for python 
+  # if they aren't set, cmake cross compiling fails for python
   # modules (at least under pyodide it does)
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
@@ -85,7 +83,7 @@ if($ENV{PYODIDE})
 
   # remove any c++ standard settings from cflags and let cmake set it.
   # n.b. this is here because pyodide sets -stdc++=14, which breaks pyarrow builds
-  string(REGEX REPLACE "-std=c\\+\\+[0-9]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} )
+  string(REGEX REPLACE "-std=c\\+\\+[0-9]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 
 endif()
 

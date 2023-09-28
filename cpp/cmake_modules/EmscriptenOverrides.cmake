@@ -23,4 +23,3 @@ set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
 
 # stripping doesn't work on emscripten
 set(CMAKE_STRIP FALSE)
-

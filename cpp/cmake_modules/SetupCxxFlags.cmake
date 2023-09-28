@@ -710,11 +710,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # 3) We force *everything* to build as position independent
   # 4) And with support for C++ exceptions
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
+  set(CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
 
   # flags for creating shared libraries (only used in pyarrow, because
   # Emscripten builds libarrow as static)
-  # flags are: 
+  # flags are:
   # 1) Tell it to use zlib from Emscripten ports
   # 2) Tell it to use javascript / webassembly 64 bit number support.
   # 3) Tell it to build with support for C++ exceptions
