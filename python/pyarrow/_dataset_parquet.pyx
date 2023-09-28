@@ -76,7 +76,7 @@ IF PARQUET_ENCRYPTION_ENABLED:
             Factory for creating cryptographic instances.
         kms_connection_config : KmsConnectionConfig
             Configuration for connecting to Key Management Service.
-        encryption_config : EncryptionConfiguration
+        encryption_config : pyarrow.parquet.encryption.EncryptionConfiguration
             :ref:`Configure <encryption-configuration>`_ e.g. which columns to encrypt,
             length of encryption keys, Parquet Encryption Algorithm
             and more.
