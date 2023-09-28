@@ -1317,8 +1317,7 @@ macro(build_snappy)
     # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
     # This can be removed once CRAN no longer checks on macOS 10.13
     find_program(PATCH patch REQUIRED)
-    set(SNAPPY_PATCH_COMMAND
-        ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
+    set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
   endif()
 
   externalproject_add(snappy_ep
