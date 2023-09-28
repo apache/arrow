@@ -139,6 +139,10 @@ mkdir %USERPROFILE%\Downloads\test\tzdata
 tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml || exit /B
+@rem Remove the database from the default location
+rmdir /s /q %USERPROFILE%\Downloads\tzdata
+@rem Set the env var for the non-standard location of the database
+@rem (only needed for testing purposes)
 set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
 python setup.py develop -q || exit /B

@@ -455,6 +455,11 @@ def windows_has_tzdata():
     This is the default location where tz.cpp will look for (until we make
     this configurable at run-time)
     """
-    tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
-    tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', '')
-    return os.path.exists(tzdata_path) or os.path.exists(tzdata_set_path)
+    tzdata_bool = False
+    if "PYARROW_TZDATA_PATH" in os.environ:
+        tzdata_bool = os.path.exists(os.environ['PYARROW_TZDATA_PATH'])
+    if not tzdata_bool:
+        tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
+        tzdata_bool = os.path.exists(tzdata_path)
+
+    return tzdata_bool
