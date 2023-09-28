@@ -43,7 +43,10 @@ import Cython
 is_64_bit = sys.maxsize > 2**32
 
 is_emscripten = False
-if sysconfig.get_config_var("SOABI") and sysconfig.get_config_var("SOABI").find("emscripten")!=-1:
+if (
+    sysconfig.get_config_var("SOABI")
+    and sysconfig.get_config_var("SOABI").find("emscripten") != -1
+):
     is_emscripten = True
 
 
