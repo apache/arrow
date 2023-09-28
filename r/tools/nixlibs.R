@@ -218,7 +218,6 @@ compile_test_program <- function(code) {
     R_CMD_config("CXX17STD"),
     "-E",
     "-xc++"  )
-  cat("*** Test Program: ", runner)
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
