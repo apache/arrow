@@ -212,13 +212,12 @@ compile_test_program <- function(code) {
   }
   runner <- paste(
     R_CMD_config("CXX17"),
+    openssl_dir,
     R_CMD_config("CPPFLAGS"),
     R_CMD_config("CXX17FLAGS"),
     R_CMD_config("CXX17STD"),
     "-E",
-    "-xc++",
-    openssl_dir
-  )
+    "-xc++"  )
   cat("*** Test Program: ", runner)
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
