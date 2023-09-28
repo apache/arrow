@@ -374,6 +374,18 @@ public class NonNullableStructVector extends AbstractStructVector {
     return getChildByOrdinal(id);
   }
 
+  /**
+   * Gets a child vector by ordinal position and casts to the specified class.
+   */
+  public <V extends ValueVector> V getVectorById(int id, Class<V> clazz) {
+    ValueVector untyped = getVectorById(id);
+    if (clazz.isInstance(untyped)) {
+      return clazz.cast(untyped);
+    }
+    throw new ClassCastException("Id " + id + " had the wrong type. Expected " + clazz.getCanonicalName() +
+        " but was " + untyped.getClass().getCanonicalName());
+  }
+
   @Override
   public void setValueCount(int valueCount) {
     for (final ValueVector v : getChildren()) {
