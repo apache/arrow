@@ -98,7 +98,6 @@ jobs:
           VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
           cd arrow/r/libarrow/dist
-          # These files were created by the docker user so we have to sudo to get them
           zip -r $PKG_FILE lib/ include/
 
       - name: Upload binary artifact
@@ -135,8 +134,6 @@ jobs:
         env:
           UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
-          MACOSX_DEPLOYMENT_TARGET: "10.13"
-          EXTRA_CMAKE_FLAGS: "-Dre2_SOURCE=BUNDLED -DSnappy_SOURCE=BUNDLED -DThrift_SOURCE=BUNDLED -DARROW_VERBOSE_THIRDPARTY_BUILD=ON -DCMAKE_VERBOSE_MAKEFILE=ON"
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -349,7 +346,7 @@ jobs:
           path: arrow_*
 
   test-centos-binary:
-    #arrow binary package not on ppm currently
+    # arrow binary package not on ppm currently see #37922
     if: false
     needs: test-linux-binary
     runs-on: ubuntu-latest
