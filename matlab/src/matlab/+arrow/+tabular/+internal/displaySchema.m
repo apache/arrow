@@ -1,3 +1,5 @@
+%DISPLAYSCHEMA Generates arrow.tabular.Schema display text.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -19,71 +21,21 @@ function text = displaySchema(schema)
     types = [fields.Type];
     typeIDs = string([types.ID]);
 
-    % Limit the name length displayed to the first 15 characters.
-    nameLength = strlength(names);
-    idx = nameLength > 15;
-    numCutOff = nameLength(idx) - 15;
-    names(idx) = extractBefore(names(idx), 16) + compose("... (+%d chars)", numCutOff);
+    % Use <empty> as the sentinel for field names with zero characters.
+    idx = strlength(names) == 0;
+    names(idx) = "<empty>";
 
-    % When using the desktop, bold "Name:" and "Type:".
-    boldFont = usejava("desktop");
-    if boldFont
-       names = compose(" <strong>Name:</strong> %s ", names);
-       typeIDs = compose(" <strong>Type:</strong> %s ", typeIDs);
-    else
-        names = compose(" Name: %s ", names);
-        typeIDs = compose(" Type: %s ", typeIDs);
+    if usejava("desktop")
+        % When in desktop mode, the Command Window can render
+        % bold font and hyperlinks.
+        names = compose("<strong>%s</strong>", names);
+        classNames = arrayfun(@(type) string(class(type)), types);
+        classNameAndIDs = strings([1 numel(typeIDs) * 2]);
+        classNameAndIDs(1:2:end-1) = classNames;
+        classNameAndIDs(2:2:end) = typeIDs;
+        typeIDs = compose("<a href=""matlab:helpPopup %s"" style=""font-weight:bold"">%s</a>", classNameAndIDs);
     end
 
-    numColumns = numel(typeIDs);
-    columnWidth = max([strlength(names); strlength(typeIDs)]);
-
-    % Pad each string with whitespace as needed to ensure rows in the same
-    % columns are properly aligned.
-    body = [names; typeIDs];
-    for ii = 1:numColumns
-        body(:, ii) = pad(body(:, ii), columnWidth(ii));
-    end
-
-    indent = "    ";
-    body = indent + "│" + join(body, "│", 2) + "│";
-    body = join(body, newline);
-    
-
-    if boldFont
-        % Because the literal text "<strong></strong>" is not rendered,
-        % remove 17 from each columnWidth.
-       columnWidth = columnWidth - 17;
-    end
-    
-    top = getBorderRow(ColumnWidth=columnWidth, LeftCorner="┌", ...
-        RightCorner="┐", Divider="┬");
-    bottom = getBorderRow(ColumnWidth=columnWidth, LeftCorner="└", ...
-        RightCorner="┘", Divider="┴");
-
-
-    text = join([top; body; bottom], newline);
-
-end
-
-function borderRow = getBorderRow(opts)
-    arguments
-        opts.ColumnWidth
-        opts.LeftCorner
-        opts.RightCorner
-        opts.Divider
-    end
-
-    numDividers = numel(opts.ColumnWidth) - 1;
-    numHorizontalSections = numel(opts.ColumnWidth);
-    borderRow = strings([1 numDividers + numHorizontalSections]);
-    
-    index = 1;
-    for ii = 1:numHorizontalSections
-        borderRow(index) = repmat('─', [1 opts.ColumnWidth(ii)]);
-        index = index + 2;
-    end
-    borderRow(2:2:end-1) = opts.Divider;
-    indent = "    ";
-    borderRow = indent + opts.LeftCorner + strjoin(borderRow, "") + opts.RightCorner;
+    text = names + ": " + typeIDs;
+    text = "    " + strjoin(text, " | ");
 end
