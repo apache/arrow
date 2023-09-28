@@ -183,12 +183,14 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
 
 # This tests that curl and OpenSSL are present (bc we can include their headers)
 # and it checks for other versions/features and raises errors that we grep for
-test_for_curl_and_openssl <- "
-#include <ciso646>
+test_for_curl_and_openssl <- paste0(ifelse(on_macos, "",
+"#include <ciso646>
 #ifdef _LIBCPP_VERSION
 #error Using libc++
 #endif
 
+"),
+"
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER < 0x10002000L
@@ -200,7 +202,7 @@ test_for_curl_and_openssl <- "
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #error Using OpenSSL version 3
 #endif
-"
+")
 
 compile_test_program <- function(code) {
   openssl_dir <- ""
