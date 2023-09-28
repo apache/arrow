@@ -31,6 +31,7 @@ class AesDecryptor;
 class AesEncryptor;
 }  // namespace encryption
 
+class ColumnCryptoMetaData;
 class FileDecryptionProperties;
 
 class PARQUET_EXPORT Decryptor {
@@ -109,5 +110,17 @@ class InternalFileDecryptor {
                                                 const std::string& aad,
                                                 bool metadata = false);
 };
+
+/// Utility to get column meta decryptor of an encrypted column.
+std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
+    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
+
+/// Utility to get column data decryptor of an encrypted column.
+std::shared_ptr<Decryptor> GetColumnDataDecryptor(
+    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
+
+void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,
+                     int16_t row_group_ordinal, int16_t column_ordinal,
+                     int8_t module_type);
 
 }  // namespace parquet

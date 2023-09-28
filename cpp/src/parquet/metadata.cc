@@ -211,7 +211,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
           ThriftDeserializer deserializer(properties_);
           deserializer.DeserializeMessage(
               reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),
-              &len, &decrypted_metadata_, decryptor);
+              &len, &decrypted_metadata_, decryptor.get());
           column_metadata_ = &decrypted_metadata_;
         } else {
           throw ParquetException(
@@ -603,7 +603,8 @@ class FileMetaData::FileMetaDataImpl {
 
     ThriftDeserializer deserializer(properties_);
     deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(metadata),
-                                    metadata_len, metadata_.get(), footer_decryptor);
+                                    metadata_len, metadata_.get(),
+                                    footer_decryptor.get());
     metadata_len_ = *metadata_len;
 
     if (metadata_->__isset.created_by) {
@@ -705,7 +706,7 @@ class FileMetaData::FileMetaDataImpl {
                      encryption::kGcmTagLength));
     } else {  // either plaintext file (when encryptor is null)
       // or encrypted file with encrypted footer
-      serializer.Serialize(metadata_.get(), dst, encryptor);
+      serializer.Serialize(metadata_.get(), dst, encryptor.get());
     }
   }
 
