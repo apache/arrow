@@ -231,6 +231,12 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
+      - name: Set CRAN like openssl
+        if: contains(matrix.platform.runs_on, 'arm64')
+        run: |
+          # The arm64 runners contain openssl 1.1.1t in this path that is always included first so we need to override the
+          # default setting of the brew --prefix as root dir to avoid version conflicts.
+          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
       - name: Build Binary
         id: build
         shell: Rscript {0}
