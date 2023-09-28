@@ -227,36 +227,18 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                               always_compressed);
     }
 
-    if (file_decryptor_ == nullptr) {
-      throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
-    }
+    // The column is encrypted
+    std::shared_ptr<Decryptor> meta_decryptor =
+        GetColumnMetaDecryptor(crypto_metadata.get(), file_decryptor_.get());
+    std::shared_ptr<Decryptor> data_decryptor =
+        GetColumnDataDecryptor(crypto_metadata.get(), file_decryptor_.get());
+    ARROW_DCHECK_NE(meta_decryptor, nullptr);
+    ARROW_DCHECK_NE(data_decryptor, nullptr);
 
     constexpr auto kEncryptedRowGroupsLimit = 32767;
     if (i > kEncryptedRowGroupsLimit) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
-
-    // The column is encrypted
-    std::shared_ptr<Decryptor> meta_decryptor;
-    std::shared_ptr<Decryptor> data_decryptor;
-    // The column is encrypted with footer key
-    if (crypto_metadata->encrypted_with_footer_key()) {
-      meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
-      data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
-      CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
-                        static_cast<int16_t>(i), meta_decryptor, data_decryptor);
-      return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
-                              always_compressed, &ctx);
-    }
-
-    // The column is encrypted with its own key
-    std::string column_key_metadata = crypto_metadata->key_metadata();
-    const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
-
-    meta_decryptor =
-        file_decryptor_->GetColumnMetaDecryptor(column_path, column_key_metadata);
-    data_decryptor =
-        file_decryptor_->GetColumnDataDecryptor(column_path, column_key_metadata);
 
     CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
@@ -330,7 +312,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
     if (!page_index_reader_) {
       page_index_reader_ = PageIndexReader::Make(source_.get(), file_metadata_,
-                                                 properties_, file_decryptor_);
+                                                 properties_, file_decryptor_.get());
     }
     return page_index_reader_;
   }

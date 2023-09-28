@@ -40,6 +40,8 @@ constexpr int8_t kDataPageHeader = 4;
 constexpr int8_t kDictionaryPageHeader = 5;
 constexpr int8_t kColumnIndex = 6;
 constexpr int8_t kOffsetIndex = 7;
+constexpr int8_t kBloomFilterHeader = 8;
+constexpr int8_t kBloomFilterBitset = 9;
 
 /// Performs AES encryption operations with GCM or CTR ciphers.
 class AesEncryptor {
