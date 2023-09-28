@@ -358,18 +358,20 @@ class build_ext(_build_ext):
                 if parallel:
                     build_tool_args.append(f'-j{parallel}')
 
-            if "PYODIDE" in os.environ and os.environ["PYODIDE"]=="1":
-                # remove c++ standard setting which pyodide 
+            if "PYODIDE" in os.environ and os.environ["PYODIDE"] == "1":
+                # remove c++ standard setting which pyodide
                 # (emscripten python) adds to its build variables
                 import json
-                pyodide_args=json.loads(os.environ["PYWASMCROSS_ARGS"])
-                pyodide_args["cxxflags"]=pyodide_args["cxxflags"].replace("-std=c++14","")
-                os.environ["PYWASMCROSS_ARGS"]=json.dumps(pyodide_args)
+                pyodide_args = json.loads(os.environ["PYWASMCROSS_ARGS"])
+                pyodide_args["cxxflags"] = pyodide_args["cxxflags"].replace(
+                    "-std=c++14", "")
+                os.environ["PYWASMCROSS_ARGS"] = json.dumps(pyodide_args)
 
             if sysconfig.get_config_var("SOABI").find("emscripten") != -1:
                 # Generate the build files
                 print("-- Running emcmake cmake for PyArrow on Emscripten")
-                self.spawn(['emcmake', 'cmake'] + extra_cmake_args + cmake_options + [source])
+                self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
+                           cmake_options + [source])
             else:
                 # Generate the build files
                 print("-- Running cmake for PyArrow")
