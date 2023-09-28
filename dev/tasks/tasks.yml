@@ -246,15 +246,15 @@ tasks:
   #   generated and to be synced regularly from the feedstock. We have no way
   #   yet to generate them inside the arrow repository automatically.
 
-  conda-linux-x64-cpu-r41:
+  conda-linux-x64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_64_cuda_compiler_versionNone
-      r_config: linux_64_r_base4.1
+      r_config: linux_64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-linux-x64-cpu-r42:
     ci: azure
@@ -292,15 +292,15 @@ tasks:
 
   ########################### Conda Linux (aarch64) ###########################
 
-  conda-linux-aarch64-cpu-r41:
+  conda-linux-aarch64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_aarch64_cuda_compiler_versionNone
-      r_config: linux_aarch64_r_base4.1
+      r_config: linux_aarch64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-linux-aarch64-cpu-r42:
     ci: azure
@@ -364,15 +364,15 @@ tasks:
 
   ############################## Conda OSX (x64) ##############################
 
-  conda-osx-x64-cpu-r41:
+  conda-osx-x64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_64_
-      r_config: osx_64_r_base4.1
+      r_config: osx_64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-osx-x64-cpu-r42:
     ci: azure
@@ -398,15 +398,15 @@ tasks:
 
   ############################# Conda OSX (arm64) #############################
 
-  conda-osx-arm64-cpu-r41:
+  conda-osx-arm64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_arm64_
-      r_config: osx_arm64_r_base4.1
+      r_config: osx_arm64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-osx-arm64-cpu-r42:
     ci: azure
