@@ -42,6 +42,11 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
+is_emscripten = False
+if sysconfig.get_config_var("SOABI") and sysconfig.get_config_var("SOABI").find("emscripten")!=-1:
+    is_emscripten = True
+
+
 if Cython.__version__ < '0.29.31' or Cython.__version__ >= '3.0':
     raise Exception(
         'Please update your Cython version. Supported Cython >= 0.29.31, < 3.0')
@@ -149,12 +154,8 @@ class build_ext(_build_ext):
             old_dir = os.getcwd()
             os.chdir(td)
             cmake_cmdline = ["cmake", source, "-DDUMP_ARROW_ARGUMENTS=ON"]
-            if sysconfig.get_config_var("SOABI").find("emscripten") != -1:
-                cmake_cmdline.append(
-                    "-DCMAKE_TOOLCHAIN_FILE="
-                    + source
-                    + "/cmake_modules/Emscripten/Platform/EmscriptenOverrides.cmake"
-                )
+            if is_emscripten:
+                cmake_cmdline = ["emcmake"]+cmake_cmdline
             result = subprocess.run(cmake_cmdline, capture_output=True, text=True)
             os.chdir(old_dir)
             in_dump = False
@@ -178,7 +179,7 @@ class build_ext(_build_ext):
         """
         if name in os.environ:
             return strtobool(os.environ.get(name))
-        elif sysconfig.get_config_var("SOABI").find("emscripten") != -1:
+        elif is_emscripten:
             # on emscripten we need to compute the PYARROW_* flags based
             # on the ARROW_* flags in the build system. This is because pyodide
             # build clears environment variables before setup.py is run.
@@ -367,7 +368,7 @@ class build_ext(_build_ext):
                     "-std=c++14", "")
                 os.environ["PYWASMCROSS_ARGS"] = json.dumps(pyodide_args)
 
-            if sysconfig.get_config_var("SOABI").find("emscripten") != -1:
+            if is_emscripten:
                 # Generate the build files
                 print("-- Running emcmake cmake for PyArrow on Emscripten")
                 self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
