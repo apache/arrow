@@ -91,7 +91,7 @@ you will need to override. In particular you will need:
    for builds targeting single threaded Emscripten environments such as
    pyodide.
 
-#. ``ARROW_IPC`` and anything else that uses network probably won't
+#. ``ARROW_FLIGHT`` and anything else that uses network probably won't
    work.
 
 #. ``ARROW_JEMALLOC`` and ``ARROW_MIMALLOC`` again probably need to be
