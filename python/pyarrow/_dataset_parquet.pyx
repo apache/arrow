@@ -72,9 +72,9 @@ IF PARQUET_ENCRYPTION_ENABLED:
 
         Parameters
         ----------
-        crypto_factory : CryptoFactory
+        crypto_factory : pyarrow.parquet.encryption.CryptoFactory
             Factory for creating cryptographic instances.
-        kms_connection_config : KmsConnectionConfig
+        kms_connection_config : pyarrow.parquet.encryption.KmsConnectionConfig
             Configuration for connecting to Key Management Service.
         encryption_config : pyarrow.parquet.encryption.EncryptionConfiguration
             :ref:`Configure <encryption-configuration>`_ e.g. which columns to encrypt,
