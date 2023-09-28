@@ -88,7 +88,7 @@ jobs:
           LIBARROW_MINIMAL: false
         run: |
           sccache --start-server
-          export OPENSSL_ROOT_DIR=$(brew --prefix openssl@{{'${{ matrix.openssl }}' }})
+          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@${{ matrix.openssl }})"
           cd arrow
           r/inst/build_arrow_static.sh
       - name: Bundle libarrow
