@@ -282,4 +282,12 @@ public class TestStructVector {
     }
   }
 
+  @Test
+  public void testTypedGetters() {
+    try (final StructVector s1 = StructVector.empty("s1", allocator)) {
+      s1.addOrGet("struct_child", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+      assertEquals(IntVector.class, s1.getChild("struct_child", IntVector.class).getClass());
+      assertEquals(IntVector.class, s1.getVectorById(0, IntVector.class).getClass());
+    }
+  }
 }
