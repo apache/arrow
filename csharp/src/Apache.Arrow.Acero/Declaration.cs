@@ -84,7 +84,6 @@ namespace Apache.Arrow.Acero
             await plan.Init();
 
             plan.StartProducing();
-            plan.Wait();
 
             return sinkNodeOptions.GetRecordBatchReader();
         }
