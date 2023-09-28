@@ -50,7 +50,7 @@ if [[ -n "${ARROW_GO_INTEGRATION}" ]]; then
             go_lib="arrow_go_integration.so"
             ;;
         Darwin)
-            go_lib="arrow_go_integration.so"
+            go_lib="arrow_go_integration.dylib"
             ;;
         MINGW*)
             go_lib="arrow_go_integration.dll"
