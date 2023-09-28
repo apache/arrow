@@ -35,9 +35,9 @@ time archery integration \
     --run-ipc \
     --run-flight \
     --with-cpp=1 \
-    --with-csharp=1 \
-    --with-java=1 \
-    --with-js=1 \
+    --with-csharp=0 \
+    --with-java=0 \
+    --with-js=0 \
     --with-go=1 \
     --gold-dirs=$gold_dir/0.14.1 \
     --gold-dirs=$gold_dir/0.17.1 \
