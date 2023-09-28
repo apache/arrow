@@ -355,7 +355,7 @@ jobs:
   test-centos-binary:
     #arrow binary package not on ppm currently
     if: false
-    needs: test-linux-binaryO
+    needs: test-linux-binary
     runs-on: ubuntu-latest
     container: "rstudio/r-base:4.2-centos7"
     steps:
@@ -431,7 +431,7 @@ jobs:
 
   upload-binaries:
     # Only upload binaries if all tests pass.
-    needs: [r-packages, test-source, test-linux-binary, test-centos-binary]
+    needs: [r-packages, test-linux-source, test-linux-binary, test-centos-binary]
     name: Upload artifacts
     runs-on: ubuntu-latest
     steps:
