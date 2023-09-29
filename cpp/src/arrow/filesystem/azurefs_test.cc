@@ -154,6 +154,94 @@ TEST(AzureFileSystem, OptionsCompare) {
   EXPECT_TRUE(options.Equals(options));
 }
 
+
+class TestAzureFileSystem : public ::testing::Test {
+ public:
+  std::shared_ptr<FileSystem> fs_;
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> gen2_client_;
+  AzureOptions options_;
+
+  void MakeFileSystem() {
+    const std::string& account_name = GetAzuriteEnv()->account_name();
+    const std::string& account_key = GetAzuriteEnv()->account_key();
+    options_.is_azurite = true;
+    options_.ConfigureAccountKeyCredentials(account_name, account_key);
+    gen2_client_ =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
+            options_.account_dfs_url, options_.storage_credentials_provider);
+    ASSERT_OK_AND_ASSIGN(fs_, AzureBlobFileSystem::Make(options_));
+  }
+
+  void SetUp() override {
+    ASSERT_THAT(GetAzuriteEnv(), NotNull());
+    ASSERT_OK(GetAzuriteEnv()->status());
+
+    MakeFileSystem();
+    auto file_system_client = gen2_client_->GetFileSystemClient("container");
+    file_system_client.CreateIfNotExists();
+    file_system_client = gen2_client_->GetFileSystemClient("empty-container");
+    file_system_client.CreateIfNotExists();
+    auto file_client =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
+            options_.account_blob_url + "container/somefile",
+            options_.storage_credentials_provider);
+    std::string s = "some data";
+    file_client->UploadFrom(
+        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
+  }
+
+  void TearDown() override {
+    auto containers = gen2_client_->ListFileSystems();
+    for (auto container : containers.FileSystems) {
+      auto file_system_client = gen2_client_->GetFileSystemClient(container.Name);
+      file_system_client.DeleteIfExists();
+    }
+  }
+
+  void AssertObjectContents(
+      Azure::Storage::Files::DataLake::DataLakeServiceClient* client,
+      const std::string& container, const std::string& path_to_file,
+      const std::string& expected) {
+    auto path_client =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakePathClient>(
+            client->GetUrl() + container + "/" + path_to_file,
+            options_.storage_credentials_provider);
+    auto size = path_client->GetProperties().Value.FileSize;
+    if (size == 0) {
+      ASSERT_EQ(expected, "");
+      return;
+    }
+    auto buf = AllocateBuffer(size, fs_->io_context().pool());
+    Azure::Storage::Blobs::DownloadBlobToOptions download_options;
+    Azure::Core::Http::HttpRange range;
+    range.Offset = 0;
+    range.Length = size;
+    download_options.Range = Azure::Nullable<Azure::Core::Http::HttpRange>(range);
+    auto file_client =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
+            client->GetUrl() + container + "/" + path_to_file,
+            options_.storage_credentials_provider);
+    auto result = file_client
+                      ->DownloadTo(reinterpret_cast<uint8_t*>(buf->get()->mutable_data()),
+                                   size, download_options)
+                      .Value;
+    auto buf_data = std::move(buf->get());
+    auto expected_data = std::make_shared<Buffer>(
+        reinterpret_cast<const uint8_t*>(expected.data()), expected.size());
+    AssertBufferEqual(*buf_data, *expected_data);
+  }
+};
+
+TEST_F(TestAzureFileSystem, FromAccountKey) {
+  auto options = AzureOptions::FromAccountKey(GetAzuriteEnv()->account_name(),
+                                              GetAzuriteEnv()->account_key())
+                     .ValueOrDie();
+  ASSERT_EQ(options.credentials_kind,
+            arrow::fs::AzureCredentialsKind::StorageCredentials);
+  ASSERT_NE(options.storage_credentials_provider, nullptr);
+}
+
+
 }  // namespace
 }  // namespace fs
 }  // namespace arrow
