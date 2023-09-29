@@ -29,6 +29,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * An abstraction that is used to store a sequence of values in an individual column.
@@ -282,4 +283,12 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return the name of the vector.
    */
   String getName();
+
+  default void validate() {
+    ValueVectorUtility.validate(this);
+  }
+
+  default void validateFull() {
+    ValueVectorUtility.validateFull(this);
+  }
 }
