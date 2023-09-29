@@ -160,7 +160,11 @@ TEST(TestDispatchBest, CommonTemporal) {
           timestamp(TimeUnit::SECOND, "UTC")};
   ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
 
-  // TODO(mwish): add test here.
+  args = {time32(TimeUnit::SECOND), time32(TimeUnit::MILLI)};
+  AssertTypeEqual(*time32(TimeUnit::MILLI), *CommonTemporal(args.data(), args.size()));
+
+  args = {time32(TimeUnit::SECOND), time64(TimeUnit::NANO)};
+  AssertTypeEqual(*time64(TimeUnit::NANO), *CommonTemporal(args.data(), args.size()));
 }
 
 TEST(TestDispatchBest, CommonTemporalResolution) {
@@ -240,8 +244,6 @@ TEST(TestDispatchBest, CommonTemporalResolution) {
   args = {duration(TimeUnit::MILLI), timestamp(TimeUnit::SECOND, tz)};
   ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ASSERT_EQ(TimeUnit::MILLI, ty);
-
-  // TODO(mwish): add test here.
 }
 
 TEST(TestDispatchBest, ReplaceTemporalTypes) {
