@@ -251,6 +251,20 @@ public class TestValidateVector {
     }
   }
 
+  @Test
+  public void testBaseFixedWidthVectorInstanceMethod() {
+    try (final IntVector vector = new IntVector("v", allocator)) {
+      vector.validate();
+      setVector(vector, 1, 2, 3);
+      vector.validate();
+
+      vector.getDataBuffer().capacity(0);
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> vector.validate());
+      assertTrue(e.getMessage().contains("Not enough capacity for fixed width data buffer"));
+    }
+  }
+
   private void writeStructVector(NullableStructWriter writer, int value1, long value2) {
     writer.start();
     writer.integer("f0").writeInt(value1);

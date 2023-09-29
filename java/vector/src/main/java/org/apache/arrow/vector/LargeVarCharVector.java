@@ -27,6 +27,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
  * LargeVarCharVector implements a variable width vector of VARCHAR
@@ -259,6 +260,17 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    */
   public void setSafe(int index, Text text) {
     setSafe(index, text.getBytes(), 0, text.getLength());
+  }
+
+  @Override
+  public void validateScalars() {
+    for (int i = 0; i < getValueCount(); ++i) {
+      byte[] value = get(i);
+      if (value != null) {
+        ValidateUtil.validateOrThrow(Text.validateUTF8NoThrow(value),
+            "Non-UTF-8 data in VarCharVector at position " + i + ".");
+      }
+    }
   }
 
   /*----------------------------------------------------------------*

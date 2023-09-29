@@ -35,6 +35,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.validate.ValidateUtil;
 
 
 /**
@@ -525,6 +526,18 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
   public void setSafe(int index, int isSet, long start, ArrowBuf buffer) {
     handleSafe(index);
     set(index, isSet, start, buffer);
+  }
+
+  @Override
+  public void validateScalars() {
+    for (int i = 0; i < getValueCount(); ++i) {
+      BigDecimal value = getObject(i);
+      if (value != null) {
+        ValidateUtil.validateOrThrow(DecimalUtility.checkPrecisionAndScaleNoThrow(value, getPrecision(), getScale()),
+            "Invalid value for Decimal256Vector at position " + i + ". Value does not fit in precision " +
+                getPrecision() + " and scale " + getScale() + ".");
+      }
+    }
   }
 
   /*----------------------------------------------------------------*

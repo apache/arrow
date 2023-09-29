@@ -644,6 +644,13 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   }
 
   /**
+   * Validate the scalar values held by this vector.
+   */
+  public void validateScalars() {
+    // No validation by default.
+  }
+
+  /**
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector

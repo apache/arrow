@@ -31,6 +31,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
  * FixedSizeBinaryVector implements a fixed width vector of
@@ -318,6 +319,18 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     final byte[] dst = new byte[byteWidth];
     buffer.getBytes((long) index * byteWidth, dst, 0, byteWidth);
     return dst;
+  }
+
+  @Override
+  public void validateScalars() {
+    for (int i = 0; i < getValueCount(); ++i) {
+      byte[] value = get(i);
+      if (value != null) {
+        ValidateUtil.validateOrThrow(value.length == byteWidth,
+            "Invalid value for FixedSizeBinaryVector at position " + i + ". The length was " +
+                value.length + " but the length of each element should be " + byteWidth + ".");
+      }
+    }
   }
 
   /*----------------------------------------------------------------*

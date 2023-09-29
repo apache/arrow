@@ -95,9 +95,17 @@ public class DecimalUtility {
     }
     if (value.precision() > vectorPrecision) {
       throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow " +
-        "vector: " + value.precision() + " > " + vectorPrecision);
+          "vector: " + value.precision() + " > " + vectorPrecision);
     }
     return true;
+  }
+
+  /**
+   * Check that the BigDecimal scale equals the vectorScale and that the BigDecimal precision is
+   * less than or equal to the vectorPrecision. Return true if so, otherwise return false.
+   */
+  public static boolean checkPrecisionAndScaleNoThrow(BigDecimal value, int vectorPrecision, int vectorScale) {
+    return value.scale() == vectorScale && value.precision() < vectorPrecision;
   }
 
   /**
