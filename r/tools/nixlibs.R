@@ -96,8 +96,10 @@ download_binary <- function(lib) {
     }
   } else {
     if (!quietly) {
-      cat(sprintf("*** Downloading libarrow binary failed for version %s (%s)\n    at %s\n",
-                  VERSION, lib, binary_url))
+      cat(sprintf(
+        "*** Downloading libarrow binary failed for version %s (%s)\n    at %s\n",
+        VERSION, lib, binary_url
+      ))
     }
     libfile <- NULL
   }
@@ -183,13 +185,13 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
 
 # This tests that curl and OpenSSL are present (bc we can include their headers)
 # and it checks for other versions/features and raises errors that we grep for
-test_for_curl_and_openssl <- 
-"#include <ciso646>
+test_for_curl_and_openssl <-
+  "#include <ciso646>
 #ifndef __APPLE__
 #ifdef _LIBCPP_VERSION
 #error Using libc++
 #endif
-#elif __GLIBCXX__ 
+#elif __GLIBCXX__
 #error Using libstdc++
 #endif
 
@@ -208,7 +210,7 @@ test_for_curl_and_openssl <-
 
 compile_test_program <- function(code) {
   openssl_dir <- ""
-  if(on_macos) {
+  if (on_macos) {
     openssl_root_dir <- get_macos_openssl_dir()
     openssl_dir <- paste0("-I", openssl_root_dir, "/include")
   }
@@ -219,17 +221,18 @@ compile_test_program <- function(code) {
     R_CMD_config("CXX17FLAGS"),
     R_CMD_config("CXX17STD"),
     "-E",
-    "-xc++"  )
+    "-xc++"
+  )
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
-get_macos_openssl_dir <- function(){
+get_macos_openssl_dir <- function() {
   openssl_root_dir <- Sys.getenv("OPENSSL_ROOT_DIR", NA)
   if (is.na(openssl_root_dir)) {
     # try to guess default openssl include dir based on CRAN's build script
     # https://github.com/R-macos/recipes/blob/master/build.sh#L35
-    if(identical(Sys.info()["machine"], "arm64")){
-          openssl_root_dir <- "/opt/R/arm64"
+    if (identical(Sys.info()["machine"], "arm64")) {
+      openssl_root_dir <- "/opt/R/arm64"
     } else if (file.exists("/opt/R/x86_64")) {
       openssl_root_dir <- "/opt/R/x86_64"
     } else {
@@ -265,7 +268,7 @@ determine_binary_from_stderr <- function(errs) {
     return(NULL)
     # Else, determine which other binary will work
   } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
-    if(on_macos) {
+    if (on_macos) {
       cat("*** OpenSSL 1.0 is not supported on macOS\n")
       return(NULL)
     }
@@ -287,7 +290,7 @@ header_not_found <- function(header, errs) {
 
 distro <- function() {
   # This is not part of distro but needed to enable prebuilt binaries on macos
-  if(on_macos) {
+  if (on_macos) {
     return(list(id = "darwin", arch = tolower(Sys.info()[["machine"]])))
   }
 
@@ -530,8 +533,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     # It failed :(
     cat("**** Error building Arrow C++.", "\n")
     if (quietly) {
-      cat("**** Printing contents of build log because the build failed", 
-          "while ARROW_R_DEV was set to FALSE\n")
+      cat(
+        "**** Printing contents of build log because the build failed",
+        "while ARROW_R_DEV was set to FALSE\n"
+      )
       cat(readLines(build_log_path), sep = "\n")
       cat("**** Complete build log may still be present at", build_log_path, "\n")
     }
