@@ -19,12 +19,36 @@
 
 #include <azure/identity/default_azure_credential.hpp>
 #include <azure/storage/blobs.hpp>
+#include <azure/storage/files/datalake.hpp>
 
+#include "arrow/buffer.h"
+#include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/future.h"
+#include "arrow/util/string.h"
+
 
 namespace arrow {
 namespace fs {
+
+static const char kSep = '/';
+
+// -----------------------------------------------------------------------
+// AzureOptions Implementation
+
+AzureOptions::AzureOptions() {}
+
+bool AzureOptions::Equals(const AzureOptions& other) const {
+  return (account_dfs_url == other.account_dfs_url &&
+          account_blob_url == other.account_blob_url &&
+          credentials_kind == other.credentials_kind);
+}
+
+namespace {
 
 struct AzurePath {
   std::string full_path;
@@ -69,7 +93,7 @@ struct AzurePath {
 
   static Status FromLocalHostString(std::string_view* src) {
     // src = http://127.0.0.1:10000/accountName/pathToBlob
-    Uri uri;
+    arrow::internal::Uri uri;
     RETURN_NOT_OK(uri.Parse(src->data()));
     *src = internal::RemoveLeadingSlash(uri.path());
     if (src->empty()) {
@@ -86,7 +110,7 @@ struct AzurePath {
 
   // Removes scheme, host and port from the uri
   static Status ExtractBlobPath(std::string* src) {
-    Uri uri;
+    arrow::internal::Uri uri;
     RETURN_NOT_OK(uri.Parse(*src));
     *src = uri.path();
     return Status::OK();
@@ -123,17 +147,14 @@ struct AzurePath {
   }
 };
 
-// -----------------------------------------------------------------------
-// AzureOptions Implementation
-
-AzureOptions::AzureOptions() {}
-
-bool AzureOptions::Equals(const AzureOptions& other) const {
-  return (account_dfs_url == other.account_dfs_url &&
-          account_blob_url == other.account_blob_url &&
-          credentials_kind == other.credentials_kind);
+template <typename ObjectResult>
+std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
+  auto md = std::make_shared<KeyValueMetadata>();
+  for (auto prop : result) {
+    md->Append(prop.first, prop.second);
+  }
+  return md;
 }
-
 
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
@@ -189,7 +210,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
   Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
-      const io::IOContext& io_context) override {
+    const io::IOContext& io_context) override {
     return metadata_;
   }
 
@@ -286,6 +307,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
   int64_t content_length_ = kNoSize;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
+
+}  // namespace
 
 // -----------------------------------------------------------------------
 // AzureFilesystem Implementation
