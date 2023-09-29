@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "parquet/encryption/type_fwd.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -34,14 +35,9 @@ namespace parquet {
 
 class ColumnDescriptor;
 class EncodedStatistics;
+class FileCryptoMetaData;
 class Statistics;
 class SchemaDescriptor;
-
-class FileCryptoMetaData;
-class InternalFileDecryptor;
-class Decryptor;
-class Encryptor;
-class FooterSigningEncryptor;
 
 namespace schema {
 

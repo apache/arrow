@@ -36,7 +36,6 @@ class Field : public libmexclass::proxy::Proxy {
     protected:
         void getName(libmexclass::proxy::method::Context& context);
         void getType(libmexclass::proxy::method::Context& context);
-        void toString(libmexclass::proxy::method::Context& context);
 
         std::shared_ptr<arrow::Field> field;
 };
