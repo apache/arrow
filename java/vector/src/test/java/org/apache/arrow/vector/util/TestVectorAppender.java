@@ -21,11 +21,14 @@ import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -63,7 +66,8 @@ public class TestVectorAppender {
 
   @Before
   public void prepare() {
-    allocator = new RootAllocator(1024 * 1024);
+    // Permit allocating 4 vectors of max size.
+    allocator = new RootAllocator(4 * BaseValueVector.MAX_ALLOCATION_SIZE);
   }
 
   @After
@@ -183,6 +187,27 @@ public class TestVectorAppender {
         assertVectorsEqual(expected, target);
       }
     }
+  }
+
+  @Test
+  public void testAppendLargeAndSmallVariableVectorsWithinLimit() {
+    int sixteenthOfMaxAllocation = Math.toIntExact(BaseValueVector.MAX_ALLOCATION_SIZE / 16);
+    try (VarCharVector target = makeVarCharVec(1, sixteenthOfMaxAllocation);
+        VarCharVector delta = makeVarCharVec(sixteenthOfMaxAllocation, 1)) {
+      new VectorAppender(delta).visit(target, null);
+      new VectorAppender(target).visit(delta, null);
+    }
+  }
+
+  private VarCharVector makeVarCharVec(int numElements, int bytesPerElement) {
+    VarCharVector v = new VarCharVector("text", allocator);
+    v.allocateNew((long) numElements * bytesPerElement, numElements);
+    for (int i = 0; i < numElements; i++) {
+      String s = String.join("", Collections.nCopies(bytesPerElement, "a"));
+      v.setSafe(i, s.getBytes(StandardCharsets.US_ASCII));
+    }
+    v.setValueCount(numElements);
+    return v;
   }
 
   @Test

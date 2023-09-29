@@ -25,6 +25,7 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/java_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'java/**'
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/java_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'java/**'
 
 concurrency:
@@ -54,7 +56,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -94,7 +96,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive

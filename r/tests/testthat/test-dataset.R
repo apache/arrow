@@ -1440,8 +1440,9 @@ test_that("can add in augmented fields", {
 
   error_regex <- paste(
     "`add_filename()` or use of the `__filename` augmented field can only",
-    "be used with with Dataset objects, and can only be added before doing",
-    "an aggregation or a join."
+    "be used with Dataset objects, can only be added before doing",
+    "an aggregation or a join, and cannot be referenced in subsequent",
+    "pipeline steps until either compute() or collect() is called."
   )
 
   # errors appropriately with ArrowTabular objects

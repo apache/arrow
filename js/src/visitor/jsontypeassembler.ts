@@ -63,6 +63,9 @@ export class JSONTypeAssembler extends Visitor {
     public visitInterval<T extends type.Interval>({ typeId, unit }: T) {
         return { 'name': ArrowType[typeId].toLowerCase(), 'unit': IntervalUnit[unit] };
     }
+    public visitDuration<T extends type.Duration>({ typeId, unit }: T) {
+        return { 'name': ArrowType[typeId].toLocaleLowerCase(), 'unit': TimeUnit[unit]};
+    }
     public visitList<T extends type.List>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }
@@ -72,7 +75,7 @@ export class JSONTypeAssembler extends Visitor {
     public visitUnion<T extends type.Union>({ typeId, mode, typeIds }: T) {
         return {
             'name': ArrowType[typeId].toLowerCase(),
-            'mode': UnionMode[mode],
+            'mode': UnionMode[mode].toUpperCase(),
             'typeIds': [...typeIds]
         };
     }

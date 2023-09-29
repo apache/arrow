@@ -45,6 +45,12 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
+#include <azure/identity/client_secret_credential.hpp>
+#include <azure/identity/default_azure_credential.hpp>
+#include <azure/identity/managed_identity_credential.hpp>
+#include <azure/storage/blobs.hpp>
+#include <azure/storage/common/storage_credential.hpp>
+
 namespace arrow {
 using internal::TemporaryDir;
 namespace fs {
@@ -105,15 +111,42 @@ AzuriteEnv* GetAzuriteEnv() {
   return ::arrow::internal::checked_cast<AzuriteEnv*>(azurite_env);
 }
 
-// Placeholder tests for file structure
+// Placeholder tests
 // TODO: GH-18014 Remove once a proper test is added
-TEST(AzureFileSystem, InitialiseAzurite) {
+TEST(AzureFileSystem, UploadThenDownload) {
+  const std::string container_name = "sample-container";
+  const std::string blob_name = "sample-blob.txt";
+  const std::string blob_content = "Hello Azure!";
+
   const std::string& account_name = GetAzuriteEnv()->account_name();
   const std::string& account_key = GetAzuriteEnv()->account_key();
-  EXPECT_EQ(account_name, "devstoreaccount1");
-  EXPECT_EQ(account_key,
-            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
-            "K1SZFPTOtr/KBHBeksoGMGw==");
+
+  auto credential = std::make_shared<Azure::Storage::StorageSharedKeyCredential>(
+      account_name, account_key);
+
+  auto service_client = Azure::Storage::Blobs::BlobServiceClient(
+      std::string("http://127.0.0.1:10000/") + account_name, credential);
+  auto container_client = service_client.GetBlobContainerClient(container_name);
+  container_client.CreateIfNotExists();
+  auto blob_client = container_client.GetBlockBlobClient(blob_name);
+
+  std::vector<uint8_t> buffer(blob_content.begin(), blob_content.end());
+  blob_client.UploadFrom(buffer.data(), buffer.size());
+
+  std::vector<uint8_t> downloaded_content(blob_content.size());
+  blob_client.DownloadTo(downloaded_content.data(), downloaded_content.size());
+
+  EXPECT_EQ(std::string(downloaded_content.begin(), downloaded_content.end()),
+            blob_content);
+}
+
+TEST(AzureFileSystem, InitializeCredentials) {
+  auto default_credential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+  auto managed_identity_credential =
+      std::make_shared<Azure::Identity::ManagedIdentityCredential>();
+  auto service_principal_credential =
+      std::make_shared<Azure::Identity::ClientSecretCredential>("tenant_id", "client_id",
+                                                                "client_secret");
 }
 
 TEST(AzureFileSystem, OptionsCompare) {

@@ -30,7 +30,7 @@ fi
 # Enable CUDA support
 if [[ ! -z "${cuda_compiler_version+x}" && "${cuda_compiler_version}" != "None" ]]
 then
-    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_CUDA=ON -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_LIBRARY_PATH=${CONDA_BUILD_SYSROOT}/lib"
+    EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_CUDA=ON -DCUDAToolkit_ROOT=${CUDA_HOME} -DCMAKE_LIBRARY_PATH=${CONDA_BUILD_SYSROOT}/lib"
 else
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_CUDA=OFF"
 fi
@@ -43,8 +43,8 @@ if [[ "${build_platform}" != "${target_platform}" ]]; then
     fi
     EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DCLANG_EXECUTABLE=${BUILD_PREFIX}/bin/${CONDA_TOOLCHAIN_HOST}-clang"
     EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DLLVM_LINK_EXECUTABLE=${BUILD_PREFIX}/bin/llvm-link"
+    EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DARROW_JEMALLOC_LG_PAGE=16"
     sed -ie "s;protoc-gen-grpc.*$;protoc-gen-grpc=${BUILD_PREFIX}/bin/grpc_cpp_plugin\";g" ../src/arrow/flight/CMakeLists.txt
-    sed -ie 's;"--with-jemalloc-prefix\=je_arrow_";"--with-jemalloc-prefix\=je_arrow_" "--with-lg-page\=16";g' ../cmake_modules/ThirdpartyToolchain.cmake
 fi
 
 # disable -fno-plt, which causes problems with GCC on PPC

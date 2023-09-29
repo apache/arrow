@@ -330,7 +330,7 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDictionaryPageHeader);
     }
     const int64_t header_size =
-        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_.get());
 
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
@@ -422,7 +422,7 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDataPageHeader);
     }
     const int64_t header_size =
-        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_.get());
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
     /// Collect page index
@@ -1219,6 +1219,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
       chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
     }
+    pages_change_on_record_boundaries_ =
+        properties->data_page_version() == ParquetDataPageVersion::V2 ||
+        properties->page_index_enabled(descr_->path());
   }
 
   int64_t Close() override { return ColumnWriterImpl::Close(); }
@@ -1386,8 +1389,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   const WriterProperties* properties() override { return properties_; }
 
   bool pages_change_on_record_boundaries() const {
-    return properties_->data_page_version() == ParquetDataPageVersion::V2 ||
-           properties_->page_index_enabled(descr_->path());
+    return pages_change_on_record_boundaries_;
   }
 
  private:
@@ -1402,6 +1404,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   DictEncoder<DType>* current_dict_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
+  bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the
   // dictionary passed to DictEncoder<T>::PutDictionary so we can check
@@ -2329,6 +2332,12 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
                               descr->physical_type() != Type::BOOLEAN;
   Encoding::type encoding = properties->encoding(descr->path());
+  if (encoding == Encoding::UNKNOWN) {
+    encoding = (descr->physical_type() == Type::BOOLEAN &&
+                properties->version() != ParquetVersion::PARQUET_1_0)
+                   ? Encoding::RLE
+                   : Encoding::PLAIN;
+  }
   if (use_dictionary) {
     encoding = properties->dictionary_index_encoding();
   }

@@ -16,7 +16,7 @@
 classdef UInt16Array < arrow.array.NumericArray
 % arrow.array.UInt16Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = uint16(0)
     end
 

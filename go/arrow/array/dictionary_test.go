@@ -1422,6 +1422,55 @@ func TestDictionaryUnifierString(t *testing.T) {
 	checkTransposeMap(t, b2, []int32{2, 0})
 }
 
+func TestDictionaryUnifierBinary(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := arrow.BinaryTypes.Binary
+	d1, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["Zm9vCg==", "YmFyCg=="]`)) // base64("foo\n"), base64("bar\n")
+	require.NoError(t, err)
+	defer d1.Release()
+
+	d2, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["cXV1eAo=", "Zm9vCg=="]`)) // base64("quux\n"), base64("foo\n")
+	require.NoError(t, err)
+	defer d2.Release()
+
+	expected := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: dictType}
+	expectedDict, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["Zm9vCg==", "YmFyCg==", "cXV1eAo="]`))
+	defer expectedDict.Release()
+
+	unifier := array.NewBinaryDictionaryUnifier(mem)
+	defer unifier.Release()
+
+	assert.NoError(t, unifier.Unify(d1))
+	assert.NoError(t, unifier.Unify(d2))
+	outType, outDict, err := unifier.GetResult()
+	assert.NoError(t, err)
+	defer outDict.Release()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	b1, err := unifier.UnifyAndTranspose(d1)
+	assert.NoError(t, err)
+	b2, err := unifier.UnifyAndTranspose(d2)
+	assert.NoError(t, err)
+
+	outType, outDict, err = unifier.GetResult()
+	assert.NoError(t, err)
+	defer func() {
+		outDict.Release()
+		b1.Release()
+		b2.Release()
+	}()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	checkTransposeMap(t, b1, []int32{0, 1})
+	checkTransposeMap(t, b2, []int32{2, 0})
+}
+
 func TestDictionaryUnifierFixedSizeBinary(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
