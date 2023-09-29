@@ -730,6 +730,31 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDuratio
   CountRowGroupsInFragment(fragment, {0}, expr);
 }
 
+TEST_P(TestParquetFileFormatScan,
+       PredicatePushdownRowGroupFragmentsUsingTimestampColumn) {
+  for (auto time_unit : {TimeUnit::MILLI, TimeUnit::SECOND}) {
+    auto table = TableFromJSON(schema({field("t", time32(time_unit))}),
+                               {
+                                   R"([{"t": 1}])",
+                                   R"([{"t": 2}, {"t": 3}])",
+                               });
+    TableBatchReader table_reader(*table);
+    SCOPED_TRACE(
+        "TestParquetFileFormatScan."
+        "PredicatePushdownRowGroupFragmentsUsingTimestampColumn");
+    ASSERT_OK_AND_ASSIGN(
+        auto buffer,
+        ParquetFormatHelper::Write(
+            &table_reader, ArrowWriterProperties::Builder().store_schema()->build()));
+    auto source = std::make_shared<FileSource>(buffer);
+    SetSchema({field("t", time32(time_unit))});
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+    auto expr = equal(field_ref("t"), literal(::arrow::Time32Scalar(1, time_unit)));
+    CountRowGroupsInFragment(fragment, {0}, expr);
+  }
+}
+
 // Tests projection with nested/indexed FieldRefs.
 // https://github.com/apache/arrow/issues/35579
 TEST_P(TestParquetFileFormatScan, ProjectWithNonNamedFieldRefs) {

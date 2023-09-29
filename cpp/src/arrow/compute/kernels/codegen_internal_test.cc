@@ -159,6 +159,8 @@ TEST(TestDispatchBest, CommonTemporal) {
   args = {timestamp(TimeUnit::SECOND, "America/Phoenix"),
           timestamp(TimeUnit::SECOND, "UTC")};
   ASSERT_EQ(CommonTemporal(args.data(), args.size()), nullptr);
+
+  // TODO(mwish): add test here.
 }
 
 TEST(TestDispatchBest, CommonTemporalResolution) {
@@ -238,6 +240,8 @@ TEST(TestDispatchBest, CommonTemporalResolution) {
   args = {duration(TimeUnit::MILLI), timestamp(TimeUnit::SECOND, tz)};
   ASSERT_TRUE(CommonTemporalResolution(args.data(), args.size(), &ty));
   ASSERT_EQ(TimeUnit::MILLI, ty);
+
+  // TODO(mwish): add test here.
 }
 
 TEST(TestDispatchBest, ReplaceTemporalTypes) {
