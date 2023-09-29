@@ -26,8 +26,8 @@ function text = displaySchema(schema)
     names(idx) = "<empty>";
 
     if usejava("desktop")
-        % When in desktop mode, the Command Window can render
-        % bold font and hyperlinks.
+        % When in desktop mode, the Command Window can interpret HTML tags
+        % to display bold font and hyperlinks.
         names = compose("<strong>%s</strong>", names);
         classNames = arrayfun(@(type) string(class(type)), types);
         classNameAndIDs = strings([1 numel(typeIDs) * 2]);

@@ -550,14 +550,14 @@ classdef tSchema < matlab.unittest.TestCase
             indent = "    ";
 
             if usejava("desktop")
-                fieldNameLine = indent + strjust(pad("<strong>TestField</strong>", 28), "center");    
+                type = makeLinkString(FullClassName="arrow.type.BooleanType", ...
+                                      ClassName="Boolean", BoldFont=true);
+                name = "<strong>TestField</strong>: ";
+                fieldLine = indent + name + type + newline;
             else
-                fieldNameLine = indent + strjust(pad("TestField", 11), "center");       
+                fieldLine = indent + "TestField: Boolean" + newline;
             end
-            dividerLine = indent + string(repmat('_', [1 11])) + newline;
-            fieldTypeLine = indent + "BooleanType" + newline;
-            expectedDisplay = join([header, fieldNameLine, dividerLine, fieldTypeLine], newline);
-
+            expectedDisplay = join([header, fieldLine], newline);
             expectedDisplay = char(expectedDisplay + newline);
             actualDisplay = evalc('disp(schema)');
             testCase.verifyEqual(actualDisplay, char(expectedDisplay));
@@ -575,17 +575,18 @@ classdef tSchema < matlab.unittest.TestCase
 
             indent = "    ";
             if usejava("desktop")
-                fieldNameLine = indent + strjust(pad("<strong>Field1</strong>", 30), "center");
-                fieldNameLine = fieldNameLine + indent + strjust(pad("<strong>Field2</strong>", 27), "center");
+                type1 = makeLinkString(FullClassName="arrow.type.TimestampType", ...
+                                       ClassName="Timestamp", BoldFont=true);
+                field1String = "<strong>Field1</strong>: " + type1;
+                type2 = makeLinkString(FullClassName="arrow.type.StringType", ...
+                                      ClassName="String", BoldFont=true);
+                field2String = "<strong>Field2</strong>: " + type2;
+                fieldLine = indent + field1String + " | " + field2String + newline;
             else
-                fieldNameLine = indent + strjust(pad("Field1", 13), "center");      
-                fieldNameLine = fieldNameLine + indent + strjust(pad("Field2", 10), "center") + newline;
+                fieldLine = indent + "Field1: Timestamp | Field2: String" + newline;
             end
 
-            dividerLine = indent + repmat('_', [1 13]) + indent + repmat('_', [1 10]) + newline;
-            fieldTypeLine = indent + "TimestampType" + indent + "StringType" + newline;
-            expectedDisplay = join([header, fieldNameLine, dividerLine, fieldTypeLine], newline);
-
+            expectedDisplay = join([header, fieldLine], newline);
             expectedDisplay = char(expectedDisplay + newline);
             actualDisplay = evalc('disp(schema)');
             testCase.verifyEqual(actualDisplay, char(expectedDisplay));
