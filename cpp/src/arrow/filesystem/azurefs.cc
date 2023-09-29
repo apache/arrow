@@ -50,7 +50,7 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
 
 Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_name,
                                                     const std::string& account_key) {
-  if (this->is_azurite) {
+  if (this->backend == AzureBackend::Azurite) {
     account_blob_url = "http://127.0.0.1:10000/" + account_name + "/";
     account_dfs_url = "http://127.0.0.1:10000/" + account_name + "/";
   } else {
