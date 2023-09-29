@@ -205,7 +205,10 @@ class ArrayLoader {
     }
   }
 
-  Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
+  Status LoadType(const DataType& type) {
+    DCHECK_NE(out_, nullptr);
+    return VisitTypeInline(type, this);
+  }
 
   Status Load(const Field* field, ArrayData* out) {
     if (max_recursion_depth_ <= 0) {
@@ -223,6 +226,9 @@ class ArrayLoader {
     skip_io_ = true;
     Status status = Load(field, &dummy);
     skip_io_ = false;
+    // GH-37851: Reset state. Load will set `out_` to `&dummy`, which would
+    // be a dangling pointer.
+    out_ = nullptr;
     return status;
   }
 
@@ -258,6 +264,7 @@ class ArrayLoader {
   }
 
   Status LoadCommon(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
@@ -276,6 +283,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadPrimitive(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -290,6 +298,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadBinary(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(3);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -299,6 +308,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadList(const TYPE& type) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type.id()));
@@ -313,6 +323,7 @@ class ArrayLoader {
   }
 
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
+    DCHECK_NE(out_, nullptr);
     ArrayData* parent = out_;
 
     parent->child_data.resize(child_fields.size());
@@ -2010,7 +2021,7 @@ class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
 };
 
 StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener, IpcReadOptions options) {
-  impl_.reset(new StreamDecoderImpl(std::move(listener), options));
+  impl_ = std::make_unique<StreamDecoderImpl>(std::move(listener), options);
 }
 
 StreamDecoder::~StreamDecoder() {}
