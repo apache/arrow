@@ -48,6 +48,21 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
           credentials_kind == other.credentials_kind);
 }
 
+Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_name,
+                                                    const std::string& account_key) {
+  if (this->is_azurite) {
+    account_blob_url = "http://127.0.0.1:10000/" + account_name + "/";
+    account_dfs_url = "http://127.0.0.1:10000/" + account_name + "/";
+  } else {
+    account_dfs_url = "https://" + account_name + ".dfs.core.windows.net/";
+    account_blob_url = "https://" + account_name + ".blob.core.windows.net/";
+  }
+  storage_credentials_provider =
+      std::make_shared<Azure::Storage::StorageSharedKeyCredential>(account_name,
+                                                                   account_key);
+  credentials_kind = AzureCredentialsKind::StorageCredentials;
+  return Status::OK();
+}
 namespace {
 
 struct AzurePath {
