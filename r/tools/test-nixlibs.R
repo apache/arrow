@@ -21,6 +21,8 @@
 # Flag so that we just load the functions and don't evaluate them like we do
 # when called from configure.R
 TESTING <- TRUE
+# The functions use `on_macos` from the env they were sourced in, so we need tool
+# explicitly set it in that environment.
 nixlibs_env <- environment()
 source("nixlibs.R", local = nixlibs_env)
 
