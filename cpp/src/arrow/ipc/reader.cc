@@ -264,7 +264,7 @@ class ArrayLoader {
   }
 
   Status LoadCommon(Type::type type_id) {
-    DCHECK_NE(nullptr, out_);
+    DCHECK_NE(out_, nullptr);
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
@@ -283,7 +283,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadPrimitive(Type::type type_id) {
-    DCHECK_NE(nullptr, out_);
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -298,7 +298,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadBinary(Type::type type_id) {
-    DCHECK_NE(nullptr, out_);
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(3);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -308,7 +308,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadList(const TYPE& type) {
-    DCHECK_NE(nullptr, out_);
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type.id()));
@@ -323,7 +323,7 @@ class ArrayLoader {
   }
 
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
-    DCHECK_NE(nullptr, out_);
+    DCHECK_NE(out_, nullptr);
     ArrayData* parent = out_;
 
     parent->child_data.resize(child_fields.size());
