@@ -732,6 +732,8 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDuratio
 
 TEST_P(TestParquetFileFormatScan,
        PredicatePushdownRowGroupFragmentsUsingTimestampColumn) {
+  // GH-37799: Parquet arrow will change TimeUnit::SECOND to TimeUnit::MILLI
+  // because parquet LogicalType don't support SECOND.
   for (auto time_unit : {TimeUnit::MILLI, TimeUnit::SECOND}) {
     auto table = TableFromJSON(schema({field("t", time32(time_unit))}),
                                {
