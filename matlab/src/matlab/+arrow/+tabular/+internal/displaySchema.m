@@ -31,7 +31,7 @@ function text = displaySchema(schema)
         names = compose("<strong>%s</strong>", names);
         classNames = arrayfun(@(type) string(class(type)), types);
 
-        % Creates a string array of with the following form:
+        % Creates a string array with the following form:
         %  
         % ["arrow.type.BooleanType" "Boolean" "arrow.type.StringType" "String" ...]
         %
