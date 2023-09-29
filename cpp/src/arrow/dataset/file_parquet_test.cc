@@ -733,7 +733,7 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDuratio
 TEST_P(TestParquetFileFormatScan,
        PredicatePushdownRowGroupFragmentsUsingTimestampColumn) {
   // GH-37799: Parquet arrow will change TimeUnit::SECOND to TimeUnit::MILLI
-  // because parquet LogicalType don't support SECOND.
+  // because parquet LogicalType doesn't support SECOND.
   for (auto time_unit : {TimeUnit::MILLI, TimeUnit::SECOND}) {
     auto table = TableFromJSON(schema({field("t", time32(time_unit))}),
                                {
@@ -741,16 +741,14 @@ TEST_P(TestParquetFileFormatScan,
                                    R"([{"t": 2}, {"t": 3}])",
                                });
     TableBatchReader table_reader(*table);
-    SCOPED_TRACE(
-        "TestParquetFileFormatScan."
-        "PredicatePushdownRowGroupFragmentsUsingTimestampColumn");
+    ARROW_SCOPED_TRACE("time_unit=", time_unit);
     ASSERT_OK_AND_ASSIGN(
-        auto buffer,
+        auto source,
         ParquetFormatHelper::Write(
-            &table_reader, ArrowWriterProperties::Builder().store_schema()->build()));
-    auto source = std::make_shared<FileSource>(buffer);
+            &table_reader, ArrowWriterProperties::Builder().store_schema()->build())
+            .As<FileSource>());
     SetSchema({field("t", time32(time_unit))});
-    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(source));
 
     auto expr = equal(field_ref("t"), literal(::arrow::Time32Scalar(1, time_unit)));
     CountRowGroupsInFragment(fragment, {0}, expr);
