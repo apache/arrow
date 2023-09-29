@@ -205,10 +205,12 @@ class ArrayLoader {
     }
   }
 
-  Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
+  Status LoadType(const DataType& type) {
+    DCHECK_NE(out_, nullptr);
+    return VisitTypeInline(type, this);
+  }
 
   Status Load(const Field* field, ArrayData* out) {
-    DCHECK_NE(nullptr, out);
     if (max_recursion_depth_ <= 0) {
       return Status::Invalid("Max recursion depth reached");
     }
@@ -247,7 +249,6 @@ class ArrayLoader {
   }
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
-    DCHECK_NE(nullptr, out_);
     auto nodes = metadata_->nodes();
     CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
     // pop off a field
@@ -263,6 +264,7 @@ class ArrayLoader {
   }
 
   Status LoadCommon(Type::type type_id) {
+    DCHECK_NE(nullptr, out_);
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
