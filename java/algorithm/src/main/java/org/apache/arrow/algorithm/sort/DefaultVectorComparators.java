@@ -25,7 +25,6 @@ import java.time.Duration;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.BaseFixedWidthVector;
-import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -50,6 +49,7 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VariableWidthVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 
 /**
@@ -112,7 +112,7 @@ public class DefaultVectorComparators {
       } else if (vector instanceof TimeStampVector) {
         return (VectorValueComparator<T>) new TimeStampComparator();
       }
-    } else if (vector instanceof BaseVariableWidthVector) {
+    } else if (vector instanceof VariableWidthVector) {
       return (VectorValueComparator<T>) new VariableWidthComparator();
     } else if (vector instanceof BaseRepeatedValueVector) {
       VectorValueComparator<?> innerComparator =
@@ -675,14 +675,14 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for {@link org.apache.arrow.vector.BaseVariableWidthVector}.
+   * Default comparator for {@link org.apache.arrow.vector.VariableWidthVector}.
    * The comparison is in lexicographic order, with null comes first.
    */
-  public static class VariableWidthComparator extends VectorValueComparator<BaseVariableWidthVector> {
+  public static class VariableWidthComparator extends VectorValueComparator<VariableWidthVector> {
 
-    private ArrowBufPointer reusablePointer1 = new ArrowBufPointer();
+    private final ArrowBufPointer reusablePointer1 = new ArrowBufPointer();
 
-    private ArrowBufPointer reusablePointer2 = new ArrowBufPointer();
+    private final ArrowBufPointer reusablePointer2 = new ArrowBufPointer();
 
     @Override
     public int compare(int index1, int index2) {
@@ -699,7 +699,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<BaseVariableWidthVector> createNew() {
+    public VectorValueComparator<VariableWidthVector> createNew() {
       return new VariableWidthComparator();
     }
   }
@@ -743,7 +743,7 @@ public class DefaultVectorComparators {
     @Override
     public VectorValueComparator<BaseRepeatedValueVector> createNew() {
       VectorValueComparator<T> newInnerComparator = innerComparator.createNew();
-      return new RepeatedValueComparator(newInnerComparator);
+      return new RepeatedValueComparator<>(newInnerComparator);
     }
 
     @Override

@@ -74,13 +74,14 @@ FileFormat <- R6Class("FileFormat",
     type = function() dataset___FileFormat__type_name(self)
   )
 )
-FileFormat$create <- function(format, schema = NULL, ...) {
+
+FileFormat$create <- function(format, schema = NULL, partitioning = NULL, ...) {
   opt_names <- names(list(...))
   if (format %in% c("csv", "text", "txt") || any(opt_names %in% c("delim", "delimiter"))) {
-    CsvFileFormat$create(schema = schema, ...)
+    CsvFileFormat$create(schema = schema, partitioning = partitioning, ...)
   } else if (format == "tsv") {
     # This delimiter argument is ignored.
-    CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
+    CsvFileFormat$create(delimiter = "\t", schema = schema, partitioning = partitioning, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
@@ -189,16 +190,19 @@ JsonFileFormat$create <- function(...) {
 #'
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(...) {
+CsvFileFormat$create <- function(..., partitioning = NULL) {
+
   dots <- list(...)
-  options <- check_csv_file_format_args(dots)
-  check_schema(options[["schema"]], options[["read_options"]]$column_names)
+
+  options <- check_csv_file_format_args(dots, partitioning = partitioning)
+  check_schema(options[["schema"]], partitioning, options[["read_options"]]$column_names)
 
   dataset___CsvFileFormat__Make(options$parse_options, options$convert_options, options$read_options)
 }
 
 # Check all arguments are valid
-check_csv_file_format_args <- function(args) {
+check_csv_file_format_args <- function(args, partitioning = NULL) {
+
   options <- list(
     parse_options = args$parse_options,
     convert_options = args$convert_options,
@@ -223,7 +227,7 @@ check_csv_file_format_args <- function(args) {
   }
 
   if (is.null(args$read_options)) {
-    options$read_options <- do.call(csv_file_format_read_opts, args)
+    options$read_options <- do.call(csv_file_format_read_opts, c(args, list(partitioning = partitioning)))
   } else if (is.list(args$read_options)) {
     options$read_options <- do.call(CsvReadOptions$create, args$read_options)
   }
@@ -339,7 +343,7 @@ check_ambiguous_options <- function(passed_opts, opts1, opts2) {
   }
 }
 
-check_schema <- function(schema, column_names) {
+check_schema <- function(schema, partitioning, column_names) {
   if (!is.null(schema) && !inherits(schema, "Schema")) {
     abort(paste0(
       "`schema` must be an object of class 'Schema' not '",
@@ -348,7 +352,7 @@ check_schema <- function(schema, column_names) {
     ))
   }
 
-  schema_names <- names(schema)
+  schema_names <- setdiff(names(schema), names(partitioning))
 
   if (!is.null(schema) && !identical(schema_names, column_names)) {
     missing_from_schema <- setdiff(column_names, schema_names)
@@ -451,7 +455,8 @@ csv_file_format_convert_opts <- function(...) {
   do.call(CsvConvertOptions$create, opts)
 }
 
-csv_file_format_read_opts <- function(schema = NULL, ...) {
+csv_file_format_read_opts <- function(schema = NULL, partitioning = NULL, ...) {
+
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- c(names(formals(CsvParseOptions$create)), "parse_options")
@@ -477,9 +482,9 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
 
   if (!is.null(schema) && null_or_true(opts[["column_names"]]) && null_or_true(opts[["col_names"]])) {
     if (any(is_readr_opt)) {
-      opts[["col_names"]] <- names(schema)
+      opts[["col_names"]] <- setdiff(names(schema), names(partitioning))
     } else {
-      opts[["column_names"]] <- names(schema)
+      opts[["column_names"]] <- setdiff(names(schema), names(partitioning))
     }
   }
 
