@@ -228,12 +228,13 @@ compile_test_program <- function(code) {
 
 get_macos_openssl_dir <- function() {
   openssl_root_dir <- Sys.getenv("OPENSSL_ROOT_DIR", NA)
-  if (is.na(openssl_root_dir)) {
+  header <- "openssl/opensslv.h"
+  if (is.na(openssl_root_dir) || !file.exists(file.path(openssl_root_dir, "include", header))) {
     # try to guess default openssl include dir based on CRAN's build script
     # https://github.com/R-macos/recipes/blob/master/build.sh#L35
-    if (identical(Sys.info()["machine"], "arm64")) {
+    if (identical(Sys.info()["machine"], "arm64") && file.exists(file.path("/opt/R/arm64/include", header))) {
       openssl_root_dir <- "/opt/R/arm64"
-    } else if (file.exists("/opt/R/x86_64")) {
+    } else if (identical(Sys.info()["machine"], "x86_64") && file.exists(file.path("/opt/R/x86_64/include", header))) {
       openssl_root_dir <- "/opt/R/x86_64"
     } else {
       openssl_root_dir <- "/usr/local"
@@ -241,6 +242,7 @@ get_macos_openssl_dir <- function() {
   }
   return(openssl_root_dir)
 }
+
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
