@@ -184,11 +184,13 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
 # This tests that curl and OpenSSL are present (bc we can include their headers)
 # and it checks for other versions/features and raises errors that we grep for
 test_for_curl_and_openssl <- 
-"#ifndef __APPLE__
-#include <ciso646>
+"#include <ciso646>
+#ifndef __APPLE__
 #ifdef _LIBCPP_VERSION
 #error Using libc++
 #endif
+#elif __GLIBCXX__ 
+#error Using libstdc++
 #endif
 
 #include <curl/curl.h>
@@ -246,7 +248,11 @@ determine_binary_from_stderr <- function(errs) {
     # Else, check for dealbreakers:
   } else if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our linux binaries are all built with GNU stdlib so they fail with libc++
-    cat("*** Found libc++\n")
+    cat("*** Linux binaries incompatible with libc++\n")
+    return(NULL)
+  } else if (on_macos && any(grepl("Using libstdc++", errs, fixed = TRUE))) {
+    # Our macos binaries are all built with libc++ so they fail with GNU libstdc++
+    cat("*** MacOS binaries incompatible with libstdc++\n")
     return(NULL)
   } else if (header_not_found("curl/curl", errs)) {
     cat("*** libcurl not found\n")
