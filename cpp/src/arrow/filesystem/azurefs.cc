@@ -353,6 +353,86 @@ class AzureFileSystem::Impl {
   }
 
   const AzureOptions& options() const { return options_; }
+
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
+                                                         AzureBlobFileSystem* fs) {
+    ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
+
+    if (path.empty()) {
+      return ::arrow::fs::internal::PathNotFound(path.full_path);
+    }
+    if (!is_hierarchical_namespace_enabled_) {
+      if (path.path_to_file_parts.size() > 1) {
+        return Status::IOError(
+            "Invalid Azure Blob Storage path provided,"
+            " hierarchical namespace not enabled in storage account");
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(auto response, FileExists(dfs_endpoint_url_ + path.full_path));
+    if (!response) {
+      return ::arrow::fs::internal::PathNotFound(path.full_path);
+    }
+    std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> path_client;
+    ARROW_ASSIGN_OR_RAISE(
+        path_client, InitPathClient<Azure::Storage::Files::DataLake::DataLakePathClient>(
+                         options_, dfs_endpoint_url_ + path.full_path, path.container,
+                         path.path_to_file));
+
+    std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> file_client;
+    ARROW_ASSIGN_OR_RAISE(
+        file_client, InitPathClient<Azure::Storage::Files::DataLake::DataLakeFileClient>(
+                         options_, dfs_endpoint_url_ + path.full_path, path.container,
+                         path.path_to_file));
+
+    auto ptr = std::make_shared<ObjectInputFile>(path_client, file_client,
+                                                 fs->io_context(), path);
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+};
+
+Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
+                                                       AzureBlobFileSystem* fs) {
+  if (info.type() == FileType::NotFound) {
+    return ::arrow::fs::internal::PathNotFound(info.path());
+  }
+  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+    return ::arrow::fs::internal::NotAFile(info.path());
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(info.path()));
+
+  if (!is_hierarchical_namespace_enabled_) {
+    if (path.path_to_file_parts.size() > 1) {
+      return Status::IOError(
+          "Invalid Azure Blob Storage path provided, hierarchical namespace"
+          " not enabled in storage account");
+    }
+  }
+  ARROW_ASSIGN_OR_RAISE(auto response, FileExists(dfs_endpoint_url_ + info.path()));
+  if (!response) {
+    return ::arrow::fs::internal::PathNotFound(info.path());
+  }
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> path_client;
+  ARROW_ASSIGN_OR_RAISE(
+      path_client,
+      InitPathClient<Azure::Storage::Files::DataLake::DataLakePathClient>(
+          options_, dfs_endpoint_url_ + info.path(), path.container, path.path_to_file));
+
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> file_client;
+  ARROW_ASSIGN_OR_RAISE(
+      file_client,
+      InitPathClient<Azure::Storage::Files::DataLake::DataLakeFileClient>(
+          options_, dfs_endpoint_url_ + info.path(), path.container, path.path_to_file));
+
+  auto ptr = std::make_shared<ObjectInputFile>(path_client, file_client, fs->io_context(),
+                                               path, info.size());
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
+}
+
+protected:
+AzureOptions options_;
 };
 
 const AzureOptions& AzureFileSystem::options() const { return impl_->options(); }
@@ -405,23 +485,23 @@ Status AzureFileSystem::CopyFile(const std::string& src, const std::string& dest
 }
 
 Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
-    const std::string& path) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+    const std::string& s) {
+  return impl_->OpenInputFile(s, this);
 }
 
 Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
     const FileInfo& info) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
-    const std::string& path) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+    const std::string& s) {
+  return impl_->OpenInputFile(s, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
     const FileInfo& info) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::OutputStream>> AzureFileSystem::OpenOutputStream(
