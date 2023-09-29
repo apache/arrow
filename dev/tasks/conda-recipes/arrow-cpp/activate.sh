@@ -23,6 +23,13 @@ _la_log "Beginning libarrow activation."
 # where the GDB wrappers get installed
 _la_gdb_prefix="$CONDA_PREFIX/share/gdb/auto-load"
 
+# If the directory is not writable, nothing can be done
+if [ ! -w "$_la_gdb_prefix" ]; then
+    _la_log 'No rights to modify $_la_gdb_prefix, cannot create symlink!'
+    _la_log 'Unless you plan to use the GDB debugger with libarrow, this warning can be safely ignored.'
+    return
+fi
+
 # this needs to be in sync with ARROW_GDB_INSTALL_DIR in build.sh
 _la_placeholder="replace_this_section_with_absolute_slashed_path_to_CONDA_PREFIX"
 # the paths here are intentionally stacked, see #935, resp.
@@ -44,7 +51,7 @@ for _la_target in "$_la_orig_install_dir/"*.py; do
         # If the file doesn't exist, skip this iteration of the loop.
         # (This happens when no files are found, in which case the
         # loop runs with target equal to the pattern itself.)
-        _la_log 'Folder $_la_orig_install_dir seems to not contain .py files, skipping'
+        _la_log 'Folder $_la_orig_install_dir seems to not contain .py files, skipping.'
         continue
     fi
     _la_symlink="$_la_symlink_dir/$(basename "$_la_target")"
@@ -54,13 +61,13 @@ for _la_target in "$_la_orig_install_dir/"*.py; do
         _la_log 'symlink $_la_symlink already exists and points to $_la_target, skipping.'
         continue
     fi
-    _la_log 'Creating symlink $_la_symlink pointing to $_la_target'
+    _la_log 'Creating symlink $_la_symlink pointing to $_la_target.'
     mkdir -p "$_la_symlink_dir" || true
     # this check also creates the symlink; if it fails, we enter the if-branch.
     if ! ln -sf "$_la_target" "$_la_symlink"; then
-        echo -n "${BASH_SOURCE[0]} ERROR: Failed to create symlink from "
-        echo -n "'$_la_target' to '$_la_symlink'"
-        echo
+        echo -n "${BASH_SOURCE[0]} WARNING: Failed to create symlink from "
+        echo "'$_la_target' to '$_la_symlink'!"
+        echo "Unless you plan to use the GDB debugger with libarrow, this warning can be safely ignored."
         continue
     fi
 done
