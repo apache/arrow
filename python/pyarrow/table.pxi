@@ -4600,7 +4600,8 @@ cdef class Table(_Tabular):
         return self.drop_columns(columns)
 
     def group_by(self, keys, use_threads=True):
-        """Declare a grouping over the columns of the table.
+        """
+        Declare a grouping over the columns of the table.
 
         Resulting grouping can then be used to perform aggregations
         with a subsequent ``aggregate()`` method.
@@ -4610,8 +4611,8 @@ cdef class Table(_Tabular):
         keys : str or list[str]
             Name of the columns that should be used as the grouping key.
         use_threads : bool, default True
-            Whether to use multithreading or not. When set to True
-            (the default), no stable ordering of the output is guaranteed.
+            Whether to use multithreading or not. When set to True (the
+            default), no stable ordering of the output is guaranteed.
 
         Returns
         -------
