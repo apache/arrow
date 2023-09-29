@@ -241,6 +241,154 @@ TEST_F(TestAzureFileSystem, FromAccountKey) {
   ASSERT_NE(options.storage_credentials_provider, nullptr);
 }
 
+TEST_F(GcsIntegrationTest, OpenInputFileMixedReadVsReadAt) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  // Create a file large enough to make the random access tests non-trivial.
+  auto constexpr kLineWidth = 100;
+  auto constexpr kLineCount = 4096;
+  std::vector<std::string> lines(kLineCount);
+  int lineno = 0;
+  std::generate_n(lines.begin(), lines.size(),
+                  [&] { return RandomLine(++lineno, kLineWidth); });
+
+  const auto path =
+      PreexistingBucketPath() + "OpenInputFileMixedReadVsReadAt/object-name";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  for (auto const& line : lines) {
+    ASSERT_OK(output->Write(line.data(), line.size()));
+  }
+  ASSERT_OK(output->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
+  for (int i = 0; i != 32; ++i) {
+    SCOPED_TRACE("Iteration " + std::to_string(i));
+    // Verify sequential reads work as expected.
+    std::array<char, kLineWidth> buffer{};
+    std::int64_t size;
+    {
+      ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
+      EXPECT_EQ(lines[2 * i], actual->ToString());
+    }
+    {
+      ASSERT_OK_AND_ASSIGN(size, file->Read(buffer.size(), buffer.data()));
+      EXPECT_EQ(size, kLineWidth);
+      auto actual = std::string{buffer.begin(), buffer.end()};
+      EXPECT_EQ(lines[2 * i + 1], actual);
+    }
+
+    // Verify random reads interleave too.
+    auto const index = RandomIndex(kLineCount);
+    auto const position = index * kLineWidth;
+    ASSERT_OK_AND_ASSIGN(size, file->ReadAt(position, buffer.size(), buffer.data()));
+    EXPECT_EQ(size, kLineWidth);
+    auto actual = std::string{buffer.begin(), buffer.end()};
+    EXPECT_EQ(lines[index], actual);
+
+    // Verify random reads using buffers work.
+    ASSERT_OK_AND_ASSIGN(auto b, file->ReadAt(position, kLineWidth));
+    EXPECT_EQ(lines[index], b->ToString());
+  }
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  // Create a file large enough to make the random access tests non-trivial.
+  auto constexpr kLineWidth = 100;
+  auto constexpr kLineCount = 4096;
+  std::vector<std::string> lines(kLineCount);
+  int lineno = 0;
+  std::generate_n(lines.begin(), lines.size(),
+                  [&] { return RandomLine(++lineno, kLineWidth); });
+
+  const auto path = PreexistingBucketPath() + "OpenInputFileRandomSeek/object-name";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  for (auto const& line : lines) {
+    ASSERT_OK(output->Write(line.data(), line.size()));
+  }
+  ASSERT_OK(output->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
+  for (int i = 0; i != 32; ++i) {
+    SCOPED_TRACE("Iteration " + std::to_string(i));
+    // Verify sequential reads work as expected.
+    auto const index = RandomIndex(kLineCount);
+    auto const position = index * kLineWidth;
+    ASSERT_OK(file->Seek(position));
+    ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
+    EXPECT_EQ(lines[index], actual->ToString());
+  }
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileIoContext) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  // Create a test file.
+  const auto path = PreexistingBucketPath() + "OpenInputFileIoContext/object-name";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  const std::string contents = "The quick brown fox jumps over the lazy dog";
+  ASSERT_OK(output->Write(contents.data(), contents.size()));
+  ASSERT_OK(output->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
+  EXPECT_EQ(fs->io_context().external_id(), file->io_context().external_id());
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileInfo) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  arrow::fs::FileInfo info;
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingObjectPath()));
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(info));
+
+  std::array<char, 1024> buffer{};
+  std::int64_t size;
+  auto constexpr kStart = 16;
+  ASSERT_OK_AND_ASSIGN(size, file->ReadAt(kStart, buffer.size(), buffer.data()));
+
+  auto const expected = std::string(kLoremIpsum).substr(kStart);
+  EXPECT_EQ(std::string(buffer.data(), size), expected);
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileNotFound) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  ASSERT_RAISES(IOError, fs->OpenInputFile(NotFoundObjectPath()));
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  arrow::fs::FileInfo info;
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingBucketPath()));
+  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+
+  ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
+  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputFile(PreexistingObjectPath()));
+  ASSERT_OK(stream->Close());
+  std::array<char, 16> buffer{};
+  ASSERT_RAISES(Invalid, stream->Tell());
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size(), buffer.data()));
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size()));
+  ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
+  ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
+  ASSERT_RAISES(Invalid, stream->Seek(2));
+}
 
 }  // namespace
 }  // namespace fs
