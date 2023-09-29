@@ -3369,7 +3369,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
       if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
         throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
       }
-      if (buffer[i].len == 0 || prefix_len_ptr[i] == 0) {
+      if (prefix_len_ptr[i] == 0) {
         continue;
       }
       if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
@@ -3389,8 +3389,11 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         prefix = std::string_view{buffer[i]};
         continue;
       }
-      if (buffer[i].len == 0) {
+      if (buffer[i].len == 0 && prefix.data() != last_value_.data()) {
         // postfix length == 0, point to the prefix.
+        // If prefix.data() == last_value_.data(), buffer might point to
+        // the last_value_, and last_value_ will be changed at the end
+        // of GetInternal. So we need to copy the prefix to the buffer.
         buffer[i] = {static_cast<uint32_t>(prefix_len_ptr[i]),
                      reinterpret_cast<const uint8_t*>(prefix.data())};
         prefix = prefix.substr(0, prefix_len_ptr[i]);
