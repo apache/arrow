@@ -411,7 +411,8 @@ Variable-size List Layouts
 
 List is a nested type which is semantically similar to variable-size
 binary. There are two list layout variations — "list" and "list-view" —
-and each variation can use either 32-bit or 64-bit offsets.
+and each variation can be delimited by either 32-bit or 64-bit offsets
+integers.
 
 List Layout
 ~~~~~~~~~~~
@@ -452,7 +453,7 @@ will have the following representation: ::
       |------------|-------------|-------------|-------------|-------------|-----------------------|
       | 0          | 3           | 3           | 7           | 7           | unspecified (padding) |
 
-    * Values array (Int8array):
+    * Values array (Int8Array):
       * Length: 7,  Null count: 0
       * Validity bitmap buffer: Not required
       * Values buffer (int8)
@@ -501,16 +502,15 @@ will be represented as follows: ::
 ListView Layout
 ~~~~~~~~~~~~~~~
 
-The ListView layout is defined by three buffers instead of just two:
-a validity bitmap, an offsets buffer, and an additional sizes buffer.
-The sizes have the same bit width as the offsets and both 32-bit and 64-bit
-signed integer options are supported. Like in the List layout, the offsets
-reference the child array.
+The ListView layout is defined by three buffers: a validity bitmap, an offsets
+buffer, and an additional sizes buffer. Sizes and offsets have the identical bit
+width and both 32-bit and 64-bit signed integer options are supported.
 
-Rather then inferring list lengths from the offsets, the sizes buffer
-stores the length of each list in the array. This in turn allows offsets to be
-out of order. Elements of the child array do not have to be stored in the
-same order they logically appear in the list elements of the parent array.
+As in the List layout, the offsets encode the start position of each slot in the
+child array. In contrast to the List layout, list lengths are stored explicitly
+in the sizes buffer instead of inferred. This allows offsets to be out of order.
+Elements of the child array do not have to be stored in the same order they
+logically appear in the list elements of the parent array.
 
 When a value is null, the corresponding offset and size can have arbitrary
 values. When size is 0, the corresponding offset can have an arbitrary value.
@@ -521,7 +521,7 @@ A list-view type is specified like ``ListView<T>``, where ``T`` is any type
 (primitive or nested). In these examples we use 32-bit offsets where
 the 64-bit offset version would be denoted by ``LargeListView<T>``.
 
-**Example Layout: ``List<Int8>`` Array**
+**Example Layout: ``ListView<Int8>`` Array**
 
 We illustrate an example of ``ListView<Int8>`` with length 4 having values::
 
@@ -548,7 +548,7 @@ will have the following representation: ::
       |------------|-------------|-------------|-------------|-----------------------|
       | 3          | unspecified | 4           | 0           | unspecified (padding) |
 
-    * Values array (Int8array):
+    * Values array (Int8Array):
       * Length: 7,  Null count: 0
       * Validity bitmap buffer: Not required
       * Values buffer (int8)
@@ -586,7 +586,7 @@ It will have the following representation: ::
       |------------|-------------|-------------|-------------|-------------|-----------------------|
       | 3          | unspecified | 4           | 0           | 2           | unspecified (padding) |
 
-    * Values array (Int8array):
+    * Values array (Int8Array):
       * Length: 7,  Null count: 0
       * Validity bitmap buffer: Not required
       * Values buffer (int8)
