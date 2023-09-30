@@ -464,18 +464,36 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size The size of the generated list array
   /// \param[in] null_probability the probability of a list value being null
   /// \param[in] force_empty_nulls if true, null list entries must have 0 length
-  /// \param[in] zero_undefined_offsets if true, offsets of 0-length lists
   /// must be set to 0
+  /// \param[in] coverage proportion of the values array covered by list-views
   /// \param[in] alignment alignment for memory allocations (in bytes)
   /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> ListView(const Array& values, int64_t size,
                                   double null_probability = 0,
-                                  bool force_empty_nulls = false,
-                                  bool zero_undefined_offsets = false,
+                                  bool force_empty_nulls = false, double coverage = 1.0,
                                   int64_t alignment = kDefaultBufferAlignment,
                                   MemoryPool* memory_pool = default_memory_pool());
+
+  /// \brief Generate a random LargeListViewArray
+  ///
+  /// \param[in] values The underlying values array
+  /// \param[in] size The size of the generated list array
+  /// \param[in] null_probability the probability of a list value being null
+  /// \param[in] force_empty_nulls if true, null list entries must have 0 length
+  /// must be set to 0
+  /// \param[in] coverage proportion of the values array covered by list-views
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> LargeListView(const Array& values, int64_t size,
+                                       double null_probability = 0,
+                                       bool force_empty_nulls = false,
+                                       double coverage = 1.0,
+                                       int64_t alignment = kDefaultBufferAlignment,
+                                       MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random MapArray
   ///
