@@ -19,7 +19,6 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <mutex>
