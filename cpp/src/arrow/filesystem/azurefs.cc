@@ -174,9 +174,9 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
-  ObjectInputFile(
-      std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient>& file_client,
-      const io::IOContext& io_context, const AzurePath& path, int64_t size = kNoSize)
+  ObjectInputFile(std::shared_ptr<Azure::Storage::Blobs::BlobClient>& file_client,
+                  const io::IOContext& io_context, const AzurePath& path,
+                  int64_t size = kNoSize)
       : file_client_(std::move(file_client)),
         io_context_(io_context),
         path_(path),
@@ -189,10 +189,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
     try {
       auto properties = file_client_->GetProperties();
-      if (properties.Value.IsDirectory) {
-        return ::arrow::fs::internal::NotAFile(path_.full_path);
-      }
-      content_length_ = properties.Value.FileSize;
+      content_length_ = properties.Value.BlobSize;
       metadata_ = GetObjectMetadata(properties.Value.Metadata);
       return Status::OK();
     } catch (const Azure::Storage::StorageException& exception) {
@@ -276,6 +273,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
               .Value;
       return result.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
+      // TODO: return `::arrow::fs::internal::NotAFile(blob_client.GetUrl());` if  the
+      // file does not exist.
       return Status::IOError(exception.RawResponse->GetReasonPhrase());
     }
   }
@@ -310,7 +309,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
  protected:
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> file_client_;
+  std::shared_ptr<Azure::Storage::Blobs::BlobClient> file_client_;
   const io::IOContext io_context_;
   AzurePath path_;
 
@@ -328,16 +327,15 @@ class ObjectInputFile final : public io::RandomAccessFile {
 class AzureFileSystem::Impl {
  public:
   io::IOContext io_context_;
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> service_client_;
+  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> service_client_;
   AzureOptions options_;
 
   explicit Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
-    service_client_ =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
-            options_.account_dfs_url, options_.storage_credentials_provider);
+    service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
+        options_.account_blob_url, options_.storage_credentials_provider);
     return Status::OK();
   }
 
@@ -351,16 +349,9 @@ class AzureFileSystem::Impl {
       return ::arrow::fs::internal::PathNotFound(path.full_path);
     }
 
-    // TODO: Wrap this is a try catch and return
-    // `::arrow::fs::internal::NotAFile(blob_client.GetUrl());` if it fails because the
-    // file does not exist.
-    auto file_client =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
-            std::move(service_client_->GetFileSystemClient(path.container)
-                          .GetFileClient(path.path_to_file)));
-    // auto file_client =
-    // std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(options_.account_dfs_url,
-    // path.container, path.path_to_file, options_.storage_credentials_provider);
+    auto file_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
+        std::move(service_client_->GetBlobContainerClient(path.container)
+                      .GetBlobClient(path.path_to_file)));
 
     auto ptr = std::make_shared<ObjectInputFile>(file_client, fs->io_context(), path);
     RETURN_NOT_OK(ptr->Init());
@@ -382,15 +373,18 @@ class AzureFileSystem::Impl {
   //   ARROW_ASSIGN_OR_RAISE(
   //       path_client,
   //       InitPathClient<Azure::Storage::Files::DataLake::DataLakePathClient>(
-  //           options_, dfs_endpoint_url_ + info.path(), path.container, path.path_to_file));
+  //           options_, dfs_endpoint_url_ + info.path(), path.container,
+  //           path.path_to_file));
 
   //   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> file_client;
   //   ARROW_ASSIGN_OR_RAISE(
   //       file_client,
   //       InitPathClient<Azure::Storage::Files::DataLake::DataLakeFileClient>(
-  //           options_, dfs_endpoint_url_ + info.path(), path.container, path.path_to_file));
+  //           options_, dfs_endpoint_url_ + info.path(), path.container,
+  //           path.path_to_file));
 
-  //   auto ptr = std::make_shared<ObjectInputFile>(path_client, file_client, fs->io_context(),
+  //   auto ptr = std::make_shared<ObjectInputFile>(path_client, file_client,
+  //   fs->io_context(),
   //                                               path, info.size());
   //   RETURN_NOT_OK(ptr->Init());
   //   return ptr;

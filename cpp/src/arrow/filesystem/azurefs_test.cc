@@ -270,15 +270,9 @@ TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
   const auto path = PreexistingContainerPath() + path_to_file;
 
   // TODO: Switch to using Azure filesystem to write once its implemented. 
-  auto file_client = gen2_client_->GetFileSystemClient("container").GetFileClient(path);
-  int64_t total_size = 0;
-  for (auto const& line : lines) {
-    auto bufferStream = Azure::Core::IO::MemoryBodyStream(
-        reinterpret_cast<const uint8_t*>(line.data()), line.size());
-    file_client.Append(bufferStream, 0);
-    total_size += line.size();
-  }
-  file_client.Flush(total_size);
+  auto file_client = gen2_client_->GetFileSystemClient(PreexistingContainerName()).GetFileClient(path_to_file);
+  std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
+  file_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()), kLineWidth * kLineCount);
 
   std::shared_ptr<io::RandomAccessFile> file;
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(path));
