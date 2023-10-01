@@ -2161,6 +2161,38 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
 }
 
+namespace {
+class EndlessCollectListener : public CollectListener {
+ public:
+  EndlessCollectListener() : CollectListener(), decoder_(nullptr) {}
+
+  void SetDecoder(StreamDecoder* decoder) { decoder_ = decoder; }
+
+  arrow::Status OnEOS() override { return decoder_->Reset(); }
+
+ private:
+  StreamDecoder* decoder_;
+};
+};  // namespace
+
+TEST(TestStreamDecoder, Reset) {
+  auto listener = std::make_shared<EndlessCollectListener>();
+  StreamDecoder decoder(listener);
+  listener->SetDecoder(&decoder);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  ASSERT_OK(decoder.Consume(writer_helper.buffer_));
+  ASSERT_EQ(1, listener->num_record_batches());
+  ASSERT_OK(decoder.Consume(writer_helper.buffer_));
+  ASSERT_EQ(2, listener->num_record_batches());
+}
+
 TEST(TestStreamDecoder, NextRequiredSize) {
   auto listener = std::make_shared<CollectListener>();
   StreamDecoder decoder(listener);

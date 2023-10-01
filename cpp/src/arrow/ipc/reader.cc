@@ -909,13 +909,17 @@ class StreamDecoderInternal : public MessageDecoderListener {
     return listener_->OnEOS();
   }
 
+  std::shared_ptr<Listener> listener() const { return listener_; }
+
   Listener* raw_listener() const { return listener_.get(); }
+
+  IpcReadOptions options() const { return options_; }
+
+  State state() const { return state_; }
 
   std::shared_ptr<Schema> schema() const { return filtered_schema_; }
 
   ReadStats stats() const { return stats_; }
-
-  State state() const { return state_; }
 
   int num_required_initial_dictionaries() const {
     return num_required_initial_dictionaries_;
@@ -2031,6 +2035,11 @@ Status StreamDecoder::Consume(const uint8_t* data, int64_t size) {
 }
 Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
   return impl_->Consume(std::move(buffer));
+}
+Status StreamDecoder::Reset() {
+  impl_ =
+      std::make_unique<StreamDecoderImpl>(std::move(impl_->listener()), impl_->options());
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> StreamDecoder::schema() const { return impl_->schema(); }
