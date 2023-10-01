@@ -1702,8 +1702,8 @@ class AsofJoinNode : public ExecNode {
 
   Status InputReceived(ExecNode* input, ExecBatch batch) override {
     // InputReceived may be called after execution was finished. Pushing it to the
-    // InputState may cause the BackPressureController to pause the input, causing a
-    // deadlock
+    // InputState is unnecessary since we're done (and anyway may cause the
+    // BackPressureController to pause the input, causing a deadlock), so drop it.
     if (process_task_.is_finished()) {
       DEBUG_SYNC(this, "Input received while done. Short circuiting.",
                  DEBUG_MANIP(std::endl));
