@@ -40,6 +40,7 @@
 #include <gmock/gmock-more-matchers.h>
 #include <gtest/gtest.h>
 
+#include <random>
 #include <string>
 
 #include "arrow/testing/gtest_util.h"
@@ -160,6 +161,8 @@ class TestAzureFileSystem : public ::testing::Test {
   std::shared_ptr<FileSystem> fs_;
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> gen2_client_;
   AzureOptions options_;
+  std::mt19937_64 generator_;
+  std::string container_name_;
 
   void MakeFileSystem() {
     const std::string& account_name = GetAzuriteEnv()->account_name();
@@ -177,17 +180,10 @@ class TestAzureFileSystem : public ::testing::Test {
     ASSERT_OK(GetAzuriteEnv()->status());
 
     MakeFileSystem();
-    auto file_system_client = gen2_client_->GetFileSystemClient("container");
+    generator_ = std::mt19937_64(std::random_device()());
+    container_name_ = RandomChars(32);
+    auto file_system_client = gen2_client_->GetFileSystemClient(container_name_);
     file_system_client.CreateIfNotExists();
-    file_system_client = gen2_client_->GetFileSystemClient("empty-container");
-    file_system_client.CreateIfNotExists();
-    auto file_client =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
-            options_.account_blob_url + "container/somefile",
-            options_.storage_credentials_provider);
-    std::string s = "some data";
-    file_client->UploadFrom(
-        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
   }
 
   void TearDown() override {
@@ -230,68 +226,91 @@ class TestAzureFileSystem : public ::testing::Test {
         reinterpret_cast<const uint8_t*>(expected.data()), expected.size());
     AssertBufferEqual(*buf_data, *expected_data);
   }
+
+  std::string PreexistingContainerName() const { return container_name_; }
+
+  std::string PreexistingContainerPath() const {
+    return PreexistingContainerName() + '/';
+  }
+
+  std::string RandomLine(int lineno, std::size_t width) {
+    auto line = std::to_string(lineno) + ":    ";
+    line += RandomChars(width - line.size() - 1);
+    line += '\n';
+    return line;
+  }
+
+  uint8_t RandomInteger() {
+    return std::uniform_int_distribution<std::uint8_t>()(generator_);
+  }
+
+  std::size_t RandomIndex(std::size_t end) {
+    return std::uniform_int_distribution<std::size_t>(0, end - 1)(generator_);
+  }
+
+  std::string RandomChars(std::size_t count) {
+    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
+    std::uniform_int_distribution<std::size_t> d(0, fillers.size() - 1);
+    std::string s;
+    std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(generator_)]; });
+    return s;
+  }
 };
 
-// TEST_F(TestAzureFileSystem, FromAccountKey) {
-//   auto options = AzureOptions::FromAccountKey(GetAzuriteEnv()->account_name(),
-//                                               GetAzuriteEnv()->account_key())
-//                      .ValueOrDie();
-//   ASSERT_EQ(options.credentials_kind,
-//             arrow::fs::AzureCredentialsKind::StorageCredentials);
-//   ASSERT_NE(options.storage_credentials_provider, nullptr);
-// }
+TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
+  // Create a file large enough to make the random access tests non-trivial.
+  auto constexpr kLineWidth = 100;
+  auto constexpr kLineCount = 4096;
+  std::vector<std::string> lines(kLineCount);
+  int lineno = 0;
+  std::generate_n(lines.begin(), lines.size(),
+                  [&] { return RandomLine(++lineno, kLineWidth); });
 
-// TEST_F(GcsIntegrationTest, OpenInputFileMixedReadVsReadAt) {
-//   auto fs = GcsFileSystem::Make(TestGcsOptions());
+  const auto path_to_file = "OpenInputFileMixedReadVsReadAt/object-name";
+  const auto path = PreexistingContainerPath() + path_to_file;
 
-//   // Create a file large enough to make the random access tests non-trivial.
-//   auto constexpr kLineWidth = 100;
-//   auto constexpr kLineCount = 4096;
-//   std::vector<std::string> lines(kLineCount);
-//   int lineno = 0;
-//   std::generate_n(lines.begin(), lines.size(),
-//                   [&] { return RandomLine(++lineno, kLineWidth); });
+  // TODO: Switch to using Azure filesystem to write once its implemented. 
+  auto file_client = gen2_client_->GetFileSystemClient("container").GetFileClient(path);
+  int64_t total_size = 0;
+  for (auto const& line : lines) {
+    auto bufferStream = Azure::Core::IO::MemoryBodyStream(
+        reinterpret_cast<const uint8_t*>(line.data()), line.size());
+    file_client.Append(bufferStream, 0);
+    total_size += line.size();
+  }
+  file_client.Flush(total_size);
 
-//   const auto path =
-//       PreexistingBucketPath() + "OpenInputFileMixedReadVsReadAt/object-name";
-//   std::shared_ptr<io::OutputStream> output;
-//   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
-//   for (auto const& line : lines) {
-//     ASSERT_OK(output->Write(line.data(), line.size()));
-//   }
-//   ASSERT_OK(output->Close());
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(path));
+  for (int i = 0; i != 32; ++i) {
+    SCOPED_TRACE("Iteration " + std::to_string(i));
+    // Verify sequential reads work as expected.
+    std::array<char, kLineWidth> buffer{};
+    std::int64_t size;
+    {
+      ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
+      EXPECT_EQ(lines[2 * i], actual->ToString());
+    }
+    {
+      ASSERT_OK_AND_ASSIGN(size, file->Read(buffer.size(), buffer.data()));
+      EXPECT_EQ(size, kLineWidth);
+      auto actual = std::string{buffer.begin(), buffer.end()};
+      EXPECT_EQ(lines[2 * i + 1], actual);
+    }
 
-//   std::shared_ptr<io::RandomAccessFile> file;
-//   ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
-//   for (int i = 0; i != 32; ++i) {
-//     SCOPED_TRACE("Iteration " + std::to_string(i));
-//     // Verify sequential reads work as expected.
-//     std::array<char, kLineWidth> buffer{};
-//     std::int64_t size;
-//     {
-//       ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
-//       EXPECT_EQ(lines[2 * i], actual->ToString());
-//     }
-//     {
-//       ASSERT_OK_AND_ASSIGN(size, file->Read(buffer.size(), buffer.data()));
-//       EXPECT_EQ(size, kLineWidth);
-//       auto actual = std::string{buffer.begin(), buffer.end()};
-//       EXPECT_EQ(lines[2 * i + 1], actual);
-//     }
+    // Verify random reads interleave too.
+    auto const index = RandomIndex(kLineCount);
+    auto const position = index * kLineWidth;
+    ASSERT_OK_AND_ASSIGN(size, file->ReadAt(position, buffer.size(), buffer.data()));
+    EXPECT_EQ(size, kLineWidth);
+    auto actual = std::string{buffer.begin(), buffer.end()};
+    EXPECT_EQ(lines[index], actual);
 
-//     // Verify random reads interleave too.
-//     auto const index = RandomIndex(kLineCount);
-//     auto const position = index * kLineWidth;
-//     ASSERT_OK_AND_ASSIGN(size, file->ReadAt(position, buffer.size(), buffer.data()));
-//     EXPECT_EQ(size, kLineWidth);
-//     auto actual = std::string{buffer.begin(), buffer.end()};
-//     EXPECT_EQ(lines[index], actual);
-
-//     // Verify random reads using buffers work.
-//     ASSERT_OK_AND_ASSIGN(auto b, file->ReadAt(position, kLineWidth));
-//     EXPECT_EQ(lines[index], b->ToString());
-//   }
-// }
+    // Verify random reads using buffers work.
+    ASSERT_OK_AND_ASSIGN(auto b, file->ReadAt(position, kLineWidth));
+    EXPECT_EQ(lines[index], b->ToString());
+  }
+}
 
 // TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
 //   auto fs = GcsFileSystem::Make(TestGcsOptions());
@@ -304,7 +323,7 @@ class TestAzureFileSystem : public ::testing::Test {
 //   std::generate_n(lines.begin(), lines.size(),
 //                   [&] { return RandomLine(++lineno, kLineWidth); });
 
-//   const auto path = PreexistingBucketPath() + "OpenInputFileRandomSeek/object-name";
+//   const auto path = PreexistingContainerPath() + "OpenInputFileRandomSeek/object-name";
 //   std::shared_ptr<io::OutputStream> output;
 //   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
 //   for (auto const& line : lines) {
@@ -329,7 +348,7 @@ class TestAzureFileSystem : public ::testing::Test {
 //   auto fs = GcsFileSystem::Make(TestGcsOptions());
 
 //   // Create a test file.
-//   const auto path = PreexistingBucketPath() + "OpenInputFileIoContext/object-name";
+//   const auto path = PreexistingContainerPath() + "OpenInputFileIoContext/object-name";
 //   std::shared_ptr<io::OutputStream> output;
 //   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
 //   const std::string contents = "The quick brown fox jumps over the lazy dog";
@@ -369,7 +388,7 @@ class TestAzureFileSystem : public ::testing::Test {
 //   auto fs = GcsFileSystem::Make(TestGcsOptions());
 
 //   arrow::fs::FileInfo info;
-//   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingBucketPath()));
+//   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingContainerPath()));
 //   ASSERT_RAISES(IOError, fs->OpenInputFile(info));
 
 //   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
