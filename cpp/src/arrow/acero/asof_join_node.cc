@@ -1343,10 +1343,7 @@ class AsofJoinNode : public ExecNode {
             st = output_->InputFinished(this, batches_produced_);
           }
           for (const auto& s : state_) {
-            auto shutdownResult = s->ForceShutdown();
-            if (!shutdownResult.ok()) {
-              st = shutdownResult;
-            }
+            st &= s->ForceShutdown();
           }
         }));
   }
