@@ -15,8 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/testing/gtest_util.h>
 #include <gtest/gtest.h>
+
+#include "arrow/testing/gtest_util.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_builder.h"

@@ -20,9 +20,18 @@ package org.apache.arrow.flight.auth;
 import java.util.Iterator;
 import java.util.Optional;
 
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
+
 /**
  * Interface for Server side authentication handlers.
+ *
+ * @deprecated As of 14.0.0. This implements a stateful "login" flow that does not play well with
+ *     distributed or stateless systems. It will not be removed, but should not be used. Instead,
+ *     see {@link FlightServer.Builder#headerAuthenticator(CallHeaderAuthenticator)}
+ *     and {@link CallHeaderAuthenticator}.
  */
+@Deprecated
 public interface ServerAuthHandler {
 
   /**

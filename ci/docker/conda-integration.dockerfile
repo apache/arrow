@@ -24,7 +24,7 @@ ARG maven=3.5
 ARG node=16
 ARG yarn=1.22
 ARG jdk=8
-ARG go=1.15
+ARG go=1.19.13
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/

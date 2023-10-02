@@ -25,7 +25,7 @@ import { TypeToDataType } from '../interfaces.js';
 import { Type, TimeUnit, UnionMode } from '../enum.js';
 import {
     DataType, Dictionary,
-    Float, Int, Date_, Interval, Time, Timestamp,
+    Float, Int, Date_, Interval, Time, Timestamp, Duration,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union, DenseUnion, SparseUnion,
 } from '../type.js';
@@ -74,6 +74,9 @@ export class GetByteLengthVisitor extends Visitor {
     }
     public visitInterval(data: Data<Interval>, _: number) {
         return (data.type.unit + 1) * 4;
+    }
+    public visitDuration(____: Data<Duration>, _: number) {
+        return 8;
     }
     public visitStruct(data: Data<Struct>, i: number) {
         return data.children.reduce((total, child) => total + instance.visit(child, i), 0);

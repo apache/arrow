@@ -494,10 +494,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   void WritePageIndex() {
     if (page_index_builder_ != nullptr) {
-      if (properties_->file_encryption_properties()) {
-        throw ParquetException("Encryption is not supported with page index");
-      }
-
       // Serialize page index after all row groups have been written and report
       // location to the file metadata.
       PageIndexLocation page_index_location;
@@ -575,7 +571,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       bloom_filter_builder_ = BloomFilterBuilder::Make(schema(), *properties_);
     }
     if (properties_->page_index_enabled()) {
-      page_index_builder_ = PageIndexBuilder::Make(&schema_);
+      page_index_builder_ = PageIndexBuilder::Make(&schema_, file_encryptor_.get());
     }
   }
 };

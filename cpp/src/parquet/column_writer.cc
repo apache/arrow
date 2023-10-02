@@ -42,6 +42,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/type_traits.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/bloom_filter.h"
@@ -332,7 +333,7 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDictionaryPageHeader);
     }
     const int64_t header_size =
-        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_.get());
 
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
@@ -424,7 +425,7 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDataPageHeader);
     }
     const int64_t header_size =
-        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_.get());
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
     /// Collect page index
@@ -2464,7 +2465,7 @@ void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
 template <typename DType>
 void TypedColumnWriterImpl<DType>::UpdateBloomFilterArray(const ::arrow::Array& values) {
   // Only ByteArray type would write ::arrow::Array directly.
-  ParquetException::NYI("Unreachable");
+  ::arrow::Unreachable("UpdateBloomFilterArray for non ByteArray type is unreachable");
 }
 
 // ----------------------------------------------------------------------
