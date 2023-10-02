@@ -65,7 +65,7 @@ Before calling `c2goasm` there's a few things that need to be modified in the as
   modified. `c2goasm` and `asm2plan9s` expect the x86-64 meaning for the sizes, so
   usage of `.word ######` needs to be converted to `.long #####` before running
   `c2goasm`
-  * Because of this change in bits, `MOVQ` instructions will also be converted to 
+* Because of this change in bits, `MOVQ` instructions will also be converted to 
   `MOVD` instructions.
 
 After running `c2goasm` there will still need to be modifications made to the 
