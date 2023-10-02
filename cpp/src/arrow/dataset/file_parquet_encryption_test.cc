@@ -19,8 +19,10 @@
 
 #include "gtest/gtest.h"
 
-#include "arrow/api.h"
-#include "arrow/dataset/api.h"
+#include <arrow/dataset/dataset.h>
+#include <arrow/dataset/file_base.h>
+#include <arrow/dataset/file_parquet.h>
+#include "arrow/array.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/filesystem/mockfs.h"
@@ -28,6 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption.h"
