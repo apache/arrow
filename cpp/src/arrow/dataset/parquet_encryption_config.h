@@ -37,9 +37,9 @@ namespace dataset {
 /// to objects defining encryption strategy, Key Management Service (KMS) configuration,
 /// and specific encryption configurations for Parquet data.
 ///
-/// \member crypto_factory Shared pointer to CryptoFactory object, responsible for creating
-/// cryptographic components like encryptors and decryptors.
-/// \member kms_connection_config Shared pointer to KmsConnectionConfig object, holding
+/// \member crypto_factory Shared pointer to CryptoFactory object, responsible for
+/// creating cryptographic components like encryptors and decryptors. \member
+/// kms_connection_config Shared pointer to KmsConnectionConfig object, holding
 /// configuration parameters for connecting to a Key Management Service (KMS).
 /// \member encryption_config Shared pointer to EncryptionConfiguration object, defining
 /// specific encryption settings for Parquet data, like keys for different columns.
@@ -52,10 +52,10 @@ struct ARROW_DS_EXPORT ParquetEncryptionConfig {
 /// \brief Core configuration class encapsulating parameters for high-level decryption
 /// within Parquet framework.
 ///
-/// ParquetDecryptionConfig is designed to pass decryption-related parameters to appropriate
-/// decryption components within Parquet library. It holds references to objects defining
-/// decryption strategy, Key Management Service (KMS) configuration, and specific decryption
-/// configurations for reading encrypted Parquet data.
+/// ParquetDecryptionConfig is designed to pass decryption-related parameters to
+/// appropriate decryption components within Parquet library. It holds references to
+/// objects defining decryption strategy, Key Management Service (KMS) configuration, and
+/// specific decryption configurations for reading encrypted Parquet data.
 ///
 /// \member crypto_factory Shared pointer to CryptoFactory object, pivotal in creating
 /// cryptographic components for decryption process.
