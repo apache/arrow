@@ -3346,6 +3346,41 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
   }
 
  protected:
+  template <bool is_first_run>
+  static void BuildBufferInternal(const int32_t* prefix_len_ptr, int i, ByteArray* buffer,
+                                  std::string_view* prefix, uint8_t** data_ptr) {
+    if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix->length())) {
+      throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
+    }
+    if (prefix_len_ptr[i] == 0) {
+      // buffer is from suffix_decoder_.Decode, which points to the suffix.
+      // So it's safe to point prefix to buffer.
+      *prefix = std::string_view{buffer[i]};
+      return;
+    }
+    // postfix length == 0, point to the prefix.
+    // If prefix.data() == last_value_.data(), buffer might point to
+    // the last_value_, and last_value_ will be changed at the end
+    // of GetInternal. So we need to avoid this optimization when
+    // i == 0 (i.e. !is_first_run).
+    DCHECK_EQ(is_first_run, i == 0);
+    if (!is_first_run) {
+      if (buffer[i].len == 0) {
+        buffer[i] = {static_cast<uint32_t>(prefix_len_ptr[i]),
+                     reinterpret_cast<const uint8_t*>(prefix->data())};
+        *prefix = prefix->substr(0, prefix_len_ptr[i]);
+        return;
+      }
+    }
+    memcpy(*data_ptr, prefix->data(), prefix_len_ptr[i]);
+    // buffer[i] currently points to the string suffix
+    memcpy(*data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
+    buffer[i].ptr = *data_ptr;
+    buffer[i].len += prefix_len_ptr[i];
+    *data_ptr += buffer[i].len;
+    *prefix = std::string_view{buffer[i]};
+  }
+
   int GetInternal(ByteArray* buffer, int max_values) {
     // Decode up to `max_values` strings into an internal buffer
     // and reference them into `buffer`.
@@ -3366,11 +3401,11 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         reinterpret_cast<const int32_t*>(buffered_prefix_length_->data()) +
         prefix_len_offset_;
     for (int i = 0; i < max_values; ++i) {
-      if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
-        throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
-      }
       if (prefix_len_ptr[i] == 0) {
         continue;
+      }
+      if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
+        throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
       }
       if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
                               AddWithOverflow(data_size, buffer[i].len, &data_size))) {
@@ -3381,31 +3416,13 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
 
     string_view prefix{last_value_};
     uint8_t* data_ptr = buffered_data_->mutable_data();
-    for (int i = 0; i < max_values; ++i) {
-      if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix.length())) {
-        throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
-      }
-      if (prefix_len_ptr[i] == 0) {
-        prefix = std::string_view{buffer[i]};
-        continue;
-      }
-      if (buffer[i].len == 0 && prefix.data() != last_value_.data()) {
-        // postfix length == 0, point to the prefix.
-        // If prefix.data() == last_value_.data(), buffer might point to
-        // the last_value_, and last_value_ will be changed at the end
-        // of GetInternal. So we need to copy the prefix to the buffer.
-        buffer[i] = {static_cast<uint32_t>(prefix_len_ptr[i]),
-                     reinterpret_cast<const uint8_t*>(prefix.data())};
-        prefix = prefix.substr(0, prefix_len_ptr[i]);
-        continue;
-      }
-      memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
-      // buffer[i] currently points to the string suffix
-      memcpy(data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
-      buffer[i].ptr = data_ptr;
-      buffer[i].len += prefix_len_ptr[i];
-      data_ptr += buffer[i].len;
-      prefix = std::string_view{buffer[i]};
+    if (max_values > 0) {
+      BuildBufferInternal</*is_first_run=*/true>(prefix_len_ptr, 0, buffer, &prefix,
+                                                 &data_ptr);
+    }
+    for (int i = 1; i < max_values; ++i) {
+      BuildBufferInternal</*is_first_run=*/false>(prefix_len_ptr, i, buffer, &prefix,
+                                                  &data_ptr);
     }
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
