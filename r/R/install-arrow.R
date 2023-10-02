@@ -79,7 +79,8 @@ install_arrow <- function(nightly = FALSE,
     # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
     apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
     # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
-    if (on_rosetta()) {
+    rosetta <- on_rosetta()
+    if (rosetta) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
     }
     if (apple_m1 || rosetta) {
