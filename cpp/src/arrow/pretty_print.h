@@ -77,6 +77,9 @@ struct PrettyPrintOptions {
 
   /// If true, display schema metadata when pretty-printing a Schema
   bool show_schema_metadata = true;
+
+  /// Delimiter for separating individual elements of an Array (e.g. ",")
+  std::string array_element_delimiter = ",";
 };
 
 /// \brief Print human-readable representation of RecordBatch
