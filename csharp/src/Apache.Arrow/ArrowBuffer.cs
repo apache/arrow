@@ -75,8 +75,9 @@ namespace Apache.Arrow
 
         internal bool TryExport(ExportedAllocationOwner newOwner, out IntPtr ptr)
         {
-            if (_memoryOwner == null && IsEmpty)
+            if (IsEmpty)
             {
+                // _memoryOwner could be anything (for example null or a NullMemoryOwner), but it doesn't matter here
                 ptr = IntPtr.Zero;
                 return true;
             }

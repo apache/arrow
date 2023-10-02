@@ -99,8 +99,8 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("time64_us").DataType(new Time64Type(TimeUnit.Microsecond)).Nullable(false))
                     .Field(f => f.Name("time64_ns").DataType(new Time64Type(TimeUnit.Nanosecond)).Nullable(false))
 
-                    .Field(f => f.Name("timestamp_ns").DataType(new TimestampType(TimeUnit.Nanosecond, "")).Nullable(false))
-                    .Field(f => f.Name("timestamp_us").DataType(new TimestampType(TimeUnit.Microsecond, "")).Nullable(false))
+                    .Field(f => f.Name("timestamp_ns").DataType(new TimestampType(TimeUnit.Nanosecond, (string) null)).Nullable(false))
+                    .Field(f => f.Name("timestamp_us").DataType(new TimestampType(TimeUnit.Microsecond, (string) null)).Nullable(false))
                     .Field(f => f.Name("timestamp_us_paris").DataType(new TimestampType(TimeUnit.Microsecond, "Europe/Paris")).Nullable(true))
 
                     .Field(f => f.Name("list_string").DataType(new ListType(StringType.Default)).Nullable(false))

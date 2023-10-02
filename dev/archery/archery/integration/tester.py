@@ -204,9 +204,11 @@ class Tester:
     # whether the language supports receiving Flight
     FLIGHT_CLIENT = False
     # whether the language supports the C Data Interface as an exporter
-    C_DATA_EXPORTER = False
+    C_DATA_SCHEMA_EXPORTER = False
+    C_DATA_ARRAY_EXPORTER = False
     # whether the language supports the C Data Interface as an importer
-    C_DATA_IMPORTER = False
+    C_DATA_SCHEMA_IMPORTER = False
+    C_DATA_ARRAY_IMPORTER = False
 
     # the name used for skipping and shown in the logs
     name = "unknown"
