@@ -213,7 +213,7 @@ namespace Apache.Arrow.C
                         (_cSchema->flags & CArrowSchema.ArrowFlagMapKeysSorted) != 0);
                 }
 
-                // TODO: Map type and large list type
+                // TODO: Large list type
 
                 // Decimals
                 if (format.StartsWith("d:"))
