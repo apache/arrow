@@ -1,5 +1,5 @@
 # Licensed to the Apache Software Foundation (ASF) under one
-# or more cod ntributor license agreements.  See the NOTICE file
+# or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
 # to you under the Apache License, Version 2.0 (the
@@ -66,6 +66,25 @@ endif()
 # https://cmake.org/cmake/help/latest/policy/CMP0095.html
 if(POLICY CMP0095)
   cmake_policy(SET CMP0095 NEW)
+endif()
+
+# this option is used to auto-set defaults for pyarrow build
+option(DUMP_ARROW_ARGUMENTS "Dump the arrow arguments then quit" OFF)
+
+if($ENV{PYODIDE})
+  # these variables are needed for building pyarrow on Emscripten
+  # if they aren't set, cmake cross compiling fails for python
+  # modules (at least under pyodide it does)
+  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
+  set(Python3_LIBRARY $ENV{CPYTHONLIB})
+  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  set(Python3_EXECUTABLE)
+  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
+
+  # remove any c++ standard settings from cflags and let cmake set it.
+  # n.b. this is here because pyodide sets -stdc++=14, which breaks pyarrow builds
+  string(REGEX REPLACE "-std=c\\+\\+[0-9]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+
 endif()
 
 # Use the first Python installation on PATH, not the newest one
@@ -259,6 +278,22 @@ include(UseCython)
 include(GNUInstallDirs)
 
 find_package(Arrow REQUIRED)
+
+if(DUMP_ARROW_ARGUMENTS)
+  message(STATUS "----- ARROW_SETTINGS_DUMP -----")
+  get_cmake_property(_variableNames VARIABLES)
+  list(SORT _variableNames)
+  foreach(_variableName ${_variableNames})
+    unset(MATCHED)
+    string(REGEX MATCH ^ARROW_.* MATCHED ${_variableName})
+    if(NOT MATCHED)
+      continue()
+    endif()
+    message(STATUS "${_variableName}=${${_variableName}}")
+  endforeach()
+  message(STATUS "----- ARROW_SETTINGS_END -----")
+  return()
+endif()
 
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
@@ -570,28 +605,42 @@ endif()
 
 # Acero
 if(PYARROW_BUILD_ACERO)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_ACERO_IMPORT_LIB})
-    endif()
-  endif()
+  if(ARROW_BUILD_SHARED)
 
-  set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
-  list(APPEND CYTHON_EXTENSIONS _acero)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_ACERO_IMPORT_LIB})
+      endif()
+    endif()
+
+    set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
+    list(APPEND CYTHON_EXTENSIONS _acero)
+  else()
+    # ACERO is statically linked into libarrow_python already
+    set(ACERO_LINK_LIBS)
+    list(APPEND CYTHON_EXTENSIONS _acero)
+  endif()
 endif()
 
 # Dataset
 if(PYARROW_BUILD_DATASET)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_DATASET_IMPORT_LIB})
-    endif()
-  endif()
+  if(ARROW_BUILD_SHARED)
 
-  set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_DATASET_IMPORT_LIB})
+      endif()
+    endif()
+
+    set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+  else()
+    # dataset is sttically linked into libarrow_python already
+    set(DATASET_LINK_LIBS)
+  endif()
   list(APPEND CYTHON_EXTENSIONS _dataset)
+
 endif()
 
 # Parquet
@@ -612,7 +661,9 @@ if(PYARROW_BUILD_PARQUET)
     endif()
     set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
-    set(PARQUET_LINK_LIBS Parquet::parquet_static)
+    # parquet is linked into libarrow_python already
+    # so isn't needed in the extension
+    set(PARQUET_LINK_LIBS "")
   endif()
   list(APPEND CYTHON_EXTENSIONS _parquet)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
