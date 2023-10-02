@@ -63,7 +63,7 @@ namespace Apache.Arrow.IntegrationTest
             CArrowArrayExporter.ExportRecordBatch(batch, (CArrowArray*) ptr);
         }
 
-        public static JsonFile ParseJsonFile(String jsonPath)
+        public static JsonFile ParseJsonFile(string jsonPath)
         {
             return JsonFile.Parse(new FileInfo(jsonPath));
         }
