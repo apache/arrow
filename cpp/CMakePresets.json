@@ -65,7 +65,6 @@
         "ARROW_ORC": "ON",
         "ARROW_RUNTIME_SIMD_LEVEL": "NONE",
         "ARROW_S3": "OFF",
-        "ARROW_SNAPPY_USE_SHARED": "OFF",
         "ARROW_SIMD_LEVEL": "NONE",
         "ARROW_SUBSTRAIT": "ON",
         "ARROW_WITH_BROTLI": "ON",
@@ -75,8 +74,7 @@
         "CMAKE_PROJECT_INCLUDE": {
           "type": "PATH",
           "value": "${sourceDir}/cmake_modules/EmscriptenOverrides.cmake"
-        },
-        "ZLIB_SOURCE": "SYSTEM"
+        }
       }
     },
     {
@@ -377,21 +375,19 @@
     {
       "name": "ninja-debug-emscripten",
       "inherits": [
-        "features-emscripten",
         "base-debug",
-        "features-main"
+        "features-emscripten",
       ],
-      "displayName": "Release build which builds an emscripten library",
+      "displayName": "Debug build which builds an Emscripten library",
       "cacheVariables": {}
     },
     {
       "name": "ninja-release-emscripten",
       "inherits": [
-        "features-emscripten",
         "base-release",
-        "features-main"
+        "features-emscripten",
       ],
-      "displayName": "Release build which builds an emscripten library",
+      "displayName": "Release build which builds an Emscripten library",
       "cacheVariables": {}
     },
     {
@@ -419,16 +415,6 @@
         "features-gandiva"
       ],
       "displayName": "Release build with Gandiva",
-      "cacheVariables": {}
-    },
-    {
-      "name": "ninja-release-python-emscripten",
-      "inherits": [
-        "features-emscripten",
-        "base-release",
-        "features-python"
-      ],
-      "displayName": "Release build which builds an emscripten library suitable for PyArrow",
       "cacheVariables": {}
     },
     {
