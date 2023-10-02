@@ -85,9 +85,10 @@ Future<std::shared_ptr<io::RandomAccessFile>> FileSource::OpenAsync() const {
   if (filesystem_) {
     return filesystem_->OpenInputFileAsync(file_info_);
   }
-  
+
   if (buffer_) {
-    return Future<std::shared_ptr<io::RandomAccessFile>>::MakeFinished(std::make_shared<io::BufferReader>(buffer_));
+    return Future<std::shared_ptr<io::RandomAccessFile>>::MakeFinished(
+        std::make_shared<io::BufferReader>(buffer_));
   }
 
   // TODO(GH-37962): custom_open_ should not block
