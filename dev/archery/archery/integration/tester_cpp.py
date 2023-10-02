@@ -52,8 +52,10 @@ class CppTester(Tester):
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
-    C_DATA_EXPORTER = True
-    C_DATA_IMPORTER = True
+    C_DATA_SCHEMA_EXPORTER = True
+    C_DATA_ARRAY_EXPORTER = True
+    C_DATA_SCHEMA_IMPORTER = True
+    C_DATA_ARRAY_IMPORTER = True
 
     name = 'C++'
 

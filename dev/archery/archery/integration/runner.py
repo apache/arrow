@@ -124,8 +124,8 @@ class IntegrationRunner(object):
         enabled implementations.
         """
         for producer, consumer in itertools.product(
-                filter(lambda t: t.C_DATA_EXPORTER, self.testers),
-                filter(lambda t: t.C_DATA_IMPORTER, self.testers)):
+                filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.testers),
+                filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.testers)):
             self._compare_c_data_implementations(producer, consumer)
         log('\n')
 
@@ -428,9 +428,10 @@ class IntegrationRunner(object):
                               exporter, importer)
         self._run_test_cases(case_runner, self.json_files, serial=serial)
 
-        case_runner = partial(self._run_c_array_test_cases, producer, consumer,
-                              exporter, importer)
-        self._run_test_cases(case_runner, self.json_files, serial=serial)
+        if producer.C_DATA_ARRAY_EXPORTER and consumer.C_DATA_ARRAY_IMPORTER:
+            case_runner = partial(self._run_c_array_test_cases, producer, consumer,
+                                  exporter, importer)
+            self._run_test_cases(case_runner, self.json_files, serial=serial)
 
     def _run_c_schema_test_case(self,
                                 producer: Tester, consumer: Tester,
