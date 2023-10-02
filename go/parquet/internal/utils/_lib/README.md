@@ -20,7 +20,7 @@
 # SIMD Bit Packing Implementation
 
 Go doesn't have any SIMD intrinsics so for some low-level optimizations we can 
-leverage auto-vectorization and the fact that Go lets you specify the body of a
+leverage auto-vectorization by C++ compilers and the fact that Go lets you specify the body of a
 function in assembly to benefit from SIMD.
 
 In here we have implementations using SIMD intrinsics for AVX (amd64) and NEON (arm64).
