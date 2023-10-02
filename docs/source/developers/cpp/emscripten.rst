@@ -50,12 +50,12 @@ versions of emsdk.
    # e.g. for version 0.24 of pyodide:
    pip install pyodide-build==0.24
 
-Then build with the ``ninja-release-python-emscripten`` cmake preset,
+Then build with the ``ninja-release-emscripten`` cmake preset,
 like below:
 
 .. code:: shell
 
-   cmake --preset "ninja-release-python-emscripten"
+   emcmake cmake --preset "ninja-release-emscripten"
    ninja install
 
 This will install a built static library version of ``libarrow`` it into the
@@ -84,8 +84,7 @@ you will need to override. In particular you will need:
 #. Build dependencies set to ``BUNDLED``, so it uses properly cross
    compiled build dependencies.
 
-#. ``CMAKE_TOOLCHAIN_FILE`` set to
-   ``arrow/cpp/cmake_modules/Emscripten/Platform/EmscriptenOverrides.cmake``
+#. ``CMAKE_TOOLCHAIN_FILE`` set by using ``emcmake cmake`` instead of just ``cmake``.
 
 #. You will quite likely need to set ``ARROW_ENABLE_THREADING`` to ``OFF``
    for builds targeting single threaded Emscripten environments such as
