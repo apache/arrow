@@ -72,11 +72,11 @@ IF PARQUET_ENCRYPTION_ENABLED:
 
         Parameters
         ----------
-        crypto_factory : CryptoFactory
+        crypto_factory : pyarrow.parquet.encryption.CryptoFactory
             Factory for creating cryptographic instances.
-        kms_connection_config : KmsConnectionConfig
+        kms_connection_config : pyarrow.parquet.encryption.KmsConnectionConfig
             Configuration for connecting to Key Management Service.
-        encryption_config : EncryptionConfiguration
+        encryption_config : pyarrow.parquet.encryption.EncryptionConfiguration
             :ref:`Configure <encryption-configuration>`_ e.g. which columns to encrypt,
             length of encryption keys, Parquet Encryption Algorithm
             and more.
@@ -843,7 +843,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If not None, override the maximum total size of containers allocated
         when decoding Thrift structures. The default limit should be
         sufficient for most Parquet files.
-    decryption_config : ParquetDecryptionConfig, default None
+    decryption_config : pyarrow.dataset.ParquetDecryptionConfig, default None
         If not None, use the provided ParquetDecryptionConfig to decrypt the
         Parquet file.
     """
