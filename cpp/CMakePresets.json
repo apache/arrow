@@ -376,7 +376,7 @@
       "name": "ninja-debug-emscripten",
       "inherits": [
         "base-debug",
-        "features-emscripten",
+        "features-emscripten"
       ],
       "displayName": "Debug build which builds an Emscripten library",
       "cacheVariables": {}
@@ -385,7 +385,7 @@
       "name": "ninja-release-emscripten",
       "inherits": [
         "base-release",
-        "features-emscripten",
+        "features-emscripten"
       ],
       "displayName": "Release build which builds an Emscripten library",
       "cacheVariables": {}
