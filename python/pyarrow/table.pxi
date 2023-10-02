@@ -4020,16 +4020,19 @@ cdef class Table(_Tabular):
             c_max_chunksize = max_chunksize
             reader.get().set_chunksize(c_max_chunksize)
 
-        while True:
-            with nogil:
-                check_status(reader.get().ReadNext(&batch))
+        if self.num_rows == 0:
+            return record_batch([[]], schema=self.schema)
+        else:
+            while True:
+                with nogil:
+                    check_status(reader.get().ReadNext(&batch))
 
-            if batch.get() == NULL:
-                break
+                if batch.get() == NULL:
+                    break
 
-            result.append(pyarrow_wrap_batch(batch))
+                result.append(pyarrow_wrap_batch(batch))
 
-        return result
+            return result
 
     def to_reader(self, max_chunksize=None):
         """

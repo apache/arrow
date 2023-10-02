@@ -928,6 +928,16 @@ def test_table_to_batches():
     assert table.equals(table_from_iter)
 
 
+def test_empty_table_to_batches():
+    # GH-37200
+    my_schema = pa.schema([pa.field('x', pa.int64())])
+    table = pa.table([[]], schema=my_schema)
+    batch = table.to_batches()
+    assert table.schema == batch.schema
+    assert isinstance(batch, pa.RecordBatch)
+    assert batch.num_rows == 0
+
+
 def test_table_basics():
     data = [
         pa.array(range(5), type='int64'),
