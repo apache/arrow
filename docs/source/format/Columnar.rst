@@ -527,7 +527,7 @@ We illustrate an example of ``ListView<Int8>`` with length 4 having values::
 
     [[12, -7, 25], null, [0, -127, 127, 50], []]
 
-will have the following representation: ::
+It may have the following representation: ::
 
     * Length: 4, Null count: 1
     * Validity bitmap buffer:
