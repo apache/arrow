@@ -112,7 +112,7 @@ export class Table<T extends TypeMap = any> {
                 } else if (typeof x === 'object') {
                     const keys = Object.keys(x) as (keyof T)[];
                     const vecs = keys.map((k) => new Vector([x[k]]));
-                    const schema = new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type)));
+                    const schema = new Schema(keys.map((k, i) => new Field(String(k), vecs[i].type, true)));
                     const [, batches] = distributeVectorsIntoRecordBatches(schema, vecs);
                     return batches.length === 0 ? [new RecordBatch(x)] : batches;
                 }
