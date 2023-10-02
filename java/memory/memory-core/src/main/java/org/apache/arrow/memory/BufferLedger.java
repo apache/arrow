@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * The reference manager that binds an {@link AllocationManager} to
@@ -32,7 +33,7 @@ import org.apache.arrow.util.Preconditions;
  * fate (same reference count).
  */
 public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, ReferenceManager {
-  private final IdentityHashMap<ArrowBuf, Object> buffers =
+  private final @Nullable IdentityHashMap<ArrowBuf, @Nullable Object> buffers =
           BaseAllocator.DEBUG ? new IdentityHashMap<>() : null;
   private static final AtomicLong LEDGER_ID_GENERATOR = new AtomicLong(0);
   // unique ID assigned to each ledger
@@ -43,7 +44,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   private final long lCreationTime = System.nanoTime();
   private final BufferAllocator allocator;
   private final AllocationManager allocationManager;
-  private final HistoricalLog historicalLog =
+  private final @Nullable HistoricalLog historicalLog =
       BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH,
         "BufferLedger[%d]", 1) : null;
   private volatile long lDestructionTime = 0;
@@ -117,6 +118,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return true if the new ref count has dropped to 0, false otherwise
    */
   @Override
+  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public boolean release(int decrement) {
     Preconditions.checkState(decrement >= 1,
           "ref count decrement should be greater than or equal to 1");
@@ -176,6 +178,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @param increment amount to increase the reference count by
    */
   @Override
+  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public void retain(int increment) {
     Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
     if (BaseAllocator.DEBUG) {
@@ -204,6 +207,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return derived buffer
    */
   @Override
+  @SuppressWarnings({"nullness:dereference.of.nullable", "nullness:locking.nullable"})
+  //{"dereference of possibly-null reference historicalLog", "synchronizing over a possibly-null lock (buffers)"}
   public ArrowBuf deriveBuffer(final ArrowBuf sourceBuffer, long index, long length) {
     /*
      * Usage type 1 for deriveBuffer():
@@ -261,7 +266,9 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return A new ArrowBuf that shares references with all ArrowBufs associated
    *         with this BufferLedger
    */
-  ArrowBuf newArrowBuf(final long length, final BufferManager manager) {
+  @SuppressWarnings({"nullness:dereference.of.nullable", "nullness:locking.nullable"})
+  //{"dereference of possibly-null reference historicalLog,buffers","synchronizing over a possibly-null lock (buffers)"}
+  ArrowBuf newArrowBuf(final long length, final @Nullable BufferManager manager) {
     allocator.assertOpen();
 
     // the start virtual address of the ArrowBuf will be same as address of memory chunk
@@ -304,6 +311,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return A new ArrowBuf which shares the same underlying memory as the provided ArrowBuf.
    */
   @Override
+  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
 
     if (BaseAllocator.DEBUG) {
@@ -333,7 +341,9 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @param targetReferenceManager The ledger to transfer ownership account to.
    * @return Whether transfer fit within target ledgers limits.
    */
-  boolean transferBalance(final ReferenceManager targetReferenceManager) {
+  @SuppressWarnings("nullness:dereference.of.nullable")
+  //dereference of possibly-null reference historicalLog, targetReferenceManager
+  boolean transferBalance(final @Nullable ReferenceManager targetReferenceManager) {
     Preconditions.checkArgument(targetReferenceManager != null,
         "Expecting valid target reference manager");
     final BufferAllocator targetAllocator = targetReferenceManager.getAllocator();
@@ -481,6 +491,8 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @param indent    The level of indentation to position the data.
    * @param verbosity The level of verbosity to print.
    */
+  @SuppressWarnings({"nullness:dereference.of.nullable", "nullness:locking.nullable"})
+  //{"dereference of possibly-null reference buffers", "synchronizing over a possibly-null lock (buffers)"}
   void print(StringBuilder sb, int indent, BaseAllocator.Verbosity verbosity) {
     CommonUtil.indent(sb, indent)
       .append("ledger[")

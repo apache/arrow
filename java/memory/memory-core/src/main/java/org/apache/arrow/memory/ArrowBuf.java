@@ -83,6 +83,7 @@ public final class ArrowBuf implements AutoCloseable {
    * @param referenceManager The memory manager to track memory usage and reference count of this buffer
    * @param capacity The capacity in bytes of this buffer
    */
+  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public ArrowBuf(
       final ReferenceManager referenceManager,
       final @Nullable BufferManager bufferManager,
@@ -245,7 +246,7 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public boolean equals(@Nullable Object obj) {
     // identity equals only.
     return this == obj;
   }
@@ -315,7 +316,9 @@ public final class ArrowBuf implements AutoCloseable {
     Preconditions.checkArgument(fieldLength >= 0, "expecting non-negative data length");
     if (index < 0 || index > capacity() - fieldLength) {
       if (BaseAllocator.DEBUG) {
-        historicalLog.logHistory(logger);
+        if (historicalLog != null) {
+          historicalLog.logHistory(logger);
+        }
       }
       throw new IndexOutOfBoundsException(String.format(
         "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
@@ -1112,7 +1115,9 @@ public final class ArrowBuf implements AutoCloseable {
 
     if (BaseAllocator.DEBUG && verbosity.includeHistoricalLog) {
       sb.append("\n");
-      historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
+      if (historicalLog != null) {
+        historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
+      }
     }
   }
 

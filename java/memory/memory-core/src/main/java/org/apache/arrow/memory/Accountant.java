@@ -60,6 +60,7 @@ class Accountant implements AutoCloseable {
    */
   private final AtomicLong locallyHeldMemory = new AtomicLong();
 
+  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference parent
   public Accountant(@Nullable Accountant parent, String name, long reservation, long maxAllocation) {
     Preconditions.checkNotNull(name, "name must not be null");
     Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be non-negative.");
@@ -287,7 +288,7 @@ class Accountant implements AutoCloseable {
    *
    * @return Currently allocate memory in bytes.
    */
-  public long getAllocatedMemory() {
+  public long getAllocatedMemory(Accountant this) {
     return locallyHeldMemory.get();
   }
 

@@ -30,6 +30,8 @@ import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.immutables.value.Value;
 
@@ -39,6 +41,9 @@ import org.immutables.value.Value;
  * <p>The class is abstract to enforce usage of {@linkplain RootAllocator}/{@linkplain ChildAllocator}
  * facades.
  */
+@SuppressWarnings("nullness:dereference.of.nullable")
+//dereference of possibly-null reference allocationManagerFactory, historicalLog, childLedgers, reservations,
+//historicalLog, childAllocator.historicalLog, reservation.historicalLog,
 abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
@@ -65,10 +70,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   private final String name;
   private final RootAllocator root;
-
   private final Object DEBUG_LOCK = new Object();
   private final AllocationListener listener;
-  private final BaseAllocator parentAllocator;
+  private final @Nullable BaseAllocator parentAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
   // members used purely for debugging
@@ -89,7 +93,8 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    *
    * @see Config
    */
-  @SuppressWarnings({"nullness:assignment", "nullness:method.invocation"})
+  @SuppressWarnings({"nullness:method.invocation", "nullness:cast.unsafe"})
+  //{"call to hist(,...) not allowed on the given receiver.", "cast cannot be statically verified"}
   protected BaseAllocator(
       final @Nullable BaseAllocator parentAllocator,
       final String name,
@@ -103,7 +108,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       this.root = parentAllocator.root;
       empty = parentAllocator.empty;
     } else if (this instanceof RootAllocator) {
-      this.root = (RootAllocator) this;
+      this.root = (@Initialized RootAllocator) this;
       empty = createEmpty();
     } else {
       throw new IllegalStateException("An parent allocator must either carry a root or be the " +
@@ -134,7 +139,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   @Override
-  public BaseAllocator getParentAllocator() {
+  public @Nullable BaseAllocator getParentAllocator() {
     return parentAllocator;
   }
 
@@ -186,14 +191,11 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    * we have a new ledger
    * associated with this allocator.
    */
-  // @SuppressWarnings({"nullness:locking.nullable", "nullness:argument"})
   void associateLedger(BufferLedger ledger) {
     assertOpen();
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
-        if (childLedgers != null) {
-          childLedgers.put(ledger, null);
-        }
+        childLedgers.put(ledger, null);
       }
     }
   }
@@ -286,7 +288,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     return buffer(initialRequestSize, null);
   }
 
-  private ArrowBuf createEmpty() {
+  private ArrowBuf createEmpty(@UnderInitialization BaseAllocator this) {
     return allocationManagerFactory.empty();
   }
 
@@ -819,7 +821,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    */
   public class Reservation implements AllocationReservation {
 
-    private final HistoricalLog historicalLog;
+    private final @Nullable HistoricalLog historicalLog;
     private int nBytes = 0;
     private boolean used = false;
     private boolean closed = false;
@@ -830,7 +832,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      * <p>If {@linkplain #DEBUG} is true this will capture a historical
      * log of events relevant to this Reservation.
      */
-    @SuppressWarnings({"nullness:argument"})
+    @SuppressWarnings("nullness:argument") //incompatible argument for parameter arg0 of System.identityHashCode.
     public Reservation() {
       if (DEBUG) {
         historicalLog = new HistoricalLog("Reservation[allocator[%s], %d]", name, System

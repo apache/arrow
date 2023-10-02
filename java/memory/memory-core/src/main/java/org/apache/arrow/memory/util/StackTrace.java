@@ -29,6 +29,7 @@ public class StackTrace {
   /**
    * Constructor. Captures the current stack trace.
    */
+  @SuppressWarnings("nullness:assignment") //incompatible types in assignment
   public StackTrace() {
     final StackTraceElement[] stack = Thread.currentThread().getStackTrace();
     // Skip first two elements to remove getStackTrace/StackTrace.<init>

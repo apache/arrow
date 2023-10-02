@@ -22,6 +22,7 @@ import java.util.Deque;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+
 /**
  * Captures details of allocation for each accountant in the hierarchical chain.
  */

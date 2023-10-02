@@ -18,6 +18,7 @@
 package org.apache.arrow.memory;
 
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * An AllocationManager is the implementation of a physical memory allocation.
@@ -48,8 +49,9 @@ public abstract class AllocationManager {
   // This is mostly a semantic constraint on the API user: if the reference count reaches 0 in the owningLedger, then
   // there are not supposed to be any references through other allocators. In practice, this doesn't do anything
   // as the implementation just forces ownership to be transferred to one of the other extant references.
-  private volatile BufferLedger owningLedger;
+  private volatile @Nullable BufferLedger owningLedger;
 
+  @SuppressWarnings("nullness:method.invocation") //call to associate(a, b) not allowed on the given receiver
   protected AllocationManager(BufferAllocator accountingAllocator) {
     Preconditions.checkNotNull(accountingAllocator);
     accountingAllocator.assertOpen();
@@ -61,7 +63,7 @@ public abstract class AllocationManager {
     this.owningLedger = associate(accountingAllocator, false);
   }
 
-  BufferLedger getOwningLedger() {
+  @Nullable BufferLedger getOwningLedger() {
     return owningLedger;
   }
 
@@ -126,6 +128,8 @@ public abstract class AllocationManager {
    * It is called when the shared refcount of all the ArrowBufs managed by the
    * calling ReferenceManager drops to 0.
    */
+
+  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference oldLedger
   void release(final BufferLedger ledger) {
     final BufferAllocator allocator = ledger.getAllocator();
     allocator.assertOpen();

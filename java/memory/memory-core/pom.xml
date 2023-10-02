@@ -38,7 +38,6 @@
     <dependency>
       <groupId>org.checkerframework</groupId>
       <artifactId>checker-qual</artifactId>
-      <version>${checker.framework.version}</version>
     </dependency>
   </dependencies>
 
@@ -111,14 +110,14 @@
               <target>8</target>
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
-                <arg>-Xmaxerrs</arg>
+                <arg>-Xmaxerrs</arg> <!-- javac only reports the first 100 errors or warnings -->
                 <arg>10000</arg>
                 <arg>-Xmaxwarns</arg>
                 <arg>10000</arg>
                 <!--<arg>-AsuppressWarnings=dereference.of.nullable</arg>-->
                 <arg>-AskipDefs=.*Test|\
-                  ^org.apache.arrow.memory.util.(MemoryUtil.*)|\
                 </arg> <!-- Skip analysis for Testing classes -->
+                <arg>-AatfDoNotCache</arg> <!-- not cache results -->
               </compilerArgs>
               <annotationProcessorPaths combine.children="append">
                 <path>

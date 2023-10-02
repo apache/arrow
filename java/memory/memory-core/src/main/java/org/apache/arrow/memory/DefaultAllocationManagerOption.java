@@ -19,6 +19,9 @@ package org.apache.arrow.memory;
 
 import java.lang.reflect.Field;
 
+import org.checkerframework.checker.nullness.qual.NonNull;
+
+
 /**
  * A class for choosing the default allocation manager.
  */
@@ -39,6 +42,7 @@ public class DefaultAllocationManagerOption {
   /**
    * The default allocation manager factory.
    */
+  @SuppressWarnings("nullness:assignment") //static member qualifying type may not be annotated
   private static AllocationManager.Factory DEFAULT_ALLOCATION_MANAGER_FACTORY = null;
 
   /**
@@ -61,7 +65,8 @@ public class DefaultAllocationManagerOption {
     Unknown,
   }
 
-  static AllocationManagerType getDefaultAllocationManagerType() {
+  @SuppressWarnings("nullness:argument") //enum types are implicitly non-null
+  static @NonNull AllocationManagerType getDefaultAllocationManagerType() {
     AllocationManagerType ret = AllocationManagerType.Unknown;
 
     try {
@@ -103,6 +108,9 @@ public class DefaultAllocationManagerOption {
     return DEFAULT_ALLOCATION_MANAGER_FACTORY;
   }
 
+  @SuppressWarnings({"nullness:argument", "nullness:return"})
+  //incompatible argument for parameter obj of Field.get
+  // Static member qualifying type may not be annotated
   private static AllocationManager.Factory getFactory(String clazzName) {
     try {
       Field field = Class.forName(clazzName).getDeclaredField("FACTORY");

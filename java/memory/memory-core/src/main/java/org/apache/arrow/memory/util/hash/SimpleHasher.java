@@ -20,6 +20,7 @@ package org.apache.arrow.memory.util.hash;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.MemoryUtil;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * A simple hasher that calculates the hash code of integers as is,
@@ -110,7 +111,7 @@ public class SimpleHasher implements ArrowBufHasher {
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public boolean equals(@Nullable Object obj) {
     return obj != null && (obj instanceof SimpleHasher);
   }
 }

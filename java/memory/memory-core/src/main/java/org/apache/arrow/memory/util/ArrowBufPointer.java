@@ -34,7 +34,7 @@ public final class ArrowBufPointer {
    */
   public static final int NULL_HASH_CODE = 0;
 
-  private @Nullable ArrowBuf buf;
+  private ArrowBuf buf;
 
   private long offset;
 
@@ -60,6 +60,7 @@ public final class ArrowBufPointer {
    * Constructs an arrow buffer pointer with the specified hasher.
    * @param hasher the hasher to use.
    */
+  @SuppressWarnings("nullness:initialization.fields.uninitialized") //the constructor does not initialize fields: buf
   public ArrowBufPointer(ArrowBufHasher hasher) {
     Preconditions.checkNotNull(hasher);
     this.hasher = hasher;
@@ -82,8 +83,9 @@ public final class ArrowBufPointer {
    * @param length the length off set of the memory region pointed to.
    * @param hasher the hasher used to calculate the hash code.
    */
-  @SuppressWarnings("initialization.fields.uninitialized")
-  public ArrowBufPointer(@Nullable ArrowBuf buf, long offset, long length, ArrowBufHasher hasher) {
+  @SuppressWarnings({"nullness:initialization.fields.uninitialized", "nullness:method.invocation"})
+  // {"the constructor does not initialize fields: buf", "call to set not allowed on the given receiver."}
+  public ArrowBufPointer(ArrowBuf buf, long offset, long length, ArrowBufHasher hasher) {
     Preconditions.checkNotNull(hasher);
     this.hasher = hasher;
     set(buf, offset, length);
@@ -95,7 +97,8 @@ public final class ArrowBufPointer {
    * @param offset the start off set of the memory region pointed to.
    * @param length the length off set of the memory region pointed to.
    */
-  public void set(@Nullable ArrowBuf buf, long offset, long length) {
+
+  public void set(ArrowBuf buf, long offset, long length) {
     this.buf = buf;
     this.offset = offset;
     this.length = length;
@@ -107,7 +110,7 @@ public final class ArrowBufPointer {
    * Gets the underlying buffer, or null if the underlying data is invalid or null.
    * @return the underlying buffer, if any, or null if the underlying data is invalid or null.
    */
-  public @Nullable ArrowBuf getBuf() {
+  public ArrowBuf getBuf() {
     return buf;
   }
 

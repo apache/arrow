@@ -29,6 +29,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 import sun.misc.Unsafe;
 
+
 /**
  * Utilities for memory related operations.
  */
@@ -66,6 +67,8 @@ public class MemoryUtil {
       final Object maybeUnsafe = AccessController.doPrivileged(new PrivilegedAction<Object>() {
         @Override
         @SuppressWarnings({"nullness:argument", "nullness:return"})
+        // incompatible argument for parameter obj of Field.get
+        // incompatible types in return
         public Object run() {
           try {
             final Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
@@ -183,7 +186,7 @@ public class MemoryUtil {
         "sun.misc.Unsafe or java.nio.DirectByteBuffer.<init>(long, int) not available");
   }
 
-  @SuppressWarnings("nullness:argument")
+  @SuppressWarnings("nullness:argument") //to handle null assignment on third party dependency
   public static void copyMemory(@Nullable Object srcBase, long srcOffset,
                                 @Nullable Object destBase, long destOffset,
                                 long bytes) {

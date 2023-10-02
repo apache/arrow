@@ -19,15 +19,18 @@ package org.apache.arrow.memory;
 
 import java.util.Optional;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+
 /**
  * Describes the type of outcome that occurred when trying to account for allocation of memory.
  */
 public class AllocationOutcome {
   private final Status status;
-  private final AllocationOutcomeDetails details;
+  private final @Nullable AllocationOutcomeDetails details;
   static final AllocationOutcome SUCCESS_INSTANCE = new AllocationOutcome(Status.SUCCESS);
 
-  AllocationOutcome(Status status, AllocationOutcomeDetails details) {
+  AllocationOutcome(Status status, @Nullable AllocationOutcomeDetails details) {
     this.status = status;
     this.details = details;
   }

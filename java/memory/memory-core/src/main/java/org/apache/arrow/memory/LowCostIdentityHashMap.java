@@ -19,6 +19,7 @@ package org.apache.arrow.memory;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.util.VisibleForTesting;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Highly specialized IdentityHashMap that implements only partial
@@ -35,7 +36,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /*
    * The internal data structure to hold values.
    */
-  private Object[] elementData;
+  private @Nullable Object [] elementData; // elementData[index] = null;
 
   /* Actual number of values. */
   private int size;
@@ -65,6 +66,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    *            The estimated maximum number of entries that will be put in
    *            this map.
    */
+  @SuppressWarnings("nullness:method.invocation") //call to getThreshold, newElementArray not allowed the given receiver
   public LowCostIdentityHashMap(int maxSize) {
     if (maxSize >= 0) {
       this.size = 0;
@@ -152,7 +154,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * @param key the key.
    * @return the value of the mapping with the specified key.
    */
-  public V get(K key) {
+  @SuppressWarnings("nullness:cast.unsafe") //cast cannot be statically verified
+  public @Nullable V get(K key) {
     Preconditions.checkNotNull(key);
 
     int index = findIndex(key, elementData);
@@ -166,7 +169,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * empty spot if the key is not found in this table.
    */
   @VisibleForTesting
-  int findIndex(Object key, Object[] array) {
+  int findIndex(@Nullable Object key, @Nullable Object[] array) {
     int length = array.length;
     int index = getModuloHash(key, length);
     int last = (index + length - 1) % length;
@@ -184,7 +187,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   }
 
   @VisibleForTesting
-  static int getModuloHash(Object key, int length) {
+  static int getModuloHash(@Nullable Object key, int length) {
     return ((System.identityHashCode(key) & 0x7FFFFFFF) % length);
   }
 
@@ -195,6 +198,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * @return the value of any previous mapping with the specified key or
    *         {@code null} if there was no such mapping.
    */
+  @SuppressWarnings("nullness:cast.unsafe") //cast cannot be statically verified
   public V put(V value) {
     Preconditions.checkNotNull(value);
     K key = value.getKey();
@@ -226,7 +230,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     if (newlength == 0) {
       newlength = 1;
     }
-    Object[] newData = newElementArray(newlength);
+    @Nullable Object[] newData = newElementArray(newlength);
     for (int i = 0; i < elementData.length; i++) {
       Object key = (elementData[i] == null) ? null : ((V) elementData[i]).getKey();
       if (key != null) {
@@ -250,7 +254,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * @return the value of the removed mapping, or {@code null} if no mapping
    *         for the specified key was found.
    */
-  public V remove(K key) {
+  @SuppressWarnings("nullness:cast.unsafe") //cast cannot be statically verified
+  public @Nullable V remove(K key) {
     Preconditions.checkNotNull(key);
 
     boolean hashedOk;
@@ -325,7 +330,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    *
    * @return next available value or null if none available
    */
-  public V getNextValue() {
+  public @Nullable V getNextValue() {
     for (int i = 0; i < elementData.length; i++) {
       if (elementData[i] != null) {
         return (V) elementData[i];

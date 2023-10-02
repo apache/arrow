@@ -352,6 +352,7 @@
                 <!-- source annotations (not kept in compiled code) -->
                 <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
                 <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+                <ignoredDependency>org.checkerframework:checker-qual</ignoredDependency>
               </ignoredDependencies>
             </configuration>
           </execution>
@@ -540,6 +541,11 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.checkerframework</groupId>
+        <artifactId>checker-qual</artifactId>
+        <version>${checker.framework.version}</version>
+      </dependency>
       <dependency>
         <groupId>com.google.flatbuffers</groupId>
         <artifactId>flatbuffers-java</artifactId>
