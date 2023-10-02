@@ -258,20 +258,6 @@ macro(resolve_dependency DEPENDENCY_NAME)
     set(ARG_IS_RUNTIME_DEPENDENCY TRUE)
   endif()
 
-  # ensure zlib is built with -fpic
-  # and make sure that the build finds the version in Emscripten ports
-  # - n.b. the actual linking happens because -sUSE_ZLIB=1 is
-  # set in the compiler variables, but cmake expects
-  # it to exist at configuration time if we aren't building it as
-  # bundled. We need to do this for all packages
-  # not just zlib as some depend on zlib, but we don't rebuild
-  # if it exists already
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
-      execute_process(COMMAND embuilder --pic --force build zlib)
-    endif()
-    set(ZLIB_LIBRARY ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
-  endif()
 
   if(ARG_HAVE_ALT)
     set(PACKAGE_NAME "${DEPENDENCY_NAME}Alt")
@@ -975,6 +961,11 @@ if(CMAKE_TOOLCHAIN_FILE)
   list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
 endif()
 
+# and crosscompiling emulator (for try_run() )
+if(CMAKE_CROSSCOMPILING_EMULATOR)
+  list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_CROSSCOMPILING_EMULATOR=${CMAKE_CROSSCOMPILING_EMULATOR})
+endif()
+
 if(CMAKE_PROJECT_INCLUDE)
   list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_PROJECT_INCLUDE=${CMAKE_PROJECT_INCLUDE})
 endif()
@@ -1397,8 +1388,6 @@ macro(build_brotli)
       "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}")
-
-  set(BROTLI_INSTALL_OVERRIDE)
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # cmake install is disabled for brotli on emscripten, so we have
@@ -1828,6 +1817,39 @@ macro(build_protobuf)
   add_dependencies(arrow::protobuf::protoc protobuf_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
+
+  if(CMAKE_CROSSCOMPILING)
+    # if we are cross compiling, we need to build protoc for the host
+    # system also, as it is used when building arrow
+    # We do this by calling cmake as a child process
+    # with CXXFLAGS / CFLAGS and cmake flags cleared
+    set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
+    set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
+
+    set(PROTOBUF_HOST_CMAKE_ARGS
+        "-DCMAKE_CXX_FLAGS="
+        "-DCMAKE_C_FLAGS="
+        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
+        -Dprotobuf_BUILD_TESTS=OFF
+        -Dprotobuf_DEBUG_POSTFIX=)
+
+    externalproject_add(protobuf_ep_host
+                        ${EP_COMMON_OPTIONS}
+                        CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
+                        BUILD_IN_SOURCE 1
+                        URL ${PROTOBUF_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+
+    add_executable(arrow::protobuf::host_protoc IMPORTED)
+    set_target_properties(arrow::protobuf::host_protoc
+                          PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
+
+    add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
+
+  endif()
+
+
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
@@ -1885,7 +1907,11 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
   endif()
-  if(TARGET arrow::protobuf::protoc)
+  if(TARGET arrow::protobuf::host_protoc)
+      # make sure host protoc is used for compiling protobuf files
+    # during build of e.g. orc
+    set(ARROW_PROTOBUF_PROTOC arrow::protobuf::host_protoc)
+  elseif(TARGET arrow::protobuf::protoc)
     set(ARROW_PROTOBUF_PROTOC arrow::protobuf::protoc)
   else()
     if(NOT TARGET protobuf::protoc)
@@ -1894,41 +1920,6 @@ if(ARROW_WITH_PROTOBUF)
                                                         "${PROTOBUF_PROTOC_EXECUTABLE}")
     endif()
     set(ARROW_PROTOBUF_PROTOC protobuf::protoc)
-  endif()
-
-  if(CMAKE_CROSSCOMPILING)
-    # if we are cross compiling, we need to build protoc for the host
-    # system also, as it is used when building arrow
-    # We do this by calling cmake as a child process
-    # with CXXFLAGS / CFLAGS and cmake flags cleared
-    set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
-    set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
-
-    set(PROTOBUF_HOST_CMAKE_ARGS
-        "-DCMAKE_CXX_FLAGS="
-        "-DCMAKE_C_FLAGS="
-        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
-        -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
-
-    externalproject_add(protobuf_ep_host
-                        ${EP_COMMON_OPTIONS}
-                        CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
-                        BUILD_IN_SOURCE 1
-                        URL ${PROTOBUF_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
-
-    add_executable(arrow::protobuf::host_protoc IMPORTED)
-    set_target_properties(arrow::protobuf::host_protoc
-                          PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
-
-    add_dependencies(protobuf_ep protobuf_ep_host)
-
-    # make sure host protoc is used for compiling protobuf files
-    # during build of e.g. orc
-    set(ARROW_PROTOBUF_PROTOC arrow::protobuf::host_protoc)
-
   endif()
 
   # Log protobuf paths as we often see issues with mixed sources for
@@ -2453,36 +2444,62 @@ endif()
 
 macro(build_zlib)
   message(STATUS "Building ZLIB from source")
-  set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
-  if(MSVC)
-    if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-      set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
-    else()
-      set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
+
+  # ensure zlib is built with -fpic
+  # and make sure that the build finds the version in Emscripten ports
+  # - n.b. the actual linking happens because -sUSE_ZLIB=1 is
+  # set in the compiler variables, but cmake expects
+  # it to exist at configuration time if we aren't building it as
+  # bundled. We need to do this for all packages
+  # not just zlib as some depend on zlib, but we don't rebuild
+  # if it exists already
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # build zlib using Emscripten ports
+    if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
+      execute_process(COMMAND embuilder --pic --force build zlib)
     endif()
+    set(ZLIB_STATIC_LIB ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
+    set(ZLIB_LIBRARIES ${ZLIB_LIBRARY})
+#    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
+
+    add_library(ZLIB::ZLIB STATIC IMPORTED)
+    set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
+    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
+    set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+#    target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
+
   else()
-    set(ZLIB_STATIC_LIB_NAME libz.a)
+    set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
+    if(MSVC)
+      if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+        set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
+      else()
+        set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
+      endif()
+    else()
+      set(ZLIB_STATIC_LIB_NAME libz.a)
+    endif()
+    set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
+    set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}")
+
+    externalproject_add(zlib_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${ZLIB_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ZLIB_BUILD_SHA256_CHECKSUM}"
+                        BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
+                        CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
+
+    file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
+
+    add_library(ZLIB::ZLIB STATIC IMPORTED)
+    set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
+    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
+    set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+    target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
+
+    add_dependencies(toolchain zlib_ep)
+    add_dependencies(ZLIB::ZLIB zlib_ep)
   endif()
-  set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
-  set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}")
-
-  externalproject_add(zlib_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ZLIB_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_ZLIB_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
-                      CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
-
-  file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
-
-  add_library(ZLIB::ZLIB STATIC IMPORTED)
-  set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
-  set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-  set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
-  target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
-
-  add_dependencies(toolchain zlib_ep)
-  add_dependencies(ZLIB::ZLIB zlib_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   set(ZLIB_VENDORED TRUE)
