@@ -68,23 +68,30 @@ ctypedef CParquetFileWriter* _CParquetFileWriterPtr
 IF PARQUET_ENCRYPTION_ENABLED:
     cdef class ParquetEncryptionConfig(_Weakrefable):
         """
-        Configuration for Parquet Encryption.
+        Core configuration class encapsulating parameters for high-level encryption
+        within the Parquet framework.
+
+        The ParquetEncryptionConfig class serves as a bridge for passing encryption-related
+        parameters to the appropriate components within the Parquet library. It maintains references
+        to objects that define the encryption strategy, Key Management Service (KMS) configuration,
+        and specific encryption configurations for Parquet data.
 
         Parameters
         ----------
         crypto_factory : pyarrow.parquet.encryption.CryptoFactory
-            Factory for creating cryptographic instances.
+            Shared pointer to a `CryptoFactory` object. The `CryptoFactory` is responsible for
+            creating cryptographic components, such as encryptors and decryptors.
         kms_connection_config : pyarrow.parquet.encryption.KmsConnectionConfig
-            Configuration for connecting to Key Management Service.
+            Shared pointer to a `KmsConnectionConfig` object. This object holds the configuration
+            parameters necessary for connecting to a Key Management Service (KMS).
         encryption_config : pyarrow.parquet.encryption.EncryptionConfiguration
-            :ref:`Configure <encryption-configuration>`_ e.g. which columns to encrypt,
-            length of encryption keys, Parquet Encryption Algorithm
-            and more.
+            Shared pointer to an `EncryptionConfiguration` object. This object defines specific
+            encryption settings for Parquet data, including the keys assigned to different columns.
 
         Raises
         ------
         ValueError
-            If encryption_config is None.
+            Raised if `encryption_config` is None.
         """
         cdef:
             shared_ptr[CParquetEncryptionConfig] c_config
@@ -148,22 +155,32 @@ IF PARQUET_ENCRYPTION_ENABLED:
 
     cdef class ParquetDecryptionConfig(_Weakrefable):
         """
-        Configuration for Parquet Decryption.
+        Core configuration class encapsulating parameters for high-level decryption
+        within the Parquet framework.
+
+        ParquetDecryptionConfig is designed to pass decryption-related parameters to
+        the appropriate decryption components within the Parquet library. It holds references to
+        objects that define the decryption strategy, Key Management Service (KMS) configuration,
+        and specific decryption configurations for reading encrypted Parquet data.
 
         Parameters
         ----------
-        crypto_factory : CryptoFactory
-            Factory for creating cryptographic instances.
-        kms_connection_config : KmsConnectionConfig
-            Configuration for connecting to Key Management Service.
-        decryption_config : DecryptionConfiguration
-            Configuration for decryption settings.
+        crypto_factory : pyarrow.parquet.encryption.CryptoFactory
+            Shared pointer to a `CryptoFactory` object, pivotal in creating cryptographic
+            components for the decryption process.
+        kms_connection_config : pyarrow.parquet.encryption.KmsConnectionConfig
+            Shared pointer to a `KmsConnectionConfig` object, containing parameters necessary
+            for connecting to a Key Management Service (KMS) during decryption.
+        decryption_config : pyarrow.parquet.encryption.DecryptionConfiguration
+            Shared pointer to a `DecryptionConfiguration` object, specifying decryption settings
+            for reading encrypted Parquet data.
 
         Raises
         ------
         ValueError
-            If decryption_config is None.
+            Raised if `decryption_config` is None.
         """
+
         cdef:
             shared_ptr[CParquetDecryptionConfig] c_config
 

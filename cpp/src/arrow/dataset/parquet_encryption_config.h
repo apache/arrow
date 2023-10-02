@@ -32,7 +32,7 @@ namespace dataset {
 /// \brief Core configuration class encapsulating parameters for high-level encryption
 /// within Parquet framework.
 ///
-/// ParquetEncryptionConfig serves as a bridge, translating and passing encryption-related
+/// ParquetEncryptionConfig serves as a bridge, passing encryption-related
 /// parameters to appropriate components within the Parquet library. It holds references
 /// to objects defining encryption strategy, Key Management Service (KMS) configuration,
 /// and specific encryption configurations for Parquet data.
