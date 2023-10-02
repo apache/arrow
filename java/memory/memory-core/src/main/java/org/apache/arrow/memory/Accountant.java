@@ -35,7 +35,7 @@ class Accountant implements AutoCloseable {
   /**
    * The parent allocator.
    */
-  protected final Accountant parent;
+  protected final @Nullable Accountant parent;
 
   private final String name;
 
