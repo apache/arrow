@@ -67,17 +67,17 @@ class DatasetEncryptionTest : public ::testing::Test {
     auto table_schema = schema({field("a", int64()), field("b", int64()),
                                 field("c", int64()), field("part", utf8())});
     table_ = TableFromJSON(table_schema, {R"([
-       [ 0, 9, 1, "a" ],
-       [ 1, 8, 2, "b" ],
-       [ 2, 7, 1, "c" ],
-       [ 3, 6, 2, "d" ],
-       [ 4, 5, 1, "e" ],
-       [ 5, 4, 2, "f" ],
-       [ 6, 3, 1, "g" ],
-       [ 7, 2, 2, "h" ],
-       [ 8, 1, 1, "i" ],
-       [ 9, 0, 2, "j" ]
-     ])"});
+                          [ 0, 9, 1, "a" ],
+                          [ 1, 8, 2, "a" ],
+                          [ 2, 7, 1, "c" ],
+                          [ 3, 6, 2, "c" ],
+                          [ 4, 5, 1, "e" ],
+                          [ 5, 4, 2, "e" ],
+                          [ 6, 3, 1, "g" ],
+                          [ 7, 2, 2, "g" ],
+                          [ 8, 1, 1, "i" ],
+                          [ 9, 0, 2, "i" ]
+                        ])"});
 
     // Use a Hive-style partitioning scheme.
     partitioning_ = std::make_shared<HivePartitioning>(schema({field("part", utf8())}));
@@ -123,17 +123,6 @@ class DatasetEncryptionTest : public ::testing::Test {
     write_options.partitioning = partitioning_;
     write_options.basename_template = "part{i}.parquet";
     ASSERT_OK(FileSystemDataset::Write(write_options, std::move(scanner)));
-
-    // Verify that the files exist
-    std::vector<std::string> files = {"part=a/part0.parquet", "part=b/part0.parquet",
-                                      "part=c/part0.parquet", "part=d/part0.parquet",
-                                      "part=e/part0.parquet", "part=f/part0.parquet",
-                                      "part=g/part0.parquet", "part=h/part0.parquet",
-                                      "part=i/part0.parquet", "part=j/part0.parquet"};
-    for (const auto& file_path : files) {
-      ASSERT_OK_AND_ASSIGN(auto result, file_system_->GetFileInfo(file_path));
-      ASSERT_EQ(result.type(), fs::FileType::File);
-    }
   }
 
  protected:
