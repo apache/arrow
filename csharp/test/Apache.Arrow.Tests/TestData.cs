@@ -263,7 +263,6 @@ namespace Apache.Arrow.Tests
             {
                 var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
 
-                //Todo : Support various types
                 var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length + 1);
 
                 for (var i = 0; i < Length; i++)
@@ -281,7 +280,6 @@ namespace Apache.Arrow.Tests
             {
                 var builder = new FixedSizeListArray.Builder(type.ValueField, type.ListSize).Reserve(Length);
 
-                //Todo : Support various types
                 var valueBuilder = (Int32Array.Builder)builder.ValueBuilder;
 
                 for (var i = 0; i < Length; i++)

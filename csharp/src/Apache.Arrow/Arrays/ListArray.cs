@@ -91,14 +91,14 @@ namespace Apache.Arrow
             public Builder Reserve(int capacity)
             {
                 ValueOffsetsBufferBuilder.Reserve(capacity + 1);
-                ValidityBufferBuilder.Reserve(capacity + 1);
+                ValidityBufferBuilder.Reserve(capacity);
                 return this;
             }
 
             public Builder Resize(int length)
             {
                 ValueOffsetsBufferBuilder.Resize(length + 1);
-                ValidityBufferBuilder.Resize(length + 1);
+                ValidityBufferBuilder.Resize(length);
                 return this;
             }
 

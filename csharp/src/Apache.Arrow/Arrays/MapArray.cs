@@ -20,7 +20,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class MapArray : ListArray // MapArray = ListArray(StrucArray("key", "value")) 
+    public class MapArray : ListArray // MapArray = ListArray(StructArray("key", "value")) 
     {
         // Same as ListArray.Builder, but with KeyBuilder
         public new class Builder : IArrowArrayBuilder<MapArray, Builder>
@@ -89,14 +89,14 @@ namespace Apache.Arrow
             public Builder Reserve(int capacity)
             {
                 ValueOffsetsBufferBuilder.Reserve(capacity + 1);
-                ValidityBufferBuilder.Reserve(capacity + 1);
+                ValidityBufferBuilder.Reserve(capacity);
                 return this;
             }
 
             public Builder Resize(int length)
             {
                 ValueOffsetsBufferBuilder.Resize(length + 1);
-                ValidityBufferBuilder.Resize(length + 1);
+                ValidityBufferBuilder.Resize(length);
                 return this;
             }
 

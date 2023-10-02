@@ -145,7 +145,7 @@ namespace Apache.Arrow
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, buffers, children);
             }
 
-            public void Visit(MapType type) => ConcatenateLists(type.UnsortedKey());
+            public void Visit(MapType type) => ConcatenateLists(type.UnsortedKey()); /* Can't tell if the output is still sorted */
 
             public void Visit(IArrowType type)
             {

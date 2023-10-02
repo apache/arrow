@@ -315,7 +315,6 @@ namespace Apache.Arrow.Tests
             public void Visit(ListType type)
             {
                 ListArray.Builder resultBuilder = new ListArray.Builder(type.ValueDataType).Reserve(_baseDataTotalElementCount);
-                //Todo : Support various types
                 Int64Array.Builder resultValueBuilder = (Int64Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
 
                 for (int i = 0; i < _baseDataListCount; i++)
@@ -351,7 +350,6 @@ namespace Apache.Arrow.Tests
             public void Visit(FixedSizeListType type)
             {
                 FixedSizeListArray.Builder resultBuilder = new FixedSizeListArray.Builder(type.ValueDataType, type.ListSize).Reserve(_baseDataTotalElementCount);
-                //Todo : Support various types
                 Int32Array.Builder resultValueBuilder = (Int32Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
 
                 for (int i = 0; i < _baseDataListCount; i++)
@@ -503,7 +501,6 @@ namespace Apache.Arrow.Tests
             public void Visit(MapType type)
             {
                 MapArray.Builder resultBuilder = new MapArray.Builder(type).Reserve(_baseDataTotalElementCount);
-                //Todo : Support various types
                 StringArray.Builder resultKeyBuilder = (StringArray.Builder)resultBuilder.KeyBuilder.Reserve(_baseDataTotalElementCount);
                 Int32Array.Builder resultValueBuilder = (Int32Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
                 ArrowBuffer nullBitmapBuilder = new ArrowBuffer.BitmapBuilder().Append(true).Append(true).Append(false).Build();

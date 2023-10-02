@@ -2,7 +2,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class MapType : NestedType // MapType = ListType(StrucType("key", "value")) 
+    public sealed class MapType : NestedType // MapType = ListType(StructType("key", "value")) 
     {
         public override ArrowTypeId TypeId => ArrowTypeId.Map;
         public override string Name => "map";
