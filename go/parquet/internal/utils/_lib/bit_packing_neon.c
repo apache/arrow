@@ -20,8 +20,9 @@
 #include "arm_neon.h"
 
 inline const uint32_t* unpack0_32_neon(const uint32_t* in, uint32_t* out) {
-  memset(out, 0x0, 32 * sizeof(*out));
-  out += 32;
+  for (const uint32_t* end = out + 32; out != end; out++) {
+    *out = 0;
+  }
 
   return in;
 }
@@ -1698,7 +1699,6 @@ inline static const uint32_t* unpack17_32_neon(const uint32_t* in, uint32_t* out
   vst1q_u32(out, results);
   out += 4;
 
-
   in += 17;
 
   return in;
@@ -1908,7 +1908,7 @@ inline static const uint32_t* unpack20_32_neon(const uint32_t* in, uint32_t* out
   uint32_t shifts_1st[4] = {0, 0, 8, 0};
   uint32_t shifts_2nd[4] = {0, 4, 0, 12};
   uint32x4_t reg_shft, reg_masks;
-  uint32x4_t results; 
+  uint32x4_t results;
 
   reg_masks = vdupq_n_u32(mask);
 
@@ -2092,7 +2092,6 @@ inline static const uint32_t* unpack21_32_neon(const uint32_t* in, uint32_t* out
   results = vandq_u32(reg_shft, reg_masks);
   vst1q_u32(out, results);
   out += 4;
-
 
   in += 21;
 
@@ -3079,9 +3078,10 @@ inline static const uint32_t* unpack31_32_neon(const uint32_t* in, uint32_t* out
 }
 
 inline const uint32_t* unpack32_32_neon(const uint32_t* in, uint32_t* out) {
-  memcpy(out, in, 32 * sizeof(*out));
-  in += 32;
-  out += 32;
+  for (const uint32_t* end = out + 32; out != end; out++) {
+    *out = *in;
+    in++;
+  }
 
   return in;
 }

@@ -64,7 +64,8 @@ Before calling `c2goasm` there's a few things that need to be modified in the as
   For arm64, a `word` is 32 bits. This means that constants in the assembly need to be
   modified. `c2goasm` and `asm2plan9s` expect the x86-64 meaning for the sizes, so
   usage of `.word ######` needs to be converted to `.long #####` before running
-  `c2goasm`
+  `c2goasm`. In addition, `.xword` is an 8-byte value and as such should be changed to
+  `.quad` before running `c2goasm`.
 * Because of this change in bits, `MOVQ` instructions will also be converted to 
   `MOVD` instructions.
 
@@ -139,10 +140,15 @@ resulting assembly.
        There might also be a `LEAQ LCDATA1<>(SB), BP` instruction at the top of the
        function. That should be removed/commented out as we are replacing the constants
        with macros.
-* Any usage of `memset` and `memcpy` should be replaced with `CALL clib·_memset(SB)` 
-  and `CALL clib·_memcpy(SB)`.
 * Finally, if the function has a return value, make sure that at the end of the 
   function, ends with something akin to `MOVD R0, num+32(FP)`. Where `num` is the
   local variable name of the return value, and `32` is the byte size of the arguments.
+
+To faciliate some automation, a `script.sed` file is provided in this directory which
+can be run against the generated assembly from `c2goasm` as 
+`sed -f _lib/script.sed -i bit_packing_neon_arm64.s` which will perform several of 
+these steps on the generated assembly such as convering `b.le`/etc calls with labels
+to proper `BLE LBB0_....` lines, and converting `adrp`/`ldr` pairs to `VMOVD` and 
+`VMOVQ` instructions.
 
 This should be sufficient to ensuring the assembly is generated and works properly!

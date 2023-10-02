@@ -32,7 +32,7 @@ C_FLAGS_NEON=-O3 -fvectorize -mllvm -force-vector-width=16 -fno-asynchronous-unw
 GO_SOURCES  := $(shell find . -path ./_lib -prune -o -name '*.go' -not -name '*_test.go')
 ALL_SOURCES := $(shell find . -path ./_lib -prune -o -name '*.go' -name '*.s' -not -name '*_test.go')
 
-.PHONEY: assembly
+.PHONY: assembly
 
 INTEL_SOURCES := \
 	bit_packing_avx2_amd64.s \
