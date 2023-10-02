@@ -404,10 +404,10 @@ CsvTableReader$create <- function(file,
 #'
 #' - `delimiter` Field delimiting character (default `","`)
 #' - `quoting` Logical: are strings quoted? (default `TRUE`)
-#' - `quote_char` Quoting character, if `quoting` is `TRUE`
+#' - `quote_char` Quoting character, if `quoting` is `TRUE` (default `'"'`)
 #' - `double_quote` Logical: are quotes inside values double-quoted? (default `TRUE`)
 #' - `escaping` Logical: whether escaping is used (default `FALSE`)
-#' - `escape_char` Escaping character, if `escaping` is `TRUE`
+#' - `escape_char` Escaping character, if `escaping` is `TRUE` (default `"\\"`)
 #' - `newlines_in_values` Logical: are values allowed to contain CR (`0x0d`)
 #'    and LF (`0x0a`) characters? (default `FALSE`)
 #' - `ignore_empty_lines` Logical: should empty lines be ignored (default) or

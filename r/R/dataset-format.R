@@ -239,7 +239,7 @@ check_unsupported_args <- function(args) {
   opt_names <- get_opt_names(args)
 
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
-  supported_convert_opts <- c(names(formals(CsvConvertOptions$create)), "na")
+  supported_convert_opts <- c(names(formals(CsvConvertOptions$create)), "na", "quoted_na")
 
   supported_read_opts <- c(
     names(formals(CsvReadOptions$create)),
@@ -312,7 +312,8 @@ check_unrecognised_args <- function(opts) {
   readr_opts <- c(
     names(formals(readr_to_csv_parse_options)),
     names(formals(readr_to_csv_read_options)),
-    "na"
+    "na",
+    "quoted_na"
   )
 
   is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
@@ -394,7 +395,7 @@ check_schema <- function(schema, partitioning, column_names) {
 csv_file_format_parse_opts <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
-  convert_opts <- c(names(formals(CsvConvertOptions$create)), "na", "convert_options")
+  convert_opts <- c(names(formals(CsvConvertOptions$create)), "na", "quoted_na", "convert_options")
   read_opts <- c(
     names(formals(CsvReadOptions$create)),
     names(formals(readr_to_csv_read_options)),
@@ -452,6 +453,11 @@ csv_file_format_convert_opts <- function(...) {
     opts[["na"]] <- NULL
   }
 
+  if ("quoted_na" %in% names(opts)) {
+    opts[["strings_can_be_null"]] <- opts[["quoted_na"]]
+    opts[["quoted_na"]] <- NULL
+  }
+
   do.call(CsvConvertOptions$create, opts)
 }
 
@@ -461,7 +467,7 @@ csv_file_format_read_opts <- function(schema = NULL, partitioning = NULL, ...) {
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- c(names(formals(CsvParseOptions$create)), "parse_options")
   readr_opts <- names(formals(readr_to_csv_parse_options))
-  convert_opts <- c(names(formals(CsvConvertOptions$create)), "na", "convert_options")
+  convert_opts <- c(names(formals(CsvConvertOptions$create)), "na", "quoted_na", "convert_options")
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
@@ -473,7 +479,6 @@ csv_file_format_read_opts <- function(schema = NULL, partitioning = NULL, ...) {
 
   is_arrow_opt <- !is.na(match(opt_names, arrow_opts))
   is_readr_opt <- !is.na(match(opt_names, readr_opts))
-
   check_ambiguous_options(opt_names, arrow_opts, readr_opts)
 
   null_or_true <- function(x) {
