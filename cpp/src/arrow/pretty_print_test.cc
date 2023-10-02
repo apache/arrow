@@ -1047,6 +1047,36 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   CheckStream(chunked_array_2, {0}, expected_2);
 }
 
+TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayDelimiter) {
+  PrettyPrintOptions options{};
+  // Display array contents on one line.
+  options.skip_new_lines = true;
+  // Display maximum of 3 elements at the beginning and at the end of the array
+  options.window = 3;
+  // Use a custom array element delimiter of " | ",
+  // rather than the default delimiter (i.e. ",").
+  options.array_element_delimiter = " | ";
+
+  const auto chunk = ArrayFromJSON(int32(), "[1, 2, null, 4, null]");
+
+  // ChunkedArray with 1 chunk
+  {
+      const ChunkedArray chunked_array(chunk);
+
+      static const char* expected = R"expected([[1 | 2 | null | 4 | null]])expected";
+      CheckStream(chunked_array, options, expected);
+  }
+
+  // ChunkedArray with 2 chunks
+  {
+      const ChunkedArray chunked_array({chunk, chunk});
+
+      static const char* expected = R"expected([[1 | 2 | null | 4 | null],[1 | 2 | null | 4 | null]])expected";
+
+      CheckStream(chunked_array, options, expected);
+  }
+}
+
 TEST_F(TestPrettyPrint, TablePrimitive) {
   std::shared_ptr<Field> int_field = field("column", int32());
   auto array = ArrayFromJSON(int_field->type(), "[0, 1, null, 3, null]");
