@@ -3402,6 +3402,13 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         prefix_len_offset_;
     for (int i = 0; i < max_values; ++i) {
       if (prefix_len_ptr[i] == 0) {
+        // We don't need to copy the suffix if the prefix length is 0.
+        continue;
+      }
+      if (buffer[i].len == 0 && i != 0) {
+        // If the suffix length is 0, we don't need to copy the prefix.
+        // An extra case is when i == 0, we need to copy the prefix to
+        // avoid lifetime problem.
         continue;
       }
       if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
