@@ -73,12 +73,5 @@ namespace Apache.Arrow.IntegrationTest
             GC.Collect();
             GC.WaitForPendingFinalizers();
         }
-
-        public static long GetAllocatedBytes()
-        {
-            // XXX this doesn't seem to give stable and reliable measurements
-            var gcInfo = GC.GetGCMemoryInfo();
-            return gcInfo.PromotedBytes;
-        }
     }
 }
