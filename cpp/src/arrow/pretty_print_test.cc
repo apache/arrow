@@ -220,8 +220,28 @@ TEST_F(TestPrettyPrint, PrimitiveTypeCustomArrayElementDelimiter) {
 
   // Longer array with ellipsis
   {
-      std::vector<bool> is_valid = {true, false, true, true, false, true, false, true, true};
-      std::vector<int32_t> values = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+      std::vector<bool> is_valid = {
+          true,
+          false,
+          true,
+          true,
+          false,
+          true,
+          false,
+          true,
+          true
+      };
+      std::vector<int32_t> values = {
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+      };
       const char* expected = "[1 | null | 3 | ... | null | 8 | 9]";
       CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
   }
@@ -1047,7 +1067,7 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   CheckStream(chunked_array_2, {0}, expected_2);
 }
 
-TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayDelimiter) {
+TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayElementDelimiter) {
   PrettyPrintOptions options{};
   // Display array contents on one line.
   options.skip_new_lines = true;
@@ -1071,7 +1091,8 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayDelimiter) {
   {
       const ChunkedArray chunked_array({chunk, chunk});
 
-      static const char* expected = R"expected([[1 | 2 | null | 4 | null],[1 | 2 | null | 4 | null]])expected";
+      static const char* expected =
+          R"expected([[1 | 2 | null | 4 | null],[1 | 2 | null | 4 | null]])expected";
 
       CheckStream(chunked_array, options, expected);
   }
