@@ -52,10 +52,10 @@ The order of application is as follows:
 \itemize{
 \item \code{delimiter} Field delimiting character (default \code{","})
 \item \code{quoting} Logical: are strings quoted? (default \code{TRUE})
-\item \code{quote_char} Quoting character, if \code{quoting} is \code{TRUE}
+\item \code{quote_char} Quoting character, if \code{quoting} is \code{TRUE} (default \code{'"'})
 \item \code{double_quote} Logical: are quotes inside values double-quoted? (default \code{TRUE})
 \item \code{escaping} Logical: whether escaping is used (default \code{FALSE})
-\item \code{escape_char} Escaping character, if \code{escaping} is \code{TRUE}
+\item \code{escape_char} Escaping character, if \code{escaping} is \code{TRUE} (default \code{"\\\\"})
 \item \code{newlines_in_values} Logical: are values allowed to contain CR (\code{0x0d})
 and LF (\code{0x0a}) characters? (default \code{FALSE})
 \item \code{ignore_empty_lines} Logical: should empty lines be ignored (default) or
