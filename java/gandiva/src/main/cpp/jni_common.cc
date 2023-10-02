@@ -35,13 +35,13 @@
 #include <gandiva/projector.h>
 #include <gandiva/selection_vector.h>
 #include <gandiva/tree_expr_builder.h>
+#include <gandiva/types.pb.h>
+#include <org_apache_arrow_gandiva_evaluator_JniWrapper.h>
 
-#include "Types.pb.h"
 #include "config_holder.h"
 #include "env_helper.h"
 #include "id_to_module_map.h"
 #include "module_holder.h"
-#include "org_apache_arrow_gandiva_evaluator_JniWrapper.h"
 
 using gandiva::ConditionPtr;
 using gandiva::DataTypePtr;
@@ -65,7 +65,7 @@ using gandiva::FilterHolder;
 using gandiva::ProjectorHolder;
 
 // forward declarations
-NodePtr ProtoTypeToNode(const types::TreeNode& node);
+NodePtr ProtoTypeToNode(const gandiva::types::TreeNode& node);
 
 static jint JNI_VERSION = JNI_VERSION_1_6;
 
@@ -131,11 +131,11 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(vector_expander_ret_class_);
 }
 
-DataTypePtr ProtoTypeToTime32(const types::ExtGandivaType& ext_type) {
+DataTypePtr ProtoTypeToTime32(const gandiva::types::ExtGandivaType& ext_type) {
   switch (ext_type.timeunit()) {
-    case types::SEC:
+    case gandiva::types::SEC:
       return arrow::time32(arrow::TimeUnit::SECOND);
-    case types::MILLISEC:
+    case gandiva::types::MILLISEC:
       return arrow::time32(arrow::TimeUnit::MILLI);
     default:
       std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for time32\n";
@@ -143,11 +143,11 @@ DataTypePtr ProtoTypeToTime32(const types::ExtGandivaType& ext_type) {
   }
 }
 
-DataTypePtr ProtoTypeToTime64(const types::ExtGandivaType& ext_type) {
+DataTypePtr ProtoTypeToTime64(const gandiva::types::ExtGandivaType& ext_type) {
   switch (ext_type.timeunit()) {
-    case types::MICROSEC:
+    case gandiva::types::MICROSEC:
       return arrow::time64(arrow::TimeUnit::MICRO);
-    case types::NANOSEC:
+    case gandiva::types::NANOSEC:
       return arrow::time64(arrow::TimeUnit::NANO);
     default:
       std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for time64\n";
@@ -155,15 +155,15 @@ DataTypePtr ProtoTypeToTime64(const types::ExtGandivaType& ext_type) {
   }
 }
 
-DataTypePtr ProtoTypeToTimestamp(const types::ExtGandivaType& ext_type) {
+DataTypePtr ProtoTypeToTimestamp(const gandiva::types::ExtGandivaType& ext_type) {
   switch (ext_type.timeunit()) {
-    case types::SEC:
+    case gandiva::types::SEC:
       return arrow::timestamp(arrow::TimeUnit::SECOND);
-    case types::MILLISEC:
+    case gandiva::types::MILLISEC:
       return arrow::timestamp(arrow::TimeUnit::MILLI);
-    case types::MICROSEC:
+    case gandiva::types::MICROSEC:
       return arrow::timestamp(arrow::TimeUnit::MICRO);
-    case types::NANOSEC:
+    case gandiva::types::NANOSEC:
       return arrow::timestamp(arrow::TimeUnit::NANO);
     default:
       std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for timestamp\n";
@@ -171,11 +171,11 @@ DataTypePtr ProtoTypeToTimestamp(const types::ExtGandivaType& ext_type) {
   }
 }
 
-DataTypePtr ProtoTypeToInterval(const types::ExtGandivaType& ext_type) {
+DataTypePtr ProtoTypeToInterval(const gandiva::types::ExtGandivaType& ext_type) {
   switch (ext_type.intervaltype()) {
-    case types::YEAR_MONTH:
+    case gandiva::types::YEAR_MONTH:
       return arrow::month_interval();
-    case types::DAY_TIME:
+    case gandiva::types::DAY_TIME:
       return arrow::day_time_interval();
     default:
       std::cerr << "Unknown interval type: " << ext_type.intervaltype() << "\n";
@@ -183,59 +183,59 @@ DataTypePtr ProtoTypeToInterval(const types::ExtGandivaType& ext_type) {
   }
 }
 
-DataTypePtr ProtoTypeToDataType(const types::ExtGandivaType& ext_type) {
+DataTypePtr ProtoTypeToDataType(const gandiva::types::ExtGandivaType& ext_type) {
   switch (ext_type.type()) {
-    case types::NONE:
+    case gandiva::types::NONE:
       return arrow::null();
-    case types::BOOL:
+    case gandiva::types::BOOL:
       return arrow::boolean();
-    case types::UINT8:
+    case gandiva::types::UINT8:
       return arrow::uint8();
-    case types::INT8:
+    case gandiva::types::INT8:
       return arrow::int8();
-    case types::UINT16:
+    case gandiva::types::UINT16:
       return arrow::uint16();
-    case types::INT16:
+    case gandiva::types::INT16:
       return arrow::int16();
-    case types::UINT32:
+    case gandiva::types::UINT32:
       return arrow::uint32();
-    case types::INT32:
+    case gandiva::types::INT32:
       return arrow::int32();
-    case types::UINT64:
+    case gandiva::types::UINT64:
       return arrow::uint64();
-    case types::INT64:
+    case gandiva::types::INT64:
       return arrow::int64();
-    case types::HALF_FLOAT:
+    case gandiva::types::HALF_FLOAT:
       return arrow::float16();
-    case types::FLOAT:
+    case gandiva::types::FLOAT:
       return arrow::float32();
-    case types::DOUBLE:
+    case gandiva::types::DOUBLE:
       return arrow::float64();
-    case types::UTF8:
+    case gandiva::types::UTF8:
       return arrow::utf8();
-    case types::BINARY:
+    case gandiva::types::BINARY:
       return arrow::binary();
-    case types::DATE32:
+    case gandiva::types::DATE32:
       return arrow::date32();
-    case types::DATE64:
+    case gandiva::types::DATE64:
       return arrow::date64();
-    case types::DECIMAL:
+    case gandiva::types::DECIMAL:
       // TODO: error handling
       return arrow::decimal(ext_type.precision(), ext_type.scale());
-    case types::TIME32:
+    case gandiva::types::TIME32:
       return ProtoTypeToTime32(ext_type);
-    case types::TIME64:
+    case gandiva::types::TIME64:
       return ProtoTypeToTime64(ext_type);
-    case types::TIMESTAMP:
+    case gandiva::types::TIMESTAMP:
       return ProtoTypeToTimestamp(ext_type);
-    case types::INTERVAL:
+    case gandiva::types::INTERVAL:
       return ProtoTypeToInterval(ext_type);
-    case types::FIXED_SIZE_BINARY:
-    case types::LIST:
-    case types::STRUCT:
-    case types::UNION:
-    case types::DICTIONARY:
-    case types::MAP:
+    case gandiva::types::FIXED_SIZE_BINARY:
+    case gandiva::types::LIST:
+    case gandiva::types::STRUCT:
+    case gandiva::types::UNION:
+    case gandiva::types::DICTIONARY:
+    case gandiva::types::MAP:
       std::cerr << "Unhandled data type: " << ext_type.type() << "\n";
       return nullptr;
 
@@ -245,7 +245,7 @@ DataTypePtr ProtoTypeToDataType(const types::ExtGandivaType& ext_type) {
   }
 }
 
-FieldPtr ProtoTypeToField(const types::Field& f) {
+FieldPtr ProtoTypeToField(const gandiva::types::Field& f) {
   const std::string& name = f.name();
   DataTypePtr type = ProtoTypeToDataType(f.type());
   bool nullable = true;
@@ -256,7 +256,7 @@ FieldPtr ProtoTypeToField(const types::Field& f) {
   return field(name, type, nullable);
 }
 
-NodePtr ProtoTypeToFieldNode(const types::FieldNode& node) {
+NodePtr ProtoTypeToFieldNode(const gandiva::types::FieldNode& node) {
   FieldPtr field_ptr = ProtoTypeToField(node.field());
   if (field_ptr == nullptr) {
     std::cerr << "Unable to create field node from protobuf\n";
@@ -266,12 +266,12 @@ NodePtr ProtoTypeToFieldNode(const types::FieldNode& node) {
   return TreeExprBuilder::MakeField(field_ptr);
 }
 
-NodePtr ProtoTypeToFnNode(const types::FunctionNode& node) {
+NodePtr ProtoTypeToFnNode(const gandiva::types::FunctionNode& node) {
   const std::string& name = node.functionname();
   NodeVector children;
 
   for (int i = 0; i < node.inargs_size(); i++) {
-    const types::TreeNode& arg = node.inargs(i);
+    const gandiva::types::TreeNode& arg = node.inargs(i);
 
     NodePtr n = ProtoTypeToNode(arg);
     if (n == nullptr) {
@@ -291,7 +291,7 @@ NodePtr ProtoTypeToFnNode(const types::FunctionNode& node) {
   return TreeExprBuilder::MakeFunction(name, children, return_type);
 }
 
-NodePtr ProtoTypeToIfNode(const types::IfNode& node) {
+NodePtr ProtoTypeToIfNode(const gandiva::types::IfNode& node) {
   NodePtr cond = ProtoTypeToNode(node.cond());
   if (cond == nullptr) {
     std::cerr << "Unable to create cond node for if node\n";
@@ -319,11 +319,11 @@ NodePtr ProtoTypeToIfNode(const types::IfNode& node) {
   return TreeExprBuilder::MakeIf(cond, then_node, else_node, return_type);
 }
 
-NodePtr ProtoTypeToAndNode(const types::AndNode& node) {
+NodePtr ProtoTypeToAndNode(const gandiva::types::AndNode& node) {
   NodeVector children;
 
   for (int i = 0; i < node.args_size(); i++) {
-    const types::TreeNode& arg = node.args(i);
+    const gandiva::types::TreeNode& arg = node.args(i);
 
     NodePtr n = ProtoTypeToNode(arg);
     if (n == nullptr) {
@@ -335,11 +335,11 @@ NodePtr ProtoTypeToAndNode(const types::AndNode& node) {
   return TreeExprBuilder::MakeAnd(children);
 }
 
-NodePtr ProtoTypeToOrNode(const types::OrNode& node) {
+NodePtr ProtoTypeToOrNode(const gandiva::types::OrNode& node) {
   NodeVector children;
 
   for (int i = 0; i < node.args_size(); i++) {
-    const types::TreeNode& arg = node.args(i);
+    const gandiva::types::TreeNode& arg = node.args(i);
 
     NodePtr n = ProtoTypeToNode(arg);
     if (n == nullptr) {
@@ -351,7 +351,7 @@ NodePtr ProtoTypeToOrNode(const types::OrNode& node) {
   return TreeExprBuilder::MakeOr(children);
 }
 
-NodePtr ProtoTypeToInNode(const types::InNode& node) {
+NodePtr ProtoTypeToInNode(const gandiva::types::InNode& node) {
   NodePtr field = ProtoTypeToNode(node.node());
 
   if (node.has_intvalues()) {
@@ -417,7 +417,7 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
   return nullptr;
 }
 
-NodePtr ProtoTypeToNullNode(const types::NullNode& node) {
+NodePtr ProtoTypeToNullNode(const gandiva::types::NullNode& node) {
   DataTypePtr data_type = ProtoTypeToDataType(node.type());
   if (data_type == nullptr) {
     std::cerr << "Unknown type " << data_type->ToString() << " for null node\n";
@@ -427,7 +427,7 @@ NodePtr ProtoTypeToNullNode(const types::NullNode& node) {
   return TreeExprBuilder::MakeNull(data_type);
 }
 
-NodePtr ProtoTypeToNode(const types::TreeNode& node) {
+NodePtr ProtoTypeToNode(const gandiva::types::TreeNode& node) {
   if (node.has_fieldnode()) {
     return ProtoTypeToFieldNode(node.fieldnode());
   }
@@ -494,7 +494,7 @@ NodePtr ProtoTypeToNode(const types::TreeNode& node) {
   return nullptr;
 }
 
-ExpressionPtr ProtoTypeToExpression(const types::ExpressionRoot& root) {
+ExpressionPtr ProtoTypeToExpression(const gandiva::types::ExpressionRoot& root) {
   NodePtr root_node = ProtoTypeToNode(root.root());
   if (root_node == nullptr) {
     std::cerr << "Unable to create expression node from expression protobuf\n";
@@ -510,7 +510,7 @@ ExpressionPtr ProtoTypeToExpression(const types::ExpressionRoot& root) {
   return TreeExprBuilder::MakeExpression(root_node, field);
 }
 
-ConditionPtr ProtoTypeToCondition(const types::Condition& condition) {
+ConditionPtr ProtoTypeToCondition(const gandiva::types::Condition& condition) {
   NodePtr root_node = ProtoTypeToNode(condition.root());
   if (root_node == nullptr) {
     return nullptr;
@@ -519,7 +519,7 @@ ConditionPtr ProtoTypeToCondition(const types::Condition& condition) {
   return TreeExprBuilder::MakeCondition(root_node);
 }
 
-SchemaPtr ProtoTypeToSchema(const types::Schema& schema) {
+SchemaPtr ProtoTypeToSchema(const gandiva::types::Schema& schema) {
   std::vector<FieldPtr> fields;
 
   for (int i = 0; i < schema.columns_size(); i++) {
@@ -608,11 +608,11 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   std::shared_ptr<Projector> projector;
   std::shared_ptr<ProjectorHolder> holder;
 
-  types::Schema schema;
+  gandiva::types::Schema schema;
   jsize schema_len = env->GetArrayLength(schema_arr);
   jbyte* schema_bytes = env->GetByteArrayElements(schema_arr, 0);
 
-  types::ExpressionList exprs;
+  gandiva::types::ExpressionList exprs;
   jsize exprs_len = env->GetArrayLength(exprs_arr);
   jbyte* exprs_bytes = env->GetByteArrayElements(exprs_arr, 0);
 
@@ -643,7 +643,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
     goto err_out;
   }
 
-  // convert types::Schema to arrow::Schema
+  // convert gandiva::types::Schema to arrow::Schema
   schema_ptr = ProtoTypeToSchema(schema);
   if (schema_ptr == nullptr) {
     ss << "Unable to construct arrow schema object from schema protobuf\n";
@@ -666,13 +666,13 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   }
 
   switch (selection_vector_type) {
-    case types::SV_NONE:
+    case gandiva::types::SV_NONE:
       mode = gandiva::SelectionVector::MODE_NONE;
       break;
-    case types::SV_INT16:
+    case gandiva::types::SV_INT16:
       mode = gandiva::SelectionVector::MODE_UINT16;
       break;
-    case types::SV_INT32:
+    case gandiva::types::SV_INT32:
       mode = gandiva::SelectionVector::MODE_UINT32;
       break;
   }
@@ -809,17 +809,17 @@ Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evaluateProjector(
         reinterpret_cast<uint8_t*>(sel_vec_addr), sel_vec_size);
     int output_row_count = 0;
     switch (sel_vec_type) {
-      case types::SV_NONE: {
+      case gandiva::types::SV_NONE: {
         output_row_count = num_rows;
         break;
       }
-      case types::SV_INT16: {
+      case gandiva::types::SV_INT16: {
         status = gandiva::SelectionVector::MakeImmutableInt16(
             sel_vec_rows, selection_buffer, &selection_vector);
         output_row_count = sel_vec_rows;
         break;
       }
-      case types::SV_INT32: {
+      case gandiva::types::SV_INT32: {
         status = gandiva::SelectionVector::MakeImmutableInt32(
             sel_vec_rows, selection_buffer, &selection_vector);
         output_row_count = sel_vec_rows;
@@ -909,11 +909,11 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   std::shared_ptr<Filter> filter;
   std::shared_ptr<FilterHolder> holder;
 
-  types::Schema schema;
+  gandiva::types::Schema schema;
   jsize schema_len = env->GetArrayLength(schema_arr);
   jbyte* schema_bytes = env->GetByteArrayElements(schema_arr, 0);
 
-  types::Condition condition;
+  gandiva::types::Condition condition;
   jsize condition_len = env->GetArrayLength(condition_arr);
   jbyte* condition_bytes = env->GetByteArrayElements(condition_arr, 0);
 
@@ -943,7 +943,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
     goto err_out;
   }
 
-  // convert types::Schema to arrow::Schema
+  // convert gandiva::types::Schema to arrow::Schema
   schema_ptr = ProtoTypeToSchema(schema);
   if (schema_ptr == nullptr) {
     ss << "Unable to construct arrow schema object from schema protobuf\n";
@@ -1008,15 +1008,15 @@ JNIEXPORT jint JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_evalua
     }
 
     auto selection_vector_type =
-        static_cast<types::SelectionVectorType>(jselection_vector_type);
+        static_cast<gandiva::types::SelectionVectorType>(jselection_vector_type);
     auto out_buffer = std::make_shared<arrow::MutableBuffer>(
         reinterpret_cast<uint8_t*>(out_buf_addr), out_buf_size);
     switch (selection_vector_type) {
-      case types::SV_INT16:
+      case gandiva::types::SV_INT16:
         status =
             gandiva::SelectionVector::MakeInt16(num_rows, out_buffer, &selection_vector);
         break;
-      case types::SV_INT32:
+      case gandiva::types::SV_INT32:
         status =
             gandiva::SelectionVector::MakeInt32(num_rows, out_buffer, &selection_vector);
         break;

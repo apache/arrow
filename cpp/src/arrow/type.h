@@ -2048,6 +2048,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Return the indices of all fields having this name
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
+  /// Indicate if field named `name` can be found unambiguously in the schema.
+  Status CanReferenceFieldByName(const std::string& name) const;
+
   /// Indicate if fields named `names` can be found unambiguously in the schema.
   Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;
 

@@ -548,6 +548,24 @@ TEST_F(TestSchema, GetFieldDuplicates) {
   ASSERT_EQ(results.size(), 0);
 }
 
+TEST_F(TestSchema, CanReferenceFieldByName) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f1", list(int16()));
+
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
+
+  ASSERT_OK(schema->CanReferenceFieldByName("f0"));
+  ASSERT_OK(schema->CanReferenceFieldByName("f2"));
+
+  // Not found
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldByName("nope"));
+
+  // Duplicates
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldByName("f1"));
+}
+
 TEST_F(TestSchema, CanReferenceFieldsByNames) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
