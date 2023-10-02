@@ -111,10 +111,10 @@ IF PARQUET_ENCRYPTION_ENABLED:
             c_encryption_config = ParquetEncryptionConfig.unwrap_encryptionconfig(
                 encryption_config)
 
-            self.c_config.get().Setup(ParquetEncryptionConfig.unwrap_cryptofactory(crypto_factory),
-                                      ParquetEncryptionConfig.unwrap_kmsconnectionconfig(
-                kms_connection_config),
-                c_encryption_config)
+            self.c_config.get().crypto_factory = ParquetEncryptionConfig.unwrap_cryptofactory(crypto_factory)
+            self.c_config.get().kms_connection_config = ParquetEncryptionConfig.unwrap_kmsconnectionconfig(
+                kms_connection_config)
+            self.c_config.get().encryption_config = c_encryption_config
 
         @staticmethod
         cdef wrap(shared_ptr[CParquetEncryptionConfig] c_config):
@@ -184,10 +184,10 @@ IF PARQUET_ENCRYPTION_ENABLED:
             c_decryption_config = ParquetDecryptionConfig.unwrap_decryptionconfig(
                 decryption_config)
 
-            self.c_config.get().Setup(ParquetDecryptionConfig.unwrap_cryptofactory(crypto_factory),
-                                      ParquetDecryptionConfig.unwrap_kmsconnectionconfig(
-                kms_connection_config),
-                c_decryption_config)
+            self.c_config.get().crypto_factory = ParquetDecryptionConfig.unwrap_cryptofactory(crypto_factory)
+            self.c_config.get().kms_connection_config = ParquetDecryptionConfig.unwrap_kmsconnectionconfig(
+                kms_connection_config)
+            self.c_config.get().decryption_config = c_decryption_config
 
         @staticmethod
         cdef wrap(shared_ptr[CParquetDecryptionConfig] c_config):

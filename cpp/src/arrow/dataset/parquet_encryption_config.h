@@ -31,15 +31,6 @@ namespace dataset {
 
 /// core class, that translates the parameters of high level encryption
 struct ARROW_DS_EXPORT ParquetEncryptionConfig {
-  void Setup(
-      std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory,
-      std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config,
-      std::shared_ptr<parquet::encryption::EncryptionConfiguration> encryption_config) {
-    this->crypto_factory = std::move(crypto_factory);
-    this->kms_connection_config = std::move(kms_connection_config);
-    this->encryption_config = std::move(encryption_config);
-  }
-
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory;
   std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config;
   std::shared_ptr<parquet::encryption::EncryptionConfiguration> encryption_config;
@@ -47,15 +38,6 @@ struct ARROW_DS_EXPORT ParquetEncryptionConfig {
 
 /// core class, that translates the parameters of high level decryption
 struct ARROW_DS_EXPORT ParquetDecryptionConfig {
-  void Setup(
-      std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory,
-      std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config,
-      std::shared_ptr<parquet::encryption::DecryptionConfiguration> decryption_config) {
-    this->crypto_factory = std::move(crypto_factory);
-    this->kms_connection_config = std::move(kms_connection_config);
-    this->decryption_config = std::move(decryption_config);
-  }
-
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory;
   std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config;
   std::shared_ptr<parquet::encryption::DecryptionConfiguration> decryption_config;

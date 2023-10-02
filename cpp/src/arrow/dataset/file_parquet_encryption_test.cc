@@ -97,8 +97,10 @@ class DatasetEncryptionTest : public ::testing::Test {
             std::string(kFooterKeyName));
     encryption_config->column_keys = kColumnKeyMapping;
     auto parquet_encryption_config = std::make_shared<ParquetEncryptionConfig>();
-    parquet_encryption_config->Setup(crypto_factory, kms_connection_config,
-                                     std::move(encryption_config));
+    // Directly assign shared_ptr objects to ParquetEncryptionConfig members
+    parquet_encryption_config->crypto_factory = crypto_factory;
+    parquet_encryption_config->kms_connection_config = kms_connection_config;
+    parquet_encryption_config->encryption_config = std::move(encryption_config);
 
     auto file_format = std::make_shared<ParquetFileFormat>();
     auto parquet_file_write_options =
@@ -150,8 +152,9 @@ TEST_F(DatasetEncryptionTest, WriteReadDatasetWithEncryption) {
   auto decryption_config =
       std::make_shared<parquet::encryption::DecryptionConfiguration>();
   auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
-  parquet_decryption_config->Setup(crypto_factory, kms_connection_config,
-                                   std::move(decryption_config));
+  parquet_decryption_config->crypto_factory = crypto_factory;
+  parquet_decryption_config->kms_connection_config = kms_connection_config;
+  parquet_decryption_config->decryption_config = std::move(decryption_config);
 
   // Set scan options.
   auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
