@@ -455,5 +455,5 @@ cdef class CryptoFactory(_Weakrefable):
     def remove_cache_entries_for_all_tokens(self):
         self.factory.get().RemoveCacheEntriesForAllTokens()
 
-    cdef inline shared_ptr[CPyCryptoFactory] unwrap(self) nogil:
+    cdef inline shared_ptr[CPyCryptoFactory] unwrap(self):
         return self.factory
