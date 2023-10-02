@@ -730,6 +730,31 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDuratio
   CountRowGroupsInFragment(fragment, {0}, expr);
 }
 
+TEST_P(TestParquetFileFormatScan,
+       PredicatePushdownRowGroupFragmentsUsingTimestampColumn) {
+  // GH-37799: Parquet arrow will change TimeUnit::SECOND to TimeUnit::MILLI
+  // because parquet LogicalType doesn't support SECOND.
+  for (auto time_unit : {TimeUnit::MILLI, TimeUnit::SECOND}) {
+    auto table = TableFromJSON(schema({field("t", time32(time_unit))}),
+                               {
+                                   R"([{"t": 1}])",
+                                   R"([{"t": 2}, {"t": 3}])",
+                               });
+    TableBatchReader table_reader(*table);
+    ARROW_SCOPED_TRACE("time_unit=", time_unit);
+    ASSERT_OK_AND_ASSIGN(
+        auto source,
+        ParquetFormatHelper::Write(
+            &table_reader, ArrowWriterProperties::Builder().store_schema()->build())
+            .As<FileSource>());
+    SetSchema({field("t", time32(time_unit))});
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(source));
+
+    auto expr = equal(field_ref("t"), literal(::arrow::Time32Scalar(1, time_unit)));
+    CountRowGroupsInFragment(fragment, {0}, expr);
+  }
+}
+
 // Tests projection with nested/indexed FieldRefs.
 // https://github.com/apache/arrow/issues/35579
 TEST_P(TestParquetFileFormatScan, ProjectWithNonNamedFieldRefs) {
