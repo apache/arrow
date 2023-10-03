@@ -743,6 +743,40 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
   )
 }
 
+#' CSV Convert Options
+#'
+#' @param check_utf8 Logical: check UTF8 validity of string columns? (default `TRUE`)
+#' @param null_values Character vector of recognized spellings for null values.
+#'    Analogous to the `na.strings` argument to
+#'    [`read.csv()`][utils::read.csv()] or `na` in [readr::read_csv()].
+#' @param strings_can_be_null Logical: can string / binary columns have
+#'    null values? Similar to the `quoted_na` argument to [readr::read_csv()].
+#'    (default `FALSE`)
+#' @param true_values Character vector of recognized spellings for `TRUE` values
+#' @param false_values Character vector of recognized spellings for `FALSE` values
+#' @param col_types A `Schema` or `NULL` to infer types
+#' @param auto_dict_encode Logical: Whether to try to automatically
+#'    dictionary-encode string / binary data (think `stringsAsFactors`). Default `FALSE`.
+#'    This setting is ignored for non-inferred columns (those in `col_types`).
+#' @param auto_dict_max_cardinality If `auto_dict_encode`, string/binary columns
+#'    are dictionary-encoded up to this number of unique values (default 50),
+#'    after which it switches to regular encoding.
+#' @param include_columns If non-empty, indicates the names of columns from the
+#'    CSV file that should be actually read and converted (in the vector's order).
+#' @param include_missing_columns Logical: if `include_columns` is provided, should
+#'    columns named in it but not found in the data be included as a column of
+#'    type `null()`? The default (`FALSE`) means that the reader will instead
+#'    raise an error.
+#' @param timestamp_parsers User-defined timestamp parsers. If more than one
+#'    parser is specified, the CSV conversion logic will try parsing values
+#'    starting from the beginning of this vector. Possible values are
+#'    (a) `NULL`, the default, which uses the ISO-8601 parser;
+#'    (b) a character vector of [strptime][base::strptime()] parse strings; or
+#'    (c) a list of [TimestampParser] objects.
+#'
+#' @export
+csv_convert_options <- CsvConvertOptions$create
+
 readr_to_csv_convert_options <- function(na,
                                          quoted_na,
                                          col_types = NULL,
