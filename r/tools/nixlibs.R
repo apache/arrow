@@ -185,8 +185,8 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
 
 # This tests that curl and OpenSSL are present (bc we can include their headers)
 # and it checks for other versions/features and raises errors that we grep for
-test_for_curl_and_openssl <-
-  "#ifndef __APPLE__
+test_for_curl_and_openssl <- "
+#ifndef __APPLE__
 #include <ciso646>
 #ifdef _LIBCPP_VERSION
 #error Using libc++

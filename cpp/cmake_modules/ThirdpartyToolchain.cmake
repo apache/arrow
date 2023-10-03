@@ -1312,8 +1312,10 @@ macro(build_snappy)
   # to build failues by way of new compiler warnings. This adds a flag to disable
   # Werror to the very end of the invocation to override the snappy internal setting.
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    list(APPEND SNAPPY_CMAKE_ARGS
-         "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error")
+    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+      list(APPEND SNAPPY_CMAKE_ARGS
+           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error")
+    endforeach()
   endif()
 
   if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
@@ -1321,6 +1323,8 @@ macro(build_snappy)
     # This can be removed once CRAN no longer checks on macOS 10.13
     find_program(PATCH patch REQUIRED)
     set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
+  else()
+    set(SNAPPY_PATCH_COMMAND)
   endif()
 
   externalproject_add(snappy_ep

@@ -330,13 +330,13 @@ on:
   {% endif %}
   {% if get_mac %}
     {% for openssl_version in ["1.1", "3.0"] %}
-    {% for arch in ["x86_64", "arm64"] %}
+      {% for arch in ["x86_64", "arm64"] %}
   - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
     uses: actions/download-artifact@v3
     with:
       name: r-lib__libarrow__bin__darwin-{{arch}}-openssl-{{ openssl_version }}
       path: repo/libarrow/bin/darwin-{{ arch }}-openssl-{{ openssl_version }}
-    {% endfor %}
+      {% endfor %}
     {% endfor %}
   {% endif %}
   - name: Get src pkg

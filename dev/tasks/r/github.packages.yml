@@ -263,7 +263,8 @@ jobs:
             repos = sub("file://", "file:", getOption("arrow.dev_repo")),,
             INSTALL_opts = INSTALL_opts
           )
-          
+
+
           # Test
           library(arrow)
           arrow_info()
@@ -285,8 +286,6 @@ jobs:
         with:
           name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
-          
-          
   test-linux-binary:
     needs: [source, linux-cpp]
     name: Test binary {{ '${{ matrix.config.image }}' }}
