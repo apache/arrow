@@ -63,6 +63,15 @@ using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
 
+auto const* kLoremIpsum = R"""(
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.
+)""";
+
 class AzuriteEnv : public ::testing::Environment {
  public:
   AzuriteEnv() {
@@ -184,6 +193,10 @@ class TestAzureFileSystem : public ::testing::Test {
     container_name_ = RandomChars(32);
     auto file_system_client = gen2_client_->GetFileSystemClient(container_name_);
     file_system_client.CreateIfNotExists();
+
+    auto file_client = file_system_client.GetFileClient(PreexistingObjectName());
+    file_client.UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum),
+                           strlen(kLoremIpsum));
   }
 
   void TearDown() override {
@@ -233,6 +246,14 @@ class TestAzureFileSystem : public ::testing::Test {
     return PreexistingContainerName() + '/';
   }
 
+  static std::string PreexistingObjectName() { return "test-object-name"; }
+
+  std::string PreexistingObjectPath() const {
+    return PreexistingContainerPath() + PreexistingObjectName();
+  }
+
+  std::string NotFoundObjectPath() { return PreexistingContainerPath() + "not-found"; }
+
   std::string RandomLine(int lineno, std::size_t width) {
     auto line = std::to_string(lineno) + ":    ";
     line += RandomChars(width - line.size() - 1);
@@ -255,6 +276,16 @@ class TestAzureFileSystem : public ::testing::Test {
     std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(generator_)]; });
     return s;
   }
+
+  void UploadLines(std::vector<std::string> lines, const char* path_to_file,
+                   int total_size) {
+    // TODO: Switch to using Azure filesystem to write once its implemented.
+    auto file_client = gen2_client_->GetFileSystemClient(PreexistingContainerName())
+                           .GetFileClient(path_to_file);
+    std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
+    file_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()),
+                           total_size);
+  }
 };
 
 TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
@@ -269,10 +300,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
   const auto path_to_file = "OpenInputFileMixedReadVsReadAt/object-name";
   const auto path = PreexistingContainerPath() + path_to_file;
 
-  // TODO: Switch to using Azure filesystem to write once its implemented. 
-  auto file_client = gen2_client_->GetFileSystemClient(PreexistingContainerName()).GetFileClient(path_to_file);
-  std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
-  file_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()), kLineWidth * kLineCount);
+  UploadLines(lines, path_to_file, kLineCount * kLineWidth);
 
   std::shared_ptr<io::RandomAccessFile> file;
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(path));
@@ -306,57 +334,52 @@ TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
   }
 }
 
-// TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
-//   auto fs = GcsFileSystem::Make(TestGcsOptions());
+TEST_F(TestAzureFileSystem, OpenInputFileRandomSeek) {
+  // Create a file large enough to make the random access tests non-trivial.
+  auto constexpr kLineWidth = 100;
+  auto constexpr kLineCount = 4096;
+  std::vector<std::string> lines(kLineCount);
+  int lineno = 0;
+  std::generate_n(lines.begin(), lines.size(),
+                  [&] { return RandomLine(++lineno, kLineWidth); });
 
-//   // Create a file large enough to make the random access tests non-trivial.
-//   auto constexpr kLineWidth = 100;
-//   auto constexpr kLineCount = 4096;
-//   std::vector<std::string> lines(kLineCount);
-//   int lineno = 0;
-//   std::generate_n(lines.begin(), lines.size(),
-//                   [&] { return RandomLine(++lineno, kLineWidth); });
+  const auto path_to_file = "OpenInputFileRandomSeek/object-name";
+  const auto path = PreexistingContainerPath() + path_to_file;
+  std::shared_ptr<io::OutputStream> output;
 
-//   const auto path = PreexistingContainerPath() + "OpenInputFileRandomSeek/object-name";
-//   std::shared_ptr<io::OutputStream> output;
-//   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
-//   for (auto const& line : lines) {
-//     ASSERT_OK(output->Write(line.data(), line.size()));
-//   }
-//   ASSERT_OK(output->Close());
+  UploadLines(lines, path_to_file, kLineCount * kLineWidth);
 
-//   std::shared_ptr<io::RandomAccessFile> file;
-//   ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
-//   for (int i = 0; i != 32; ++i) {
-//     SCOPED_TRACE("Iteration " + std::to_string(i));
-//     // Verify sequential reads work as expected.
-//     auto const index = RandomIndex(kLineCount);
-//     auto const position = index * kLineWidth;
-//     ASSERT_OK(file->Seek(position));
-//     ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
-//     EXPECT_EQ(lines[index], actual->ToString());
-//   }
-// }
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(path));
+  for (int i = 0; i != 32; ++i) {
+    SCOPED_TRACE("Iteration " + std::to_string(i));
+    // Verify sequential reads work as expected.
+    auto const index = RandomIndex(kLineCount);
+    auto const position = index * kLineWidth;
+    ASSERT_OK(file->Seek(position));
+    ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
+    EXPECT_EQ(lines[index], actual->ToString());
+  }
+}
 
-// TEST_F(GcsIntegrationTest, OpenInputFileIoContext) {
-//   auto fs = GcsFileSystem::Make(TestGcsOptions());
+TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
+  // Create a test file.
+  const auto path_to_file = "OpenInputFileIoContext/object-name";
+  const auto path = PreexistingContainerPath() + path_to_file;
+  const std::string contents = "The quick brown fox jumps over the lazy dog";
 
-//   // Create a test file.
-//   const auto path = PreexistingContainerPath() + "OpenInputFileIoContext/object-name";
-//   std::shared_ptr<io::OutputStream> output;
-//   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
-//   const std::string contents = "The quick brown fox jumps over the lazy dog";
-//   ASSERT_OK(output->Write(contents.data(), contents.size()));
-//   ASSERT_OK(output->Close());
+  auto file_client = gen2_client_->GetFileSystemClient(PreexistingContainerName())
+                         .GetFileClient(path_to_file);
+  file_client.UploadFrom(reinterpret_cast<const uint8_t*>(contents.data()),
+                         contents.length());
 
-//   std::shared_ptr<io::RandomAccessFile> file;
-//   ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
-//   EXPECT_EQ(fs->io_context().external_id(), file->io_context().external_id());
-// }
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(path));
+  EXPECT_EQ(fs_->io_context().external_id(), file->io_context().external_id());
+}
 
-// TEST_F(GcsIntegrationTest, OpenInputFileInfo) {
-//   auto fs = GcsFileSystem::Make(TestGcsOptions());
-
+// TODO: Implement this once GetFileInfo is implemented.
+// TEST_F(TestAzureFileSystem, OpenInputFileInfo) {
 //   arrow::fs::FileInfo info;
 //   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingObjectPath()));
 
@@ -372,12 +395,11 @@ TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
 //   EXPECT_EQ(std::string(buffer.data(), size), expected);
 // }
 
-// TEST_F(GcsIntegrationTest, OpenInputFileNotFound) {
-//   auto fs = GcsFileSystem::Make(TestGcsOptions());
+TEST_F(TestAzureFileSystem, OpenInputFileNotFound) {
+  ASSERT_RAISES(IOError, fs_->OpenInputFile(NotFoundObjectPath()));
+}
 
-//   ASSERT_RAISES(IOError, fs->OpenInputFile(NotFoundObjectPath()));
-// }
-
+// TODO: Implement this once GetFileInfo is implemented.
 // TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
 //   auto fs = GcsFileSystem::Make(TestGcsOptions());
 
@@ -389,19 +411,17 @@ TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
 //   ASSERT_RAISES(IOError, fs->OpenInputFile(info));
 // }
 
-// TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
-//   auto fs = GcsFileSystem::Make(TestGcsOptions());
-
-//   ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputFile(PreexistingObjectPath()));
-//   ASSERT_OK(stream->Close());
-//   std::array<char, 16> buffer{};
-//   ASSERT_RAISES(Invalid, stream->Tell());
-//   ASSERT_RAISES(Invalid, stream->Read(buffer.size(), buffer.data()));
-//   ASSERT_RAISES(Invalid, stream->Read(buffer.size()));
-//   ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
-//   ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
-//   ASSERT_RAISES(Invalid, stream->Seek(2));
-// }
+TEST_F(TestAzureFileSystem, OpenInputFileClosed) {
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputFile(PreexistingObjectPath()));
+  ASSERT_OK(stream->Close());
+  std::array<char, 16> buffer{};
+  ASSERT_RAISES(Invalid, stream->Tell());
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size(), buffer.data()));
+  ASSERT_RAISES(Invalid, stream->Read(buffer.size()));
+  ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
+  ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
+  ASSERT_RAISES(Invalid, stream->Seek(2));
+}
 
 }  // namespace
 }  // namespace fs

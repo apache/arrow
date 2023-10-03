@@ -193,6 +193,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       metadata_ = GetObjectMetadata(properties.Value.Metadata);
       return Status::OK();
     } catch (const Azure::Storage::StorageException& exception) {
+      // TODO: Only return path not found if Azure gave us path not found.
       return ::arrow::fs::internal::PathNotFound(path_.full_path);
     }
   }
