@@ -1050,11 +1050,7 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
 
 TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayElementDelimiter) {
   PrettyPrintOptions options{};
-  // Display array contents on one line.
-  options.skip_new_lines = true;
-  // Display maximum of 3 elements at the beginning and at the end of the array
-  options.window = 3;
-  // Use a custom array element delimiter of " | ",
+  // Use a custom array element delimiter of " |",
   // rather than the default delimiter (i.e. ",").
   options.array_element_delimiter = " | ";
 
@@ -1064,7 +1060,15 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayElementDelimiter) {
   {
     const ChunkedArray chunked_array(chunk);
 
-    static const char* expected = R"expected([[1 | 2 | null | 4 | null]])expected";
+    static const char* expected = R"expected([
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ]
+])expected";
     CheckStream(chunked_array, options, expected);
   }
 
@@ -1072,8 +1076,22 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayElementDelimiter) {
   {
     const ChunkedArray chunked_array({chunk, chunk});
 
-    static const char* expected =
-        R"expected([[1 | 2 | null | 4 | null],[1 | 2 | null | 4 | null]])expected";
+    static const char* expected = R"expected([
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ],
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ]
+])expected";
 
     CheckStream(chunked_array, options, expected);
   }
