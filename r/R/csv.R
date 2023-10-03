@@ -497,6 +497,7 @@ csv_read_options <- function(use_threads = option_use_threads(),
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
+#' - `decimal_point` Character to use for decimal point in floating point numbers. Default: "."
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
@@ -765,7 +766,8 @@ csv_convert_options <- function(check_utf8 = TRUE,
                                 auto_dict_max_cardinality = 50L,
                                 include_columns = character(),
                                 include_missing_columns = FALSE,
-                                timestamp_parsers = NULL) {
+                                timestamp_parsers = NULL,
+                                decimal_point = ".") {
   if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
       "Unsupported `col_types` specification.",
@@ -785,7 +787,8 @@ csv_convert_options <- function(check_utf8 = TRUE,
       auto_dict_max_cardinality = auto_dict_max_cardinality,
       include_columns = include_columns,
       include_missing_columns = include_missing_columns,
-      timestamp_parsers = timestamp_parsers
+      timestamp_parsers = timestamp_parsers,
+      decimal_point = decimal_point
     )
   )
 }
