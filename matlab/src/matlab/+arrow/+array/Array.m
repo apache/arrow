@@ -21,26 +21,26 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         Proxy
     end
 
-    properties (Dependent)
+    properties(Dependent, SetAccess=private, GetAccess=public)
         Length
         Valid % Validity bitmap
-    end
-
-    properties(Dependent, SetAccess=private, GetAccess=public)
         Type(1, 1) arrow.type.Type
     end
     
     methods
-        function obj = Array(varargin)
-            obj.Proxy = libmexclass.proxy.Proxy(varargin{:}); 
+        function obj = Array(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj.Proxy = proxy;
         end
 
         function numElements = get.Length(obj)
-            numElements = obj.Proxy.length();
+            numElements = obj.Proxy.getLength();
         end
 
         function validElements = get.Valid(obj)
-            validElements = obj.Proxy.valid();
+            validElements = obj.Proxy.getValid();
         end
 
         function matlabArray = toMATLAB(obj)
@@ -48,9 +48,9 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         end
 
         function type = get.Type(obj)
-            [proxyID, typeID] = obj.Proxy.type();
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=proxyID);
+            typeStruct = obj.Proxy.getType();
+            traits = arrow.type.traits.traits(arrow.type.ID(typeStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=typeStruct.ProxyID);
             type = traits.TypeConstructor(proxy);
         end
     end
@@ -64,6 +64,25 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     methods (Access=protected)
         function displayScalarObject(obj)
             disp(obj.toString());
+        end
+    end
+
+    methods
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+            % Extract each array's proxy ID
+            proxyIDs = zeros(numel(varargin), 1, "uint64");
+            for ii = 1:numel(varargin)
+                array = varargin{ii};
+                if ~isa(array, "arrow.array.Array")
+                    % Return early if array is not a arrow.array.Array
+                    return;
+                end
+                proxyIDs(ii) = array.Proxy.ID;
+            end
+            % Invoke isEqual proxy object method
+            tf = obj.Proxy.isEqual(proxyIDs);
         end
     end
 end

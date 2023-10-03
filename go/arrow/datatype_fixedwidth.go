@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v14/internal/json"
 
 	"golang.org/x/xerrors"
 )
@@ -347,7 +347,7 @@ type TemporalWithUnit interface {
 }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
-// The zero-value is a nanosecond and time zone neutral. Time zone neutral can be
+// The zero-value is a second and time zone neutral. Time zone neutral can be
 // considered UTC without having "UTC" as a time zone.
 type TimestampType struct {
 	Unit     TimeUnit
@@ -374,9 +374,9 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
-func (TimestampType) Bytes() int { return Int64SizeBytes }
+func (*TimestampType) Bytes() int { return Int64SizeBytes }
 
-func (TimestampType) Layout() DataTypeLayout {
+func (*TimestampType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
 }
 
@@ -444,15 +444,9 @@ func (t *TimestampType) GetToTimeFunc() (func(Timestamp) time.Time, error) {
 	case Second:
 		return func(v Timestamp) time.Time { return time.Unix(int64(v), 0).In(tz) }, nil
 	case Millisecond:
-		factor := int64(time.Second / time.Millisecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Millisecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMilli(int64(v)).In(tz) }, nil
 	case Microsecond:
-		factor := int64(time.Second / time.Microsecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Microsecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMicro(int64(v)).In(tz) }, nil
 	case Nanosecond:
 		return func(v Timestamp) time.Time { return time.Unix(0, int64(v)).In(tz) }, nil
 	}

@@ -708,9 +708,7 @@ class ExpirationTimeCancelFlightInfoScenario : public Scenario {
 
 /// \brief The expiration time scenario - RenewFlightEndpoint.
 ///
-/// This tests that the client can renew a FlightEndpoint and read
-/// data in renewed expiration time even when the original
-/// expiration time is over.
+/// This tests that the client can renew a FlightEndpoint.
 class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
   Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                     FlightServerOptions* options) override {
@@ -741,6 +739,135 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
                                "Original:\n", endpoint.ToString(), "Renewed:\n",
                                renewed_endpoint.ToString());
       }
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The server used for testing PollFlightInfo().
+class PollFlightInfoServer : public FlightServerBase {
+ public:
+  PollFlightInfoServer() : FlightServerBase() {}
+
+  Status PollFlightInfo(const ServerCallContext& context,
+                        const FlightDescriptor& descriptor,
+                        std::unique_ptr<PollInfo>* result) override {
+    auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
+    std::vector<FlightEndpoint> endpoints = {
+        FlightEndpoint{{"long-running query"}, {}, std::nullopt}};
+    ARROW_ASSIGN_OR_RAISE(
+        auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
+    if (descriptor == FlightDescriptor::Command("poll")) {
+      *result = std::make_unique<PollInfo>(std::make_unique<FlightInfo>(std::move(info)),
+                                           std::nullopt, 1.0, std::nullopt);
+    } else {
+      *result =
+          std::make_unique<PollInfo>(std::make_unique<FlightInfo>(std::move(info)),
+                                     FlightDescriptor::Command("poll"), 0.1,
+                                     Timestamp::clock::now() + std::chrono::seconds{10});
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The PollFlightInfo scenario.
+///
+/// This tests that the client can poll a long-running query.
+class PollFlightInfoScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<PollFlightInfoServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(
+        auto info, client->PollFlightInfo(FlightDescriptor::Command("heavy query")));
+    if (!info->descriptor.has_value()) {
+      return Status::Invalid("Description is missing: ", info->ToString());
+    }
+    if (!info->progress.has_value()) {
+      return Status::Invalid("Progress is missing: ", info->ToString());
+    }
+    if (!(0.0 <= *info->progress && *info->progress <= 1.0)) {
+      return Status::Invalid("Invalid progress: ", info->ToString());
+    }
+    if (!info->expiration_time.has_value()) {
+      return Status::Invalid("Expiration time is missing: ", info->ToString());
+    }
+    ARROW_ASSIGN_OR_RAISE(info, client->PollFlightInfo(*info->descriptor));
+    if (info->descriptor.has_value()) {
+      return Status::Invalid("Retried but not finished yet: ", info->ToString());
+    }
+    if (!info->progress.has_value()) {
+      return Status::Invalid("Progress is missing in finished query: ", info->ToString());
+    }
+    if (fabs(*info->progress - 1.0) > arrow::kDefaultAbsoluteTolerance) {
+      return Status::Invalid("Progress for finished query isn't 1.0: ", info->ToString());
+    }
+    if (info->expiration_time.has_value()) {
+      return Status::Invalid("Expiration time must not be set for finished query: ",
+                             info->ToString());
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The server used for testing app_metadata in FlightInfo and FlightEndpoint
+class AppMetadataFlightInfoEndpointServer : public FlightServerBase {
+ public:
+  AppMetadataFlightInfoEndpointServer() : FlightServerBase() {}
+
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) override {
+    if (request.type != FlightDescriptor::CMD) {
+      return Status::Invalid("request descriptor should be of type CMD");
+    }
+
+    auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
+    std::vector<FlightEndpoint> endpoints = {
+        FlightEndpoint{{}, {}, std::nullopt, request.cmd}};
+    ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*schema, request, endpoints, -1,
+                                                        -1, false, request.cmd));
+    *info = std::make_unique<FlightInfo>(std::move(result));
+    return Status::OK();
+  }
+};
+
+/// \brief The AppMetadataFlightInfoEndpoint scenario.
+///
+/// This tests that the client can receive and use the `app_metadata` field in
+/// the FlightInfo and FlightEndpoint messages.
+///
+/// The server only implements GetFlightInfo and will return a FlightInfo with a non-
+/// empty app_metadata value that should match the app_metadata field in the
+/// included FlightEndpoint. The value should be the same as the cmd bytes passed
+/// in the call to GetFlightInfo by the client.
+class AppMetadataFlightInfoEndpointScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<AppMetadataFlightInfoEndpointServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("foobar")));
+    if (info->app_metadata() != "foobar") {
+      return Status::Invalid("app_metadata should have been 'foobar', got: ",
+                             info->app_metadata());
+    }
+    if (info->endpoints().size() != 1) {
+      return Status::Invalid("should have gotten exactly one FlightEndpoint back, got: ",
+                             info->endpoints().size());
+    }
+    if (info->endpoints()[0].app_metadata != "foobar") {
+      return Status::Invalid("FlightEndpoint app_metadata should be 'foobar', got: ",
+                             info->endpoints()[0].app_metadata);
     }
     return Status::OK();
   }
@@ -1824,6 +1951,12 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "expiration_time:renew_flight_endpoint") {
     *out = std::make_shared<ExpirationTimeRenewFlightEndpointScenario>();
+    return Status::OK();
+  } else if (scenario_name == "poll_flight_info") {
+    *out = std::make_shared<PollFlightInfoScenario>();
+    return Status::OK();
+  } else if (scenario_name == "app_metadata_flight_info_endpoint") {
+    *out = std::make_shared<AppMetadataFlightInfoEndpointScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

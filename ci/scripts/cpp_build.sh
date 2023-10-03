@@ -34,7 +34,7 @@ if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 
-  export CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
+  export ARROW_CMAKE_ARGS="${ARROW_CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
@@ -104,8 +104,9 @@ cmake \
   -DARROW_C_FLAGS_DEBUG="${ARROW_C_FLAGS_DEBUG:-}" \
   -DARROW_C_FLAGS_RELEASE="${ARROW_C_FLAGS_RELEASE:-}" \
   -DARROW_C_FLAGS_RELWITHDEBINFO="${ARROW_C_FLAGS_RELWITHDEBINFO:-}" \
-  -DARROW_DATASET=${ARROW_DATASET:-ON} \
+  -DARROW_DATASET=${ARROW_DATASET:-OFF} \
   -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
+  -DARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} \
   -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
   -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM:-ON} \
@@ -128,7 +129,7 @@ cmake \
   -DARROW_S3=${ARROW_S3:-OFF} \
   -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL:-DEFAULT} \
   -DARROW_SKYHOOK=${ARROW_SKYHOOK:-OFF} \
-  -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-ON} \
+  -DARROW_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF} \
   -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
   -DARROW_TEST_MEMCHECK=${ARROW_TEST_MEMCHECK:-OFF} \
   -DARROW_USE_ASAN=${ARROW_USE_ASAN:-OFF} \
@@ -151,6 +152,7 @@ cmake \
   -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
   -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
   -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
+  -DAzure_SOURCE=${Azure_SOURCE:-} \
   -Dbenchmark_SOURCE=${benchmark_SOURCE:-} \
   -DBOOST_SOURCE=${BOOST_SOURCE:-} \
   -DBrotli_SOURCE=${Brotli_SOURCE:-} \
@@ -182,11 +184,14 @@ cmake \
   -Dzstd_SOURCE=${zstd_SOURCE:-} \
   -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
   -G "${CMAKE_GENERATOR:-Ninja}" \
-  ${CMAKE_ARGS} \
+  ${ARROW_CMAKE_ARGS} \
   ${source_dir}
 
 export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
 time cmake --build . --target install
+
+# Save disk space by removing large temporary build products
+find . -name "*.o" -delete
 
 popd
 

@@ -21,6 +21,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 
@@ -35,6 +36,9 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
 
   @Override
   public void sortOutOfPlace(V srcVector, V dstVector, VectorValueComparator<V> comparator) {
+    if (srcVector instanceof BitVector) {
+      throw new IllegalArgumentException("BitVector is not supported with FixedWidthOutOfPlaceVectorSorter.");
+    }
     comparator.attachVector(srcVector);
 
     int valueWidth = comparator.getValueWidth();

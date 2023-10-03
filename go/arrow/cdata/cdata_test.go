@@ -24,6 +24,7 @@
 package cdata
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -34,11 +35,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -183,13 +184,17 @@ func TestImportTemporalSchema(t *testing.T) {
 		{arrow.FixedWidthTypes.MonthInterval, "tiM"},
 		{arrow.FixedWidthTypes.DayTimeInterval, "tiD"},
 		{arrow.FixedWidthTypes.MonthDayNanoInterval, "tin"},
-		{arrow.FixedWidthTypes.Timestamp_s, "tss:"},
+		{arrow.FixedWidthTypes.Timestamp_s, "tss:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Second}, "tss:"},
 		{&arrow.TimestampType{Unit: arrow.Second, TimeZone: "Europe/Paris"}, "tss:Europe/Paris"},
-		{arrow.FixedWidthTypes.Timestamp_ms, "tsm:"},
+		{arrow.FixedWidthTypes.Timestamp_ms, "tsm:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Millisecond}, "tsm:"},
 		{&arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "Europe/Paris"}, "tsm:Europe/Paris"},
-		{arrow.FixedWidthTypes.Timestamp_us, "tsu:"},
+		{arrow.FixedWidthTypes.Timestamp_us, "tsu:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Microsecond}, "tsu:"},
 		{&arrow.TimestampType{Unit: arrow.Microsecond, TimeZone: "Europe/Paris"}, "tsu:Europe/Paris"},
-		{arrow.FixedWidthTypes.Timestamp_ns, "tsn:"},
+		{arrow.FixedWidthTypes.Timestamp_ns, "tsn:UTC"},
+		{&arrow.TimestampType{Unit: arrow.Nanosecond}, "tsn:"},
 		{&arrow.TimestampType{Unit: arrow.Nanosecond, TimeZone: "Europe/Paris"}, "tsn:Europe/Paris"},
 	}
 
@@ -586,6 +591,18 @@ func createTestStructArr() arrow.Array {
 	return bld.NewArray()
 }
 
+func createTestRunEndsArr() arrow.Array {
+	bld := array.NewRunEndEncodedBuilder(memory.DefaultAllocator,
+		arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int8)
+	defer bld.Release()
+
+	if err := json.Unmarshal([]byte(`[1, 2, 2, 3, null, null, null, 4]`), bld); err != nil {
+		panic(err)
+	}
+
+	return bld.NewArray()
+}
+
 func createTestMapArr() arrow.Array {
 	bld := array.NewMapBuilder(memory.DefaultAllocator, arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String, false)
 	defer bld.Release()
@@ -662,6 +679,7 @@ func TestNestedArrays(t *testing.T) {
 		{"map", createTestMapArr},
 		{"sparse union", createTestSparseUnion},
 		{"dense union", createTestDenseUnion},
+		{"run-end encoded", createTestRunEndsArr},
 	}
 
 	for _, tt := range tests {

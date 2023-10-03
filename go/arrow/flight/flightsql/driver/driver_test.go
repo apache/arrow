@@ -33,13 +33,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/driver"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/example"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/flight"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/driver"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/example"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 )
 
 const defaultTableName = "drivertest"

@@ -27,7 +27,9 @@ namespace Apache.Arrow.Tests
         IArrowTypeVisitor<Time64Type>,
         IArrowTypeVisitor<FixedSizeBinaryType>,
         IArrowTypeVisitor<ListType>,
-        IArrowTypeVisitor<StructType>
+        IArrowTypeVisitor<FixedSizeListType>,
+        IArrowTypeVisitor<StructType>,
+        IArrowTypeVisitor<UnionType>
     {
         private readonly IArrowType _expectedType;
 
@@ -95,10 +97,36 @@ namespace Apache.Arrow.Tests
             CompareNested(expectedType, actualType);
         }
 
+        public void Visit(FixedSizeListType actualType)
+        {
+            Assert.IsAssignableFrom<FixedSizeListType>(_expectedType);
+            var expectedType = (FixedSizeListType)_expectedType;
+
+            Assert.Equal(expectedType.ListSize, actualType.ListSize);
+
+            CompareNested(expectedType, actualType);
+        }
+
         public void Visit(StructType actualType)
         {
             Assert.IsAssignableFrom<StructType>(_expectedType);
             var expectedType = (StructType)_expectedType;
+
+            CompareNested(expectedType, actualType);
+        }
+
+        public void Visit(UnionType actualType)
+        {
+            Assert.IsAssignableFrom<UnionType>(_expectedType);
+            UnionType expectedType = (UnionType)_expectedType;
+
+            Assert.Equal(expectedType.Mode, actualType.Mode);
+
+            Assert.Equal(expectedType.TypeIds.Length, actualType.TypeIds.Length);
+            for (int i = 0; i < expectedType.TypeIds.Length; i++)
+            {
+                Assert.Equal(expectedType.TypeIds[i], actualType.TypeIds[i]);
+            }
 
             CompareNested(expectedType, actualType);
         }

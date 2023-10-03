@@ -490,7 +490,7 @@ TEST(FunctionMapping, ValidCases) {
        {{"rounding", {"TIE_AWAY_FROM_ZERO"}}},
        {int64(), int32()},
        "300",
-       float64()},
+       int64()},
   };
   CheckValidTestCases(valid_test_cases);
 }

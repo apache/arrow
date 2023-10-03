@@ -124,6 +124,23 @@ namespace Apache.Arrow.C
             _ => throw new InvalidDataException($"Unsupported time unit for export: {unit}"),
         };
 
+        private static string FormatUnion(UnionType unionType)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(unionType.Mode switch
+            {
+                UnionMode.Sparse => "+us:",
+                UnionMode.Dense => "+ud:",
+                _ => throw new InvalidDataException($"Unsupported union mode for export: {unionType.Mode}"),
+            });
+            for (int i = 0; i < unionType.TypeIds.Length; i++)
+            {
+                if (i > 0) { builder.Append(','); }
+                builder.Append(unionType.TypeIds[i]);
+            }
+            return builder.ToString();
+        }
+
         private static string GetFormat(IArrowType datatype)
         {
             switch (datatype)
@@ -167,7 +184,10 @@ namespace Apache.Arrow.C
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
                 // Nested
                 case ListType _: return "+l";
+                case FixedSizeListType fixedListType:
+                    return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
+                case UnionType u: return FormatUnion(u);
                 // Dictionary
                 case DictionaryType dictionaryType:
                     return GetFormat(dictionaryType.IndexType);

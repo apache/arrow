@@ -24,12 +24,16 @@
 
 #include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/types_async.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/uri.h"
 
@@ -148,7 +152,8 @@ Status FlightPayload::Validate() const {
 
 arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
     ipc::DictionaryMemo* dictionary_memo) const {
-  io::BufferReader schema_reader(raw_schema_);
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(raw_schema_));
   return ipc::ReadSchema(&schema_reader, dictionary_memo);
 }
 
@@ -255,13 +260,14 @@ arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
                                            const FlightDescriptor& descriptor,
                                            const std::vector<FlightEndpoint>& endpoints,
                                            int64_t total_records, int64_t total_bytes,
-                                           bool ordered) {
+                                           bool ordered, std::string app_metadata) {
   FlightInfo::Data data;
   data.descriptor = descriptor;
   data.endpoints = endpoints;
   data.total_records = total_records;
   data.total_bytes = total_bytes;
   data.ordered = ordered;
+  data.app_metadata = std::move(app_metadata);
   RETURN_NOT_OK(internal::SchemaToString(schema, &data.schema));
   return FlightInfo(data);
 }
@@ -271,7 +277,8 @@ arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
   if (reconstructed_schema_) {
     return schema_;
   }
-  io::BufferReader schema_reader(data_.schema);
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(data_.schema));
   RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo).Value(&schema_));
   reconstructed_schema_ = true;
   return schema_;
@@ -299,9 +306,8 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
   if (!pb_info.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid FlightInfo");
   }
-  FlightInfo::Data data;
-  RETURN_NOT_OK(internal::FromProto(pb_info, &data));
-  return std::make_unique<FlightInfo>(std::move(data));
+  ARROW_ASSIGN_OR_RAISE(FlightInfo info, internal::FromProto(pb_info));
+  return std::make_unique<FlightInfo>(std::move(info));
 }
 
 std::string FlightInfo::ToString() const {
@@ -323,6 +329,7 @@ std::string FlightInfo::ToString() const {
   ss << "] total_records=" << data_.total_records;
   ss << " total_bytes=" << data_.total_bytes;
   ss << " ordered=" << (data_.ordered ? "true" : "false");
+  ss << " app_metadata='" << HexEncode(data_.app_metadata) << "'";
   ss << '>';
   return ss.str();
 }
@@ -333,7 +340,94 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.endpoints == other.data_.endpoints &&
          data_.total_records == other.data_.total_records &&
          data_.total_bytes == other.data_.total_bytes &&
-         data_.ordered == other.data_.ordered;
+         data_.ordered == other.data_.ordered &&
+         data_.app_metadata == other.data_.app_metadata;
+}
+
+arrow::Result<std::string> PollInfo::SerializeToString() const {
+  pb::PollInfo pb_info;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
+
+  std::string out;
+  if (!pb_info.SerializeToString(&out)) {
+    return Status::IOError("Serialized PollInfo exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
+    std::string_view serialized) {
+  pb::PollInfo pb_info;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized PollInfo size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_info.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid PollInfo");
+  }
+  PollInfo info;
+  RETURN_NOT_OK(internal::FromProto(pb_info, &info));
+  return std::make_unique<PollInfo>(std::move(info));
+}
+
+std::string PollInfo::ToString() const {
+  std::stringstream ss;
+  ss << "<PollInfo info=" << info->ToString();
+  ss << " descriptor=";
+  if (descriptor) {
+    ss << descriptor->ToString();
+  } else {
+    ss << "null";
+  }
+  ss << " progress=";
+  if (progress) {
+    ss << progress.value();
+  } else {
+    ss << "null";
+  }
+  ss << " expiration_time=";
+  if (expiration_time) {
+    auto type = timestamp(TimeUnit::NANO);
+    arrow::internal::StringFormatter<TimestampType> formatter(type.get());
+    auto expiration_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    expiration_time->time_since_epoch())
+                                    .count();
+    formatter(expiration_timestamp,
+              [&ss](std::string_view formatted) { ss << formatted; });
+  } else {
+    ss << "null";
+  }
+  ss << '>';
+  return ss.str();
+}
+
+bool PollInfo::Equals(const PollInfo& other) const {
+  if ((info.get() != nullptr) != (other.info.get() != nullptr)) {
+    return false;
+  }
+  if (info && *info != *other.info) {
+    return false;
+  }
+  if (descriptor.has_value() != other.descriptor.has_value()) {
+    return false;
+  }
+  if (descriptor && *descriptor != *other.descriptor) {
+    return false;
+  }
+  if (progress.has_value() != other.progress.has_value()) {
+    return false;
+  }
+  if (progress && fabs(*progress - *other.progress) > arrow::kDefaultAbsoluteTolerance) {
+    return false;
+  }
+  if (expiration_time.has_value() != other.expiration_time.has_value()) {
+    return false;
+  }
+  if (expiration_time && *expiration_time != *other.expiration_time) {
+    return false;
+  }
+  return true;
 }
 
 std::string CancelFlightInfoRequest::ToString() const {
@@ -444,6 +538,7 @@ std::string FlightEndpoint::ToString() const {
   } else {
     ss << "null";
   }
+  ss << " app_metadata='" << HexEncode(app_metadata) << "'";
   ss << ">";
   return ss.str();
 }
@@ -462,6 +557,9 @@ bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
     if (expiration_time.value() != other.expiration_time.value()) {
       return false;
     }
+  }
+  if (app_metadata != other.app_metadata) {
+    return false;
   }
   return true;
 }
@@ -871,6 +969,89 @@ arrow::Result<std::string> BasicAuth::SerializeToString() const {
     return Status::IOError("Serialized BasicAuth exceeded 2 GiB limit");
   }
   return out;
+}
+
+//------------------------------------------------------------
+// Error propagation helpers
+
+std::string ToString(TransportStatusCode code) {
+  switch (code) {
+    case TransportStatusCode::kOk:
+      return "kOk";
+    case TransportStatusCode::kUnknown:
+      return "kUnknown";
+    case TransportStatusCode::kInternal:
+      return "kInternal";
+    case TransportStatusCode::kInvalidArgument:
+      return "kInvalidArgument";
+    case TransportStatusCode::kTimedOut:
+      return "kTimedOut";
+    case TransportStatusCode::kNotFound:
+      return "kNotFound";
+    case TransportStatusCode::kAlreadyExists:
+      return "kAlreadyExists";
+    case TransportStatusCode::kCancelled:
+      return "kCancelled";
+    case TransportStatusCode::kUnauthenticated:
+      return "kUnauthenticated";
+    case TransportStatusCode::kUnauthorized:
+      return "kUnauthorized";
+    case TransportStatusCode::kUnimplemented:
+      return "kUnimplemented";
+    case TransportStatusCode::kUnavailable:
+      return "kUnavailable";
+  }
+  return "(unknown code)";
+}
+
+std::string TransportStatusDetail::ToString() const {
+  std::string repr = "TransportStatusDetail{";
+  repr += arrow::flight::ToString(code());
+  repr += ", message=\"";
+  repr += message();
+  repr += "\", details={";
+
+  bool first = true;
+  for (const auto& [key, value] : details()) {
+    if (!first) {
+      repr += ", ";
+    }
+    first = false;
+
+    repr += "{\"";
+    repr += key;
+    repr += "\", ";
+    if (arrow::internal::EndsWith(key, "-bin")) {
+      repr += arrow::util::base64_encode(value);
+    } else {
+      repr += "\"";
+      repr += value;
+      repr += "\"";
+    }
+    repr += "}";
+  }
+
+  repr += "}}";
+  return repr;
+}
+
+std::optional<std::reference_wrapper<const TransportStatusDetail>>
+TransportStatusDetail::Unwrap(const Status& status) {
+  std::shared_ptr<StatusDetail> detail = status.detail();
+  if (!detail) return std::nullopt;
+  if (detail->type_id() != kTypeId) return std::nullopt;
+  return std::cref(arrow::internal::checked_cast<const TransportStatusDetail&>(*detail));
+}
+
+//------------------------------------------------------------
+// Async types
+
+AsyncListenerBase::AsyncListenerBase() = default;
+AsyncListenerBase::~AsyncListenerBase() = default;
+void AsyncListenerBase::TryCancel() {
+  if (rpc_state_) {
+    rpc_state_->TryCancel();
+  }
 }
 
 }  // namespace flight

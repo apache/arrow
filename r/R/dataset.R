@@ -240,7 +240,6 @@ open_dataset <- function(sources,
 #' @section Options currently supported by [read_delim_arrow()] which are not supported here:
 #' * `file` (instead, please specify files in `sources`)
 #' * `col_select` (instead, subset columns after dataset creation)
-#' * `quoted_na`
 #' * `as_data_frame` (instead, convert to data frame after dataset creation)
 #' * `parse_options`
 #'
@@ -276,7 +275,8 @@ open_delim_dataset <- function(sources,
                                skip = 0L,
                                convert_options = NULL,
                                read_options = NULL,
-                               timestamp_parsers = NULL) {
+                               timestamp_parsers = NULL,
+                               quoted_na = TRUE) {
   open_dataset(
     sources = sources,
     schema = schema,
@@ -296,7 +296,8 @@ open_delim_dataset <- function(sources,
     skip = skip,
     convert_options = convert_options,
     read_options = read_options,
-    timestamp_parsers = timestamp_parsers
+    timestamp_parsers = timestamp_parsers,
+    quoted_na = quoted_na
   )
 }
 
@@ -318,7 +319,8 @@ open_csv_dataset <- function(sources,
                              skip = 0L,
                              convert_options = NULL,
                              read_options = NULL,
-                             timestamp_parsers = NULL) {
+                             timestamp_parsers = NULL,
+                             quoted_na = TRUE) {
   mc <- match.call()
   mc$delim <- ","
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
@@ -343,7 +345,8 @@ open_tsv_dataset <- function(sources,
                              skip = 0L,
                              convert_options = NULL,
                              read_options = NULL,
-                             timestamp_parsers = NULL) {
+                             timestamp_parsers = NULL,
+                             quoted_na = TRUE) {
   mc <- match.call()
   mc$delim <- "\t"
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))

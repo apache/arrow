@@ -18,36 +18,60 @@
 cmake_minimum_required(VERSION 3.16)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-# Compiler id for Apple Clang is now AppleClang.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
+#
+# Compiler id for Apple Clang is now AppleClang.
 cmake_policy(SET CMP0025 NEW)
 
-# Only interpret if() arguments as variables or keywords when unquoted.
+# https://cmake.org/cmake/help/latest/policy/CMP0042.html
+#
+# Enable MACOSX_RPATH by default. @rpath in a target's install name is
+# a more flexible and powerful mechanism than @executable_path or
+# @loader_path for locating shared libraries.
+cmake_policy(SET CMP0042 NEW)
+
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
+#
+# Only interpret if() arguments as variables or keywords when unquoted.
 cmake_policy(SET CMP0054 NEW)
 
-# Support new if() IN_LIST operator.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0057.html
+#
+# Support new if() IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
 
+# https://www.cmake.org/cmake/help/latest/policy/CMP0063.html
+#
 # Adapted from Apache Kudu: https://github.com/apache/kudu/commit/bd549e13743a51013585
 # Honor visibility properties for all target types.
-# https://www.cmake.org/cmake/help/latest/policy/CMP0063.html
 cmake_policy(SET CMP0063 NEW)
 
-# RPATH settings on macOS do not affect install_name.
 # https://cmake.org/cmake/help/latest/policy/CMP0068.html
+#
+# RPATH settings on macOS do not affect install_name.
 cmake_policy(SET CMP0068 NEW)
 
-# find_package() uses <PackageName>_ROOT variables.
 # https://cmake.org/cmake/help/latest/policy/CMP0074.html
+#
+# find_package() uses <PackageName>_ROOT variables.
 cmake_policy(SET CMP0074 NEW)
 
-# MSVC runtime library flags are selected by an abstraction.
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
+#
+# MSVC runtime library flags are selected by an abstraction.
 cmake_policy(SET CMP0091 NEW)
 
-set(ARROW_VERSION "13.0.0-SNAPSHOT")
+# https://cmake.org/cmake/help/latest/policy/CMP0135.html
+#
+# CMP0135 is for solving re-building and re-downloading.
+# We don't have a real problem with the OLD behavior for now
+# but we use the NEW behavior explicitly to suppress CMP0135
+# warnings.
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
+set(ARROW_VERSION "14.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -128,6 +152,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "17.0"
     "16.0"
     "15.0"
     "14.0"
@@ -499,11 +524,20 @@ set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
 
+# For arrow-flight.pc.
+set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
+
 # For arrow-testing.pc.
 set(ARROW_TESTING_PC_CFLAGS "")
 set(ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
 set(ARROW_TESTING_PC_LIBS "")
 set(ARROW_TESTING_PC_REQUIRES "")
+
+# For parquet.pc.
+set(PARQUET_PC_CFLAGS "")
+set(PARQUET_PC_CFLAGS_PRIVATE " -DPARQUET_STATIC")
+set(PARQUET_PC_REQUIRES "")
+set(PARQUET_PC_REQUIRES_PRIVATE "")
 
 include(ThirdpartyToolchain)
 
@@ -793,6 +827,11 @@ if(ARROW_WITH_OPENTELEMETRY)
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
   endif()
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+endif()
+
+if(ARROW_WITH_AZURE_SDK)
+  list(APPEND ARROW_SHARED_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
 endif()
 
 if(ARROW_WITH_UTF8PROC)

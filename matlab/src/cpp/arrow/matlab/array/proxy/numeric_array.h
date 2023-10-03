@@ -33,9 +33,6 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
-#include "arrow/matlab/type/time_unit.h"
-#include "arrow/util/utf8.h"
-
 namespace arrow::matlab::array::proxy {
 
 template<typename ArrowType>
@@ -43,7 +40,9 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
 
         NumericArray(const std::shared_ptr<arrow::NumericArray<ArrowType>> numeric_array)
-            : arrow::matlab::array::proxy::Array{std::move(numeric_array)} {}
+            : arrow::matlab::array::proxy::Array{std::move(numeric_array)} {
+                REGISTER_METHOD(NumericArray, toMATLAB);
+            }
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {            
             using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
@@ -59,7 +58,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             
             auto data_buffer = std::make_shared<MatlabBuffer>(numeric_mda);
 
-            const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
+            const auto data_type = arrow::TypeTraits<ArrowType>::type_singleton();
             const auto length = static_cast<int64_t>(numeric_mda.getNumberOfElements()); // cast size_t to int64_t
 
             // Pack the validity bitmap values.
@@ -70,7 +69,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
         }
 
     protected:
-        void toMATLAB(libmexclass::proxy::method::Context& context) override {
+        void toMATLAB(libmexclass::proxy::method::Context& context) {
            using CType = typename arrow::TypeTraits<ArrowType>::CType;
            using NumericArray = arrow::NumericArray<ArrowType>;
 
@@ -86,50 +85,4 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             context.outputs[0] = result;
         }
 };
-
-     // Specialization of NumericArray::Make for arrow::TimestampType.
-    template <>
-    libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        namespace mda = ::matlab::data;
-        using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
-        using TimestampArray = arrow::TimestampArray;
-        using TimestampArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::TimestampType>;
-
-        mda::StructArray opts = constructor_arguments[0];
-
-        // Get the mxArray from constructor arguments
-        const mda::TypedArray<int64_t> timestamp_mda = opts[0]["MatlabArray"];
-        const mda::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
-        
-        const mda::TypedArray<mda::MATLABString> timezone_mda = opts[0]["TimeZone"];
-        const mda::TypedArray<mda::MATLABString> units_mda = opts[0]["TimeUnit"];
-
-        // extract the time zone string
-        const std::u16string& u16_timezone = timezone_mda[0];
-        MATLAB_ASSIGN_OR_ERROR(const auto timezone, 
-                               arrow::util::UTF16StringToUTF8(u16_timezone),
-                               error::UNICODE_CONVERSION_ERROR_ID);
-
-        // extract the time unit
-        const std::u16string& u16_timeunit = units_mda[0];
-        MATLAB_ASSIGN_OR_ERROR(const auto time_unit, 
-                               arrow::matlab::type::timeUnitFromString(u16_timeunit),
-                               error::UKNOWN_TIME_UNIT_ERROR_ID)
-
-        // create the timestamp_type
-        auto data_type = arrow::timestamp(time_unit, timezone);
-        auto array_length = static_cast<int64_t>(timestamp_mda.getNumberOfElements()); // cast size_t to int64_t
-
-        auto data_buffer = std::make_shared<MatlabBuffer>(timestamp_mda);
-
-        // Pack the validity bitmap values.
-        MATLAB_ASSIGN_OR_ERROR(auto packed_validity_bitmap, 
-                               bit::packValid(validity_bitmap_mda), 
-                               error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
-
-        auto array_data = arrow::ArrayData::Make(data_type, array_length, {packed_validity_bitmap, data_buffer});
-        auto timestamp_array = std::static_pointer_cast<TimestampArray>(arrow::MakeArray(array_data));
-        return std::make_shared<TimestampArrayProxy>(std::move(timestamp_array));
-    }
-
 }

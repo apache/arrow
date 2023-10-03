@@ -6,19 +6,21 @@ namespace Apache.Arrow.Flatbuf
 {
 
 using global::System;
-using global::FlatBuffers;
+using global::System.Collections.Generic;
+using global::Google.FlatBuffers;
 
 /// Exact decimal value represented as an integer value in two's
 /// complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
 /// are used. The representation uses the endianness indicated
 /// in the Schema.
-internal struct Decimal: IFlatbufferObject
+internal struct Decimal : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_9(); }
   public static Decimal GetRootAsDecimal(ByteBuffer _bb) { return GetRootAsDecimal(_bb, new Decimal()); }
   public static Decimal GetRootAsDecimal(ByteBuffer _bb, Decimal obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
-  public void __init(int _i, ByteBuffer _bb) { __p.bb_pos = _i; __p.bb = _bb; }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public Decimal __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   /// Total number of decimal digits
@@ -33,22 +35,34 @@ internal struct Decimal: IFlatbufferObject
       int precision = 0,
       int scale = 0,
       int bitWidth = 128) {
-    builder.StartObject(3);
+    builder.StartTable(3);
     Decimal.AddBitWidth(builder, bitWidth);
     Decimal.AddScale(builder, scale);
     Decimal.AddPrecision(builder, precision);
     return Decimal.EndDecimal(builder);
   }
 
-  public static void StartDecimal(FlatBufferBuilder builder) { builder.StartObject(3); }
+  public static void StartDecimal(FlatBufferBuilder builder) { builder.StartTable(3); }
   public static void AddPrecision(FlatBufferBuilder builder, int precision) { builder.AddInt(0, precision, 0); }
   public static void AddScale(FlatBufferBuilder builder, int scale) { builder.AddInt(1, scale, 0); }
   public static void AddBitWidth(FlatBufferBuilder builder, int bitWidth) { builder.AddInt(2, bitWidth, 128); }
   public static Offset<Decimal> EndDecimal(FlatBufferBuilder builder) {
-    int o = builder.EndObject();
+    int o = builder.EndTable();
     return new Offset<Decimal>(o);
   }
-};
+}
 
+
+static internal class DecimalVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Precision*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 6 /*Scale*/, 4 /*int*/, 4, false)
+      && verifier.VerifyField(tablePos, 8 /*BitWidth*/, 4 /*int*/, 4, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }
