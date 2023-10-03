@@ -64,8 +64,8 @@ class DatasetEncryptionTest : public ::testing::Test {
     ASSERT_OK(file_system_->CreateDir(std::string(kBaseDir)));
 
     // Prepare table data.
-    auto table_schema = schema({field("a", int64()), field("b", int64()),
-                                field("c", int64()), field("part", utf8())});
+    auto table_schema = schema({field("a", int64()), field("c", int64()),
+                                field("e", int64()), field("part", utf8())});
     table_ = TableFromJSON(table_schema, {R"([
                           [ 0, 9, 1, "a" ],
                           [ 1, 8, 2, "a" ],
@@ -205,7 +205,7 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_OK(arrow_reader->ReadTable(&table));
 
   // Check the contents of the table
-  ASSERT_EQ(table->num_rows(), 1);
+  ASSERT_EQ(table->num_rows(), 2);
   ASSERT_EQ(table->num_columns(), 3);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(0)->chunk(0))->GetView(0), 0);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(1)->chunk(0))->GetView(0), 9);
