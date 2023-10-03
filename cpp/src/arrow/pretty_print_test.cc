@@ -212,38 +212,19 @@ TEST_F(TestPrettyPrint, PrimitiveTypeCustomArrayElementDelimiter) {
 
   // Short array without ellipsis
   {
-      std::vector<bool> is_valid = {true, true, false, true, false};
-      std::vector<int32_t> values = {1, 2, 3, 4, 5};
-      const char* expected = "[1 | 2 | null | 4 | null]";
-      CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+    std::vector<bool> is_valid = {true, true, false, true, false};
+    std::vector<int32_t> values = {1, 2, 3, 4, 5};
+    const char* expected = "[1 | 2 | null | 4 | null]";
+    CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
   }
 
   // Longer array with ellipsis
   {
-      std::vector<bool> is_valid = {
-          true,
-          false,
-          true,
-          true,
-          false,
-          true,
-          false,
-          true,
-          true
-      };
-      std::vector<int32_t> values = {
-          1,
-          2,
-          3,
-          4,
-          5,
-          6,
-          7,
-          8,
-          9
-      };
-      const char* expected = "[1 | null | 3 | ... | null | 8 | 9]";
-      CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+    std::vector<bool> is_valid = {true, false, true, true, false,
+                                  true, false, true, true};
+    std::vector<int32_t> values = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    const char* expected = "[1 | null | 3 | ... | null | 8 | 9]";
+    CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
   }
 }
 
@@ -1081,20 +1062,20 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayElementDelimiter) {
 
   // ChunkedArray with 1 chunk
   {
-      const ChunkedArray chunked_array(chunk);
+    const ChunkedArray chunked_array(chunk);
 
-      static const char* expected = R"expected([[1 | 2 | null | 4 | null]])expected";
-      CheckStream(chunked_array, options, expected);
+    static const char* expected = R"expected([[1 | 2 | null | 4 | null]])expected";
+    CheckStream(chunked_array, options, expected);
   }
 
   // ChunkedArray with 2 chunks
   {
-      const ChunkedArray chunked_array({chunk, chunk});
+    const ChunkedArray chunked_array({chunk, chunk});
 
-      static const char* expected =
-          R"expected([[1 | 2 | null | 4 | null],[1 | 2 | null | 4 | null]])expected";
+    static const char* expected =
+        R"expected([[1 | 2 | null | 4 | null],[1 | 2 | null | 4 | null]])expected";
 
-      CheckStream(chunked_array, options, expected);
+    CheckStream(chunked_array, options, expected);
   }
 }
 
