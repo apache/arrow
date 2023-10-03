@@ -724,7 +724,7 @@ def test_schema_merge():
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
 
-    result = pa.unify_schemas([b, d], options="permissive")
+    result = pa.unify_schemas([b, d], promote_options="permissive")
     assert result.equals(d)
 
     # raise proper error when passing a non-Schema value

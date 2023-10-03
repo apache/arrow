@@ -1335,14 +1335,14 @@ def test_concat_tables_permissive():
     t2 = pa.Table.from_arrays([list(('a', 'b', 'c'))], names=('a',))
 
     with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
-        _ = pa.concat_tables([t1, t2], field_merge_options="permissive")
+        _ = pa.concat_tables([t1, t2], promote_options="permissive")
 
 
 def test_concat_tables_invalid_option():
     t = pa.Table.from_arrays([list(range(10))], names=('a',))
 
     with pytest.raises(ValueError, match="Invalid merge option: invalid"):
-        pa.concat_tables([t, t], field_merge_options="invalid")
+        pa.concat_tables([t, t], promote_options="invalid")
 
 
 def test_concat_tables_none_table():
@@ -1390,7 +1390,7 @@ def test_concat_tables_with_promotion():
     t3 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.int32())], ["int64_field"])
     result = pa.concat_tables(
-        [t1, t3], field_merge_options="permissive")
+        [t1, t3], promote_options="permissive")
     assert result.equals(pa.Table.from_arrays([
         pa.array([1, 2, 1, 2], type=pa.int64()),
     ], ["int64_field"]))
