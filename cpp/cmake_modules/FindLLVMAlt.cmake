@@ -86,16 +86,20 @@ if(LLVM_FOUND)
     target_link_libraries(LLVM::LLVM_LIBS INTERFACE LLVM)
   else()
     # Find the libraries that correspond to the LLVM components
-    llvm_map_components_to_libnames(LLVM_LIBS
-                                    core
-                                    mcjit
-                                    native
-                                    ipo
-                                    bitreader
-                                    target
-                                    linker
-                                    analysis
-                                    debuginfodwarf)
+    set(LLVM_TARGET_COMPONENTS
+        analysis
+        bitreader
+        core
+        debuginfodwarf
+        ipo
+        linker
+        mcjit
+        native
+        target)
+    if(LLVM_VERSION_MAJOR GREATER_EQUAL 14)
+      list(APPEND LLVM_TARGET_COMPONENTS passes)
+    endif()
+    llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_TARGET_COMPONENTS})
     target_link_libraries(LLVM::LLVM_LIBS INTERFACE ${LLVM_LIBS})
 
     if(TARGET LLVMSupport AND NOT ARROW_ZSTD_USE_SHARED)

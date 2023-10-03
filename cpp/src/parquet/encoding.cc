@@ -3346,6 +3346,43 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
   }
 
  protected:
+  template <bool is_first_run>
+  static void BuildBufferInternal(const int32_t* prefix_len_ptr, int i, ByteArray* buffer,
+                                  std::string_view* prefix, uint8_t** data_ptr) {
+    if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix->length())) {
+      throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
+    }
+    // For now, `buffer` points to string suffixes, and the suffix decoder
+    // ensures that the suffix data has sufficient lifetime.
+    if (prefix_len_ptr[i] == 0) {
+      // prefix is empty: buffer[i] already points to the suffix.
+      *prefix = std::string_view{buffer[i]};
+      return;
+    }
+    DCHECK_EQ(is_first_run, i == 0);
+    if constexpr (!is_first_run) {
+      if (buffer[i].len == 0) {
+        // suffix is empty: buffer[i] can simply point to the prefix.
+        // This is not possible for the first run since the prefix
+        // would point to the mutable `last_value_`.
+        *prefix = prefix->substr(0, prefix_len_ptr[i]);
+        buffer[i] = ByteArray(*prefix);
+        return;
+      }
+    }
+    // Both prefix and suffix are non-empty, so we need to decode the string
+    // into `data_ptr`.
+    // 1. Copy the prefix
+    memcpy(*data_ptr, prefix->data(), prefix_len_ptr[i]);
+    // 2. Copy the suffix.
+    memcpy(*data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
+    // 3. Point buffer[i] to the decoded string.
+    buffer[i].ptr = *data_ptr;
+    buffer[i].len += prefix_len_ptr[i];
+    *data_ptr += buffer[i].len;
+    *prefix = std::string_view{buffer[i]};
+  }
+
   int GetInternal(ByteArray* buffer, int max_values) {
     // Decode up to `max_values` strings into an internal buffer
     // and reference them into `buffer`.
@@ -3366,8 +3403,18 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         reinterpret_cast<const int32_t*>(buffered_prefix_length_->data()) +
         prefix_len_offset_;
     for (int i = 0; i < max_values; ++i) {
+      if (prefix_len_ptr[i] == 0) {
+        // We don't need to copy the suffix if the prefix length is 0.
+        continue;
+      }
       if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
         throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
+      }
+      if (buffer[i].len == 0 && i != 0) {
+        // We don't need to copy the prefix if the suffix length is 0
+        // and this is not the first run (that is, the prefix doesn't point
+        // to the mutable `last_value_`).
+        continue;
       }
       if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
                               AddWithOverflow(data_size, buffer[i].len, &data_size))) {
@@ -3378,18 +3425,15 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
 
     string_view prefix{last_value_};
     uint8_t* data_ptr = buffered_data_->mutable_data();
-    for (int i = 0; i < max_values; ++i) {
-      if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix.length())) {
-        throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
-      }
-      memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
-      // buffer[i] currently points to the string suffix
-      memcpy(data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
-      buffer[i].ptr = data_ptr;
-      buffer[i].len += prefix_len_ptr[i];
-      data_ptr += buffer[i].len;
-      prefix = std::string_view{buffer[i]};
+    if (max_values > 0) {
+      BuildBufferInternal</*is_first_run=*/true>(prefix_len_ptr, 0, buffer, &prefix,
+                                                 &data_ptr);
     }
+    for (int i = 1; i < max_values; ++i) {
+      BuildBufferInternal</*is_first_run=*/false>(prefix_len_ptr, i, buffer, &prefix,
+                                                  &data_ptr);
+    }
+    DCHECK_EQ(data_ptr - buffered_data_->mutable_data(), data_size);
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
     num_valid_values_ -= max_values;
