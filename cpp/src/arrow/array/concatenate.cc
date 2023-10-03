@@ -223,7 +223,8 @@ void PutListViewOffsets(const Buffer& src, offset_type displacement, offset_type
   // Avoid UB on non-validated input by doing the addition in the unsigned domain.
   // (the result can later be validated using Array::ValidateFull)
   std::transform(src_begin, src_end, dst, [displacement](offset_type offset) {
-    return SafeSignedAdd(offset, displacement);
+    constexpr offset_type kZero = 0;
+    return std::max(kZero, SafeSignedAdd(offset, displacement));
   });
 }
 
