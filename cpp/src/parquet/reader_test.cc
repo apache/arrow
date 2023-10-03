@@ -503,12 +503,16 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
 }
 
 // Tests getting a record reader from a row group reader.
-TEST_F(TestAllTypesPlain, TestRecordReader) {
-  std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
+TEST(TestFileReader, GetRecordReader) {
+  ReaderProperties reader_props;
+  reader_props.enable_read_dense_for_nullable();
+  std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
+      alltypes_plain(), /* memory_map = */ false, reader_props);
+  std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
 
-  std::shared_ptr<internal::RecordReader> col_record_reader_ =
-      group->RecordReader(0, /*read_dictionary=*/false, /*read_dense_for_null=*/false);
+  std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
 
+  ASSERT_TRUE(col_record_reader_->read_dense_for_nullable());
   ASSERT_TRUE(col_record_reader_->HasMoreData());
   auto records_read = col_record_reader_->ReadRecords(4);
   ASSERT_EQ(records_read, 4);
