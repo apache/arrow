@@ -582,7 +582,7 @@ CsvWriteOptions$create <- function(include_header = TRUE,
 #'    quotes), or "None" (Do not enclose any values in quotes).
 #'
 #' @export
-csv_write_options <- CsvWriteOptions
+csv_write_options <- CsvWriteOptions$create
 
 readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
   if (isTRUE(col_names)) {
@@ -623,6 +623,22 @@ CsvParseOptions$create <- function(delimiter = ",",
     )
   )
 }
+
+#' CSV Parsing Options
+#'
+#' @param delimiter Field delimiting character (default `","`)
+#' @param quoting Logical: are strings quoted? (default `TRUE`)
+#' @param quote_char Quoting character, if `quoting` is `TRUE` (default `'"'`)
+#' @param double_quote Logical: are quotes inside values double-quoted? (default `TRUE`)
+#' @param escaping Logical: whether escaping is used (default `FALSE`)
+#' @param escape_char Escaping character, if `escaping` is `TRUE` (default `"\\"`)
+#' @param newlines_in_values Logical: are values allowed to contain CR (`0x0d`)
+#'    and LF (`0x0a`) characters? (default `FALSE`)
+#' @param ignore_empty_lines Logical: should empty lines be ignored (default) or
+#'    generate a row of missing values (if `FALSE`)?
+#'
+#' @export
+csv_parse_options <- CsvParseOptions$create
 
 readr_to_csv_parse_options <- function(delim = ",",
                                        quote = '"',

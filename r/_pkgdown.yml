@@ -146,6 +146,10 @@ reference:
   - open_delim_dataset
   - open_csv_dataset
   - open_tsv_dataset
+  - csv_read_options
+  - csv_parse_options
+  - csv_convert_options
+
 
 - title: Write datasets
   desc: >

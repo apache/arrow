@@ -3,6 +3,16 @@
 \name{csv_write_options}
 \alias{csv_write_options}
 \title{CSV Writing Options}
+\usage{
+csv_write_options(
+  include_header = TRUE,
+  batch_size = 1024L,
+  null_string = "",
+  delimiter = ",",
+  eol = "\\n",
+  quoting_style = c("Needed", "AllValid", "None")
+)
+}
 \arguments{
 \item{include_header}{Whether to write an initial header line with column names}
 
