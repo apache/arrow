@@ -724,10 +724,6 @@ def test_schema_merge():
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
 
-    result = pa.unify_schemas(
-        [b, d], options=pa.FieldMergeOptions.permissive())
-    assert result.equals(d)
-
     result = pa.unify_schemas([b, d], options="permissive")
     assert result.equals(d)
 

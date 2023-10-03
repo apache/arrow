@@ -2015,48 +2015,6 @@ cpdef KeyValueMetadata ensure_metadata(object meta, c_bool allow_none=False):
         return KeyValueMetadata(meta)
 
 
-cdef class FieldMergeOptions(_Weakrefable):
-    """
-    Options controlling how to merge the types of two fields.
-
-    By default, types must match exactly, except the null type can be
-    merged with any other type.
-
-    """
-
-    cdef:
-        CField.CMergeOptions c_options
-
-    __slots__ = ()
-
-    def __init__(self, *):
-        self.c_options = CField.CMergeOptions.Defaults()
-
-    @staticmethod
-    def permissive():
-        """
-        Allow merging generally compatible types (e.g. float64 and int64).
-        """
-        cdef FieldMergeOptions options = FieldMergeOptions()
-        options.c_options = CField.CMergeOptions.Permissive()
-        return options
-
-    def __repr__(self) -> str:
-        return ('FieldMergeOptions('
-                f'promote_nullability={self.promote_nullability},'
-                f'promote_decimal={self.promote_decimal},'
-                f'promote_decimal_to_float={self.promote_decimal_to_float},'
-                f'promote_integer_to_decimal={self.promote_integer_to_decimal},'
-                f'promote_integer_to_float={self.promote_integer_to_float},'
-                f'promote_integer_sign={self.promote_integer_to_float},'
-                f'promote_numeric_width={self.promote_numeric_width},'
-                f'promote_binary={self.promote_binary},'
-                f'promote_temporal_unit={self.promote_temporal_unit},'
-                f'promote_list={self.promote_list},'
-                f'promote_dictionary={self.promote_dictionary},'
-                f'promote_dictionary_ordered={self.promote_dictionary_ordered})')
-
-
 cdef class Field(_Weakrefable):
     """
     A named field, with a data type, nullability, and optional metadata.
@@ -3196,7 +3154,7 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(schemas, *, options=None):
+def unify_schemas(schemas, *, promote_options="default"):
     """
     Unify schemas by merging fields by name.
 
@@ -3216,9 +3174,10 @@ def unify_schemas(schemas, *, options=None):
     ----------
     schemas : list of Schema
         Schemas to merge into a single one.
-    options : FieldMergeOptions or string, optional
-        Options for merging fields with the same name (which type to promote to).
-        When passing in a string, it should be default or permissive
+    promote_options : str, default default
+        Accepts strings "default" and "permissive".
+        Default; null and only null can be unified with another type.
+        Permissive; promotes types to the greater common denominator.
 
     Returns
     -------
@@ -3238,18 +3197,14 @@ def unify_schemas(schemas, *, options=None):
         if not isinstance(schema, Schema):
             raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
-    if isinstance(options, str):
-        if options == "default":
-            c_options = CField.CMergeOptions.Defaults()
-        elif options == "permissive":
-            c_options = CField.CMergeOptions.Permissive()
-        else:
-            raise ValueError(f"Invalid merge option: {options}")
 
-    elif options:
-        c_options = (<FieldMergeOptions> options).c_options
-    else:
+    if promote_options == "default":
         c_options = CField.CMergeOptions.Defaults()
+    elif promote_options == "permissive":
+        c_options = CField.CMergeOptions.Permissive()
+    else:
+        raise ValueError(f"Invalid merge mode: {promote_options}")
+
     return pyarrow_wrap_schema(
         GetResultValue(UnifySchemas(c_schemas, c_options)))
 

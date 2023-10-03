@@ -1380,7 +1380,7 @@ def test_concat_tables_with_promotion():
     t2 = pa.Table.from_arrays(
         [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
 
-    result = pa.concat_tables([t1, t2], promote=True)
+    result = pa.concat_tables([t1, t2], promote_options="default")
 
     assert result.equals(pa.Table.from_arrays([
         pa.array([1, 2, None, None], type=pa.int64()),
@@ -1390,8 +1390,7 @@ def test_concat_tables_with_promotion():
     t3 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.int32())], ["int64_field"])
     result = pa.concat_tables(
-        [t1, t3], promote=True,
-        field_merge_options=pa.FieldMergeOptions.permissive())
+        [t1, t3], field_merge_options="permissive")
     assert result.equals(pa.Table.from_arrays([
         pa.array([1, 2, 1, 2], type=pa.int64()),
     ], ["int64_field"]))
@@ -1404,7 +1403,7 @@ def test_concat_tables_with_promotion_error():
         [pa.array([1, 2], type=pa.float32())], ["f"])
 
     with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
-        pa.concat_tables([t1, t2], promote=True)
+        pa.concat_tables([t1, t2], promote_options="default")
 
 
 def test_table_negative_indexing():

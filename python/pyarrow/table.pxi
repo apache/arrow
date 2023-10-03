@@ -5020,17 +5020,16 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
-                  object field_merge_options=None):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs):
     """
     Concatenate pyarrow.Table objects.
 
-    If promote==False, a zero-copy concatenation will be performed. The schemas
+    If promote_options=="none", a zero-copy concatenation will be performed. The schemas
     of all the Tables must be the same (except the metadata), otherwise an
     exception will be raised. The result Table will share the metadata with the
     first table.
 
-    If promote==True, any null type arrays will be casted to the type of other
+    If promote_options=="default", any null type arrays will be casted to the type of other
     arrays in the column of the same name. If a table is missing a particular
     field, null values of the appropriate type will be generated to take the
     place of the missing field. The new schema will share the metadata with the
@@ -5038,19 +5037,17 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
     first table which has the field defined. Note that type promotions may
     involve additional allocations on the given ``memory_pool``.
 
+    If promote_options="permissive", the behavior of default plus types will be promoted
+    to the common denominator that fits all the fields.
+
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
         Pyarrow tables to concatenate into a single Table.
-    promote : bool, default False
-        If True, concatenate tables with null-filling and type promotion.
-        See field_merge_options for the type promotion behavior.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
-    field_merge_options : FieldMergeOptions or str, default None
-        The type promotion options; by default, null and only null can
-        be unified with another type. Also accepts strings "default" and
-        "permissive"
+    promote_options : str, default none
+        Accepts strings "none", "default" and "permissive".
 
     Examples
     --------
@@ -5080,23 +5077,24 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
         CConcatenateTablesOptions options = (
             CConcatenateTablesOptions.Defaults())
 
+    if "promote" in kwargs:
+        warnings.warn(
+            "promote has been superseded by mode='default'.", FutureWarning)
+        if kwargs['promote'] is True:
+            promote_options = "permissive"
+
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if field_merge_options is not None:
-        if isinstance(field_merge_options, str):
-            if field_merge_options == "permissive":
-                options.field_merge_options = CField.CMergeOptions.Permissive()
-            elif field_merge_options == "default":
-                options.field_merge_options = CField.CMergeOptions.Defaults()
-            else:
-                raise ValueError(f"Invalid merge option: {field_merge_options}")
-        else:
-            options.field_merge_options = (
-                <FieldMergeOptions> field_merge_options).c_options
+    if promote_options == "permissive":
+        options.field_merge_options = CField.CMergeOptions.Permissive()
+    elif promote_options in {"default", "none"}:
+        options.field_merge_options = CField.CMergeOptions.Defaults()
+    else:
+        raise ValueError(f"Invalid mode: {promote_options}")
 
     with nogil:
-        options.unify_schemas = promote
+        options.unify_schemas = promote_options != "none"
         c_result_table = GetResultValue(
             ConcatenateTables(c_tables, options, pool))
 
