@@ -518,8 +518,8 @@ the corresponding offset may have any value between 0 and the length of the
 child array (inclusive).
 
 A list-view type is specified like ``ListView<T>``, where ``T`` is any type
-(primitive or nested). In these examples we use 32-bit offsets where
-the 64-bit offset version would be denoted by ``LargeListView<T>``.
+(primitive or nested). In these examples we use 32-bit offsets and sizes where
+the 64-bit version would be denoted by ``LargeListView<T>``.
 
 **Example Layout: ``ListView<Int8>`` Array**
 
