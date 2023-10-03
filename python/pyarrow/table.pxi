@@ -5048,7 +5048,7 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         For memory allocations, if required, otherwise use default pool.
     promote_options : str, default none
         Accepts strings "none", "default" and "permissive".
-    **kwargs: dict
+    **kwargs : dict, optional
 
     Examples
     --------
