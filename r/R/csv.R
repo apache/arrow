@@ -515,6 +515,29 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   options
 }
 
+#' CSV Reading Options
+#'
+#' @param use_threads Whether to use the global CPU thread pool
+#' @param block_size Block size we request from the IO layer; also determines
+#'  the size of chunks when use_threads is `TRUE`.
+#' @param skip_rows Number of lines to skip before reading data (default 0).
+#' @param column_names Character vector to supply column names. If length-0
+#' (the default), the first non-skipped row will be parsed to generate column
+#' names, unless `autogenerate_column_names` is `TRUE`.
+#' @param autogenerate_column_names Logical: generate column names instead of
+#' using the first non-skipped row (the default)? If `TRUE`, column names will
+#' be "f0", "f1", ..., "fN".
+#' @param encoding The file encoding. (default `"UTF-8"`)
+#' @param skip_rows_after_names` Number of lines to skip after the column names (default 0).
+#'    This number can be larger than the number of rows in one block, and empty rows are counted.
+#'    The order of application is as follows:
+#'      - `skip_rows` is applied (if non-zero);
+#'      - column names are read (unless `column_names` is set);
+#'      - `skip_rows_after_names` is applied (if non-zero).
+#'
+#' @export
+csv_read_options <- CsvReadOptions$create
+
 readr_to_csv_write_options <- function(col_names = TRUE,
                                        batch_size = 1024L,
                                        delim = ",",
