@@ -161,7 +161,10 @@ classdef StructArray < arrow.array.Array
                     "Input table T must have at least one variable.");
             end
 
+            % If FieldNames was provided, make sure the number of field
+            % names is equal to the width of the table.
             validateColumnNames(opts.FieldNames, width(T));
+
             arrowArrays = decompose(T);
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
             validElements = parseValid(opts, height(T));
