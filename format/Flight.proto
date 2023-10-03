@@ -369,6 +369,12 @@ message FlightInfo {
 
   /*
    * Application-defined metadata.
+   * 
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightEndpoints or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
    */
   bytes app_metadata = 7;
 }
@@ -454,6 +460,12 @@ message FlightEndpoint {
 
   /*
    * Application-defined metadata.
+   * 
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightInfo or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
    */
   bytes app_metadata = 4;
 }
