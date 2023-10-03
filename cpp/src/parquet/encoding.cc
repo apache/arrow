@@ -3352,29 +3352,31 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
     if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix->length())) {
       throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
     }
+    // For now, `buffer` points to string suffixes, and the suffix decoder
+    // ensures that the suffix data has sufficient lifetime.
     if (prefix_len_ptr[i] == 0) {
-      // buffer is from suffix_decoder_.Decode, which points to the suffix.
-      // So it's safe to point prefix to buffer.
+      // prefix is empty: buffer[i] already points to the suffix.
       *prefix = std::string_view{buffer[i]};
       return;
     }
-    // postfix length == 0, point to the prefix.
-    // If prefix.data() == last_value_.data(), buffer might point to
-    // the last_value_, and last_value_ will be changed at the end
-    // of GetInternal. So we need to avoid this optimization when
-    // i == 0 (i.e. !is_first_run).
     DCHECK_EQ(is_first_run, i == 0);
-    if (!is_first_run) {
+    if constexpr (!is_first_run) {
       if (buffer[i].len == 0) {
-        buffer[i] = {static_cast<uint32_t>(prefix_len_ptr[i]),
-                     reinterpret_cast<const uint8_t*>(prefix->data())};
+        // suffix is empty: buffer[i] can simply point to the prefix.
+        // This is not possible for the first run since the prefix
+        // would point to the mutable `last_value_`.
         *prefix = prefix->substr(0, prefix_len_ptr[i]);
+        buffer[i] = ByteArray(*prefix);
         return;
       }
     }
+    // Both prefix and suffix are non-empty, so we need to decode the string
+    // into `data_ptr`.
+    // 1. Copy the prefix
     memcpy(*data_ptr, prefix->data(), prefix_len_ptr[i]);
-    // buffer[i] currently points to the string suffix
+    // 2. Copy the suffix.
     memcpy(*data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
+    // 3. Point buffer[i] to the decoded string.
     buffer[i].ptr = *data_ptr;
     buffer[i].len += prefix_len_ptr[i];
     *data_ptr += buffer[i].len;
@@ -3405,14 +3407,14 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         // We don't need to copy the suffix if the prefix length is 0.
         continue;
       }
-      if (buffer[i].len == 0 && i != 0) {
-        // If the suffix length is 0, we don't need to copy the prefix.
-        // An extra case is when i == 0, we need to copy the prefix to
-        // avoid lifetime problem.
-        continue;
-      }
       if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
         throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
+      }
+      if (buffer[i].len == 0 && i != 0) {
+        // We don't need to copy the prefix if the suffix length is 0
+        // and this is not the first run (that is, the prefix doesn't point
+        // to the mutable `last_value_`).
+        continue;
       }
       if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
                               AddWithOverflow(data_size, buffer[i].len, &data_size))) {
@@ -3431,6 +3433,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
       BuildBufferInternal</*is_first_run=*/false>(prefix_len_ptr, i, buffer, &prefix,
                                                   &data_ptr);
     }
+    DCHECK_EQ(data_ptr - buffered_data_->mutable_data(), data_size);
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
     num_valid_values_ -= max_values;
