@@ -206,7 +206,7 @@ test_that("Other text delimited dataset", {
 })
 
 test_that("readr parse options", {
-  arrow_opts <- names(formals(CsvParseOptions$create))
+  arrow_opts <- names(formals(csv_parse_options))
   readr_opts <- names(formals(readr_to_csv_parse_options))
 
   # Arrow and readr parse options must be mutually exclusive, or else the code
@@ -469,8 +469,8 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
   ds2 <- open_dataset(
     tf,
     format = "csv",
-    convert_options = CsvConvertOptions$create(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
-    read_options = CsvReadOptions$create(skip_rows = 1L)
+    convert_options = csv_convert_options(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
+    read_options = csv_read_options(skip_rows = 1L)
   ) %>%
     collect()
 
@@ -586,15 +586,15 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 })
 
 test_that("CSVReadOptions printing", {
-  default_read_options <- CsvReadOptions$create()
-  custom_read_options <- CsvReadOptions$create(skip_rows = 102)
+  default_read_options <- csv_read_options()
+  custom_read_options <- csv_read_options(skip_rows = 102)
 
   expect_output(print(default_read_options), "skip_rows: 0")
   expect_output(print(custom_read_options), "skip_rows: 102")
 })
 
 test_that("CSVReadOptions field access", {
-  options <- CsvReadOptions$create()
+  options <- csv_read_options()
   expect_equal(options$skip_rows, 0)
   expect_equal(options$autogenerate_column_names, FALSE)
   expect_equal(options$skip_rows_after_names, 0)

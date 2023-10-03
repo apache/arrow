@@ -528,7 +528,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
 #' using the first non-skipped row (the default)? If `TRUE`, column names will
 #' be "f0", "f1", ..., "fN".
 #' @param encoding The file encoding. (default `"UTF-8"`)
-#' @param skip_rows_after_names` Number of lines to skip after the column names (default 0).
+#' @param skip_rows_after_names Number of lines to skip after the column names (default 0).
 #'    This number can be larger than the number of rows in one block, and empty rows are counted.
 #'    The order of application is as follows:
 #'      - `skip_rows` is applied (if non-zero);

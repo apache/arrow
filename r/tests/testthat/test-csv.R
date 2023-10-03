@@ -435,7 +435,7 @@ test_that("Write a CSV with custom NA value", {
 
   # Also can use null_value in CsvWriteOptions
   tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file,
-    write_options = CsvWriteOptions$create(null_string = "another_null")
+    write_options = csv_write_options(null_string = "another_null")
   )
   csv_contents <- readLines(csv_file)
   expect_true(any(grepl("another_null", csv_contents)))
