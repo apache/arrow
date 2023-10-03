@@ -71,6 +71,7 @@ struct PrintVector {
     return os;
   }
 };
-
+template <typename Range, typename Separator>
+PrintVector(const Range&, const Separator&) -> PrintVector<Range, Separator>;
 }  // namespace internal
 }  // namespace arrow
