@@ -428,30 +428,7 @@ class ARROW_EXPORT StreamDecoder {
   /// \brief Reset the internal status.
   ///
   /// You can reuse this decoder for new stream after calling
-  /// this. For example, you can implement endless decoder with this:
-  ///
-  /// ~~~{.cpp}
-  /// class EndlessListener : public arrow::ipc::Listener {
-  ///  public:
-  ///   explicit EndlessListener() : arrow::ipc::Listener(), decoder_() {}
-  ///
-  ///   arrow::Status OnEOS() override {
-  ///     return decoder_->Reset();
-  ///   }
-  ///
-  ///   void SetDecoder(arrow::ipc::StreamDecoder* decoder) {
-  ///     decoder_ = decoder;
-  ///   }
-  ///
-  ///  private:
-  ///   arrow::ipc::StreamDecoder* decoder_;
-  /// };
-  ///
-  /// auto listener = std::make_shared<EndlessListener>();
-  /// arrow::ipc::StreamDecoder decoder(listener);
-  /// listener->SetDecoder(&decoder);
-  /// decoder.Consume(...);
-  /// ~~~
+  /// this.
   ///
   /// \return Status
   Status Reset();
