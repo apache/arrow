@@ -3,6 +3,7 @@
 \name{read_delim_arrow}
 \alias{read_delim_arrow}
 \alias{read_csv_arrow}
+\alias{read_csv2_arrow}
 \alias{read_tsv_arrow}
 \title{Read a CSV or other delimited file with Arrow}
 \usage{
@@ -42,6 +43,26 @@ read_csv_arrow(
   skip = 0L,
   parse_options = NULL,
   convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
+)
+
+read_csv2_arrow(
+  file,
+  quote = "\\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  schema = NULL,
+  col_names = TRUE,
+  col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = CsvConvertOptions$create(decimal_point = ","),
   read_options = NULL,
   as_data_frame = TRUE,
   timestamp_parsers = NULL

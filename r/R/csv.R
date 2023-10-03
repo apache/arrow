@@ -281,6 +281,34 @@ read_csv_arrow <- function(file,
 
 #' @rdname read_delim_arrow
 #' @export
+read_csv2_arrow <- function(file,
+                            quote = '"',
+                            escape_double = TRUE,
+                            escape_backslash = FALSE,
+                            schema = NULL,
+                            col_names = TRUE,
+                            col_types = NULL,
+                            col_select = NULL,
+                            na = c("", "NA"),
+                            quoted_na = TRUE,
+                            skip_empty_rows = TRUE,
+                            skip = 0L,
+                            parse_options = NULL,
+                            convert_options = CsvConvertOptions$create(decimal_point = ","),
+                            read_options = NULL,
+                            as_data_frame = TRUE,
+                            timestamp_parsers = NULL) {
+  mc <- match.call()
+  mc$delim <- ";"
+  mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
+  inform(
+    message = c(i='Using "\',\'" as decimal and "\'.\'" as grouping mark. Use `read_delim_arrow()` for more control."')
+  )
+  eval.parent(mc)
+}
+
+#' @rdname read_delim_arrow
+#' @export
 read_tsv_arrow <- function(file,
                            quote = '"',
                            escape_double = TRUE,
