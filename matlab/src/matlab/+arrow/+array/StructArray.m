@@ -142,5 +142,38 @@ classdef StructArray < arrow.array.Array
             proxy = arrow.internal.proxy.create(proxyName, args);
             array = arrow.array.StructArray(proxy);
         end
+
+        function array = fromMATLAB(T, opts)
+            arguments
+                T table
+                opts.FieldNames(1, :) string {mustBeNonmissing} = T.Properties.VariableNames
+                opts.Valid
+            end
+
+            import arrow.tabular.internal.decompose
+            import arrow.tabular.internal.validateColumnNames
+            import arrow.array.internal.getArrayProxyIDs
+            import arrow.internal.validate.parseValid
+
+            if width(T) == 0
+                % StructArrays require at least one field
+                error("arrow:struct:ZeroVariables", ...
+                    "Input table T must have at least one variable.");
+            end
+
+            % If FieldNames was provided, make sure the number of field
+            % names is equal to the width of the table.
+            validateColumnNames(opts.FieldNames, width(T));
+
+            arrowArrays = decompose(T);
+            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            validElements = parseValid(opts, height(T));
+
+            args = struct(ArrayProxyIDs=arrayProxyIDs, ...
+                FieldNames=opts.FieldNames, Valid=validElements);
+            proxyName = "arrow.array.proxy.StructArray";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            array = arrow.array.StructArray(proxy);
+        end
     end
 end
