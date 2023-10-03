@@ -512,10 +512,11 @@ in the sizes buffer instead of inferred. This allows offsets to be out of order.
 Elements of the child array do not have to be stored in the same order they
 logically appear in the list elements of the parent array.
 
-When a value is null, the corresponding size is expected to be 0. When the size
-is 0 because the value is null or because the value represents an empty list,
-the corresponding offset may have any value between 0 and the length of the
-child array (inclusive).
+Every list-view value, including null values, has to guarantee the following
+invariants: ::
+
+    0 <= offsets[i] <= length of the child array
+    0 <= offsets[i] + size[i] <= length of the child array
 
 A list-view type is specified like ``ListView<T>``, where ``T`` is any type
 (primitive or nested). In these examples we use 32-bit offsets and sizes where
