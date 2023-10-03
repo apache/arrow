@@ -37,11 +37,11 @@ namespace dataset {
 /// to objects defining encryption strategy, Key Management Service (KMS) configuration,
 /// and specific encryption configurations for Parquet data.
 ///
-/// \member crypto_factory Shared pointer to CryptoFactory object, responsible for
-/// creating cryptographic components like encryptors and decryptors. \member
+/// \property crypto_factory Shared pointer to CryptoFactory object, responsible for
+/// creating cryptographic components like encryptors and decryptors. \property
 /// kms_connection_config Shared pointer to KmsConnectionConfig object, holding
 /// configuration parameters for connecting to a Key Management Service (KMS).
-/// \member encryption_config Shared pointer to EncryptionConfiguration object, defining
+/// \property encryption_config Shared pointer to EncryptionConfiguration object, defining
 /// specific encryption settings for Parquet data, like keys for different columns.
 struct ARROW_DS_EXPORT ParquetEncryptionConfig {
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory;
@@ -57,11 +57,11 @@ struct ARROW_DS_EXPORT ParquetEncryptionConfig {
 /// objects defining decryption strategy, Key Management Service (KMS) configuration, and
 /// specific decryption configurations for reading encrypted Parquet data.
 ///
-/// \member crypto_factory Shared pointer to CryptoFactory object, pivotal in creating
+/// \property crypto_factory Shared pointer to CryptoFactory object, pivotal in creating
 /// cryptographic components for decryption process.
-/// \member kms_connection_config Shared pointer to KmsConnectionConfig object, containing
+/// \property kms_connection_config Shared pointer to KmsConnectionConfig object, containing
 /// parameters for connecting to a Key Management Service (KMS) during decryption.
-/// \member decryption_config Shared pointer to DecryptionConfiguration object, specifying
+/// \property decryption_config Shared pointer to DecryptionConfiguration object, specifying
 /// decryption settings for reading encrypted Parquet data.
 struct ARROW_DS_EXPORT ParquetDecryptionConfig {
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory;
