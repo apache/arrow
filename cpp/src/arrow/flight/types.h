@@ -481,6 +481,9 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   /// retrying DoGet requests.
   std::optional<Timestamp> expiration_time;
 
+  /// Opaque Application-defined metadata
+  std::string app_metadata;
+
   std::string ToString() const;
   bool Equals(const FlightEndpoint& other) const;
 
@@ -583,6 +586,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
     int64_t total_records = -1;
     int64_t total_bytes = -1;
     bool ordered = false;
+    std::string app_metadata;
   };
 
   explicit FlightInfo(Data data) : data_(std::move(data)), reconstructed_schema_(false) {}
@@ -592,7 +596,8 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
                                         const FlightDescriptor& descriptor,
                                         const std::vector<FlightEndpoint>& endpoints,
                                         int64_t total_records, int64_t total_bytes,
-                                        bool ordered = false);
+                                        bool ordered = false,
+                                        std::string app_metadata = "");
 
   /// \brief Deserialize the Arrow schema of the dataset. Populate any
   ///   dictionary encoded fields into a DictionaryMemo for
@@ -620,6 +625,9 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
 
   /// Whether endpoints are in the same order as the data.
   bool ordered() const { return data_.ordered; }
+
+  /// Application-defined opaque metadata
+  const std::string& app_metadata() const { return data_.app_metadata; }
 
   /// \brief Get the wire-format representation of this type.
   ///

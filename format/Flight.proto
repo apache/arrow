@@ -366,6 +366,17 @@ message FlightInfo {
    * FlightEndpoints are in the same order as the data.
    */
   bool ordered = 6;
+
+  /*
+   * Application-defined metadata.
+   * 
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightEndpoints or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
+   */
+  bytes app_metadata = 7;
 }
 
 /*
@@ -446,6 +457,17 @@ message FlightEndpoint {
    * application-defined whether DoGet requests may be retried.
    */
   google.protobuf.Timestamp expiration_time = 3;
+
+  /*
+   * Application-defined metadata.
+   * 
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightInfo or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
+   */
+  bytes app_metadata = 4;
 }
 
 /*

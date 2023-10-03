@@ -930,7 +930,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSql
   }
 
   std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt}};
+      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, {}}};
   ARROW_ASSIGN_OR_RAISE(
       auto result, FlightInfo::Make(*SqlSchema::GetSqlInfoSchema(), descriptor, endpoints,
                                     -1, -1, false))

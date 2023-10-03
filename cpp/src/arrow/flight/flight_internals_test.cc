@@ -191,33 +191,33 @@ TEST(FlightTypes, FlightEndpoint) {
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<FlightEndpoint> values = {
-      {{""}, {}, std::nullopt},
-      {{"foo"}, {}, std::nullopt},
-      {{"bar"}, {}, std::nullopt},
-      {{"foo"}, {}, expiration_time},
-      {{"foo"}, {location1}, std::nullopt},
-      {{"bar"}, {location1}, std::nullopt},
-      {{"foo"}, {location2}, std::nullopt},
-      {{"foo"}, {location1, location2}, std::nullopt},
+      {{""}, {}, std::nullopt, {}},
+      {{"foo"}, {}, std::nullopt, {}},
+      {{"bar"}, {}, std::nullopt, {"\xDE\xAD\xBE\xEF"}},
+      {{"foo"}, {}, expiration_time, {}},
+      {{"foo"}, {location1}, std::nullopt, {}},
+      {{"bar"}, {location1}, std::nullopt, {}},
+      {{"foo"}, {location2}, std::nullopt, {}},
+      {{"foo"}, {location1, location2}, std::nullopt, {"\xba\xdd\xca\xfe"}},
   };
   std::vector<std::string> reprs = {
       "<FlightEndpoint ticket=<Ticket ticket=''> locations=[] "
-      "expiration_time=null>",
+      "expiration_time=null app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=null>",
+      "expiration_time=null app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[] "
-      "expiration_time=null>",
+      "expiration_time=null app_metadata='DEADBEEF'>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=2023-06-19 03:14:06.004339000>",
+      "expiration_time=2023-06-19 03:14:06.004339000 app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
-      "[grpc+tcp://localhost:1024] expiration_time=null>",
+      "[grpc+tcp://localhost:1024] expiration_time=null app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations="
-      "[grpc+tcp://localhost:1024] expiration_time=null>",
+      "[grpc+tcp://localhost:1024] expiration_time=null app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
-      "[grpc+tls://localhost:1024] expiration_time=null>",
+      "[grpc+tls://localhost:1024] expiration_time=null app_metadata=''>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
       "[grpc+tcp://localhost:1024, grpc+tls://localhost:1024] "
-      "expiration_time=null>",
+      "expiration_time=null app_metadata='BADDCAFE'>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightEndpoint>(values, reprs));
@@ -229,30 +229,35 @@ TEST(FlightTypes, FlightInfo) {
   Schema schema2({});
   auto desc1 = FlightDescriptor::Command("foo");
   auto desc2 = FlightDescriptor::Command("bar");
-  auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt};
-  auto endpoint2 = FlightEndpoint{Ticket{"foo"}, {location}, std::nullopt};
+  auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt, ""};
+  auto endpoint2 =
+      FlightEndpoint{Ticket{"foo"}, {location}, std::nullopt, "\xCA\xFE\xD0\x0D"};
   std::vector<FlightInfo> values = {
-      MakeFlightInfo(schema1, desc1, {}, -1, -1, false),
-      MakeFlightInfo(schema1, desc2, {}, -1, -1, true),
-      MakeFlightInfo(schema2, desc1, {}, -1, -1, false),
-      MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42, true),
-      MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1, false),
+      MakeFlightInfo(schema1, desc1, {}, -1, -1, false, ""),
+      MakeFlightInfo(schema1, desc2, {}, -1, -1, true, ""),
+      MakeFlightInfo(schema2, desc1, {}, -1, -1, false, ""),
+      MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42, true, ""),
+      MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1, false,
+                     "\xDE\xAD\xC0\xDE"),
   };
   std::vector<std::string> reprs = {
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
-      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false>",
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false app_metadata=''>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
-      "endpoints=[] total_records=-1 total_bytes=-1 ordered=true>",
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=true app_metadata=''>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
-      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false>",
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false app_metadata=''>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
       "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=null>] total_records=-1 total_bytes=42 ordered=true>",
+      "expiration_time=null app_metadata=''>] total_records=-1 total_bytes=42 "
+      "ordered=true app_metadata=''>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
       "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=null>, <FlightEndpoint ticket=<Ticket ticket='foo'> "
-      "locations=[grpc+tcp://localhost:1234] expiration_time=null>] "
-      "total_records=64 total_bytes=-1 ordered=false>",
+      "expiration_time=null app_metadata=''>, <FlightEndpoint ticket=<Ticket "
+      "ticket='foo'> "
+      "locations=[grpc+tcp://localhost:1234] expiration_time=null "
+      "app_metadata='CAFED00D'>] "
+      "total_records=64 total_bytes=-1 ordered=false app_metadata='DEADC0DE'>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightInfo>(values, reprs));
@@ -262,8 +267,8 @@ TEST(FlightTypes, PollInfo) {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 1234));
   Schema schema({field("ints", int64())});
   auto desc = FlightDescriptor::Command("foo");
-  auto endpoint = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt};
-  auto info = MakeFlightInfo(schema, desc, {endpoint}, -1, 42, true);
+  auto endpoint = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt, ""};
+  auto info = MakeFlightInfo(schema, desc, {endpoint}, -1, 42, true, "");
   // 2023-06-19 03:14:06.004330100
   // We must use microsecond resolution here for portability.
   // std::chrono::system_clock::time_point may not provide nanosecond
