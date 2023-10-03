@@ -59,10 +59,10 @@ struct ARROW_DS_EXPORT ParquetEncryptionConfig {
 ///
 /// \property crypto_factory Shared pointer to CryptoFactory object, pivotal in creating
 /// cryptographic components for decryption process.
-/// \property kms_connection_config Shared pointer to KmsConnectionConfig object, containing
-/// parameters for connecting to a Key Management Service (KMS) during decryption.
-/// \property decryption_config Shared pointer to DecryptionConfiguration object, specifying
-/// decryption settings for reading encrypted Parquet data.
+/// \property kms_connection_config Shared pointer to KmsConnectionConfig object,
+/// containing parameters for connecting to a Key Management Service (KMS) during
+/// decryption. \property decryption_config Shared pointer to DecryptionConfiguration
+/// object, specifying decryption settings for reading encrypted Parquet data.
 struct ARROW_DS_EXPORT ParquetDecryptionConfig {
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory;
   std::shared_ptr<parquet::encryption::KmsConnectionConfig> kms_connection_config;
