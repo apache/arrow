@@ -23,6 +23,11 @@ arrow_dir=${1}
 gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 pip install -e $arrow_dir/dev/archery[integration]
+# For C# C Data Interface testing
+pip install pythonnet
+
+# Get more detailed context on crashes
+export PYTHONFAULTHANDLER=1
 
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \
