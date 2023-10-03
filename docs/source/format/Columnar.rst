@@ -512,10 +512,10 @@ in the sizes buffer instead of inferred. This allows offsets to be out of order.
 Elements of the child array do not have to be stored in the same order they
 logically appear in the list elements of the parent array.
 
-When a value is null, the corresponding offset and size can have arbitrary
-values. When size is 0, the corresponding offset can have an arbitrary value.
-If choosing a value is possible, we recommend setting offsets and sizes to 0 in
-these cases.
+When a value is null, the corresponding size is expected to be 0. When the size
+is 0 because the value is null or because the value represents an empty list,
+the corresponding offset may have any value between 0 and the length of the
+child array (inclusive).
 
 A list-view type is specified like ``ListView<T>``, where ``T`` is any type
 (primitive or nested). In these examples we use 32-bit offsets where
@@ -540,13 +540,13 @@ It may have the following representation: ::
 
       | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63           |
       |------------|-------------|-------------|-------------|-----------------------|
-      | 0          | unspecified | 3           | unspecified | unspecified (padding) |
+      | 0          | 7           | 3           | 0           | unspecified (padding) |
 
     * Sizes buffer (int32)
 
       | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63           |
       |------------|-------------|-------------|-------------|-----------------------|
-      | 3          | unspecified | 4           | 0           | unspecified (padding) |
+      | 3          | 0           | 4           | 0           | unspecified (padding) |
 
     * Values array (Int8Array):
       * Length: 7,  Null count: 0
@@ -565,7 +565,7 @@ having logical values::
 
     [[12, -7, 25], null, [0, -127, 127, 50], [], [50, 12]]
 
-It will have the following representation: ::
+It may have the following representation: ::
 
     * Length: 4, Null count: 1
     * Validity bitmap buffer:
@@ -578,13 +578,13 @@ It will have the following representation: ::
 
       | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
       |------------|-------------|-------------|-------------|-------------|-----------------------|
-      | 4          | unspecified | 0           | unspecified | 3           | unspecified (padding) |
+      | 4          | 7           | 0           | 0           | 3           | unspecified (padding) |
 
     * Sizes buffer (int32)
 
       | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
       |------------|-------------|-------------|-------------|-------------|-----------------------|
-      | 3          | unspecified | 4           | 0           | 2           | unspecified (padding) |
+      | 3          | 0           | 4           | 0           | 2           | unspecified (padding) |
 
     * Values array (Int8Array):
       * Length: 7,  Null count: 0
