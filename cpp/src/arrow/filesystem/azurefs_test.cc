@@ -378,38 +378,38 @@ TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
   EXPECT_EQ(fs_->io_context().external_id(), file->io_context().external_id());
 }
 
-// TODO: Implement this once GetFileInfo is implemented.
-// TEST_F(TestAzureFileSystem, OpenInputFileInfo) {
-//   arrow::fs::FileInfo info;
-//   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingObjectPath()));
+TEST_F(TestAzureFileSystem, OpenInputFileInfo) {
+  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // fs->GetFileInfo(PreexistingObjectPath()));
+  arrow::fs::FileInfo info(PreexistingObjectPath(), FileType::File);
 
-//   std::shared_ptr<io::RandomAccessFile> file;
-//   ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(info));
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(info));
 
-//   std::array<char, 1024> buffer{};
-//   std::int64_t size;
-//   auto constexpr kStart = 16;
-//   ASSERT_OK_AND_ASSIGN(size, file->ReadAt(kStart, buffer.size(), buffer.data()));
+  std::array<char, 1024> buffer{};
+  std::int64_t size;
+  auto constexpr kStart = 16;
+  ASSERT_OK_AND_ASSIGN(size, file->ReadAt(kStart, buffer.size(), buffer.data()));
 
-//   auto const expected = std::string(kLoremIpsum).substr(kStart);
-//   EXPECT_EQ(std::string(buffer.data(), size), expected);
-// }
+  auto const expected = std::string(kLoremIpsum).substr(kStart);
+  EXPECT_EQ(std::string(buffer.data(), size), expected);
+}
 
 TEST_F(TestAzureFileSystem, OpenInputFileNotFound) {
   ASSERT_RAISES(IOError, fs_->OpenInputFile(NotFoundObjectPath()));
 }
 
-// TODO: Implement this once GetFileInfo is implemented.
-// TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
-//   auto fs = GcsFileSystem::Make(TestGcsOptions());
+TEST_F(TestAzureFileSystem, OpenInputFileInfoInvalid) {
+  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // fs->GetFileInfo(PreexistingContainerPath()));
+  arrow::fs::FileInfo info(PreexistingContainerPath(), FileType::File);
+  ASSERT_RAISES(IOError, fs_->OpenInputFile(info));
 
-//   arrow::fs::FileInfo info;
-//   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingContainerPath()));
-//   ASSERT_RAISES(IOError, fs->OpenInputFile(info));
-
-//   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(NotFoundObjectPath()));
-//   ASSERT_RAISES(IOError, fs->OpenInputFile(info));
-// }
+  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // fs->GetFileInfo(NotFoundObjectPath()));
+  arrow::fs::FileInfo info2(NotFoundObjectPath(), FileType::NotFound);
+  ASSERT_RAISES(IOError, fs_->OpenInputFile(info2));
+}
 
 TEST_F(TestAzureFileSystem, OpenInputFileClosed) {
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputFile(PreexistingObjectPath()));

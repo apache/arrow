@@ -173,6 +173,16 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 }
 
 class ObjectInputFile final : public io::RandomAccessFile {
+ protected:
+  std::shared_ptr<Azure::Storage::Blobs::BlobClient> file_client_;
+  const io::IOContext io_context_;
+  AzurePath path_;
+
+  bool closed_ = false;
+  int64_t pos_ = 0;
+  int64_t content_length_ = kNoSize;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
+
  public:
   ObjectInputFile(std::shared_ptr<Azure::Storage::Blobs::BlobClient>& file_client,
                   const io::IOContext& io_context, const AzurePath& path,
@@ -308,16 +318,6 @@ class ObjectInputFile final : public io::RandomAccessFile {
     pos_ += buffer->size();
     return std::move(buffer);
   }
-
- protected:
-  std::shared_ptr<Azure::Storage::Blobs::BlobClient> file_client_;
-  const io::IOContext io_context_;
-  AzurePath path_;
-
-  bool closed_ = false;
-  int64_t pos_ = 0;
-  int64_t content_length_ = kNoSize;
-  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 }  // namespace
@@ -346,6 +346,8 @@ class AzureFileSystem::Impl {
                                                          AzureFileSystem* fs) {
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
 
+    // TODO: Return NotAFile if path.path_to_file is empty. Return PathNotFound if account
+    // name or container name is empty.
     if (path.empty()) {
       return ::arrow::fs::internal::PathNotFound(path.full_path);
     }
@@ -359,37 +361,26 @@ class AzureFileSystem::Impl {
     return ptr;
   }
 
-  // Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
-  //                                                       AzureFileSystem* fs) {
-  //   if (info.type() == FileType::NotFound) {
-  //     return ::arrow::fs::internal::PathNotFound(info.path());
-  //   }
-  //   if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-  //     return ::arrow::fs::internal::NotAFile(info.path());
-  //   }
+  Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
+                                                         AzureFileSystem* fs) {
+    if (info.type() == FileType::NotFound) {
+      return ::arrow::fs::internal::PathNotFound(info.path());
+    }
+    if (info.type() != FileType::File && info.type() != FileType::Unknown) {
+      return ::arrow::fs::internal::NotAFile(info.path());
+    }
 
-  //   ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(info.path()));
+    ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(info.path()));
 
-  //   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakePathClient> path_client;
-  //   ARROW_ASSIGN_OR_RAISE(
-  //       path_client,
-  //       InitPathClient<Azure::Storage::Files::DataLake::DataLakePathClient>(
-  //           options_, dfs_endpoint_url_ + info.path(), path.container,
-  //           path.path_to_file));
+    auto file_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
+        std::move(service_client_->GetBlobContainerClient(path.container)
+                      .GetBlobClient(path.path_to_file)));
 
-  //   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeFileClient> file_client;
-  //   ARROW_ASSIGN_OR_RAISE(
-  //       file_client,
-  //       InitPathClient<Azure::Storage::Files::DataLake::DataLakeFileClient>(
-  //           options_, dfs_endpoint_url_ + info.path(), path.container,
-  //           path.path_to_file));
-
-  //   auto ptr = std::make_shared<ObjectInputFile>(path_client, file_client,
-  //   fs->io_context(),
-  //                                               path, info.size());
-  //   RETURN_NOT_OK(ptr->Init());
-  //   return ptr;
-  // }
+    auto ptr = std::make_shared<ObjectInputFile>(file_client, fs->io_context(), path,
+                                                 info.size());
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
 };
 
 const AzureOptions& AzureFileSystem::options() const { return impl_->options(); }
@@ -459,8 +450,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
     const FileInfo& info) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
-  // return impl_->OpenInputFile(info, this);
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::OutputStream>> AzureFileSystem::OpenOutputStream(
