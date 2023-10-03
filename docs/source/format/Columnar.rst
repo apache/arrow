@@ -1230,7 +1230,7 @@ addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
 
 Variadic buffers
-^^^^^^^^^^^^^^^^
+----------------
 
 Some types such as Utf8View are represented using a variable number of buffers.
 For each such Field in the pre-ordered flattened logical schema, there will be
