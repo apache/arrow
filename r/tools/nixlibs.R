@@ -191,6 +191,7 @@ test_for_curl_and_openssl <-
 #ifdef _LIBCPP_VERSION
 #error Using libc++
 #endif
+#endif
 
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
