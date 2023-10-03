@@ -455,6 +455,11 @@ CsvTableReader$create <- function(file,
 #' - `batch_size` Maximum number of rows processed at a time. Default is 1024.
 #' - `null_string` The string to be written for null values. Must not contain
 #'   quotation marks. Default is an empty string (`""`).
+#' - `eol` The end of line character to use for ending rows.
+#' - `delimeter` Field delimiter
+#' - `quoting_style` Quoting style: "Needed" (Only enclose values in quotes which need them, because their CSV
+#'    rendering can contain quotes itself (e.g. strings or binary values)), "AllValid" (Enclose all valid values in
+#'    quotes), or "None" (Do not enclose any values in quotes).
 #'
 #' @section Active bindings:
 #'
@@ -563,6 +568,21 @@ CsvWriteOptions$create <- function(include_header = TRUE,
     )
   )
 }
+
+#' CSV Writing Options
+#'
+#' @param include_header Whether to write an initial header line with column names
+#' @param batch_size Maximum number of rows processed at a time. Default is 1024.
+#' @param null_string The string to be written for null values. Must not contain quotation marks. Default is an empty
+#' string (`""`).
+#' @param delimiter Field delimiter
+#' @param eol The end of line character to use for ending rows
+#' @param quoting_style How to handle quotes. "Needed" (Only enclose values in quotes which need them, because their CSV
+#'    rendering can contain quotes itself (e.g. strings or binary values)), "AllValid" (Enclose all valid values in
+#'    quotes), or "None" (Do not enclose any values in quotes).
+#'
+#' @export
+csv_write_options <- CsvWriteOptions
 
 readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
   if (isTRUE(col_names)) {

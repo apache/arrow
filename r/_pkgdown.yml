@@ -155,6 +155,7 @@ reference:
   - write_delim_dataset
   - write_csv_dataset
   - write_tsv_dataset
+  - csv_write_options
 
 - title: Read files
   desc: >
