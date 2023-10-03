@@ -2037,8 +2037,7 @@ Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
   return impl_->Consume(std::move(buffer));
 }
 Status StreamDecoder::Reset() {
-  impl_ =
-      std::make_unique<StreamDecoderImpl>(std::move(impl_->listener()), impl_->options());
+  impl_ = std::make_unique<StreamDecoderImpl>(impl_->listener(), impl_->options());
   return Status::OK();
 }
 
