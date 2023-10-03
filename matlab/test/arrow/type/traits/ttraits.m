@@ -365,6 +365,17 @@ classdef ttraits < matlab.unittest.TestCase
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
+        function TestMatlabTable(testCase)
+            import arrow.type.traits.*
+
+            type = "table";
+            expectedTraits = StructTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
         function TestErrorIfUnsupportedMatlabClass(testCase)
             import arrow.type.traits.*
 
