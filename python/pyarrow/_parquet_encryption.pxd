@@ -31,7 +31,7 @@ from pyarrow.lib cimport _Weakrefable
 cdef class CryptoFactory(_Weakrefable):
     cdef shared_ptr[CPyCryptoFactory] factory
     cdef init(self, callable_client_factory)
-    cdef inline shared_ptr[CPyCryptoFactory] unwrap(self) nogil
+    cdef inline shared_ptr[CPyCryptoFactory] unwrap(self)
 
 cdef class EncryptionConfiguration(_Weakrefable):
     cdef shared_ptr[CEncryptionConfiguration] configuration
