@@ -339,7 +339,7 @@ classdef tStructArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:struct:ZeroVariables");
         end
 
-        function FromMATLABZeroWrongNumberFieldNames(tc)
+        function FromMATLABWrongNumberFieldNames(tc)
             % Verify StructArray.fromMATLAB throws an error when the 
             % FieldNames nv-pair is provided and its number of elements
             % does not equal the number of variables in the input table T.
@@ -350,9 +350,9 @@ classdef tStructArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:tabular:WrongNumberColumnNames");
         end
 
-        function FromMATLABValidBadIndex(tc)
+        function FromMATLABValidNVPairBadIndex(tc)
             % Verify StructArray.fromMATLAB throws an error when the 
-            % Valid nv-pair is provided and its contains an invalid index.
+            % Valid nv-pair is provided and it contains an invalid index.
 
             import arrow.array.StructArray
 
