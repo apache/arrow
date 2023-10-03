@@ -293,8 +293,8 @@ Status Engine::RemoveUnusedFunctions() {
   used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
 
   module_pm.addPass(
-      llvm::InternalizePass([&used_functions](const llvm::GlobalValue& GV) -> bool {
-        return used_functions.find(GV.getName().str()) != used_functions.end();
+      llvm::InternalizePass([&used_functions](const llvm::GlobalValue& variable) -> bool {
+        return used_functions.find(variable.getName().str()) != used_functions.end();
       }));
   module_pm.addPass(llvm::GlobalDCEPass());
 
