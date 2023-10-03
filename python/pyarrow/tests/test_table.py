@@ -1334,14 +1334,16 @@ def test_concat_tables_permissive():
     t1 = pa.Table.from_arrays([list(range(10))], names=('a',))
     t2 = pa.Table.from_arrays([list(('a', 'b', 'c'))], names=('a',))
 
-    with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
+    with pytest.raises(
+            pa.ArrowTypeError,
+            match="Unable to merge: Field a has incompatible types: int64 vs string"):
         _ = pa.concat_tables([t1, t2], promote_options="permissive")
 
 
 def test_concat_tables_invalid_option():
     t = pa.Table.from_arrays([list(range(10))], names=('a',))
 
-    with pytest.raises(ValueError, match="Invalid merge option: invalid"):
+    with pytest.raises(ValueError, match="Invalid promote options: invalid"):
         pa.concat_tables([t, t], promote_options="invalid")
 
 

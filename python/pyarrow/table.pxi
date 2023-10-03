@@ -5048,6 +5048,7 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         For memory allocations, if required, otherwise use default pool.
     promote_options : str, default none
         Accepts strings "none", "default" and "permissive".
+    **kwargs: dict
 
     Examples
     --------
@@ -5091,7 +5092,7 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     elif promote_options in {"default", "none"}:
         options.field_merge_options = CField.CMergeOptions.Defaults()
     else:
-        raise ValueError(f"Invalid mode: {promote_options}")
+        raise ValueError(f"Invalid promote options: {promote_options}")
 
     with nogil:
         options.unify_schemas = promote_options != "none"
