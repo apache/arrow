@@ -815,6 +815,64 @@ class PollFlightInfoScenario : public Scenario {
   }
 };
 
+/// \brief The server used for testing app_metadata in FlightInfo and FlightEndpoint
+class AppMetadataFlightInfoEndpointServer : public FlightServerBase {
+ public:
+  AppMetadataFlightInfoEndpointServer() : FlightServerBase() {}
+
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) override {
+    if (request.type != FlightDescriptor::CMD) {
+      return Status::Invalid("request descriptor should be of type CMD");
+    }
+
+    auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
+    std::vector<FlightEndpoint> endpoints = {
+        FlightEndpoint{{}, {}, std::nullopt, request.cmd}};
+    ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*schema, request, endpoints, -1,
+                                                        -1, false, request.cmd));
+    *info = std::make_unique<FlightInfo>(std::move(result));
+    return Status::OK();
+  }
+};
+
+/// \brief The AppMetadataFlightInfoEndpoint scenario.
+///
+/// This tests that the client can receive and use the `app_metadata` field in
+/// the FlightInfo and FlightEndpoint messages.
+///
+/// The server only implements GetFlightInfo and will return a FlightInfo with a non-
+/// empty app_metadata value that should match the app_metadata field in the
+/// included FlightEndpoint. The value should be the same as the cmd bytes passed
+/// in the call to GetFlightInfo by the client.
+class AppMetadataFlightInfoEndpointScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<AppMetadataFlightInfoEndpointServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("foobar")));
+    if (info->app_metadata() != "foobar") {
+      return Status::Invalid("app_metadata should have been 'foobar', got: ",
+                             info->app_metadata());
+    }
+    if (info->endpoints().size() != 1) {
+      return Status::Invalid("should have gotten exactly one FlightEndpoint back, got: ",
+                             info->endpoints().size());
+    }
+    if (info->endpoints()[0].app_metadata != "foobar") {
+      return Status::Invalid("FlightEndpoint app_metadata should be 'foobar', got: ",
+                             info->endpoints()[0].app_metadata);
+    }
+    return Status::OK();
+  }
+};
+
 /// \brief Schema to be returned for mocking the statement/prepared statement results.
 ///
 /// Must be the same across all languages.
@@ -1896,6 +1954,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "poll_flight_info") {
     *out = std::make_shared<PollFlightInfoScenario>();
+    return Status::OK();
+  } else if (scenario_name == "app_metadata_flight_info_endpoint") {
+    *out = std::make_shared<AppMetadataFlightInfoEndpointScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

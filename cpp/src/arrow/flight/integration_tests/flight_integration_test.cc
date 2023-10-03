@@ -73,6 +73,10 @@ TEST(FlightIntegration, ExpirationTimeRenewFlightEndpoint) {
 
 TEST(FlightIntegration, PollFlightInfo) { ASSERT_OK(RunScenario("poll_flight_info")); }
 
+TEST(FlightIntegration, AppMetadataFlightInfoEndpoint) {
+  ASSERT_OK(RunScenario("app_metadata_flight_info_endpoint"));
+}
+
 TEST(FlightIntegration, FlightSql) { ASSERT_OK(RunScenario("flight_sql")); }
 
 TEST(FlightIntegration, FlightSqlExtension) {
