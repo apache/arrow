@@ -864,29 +864,25 @@ struct ValidateArrayImpl {
   /// \pre basic validation has already been performed
   template <typename offset_type>
   Status FullyValidateOffsetsAndSizes(int64_t offset_limit) {
-    const auto* validity = data.GetValues<uint8_t>(0, 0);
     const auto* offsets = data.GetValues<offset_type>(1);
     const auto* sizes = data.GetValues<offset_type>(2);
 
-    return VisitSetBitRuns(
-        validity, data.offset, data.length, [&](int64_t run_start, int64_t run_length) {
-          for (int64_t i = 0; i < run_length; ++i) {
-            auto slot = run_start + i;
-            const auto size = sizes[slot];
-            if (size > 0) {
-              const auto offset = offsets[slot];
-              if (offset < 0 || offset > offset_limit) {
-                return OutOfBoundsListViewOffset<offset_type>(slot, offset_limit);
-              }
-              if (size > offset_limit - offset) {
-                return OutOfBoundsListViewSize<offset_type>(slot, offset_limit);
-              }
-            } else if (size < 0) {
-              return OutOfBoundsListViewSize<offset_type>(slot, offset_limit);
-            }
-          }
-          return Status::OK();
-        });
+    for (int64_t i = 0; i < data.length; ++i) {
+      const auto size = sizes[i];
+      if (size >= 0) {
+        const auto offset = offsets[i];
+        if (offset < 0 || offset > offset_limit) {
+          return OutOfBoundsListViewOffset<offset_type>(i, offset_limit);
+        }
+        if (size > offset_limit - offset) {
+          return OutOfBoundsListViewSize<offset_type>(i, offset_limit);
+        }
+      } else {
+        return OutOfBoundsListViewSize<offset_type>(i, offset_limit);
+      }
+    }
+
+    return Status::OK();
   }
 
   template <typename TypeClass>
