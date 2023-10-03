@@ -58,6 +58,7 @@ fi
 
 export TZ=UTC
 release_date=$(LC_TIME=C date "+%-d %B %Y")
+release_date_iso8601=$(LC_TIME=C date "+%Y-%m-%d")
 previous_tag_date=$(git log -n 1 --pretty=%aI apache-arrow-${previous_version})
 rough_previous_release_date=$(date --date "${previous_tag_date}" +%s)
 rough_release_date=$(date +%s)
@@ -257,7 +258,7 @@ current:
   number: '${version}'
   pinned_number: '${pinned_version}'
   major_number: '${major_version}'
-  date: '${release_date}'
+  date: '${release_date_iso8601}'
   git-tag: '${git_tag_hash}'
   github-tag-link: 'https://github.com/apache/arrow/releases/tag/${git_tag}'
   release-notes: 'https://arrow.apache.org/release/${version}.html'

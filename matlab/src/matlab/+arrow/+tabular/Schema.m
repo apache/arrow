@@ -97,18 +97,29 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
         end
     end
 
-    methods (Access = private)
-
-        function str = toString(obj)
-            str = obj.Proxy.toString();
-        end
-
-    end
-
     methods (Access=protected)
 
+        function header = getHeader(obj)
+            name = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            numFields = obj.NumFields;
+            if numFields == 0
+                header = compose("  Arrow %s with 0 fields" + newline, name);
+            elseif numFields == 1
+                header = compose("  Arrow %s with %d field:" + newline, name, numFields);
+            else
+                header = compose("  Arrow %s with %d fields:" + newline, name, numFields);
+            end
+        end
+
         function displayScalarObject(obj)
-            disp(obj.toString());
+            disp(getHeader(obj));
+            numFields = obj.NumFields;
+
+            if numFields > 0
+                text = arrow.tabular.internal.displaySchema(obj);
+                disp(text + newline);
+            end
+
         end
 
     end
