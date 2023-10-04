@@ -163,3 +163,8 @@ cdef extern from "arrow/dataset/parquet_encryption_config.h" namespace "arrow::d
         shared_ptr[CCryptoFactory] crypto_factory
         shared_ptr[CKmsConnectionConfig] kms_connection_config
         shared_ptr[CDecryptionConfiguration] decryption_config
+
+cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory)
+cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig)
+cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig)
+cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig)

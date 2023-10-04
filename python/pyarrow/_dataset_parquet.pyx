@@ -115,11 +115,11 @@ IF PARQUET_ENCRYPTION_ENABLED:
 
             self.c_config.reset(new CParquetEncryptionConfig())
 
-            c_encryption_config = ParquetEncryptionConfig.unwrap_encryptionconfig(
+            c_encryption_config = pyarrow_unwrap_encryptionconfig(
                 encryption_config)
 
-            self.c_config.get().crypto_factory = ParquetEncryptionConfig.unwrap_cryptofactory(crypto_factory)
-            self.c_config.get().kms_connection_config = ParquetEncryptionConfig.unwrap_kmsconnectionconfig(
+            self.c_config.get().crypto_factory = pyarrow_unwrap_cryptofactory(crypto_factory)
+            self.c_config.get().kms_connection_config = pyarrow_unwrap_kmsconnectionconfig(
                 kms_connection_config)
             self.c_config.get().encryption_config = c_encryption_config
 
@@ -131,27 +131,6 @@ IF PARQUET_ENCRYPTION_ENABLED:
 
         cdef shared_ptr[CParquetEncryptionConfig] unwrap(self):
             return self.c_config
-
-        @staticmethod
-        cdef shared_ptr[CCryptoFactory] unwrap_cryptofactory(object crypto_factory) except *:
-            if isinstance(crypto_factory, CryptoFactory):
-                pycf = (<CryptoFactory> crypto_factory).unwrap()
-                return static_pointer_cast[CCryptoFactory, CPyCryptoFactory](pycf)
-            raise TypeError("Expected CryptoFactory, got %s" % type(crypto_factory))
-
-        @staticmethod
-        cdef shared_ptr[CKmsConnectionConfig] unwrap_kmsconnectionconfig(object kmsconnectionconfig):
-            if isinstance(kmsconnectionconfig, KmsConnectionConfig):
-                return (<KmsConnectionConfig> kmsconnectionconfig).unwrap()
-            raise TypeError("Expected KmsConnectionConfig, got %s" %
-                            type(kmsconnectionconfig))
-
-        @staticmethod
-        cdef shared_ptr[CEncryptionConfiguration] unwrap_encryptionconfig(object encryptionconfig):
-            if isinstance(encryptionconfig, EncryptionConfiguration):
-                return (<EncryptionConfiguration> encryptionconfig).unwrap()
-            raise TypeError("Expected EncryptionConfiguration, got %s" %
-                            type(encryptionconfig))
 
     cdef class ParquetDecryptionConfig(_Weakrefable):
         """
@@ -198,11 +177,11 @@ IF PARQUET_ENCRYPTION_ENABLED:
 
             self.c_config.reset(new CParquetDecryptionConfig())
 
-            c_decryption_config = ParquetDecryptionConfig.unwrap_decryptionconfig(
+            c_decryption_config = pyarrow_unwrap_decryptionconfig(
                 decryption_config)
 
-            self.c_config.get().crypto_factory = ParquetDecryptionConfig.unwrap_cryptofactory(crypto_factory)
-            self.c_config.get().kms_connection_config = ParquetDecryptionConfig.unwrap_kmsconnectionconfig(
+            self.c_config.get().crypto_factory = pyarrow_unwrap_cryptofactory(crypto_factory)
+            self.c_config.get().kms_connection_config = pyarrow_unwrap_kmsconnectionconfig(
                 kms_connection_config)
             self.c_config.get().decryption_config = c_decryption_config
 
@@ -214,29 +193,6 @@ IF PARQUET_ENCRYPTION_ENABLED:
 
         cdef shared_ptr[CParquetDecryptionConfig] unwrap(self):
             return self.c_config
-
-        @staticmethod
-        cdef shared_ptr[CCryptoFactory] unwrap_cryptofactory(object crypto_factory) except *:
-            if isinstance(crypto_factory, CryptoFactory):
-                pycf = (<CryptoFactory> crypto_factory).unwrap()
-                return static_pointer_cast[CCryptoFactory, CPyCryptoFactory](pycf)
-            raise TypeError("Expected CryptoFactory, got %s" % type(crypto_factory))
-
-        @staticmethod
-        cdef shared_ptr[CKmsConnectionConfig] unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *:
-            if isinstance(kmsconnectionconfig, KmsConnectionConfig):
-                return (<KmsConnectionConfig> kmsconnectionconfig).unwrap()
-            raise TypeError("Expected KmsConnectionConfig, got %s" %
-                            type(kmsconnectionconfig))
-
-        @staticmethod
-        cdef shared_ptr[CDecryptionConfiguration] unwrap_decryptionconfig(object decryptionconfig) except *:
-            if isinstance(decryptionconfig, DecryptionConfiguration):
-                return (<DecryptionConfiguration> decryptionconfig).unwrap()
-
-            raise TypeError("Expected DecryptionConfiguration, got %s" %
-                            type(decryptionconfig))
-
 
 cdef class ParquetFileFormat(FileFormat):
     """

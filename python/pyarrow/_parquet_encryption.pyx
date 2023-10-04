@@ -457,3 +457,24 @@ cdef class CryptoFactory(_Weakrefable):
 
     cdef inline shared_ptr[CPyCryptoFactory] unwrap(self):
         return self.factory
+
+cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *:
+    if isinstance(crypto_factory, CryptoFactory):
+        pycf = (<CryptoFactory> crypto_factory).unwrap()
+        return static_pointer_cast[CCryptoFactory, CPyCryptoFactory](pycf)
+    raise TypeError("Expected CryptoFactory, got %s" % type(crypto_factory))
+
+cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *:
+    if isinstance(kmsconnectionconfig, KmsConnectionConfig):
+        return (<KmsConnectionConfig> kmsconnectionconfig).unwrap()
+    raise TypeError("Expected KmsConnectionConfig, got %s" % type(kmsconnectionconfig))
+
+cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *:
+    if isinstance(encryptionconfig, EncryptionConfiguration):
+        return (<EncryptionConfiguration> encryptionconfig).unwrap()
+    raise TypeError("Expected EncryptionConfiguration, got %s" % type(encryptionconfig))
+
+cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *:
+    if isinstance(decryptionconfig, DecryptionConfiguration):
+        return (<DecryptionConfiguration> decryptionconfig).unwrap()
+    raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))
