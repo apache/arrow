@@ -350,7 +350,7 @@ def buffers_to_array(
         Dictionary containing tuples of underlying buffers and
         their associated dtype.
     data_type : Tuple[DtypeKind, int, str, str],
-        Dtype description as a tuple ``(kind, bit-width, format string,
+        Dtype description of the column as a tuple ``(kind, bit-width, format string,
         endianness)``.
     length : int
         The number of values in the array.
