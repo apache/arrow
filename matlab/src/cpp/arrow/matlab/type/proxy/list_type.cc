@@ -24,15 +24,16 @@ namespace arrow::matlab::type::proxy {
 
     libmexclass::proxy::MakeResult ListType::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
         using ListTypeProxy = arrow::matlab::type::proxy::ListType;
 
         mda::StructArray args = constructor_arguments[0];
         const mda::TypedArray<uint64_t> type_proxy_id_mda = args[0]["TypeProxyID"];
         const auto proxy_id = type_proxy_id_mda[0];
         const auto proxy = ProxyManager::getProxy(proxy_id);
-        const auto type_proxy = std::static_pointer_cast<type::proxy:Type>(proxy);
+        const auto type_proxy = std::static_pointer_cast<type::proxy::Type>(proxy);
         const auto type = type_proxy->unwrap();
-        const auto list_type = arrow::list(type);
+        const auto list_type = std::static_pointer_cast<arrow::ListType>(arrow::list(type));
         return std::make_shared<ListTypeProxy>(std::move(list_type));
     }
 }
