@@ -37,7 +37,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -62,7 +62,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -87,7 +87,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -241,6 +241,10 @@ namespace Apache.Arrow.C
                     };
 
                     string timezone = format.Substring(format.IndexOf(':') + 1);
+                    if (timezone.Length == 0)
+                    {
+                        timezone = null;
+                    }
                     return new TimestampType(timeUnit, timezone);
                 }
 

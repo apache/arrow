@@ -84,11 +84,13 @@ UI Benchmark:
 Integration Testing
 ===================
 
-Integration tests can be run via Archery:
+Integration tests can be run :ref:`via Archery <running_integration_tests>`.
+For example, assuming you only built Arrow Java and want to run the IPC
+integration tests, you would do:
 
-.. code-block::
+.. code-block:: console
 
-    $ archery integration --with-java true --with-cpp false --with-js false --with-csharp false --with-go false --with-rust false
+   $ archery integration --run-ipc --with-java 1
 
 Code Style
 ==========

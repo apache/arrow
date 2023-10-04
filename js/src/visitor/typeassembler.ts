@@ -32,6 +32,7 @@ import { Date } from '../fb/date.js';
 import { Time } from '../fb/time.js';
 import { Timestamp } from '../fb/timestamp.js';
 import { Interval } from '../fb/interval.js';
+import { Duration } from '../fb/duration.js';
 import { List } from '../fb/list.js';
 import { Struct_ as Struct } from '../fb/struct-.js';
 import { Union } from '../fb/union.js';
@@ -108,6 +109,11 @@ export class TypeAssembler extends Visitor {
         Interval.startInterval(b);
         Interval.addUnit(b, node.unit);
         return Interval.endInterval(b);
+    }
+    public visitDuration<T extends type.Duration>(node: T, b: Builder) {
+        Duration.startDuration(b);
+        Duration.addUnit(b, node.unit);
+        return Duration.endDuration(b);
     }
     public visitList<T extends type.List>(_node: T, b: Builder) {
         List.startList(b);
