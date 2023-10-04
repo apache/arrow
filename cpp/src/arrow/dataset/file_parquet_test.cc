@@ -443,11 +443,9 @@ TEST_F(TestParquetFileSystemDataset, WriteWithEncryptionConfigNotSupported) {
   std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(test_schema, "[[0]]");
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::OutputStream> out_stream,
                        mock_fs->OpenOutputStream("/foo.parquet"));
-  std::cout << "B" << std::endl;
   // Try to create a writer with the encryption config
   auto result =
       format_->MakeWriter(out_stream, test_schema, options, {mock_fs, "/foo.parquet"});
-  std::cout << "C" << std::endl;
   // Expect an error if encryption is not supported in the build
   EXPECT_TRUE(result.status().IsNotImplemented());
 #endif
