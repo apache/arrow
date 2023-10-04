@@ -31,6 +31,9 @@ class Buffer : public libmexclass::proxy::Proxy {
 
         std::shared_ptr<arrow::Buffer> unwrap();
 
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+
     protected:
 
         void getNumBytes(libmexclass::proxy::method::Context& context);
