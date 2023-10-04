@@ -204,7 +204,7 @@ TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
   PrettyPrintOptions options{};
   // Use a custom array element delimiter of " | ",
   // rather than the default delimiter (i.e. ",").
-  options.array_element_delimiter = " | ";
+  options.array_delimiters.element = " | ";
 
   // Short array without ellipsis
   {
