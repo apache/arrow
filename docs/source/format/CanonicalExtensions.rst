@@ -161,7 +161,7 @@ Variable shape tensor
 
   * **data** is a ``List`` holding tensor elements of a single tensor.
     Data type of the list elements is uniform across the entire column.
-  * **shape** is a ``FixedSizeList<uint32>[ndim]`` of the tensor shape where
+  * **shape** is a ``FixedSizeList<int32>[ndim]`` of the tensor shape where
     the size of the list ``ndim`` is equal to the number of dimensions of the
     tensor.
 
