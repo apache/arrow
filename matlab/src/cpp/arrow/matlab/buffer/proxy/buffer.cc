@@ -33,11 +33,16 @@ namespace arrow::matlab::buffer::proxy {
     libmexclass::proxy::MakeResult Buffer::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
         using BufferProxy = proxy::Buffer;
+        using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
 
         mda::StructArray opts = constructor_arguments[0];
         const mda::TypedArray<uint8_t> values_mda = opts[0]["Values"];
-        auto buffer = std::make_shared<arrow::matlab::MatlabBuffer>(values_mda);
+        auto buffer = std::make_shared<MatlabBuffer>(values_mda);
         return std::make_shared<BufferProxy>(std::move(buffer));
+    }
+
+    std::shared_ptr<arrow::Buffer> Buffer::unwrap() {
+        return buffer;
     }
 
     void Buffer::getNumBytes(libmexclass::proxy::method::Context& context) {
@@ -77,8 +82,9 @@ namespace arrow::matlab::buffer::proxy {
 
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
             auto cpu_buffer, 
-            arrow::Buffer::ViewOrCopy(buffer, arrow::default_cpu_memory_manager(),
-            context, "invalid:buffer");
+            arrow::Buffer::ViewOrCopy(buffer, arrow::default_cpu_memory_manager()),
+            context, "invalid:buffer"
+        );
 
         const auto* data_begin = cpu_buffer->data();
         const auto num_bytes = cpu_buffer->size();
@@ -86,7 +92,7 @@ namespace arrow::matlab::buffer::proxy {
         const auto* data_end = data_begin + num_bytes;
 
         mda::ArrayFactory factory;
-        context.outputs[0] = factory.createArray<uint8_t>({num_bytes, 1}, data_begin, data_end);
+        context.outputs[0] = factory.createArray<uint8_t>({static_cast<size_t>(num_bytes), 1}, data_begin, data_end);
     }
 
 }

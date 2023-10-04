@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/arbufferray.h"
+#include "arrow/buffer.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
