@@ -75,15 +75,14 @@ namespace arrow::matlab::buffer::proxy {
     void Buffer::toMATLAB(libmexclass::proxy::method::Context& context) { 
         namespace mda = ::matlab::data;
 
-        // If buffer is not backed by a cpu memory manager, calling its data() method
-        // may cause a crash. To avoid this, call ViewOrCopy, which tries to create a 
-        // no-copy view of the buffer on the given memory manager device. If not possible,
-        // ViewOrCopy makes a copy of the buffer's contents.
-
+        // If buffer->is_cpu() returns false, invoking buffer->data() may cause a crash.
+        // Avoid this potential crash by first invoking ViewOrCopy(buffer, memory_manager_device).
+        // This function tries to create a no-copy view of the buffer on the given memory
+        // manager device. If not possible, then ViewOrCopy copies the buffer's contents.
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
             auto cpu_buffer, 
             arrow::Buffer::ViewOrCopy(buffer, arrow::default_cpu_memory_manager()),
-            context, "invalid:buffer"
+            context, error::BUFFER_VIEW_OR_COPY_FAILED
         );
 
         const auto* data_begin = cpu_buffer->data();
