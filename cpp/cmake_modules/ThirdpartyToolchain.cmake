@@ -2202,8 +2202,15 @@ function(build_gtest)
   if(APPLE)
     string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
-  set(BUILD_SHARED_LIBS ON)
-  set(BUILD_STATIC_LIBS OFF)
+  # If we're building static libs for Emscripten, we need to build *everything* as 
+  # static libs.
+  if(NOT (CMAKE_SYSTEM_NAME STREQUAL "Emscripten") OR ARROW_BUILD_SHARED)
+    set(BUILD_SHARED_LIBS ON)
+    set(BUILD_STATIC_LIBS OFF)
+  else()
+    set(BUILD_SHARED_LIBS OFF)
+    set(BUILD_STATIC_LIBS ON)
+endif()
   # We need to use "cache" variable to override the default
   # INSTALL_GTEST option by this value. See also:
   # https://cmake.org/cmake/help/latest/policy/CMP0077.html
