@@ -40,7 +40,8 @@ set PARQUET_TEST_DATA=C:\arrow\submodules\parquet-testing\data
 pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install GCS testbench
-call "C:\arrow\ci\scripts\install_gcs_testbench.bat"
+@REM TODO: Temporarily disable installing GCS testbench
+@REM call "C:\arrow\ci\scripts\install_gcs_testbench.bat"
 
 @REM Install the built wheels
 python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1 
