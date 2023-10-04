@@ -34,7 +34,7 @@ activate it using the commands below (see https://emscripten.org/docs/getting_st
    git clone https://github.com/emscripten-core/emsdk.git
    cd emsdk
    # replace <version> with the desired EMSDK version.
-   # e.g. for pyodide 0.24, you need EMSDK version 3.1.45
+   # e.g. for Pyodide 0.24, you need EMSDK version 3.1.45
    ./emsdk install <version>
    ./emsdk activate <version>
    source ./emsdk_env.sh
@@ -42,15 +42,15 @@ activate it using the commands below (see https://emscripten.org/docs/getting_st
 If you want to build PyArrow for `Pyodide <https://pyodide.org>`_, you
 need ``pyodide-build`` installed via ``pip``, and to be running with the
 same version of Python that Pyodide is built for, along with the same
-versions of emsdk.
+versions of emsdk tools.
 
 .. code:: shell
 
-   # install pyodide build tools.
-   # e.g. for version 0.24 of pyodide:
+   # install Pyodide build tools.
+   # e.g. for version 0.24 of Pyodide:
    pip install pyodide-build==0.24
 
-Then build with the ``ninja-release-emscripten`` cmake preset,
+Then build with the ``ninja-release-emscripten`` CMake preset,
 like below:
 
 .. code:: shell
@@ -88,7 +88,7 @@ you will need to override. In particular you will need:
 
 #. You will quite likely need to set ``ARROW_ENABLE_THREADING`` to ``OFF``
    for builds targeting single threaded Emscripten environments such as
-   pyodide.
+   Pyodide.
 
 #. ``ARROW_FLIGHT`` and anything else that uses network probably won't
    work.
