@@ -128,6 +128,24 @@ classdef tBuffer < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNumeric");
         end
 
+        function fromMATLABNonRealError(testCase)
+            % Verify fromMATLAB throws an error if given a complex
+            % numeric  array as input.
+            import arrow.buffer.Buffer
+
+            fcn = @() Buffer.fromMATLAB(10 + 3i);
+            testCase.verifyError(fcn, "MATLAB:validators:mustBeReal");
+        end
+
+        function fromMATLABNonSparseError(testCase)
+            % Verify fromMATLAB throws an error if given a sparse
+            % numeric array as input.
+            import arrow.buffer.Buffer
+
+            fcn = @() Buffer.fromMATLAB(sparse(ones([5 1])));
+            testCase.verifyError(fcn, "MATLAB:validators:mustBeNonsparse");
+        end
+
         function NumBytesNoSetter(testCase)
             % Verifies the NumBytes property is not settable.
 

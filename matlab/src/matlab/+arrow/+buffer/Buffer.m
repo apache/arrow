@@ -67,7 +67,7 @@ classdef Buffer < matlab.mixin.Scalar
     methods (Static, Hidden)
         function buffer = fromMATLAB(data)
             arguments
-                data(:, 1) {mustBeNumeric}
+                data(:, 1) {mustBeNumeric, mustBeNonsparse, mustBeReal}
             end
 
             % Re-interpret bit pattern as uint8s without changing the
