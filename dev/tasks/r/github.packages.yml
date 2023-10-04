@@ -371,7 +371,7 @@ jobs:
           library(arrow)
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
           print(arrow_info())
-  
+
   #TODO test macos source build?
   test-linux-source:
     needs: source
