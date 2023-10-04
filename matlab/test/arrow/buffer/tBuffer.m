@@ -137,5 +137,52 @@ classdef tBuffer < matlab.unittest.TestCase
             fcn = @() setfield(buffer, "NumBytes", int64(1));
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
+
+        function IsEqualTrue(testCase)
+            % Verifies two buffers are considered equal if
+            %   1. They have the same size (NumBytes)
+            %   2. They contain the same bytes
+
+            import arrow.buffer.Buffer
+
+            % Compare two non-empty buffers
+            buffer1 = Buffer.fromMATLAB([1 2 3]);
+            buffer2 = Buffer.fromMATLAB([1 2 3]);
+            testCase.verifyTrue(isequal(buffer1, buffer2));
+
+            % Compare two buffers, one of which was created from a double 
+            % array and the other created from a uint8 array. However, both
+            % arrays have the same bit pattern.
+            data = zeros([1 24], "uint8");
+            data([7 8 16 23 24]) = [240 63 64  8 64];
+            buffer3 = Buffer.fromMATLAB(data);
+            testCase.verifyTrue(isequal(buffer1, buffer3));
+
+            % Compare two empty buffers 
+            buffer4 = Buffer.fromMATLAB([]);
+            buffer5 = Buffer.fromMATLAB([]);
+            testCase.verifyTrue(isequal(buffer4, buffer5));
+
+            % Compare more than two buffers
+            testCase.verifyTrue(isequal(buffer1, buffer2, buffer3));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verifies two buffers are considered equal if
+            %   1. They have the same size (NumBytes)
+            %   2. They contain the same bytes
+
+            import arrow.buffer.Buffer
+                
+            buffer1 = Buffer.fromMATLAB([1 2 3]);
+            buffer2 = Buffer.fromMATLAB([1 3 2]);
+            buffer3 = Buffer.fromMATLAB([1 2 3 4]);
+            testCase.verifyFalse(isequal(buffer1, buffer2));
+            testCase.verifyFalse(isequal(buffer1, buffer3));
+            testCase.verifyFalse(isequal(buffer1, buffer2, buffer3));
+
+            % Compare a buffer to a string
+            testCase.verifyFalse(isequal(buffer1, "A"));
+        end
     end
 end

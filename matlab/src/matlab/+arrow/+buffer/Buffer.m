@@ -47,7 +47,7 @@ classdef Buffer < matlab.mixin.Scalar
             tf = false;
 
             bufferProxyIDs = zeros([1 numel(varargin)], "uint64");
-            for ii = 2:numel(varargin)
+            for ii = 1:numel(varargin)
                 maybeBuffer = varargin{ii};
                 if ~isa(maybeBuffer, "arrow.buffer.Buffer")
                     % If maybeBuffer is not an instance of
