@@ -227,7 +227,7 @@ TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
     // Append 20 copies of the value "10" to the end of the values vector.
     values.insert(values.end(), 20, 10);
     // Append 20 copies of the value "true" to the end of the validity bitmap vector.
-    is_valid.insert(is_valid.end(), 20, 10);
+    is_valid.insert(is_valid.end(), 20, true);
     // Append the values 4, 5, and 6 to the end of the values vector.
     values.insert(values.end(), {4, 5, 6});
     // Append the values true, false, and true to the end of the validity bitmap vector.
