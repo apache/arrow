@@ -1817,10 +1817,10 @@ macro(build_protobuf)
   list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
 
   if(CMAKE_CROSSCOMPILING)
-    # if we are cross compiling, we need to build protoc for the host
-    # system also, as it is used when building arrow
-    # We do this by calling cmake as a child process
-    # with CXXFLAGS / CFLAGS and cmake flags cleared
+    # If we are cross compiling, we need to build protoc for the host
+    # system also, as it is used when building Arrow
+    # We do this by calling CMake as a child process
+    # with CXXFLAGS / CFLAGS and CMake flags cleared.
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
