@@ -36,12 +36,12 @@ class Table;
 /// \brief Options for controlling which delimiters to use when printing
 /// an Array or ChunkedArray.
 struct ARROW_EXPORT PrettyPrintDelimiters {
-    /// Delimiter for separating individual elements of an Array (e.g. ","),
-    /// or individual chunks of a ChunkedArray
-    std::string element = ",";
+  /// Delimiter for separating individual elements of an Array (e.g. ","),
+  /// or individual chunks of a ChunkedArray
+  std::string element = ",";
 
-    /// Create a PrettyPrintDelimiters instance with default values
-    static PrettyPrintDelimiters Defaults() { return PrettyPrintDelimiters(); }
+  /// Create a PrettyPrintDelimiters instance with default values
+  static PrettyPrintDelimiters Defaults() { return PrettyPrintDelimiters(); }
 };
 
 /// \class PrettyPrintOptions
