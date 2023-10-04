@@ -212,7 +212,7 @@ TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
     std::vector<int32_t> values = {1, 2, 3, 4, 5};
     static const char* expected = R"expected([
   1 | 
-  2 |
+  2 | 
   null | 
   4 | 
   null
@@ -222,16 +222,38 @@ TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
 
   // Longer array with ellipsis
   {
-    std::vector<bool> is_valid = {true, false, true, true, false,
-                                  true, false, true, true};
-    std::vector<int32_t> values = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::vector<bool> is_valid = {true, false, true};
+    std::vector<int32_t> values = {1, 2, 3};
+    // Append 20 copies of the value "10" to the end of the values vector.
+    values.insert(values.end(), 20, 10);
+    // Append 20 copies of the value "true" to the end of the validity bitmap vector.
+    is_valid.insert(is_valid.end(), 20, 10);
+    // Append the values 4, 5, and 6 to the end of the values vector.
+    values.insert(values.end(), {4, 5, 6});
+    // Append the values true, false, and true to the end of the validity bitmap vector.
+    is_valid.insert(is_valid.end(), {true, false, true});
     static const char* expected = R"expected([
   1 | 
-  null |
+  null | 
   3 | 
-  ... | 
-  8 | 
-  9 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  ...
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  4 | 
+  null | 
+  6
 ])expected";
     CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
   }
@@ -1061,7 +1083,7 @@ TEST_F(TestPrettyPrint, ChunkedArrayCustomElementDelimiter) {
   PrettyPrintOptions options{};
   // Use a custom ChunkedArray element delimiter of ";",
   // rather than the default delimiter (i.e. ",").
-  options.array_delimiters.element = ";";
+  options.chunked_array_delimiters.element = ";";
   // Use a custom Array element delimiter of " | ",
   // rather than the default delimiter (i.e. ",").
   options.array_delimiters.element = " | ";
