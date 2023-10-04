@@ -301,9 +301,6 @@ read_csv2_arrow <- function(file,
   mc <- match.call()
   mc$delim <- ";"
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
-  inform(
-    message = c(i = 'Using "\',\'" as decimal and "\'.\'" as grouping mark. Use `read_delim_arrow()` for more control."')
-  )
   eval.parent(mc)
 }
 
