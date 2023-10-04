@@ -1327,8 +1327,7 @@ macro(build_snappy)
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # ignore linker flag errors, as snappy sets
     # -Werror -Wall, and emscripten doesn't support -soname
-    set(SNAPPY_CMAKE_ARGS
-        ${SNAPPY_CMAKE_ARGS}
+    list(APPEND SNAPPY_CMAKE_ARGS
         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS} -Wno-error=linkflags")
   endif()
 

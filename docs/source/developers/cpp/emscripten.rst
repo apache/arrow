@@ -70,7 +70,7 @@ go to ``arrow/python`` and run
    pyodide build
 
 It should make a wheel targeting the currently enabled version of
-pyodide (i.e. the version corresponding to the currently installed
+Pyodide (i.e. the version corresponding to the currently installed
 ``pyodide-build``) in the ``dist`` subdirectory.
 
 **************
