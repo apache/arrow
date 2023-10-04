@@ -56,6 +56,11 @@ public class DefaultAllocationManagerOption {
     Unsafe,
 
     /**
+     * FFM based allocation manager.
+     */
+    FFM,
+
+    /**
      * Unknown type.
      */
     Unknown,
@@ -93,6 +98,9 @@ public class DefaultAllocationManagerOption {
       case Unsafe:
         DEFAULT_ALLOCATION_MANAGER_FACTORY = getUnsafeFactory();
         break;
+      case FFM:
+        DEFAULT_ALLOCATION_MANAGER_FACTORY = getFfmFactory();
+        break;
       case Unknown:
         LOGGER.info("allocation manager type not specified, using netty as the default type");
         DEFAULT_ALLOCATION_MANAGER_FACTORY = getFactory(CheckAllocator.check());
@@ -128,6 +136,15 @@ public class DefaultAllocationManagerOption {
     } catch (RuntimeException e) {
       throw new RuntimeException("Please add arrow-memory-netty to your classpath," +
           " No DefaultAllocationManager found to instantiate an NettyAllocationManager", e);
+    }
+  }
+
+  private static AllocationManager.Factory getFfmFactory() {
+    try {
+      return getFactory("org.apache.arrow.memory.FfmAllocationManager");
+    } catch (RuntimeException e) {
+      throw new RuntimeException("Please add arrow-memory-ffm to your classpath," +
+          " No DefaultAllocationManager found to instantiate an FfmAllocationManager", e);
     }
   }
 }
