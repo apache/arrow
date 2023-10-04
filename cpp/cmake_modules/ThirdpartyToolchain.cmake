@@ -1313,8 +1313,10 @@ macro(build_snappy)
   # Werror to the very end of the invocation to override the snappy internal setting.
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-      list(APPEND SNAPPY_CMAKE_ARGS
-           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error")
+      list(APPEND
+           SNAPPY_CMAKE_ARGS
+           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error"
+      )
     endforeach()
   endif()
 
