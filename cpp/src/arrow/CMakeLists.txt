@@ -175,6 +175,7 @@ set(ARROW_SRCS
     datum.cc
     device.cc
     extension_type.cc
+    extension/json.cc
     memory_pool.cc
     pretty_print.cc
     record_batch.cc
