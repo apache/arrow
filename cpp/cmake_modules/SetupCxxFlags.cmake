@@ -713,7 +713,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # size_t is 32 bit in emscripten wasm32 - ignore conversion errors
   # deprecated-literal-operator error is thrown in datetime (vendored lib in arrow)
   set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -sUSE_ZLIB=1 -fPIC -fexceptions -Wno-error=shorten-64-to-32 -Wno-error=deprecated-literal-operator")
+      "${CMAKE_CXX_FLAGS} -sUSE_ZLIB=1 -fPIC -fexceptions -Wno-error=shorten-64-to-32 -Wno-error=deprecated-literal-operator"
+  )
 
   # flags for creating shared libraries (only used in pyarrow, because
   # Emscripten builds libarrow as static)
@@ -722,7 +723,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # 2) Tell it to use javascript / webassembly 64 bit number support.
   # 3) Tell it to build with support for C++ exceptions
   # 4) Skip linker flags error which happens with -soname parameter
-  set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sSIDE_MODULE=1 -sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
+  set(ARROW_EMSCRIPTEN_LINKER_FLAGS
+      "-sSIDE_MODULE=1 -sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
   set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
   set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
   set(CMAKE_SHARED_LINKER_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})

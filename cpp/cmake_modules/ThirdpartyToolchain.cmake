@@ -258,7 +258,6 @@ macro(resolve_dependency DEPENDENCY_NAME)
     set(ARG_IS_RUNTIME_DEPENDENCY TRUE)
   endif()
 
-
   if(ARG_HAVE_ALT)
     set(PACKAGE_NAME "${DEPENDENCY_NAME}Alt")
   else()
@@ -963,7 +962,8 @@ endif()
 
 # and crosscompiling emulator (for try_run() )
 if(CMAKE_CROSSCOMPILING_EMULATOR)
-  list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_CROSSCOMPILING_EMULATOR=${CMAKE_CROSSCOMPILING_EMULATOR})
+  list(APPEND EP_COMMON_CMAKE_ARGS
+       -DCMAKE_CROSSCOMPILING_EMULATOR=${CMAKE_CROSSCOMPILING_EMULATOR})
 endif()
 
 if(CMAKE_PROJECT_INCLUDE)
@@ -1848,7 +1848,6 @@ macro(build_protobuf)
 
   endif()
 
-
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
@@ -1907,7 +1906,7 @@ if(ARROW_WITH_PROTOBUF)
     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
   endif()
   if(TARGET arrow::protobuf::host_protoc)
-      # make sure host protoc is used for compiling protobuf files
+    # make sure host protoc is used for compiling protobuf files
     # during build of e.g. orc
     set(ARROW_PROTOBUF_PROTOC arrow::protobuf::host_protoc)
   elseif(TARGET arrow::protobuf::protoc)
@@ -2202,7 +2201,7 @@ function(build_gtest)
   if(APPLE)
     string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
-  # If we're building static libs for Emscripten, we need to build *everything* as 
+  # If we're building static libs for Emscripten, we need to build *everything* as
   # static libs.
   if(NOT (CMAKE_SYSTEM_NAME STREQUAL "Emscripten") OR ARROW_BUILD_SHARED)
     set(BUILD_SHARED_LIBS ON)
@@ -2210,7 +2209,7 @@ function(build_gtest)
   else()
     set(BUILD_SHARED_LIBS OFF)
     set(BUILD_STATIC_LIBS ON)
-endif()
+  endif()
   # We need to use "cache" variable to override the default
   # INSTALL_GTEST option by this value. See also:
   # https://cmake.org/cmake/help/latest/policy/CMP0077.html
@@ -2466,13 +2465,13 @@ macro(build_zlib)
     endif()
     set(ZLIB_STATIC_LIB ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
     set(ZLIB_LIBRARIES ${ZLIB_LIBRARY})
-#    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
+    #    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
 
     add_library(ZLIB::ZLIB STATIC IMPORTED)
     set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
     set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
     set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
-#    target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
+    #    target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
 
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
