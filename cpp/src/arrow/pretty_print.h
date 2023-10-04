@@ -38,11 +38,11 @@ class Table;
 struct ARROW_EXPORT PrettyPrintDelimiters {
     /// Delimiter for separating individual elements of an Array (e.g. ","),
     /// or individual chunks of a ChunkedArray
-    std::string element ",";
+    std::string element = ",";
 
     /// Create a PrettyPrintDelimiters instance with default values
-    static PrettyPrintOptions Defaults() { return PrettyPrintDelimiters(); }
-}
+    static PrettyPrintDelimiters Defaults() { return PrettyPrintDelimiters(); }
+};
 
 /// \class PrettyPrintOptions
 /// \brief Options for controlling how various Arrow types should be printed.
@@ -94,10 +94,10 @@ struct ARROW_EXPORT PrettyPrintOptions {
   bool show_schema_metadata = true;
 
   /// Delimiters to use when printing an Array
-  PrettyPrintDelimiters array_delimiters = PrettyPrintDelimiters::Default();
+  PrettyPrintDelimiters array_delimiters = PrettyPrintDelimiters::Defaults();
 
   /// Delimiters to use when printing a ChunkedArray
-  PrettyPrintDelimiters chunked_array_delimiters = PrettyPrintDelimiters::Default();
+  PrettyPrintDelimiters chunked_array_delimiters = PrettyPrintDelimiters::Defaults();
 };
 
 /// \brief Print human-readable representation of RecordBatch

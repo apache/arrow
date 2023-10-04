@@ -200,12 +200,8 @@ TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
   CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
 }
 
-TEST_F(TestPrettyPrint, PrimitiveTypeCustomArrayElementDelimiter) {
+TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
   PrettyPrintOptions options{};
-  // Display array contents on one line.
-  options.skip_new_lines = true;
-  // Display maximum of 3 elements at the beginning and at the end of the array
-  options.window = 3;
   // Use a custom array element delimiter of " | ",
   // rather than the default delimiter (i.e. ",").
   options.array_element_delimiter = " | ";
@@ -214,7 +210,13 @@ TEST_F(TestPrettyPrint, PrimitiveTypeCustomArrayElementDelimiter) {
   {
     std::vector<bool> is_valid = {true, true, false, true, false};
     std::vector<int32_t> values = {1, 2, 3, 4, 5};
-    const char* expected = "[1 | 2 | null | 4 | null]";
+    static const char* expected = R"expected([
+  1 | 
+  2 |
+  null | 
+  4 | 
+  null
+])expected";
     CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
   }
 
@@ -223,7 +225,14 @@ TEST_F(TestPrettyPrint, PrimitiveTypeCustomArrayElementDelimiter) {
     std::vector<bool> is_valid = {true, false, true, true, false,
                                   true, false, true, true};
     std::vector<int32_t> values = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    const char* expected = "[1 | null | 3 | ... | null | 8 | 9]";
+    static const char* expected = R"expected([
+  1 | 
+  null |
+  3 | 
+  ... | 
+  8 | 
+  9 | 
+])expected";
     CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
   }
 }
@@ -1048,11 +1057,14 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
   CheckStream(chunked_array_2, {0}, expected_2);
 }
 
-TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayElementDelimiter) {
+TEST_F(TestPrettyPrint, ChunkedArrayCustomElementDelimiter) {
   PrettyPrintOptions options{};
-  // Use a custom array element delimiter of " |",
+  // Use a custom ChunkedArray element delimiter of ";",
   // rather than the default delimiter (i.e. ",").
-  options.array_element_delimiter = " | ";
+  options.array_delimiters.element = ";";
+  // Use a custom Array element delimiter of " | ",
+  // rather than the default delimiter (i.e. ",").
+  options.array_delimiters.element = " | ";
 
   const auto chunk = ArrayFromJSON(int32(), "[1, 2, null, 4, null]");
 
@@ -1083,7 +1095,7 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveTypeCustomArrayElementDelimiter) {
     null | 
     4 | 
     null
-  ],
+  ];
   [
     1 | 
     2 | 
