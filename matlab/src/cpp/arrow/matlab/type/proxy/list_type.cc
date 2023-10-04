@@ -22,7 +22,9 @@
 
 namespace arrow::matlab::type::proxy {
 
-    ListType::ListType(std::shared_ptr<arrow::ListType> list_type) : Type(std::move(list_type)) {}
+    ListType::ListType(std::shared_ptr<arrow::ListType> list_type) : Type(std::move(list_type)) {
+        REGISTER_METHOD(ListType, getType);
+    }
 
     void ListType::getType(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
