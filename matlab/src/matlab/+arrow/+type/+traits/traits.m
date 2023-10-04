@@ -56,6 +56,8 @@ function typeTraits = traits(type)
                 typeTraits = Date32Traits();
             case ID.Date64
                 typeTraits = Date64Traits();
+            case ID.List
+                typeTraits = ListTraits();
             case ID.Struct
                 typeTraits = StructTraits();
             otherwise
@@ -91,6 +93,8 @@ function typeTraits = traits(type)
                 typeTraits = TimestampTraits();
             case "duration"
                 typeTraits = Time64Traits();
+            case "cell"
+                typeTraits = ListTraits();
             case "table"
                 typeTraits = StructTraits();
             otherwise
