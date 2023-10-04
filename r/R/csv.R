@@ -456,7 +456,7 @@ CsvTableReader$create <- function(file,
 #' - `null_string` The string to be written for null values. Must not contain
 #'   quotation marks. Default is an empty string (`""`).
 #' - `eol` The end of line character to use for ending rows.
-#' - `delimeter` Field delimiter
+#' - `delimiter` Field delimiter
 #' - `quoting_style` Quoting style: "Needed" (Only enclose values in quotes which need them, because their CSV
 #'    rendering can contain quotes itself (e.g. strings or binary values)), "AllValid" (Enclose all valid values in
 #'    quotes), or "None" (Do not enclose any values in quotes).
