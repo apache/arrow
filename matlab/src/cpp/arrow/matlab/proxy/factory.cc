@@ -47,7 +47,7 @@
 namespace arrow::matlab::proxy {
 
 libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
-    REGISTER_PROXY(arrow.buffer.Buffer             , arrow::matlab::buffer::proxy::Buffer);
+    REGISTER_PROXY(arrow.buffer.proxy.Buffer       , arrow::matlab::buffer::proxy::Buffer);
     REGISTER_PROXY(arrow.array.proxy.Float32Array  , arrow::matlab::array::proxy::NumericArray<arrow::FloatType>);
     REGISTER_PROXY(arrow.array.proxy.Float64Array  , arrow::matlab::array::proxy::NumericArray<arrow::DoubleType>);
     REGISTER_PROXY(arrow.array.proxy.UInt8Array    , arrow::matlab::array::proxy::NumericArray<arrow::UInt8Type>);
