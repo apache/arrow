@@ -37,7 +37,7 @@ namespace arrow::matlab::type::proxy {
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy,
                                     type::proxy::wrap(type),
                                     context,
-                                    error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
+                                    error::LIST_TYPE_FAILED_TO_CREATE_TYPE_PROXY);
         const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
 
         mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
