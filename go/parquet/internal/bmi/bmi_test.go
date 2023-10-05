@@ -14,7 +14,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package flight
+package bmi_test
 
-//go:generate protoc --experimental_allow_proto3_optional -I../../../format --go_out=./gen/flight --go-grpc_out=./gen/flight --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative Flight.proto
-//go:generate protoc --experimental_allow_proto3_optional -I../../../format --go_out=./gen/flight --go-grpc_out=./gen/flight --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative FlightSql.proto
+import (
+	"fmt"
+	"testing"
+
+	"github.com/apache/arrow/go/v14/parquet/internal/bmi"
+	"github.com/stretchr/testify/assert"
+)
+
+// Testing the issue in GH-37712
+func TestBasicExtractBits(t *testing.T) {
+	tests := []struct {
+		bitmap, selection uint64
+		expected          uint64
+	}{
+		{0, 0, 0},
+		{0xFF, 0, 0},
+		{0xFF, ^uint64(0), 0xFF},
+		{0xFF00FF, 0xAAAA, 0x000F},
+		{0xFF0AFF, 0xAFAA, 0x00AF},
+		{0xFFAAFF, 0xAFAA, 0x03AF},
+		{0xFECBDA9876543210, 0xF00FF00FF00FF00F, 0xFBD87430},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d-%d=>%d", tt.bitmap, tt.selection, tt.expected), func(t *testing.T) {
+			assert.Equal(t, tt.expected, bmi.ExtractBits(tt.bitmap, tt.selection))
+		})
+	}
+}
