@@ -215,7 +215,7 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
 template <typename IndexArrowType>
 Result<std::unique_ptr<Buffer>> CompactTransposeMapImpl(
     const std::shared_ptr<ArrayData>& data, MemoryPool* pool,
-    std::shared_ptr<Array> out_compact_dictionary) {
+    std::shared_ptr<Array>& out_compact_dictionary) {
   int64_t index_length = data->length;
   int64_t dict_length = data->dictionary->length;
   if (index_length == 0 || dict_length == 0) {
@@ -270,7 +270,7 @@ Result<std::unique_ptr<Buffer>> CompactTransposeMapImpl(
 
 Result<std::unique_ptr<Buffer>> CompactTransposeMap(
     const std::shared_ptr<ArrayData>& data, MemoryPool* pool,
-    std::shared_ptr<Array> out_compact_dictionary) {
+    std::shared_ptr<Array>& out_compact_dictionary) {
   if (data->type->id() != Type::DICTIONARY) {
     return Status::TypeError("Expected dictionary type");
   }
