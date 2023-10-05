@@ -47,8 +47,6 @@ except AttributeError:
     from numpy.core.numerictypes import sctypes as _np_sctypes
 
 
-
-
 _logical_type_map = {}
 
 
