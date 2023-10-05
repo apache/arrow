@@ -2024,7 +2024,7 @@ TEST(Cast, StringToDate) {
     CheckCast(strings, ArrayFromJSON(date64(), "[0, null, 951782400000]"));
 
     for (auto date_type : {date32(), date64()}) {
-      for (std::string not_ts : {"", "xxx", "2012-01-01 09:00:00"}) {
+      for (std::string not_ts : {"", "2012-01-xx", "2012-01-01 09:00:00"}) {
         auto options = CastOptions::Safe(date_type);
         CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_ts + "\"]"), options);
       }
