@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           gem install test-unit
-          pip install "cython<3" setuptools six pytest jira
+          pip install "cython>=0.29.31" setuptools six pytest jira
       - name: Run Release Test
         env:
           ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
