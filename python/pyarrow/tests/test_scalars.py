@@ -204,7 +204,9 @@ def test_numerics():
     # float16
     s = pa.scalar(np.float16(0.5), type='float16')
     assert isinstance(s, pa.HalfFloatScalar)
-    assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
+    # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
+    # on numpy1 repr(np.float16(0.5)) == "0.5"
+    assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
 

@@ -36,6 +36,19 @@ import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes  # noqa
 
 
+try:
+    _np_unicode = np.unicode_
+except AttributeError:
+    _np_unicode = np.str_
+
+try:
+    _np_sctypes = np.sctypes
+except AttributeError:
+    from numpy.core.numerictypes import sctypes as _np_sctypes
+
+
+
+
 _logical_type_map = {}
 
 
@@ -98,7 +111,7 @@ _numpy_logical_type_map = {
     np.float32: 'float32',
     np.float64: 'float64',
     'datetime64[D]': 'date',
-    np.unicode_: 'string',
+    _np_unicode: 'string',
     np.bytes_: 'bytes',
 }
 
@@ -780,7 +793,7 @@ def table_to_blockmanager(options, table, categories=None,
 # dataframe (complex not included since not supported by Arrow)
 _pandas_supported_numpy_types = {
     str(np.dtype(typ))
-    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float'] +
+    for typ in (_np_sctypes['int'] + _np_sctypes['uint'] + _np_sctypes['float'] +
                 ['object', 'bool'])
 }
 
@@ -1010,7 +1023,7 @@ _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
     'datetimetz': 'datetime64[ns]',
-    'unicode': np.unicode_,
+    'unicode': _np_unicode,
     'bytes': np.bytes_,
     'string': np.str_,
     'integer': np.int64,
