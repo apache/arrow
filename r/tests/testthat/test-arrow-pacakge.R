@@ -16,5 +16,6 @@
 # under the License.
 
 test_that("on_rosetta() does not warn", {
-    expect_warning(on_rosetta(), NA)
+  # There is no warning
+  expect_warning(on_rosetta(), NA)
 })
