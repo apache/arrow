@@ -713,8 +713,10 @@ struct ValidateArrayImpl {
     }
 
     // An empty list array can have 0 offsets
-    const auto required_offsets = (data.length > 0) ? data.length + data.offset + 1 : 0;
     const auto offsets_byte_size = data.buffers[1]->size();
+    const auto required_offsets = ((data.length > 0) || (offsets_byte_size > 0))
+                                      ? data.length + data.offset + 1
+                                      : 0;
     if (offsets_byte_size / static_cast<int32_t>(sizeof(offset_type)) <
         required_offsets) {
       return Status::Invalid("Offsets buffer size (bytes): ", offsets_byte_size,
