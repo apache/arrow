@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/decimal256"
 	"github.com/apache/arrow/go/v14/arrow/float16"
 	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_fromArrowType(t *testing.T) {
@@ -51,14 +52,10 @@ func Test_fromArrowType(t *testing.T) {
 		{Name: "f17-dti", Type: arrow.FixedWidthTypes.DayTimeInterval},
 	}
 
-	pool := memory.NewGoAllocator()
-
 	schema := arrow.NewSchema(fields, nil)
-
+	pool := memory.NewGoAllocator()
 	b := array.NewRecordBuilder(pool, schema)
 	defer b.Release()
-
-	testTime := time.Now()
 
 	b.Field(0).(*array.BooleanBuilder).Append(true)
 	b.Field(1).(*array.Float16Builder).Append(float16.New(1))
@@ -74,26 +71,23 @@ func Test_fromArrowType(t *testing.T) {
 	b.Field(11).(*array.StringBuilder).Append("a")
 
 	t32, err := arrow.Time32FromString("12:30:00", arrow.Second)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	b.Field(12).(*array.Time32Builder).Append(t32)
 
 	t64, err := arrow.Time64FromString("12:00:00", arrow.Microsecond)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	b.Field(13).(*array.Time64Builder).Append(t64)
 
 	ts, err := arrow.TimestampFromString("1970-01-01T12:00:00", arrow.Nanosecond)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+
 	fmt.Println(ts.ToTime(arrow.Nanosecond))
 
 	b.Field(14).(*array.TimestampBuilder).Append(ts)
+
+	testTime := time.Now()
 	b.Field(15).(*array.Date64Builder).Append(arrow.Date64FromTime(testTime))
 	b.Field(16).(*array.DayTimeIntervalBuilder).Append(arrow.DayTimeInterval{Days: 1, Milliseconds: 1000})
 
@@ -112,21 +106,21 @@ func Test_fromArrowType(t *testing.T) {
 		})
 	}
 
-	tf(t, 0, true)
-	tf(t, 1, float64(1))
-	tf(t, 2, float64(1))
-	tf(t, 3, float64(1))
-	tf(t, 4, float64(1))
-	tf(t, 5, float64(1))
-	tf(t, 6, int64(1))
-	tf(t, 7, int64(1))
-	tf(t, 8, int64(1))
-	tf(t, 9, int64(1))
-	tf(t, 10, []byte("a"))
-	tf(t, 11, "a")
-	tf(t, 12, time.Date(1970, 1, 1, 12, 30, 0, 0, time.UTC))
-	tf(t, 13, time.Date(1970, 1, 1, 12, 0, 0, 0, time.UTC))
-	tf(t, 14, time.Date(1970, 1, 1, 12, 0, 0, 0, time.UTC))
-	tf(t, 15, testTime.In(time.UTC).Truncate(24*time.Hour))
-	tf(t, 16, time.Duration(24*time.Hour+time.Second))
+	tf(t, 0, true)                                           // "f1-bool"
+	tf(t, 1, float16.New(1))                                 // "f2-f16"
+	tf(t, 2, float32(1))                                     // "f3-f32"
+	tf(t, 3, float64(1))                                     // "f4-f64"
+	tf(t, 4, float64(1))                                     // "f5-d128"
+	tf(t, 5, float64(1))                                     // "f6-d256"
+	tf(t, 6, int8(1))                                        // "f7-i8"
+	tf(t, 7, int16(1))                                       // "f8-i16"
+	tf(t, 8, int32(1))                                       // "f9-i32"
+	tf(t, 9, int64(1))                                       // "f10-i64"
+	tf(t, 10, []byte("a"))                                   // "f11-binary"
+	tf(t, 11, "a")                                           // "f12-string"
+	tf(t, 12, time.Date(1970, 1, 1, 12, 30, 0, 0, time.UTC)) // "f13-t32s"
+	tf(t, 13, time.Date(1970, 1, 1, 12, 0, 0, 0, time.UTC))  // "f14-t64us"
+	tf(t, 14, time.Date(1970, 1, 1, 12, 0, 0, 0, time.UTC))  // "f15-ts_us"
+	tf(t, 15, testTime.In(time.UTC).Truncate(24*time.Hour))  // "f16-d64"
+	tf(t, 16, time.Duration(24*time.Hour+time.Second))       // "f17-dti"
 }

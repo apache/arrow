@@ -58,133 +58,52 @@ func (g grpcCredentials) RequireTransportSecurity() bool {
 
 // *** Type conversions ***
 func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
+	if arr.IsNull(idx) {
+		return nil, nil
+	}
+
 	switch c := arr.(type) {
 	case *array.Boolean:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
 		return c.Value(idx), nil
 	case *array.Float16:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		return float64(c.Value(idx).Float32()), nil
+		return c.Value(idx), nil
 	case *array.Float32:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		return float64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Float64:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
 		return c.Value(idx), nil
 	case *array.Decimal128:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		dt, ok := arr.DataType().(*arrow.Decimal128Type)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching decimal128", arr.DataType())
-		}
-
-		return c.Value(idx).ToFloat64(dt.Scale), nil
+		v := arr.DataType().(*arrow.Decimal128Type)
+		return c.Value(idx).ToFloat64(v.Scale), nil
 	case *array.Decimal256:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		dt, ok := arr.DataType().(*arrow.Decimal256Type)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching decimal256", arr.DataType())
-		}
-
-		return c.Value(idx).ToFloat64(dt.Scale), nil
+		v := arr.DataType().(*arrow.Decimal256Type)
+		return c.Value(idx).ToFloat64(v.Scale), nil
 	case *array.Int8:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		return int64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Int16:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		return int64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Int32:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		return int64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Int64:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
 		return c.Value(idx), nil
 	case *array.Binary:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
 		return c.Value(idx), nil
 	case *array.String:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
 		return c.Value(idx), nil
 	case *array.Time32:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		dt, ok := arr.DataType().(*arrow.Time32Type)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching time32", arr.DataType())
-		}
+		d32 := arr.DataType().(*arrow.Time32Type)
 		v := c.Value(idx)
-		return v.ToTime(dt.TimeUnit()), nil
+		return v.ToTime(d32.TimeUnit()), nil
 	case *array.Time64:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		dt, ok := arr.DataType().(*arrow.Time64Type)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching time64", arr.DataType())
-		}
+		d64 := arr.DataType().(*arrow.Time64Type)
 		v := c.Value(idx)
-		return v.ToTime(dt.TimeUnit()), nil
+		return v.ToTime(d64.TimeUnit()), nil
 	case *array.Timestamp:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
-		dt, ok := arr.DataType().(*arrow.TimestampType)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching timestamp", arr.DataType())
-		}
+		ts := arr.DataType().(*arrow.TimestampType)
 		v := c.Value(idx)
-		return v.ToTime(dt.TimeUnit()), nil
+		return v.ToTime(ts.TimeUnit()), nil
 	case *array.Date64:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
 		return c.Value(idx).ToTime(), nil
 	case *array.DayTimeInterval:
-		if c.IsNull(idx) {
-			return nil, nil
-		}
-
 		durationDays := time.Duration(c.Value(idx).Days*24) * time.Hour
 		duration := time.Duration(c.Value(idx).Milliseconds) * time.Millisecond
 
