@@ -614,7 +614,6 @@ static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type 
 
 }  // namespace detail
 
-
 template <typename Duration>
 static inline bool ParseYYYY_MM_DD(const char* s, Duration* since_epoch) {
   uint16_t year = 0;
