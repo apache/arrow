@@ -1815,8 +1815,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('C#')
         .skip_tester('JS'),
 
-        generate_map_case()
-        .skip_tester('C#'),
+        generate_map_case(),
 
         generate_non_canonical_map_case()
         .skip_tester('C#')
