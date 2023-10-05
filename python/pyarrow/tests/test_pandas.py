@@ -49,10 +49,6 @@ try:
 except ImportError:
     pass
 
-try:
-    _np_nan = np.NaN
-except AttributeError:
-    _np_nan = np.nan
 
 try:
     _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
@@ -718,7 +714,7 @@ class TestConvertPrimitiveTypes:
 
     def test_float_nulls_to_ints(self):
         # ARROW-2135
-        df = pd.DataFrame({"a": [1.0, 2.0, _np_nan]})
+        df = pd.DataFrame({"a": [1.0, 2.0, np.nan]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
@@ -2453,26 +2449,26 @@ class TestConvertListTypes:
         np_arr = chunked_arr.to_numpy()
 
         expected = np.array([[1., 2.], [3., 4., 5.], None,
-                            [6., _np_nan]], dtype="object")
+                            [6., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[1., 2., 3., 4., 5., 6., _np_nan]])
+        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr[0].base, expected_base)
 
         np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
 
-        expected = np.array([[3, 4, 5], None, [6, _np_nan]], dtype="object")
+        expected = np.array([[3, 4, 5], None, [6, np.nan]], dtype="object")
         for left, right in zip(np_arr_sliced, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[3., 4., 5., 6., _np_nan]])
+        expected_base = np.array([[3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
 
     def test_list_values_behind_null(self):
@@ -2483,7 +2479,7 @@ class TestConvertListTypes:
         )
         np_arr = arr.to_numpy(zero_copy_only=False)
 
-        expected = np.array([[1., 2.], None, [3., _np_nan]], dtype="object")
+        expected = np.array([[1., 2.], None, [3., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right

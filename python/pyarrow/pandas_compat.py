@@ -31,20 +31,10 @@ import re
 import warnings
 
 import numpy as np
+from numpy.core.numerictypes import sctypes as _np_sctypes
 
 import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes  # noqa
-
-
-try:
-    _np_unicode = np.unicode_
-except AttributeError:
-    _np_unicode = np.str_
-
-try:
-    _np_sctypes = np.sctypes
-except AttributeError:
-    from numpy.core.numerictypes import sctypes as _np_sctypes
 
 
 _logical_type_map = {}
@@ -109,7 +99,7 @@ _numpy_logical_type_map = {
     np.float32: 'float32',
     np.float64: 'float64',
     'datetime64[D]': 'date',
-    _np_unicode: 'string',
+    np.str_: 'string',
     np.bytes_: 'bytes',
 }
 
@@ -1021,7 +1011,7 @@ _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
     'datetimetz': 'datetime64[ns]',
-    'unicode': _np_unicode,
+    'unicode': np.str_,
     'bytes': np.bytes_,
     'string': np.str_,
     'integer': np.int64,
