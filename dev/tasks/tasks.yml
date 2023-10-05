@@ -994,6 +994,10 @@ tasks:
       - r-lib__libarrow__bin__linux-openssl-1.0__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__linux-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__linux-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-arm64-openssl-1.1__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__contrib__4.1__arrow_{no_rc_r_version}\.tgz

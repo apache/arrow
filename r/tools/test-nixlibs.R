@@ -21,8 +21,10 @@
 # Flag so that we just load the functions and don't evaluate them like we do
 # when called from configure.R
 TESTING <- TRUE
-
-source("nixlibs.R", local = TRUE)
+# The functions use `on_macos` from the env they were sourced in, so we need tool
+# explicitly set it in that environment.
+nixlibs_env <- environment()
+source("nixlibs.R", local = nixlibs_env)
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
@@ -31,10 +33,6 @@ test_that("identify_binary() based on LIBARROW_BINARY", {
 })
 
 test_that("select_binary() based on system", {
-  expect_output(
-    expect_null(select_binary("darwin", "x86_64")), # Not built today
-    "Building on darwin x86_64"
-  )
   expect_output(
     expect_null(select_binary("linux", arch = "aarch64")), # Not built today
     "Building on linux aarch64"
@@ -52,21 +50,30 @@ test_that("determine_binary_from_stderr", {
   expect_output(
     expect_identical(
       determine_binary_from_stderr(compile_test_program("int a;")),
-      "linux-openssl-1.1"
+      "openssl-1.1"
     ),
     "Found libcurl and OpenSSL >= 1.1"
   )
+
+  nixlibs_env$on_macos <- FALSE
   expect_output(
     expect_identical(
       determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.0")),
-      "linux-openssl-1.0"
+      "openssl-1.0"
     ),
     "Found libcurl and OpenSSL < 1.1"
+  )
+  nixlibs_env$on_macos <- TRUE
+  expect_output(
+    expect_null(
+      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.0"))
+    ),
+    "OpenSSL 1.0 is not supported on macOS"
   )
   expect_output(
     expect_identical(
       determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 3")),
-      "linux-openssl-3.0"
+      "openssl-3.0"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
@@ -79,6 +86,7 @@ test_that("determine_binary_from_stderr", {
 })
 
 test_that("select_binary() with test program", {
+  nixlibs_env$on_macos <- FALSE
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "int a;"),
@@ -100,13 +108,49 @@ test_that("select_binary() with test program", {
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
+  nixlibs_env$on_macos <- TRUE
+  expect_output(
+    expect_identical(
+      select_binary("darwin", "x86_64", "int a;"),
+      "darwin-x86_64-openssl-1.1"
+    ),
+    "Found libcurl and OpenSSL >= 1.1"
+  )
+  expect_output(
+    expect_identical(
+      select_binary("darwin", "x86_64", "#error Using OpenSSL version 3"),
+      "darwin-x86_64-openssl-3.0"
+    ),
+    "Found libcurl and OpenSSL >= 3.0.0"
+  )
+  expect_output(
+    expect_identical(
+      select_binary("darwin", "arm64", "int a;"),
+      "darwin-arm64-openssl-1.1"
+    ),
+    "Found libcurl and OpenSSL >= 1.1"
+  )
+  expect_output(
+    expect_identical(
+      select_binary("darwin", "arm64", "#error Using OpenSSL version 3"),
+      "darwin-arm64-openssl-3.0"
+    ),
+    "Found libcurl and OpenSSL >= 3.0.0"
+  )
+  expect_output(
+    expect_null(
+      select_binary("darwin", "x86_64", "#error Using OpenSSL version 1.0")
+    ),
+    "OpenSSL 1.0 is not supported on macOS"
+  )
 })
 
 test_that("check_allowlist", {
   tf <- tempfile()
-  cat("tu$\n^cent\n", file = tf)
+  cat("tu$\n^cent\n^dar\n", file = tf)
   expect_true(check_allowlist("ubuntu", tf))
   expect_true(check_allowlist("centos", tf))
+  expect_true(check_allowlist("darwin", tf))
   expect_false(check_allowlist("redhat", tf)) # remote allowlist doesn't have this
   expect_true(check_allowlist("redhat", tempfile())) # remote allowlist doesn't exist, so we fall back to the default list, which contains redhat
   expect_false(check_allowlist("debian", tempfile()))
