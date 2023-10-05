@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class DurationType: TimeBasedType
+    public sealed class DurationType : TimeBasedType
     {
         public static readonly DurationType Second = new DurationType(TimeUnit.Second);
         public static readonly DurationType Millisecond = new DurationType(TimeUnit.Millisecond);

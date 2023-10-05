@@ -346,6 +346,7 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<BinaryType>,
@@ -396,6 +397,7 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(DoubleType type) => GenerateArray<double, DoubleArray>((v, n, c, nc, o) => new DoubleArray(v, n, c, nc, o));
             public void Visit(Time32Type type) => GenerateArray<int, Time32Array>((v, n, c, nc, o) => new Time32Array(type, v, n, c, nc, o));
             public void Visit(Time64Type type) => GenerateLongArray<long, Time64Array>((v, n, c, nc, o) => new Time64Array(type, v, n, c, nc, o), s => long.Parse(s));
+            public void Visit(DurationType type) => GenerateLongArray<long, DurationArray>((v, n, c, nc, o) => new DurationArray(type, v, n, c, nc, o), s => long.Parse(s));
 
             public void Visit(Decimal128Type type)
             {

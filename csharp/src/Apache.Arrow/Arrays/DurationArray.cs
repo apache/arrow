@@ -68,6 +68,17 @@ namespace Apache.Arrow
             data.EnsureDataType(ArrowTypeId.Duration);
         }
 
+        public DurationType DataType => (DurationType)this.Data.DataType;
+
+        public TimeSpan? GetTimeSpan(int index)
+        {
+            if (index < 0 || index >= Length)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+            return IsValid(index) ? new TimeSpan(DataType.Unit.ConvertToTicks(Values[index])) : null;
+        }
+
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
     }
 }
