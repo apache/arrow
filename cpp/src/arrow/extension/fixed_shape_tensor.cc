@@ -109,12 +109,11 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
 std::string FixedShapeTensorType::ToString() const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name()
-     << "[value_type=" << value_type_->ToString() << ", shape="
-     << ::arrow::internal::PrintVector{shape_, ","};
+     << "[value_type=" << value_type_->ToString()
+     << ", shape=" << ::arrow::internal::PrintVector{shape_, ","};
 
   if (!permutation_.empty()) {
-    ss << ", permutation="
-       << ::arrow::internal::PrintVector{permutation_, ","};
+    ss << ", permutation=" << ::arrow::internal::PrintVector{permutation_, ","};
   }
   if (!dim_names_.empty()) {
     ss << ", dim_names=[" << internal::JoinStrings(dim_names_, ",") << "]";
