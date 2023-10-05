@@ -361,6 +361,18 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<LargeListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type::ListView:
+      if (children.size() != 1) {
+        return Status::Invalid("ListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<ListViewType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type::LargeListView:
+      if (children.size() != 1) {
+        return Status::Invalid("LargeListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<LargeListViewType>(children[0]);
+      return Status::OK();
     case flatbuf::Type::Map:
       if (children.size() != 1) {
         return Status::Invalid("Map must have exactly 1 child field");
@@ -670,11 +682,17 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("list-view type in IPC");
+    fb_type_ = flatbuf::Type::ListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
+    return Status::OK();
   }
 
   Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("large list-view type in IPC");
+    fb_type_ = flatbuf::Type::LargeListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
+    return Status::OK();
   }
 
   Status Visit(const MapType& type) {

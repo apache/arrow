@@ -329,9 +329,11 @@ namespace {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &ipc::test::MakeIntRecordBatch,
     &ipc::test::MakeListRecordBatch,
+    &ipc::test::MakeListViewRecordBatch,
     &ipc::test::MakeFixedSizeListRecordBatch,
     &ipc::test::MakeNonNullRecordBatch,
     &ipc::test::MakeDeeplyNestedList,
+    &ipc::test::MakeDeeplyNestedListView,
     &ipc::test::MakeStringTypesRecordBatchWithNulls,
     &ipc::test::MakeStruct,
     &ipc::test::MakeUnion,
