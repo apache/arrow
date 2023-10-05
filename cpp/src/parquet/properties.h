@@ -196,7 +196,12 @@ class PARQUET_EXPORT ColumnProperties {
 
   size_t max_statistics_size() const { return max_stats_size_; }
 
-  int compression_level() const { return codec_options_->compression_level; }
+  int compression_level() const {
+    if (!codec_options_) {
+      return ::arrow::util::kUseDefaultCompressionLevel;
+    }
+    return codec_options_->compression_level;
+  }
 
   const std::shared_ptr<CodecOptions>& codec_options() const { return codec_options_; }
 
