@@ -26,7 +26,8 @@ namespace Apache.Arrow
         IArrowTypeVisitor<ListType>,
         IArrowTypeVisitor<FixedSizeListType>,
         IArrowTypeVisitor<StructType>,
-        IArrowTypeVisitor<UnionType>
+        IArrowTypeVisitor<UnionType>,
+        IArrowTypeVisitor<MapType>
     {
         private readonly IArrowType _expectedType;
         private bool _dataTypeMatch;
@@ -116,6 +117,16 @@ namespace Apache.Arrow
         public void Visit(UnionType actualType)
         {
             if (_expectedType is UnionType expectedType
+                && CompareNested(expectedType, actualType))
+            {
+                _dataTypeMatch = true;
+            }
+        }
+
+        public void Visit(MapType actualType)
+        {
+            if (_expectedType is MapType expectedType
+                && expectedType.KeySorted == actualType.KeySorted
                 && CompareNested(expectedType, actualType))
             {
                 _dataTypeMatch = true;

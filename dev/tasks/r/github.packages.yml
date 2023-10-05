@@ -56,6 +56,59 @@ jobs:
           name: r-pkg__src__contrib
           path: arrow/r/arrow_*.tar.gz
 
+  macos-cpp:
+    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.arch }}' }}
+
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
+
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runs_on: ["self-hosted", "macos-10.13"], arch: "x86_64" }
+
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
+        openssl: ['3.0', '1.1']
+
+    steps:
+      {{ macros.github_checkout_arrow(action_v="3")|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
+      - name: Install Deps
+        if: {{ "${{ !contains(matrix.platform.runs_on, 'macos-10.13') }}" }}
+        run: |
+          brew install sccache ninja
+          brew install openssl@{{ '${{ matrix.openssl }}' }}
+      - name: Build libarrow
+        shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+          MACOSX_DEPLOYMENT_TARGET: "10.13"
+          ARROW_S3: ON
+          ARROW_GCS: ON
+          ARROW_DEPENDENCY_SOURCE: BUNDLED
+          CMAKE_GENERATOR: Ninja
+          LIBARROW_MINIMAL: false
+        run: |
+          sccache --start-server
+          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@{{ '${{ matrix.openssl }}' }})"
+          cd arrow
+          r/inst/build_arrow_static.sh
+      - name: Bundle libarrow
+        shell: bash
+        env:
+          PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+          VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
+        run: |
+          cd arrow/r/libarrow/dist
+          zip -r $PKG_FILE lib/ include/
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
+          path: arrow/r/libarrow/dist/arrow-*.zip
+
   linux-cpp:
     name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
     runs-on: ubuntu-latest
@@ -135,7 +188,7 @@ jobs:
           path: build/arrow-*.zip
 
   r-packages:
-    needs: [source, windows-cpp]
+    needs: [source, windows-cpp, macos-cpp]
     name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
@@ -167,7 +220,7 @@ jobs:
 
           rig system setup-user-lib
           rig system add-pak
-      {{ macros.github_setup_local_r_repo(false, true)|indent }}
+      {{ macros.github_setup_local_r_repo(false, true, true)|indent }}
       - name: Prepare Dependency Installation
 
         shell: bash
@@ -178,18 +231,19 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
-      - name: Install sccache
-        if: startsWith(matrix.platform, 'macos')
-        run: brew install sccache
+      - name: Set CRAN like openssl
+        if: contains(matrix.platform.runs_on, 'arm64')
+        run: |
+          # The arm64 runners contain openssl 1.1.1t in this path that is always included first so we need to override the
+          # default setting of the brew --prefix as root dir to avoid version conflicts.
+          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
       - name: Build Binary
         id: build
         shell: Rscript {0}
         env:
-          NOT_CRAN: "true" # actions/setup-r sets this implicitly
+          NOT_CRAN: "false" # actions/setup-r sets this implicitly
           ARROW_R_DEV: "true"
-          FORCE_AUTOBREW: "true" # this is ignored on windows
-          # sccache for macos
-        {{ macros.github_set_sccache_envvars()|indent(8) }}
+          LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -213,8 +267,10 @@ jobs:
             INSTALL_opts = INSTALL_opts
           )
 
+
           # Test
           library(arrow)
+          arrow_info()
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
 
           # encode contrib.url for artifact name
@@ -233,7 +289,6 @@ jobs:
         with:
           name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
-
   test-linux-binary:
     needs: [source, linux-cpp]
     name: Test binary {{ '${{ matrix.config.image }}' }}
@@ -291,7 +346,10 @@ jobs:
         with:
           name: r-pkg_centos7
           path: arrow_*
+
   test-centos-binary:
+    # arrow binary package not on ppm currently see #37922
+    if: false
     needs: test-linux-binary
     runs-on: ubuntu-latest
     container: "rstudio/r-base:4.2-centos7"
@@ -317,7 +375,8 @@ jobs:
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
           print(arrow_info())
 
-  test-source:
+  #TODO test macos source build?
+  test-linux-source:
     needs: source
     name: Test linux source build
     runs-on: ubuntu-latest
@@ -367,7 +426,7 @@ jobs:
 
   upload-binaries:
     # Only upload binaries if all tests pass.
-    needs: [r-packages, test-source, test-linux-binary, test-centos-binary]
+    needs: [r-packages, test-linux-source, test-linux-binary]
     name: Upload artifacts
     runs-on: ubuntu-latest
     steps:

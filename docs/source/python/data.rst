@@ -216,7 +216,7 @@ value during the conversion. If an integer input is supplied to
 
 To handle better compatibility with Pandas, we support interpreting NaN values as
 null elements. This is enabled automatically on all ``from_pandas`` function and
-can be enable on the other conversion functions by passing ``from_pandas=True``
+can be enabled on the other conversion functions by passing ``from_pandas=True``
 as a function parameter.
 
 List arrays
@@ -510,7 +510,7 @@ a new schema and cast the data to this schema:
    t2.schema.field("f1").metadata
    t2.schema.metadata
 
-Metadata key and value pair are ``std::string`` objects in the C++ implementation
+Metadata key and value pairs are ``std::string`` objects in the C++ implementation
 and so they are bytes objects (``b'...'``) in Python.
 
 Record Batch Readers

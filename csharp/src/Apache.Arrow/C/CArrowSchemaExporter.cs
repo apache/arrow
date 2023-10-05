@@ -191,6 +191,7 @@ namespace Apache.Arrow.C
                     return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
                 case UnionType u: return FormatUnion(u);
+                case MapType _: return "+m";
                 // Dictionary
                 case DictionaryType dictionaryType:
                     return GetFormat(dictionaryType.IndexType);
@@ -215,10 +216,9 @@ namespace Apache.Arrow.C
                 }
             }
 
-            if (datatype.TypeId == ArrowTypeId.Map)
+            if (datatype is MapType mapType && mapType.KeySorted)
             {
-                // TODO: when we implement MapType, make sure to set the KEYS_SORTED flag.
-                throw new NotSupportedException("Exporting MapTypes is not supported.");
+                flags |= CArrowSchema.ArrowFlagMapKeysSorted;
             }
 
             return flags;
