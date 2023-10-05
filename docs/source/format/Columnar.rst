@@ -100,8 +100,8 @@ Arrays are defined by a few pieces of metadata and data:
 Nested arrays additionally have a sequence of one or more sets of
 these items, called the **child arrays**.
 
-Each logical data type has one or more well-defined physical layouts. Here
-are the different physical layouts defined by Arrow:
+Each logical data type has a well-defined physical layout. Here are
+the different physical layouts defined by Arrow:
 
 * **Primitive (fixed-size)**: a sequence of values each having the
   same byte or bit width
@@ -406,8 +406,8 @@ This layout is adapted from TU Munich's `UmbraDB`_.
 
 .. _variable-size-list-layout:
 
-Variable-size List Layouts
---------------------------
+Variable-size List Layout
+-------------------------
 
 List is a nested type which is semantically similar to variable-size
 binary. There are two list layout variations — "list" and "list-view" —
@@ -727,8 +727,8 @@ for the null struct but they are "hidden" by the struct array's validity
 bitmap. However, when treated independently, corresponding entries of the
 children array will be non-null.
 
-Union Layouts
--------------
+Union Layout
+------------
 
 A union is defined by an ordered sequence of types; each slot in the
 union can have a value chosen from these types. The types are named
