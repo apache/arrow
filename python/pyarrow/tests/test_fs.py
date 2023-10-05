@@ -699,12 +699,12 @@ def test_get_file_info_with_selector(fs, pathfn):
 
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
-            # s3fs only lists directories if they are not empty, but depending
-            # on the s3fs/fsspec version combo, it includes the base_dir
+            # s3fs only lists directories if they are not empty
             # (https://github.com/dask/s3fs/issues/393)
-            assert (len(infos) == 4) or (len(infos) == 5)
+            len(infos) == 4
         else:
             assert len(infos) == 5
+        assert base_dir not in infos
 
         for info in infos:
             if (info.path.endswith(file_a) or info.path.endswith(file_b) or
@@ -712,10 +712,6 @@ def test_get_file_info_with_selector(fs, pathfn):
                 assert info.type == FileType.File
             elif (info.path.rstrip("/").endswith(dir_a) or
                   info.path.rstrip("/").endswith(dir_b)):
-                assert info.type == FileType.Directory
-            elif (fs.type_name == "py::fsspec+s3" and
-                  info.path.rstrip("/").endswith("selector-dir")):
-                # s3fs can include base dir, see above
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
@@ -730,55 +726,13 @@ def test_get_file_info_with_selector(fs, pathfn):
             # + for s3fs 0.5.2 all directories are dropped because of buggy
             # side-effect of previous find() call
             # (https://github.com/dask/s3fs/issues/410)
-            assert (len(infos) == 3) or (len(infos) == 2)
+            assert len(infos) == 3
         else:
             assert len(infos) == 4
+        assert base_dir not in infos
 
     finally:
         fs.delete_dir(base_dir)
-
-
-@pytest.mark.s3
-def test_get_file_info_with_selector_sf3_comparison(s3_server):
-    # GH-36983: test that base dir is ignored by both
-    from pyarrow.fs import S3FileSystem
-
-    host, port, access_key, secret_key = s3_server['connection']
-
-    fs = S3FileSystem(
-        access_key=access_key,
-        secret_key=secret_key,
-        endpoint_override='{}:{}'.format(host, port),
-        scheme='http',
-        allow_bucket_creation=True,
-        allow_bucket_deletion=True
-    )
-
-    base_dir = 'selector-dir/'
-    file_a = 'selector-dir/test_file_a'
-
-    fs.create_dir(base_dir)
-    with fs.open_output_stream(file_a):
-        pass
-
-    selector = FileSelector(base_dir, allow_not_found=False,
-                            recursive=True)
-
-    s3fs = pytest.importorskip("s3fs")
-    fs_fsspec = s3fs.S3FileSystem(
-        key=access_key,
-        secret=secret_key,
-        client_kwargs=dict(endpoint_url='http://{}:{}'.format(host, port))
-    )
-    fsspec_s3fs = PyFileSystem(FSSpecHandler(fs_fsspec))
-
-    infos = fs.get_file_info(selector)
-    infos_fsspec = fsspec_s3fs.get_file_info(selector)
-
-    assert len(infos) == len(infos_fsspec) == 1
-    assert infos_fsspec[0].path.strip("/") == infos[0].path.strip("/")
-
-    fs.delete_dir(base_dir)
 
 
 def test_create_dir(fs, pathfn):
