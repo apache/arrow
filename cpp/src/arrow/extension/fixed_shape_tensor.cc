@@ -35,7 +35,9 @@ namespace rj = arrow::rapidjson;
 
 namespace arrow {
 
-namespace internal {
+namespace extension {
+
+namespace {
 
 Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
                       const std::vector<int64_t>& permutation,
@@ -76,9 +78,7 @@ Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& sh
   return Status::OK();
 }
 
-}  // namespace internal
-
-namespace extension {
+}  // namespace
 
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
@@ -303,7 +303,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   std::vector<int64_t> tensor_strides;
   auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
   ARROW_RETURN_NOT_OK(
-      internal::ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
+      ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
   ARROW_ASSIGN_OR_RAISE(auto buffers, ext_arr->Flatten());
   ARROW_ASSIGN_OR_RAISE(
       auto tensor, Tensor::Make(ext_arr->value_type(), buffers->data()->buffers[1], shape,
@@ -332,8 +332,8 @@ const std::vector<int64_t>& FixedShapeTensorType::strides() {
   if (strides_.empty()) {
     auto value_type = internal::checked_pointer_cast<FixedWidthType>(this->value_type_);
     std::vector<int64_t> tensor_strides;
-    ARROW_CHECK_OK(internal::ComputeStrides(*value_type.get(), this->shape(),
-                                            this->permutation(), &tensor_strides));
+    ARROW_CHECK_OK(ComputeStrides(*value_type.get(), this->shape(), this->permutation(),
+                                  &tensor_strides));
     strides_ = tensor_strides;
   }
   return strides_;

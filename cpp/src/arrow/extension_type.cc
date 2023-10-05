@@ -29,7 +29,6 @@
 #include "arrow/config.h"
 #ifdef ARROW_JSON
 #include "arrow/extension/fixed_shape_tensor.h"
-#include "arrow/extension/variable_shape_tensor.h"
 #endif
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -147,12 +146,10 @@ static void CreateGlobalRegistry() {
 
 #ifdef ARROW_JSON
   // Register canonical extension types
-  auto ext_types = {extension::fixed_shape_tensor(int64(), {}),
-                    extension::variable_shape_tensor(int64(), 0)};
-  for (const auto& ext_type : ext_types) {
-    ARROW_CHECK_OK(
-        g_registry->RegisterType(checked_pointer_cast<ExtensionType>(ext_type)));
-  }
+  auto ext_type =
+      checked_pointer_cast<ExtensionType>(extension::fixed_shape_tensor(int64(), {}));
+
+  ARROW_CHECK_OK(g_registry->RegisterType(ext_type));
 #endif
 }
 

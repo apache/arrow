@@ -200,11 +200,6 @@ cdef class ExtensionType(BaseExtensionType):
         const CPyExtensionType* cpy_ext_type
 
 
-cdef class VariableShapeTensorType(BaseExtensionType):
-    cdef:
-        const CVariableShapeTensorType* tensor_ext_type
-
-
 cdef class FixedShapeTensorType(BaseExtensionType):
     cdef:
         const CFixedShapeTensorType* tensor_ext_type
@@ -458,8 +453,6 @@ cdef class DictionaryArray(Array):
 cdef class ExtensionArray(Array):
     pass
 
-cdef class VariableShapeTensorArray(ExtensionArray):
-    pass
 
 cdef class MonthDayNanoIntervalArray(Array):
     pass

@@ -2634,35 +2634,6 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
-cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::extension":
-    cdef cppclass CVariableShapeTensorType \
-            " arrow::extension::VariableShapeTensorType"(CExtensionType):
-
-        @staticmethod
-        CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
-                                            const uint32_t ndim,
-                                            const vector[int64_t]& permutation,
-                                            const vector[c_string]& dim_names,
-                                            const vector[int64_t]& uniform_dimensions,
-                                            const vector[int64_t]& uniform_shape)
-
-        CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
-                                                   const c_string& serialized_data) const
-
-        c_string Serialize() const
-
-        const shared_ptr[CDataType] value_type()
-        const uint32_t ndim()
-        const vector[int64_t] permutation()
-        const vector[c_string] dim_names()
-        const vector[int64_t] uniform_dimensions()
-        const vector[int64_t] uniform_shape()
-
-    cdef cppclass CVariableShapeTensorArray \
-            " arrow::extension::VariableShapeTensorArray"(CExtensionArray) nogil:
-        CResult[shared_ptr[CTensor]] GetTensor(const int64_t i) const
-
-
 cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
