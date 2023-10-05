@@ -54,7 +54,8 @@ _PYARROW_DTYPES: dict[DtypeKind, dict[int, Any]] = {
     DtypeKind.FLOAT: {16: pa.float16(),
                       32: pa.float32(),
                       64: pa.float64()},
-    DtypeKind.BOOL: {8: pa.uint8()},
+    DtypeKind.BOOL: {1: pa.bool_(),
+                     8: pa.uint8()},
     DtypeKind.STRING: {8: pa.string()},
 }
 
@@ -232,19 +233,23 @@ def bool_column_to_array(
     -------
     pa.Array
     """
-    if not allow_copy:
+    buffers = col.get_buffers()
+    size = buffers["data"][1][1]
+
+    # If booleans are byte-packed a copy to bit-packed will be made
+    if size == 8 and not allow_copy:
         raise RuntimeError(
             "Boolean column will be casted from uint8 and a copy "
             "is required which is forbidden by allow_copy=False"
         )
 
-    buffers = col.get_buffers()
     data_type = col.dtype
     data = buffers_to_array(buffers, data_type,
                             col.size(),
                             col.describe_null,
                             col.offset)
-    data = pc.cast(data, pa.bool_())
+    if size == 8:
+        data = pc.cast(data, pa.bool_())
 
     return data
 
