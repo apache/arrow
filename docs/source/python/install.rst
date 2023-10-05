@@ -56,8 +56,8 @@ need to install the `Visual C++ Redistributable for Visual Studio 2015
 .. warning::
    On Linux, you will need pip >= 19.0 to detect the prebuilt binary packages.
 
-Installing from source
-----------------------
+Installing nightly packages or from source
+------------------------------------------
 
 See :ref:`python-development`.
 
