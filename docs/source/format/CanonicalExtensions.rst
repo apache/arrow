@@ -199,10 +199,10 @@ Variable shape tensor
     non-uniform dimensions. This holds over all tensors in the array.
     Sizes in uniform dimensions are represented with int32 values, while
     sizes of the non-uniform dimensions are not known in advance and are
-    represented with 0s. If ``uniform_shape`` is not provided it is assumed
+    represented with null. If ``uniform_shape`` is not provided it is assumed
     that all dimensions are non-uniform.
     An array containing a tensor with shape (2, 3, 4) and whose first and
-    last dimensions are uniform would have ``uniform_shape`` (2, 0, 4).
+    last dimensions are uniform would have ``uniform_shape`` (2, null, 4).
     This allows for interpreting the tensor correctly without accounting for
     uniform dimensions while still permitting optional optimizations that
     take advantage of the uniformity.
@@ -229,7 +229,7 @@ Variable shape tensor
   - Example with ``uniform_shape`` metadata for a set of color images
     with fixed height, variable width and three color channels:
 
-    ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, 0, 3] }``
+    ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, null, 3] }``
 
   - Example of permuted 3-dimensional tensor:
 
