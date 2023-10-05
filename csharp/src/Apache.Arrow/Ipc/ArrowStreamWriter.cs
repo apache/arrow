@@ -226,6 +226,8 @@ namespace Apache.Arrow.Ipc
 
         private bool HasWrittenDictionaryBatch { get; set; }
 
+        protected bool AlwaysWriteDictionaries { get; set; }
+
         private bool HasWrittenStart { get; set; }
 
         private bool HasWrittenEnd { get; set; }
@@ -314,7 +316,7 @@ namespace Apache.Arrow.Ipc
                 HasWrittenSchema = true;
             }
 
-            if (!HasWrittenDictionaryBatch)
+            if (!HasWrittenDictionaryBatch || AlwaysWriteDictionaries)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
                 WriteDictionaries(recordBatch);
@@ -340,6 +342,8 @@ namespace Apache.Arrow.Ipc
             long bufferLength = WriteBufferData(recordBatchBuilder.Buffers);
 
             FinishedWritingRecordBatch(bufferLength, metadataLength);
+
+            PostRecordBatch();
         }
 
         private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
@@ -353,7 +357,7 @@ namespace Apache.Arrow.Ipc
                 HasWrittenSchema = true;
             }
 
-            if (!HasWrittenDictionaryBatch)
+            if (!HasWrittenDictionaryBatch || AlwaysWriteDictionaries)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
                 await WriteDictionariesAsync(recordBatch, cancellationToken).ConfigureAwait(false);
@@ -380,6 +384,8 @@ namespace Apache.Arrow.Ipc
             long bufferLength = await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
 
             FinishedWritingRecordBatch(bufferLength, metadataLength);
+
+            await PostRecordBatchAsync().ConfigureAwait(false);
         }
 
         private long WriteBufferData(IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers)
@@ -490,7 +496,6 @@ namespace Apache.Arrow.Ipc
             return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
         }
 
-
         private protected void WriteDictionaries(RecordBatch recordBatch)
         {
             foreach (Field field in recordBatch.Schema.FieldsList)
@@ -520,6 +525,8 @@ namespace Apache.Arrow.Ipc
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength);
 
             WriteBufferData(recordBatchBuilder.Buffers);
+
+            PostDictionary();
         }
 
         private protected async Task WriteDictionariesAsync(RecordBatch recordBatch, CancellationToken cancellationToken)
@@ -551,6 +558,8 @@ namespace Apache.Arrow.Ipc
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength, cancellationToken).ConfigureAwait(false);
 
             await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+
+            await PostDictionaryAsync().ConfigureAwait(false);
         }
 
         private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(Field field)
@@ -612,6 +621,24 @@ namespace Apache.Arrow.Ipc
 
         private protected virtual void FinishedWritingRecordBatch(long bodyLength, long metadataLength)
         {
+        }
+
+        private protected virtual void PostRecordBatch()
+        {
+        }
+
+        private protected virtual void PostDictionary()
+        {
+        }
+
+        private protected virtual async Task PostRecordBatchAsync()
+        {
+            await Task.CompletedTask;
+        }
+
+        private protected virtual async Task PostDictionaryAsync()
+        {
+            await Task.CompletedTask;
         }
 
         public virtual void WriteRecordBatch(RecordBatch recordBatch)

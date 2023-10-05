@@ -36,12 +36,14 @@ namespace Apache.Arrow.Flight.Internal
         private readonly FlightDescriptor _flightDescriptor;
         private readonly IAsyncStreamWriter<Protocol.FlightData> _clientStreamWriter;
         private Protocol.FlightData _currentFlightData;
+        private ByteString _currentAppMetadata;
 
         public FlightDataStream(IAsyncStreamWriter<Protocol.FlightData> clientStreamWriter, FlightDescriptor flightDescriptor, Schema schema)
             : base(new MemoryStream(), schema)
         {
             _clientStreamWriter = clientStreamWriter;
             _flightDescriptor = flightDescriptor;
+            AlwaysWriteDictionaries = true;
         }
 
         private async Task SendSchema()
@@ -66,29 +68,42 @@ namespace Apache.Arrow.Flight.Internal
             this.BaseStream.SetLength(0);
         }
 
+        private void ResetFlightData()
+        {
+            _currentFlightData = new Protocol.FlightData();
+        }
+
+        private void AddMetadata()
+        {
+            if (_currentAppMetadata != null)
+            {
+                _currentFlightData.AppMetadata = _currentAppMetadata;
+            }
+        }
+
+        private async Task SetFlightDataBodyFromBaseStreamAsync()
+        {
+            BaseStream.Position = 0;
+            var body = await ByteString.FromStreamAsync(BaseStream).ConfigureAwait(false);
+            _currentFlightData.DataBody = body;
+        }
+
+        private async Task WriteFlightDataAsync()
+        {
+            await _clientStreamWriter.WriteAsync(_currentFlightData).ConfigureAwait(false);
+        }
+
         public async Task Write(RecordBatch recordBatch, ByteString applicationMetadata)
         {
+            _currentAppMetadata = applicationMetadata;
             if (!HasWrittenSchema)
             {
                 await SendSchema().ConfigureAwait(false);
             }
             ResetStream();
-
-            _currentFlightData = new Protocol.FlightData();
-
-            if(applicationMetadata != null)
-            {
-                _currentFlightData.AppMetadata = applicationMetadata;
-            }
+            ResetFlightData();
 
             await WriteRecordBatchInternalAsync(recordBatch).ConfigureAwait(false);
-
-            //Reset stream position
-            this.BaseStream.Position = 0;
-            var bodyData = await ByteString.FromStreamAsync(this.BaseStream).ConfigureAwait(false);
-
-            _currentFlightData.DataBody = bodyData;
-            await _clientStreamWriter.WriteAsync(_currentFlightData).ConfigureAwait(false);
         }
 
         private protected override ValueTask<long> WriteMessageAsync<T>(MessageHeader headerType, Offset<T> headerOffset, int bodyLength, CancellationToken cancellationToken)
@@ -104,6 +119,24 @@ namespace Apache.Arrow.Flight.Internal
             _currentFlightData.DataHeader = ByteString.CopyFrom(messageData.Span);
 
             return new ValueTask<long>(0);
+        }
+
+        private protected override async Task PostRecordBatchAsync()
+        {
+            // Consume the MemoryStream and write to the flight stream
+            await SetFlightDataBodyFromBaseStreamAsync().ConfigureAwait(false);
+            AddMetadata();
+            await WriteFlightDataAsync().ConfigureAwait(false);
+        }
+
+        private protected override async Task PostDictionaryAsync()
+        {
+            // Consume the MemoryStream and write to the flight stream
+            await SetFlightDataBodyFromBaseStreamAsync().ConfigureAwait(false);
+            await WriteFlightDataAsync().ConfigureAwait(false);
+            // Reset the stream for the next dictionary or record batch
+            ResetStream();
+            ResetFlightData();
         }
     }
 }
