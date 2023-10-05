@@ -26,7 +26,7 @@ import { packBools, truncateBitmap } from '../util/bit.js';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 import {
     DataType, Dictionary,
-    Float, Int, Date_, Interval, Time, Timestamp, Union,
+    Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
 } from '../type.js';
 
@@ -51,6 +51,7 @@ export interface VectorAssembler extends Visitor {
     visitStruct<T extends Struct>(data: Data<T>): this;
     visitUnion<T extends Union>(data: Data<T>): this;
     visitInterval<T extends Interval>(data: Data<T>): this;
+    visitDuration<T extends Duration>(data: Data<T>): this;
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>): this;
     visitMap<T extends Map_>(data: Data<T>): this;
 }
@@ -195,7 +196,7 @@ function assembleBoolVector<T extends Bool>(this: VectorAssembler, data: Data<T>
 }
 
 /** @ignore */
-function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval>(this: VectorAssembler, data: Data<T>) {
+function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval | Duration>(this: VectorAssembler, data: Data<T>) {
     return addBuffer.call(this, data.values.subarray(0, data.length * data.stride));
 }
 
@@ -243,5 +244,6 @@ VectorAssembler.prototype.visitList = assembleListVector;
 VectorAssembler.prototype.visitStruct = assembleNestedVector;
 VectorAssembler.prototype.visitUnion = assembleUnion;
 VectorAssembler.prototype.visitInterval = assembleFlatVector;
+VectorAssembler.prototype.visitDuration = assembleFlatVector;
 VectorAssembler.prototype.visitFixedSizeList = assembleListVector;
 VectorAssembler.prototype.visitMap = assembleListVector;

@@ -1847,14 +1847,18 @@ std::vector<int> Schema::GetAllFieldIndices(const std::string& name) const {
   return result;
 }
 
+Status Schema::CanReferenceFieldByName(const std::string& name) const {
+  if (GetFieldByName(name) == nullptr) {
+    return Status::Invalid("Field named '", name,
+                           "' not found or not unique in the schema.");
+  }
+  return Status::OK();
+}
+
 Status Schema::CanReferenceFieldsByNames(const std::vector<std::string>& names) const {
   for (const auto& name : names) {
-    if (GetFieldByName(name) == nullptr) {
-      return Status::Invalid("Field named '", name,
-                             "' not found or not unique in the schema.");
-    }
+    ARROW_RETURN_NOT_OK(CanReferenceFieldByName(name));
   }
-
   return Status::OK();
 }
 
