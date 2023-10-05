@@ -67,6 +67,7 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
+            IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<NullType>
         {
             private FlatBufferBuilder Builder { get; }
@@ -229,6 +230,13 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.FixedSizeBinary.CreateFixedSizeBinary(Builder, type.ByteWidth));
             }
 
+            public void Visit(MapType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Map,
+                    Flatbuf.Map.CreateMap(Builder, type.KeySorted));
+            }
+
             public void Visit(NullType type)
             {
                 Flatbuf.Null.StartNull(Builder);
@@ -239,7 +247,7 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(IArrowType type)
             {
-                throw new NotImplementedException();
+                throw new NotImplementedException($"Cannot visit type {type}");
             }
         }
 
