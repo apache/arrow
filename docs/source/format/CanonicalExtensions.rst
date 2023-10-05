@@ -159,8 +159,9 @@ Variable shape tensor
   is composed of **data** and **shape** fields describing a single
   tensor per row:
 
-  * **data** is a ``List`` holding tensor elements of a single tensor.
-    Data type of the list elements is uniform across the entire column.
+  * **data** is a ``List`` holding tensor elements (each list element is
+    a single tensor). The List's value type is the value type of the tensor,
+    such as an integer or floating-point type.
   * **shape** is a ``FixedSizeList<int32>[ndim]`` of the tensor shape where
     the size of the list ``ndim`` is equal to the number of dimensions of the
     tensor.
@@ -219,12 +220,14 @@ Variable shape tensor
 
     ``{}``
 
-  - Example with ``dim_names`` metadata for NCHW ordered data:
+  - Example with ``dim_names`` metadata for NCHW ordered data (note that the first
+    logical dimension, ``N``, is mapped to the **data** List array: each element in the List
+    is a CHW tensor and the List of tensors implicitly constitutes a single NCHW tensor):
 
     ``{ "dim_names": ["C", "H", "W"] }``
 
   - Example with ``uniform_shape`` metadata for a set of color images
-    with variable width:
+    with fixed height, variable width and three color channels:
 
     ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, 0, 3] }``
 
@@ -232,9 +235,9 @@ Variable shape tensor
 
     ``{ "permutation": [2, 0, 1] }``
 
-    This is the physical layout shape and the shape of the logical
-    layout would given an individual tensor of shape [100, 200, 500]
-    be ``[500, 100, 200]``.
+    For example, if the physical **shape** of an individual tensor
+    is ``[100, 200, 500]``, this permutation would denote a logical shape
+    of ``[500, 100, 200]``.
 
 .. note::
 
@@ -248,8 +251,9 @@ Variable shape tensor
 
   This means the logical tensor has names [z, x, y] and shape [30, 10, 20].
 
-  Elements in a variable shape tensor extension array are stored
-  in row-major/C-contiguous order.
+.. note::
+   Values inside each **data** tensor element are stored in row-major/C-contiguous
+   order according to the corresponding **shape**.
 
 =========================
 Community Extension Types
