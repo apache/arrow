@@ -243,7 +243,6 @@ def bool_column_to_array(
             "is required which is forbidden by allow_copy=False"
         )
 
-    buffers = col.get_buffers()
     data_type = col.dtype
     data = buffers_to_array(buffers, data_type,
                             col.size(),
