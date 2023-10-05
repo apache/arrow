@@ -307,7 +307,8 @@ on:
   stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
 
-{%- macro github_setup_local_r_repo(get_nix, get_win) -%}
+{%- macro github_setup_local_r_repo(get_nix, get_win, get_mac=False) -%}
+# TODO: improve arg handling
   - name: Setup local repo
     shell: bash
     run: mkdir repo
@@ -325,6 +326,17 @@ on:
     with:
       name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
       path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
+    {% endfor %}
+  {% endif %}
+  {% if get_mac %}
+    {% for openssl_version in ["1.1", "3.0"] %}
+      {% for arch in ["x86_64", "arm64"] %}
+  - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
+    uses: actions/download-artifact@v3
+    with:
+      name: r-lib__libarrow__bin__darwin-{{arch}}-openssl-{{ openssl_version }}
+      path: repo/libarrow/bin/darwin-{{ arch }}-openssl-{{ openssl_version }}
+      {% endfor %}
     {% endfor %}
   {% endif %}
   - name: Get src pkg

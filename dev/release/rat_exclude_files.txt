@@ -24,6 +24,7 @@ cpp/build-support/iwyu/*
 cpp/cmake_modules/FindPythonLibsNew.cmake
 cpp/cmake_modules/SnappyCMakeLists.txt
 cpp/cmake_modules/SnappyConfig.h
+cpp/cmake_modules/snappy.diff
 cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
 cpp/src/generated/parquet_constants.cpp

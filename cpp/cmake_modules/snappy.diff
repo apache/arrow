@@ -1,0 +1,12 @@
+diff --git a/snappy.cc b/snappy.cc
+index d414718..5b0d0d6 100644
+--- a/snappy.cc
++++ b/snappy.cc
+@@ -83,6 +83,7 @@
+ #include <string>
+ #include <utility>
+ #include <vector>
++#include <functional>
+ 
+ namespace snappy {
+ 
