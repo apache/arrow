@@ -460,7 +460,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
     # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
     # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
     # for details.
-    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -fno-aligned-new")
+    string(APPEND CXX_ONLY_FLAGS " -fno-aligned-new")
 
     if(CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
       # Avoid C++17 std::get 'not available' issue on macOS 10.13

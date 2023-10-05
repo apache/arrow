@@ -57,14 +57,17 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   macos-cpp:
-    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.arch }}'}}
-    runs-on: {{ '${{ matrix.platform.runs_on }}'}}
+    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.arch }}' }}
+
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
+
     needs: source
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["self-hosted", "macos-10.13"],  arch: "x86_64" }
+          - { runs_on: ["self-hosted", "macos-10.13"], arch: "x86_64" }
+
           - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
         openssl: ['3.0', '1.1']
 
