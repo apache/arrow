@@ -87,7 +87,7 @@ parquet::ReaderProperties MakeReaderProperties(
   }
 #else
   if (parquet_scan_options->parquet_decryption_config != nullptr) {
-    return Status::NotImplemented("Encryption is not supported in this build.");
+    parquet::ParquetException::NYI("Encryption is not supported in this build.");
   }
 #endif
 
