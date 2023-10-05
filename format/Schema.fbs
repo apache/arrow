@@ -22,7 +22,8 @@
 /// Version 1.1 - Add Decimal256.
 /// Version 1.2 - Add Interval MONTH_DAY_NANO.
 /// Version 1.3 - Add Run-End Encoded.
-/// Version 1.4 - Add BinaryView, Utf8View, and variadicBufferCounts.
+/// Version 1.4 - Add BinaryView, Utf8View, variadicBufferCounts, ListView, and
+/// LargeListView.
 
 namespace org.apache.arrow.flatbuf;
 
@@ -95,6 +96,17 @@ table List {
 /// Same as List, but with 64-bit offsets, allowing to represent
 /// extremely large data values.
 table LargeList {
+}
+
+/// Represents the same logical types that List can, but contains offsets and
+/// sizes allowing for writes in any order and sharing of child values among
+/// list values.
+table ListView {
+}
+
+/// Same as ListView, but with 64-bit offsets and sizes, allowing to represent
+/// extremely large data values.
+table LargeListView {
 }
 
 table FixedSizeList {
@@ -451,6 +463,8 @@ union Type {
   RunEndEncoded,
   BinaryView,
   Utf8View,
+  ListView,
+  LargeListView,
 }
 
 /// ----------------------------------------------------------------------
