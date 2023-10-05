@@ -169,9 +169,9 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}}
 
-\item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{read_options}{see \link[=csv_read_options]{CSV reading options}}
 
 \item{timestamp_parsers}{User-defined timestamp parsers. If more than one
 parser is specified, the CSV conversion logic will try parsing values

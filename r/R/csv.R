@@ -122,11 +122,11 @@
 #'  - `NULL`: the default, which uses the ISO-8601 parser
 #'  - a character vector of [strptime][base::strptime()] parse strings
 #'  - a list of [TimestampParser] objects
-#' @param parse_options see [file reader options][CsvReadOptions].
+#' @param parse_options see [CSV parsing options][csv_parse_options()].
 #' If given, this overrides any
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
-#' @param convert_options see [file reader options][CsvReadOptions]
-#' @param read_options see [file reader options][CsvReadOptions]
+#' @param convert_options see [CSV conversion options][csv_convert_options()]
+#' @param read_options see [CSV reading options][csv_read_options()]
 #' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
 #'
