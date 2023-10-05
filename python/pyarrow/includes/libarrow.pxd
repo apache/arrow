@@ -80,6 +80,11 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
 
     CRuntimeInfo GetRuntimeInfo()
 
+    cdef cppclass CGlobalOptions" arrow::GlobalOptions":
+        optional[c_string] timezone_db_path
+
+    CStatus Initialize(const CGlobalOptions& options)
+
 
 cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
     cdef cppclass CFuture_Void" arrow::Future<>":
