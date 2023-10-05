@@ -4599,8 +4599,9 @@ cdef class Table(_Tabular):
         """
         return self.drop_columns(columns)
 
-    def group_by(self, keys):
-        """Declare a grouping over the columns of the table.
+    def group_by(self, keys, use_threads=True):
+        """
+        Declare a grouping over the columns of the table.
 
         Resulting grouping can then be used to perform aggregations
         with a subsequent ``aggregate()`` method.
@@ -4609,6 +4610,9 @@ cdef class Table(_Tabular):
         ----------
         keys : str or list[str]
             Name of the columns that should be used as the grouping key.
+        use_threads : bool, default True
+            Whether to use multithreading or not. When set to True (the
+            default), no stable ordering of the output is guaranteed.
 
         Returns
         -------
@@ -4635,7 +4639,7 @@ cdef class Table(_Tabular):
         year: [[2020,2022,2021,2019]]
         n_legs_sum: [[2,6,104,5]]
         """
-        return TableGroupBy(self, keys)
+        return TableGroupBy(self, keys, use_threads=use_threads)
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
@@ -5183,6 +5187,9 @@ class TableGroupBy:
         Input table to execute the aggregation on.
     keys : str or list[str]
         Name of the grouped columns.
+    use_threads : bool, default True
+        Whether to use multithreading or not. When set to True (the default),
+        no stable ordering of the output is guaranteed.
 
     Examples
     --------
@@ -5208,12 +5215,13 @@ class TableGroupBy:
     values_sum: [[3,7,5]]
     """
 
-    def __init__(self, table, keys):
+    def __init__(self, table, keys, use_threads=True):
         if isinstance(keys, str):
             keys = [keys]
 
         self._table = table
         self.keys = keys
+        self._use_threads = use_threads
 
     def aggregate(self, aggregations):
         """
@@ -5328,4 +5336,6 @@ list[tuple(str, str, FunctionOptions)]
                 aggr_name = "_".join(target) + "_" + func_nohash
             group_by_aggrs.append((target, func, opt, aggr_name))
 
-        return _pac()._group_by(self._table, group_by_aggrs, self.keys)
+        return _pac()._group_by(
+            self._table, group_by_aggrs, self.keys, use_threads=self._use_threads
+        )

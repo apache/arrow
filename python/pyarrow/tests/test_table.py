@@ -2175,6 +2175,21 @@ def test_table_group_by():
     }
 
 
+@pytest.mark.acero
+def test_table_group_by_first():
+    # "first" is an ordered aggregation -> requires to specify use_threads=False
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a', 'b'] * 2})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b', 'a'] * 2})
+    table = pa.concat_tables([table1, table2])
+
+    with pytest.raises(NotImplementedError):
+        table.group_by("b").aggregate([("a", "first")])
+
+    result = table.group_by("b", use_threads=False).aggregate([("a", "first")])
+    expected = pa.table({"b": ["a", "b"], "a_first": [1, 2]})
+    assert result.equals(expected)
+
+
 def test_table_to_recordbatchreader():
     table = pa.Table.from_pydict({'x': [1, 2, 3]})
     reader = table.to_reader()
