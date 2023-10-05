@@ -193,29 +193,26 @@ Variable shape tensor
     When logical and physical layout are equal, the permutation will always
     be ([0, 1, .., N-1]) and can therefore be left out.
 
-  * **uniform_dimensions** = indices of dimensions whose sizes are
-    guaranteed to remain constant. Indices are a subset of all possible
-    dimension indices ([0, 1, .., N-1]).
-    The uniform dimensions must still be represented in the `shape` field,
-    and must always be the same value for all tensors in the array -- this
-    allows code to interpret the tensor correctly without accounting for
+  * **uniform_shape** = sizes of individual tensors dimensions are
+    guaranteed to stay constant in uniform dimensions and can vary in
+    non-uniform dimensions. This holds over all tensors in the array.
+    Sizes in uniform dimensions are represented with int32 values, while
+    sizes of the non-uniform dimensions are not known in advance and are
+    represented with 0s. If ``uniform_shape`` is not provided it is assumed
+    that all dimensions are non-uniform.
+    An array containing a tensor with shape (2, 3, 4) and whose first and
+    last dimensions are uniform would have ``uniform_shape`` (2, 0, 4).
+    This allows for interpreting the tensor correctly without accounting for
     uniform dimensions while still permitting optional optimizations that
-    take advantage of the uniformity. uniform_dimensions can be left out,
-    in which case it is assumed that all dimensions might be variable.
-
-  * **uniform_shape** = shape of the dimensions that are guaranteed to stay
-    constant over all tensors in the array, with the shape of the ragged dimensions
-    set to 0.
-    An array containing tensor with shape (2, 3, 4) and uniform dimensions
-    (0, 2) would have uniform shape (2, 0, 4).
+    take advantage of the uniformity.
 
 * Description of the serialization:
 
-  The metadata must be a valid JSON object, that optionally includes
-  dimension names with keys **"dim_names"**, ordering of
-  dimensions with key **"permutation"**, indices of dimensions whose sizes
-  are guaranteed to remain constant with key **"uniform_dimensions"** and
-  shape of those dimensions with key **"uniform_shape"**.
+  The metadata must be a valid JSON object that optionally includes
+  dimension names with keys **"dim_names"** and  ordering of dimensions
+  with key **"permutation"**.
+  Shapes of tensors can be defined in a subset of dimensions by providing
+  key **"uniform_shape"**.
   Minimal metadata is an empty JSON object.
 
   - Example of minimal metadata is:
@@ -226,10 +223,10 @@ Variable shape tensor
 
     ``{ "dim_names": ["C", "H", "W"] }``
 
-  - Example with ``uniform_dimensions`` metadata for a set of color images
+  - Example with ``uniform_shape`` metadata for a set of color images
     with variable width:
 
-    ``{ "dim_names": ["H", "W", "C"], "uniform_dimensions": [1] }``
+    ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, 0, 3] }``
 
   - Example of permuted 3-dimensional tensor:
 
