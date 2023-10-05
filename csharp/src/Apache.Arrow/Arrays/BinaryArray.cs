@@ -237,7 +237,7 @@ namespace Apache.Arrow
                 // TODO: [ARROW-9366] Reserve capacity in the value buffer in a more sensible way.
                 ValueOffsets.Reserve(capacity + 1);
                 ValueBuffer.Reserve(capacity);
-                ValidityBuffer.Reserve(capacity + 1);
+                ValidityBuffer.Reserve(capacity);
                 return Instance;
             }
 
@@ -246,7 +246,7 @@ namespace Apache.Arrow
                 // TODO: [ARROW-9366] Resize the value buffer to a safe length based on offsets, not `length`.
                 ValueOffsets.Resize(length + 1);
                 ValueBuffer.Resize(length);
-                ValidityBuffer.Resize(length + 1);
+                ValidityBuffer.Resize(length);
                 return Instance;
             }
 

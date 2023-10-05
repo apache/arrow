@@ -29,7 +29,8 @@ namespace Apache.Arrow.Tests
         IArrowTypeVisitor<ListType>,
         IArrowTypeVisitor<FixedSizeListType>,
         IArrowTypeVisitor<StructType>,
-        IArrowTypeVisitor<UnionType>
+        IArrowTypeVisitor<UnionType>,
+        IArrowTypeVisitor<MapType>
     {
         private readonly IArrowType _expectedType;
 
@@ -127,6 +128,16 @@ namespace Apache.Arrow.Tests
             {
                 Assert.Equal(expectedType.TypeIds[i], actualType.TypeIds[i]);
             }
+
+            CompareNested(expectedType, actualType);
+        }
+
+        public void Visit(MapType actualType)
+        {
+            Assert.IsAssignableFrom<MapType>(_expectedType);
+            var expectedType = (MapType)_expectedType;
+
+            Assert.Equal(expectedType.KeySorted, actualType.KeySorted);
 
             CompareNested(expectedType, actualType);
         }
