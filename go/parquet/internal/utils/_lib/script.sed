@@ -15,34 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "aws-sdk-cpp"
-brew "bash"
-brew "boost"
-brew "brotli"
-brew "bzip2"
-brew "c-ares"
-brew "curl"
-brew "ccache"
-brew "cmake"
-brew "flatbuffers"
-brew "git"
-brew "glog"
-brew "googletest"
-brew "grpc"
-brew "llvm@14"
-brew "lz4"
-brew "mimalloc"
-brew "ninja"
-brew "node"
-brew "openssl@3"
-brew "pkg-config"
-brew "protobuf"
-brew "python"
-brew "rapidjson"
-brew "re2"
-brew "snappy"
-brew "thrift"
-brew "utf8proc"
-brew "wget"
-brew "xsimd"
-brew "zstd"
+s|WORD $0x54[0-9a-f]\+[[:space:]]\+//[[:space:]]\+b.\([leqgtnso]\+\)[[:space:]]\+.\(LBB0_[0-9]\+\)|B\U\1 \2|
+s|WORD $0x14000000[[:space:]]\+//[[:space:]]\+b[[:space:]]\+.\(LBB0_[0-9]\+\)|JMP \1|
+s|\(WORD $0x9[0-9a-f]\+ // adrp.*\)|// \1|
+s|WORD $0x[0-9a-f]\+ // ldr[[:space:]]\+d\([0-9]\+\), \[x[0-9]\+, :lo[0-9]\+:.\(LCPI0_[0-9]\+\)\]|VMOVD \2, V\1|
+s|WORD $0x[0-9a-f]\+ // ldr[[:space:]]\+q\([0-9]\+\), \[x[0-9]\+, :lo[0-9]\+:.\(LCPI0_[0-9]\+\)\]|VMOVQ \2L, \2H, V\1|
