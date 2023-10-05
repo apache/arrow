@@ -288,11 +288,16 @@ class ArrayDataEndianSwapper {
     RETURN_NOT_OK(SwapOffsets<int64_t>(1));
     return Status::OK();
   }
+
   Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("swapping endianness of list-view array");
+    RETURN_NOT_OK(SwapOffsets<int32_t>(1));
+    RETURN_NOT_OK(SwapOffsets<int32_t>(2));
+    return Status::OK();
   }
   Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("swapping endianness of large list-view array");
+    RETURN_NOT_OK(SwapOffsets<int64_t>(1));
+    RETURN_NOT_OK(SwapOffsets<int64_t>(2));
+    return Status::OK();
   }
 
   Status Visit(const DictionaryType& type) {
