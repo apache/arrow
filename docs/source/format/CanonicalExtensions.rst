@@ -244,7 +244,7 @@ Variable shape tensor
   With the exception of ``permutation``, the parameters and storage
   of VariableShapeTensor relate to the *physical* storage of the tensor.
 
-  For example, consider a tensor with:
+  For example, consider a tensor with::
     shape = [10, 20, 30]
     dim_names = [x, y, z]
     permutations = [2, 0, 1]
