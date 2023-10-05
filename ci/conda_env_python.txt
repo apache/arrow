@@ -18,7 +18,7 @@
 # don't add pandas here, because it is not a mandatory test dependency
 boto3  # not a direct dependency of s3fs, but needed for our s3fs fixture
 cffi
-cython<3
+cython>=0.29.31
 cloudpickle
 fsspec
 hypothesis

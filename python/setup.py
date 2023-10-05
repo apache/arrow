@@ -40,9 +40,9 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.29.31' or Cython.__version__ >= '3.0':
+if Cython.__version__ < '0.29.31':
     raise Exception(
-        'Please update your Cython version. Supported Cython >= 0.29.31, < 3.0')
+        'Please update your Cython version. Supported Cython >= 0.29.31')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -492,7 +492,7 @@ setup(
                                  'pyarrow/_generated_version.py'),
         'version_scheme': guess_next_dev_version
     },
-    setup_requires=['setuptools_scm < 8.0.0', 'cython >= 0.29.31,<3'] + setup_requires,
+    setup_requires=['setuptools_scm < 8.0.0', 'cython >= 0.29.31'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],
     python_requires='>=3.8',
