@@ -397,6 +397,14 @@ TEST_F(TestSchemaExport, List) {
   TestNested(list(large_list(int32())), {"+l", "+L", "i"}, {"", "item", "item"});
 }
 
+TEST_F(TestSchemaExport, ListView) {
+  TestNested(list_view(int8()), {"+vl", "c"}, {"", "item"});
+  TestNested(large_list_view(uint16()), {"+vL", "S"}, {"", "item"});
+
+  TestNested(list_view(large_list_view(int32())), {"+vl", "+vL", "i"},
+             {"", "item", "item"});
+}
+
 TEST_F(TestSchemaExport, Struct) {
   auto type = struct_({field("a", int8()), field("b", utf8())});
   TestNested(type, {"+s", "c", "u"}, {"", "a", "b"},
@@ -940,6 +948,33 @@ TEST_F(TestArrayExport, ListSliced) {
       auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
       auto offsets = ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->Slice(2, 4);
       return ListArray::FromArrays(*offsets, *values);
+    };
+    TestNested(factory);
+  }
+}
+
+TEST_F(TestArrayExport, ListView) {
+  TestNested(list_view(int8()), "[[1, 2], [3, null], null]");
+  TestNested(large_list_view(uint16()), "[[1, 2], [3, null], null]");
+  TestNested(fixed_size_list(int64(), 2), "[[1, 2], [3, null], null]");
+
+  TestNested(list_view(large_list_view(int32())), "[[[1, 2], [3], null], null]");
+}
+
+TEST_F(TestArrayExport, ListViewSliced) {
+  {
+    auto factory = []() {
+      return ArrayFromJSON(list_view(int8()), "[[1, 2], [3, null], [4, 5, 6], null]")
+          ->Slice(1, 2);
+    };
+    TestNested(factory);
+  }
+  {
+    auto factory = []() {
+      auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
+      auto offsets = ArrayFromJSON(int32(), "[5, 2, 0, 3]")->Slice(1, 2);
+      auto sizes = ArrayFromJSON(int32(), "[2, 3, 6, 1]")->Slice(1, 2);
+      return ListViewArray::FromArrays(*offsets, *sizes, *values);
     };
     TestNested(factory);
   }
@@ -1490,6 +1525,45 @@ TEST_F(TestDeviceArrayExport, ListSliced) {
   }
 }
 
+TEST_F(TestDeviceArrayExport, ListView) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  TestNested(mm, list_view(int8()), "[[1, 2], [3, null], null]");
+  TestNested(mm, large_list_view(uint16()), "[[1, 2], [3, null], null]");
+
+  TestNested(mm, list_view(large_list_view(int32())), "[[[1, 2], [3], null], null]");
+}
+
+TEST_F(TestDeviceArrayExport, ListViewSliced) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  {
+    auto factory = [=]() {
+      return (*ToDevice(mm, *ArrayFromJSON(list_view(int8()),
+                                           "[[1, 2], [3, null], [4, 5, 6], null]")
+                                 ->data()))
+          ->Slice(1, 2);
+    };
+    TestNested(factory);
+  }
+  {
+    auto factory = [=]() {
+      auto values =
+          (*ToDevice(mm,
+                     *ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->data()))
+              ->Slice(1, 6);
+      auto offsets =
+          (*ToDevice(mm, *ArrayFromJSON(int32(), "[5, 2, 0, 3]")->data()))->Slice(1, 2);
+      auto sizes =
+          (*ToDevice(mm, *ArrayFromJSON(int32(), "[2, 3, 6, 1]")->data()))->Slice(1, 2);
+      return ListViewArray::FromArrays(*offsets, *sizes, *values);
+    };
+    TestNested(factory);
+  }
+}
+
 TEST_F(TestDeviceArrayExport, Struct) {
   std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
   auto mm = device->default_memory_manager();
@@ -1928,6 +2002,33 @@ TEST_F(TestSchemaImport, NestedList) {
   FillListLike(AddChild(), "+w:3");
   FillListLike("+l");
   CheckImport(list(fixed_size_list(int8(), 3)));
+}
+
+TEST_F(TestSchemaImport, ListView) {
+  FillPrimitive(AddChild(), "c");
+  FillListLike("+vl");
+  CheckImport(list_view(int8()));
+
+  FillPrimitive(AddChild(), "s", "item", 0);
+  FillListLike("+vl");
+  CheckImport(list_view(field("item", int16(), /*nullable=*/false)));
+
+  // Large list-view
+  FillPrimitive(AddChild(), "s");
+  FillListLike("+vL");
+  CheckImport(large_list_view(int16()));
+}
+
+TEST_F(TestSchemaImport, NestedListView) {
+  FillPrimitive(AddChild(), "c");
+  FillListLike(AddChild(), "+vl");
+  FillListLike("+vL");
+  CheckImport(large_list_view(list_view(int8())));
+
+  FillPrimitive(AddChild(), "c");
+  FillListLike(AddChild(), "+w:3");
+  FillListLike("+vl");
+  CheckImport(list_view(fixed_size_list(int8(), 3)));
 }
 
 TEST_F(TestSchemaImport, Struct) {

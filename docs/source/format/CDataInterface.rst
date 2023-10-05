@@ -207,6 +207,10 @@ names and types of child fields are read from the child arrays.
 +------------------------+---------------------------------------------------+------------+
 | ``+L``                 | large list                                        |            |
 +------------------------+---------------------------------------------------+------------+
+| ``+lv``                | list-view                                         |            |
++------------------------+---------------------------------------------------+------------+
+| ``+Lv``                | large list-view                                   |            |
++------------------------+---------------------------------------------------+------------+
 | ``+w:123``             | fixed-sized list [123 items]                      |            |
 +------------------------+---------------------------------------------------+------------+
 | ``+s``                 | struct                                            |            |
@@ -243,6 +247,8 @@ Examples
   array has format string ``d:12,5``.
 * A ``list<uint64>`` array has format string ``+l``, and its single child
   has format string ``L``.
+* A ``large_list_view<uint64>`` array has format string ``+Lv``, and its single
+  child has format string ``L``.
 * A ``struct<ints: int32, floats: float32>`` has format string ``+s``; its two
   children have names ``ints`` and ``floats``, and format strings ``i`` and
   ``f`` respectively.
