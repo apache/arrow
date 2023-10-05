@@ -1444,7 +1444,7 @@ void CheckDictionaryCompact(const std::shared_ptr<DataType>& dict_type,
 }
 
 TEST(TestDictionary, Compact) {
- std::shared_ptr<arrow::DataType> type;
+  std::shared_ptr<arrow::DataType> type;
   std::shared_ptr<arrow::DataType> dict_type;
 
   for (const auto& index_type : all_dictionary_index_types()) {
