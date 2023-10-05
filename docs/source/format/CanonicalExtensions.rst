@@ -194,7 +194,7 @@ Variable shape tensor
     When logical and physical layout are equal, the permutation will always
     be ([0, 1, .., N-1]) and can therefore be left out.
 
-  * **uniform_shape** = sizes of individual tensors dimensions are
+  * **uniform_shape** = sizes of individual tensor's dimensions which are
     guaranteed to stay constant in uniform dimensions and can vary in
     non-uniform dimensions. This holds over all tensors in the array.
     Sizes in uniform dimensions are represented with int32 values, while
