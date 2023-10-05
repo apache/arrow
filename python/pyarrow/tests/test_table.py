@@ -286,8 +286,6 @@ def test_chunked_array_equals():
     assert not pa.chunked_array([], type=pa.int32()).equals(None)
 
 
-
-
 @pytest.mark.parametrize(
     ('data', 'typ'),
     [

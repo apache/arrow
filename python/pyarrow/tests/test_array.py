@@ -1985,20 +1985,20 @@ def test_cast_identities(ty, values):
 
 
 pickle_test_parametrize = pytest.mark.parametrize(
-        ('data', 'typ'),
-        [
-            ([True, False, True, True], pa.bool_()),
-            ([1, 2, 4, 6], pa.int64()),
-            ([1.0, 2.5, None], pa.float64()),
-            (['a', None, 'b'], pa.string()),
-            ([], None),
-            ([[1, 2], [3]], pa.list_(pa.int64())),
-            ([[4, 5], [6]], pa.large_list(pa.int16())),
-            ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
-            ([(1, 'a'), (2, 'c'), None],
-                pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
-        ]
-    )
+    ('data', 'typ'),
+    [
+        ([True, False, True, True], pa.bool_()),
+        ([1, 2, 4, 6], pa.int64()),
+        ([1.0, 2.5, None], pa.float64()),
+        (['a', None, 'b'], pa.string()),
+        ([], None),
+        ([[1, 2], [3]], pa.list_(pa.int64())),
+        ([[4, 5], [6]], pa.large_list(pa.int16())),
+        ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
+        ([(1, 'a'), (2, 'c'), None],
+            pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
+    ]
+)
 
 
 
@@ -2081,7 +2081,6 @@ def test_array_pickle_protocol5(data, typ, pickle_module):
         ),
         # Empty array
     ])
-
 def test_array_pickle_slice_truncation(data, typ, pickle_module):
     arr = pa.array(data, type=typ)
     serialized_arr = pickle_module.dumps(arr)
