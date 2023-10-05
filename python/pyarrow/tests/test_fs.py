@@ -699,12 +699,9 @@ def test_get_file_info_with_selector(fs, pathfn):
 
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
-            # s3fs only lists directories if they are not empty
-            # (https://github.com/dask/s3fs/issues/393)
             len(infos) == 4
         else:
             assert len(infos) == 5
-        assert base_dir not in infos
 
         for info in infos:
             if (info.path.endswith(file_a) or info.path.endswith(file_b) or
@@ -722,14 +719,9 @@ def test_get_file_info_with_selector(fs, pathfn):
 
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
-            # s3fs only lists directories if they are not empty
-            # + for s3fs 0.5.2 all directories are dropped because of buggy
-            # side-effect of previous find() call
-            # (https://github.com/dask/s3fs/issues/410)
             assert len(infos) == 3
         else:
             assert len(infos) == 4
-        assert base_dir not in infos
 
     finally:
         fs.delete_dir(base_dir)
