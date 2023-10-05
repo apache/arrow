@@ -119,6 +119,7 @@ namespace Apache.Arrow.IntegrationTest
                 "fixedsizebinary" => new FixedSizeBinaryType(type.ByteWidth),
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
+                "duration" => ToDurationArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
                 "list" => ToListArrowType(type, children),
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
@@ -187,6 +188,18 @@ namespace Apache.Arrow.IntegrationTest
                 ("MICROSECOND", 64) => new Time64Type(TimeUnit.Microsecond),
                 ("NANOSECOND", 32) => new Time32Type(TimeUnit.Nanosecond),
                 ("NANOSECOND", 64) => new Time64Type(TimeUnit.Nanosecond),
+                _ => throw new NotSupportedException($"Time type not supported: {type.Unit}, {type.BitWidth}")
+            };
+        }
+
+        private static IArrowType ToDurationArrowType(JsonArrowType type)
+        {
+            return type.Unit switch
+            {
+                "SECOND" => DurationType.Second,
+                "MILLISECOND" => DurationType.Millisecond,
+                "MICROSECOND" => DurationType.Microsecond,
+                "NANOSECOND" => DurationType.Nanosecond,
                 _ => throw new NotSupportedException($"Time type not supported: {type.Unit}, {type.BitWidth}")
             };
         }
