@@ -54,6 +54,13 @@ try:
 except AttributeError:
     _np_nan = np.nan
 
+try:
+    _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+except AttributeError:
+    from numpy.exceptions import (
+        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+    )
+
 
 # Marks all of the tests in this module
 pytestmark = pytest.mark.pandas
@@ -2334,7 +2341,7 @@ class TestConvertListTypes:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",
                                     "Creating an ndarray from ragged nested",
-                                    np.exceptions.VisibleDeprecationWarning)
+                                    _np_VisibleDeprecationWarning)
             warnings.filterwarnings("ignore", "elementwise comparison failed",
                                     DeprecationWarning)
             tm.assert_series_equal(
