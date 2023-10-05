@@ -79,6 +79,10 @@ def set_cpu_count(int count):
     check_status(SetCpuThreadPoolCapacity(count))
 
 
+def is_threading_enabled():
+    return libarrow_python.IsThreadingEnabled()
+
+
 Type_NA = _Type_NA
 Type_BOOL = _Type_BOOL
 Type_UINT8 = _Type_UINT8

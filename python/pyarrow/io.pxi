@@ -32,7 +32,6 @@ from queue import Queue, Empty as QueueEmpty
 
 from pyarrow.util import _is_path_like, _stringify_path
 
-
 # 64K
 DEFAULT_BUFFER_SIZE = 2 ** 16
 
@@ -677,7 +676,10 @@ cdef class NativeFile(_Weakrefable):
 
         self.seek(0)
 
-        writer_thread = threading.Thread(target=bg_write)
+        if is_threading_enabled():
+            writer_thread = threading.Thread(target=bg_write)
+        else:
+            writer_thread = None
 
         # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
         # the passed buffer, so it's hard for us to avoid doubling the memory
@@ -685,8 +687,8 @@ cdef class NativeFile(_Weakrefable):
         if buf == NULL:
             raise MemoryError("Failed to allocate {0} bytes"
                               .format(buffer_size))
-
-        writer_thread.start()
+        if writer_thread:
+            writer_thread.start()
 
         cdef int64_t total_bytes = 0
         cdef int32_t c_buffer_size = buffer_size
@@ -706,18 +708,23 @@ cdef class NativeFile(_Weakrefable):
                 pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
                                                      bytes_read)
 
-                if writer_thread.is_alive():
-                    while write_queue.full():
-                        time.sleep(0.01)
-                else:
-                    break
+                if writer_thread is not None:
+                    if writer_thread.is_alive():
+                        while write_queue.full():
+                            time.sleep(0.01)
+                    else:
+                        break
 
-                write_queue.put_nowait(pybuf)
+                    write_queue.put_nowait(pybuf)
+
+                else:
+                    # no background thread
+                    stream.write(pybuf)
         finally:
             free(buf)
             done = True
-
-        writer_thread.join()
+        if writer_thread is not None:
+            writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
 
@@ -753,8 +760,11 @@ cdef class NativeFile(_Weakrefable):
             except Exception as e:
                 exc_info = sys.exc_info()
 
-        writer_thread = threading.Thread(target=bg_write)
-        writer_thread.start()
+        if is_threading_enabled():
+            writer_thread = threading.Thread(target=bg_write)
+            writer_thread.start()
+        else:
+            writer_thread = None
 
         try:
             while True:
@@ -762,17 +772,21 @@ cdef class NativeFile(_Weakrefable):
                 if not buf:
                     break
 
-                if writer_thread.is_alive():
-                    while write_queue.full():
-                        time.sleep(0.01)
-                else:
-                    break
+                if writer_thread is not None:
+                    if writer_thread.is_alive():
+                        while write_queue.full():
+                            time.sleep(0.01)
+                    else:
+                        break
 
-                write_queue.put_nowait(buf)
+                    write_queue.put_nowait(buf)
+                else:
+                    # no threading
+                    self.write(buf)
         finally:
             done = True
-
-        writer_thread.join()
+        if writer_thread is not None:
+            writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
 

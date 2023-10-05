@@ -301,3 +301,6 @@ cdef extern from "arrow/python/benchmark.h" namespace "arrow::py::benchmark":
 
 cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
     void GdbTestSession "arrow::gdb::TestSession"()
+
+cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
+    c_bool IsThreadingEnabled()

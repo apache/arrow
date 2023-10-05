@@ -52,6 +52,7 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
 from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
+from pyarrow.lib import is_threading_enabled
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 _URI_STRIP_SCHEMES = ('hdfs',)
@@ -328,6 +329,9 @@ class ParquetFile:
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None):
+
+        if pre_buffer and not is_threading_enabled():
+            pre_buffer = False
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -1494,8 +1498,9 @@ class ParquetManifest:
         self.partitions = ParquetPartitions()
         self.pieces = []
         self._metadata_nthreads = metadata_nthreads
-        self._thread_pool = futures.ThreadPoolExecutor(
-            max_workers=metadata_nthreads)
+        if is_threading_enabled():
+            self._thread_pool = futures.ThreadPoolExecutor(
+                max_workers=metadata_nthreads)
 
         self.common_metadata_path = None
         self.metadata_path = None
@@ -1510,7 +1515,8 @@ class ParquetManifest:
             # _common_metadata is a subset of _metadata
             self.common_metadata_path = self.metadata_path
 
-        self._thread_pool.shutdown()
+        if is_threading_enabled():
+            self._thread_pool.shutdown()
 
     def _visit_level(self, level, base_path, part_keys):
         fs = self.filesystem
@@ -1562,7 +1568,7 @@ class ParquetManifest:
             dir_part_keys = part_keys + [(name, index)]
             # If you have less threads than levels, the wait call will block
             # indefinitely due to multiple waits within a thread.
-            if level < self._metadata_nthreads:
+            if level < self._metadata_nthreads and is_threading_enabled():
                 future = self._thread_pool.submit(self._visit_level,
                                                   level + 1,
                                                   path,
@@ -1775,6 +1781,9 @@ Examples
                 thrift_container_size_limit=None):
 
         extra_msg = ""
+        if pre_buffer and not is_threading_enabled():
+            pre_buffer = False
+
         if use_legacy_dataset is None:
             # if an old filesystem is passed -> still use to old implementation
             if isinstance(filesystem, legacyfs.FileSystem):
@@ -1822,6 +1831,10 @@ Examples
                  coerce_int96_timestamp_unit=None,
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None):
+
+        if pre_buffer and not is_threading_enabled():
+            pre_buffer = False
+
         if partitioning != "hive":
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
@@ -2414,6 +2427,8 @@ class _ParquetDatasetV2:
                  thrift_container_size_limit=None,
                  **kwargs):
         import pyarrow.dataset as ds
+        if pre_buffer and not is_threading_enabled():
+            pre_buffer = False
 
         # Raise error for not supported keywords
         for keyword, default in [
@@ -2943,6 +2958,10 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None):
+
+    if pre_buffer and not is_threading_enabled():
+        pre_buffer = False
+
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(

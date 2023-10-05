@@ -38,7 +38,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
                          _stringify_path,
-                         tobytes, frombytes)
+                         tobytes, frombytes, is_threading_enabled)
 
 cimport cpython as cp
 
@@ -1205,6 +1205,9 @@ cdef class ParquetReader(_Weakrefable):
             ArrowReaderProperties arrow_props = (
                 default_arrow_reader_properties())
             FileReaderBuilder builder
+
+        if pre_buffer and not is_threading_enabled():
+            pre_buffer=False
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
