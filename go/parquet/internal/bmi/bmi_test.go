@@ -14,28 +14,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !noasm
-// +build !noasm
+package bmi_test
 
-package bmi
+import (
+	"fmt"
+	"testing"
 
-import "unsafe"
+	"github.com/apache/arrow/go/v14/parquet/internal/bmi"
+	"github.com/stretchr/testify/assert"
+)
 
-//go:noescape
-func _levels_to_bitmap_neon(levels unsafe.Pointer, numLevels int, rhs int16) (res uint64)
-
-// greaterThanBitmapNEON builds a bitmap where each set bit indicates the corresponding level
-// is greater than the rhs value.
-func greaterThanBitmapNEON(levels []int16, rhs int16) uint64 {
-	if len(levels) == 0 {
-		return 0
+// Testing the issue in GH-37712
+func TestBasicExtractBits(t *testing.T) {
+	tests := []struct {
+		bitmap, selection uint64
+		expected          uint64
+	}{
+		{0, 0, 0},
+		{0xFF, 0, 0},
+		{0xFF, ^uint64(0), 0xFF},
+		{0xFF00FF, 0xAAAA, 0x000F},
+		{0xFF0AFF, 0xAFAA, 0x00AF},
+		{0xFFAAFF, 0xAFAA, 0x03AF},
+		{0xFECBDA9876543210, 0xF00FF00FF00FF00F, 0xFBD87430},
 	}
 
-	var (
-		p1 = unsafe.Pointer(&levels[0])
-		p2 = len(levels)
-		p3 = rhs
-	)
-
-	return _levels_to_bitmap_neon(p1, p2, p3)
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d-%d=>%d", tt.bitmap, tt.selection, tt.expected), func(t *testing.T) {
+			assert.Equal(t, tt.expected, bmi.ExtractBits(tt.bitmap, tt.selection))
+		})
+	}
 }
