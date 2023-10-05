@@ -878,11 +878,13 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     ELSE:
         @property
         def parquet_decryption_config(self):
-            raise NotImplementedError("Unable to access encryption features; the code was compiled without the necessary encryption support.")
+            raise NotImplementedError(
+                "Unable to access encryption features; the code was compiled without the necessary encryption support.")
 
         @parquet_decryption_config.setter
         def parquet_decryption_config(self, ParquetDecryptionConfig config):
-            raise NotImplementedError("Unable to access encryption features; the code was compiled without the necessary encryption support.")
+            raise NotImplementedError(
+                "Unable to access encryption features; the code was compiled without the necessary encryption support.")
 
     @property
     def use_buffered_stream(self):
