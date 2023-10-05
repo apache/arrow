@@ -669,7 +669,10 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     pre_buffer : bool, default True
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
-        filesystems.
+        filesystems (e.g. S3, GCS) by coalesing and issuing file reads in
+        parallel using a background I/O thread pool.
+        Set to False if you want to prioritize minimal memory usage
+        over maximum speed.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
