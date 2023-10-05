@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from typing import (
     Any,
+    Tuple,
 )
 
 from pyarrow.interchange.column import (
@@ -205,7 +206,9 @@ def column_to_array(
     pa.Array
     """
     buffers = col.get_buffers()
-    data = buffers_to_array(buffers, col.size(),
+    data_type = col.dtype
+    data = buffers_to_array(buffers, data_type,
+                            col.size(),
                             col.describe_null,
                             col.offset,
                             allow_copy)
@@ -240,7 +243,10 @@ def bool_column_to_array(
             "is required which is forbidden by allow_copy=False"
         )
 
-    data = buffers_to_array(buffers, col.size(),
+    buffers = col.get_buffers()
+    data_type = col.dtype
+    data = buffers_to_array(buffers, data_type,
+                            col.size(),
                             col.describe_null,
                             col.offset)
     if size == 8:
@@ -279,11 +285,15 @@ def categorical_column_to_dictionary(
         raise NotImplementedError(
             "Non-dictionary categoricals not supported yet")
 
+    # We need to first convert the dictionary column
     cat_column = categorical["categories"]
     dictionary = column_to_array(cat_column)
-
+    # Then we need to convert the indices
+    # Here we need to use the buffer data type!
     buffers = col.get_buffers()
-    indices = buffers_to_array(buffers, col.size(),
+    _, data_type = buffers["data"]
+    indices = buffers_to_array(buffers, data_type,
+                               col.size(),
                                col.describe_null,
                                col.offset)
 
@@ -331,6 +341,7 @@ def map_date_type(data_type):
 
 def buffers_to_array(
     buffers: ColumnBuffers,
+    data_type: Tuple[DtypeKind, int, str, str],
     length: int,
     describe_null: ColumnNullType,
     offset: int = 0,
@@ -344,6 +355,9 @@ def buffers_to_array(
     buffer : ColumnBuffers
         Dictionary containing tuples of underlying buffers and
         their associated dtype.
+    data_type : Tuple[DtypeKind, int, str, str],
+        Dtype description of the column as a tuple ``(kind, bit-width, format string,
+        endianness)``.
     length : int
         The number of values in the array.
     describe_null: ColumnNullType
@@ -365,7 +379,7 @@ def buffers_to_array(
     is responsible for keeping the memory owner object alive as long as
     the returned PyArrow array is being used.
     """
-    data_buff, data_type = buffers["data"]
+    data_buff, _ = buffers["data"]
     try:
         validity_buff, validity_dtype = buffers["validity"]
     except TypeError:
