@@ -53,6 +53,12 @@ if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
   esac
 fi
 
+if [ "${ARROW_ENABLE_THREADING:-ON}" == "ON" ]; then
+  ARROW_JEMALLOC_DEFAULT=ON
+else
+  ARROW_JEMALLOC_DEFAULT=OFF
+fi
+
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -sv 2>/dev/null || ccache -s
@@ -118,7 +124,7 @@ cmake \
   -DARROW_GCS=${ARROW_GCS:-OFF} \
   -DARROW_HDFS=${ARROW_HDFS:-ON} \
   -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \
-  -DARROW_JEMALLOC=${ARROW_JEMALLOC:-ON} \
+  -DARROW_JEMALLOC=${ARROW_JEMALLOC:-${ARROW_JEMALLOC_DEFAULT}} \
   -DARROW_JSON=${ARROW_JSON:-ON} \
   -DARROW_LARGE_MEMORY_TESTS=${ARROW_LARGE_MEMORY_TESTS:-OFF} \
   -DARROW_MIMALLOC=${ARROW_MIMALLOC:-OFF} \
