@@ -322,9 +322,8 @@ Status CudaDevice::Stream::WaitEvent(const Device::SyncEvent& event) {
   }
 
   ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
-  // we are currently building with CUDA toolkit 11.0.3 which doesn't have enum
-  // values for the flags yet. The "flags" param *must* be 0 for now.
-  CU_RETURN_NOT_OK("cuStreamWaitEvent", cuStreamWaitEvent(value(), cu_event, 0));
+  CU_RETURN_NOT_OK("cuStreamWaitEvent",
+                   cuStreamWaitEvent(value(), cu_event, CU_EVENT_WAIT_DEFAULT));
   return Status::OK();
 }
 
