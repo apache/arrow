@@ -52,11 +52,11 @@ namespace Apache.Arrow
                 BigInteger integerPart = BigInteger.DivRem(integerValue, scaleBy, out BigInteger fractionalPart);
                 if (integerPart > _maxDecimal || integerPart < _minDecimal) // decimal overflow, not much we can do here - C# needs a BigDecimal
                 {
-                    throw new OverflowException($"Value: {integerValue} too big or too small to be represented as a decimal");
+                    throw new OverflowException($"Value: {integerValue} is too big or too small to be represented as a decimal");
                 }
                 if (fractionalPart > _maxDecimal || fractionalPart < _minDecimal) // decimal overflow, not much we can do here - C# needs a BigDecimal
                 {
-                    throw new OverflowException($"Value: {integerValue} too big or too small to be represented as a decimal");
+                    throw new OverflowException($"Value: {integerValue} is too big or too small to be represented as a decimal");
                 }
                 return (decimal)integerPart + DivideByScale(fractionalPart, scale);
             }
