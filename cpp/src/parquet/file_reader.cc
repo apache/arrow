@@ -375,8 +375,9 @@ class SerializedFile : public ParquetFileReader::Contents {
                   return a.offset < b.offset;
                 });
       for (size_t i = 1; i < copied_ranges.size(); ++i) {
-        if (ranges[i].offset < ranges[i - 1].offset + ranges[i - 1].length) {
-          throw ParquetException("Overlapping column chunk ranges for prebuffer");
+        if (copied_ranges[i].offset <
+            copied_ranges[i - 1].offset + copied_ranges[i - 1].length) {
+          throw ParquetException("Overlapping column chunk ranges for pre-buffer");
         }
       }
     }
