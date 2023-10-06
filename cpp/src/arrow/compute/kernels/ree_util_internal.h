@@ -265,7 +265,7 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
       const offset_type offset0 = input_offsets_[read_offset];
       const offset_type offset1 = input_offsets_[read_offset + 1];
       *out = std::string_view(reinterpret_cast<const char*>(input_values_ + offset0),
-                              offset1 - offset0);
+                              static_cast<size_t>(offset1 - offset0));
     }
     return valid;
   }

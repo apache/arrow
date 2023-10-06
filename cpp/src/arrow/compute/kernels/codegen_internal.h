@@ -279,7 +279,8 @@ struct ArrayIterator<Type, enable_if_base_binary<Type>> {
 
   std::string_view operator()() {
     offset_type next_offset = offsets[++position];
-    auto result = std::string_view(data + cur_offset, next_offset - cur_offset);
+    auto result = std::string_view(data + cur_offset,
+                                   static_cast<size_t>(next_offset - cur_offset));
     cur_offset = next_offset;
     return result;
   }
@@ -324,7 +325,7 @@ struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
   void WriteNull() { *values++ = T{}; }
 
   void WriteAllNull(int64_t length) {
-    std::memset(static_cast<void*>(values), 0, sizeof(T) * length);
+    std::memset(static_cast<void*>(values), 0, sizeof(T) * static_cast<size_t>(length));
   }
 };
 

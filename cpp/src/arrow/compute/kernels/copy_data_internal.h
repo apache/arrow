@@ -51,15 +51,15 @@ template <>
 struct CopyDataUtils<FixedSizeBinaryType> {
   static void CopyData(const DataType& ty, const Scalar& in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
-    const int32_t width = ty.byte_width();
+    const auto width = static_cast<size_t>(ty.byte_width());
     uint8_t* begin = out + (width * out_offset);
     const auto& scalar = checked_cast<const arrow::internal::PrimitiveScalarBase&>(in);
     // Null scalar may have null value buffer
     if (!scalar.is_valid) {
-      std::memset(begin, 0x00, width * length);
+      std::memset(begin, 0x00, width * static_cast<const size_t>(length));
     } else {
       const std::string_view buffer = scalar.view();
-      DCHECK_GE(buffer.size(), static_cast<size_t>(width));
+      DCHECK_GE(buffer.size(), width);
       for (int i = 0; i < length; i++) {
         std::memcpy(begin, buffer.data(), width);
         begin += width;
@@ -69,9 +69,9 @@ struct CopyDataUtils<FixedSizeBinaryType> {
 
   static void CopyData(const DataType& ty, const uint8_t* in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
-    const int32_t width = ty.byte_width();
+    const auto width = ty.byte_width();
     uint8_t* begin = out + (width * out_offset);
-    std::memcpy(begin, in + in_offset * width, length * width);
+    std::memcpy(begin, in + in_offset * width, static_cast<size_t>(length) * width);
   }
 
   static void CopyData(const DataType& ty, const ArraySpan& in, const int64_t in_offset,
@@ -97,7 +97,7 @@ struct CopyDataUtils<
   static void CopyData(const DataType&, const uint8_t* in, const int64_t in_offset,
                        uint8_t* out, const int64_t out_offset, const int64_t length) {
     std::memcpy(out + out_offset * sizeof(CType), in + in_offset * sizeof(CType),
-                length * sizeof(CType));
+                static_cast<size_t>(length) * sizeof(CType));
   }
 
   static void CopyData(const DataType&, const ArraySpan& in, const int64_t in_offset,
