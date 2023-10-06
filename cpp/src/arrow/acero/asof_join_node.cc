@@ -501,7 +501,7 @@ class KeyHasher {
       return hashes_;  // cache hit - return cached hashes
     }
     Invalidate();
-    size_t batch_length = batch->num_rows();
+    auto batch_length = static_cast<size_t>(batch->num_rows());
     hashes_.resize(batch_length);
     for (int64_t i = 0; i < static_cast<int64_t>(batch_length); i += kMiniBatchLength) {
       int64_t length = std::min(static_cast<int64_t>(batch_length - i),
@@ -744,7 +744,7 @@ class InputState {
       // Query the key hasher. This may hit cache, which must be valid for the batch.
       // Therefore, the key hasher is invalidated when a new batch is pushed - see
       // `InputState::Push`.
-      return key_hasher_->HashesFor(batch)[row];
+      return key_hasher_->HashesFor(batch)[static_cast<size_t>(row)];
     }
     if (key_col_index_.size() == 0) {
       return 0;
@@ -1020,7 +1020,8 @@ class CompositeReferenceTable {
       // The destination size is dictated by the size of the LHS batch.
       row_index_t new_batch_size = lhs_latest_batch->num_rows();
       row_index_t new_capacity = rows_.size() + new_batch_size;
-      if (rows_.capacity() < new_capacity) rows_.reserve(new_capacity);
+      if (rows_.capacity() < new_capacity)
+        rows_.reserve(static_cast<size_t>(new_capacity));
     }
     rows_.resize(rows_.size() + 1);
     auto& row = rows_.back();
@@ -1204,7 +1205,7 @@ class CompositeReferenceTable {
     ARROW_ASSIGN_OR_RAISE(auto a_builder, MakeBuilder(type, memory_pool));
     Builder& builder = *checked_cast<Builder*>(a_builder.get());
     ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
-    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
+    for (size_t i_row = 0; i_row < rows_.size(); ++i_row) {
       const auto& ref = rows_[i_row].refs[i_table];
       if (ref.batch) {
         Status st =
