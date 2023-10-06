@@ -770,6 +770,8 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
+    When encoding the column, if the dictionary size is too large, the
+    column will fallback to "PLAIN" encoding.
 compression : str or dict
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
@@ -821,7 +823,10 @@ use_byte_stream_split : bool or list, default False
     and should be combined with a compression codec.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
-    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT'}.
+    Only if "use_dictionary" and "use_byte_stream_split" is False, 
+    the following encodings are supported.
+    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT', 
+    'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'}.
     Certain encodings are only compatible with certain data types.
     Please refer to the encodings section of `Reading and writing Parquet
     files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
