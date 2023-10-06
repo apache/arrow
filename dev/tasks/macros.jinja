@@ -266,8 +266,6 @@ on:
         DESCRIPTION
       head DESCRIPTION
       rm -f DESCRIPTION.bak
-
-      {{ pin_brew_formulae(is_fork) }}
 {% endmacro %}
 
 {%- macro github_test_r_src_pkg() -%}
