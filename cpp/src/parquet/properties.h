@@ -196,7 +196,12 @@ class PARQUET_EXPORT ColumnProperties {
 
   size_t max_statistics_size() const { return max_stats_size_; }
 
-  int compression_level() const { return codec_options_->compression_level; }
+  int compression_level() const {
+    if (!codec_options_) {
+      return ::arrow::util::kUseDefaultCompressionLevel;
+    }
+    return codec_options_->compression_level;
+  }
 
   const std::shared_ptr<CodecOptions>& codec_options() const { return codec_options_; }
 
@@ -831,8 +836,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
       : use_threads_(use_threads),
         read_dict_indices_(),
         batch_size_(kArrowDefaultBatchSize),
-        pre_buffer_(false),
-        cache_options_(::arrow::io::CacheOptions::Defaults()),
+        pre_buffer_(true),
+        cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.

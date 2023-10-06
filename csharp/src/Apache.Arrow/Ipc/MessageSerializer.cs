@@ -203,6 +203,17 @@ namespace Apache.Arrow.Ipc
                 case Flatbuf.Type.Struct_:
                     Debug.Assert(childFields != null);
                     return new Types.StructType(childFields);
+                case Flatbuf.Type.Union:
+                    Debug.Assert(childFields != null);
+                    Flatbuf.Union unionMetadata = field.Type<Flatbuf.Union>().Value;
+                    return new Types.UnionType(childFields, unionMetadata.GetTypeIdsArray(), unionMetadata.Mode.ToArrow());
+                case Flatbuf.Type.Map:
+                    if (childFields == null || childFields.Length != 1)
+                    {
+                        throw new InvalidDataException($"Map type must have exactly one struct child.");
+                    }
+                    Flatbuf.Map meta = field.Type<Flatbuf.Map>().Value;
+                    return new Types.MapType(childFields[0], meta.KeysSorted);
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

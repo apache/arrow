@@ -37,6 +37,8 @@ class Type : public libmexclass::proxy::Proxy {
 
         void getNumFields(libmexclass::proxy::method::Context& context);
 
+        void getFieldByIndex(libmexclass::proxy::method::Context& context);
+
         void isEqual(libmexclass::proxy::method::Context& context);
 
         std::shared_ptr<arrow::DataType> data_type;

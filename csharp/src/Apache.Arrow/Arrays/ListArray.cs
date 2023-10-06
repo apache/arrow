@@ -91,14 +91,14 @@ namespace Apache.Arrow
             public Builder Reserve(int capacity)
             {
                 ValueOffsetsBufferBuilder.Reserve(capacity + 1);
-                ValidityBufferBuilder.Reserve(capacity + 1);
+                ValidityBufferBuilder.Reserve(capacity);
                 return this;
             }
 
             public Builder Resize(int length)
             {
                 ValueOffsetsBufferBuilder.Resize(length + 1);
-                ValidityBufferBuilder.Resize(length + 1);
+                ValidityBufferBuilder.Resize(length);
                 return this;
             }
 
@@ -136,6 +136,14 @@ namespace Apache.Arrow
         {
             data.EnsureBufferCount(2);
             data.EnsureDataType(ArrowTypeId.List);
+            Values = values;
+        }
+
+        // Constructor for child MapArray
+        internal ListArray(ArrayData data, IArrowArray values, ArrowTypeId typeId) : base(data)
+        {
+            data.EnsureBufferCount(2);
+            data.EnsureDataType(typeId);
             Values = values;
         }
 

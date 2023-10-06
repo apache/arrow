@@ -595,6 +595,10 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             ),
             column_encoding=self._properties["column_encoding"],
             data_page_version=self._properties["data_page_version"],
+            encryption_properties=self._properties["encryption_properties"],
+            write_batch_size=self._properties["write_batch_size"],
+            dictionary_pagesize_limit=self._properties["dictionary_pagesize_limit"],
+            write_page_index=self._properties["write_page_index"],
         )
 
     def _set_arrow_properties(self):
@@ -631,6 +635,10 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
             use_compliant_nested_type=True,
+            encryption_properties=None,
+            write_batch_size=None,
+            dictionary_pagesize_limit=None,
+            write_page_index=False,
         )
         self._set_properties()
         self._set_arrow_properties()
@@ -658,10 +666,13 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Disabled by default.
     buffer_size : int, default 8192
         Size of buffered stream, if enabled. Default is 8KB.
-    pre_buffer : bool, default False
+    pre_buffer : bool, default True
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
-        filesystems.
+        filesystems (e.g. S3, GCS) by coalesing and issuing file reads in
+        parallel using a background I/O thread pool.
+        Set to False if you want to prioritize minimal memory usage
+        over maximum speed.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
@@ -680,7 +691,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
 
     def __init__(self, *, bint use_buffered_stream=False,
                  buffer_size=8192,
-                 bint pre_buffer=False,
+                 bint pre_buffer=True,
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None):
         self.init(shared_ptr[CFragmentScanOptions](
