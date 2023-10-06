@@ -57,7 +57,11 @@ for (path in binary_paths) {
   url <- sprintf(artifactory_root, VERSION, sha_path)
   download.file(url, file, quiet = TRUE, cacheOK = FALSE)
 
-  if (!file.exists(file)) {
-    stop(sprintf("Failed to download %s", url))
+  if (grepl("windows", path)) {
+    # UNIX style line endings cause errors with mysys2 sha512sum
+    sed_status <- system2("sed", args = c("-i", "s/\\r//", file))
+    if (sed_status != 0) {
+      stop("Failed to remove \\r from windows checksum file. Exit code: ", sed_status)
+    }
   }
 }
