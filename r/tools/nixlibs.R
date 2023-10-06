@@ -75,7 +75,6 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 build_ok <- !env_is("LIBARROW_BUILD", "false")
 
 # Check if we're authorized to download (not asked an offline build).
-# (Note that cmake will still be downloaded if necessary
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
 download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 
@@ -544,46 +543,13 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
   cmake <- find_cmake(version_required = cmake_minimum_required)
 
   if (is.null(cmake)) {
-    # If not found, download it
-    cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.26.4")
-    if (on_macos) {
-      postfix <- "-macos-universal.tar.gz"
-    } else if (tolower(Sys.info()[["machine"]]) %in% c("arm64", "aarch64")) {
-      postfix <- "-linux-aarch64.tar.gz"
-    } else if (tolower(Sys.info()[["machine"]]) == "x86_64") {
-      postfix <- "-linux-x86_64.tar.gz"
-    } else {
-      stop(paste0(
-        "*** cmake was not found locally.\n",
-        "    Please make sure cmake >= ", cmake_minimum_required,
-        " is installed and available on your PATH.\n"
-      ))
-    }
-    cmake_binary_url <- paste0(
-      "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
-      "/cmake-", CMAKE_VERSION, postfix
-    )
-    cmake_tar <- tempfile()
-    cmake_dir <- tempfile()
-    download_successful <- try_download(cmake_binary_url, cmake_tar)
-    if (!download_successful) {
-      cat(paste0(
-        "*** cmake was not found locally and download failed.\n",
-        "    Make sure cmake >= ", cmake_minimum_required,
-        " is installed and available on your PATH,\n",
-        "    or download ", cmake_binary_url, "\n",
-        "    and define the CMAKE environment variable.\n"
-      ))
-    }
-    untar(cmake_tar, exdir = cmake_dir)
-    unlink(cmake_tar)
-    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
-    cmake <- paste0(
-      cmake_dir,
-      "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
-      "/bin/cmake"
-    )
+    # If not found, error:
+    stop(paste0(
+      "*** cmake was not found locally.\n",
+      "    Please make sure cmake >= ", cmake_minimum_required,
+      "    is installed and available on your PATH\n",
+      "    or exported to the CMAKE environment variable.\n"
+    ))
   } else {
     # Show which one we found
     # Full source builds will always show "cmake" in the logs
@@ -604,8 +570,7 @@ find_cmake <- function(paths = c(
   for (path in paths) {
     if (nzchar(path) && cmake_version(path) >= version_required) {
       # Sys.which() returns a named vector, but that plays badly with c() later
-      names(path) <- NULL
-      return(path)
+      return(unname(path))
     }
   }
   # If none found, return NULL
