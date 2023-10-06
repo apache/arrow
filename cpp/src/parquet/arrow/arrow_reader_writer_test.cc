@@ -2358,7 +2358,7 @@ TEST(TestArrowReadWrite, GetRecordBatchReader) { TestGetRecordBatchReader(); }
 TEST(TestArrowReadWrite, NoneCoalescedReads) {
   ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
   arrow_properties.set_pre_buffer(false);
-  arrow_properties.set_cache_options(::arrow::io::CacheOptions::Defaults())
+  arrow_properties.set_cache_options(::arrow::io::CacheOptions::Defaults());
   TestGetRecordBatchReader(arrow_properties);
 }
 
