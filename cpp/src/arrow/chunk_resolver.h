@@ -62,13 +62,16 @@ struct ARROW_EXPORT ChunkResolver {
     }
     const auto cached_chunk = cached_chunk_.load();
     const bool cache_hit =
-        (index >= offsets_[cached_chunk] && index < offsets_[cached_chunk + 1]);
+        (index >= static_cast<int64_t>(offsets_[static_cast<size_t>(cached_chunk)]) &&
+         index < static_cast<int64_t>(offsets_[static_cast<size_t>(cached_chunk + 1)]));
     if (ARROW_PREDICT_TRUE(cache_hit)) {
-      return {cached_chunk, index - offsets_[cached_chunk]};
+      return {cached_chunk,
+              index - static_cast<int64_t>(offsets_[static_cast<size_t>(cached_chunk)])};
     }
     auto chunk_index = Bisect(index);
     cached_chunk_.store(chunk_index);
-    return {chunk_index, index - offsets_[chunk_index]};
+    return {chunk_index,
+            index - static_cast<int64_t>(offsets_[static_cast<size_t>(chunk_index)])};
   }
 
  protected:
@@ -76,12 +79,12 @@ struct ARROW_EXPORT ChunkResolver {
   inline int64_t Bisect(const int64_t index) const {
     // Like std::upper_bound(), but hand-written as it can help the compiler.
     // Search [lo, lo + n)
-    int64_t lo = 0;
-    auto n = static_cast<int64_t>(offsets_.size());
+    size_t lo = 0;
+    auto n = offsets_.size();
     while (n > 1) {
-      const int64_t m = n >> 1;
-      const int64_t mid = lo + m;
-      if (static_cast<int64_t>(index) >= offsets_[mid]) {
+      const size_t m = n >> 1;
+      const size_t mid = lo + m;
+      if (index >= offsets_[mid]) {
         lo = mid;
         n -= m;
       } else {
