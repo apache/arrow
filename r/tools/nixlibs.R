@@ -88,8 +88,9 @@ thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tool
 
 
 download_binary <- function(lib) {
+  binary_version <- Sys.getenv("LIBARROW_BINARY_VERSION", VERSION)
   libfile <- tempfile()
-  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
+  binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", binary_version, ".zip")
   if (try_download(binary_url, libfile)) {
     if (!quietly) {
       cat(sprintf("*** Successfully retrieved C++ binaries (%s)\n", lib))
@@ -98,7 +99,7 @@ download_binary <- function(lib) {
     if (!quietly) {
       cat(sprintf(
         "*** Downloading libarrow binary failed for version %s (%s)\n    at %s\n",
-        VERSION, lib, binary_url
+        binary_version, lib, binary_url
       ))
     }
     libfile <- NULL
