@@ -34,10 +34,7 @@ python -c "import dask.dataframe"
 # The "skip_with_pyarrow_strings" marker is meant to skip automatically, but that doesn't work with --pyargs, so de-selecting manually
 pytest -v --pyargs dask.dataframe.tests.test_dataframe -m "not skip_with_pyarrow_strings"
 pytest -v --pyargs dask.dataframe.io.tests.test_orc
-# skip failing parquet tests
-# test_pandas_timestamp_overflow_pyarrow is skipped because of GH-33321.
 pytest -v --pyargs dask.dataframe.io.tests.test_parquet \
-  -k "not test_pandas_timestamp_overflow_pyarrow" \
   -m "not skip_with_pyarrow_strings and not xfail_with_pyarrow_strings"
 # this file contains parquet tests that use S3 filesystem
 pytest -v --pyargs dask.bytes.tests.test_s3
