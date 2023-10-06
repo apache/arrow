@@ -546,7 +546,8 @@ bool ArraySpan::IsNullDenseUnion(int64_t i) const {
   auto* union_type = checked_cast<const DenseUnionType*>(this->type);
   const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
   const auto* offsets = reinterpret_cast<const int32_t*>(this->buffers[2].data);
-  const int64_t child_id = union_type->child_ids()[types[this->offset + i]];
+  const auto child_id =
+      static_cast<size_t>(union_type->child_ids()[types[this->offset + i]]);
   const int64_t child_offset = offsets[this->offset + i];
   return this->child_data[child_id].IsNull(child_offset);
 }

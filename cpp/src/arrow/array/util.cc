@@ -465,7 +465,7 @@ class NullArrayFactory {
     ARROW_ASSIGN_OR_RAISE(int64_t buffer_length,
                           GetBufferLength(type_, length_).Finish());
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(buffer_length, pool_));
-    std::memset(buffer_->mutable_data(), 0, buffer_->size());
+    std::memset(buffer_->mutable_data(), 0, static_cast<size_t>(buffer_->size()));
     return Status::OK();
   }
 
@@ -528,7 +528,8 @@ class NullArrayFactory {
     // buffer_ is zeroed, but 0 may not be a valid type code
     if (type.type_codes()[0] != 0) {
       ARROW_ASSIGN_OR_RAISE(out_->buffers[1], AllocateBuffer(length_, pool_));
-      std::memset(out_->buffers[1]->mutable_data(), type.type_codes()[0], length_);
+      std::memset(out_->buffers[1]->mutable_data(), type.type_codes()[0],
+                  static_cast<size_t>(length_));
     }
 
     // For sparse unions, we now create children with the same length as the
@@ -662,7 +663,7 @@ class RepeatedArrayFactory {
 
     auto value = checked_cast<const ScalarType&>(scalar_).value;
 
-    ArrayVector values(length_, value);
+    ArrayVector values(static_cast<size_t>(length_), value);
     ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
 
     std::shared_ptr<Buffer> offsets_buffer;
@@ -677,7 +678,7 @@ class RepeatedArrayFactory {
   Status Visit(const FixedSizeListType& type) {
     auto value = checked_cast<const FixedSizeListScalar&>(scalar_).value;
 
-    ArrayVector values(length_, value);
+    ArrayVector values(static_cast<size_t>(length_), value);
     ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
 
     out_ = std::make_shared<FixedSizeListArray>(scalar_.type, length_, value_array);
@@ -688,8 +689,8 @@ class RepeatedArrayFactory {
     auto map_scalar = checked_cast<const MapScalar&>(scalar_);
     auto struct_array = checked_cast<const StructArray*>(map_scalar.value.get());
 
-    ArrayVector keys(length_, struct_array->field(0));
-    ArrayVector values(length_, struct_array->field(1));
+    ArrayVector keys(static_cast<size_t>(length_), struct_array->field(0));
+    ArrayVector values(static_cast<size_t>(length_), struct_array->field(1));
 
     ARROW_ASSIGN_OR_RAISE(auto key_array, Concatenate(keys, pool_));
     ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
@@ -778,7 +779,8 @@ class RepeatedArrayFactory {
     // Create an offsets buffer with all offsets equal to 0
     ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
                           AllocateBuffer(length_ * sizeof(int32_t), pool_));
-    memset(offsets_buffer->mutable_data(), 0, offsets_buffer->size());
+    memset(offsets_buffer->mutable_data(), 0,
+           static_cast<size_t>(offsets_buffer->size()));
 
     ARROW_ASSIGN_OR_RAISE(auto type_codes_buffer, CreateUnionTypeCodes(scalar_type_code));
 
@@ -823,7 +825,7 @@ class RepeatedArrayFactory {
     return builder.Finish(out);
   }
 
-  Status CreateBufferOf(const void* data, size_t data_length,
+  Status CreateBufferOf(const void* data, int64_t data_length,
                         std::shared_ptr<Buffer>* out) {
     BufferBuilder builder(pool_);
     RETURN_NOT_OK(builder.Resize(length_ * data_length));
@@ -833,7 +835,7 @@ class RepeatedArrayFactory {
     return builder.Finish(out);
   }
 
-  Status FinishFixedWidth(const void* data, size_t data_length) {
+  Status FinishFixedWidth(const void* data, int64_t data_length) {
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(CreateBufferOf(data, data_length, &buffer));
     out_ = MakeArray(

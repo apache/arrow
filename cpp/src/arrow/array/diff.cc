@@ -229,7 +229,7 @@ class QuadraticSpaceMyersDiff {
     DCHECK_LT(index, StorageOffset(edit_count + 1));
     auto insertions_minus_deletions =
         2 * (index - StorageOffset(edit_count)) - edit_count;
-    auto maximal_base = endpoint_base_[index];
+    auto maximal_base = endpoint_base_[static_cast<size_t>(index)];
     auto maximal_target = std::min(
         target_begin_ + ((maximal_base - base_begin_) + insertions_minus_deletions),
         target_end_);
@@ -240,8 +240,9 @@ class QuadraticSpaceMyersDiff {
     ++edit_count_;
     // base_begin_ is used as a dummy value here since Iterator may not be default
     // constructible. The newly allocated range is completely overwritten below.
-    endpoint_base_.resize(StorageOffset(edit_count_ + 1), base_begin_);
-    insert_.resize(StorageOffset(edit_count_ + 1), false);
+    endpoint_base_.resize(static_cast<size_t>(StorageOffset(edit_count_ + 1)),
+                          base_begin_);
+    insert_.resize(static_cast<size_t>(StorageOffset(edit_count_ + 1)), false);
 
     auto previous_offset = StorageOffset(edit_count_ - 1);
     auto current_offset = StorageOffset(edit_count_);
@@ -249,7 +250,8 @@ class QuadraticSpaceMyersDiff {
     // try deleting from base first
     for (int64_t i = 0, i_out = 0; i < edit_count_; ++i, ++i_out) {
       auto previous_endpoint = GetEditPoint(edit_count_ - 1, i + previous_offset);
-      endpoint_base_[i_out + current_offset] = DeleteOne(previous_endpoint).base;
+      endpoint_base_[static_cast<size_t>(i_out + current_offset)] =
+          DeleteOne(previous_endpoint).base;
     }
 
     // check if inserting from target could do better
@@ -263,8 +265,9 @@ class QuadraticSpaceMyersDiff {
 
       if (endpoint_after_insertion.base - endpoint_after_deletion.base >= 0) {
         // insertion was more efficient; keep it and mark the insertion in insert_
-        insert_[i_out + current_offset] = true;
-        endpoint_base_[i_out + current_offset] = endpoint_after_insertion.base;
+        insert_[static_cast<size_t>(i_out + current_offset)] = true;
+        endpoint_base_[static_cast<size_t>(i_out + current_offset)] =
+            endpoint_after_insertion.base;
       }
     }
 
@@ -293,7 +296,7 @@ class QuadraticSpaceMyersDiff {
     auto endpoint = GetEditPoint(edit_count_, finish_index_);
 
     for (int64_t i = edit_count_; i > 0; --i) {
-      bool insert = insert_[index];
+      bool insert = insert_[static_cast<size_t>(index)];
       bit_util::SetBitTo(insert_buf->mutable_data(), i, insert);
 
       auto insertions_minus_deletions =
@@ -307,8 +310,8 @@ class QuadraticSpaceMyersDiff {
 
       // endpoint of previous edit
       auto previous = GetEditPoint(i - 1, index);
-      run_length[i] = endpoint.base - previous.base - !insert;
-      DCHECK_GE(run_length[i], 0);
+      run_length[static_cast<size_t>(i)] = endpoint.base - previous.base - !insert;
+      DCHECK_GE(run_length[static_cast<size_t>(i)], 0);
 
       endpoint = previous;
     }

@@ -110,7 +110,7 @@ Result<std::shared_ptr<Array>> MakeLogicalRunEnds(const RunEndEncodedArray& self
     }
     auto* new_run_end_values = new_run_ends_data->GetMutableValues<RunEndCType>(1);
     memcpy(new_run_end_values, run_end_values,
-           (physical_length - 1) * sizeof(RunEndCType));
+           static_cast<size_t>(physical_length - 1) * sizeof(RunEndCType));
     new_run_end_values[physical_length - 1] = static_cast<RunEndCType>(self.length());
     return MakeArray(std::move(new_run_ends_data));
   }

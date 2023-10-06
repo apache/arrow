@@ -77,8 +77,9 @@ struct DictionaryTraits<BooleanType> {
 
     // Will iterate up to 3 times.
     for (int64_t i = start_offset; i < memo_table.size(); i++) {
-      RETURN_NOT_OK(i == null_index ? builder.AppendNull()
-                                    : builder.Append(bool_values[i]));
+      RETURN_NOT_OK(i == null_index
+                        ? builder.AppendNull()
+                        : builder.Append(bool_values[static_cast<size_t>(i)]));
     }
 
     std::shared_ptr<ArrayData> out;

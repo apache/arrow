@@ -189,7 +189,7 @@ class BaseBinaryBuilder
   /// \return Status
   Status AppendValues(const std::vector<std::string>& values,
                       const uint8_t* valid_bytes = NULLPTR) {
-    std::size_t total_length = std::accumulate(
+    auto total_length = std::accumulate(
         values.begin(), values.end(), 0ULL,
         [](uint64_t sum, const std::string& str) { return sum + str.size(); });
     ARROW_RETURN_NOT_OK(Reserve(values.size()));
@@ -380,7 +380,8 @@ class BaseBinaryBuilder
   std::string_view GetView(int64_t i) const {
     offset_type value_length;
     const uint8_t* value_data = GetValue(i, &value_length);
-    return std::string_view(reinterpret_cast<const char*>(value_data), value_length);
+    return std::string_view(reinterpret_cast<const char*>(value_data),
+                            static_cast<size_t>(value_length));
   }
 
   // Cannot make this a static attribute because of linking issues
