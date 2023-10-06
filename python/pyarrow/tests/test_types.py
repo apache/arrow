@@ -1184,6 +1184,7 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(np.bool_(False))
 
 
+@h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
 @h.given(
     past.all_types |
     past.all_fields |

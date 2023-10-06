@@ -2020,6 +2020,7 @@ def test_array_pickle_dictionary(pickle_module):
         assert array.equals(result)
 
 
+@h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
 @h.given(
     past.arrays(
         past.all_types,
