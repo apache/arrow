@@ -1611,9 +1611,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.8", "v3.4.1", "false", "latest"),
-                                                                           ("3.10", "v3.4.1", "false", "1.23"),
-                                                                           ("3.11", "master", "false", "latest")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version, jdk_version in [("3.8", "v3.5.0", "false", "latest", "8"),
+                                                                                        ("3.10", "v3.5.0", "false", "1.23", "8"),
+                                                                                        ("3.11", "master", "false", "latest", "17")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1623,6 +1623,7 @@ tasks:
         SPARK: "{{ spark_version }}"
         TEST_PYARROW_ONLY: "{{ test_pyarrow_only }}"
         NUMPY: "{{ numpy_version }}"
+        JDK: "{{ jdk_version }}"
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark
