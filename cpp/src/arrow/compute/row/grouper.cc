@@ -425,33 +425,33 @@ struct GrouperImpl : public Grouper {
       auto batch_slice = batch.ToExecBatch().Slice(offset, length);
       return Consume(ExecSpan(batch_slice), 0, -1);
     }
-    std::vector<int32_t> offsets_batch(batch.length + 1);
+    std::vector<int32_t> offsets_batch(static_cast<size_t>(batch.length + 1));
     for (int i = 0; i < batch.num_values(); ++i) {
       encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
     }
 
     int32_t total_length = 0;
-    for (int64_t i = 0; i < batch.length; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(batch.length); ++i) {
       auto total_length_before = total_length;
       total_length += offsets_batch[i];
       offsets_batch[i] = total_length_before;
     }
-    offsets_batch[batch.length] = total_length;
+    offsets_batch[static_cast<size_t>(batch.length)] = total_length;
 
-    std::vector<uint8_t> key_bytes_batch(total_length);
-    std::vector<uint8_t*> key_buf_ptrs(batch.length);
-    for (int64_t i = 0; i < batch.length; ++i) {
+    std::vector<uint8_t> key_bytes_batch(static_cast<size_t>(total_length));
+    std::vector<uint8_t*> key_buf_ptrs(static_cast<size_t>(batch.length));
+    for (size_t i = 0; i < static_cast<size_t>(batch.length); ++i) {
       key_buf_ptrs[i] = key_bytes_batch.data() + offsets_batch[i];
     }
 
-    for (int i = 0; i < batch.num_values(); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(batch.num_values()); ++i) {
       RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
     }
 
     TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
     RETURN_NOT_OK(group_ids_batch.Resize(batch.length));
 
-    for (int64_t i = 0; i < batch.length; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(batch.length); ++i) {
       int32_t key_length = offsets_batch[i + 1] - offsets_batch[i];
       std::string key(
           reinterpret_cast<const char*>(key_bytes_batch.data() + offsets_batch[i]),
@@ -485,7 +485,7 @@ struct GrouperImpl : public Grouper {
     ExecBatch out({}, num_groups_);
 
     std::vector<uint8_t*> key_buf_ptrs(num_groups_);
-    for (int64_t i = 0; i < num_groups_; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(num_groups_); ++i) {
       key_buf_ptrs[i] = key_bytes_.data() + offsets_[i];
     }
 
@@ -894,7 +894,7 @@ Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids
                                                      ctx->memory_pool()));
   auto raw_offsets = reinterpret_cast<int32_t*>(offsets->mutable_data());
 
-  std::memset(raw_offsets, 0, offsets->size());
+  std::memset(raw_offsets, 0, static_cast<size_t>(offsets->size()));
   for (int i = 0; i < ids.length(); ++i) {
     DCHECK_LT(ids.Value(i), num_groups);
     raw_offsets[ids.Value(i)] += 1;
