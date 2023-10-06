@@ -554,9 +554,9 @@ struct BloomFilterPushdownContext {
     ExecBatch& batch = *batch_ptr;
     if (eval_.num_expected_bloom_filters_ == 0 || batch.length == 0) return Status::OK();
 
-    int64_t bit_vector_bytes = bit_util::BytesForBits(batch.length);
+    auto bit_vector_bytes = static_cast<size_t>(bit_util::BytesForBits(batch.length));
     std::vector<uint8_t> selected(bit_vector_bytes);
-    std::vector<uint32_t> hashes(batch.length);
+    std::vector<uint32_t> hashes(static_cast<size_t>(batch.length));
     std::vector<uint8_t> bv(bit_vector_bytes);
 
     ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * stack,
@@ -961,8 +961,9 @@ class HashJoinNode : public ExecNode, public TracedNode {
 
     task_group_probe_ = ctx->RegisterTaskGroup(
         [this](size_t thread_index, int64_t task_id) -> Status {
-          return impl_->ProbeSingleBatch(thread_index,
-                                         std::move(queued_batches_to_probe_[task_id]));
+          return impl_->ProbeSingleBatch(
+              thread_index,
+              std::move(queued_batches_to_probe_[static_cast<size_t>(task_id)]));
         },
         [this](size_t thread_index) -> Status {
           return OnQueuedBatchesProbed(thread_index);
@@ -1070,7 +1071,8 @@ void BloomFilterPushdownContext::Init(
 
   eval_.task_id_ = register_task_group_callback(
       [this](size_t thread_index, int64_t task_id) {
-        return FilterSingleBatch(thread_index, &eval_.batches_[task_id]);
+        return FilterSingleBatch(thread_index,
+                                 &eval_.batches_[static_cast<size_t>(task_id)]);
       },
       [this](size_t thread_index) {
         return eval_.on_finished_(thread_index, std::move(eval_.batches_));
@@ -1111,7 +1113,7 @@ Status BloomFilterPushdownContext::PushBloomFilter(size_t thread_index) {
 
 Status BloomFilterPushdownContext::BuildBloomFilter_exec_task(size_t thread_index,
                                                               int64_t task_id) {
-  const ExecBatch& input_batch = build_.batches_[task_id];
+  const ExecBatch& input_batch = build_.batches_[static_cast<size_t>(task_id)];
   SchemaProjectionMap key_to_in =
       schema_mgr_->proj_maps[1].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
   std::vector<Datum> key_columns(key_to_in.num_cols);
