@@ -47,14 +47,14 @@ struct SetLookupState : public SetLookupStateBase {
     this->null_matching_behavior = options.GetNullMatchingBehavior();
     if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
-      memo_index_to_value_index.reserve(value_set.length);
+      memo_index_to_value_index.reserve(static_cast<size_t>(value_set.length));
       lookup_table =
           MemoTable(memory_pool,
                     ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length);
       RETURN_NOT_OK(AddArrayValueSet(options, *options.value_set.array()));
     } else if (options.value_set.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
-      memo_index_to_value_index.reserve(value_set.length());
+      memo_index_to_value_index.reserve(static_cast<size_t>(value_set.length()));
       lookup_table =
           MemoTable(memory_pool,
                     ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length());
@@ -290,7 +290,8 @@ struct IndexInVisitor {
 
       // Set all values to 0, which will be unmasked only if null is in the value_set
       // and null_matching_behavior is equal to MATCH
-      std::memset(out->GetValues<int32_t>(1), 0x00, out->length * sizeof(int32_t));
+      std::memset(out->GetValues<int32_t>(1), 0x00,
+                  static_cast<size_t>(out->length) * sizeof(int32_t));
     }
     return Status::OK();
   }

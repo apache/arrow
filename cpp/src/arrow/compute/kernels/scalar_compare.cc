@@ -660,7 +660,7 @@ struct BinaryScalarMinMax {
               bit_util::GetBit(array.buffers[0].data, array.offset + row)) {
             const auto offsets = array.GetValues<offset_type>(1);
             const auto data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
-            const int64_t length = offsets[row + 1] - offsets[row];
+            const auto length = static_cast<size_t>(offsets[row + 1] - offsets[row]);
             visit_value(
                 string_view(reinterpret_cast<const char*>(data + offsets[row]), length));
           } else if (!options.skip_nulls) {
