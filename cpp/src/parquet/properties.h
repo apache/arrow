@@ -837,7 +837,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         read_dict_indices_(),
         batch_size_(kArrowDefaultBatchSize),
         pre_buffer_(true),
-        cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
+        cache_options_(::arrow::io::CacheOptions::Defaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.

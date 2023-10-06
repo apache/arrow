@@ -2362,6 +2362,13 @@ TEST(TestArrowReadWrite, NoneCoalescedReads) {
   TestGetRecordBatchReader(arrow_properties);
 }
 
+TEST(TestArrowReadWrite, LazyCoalescedReads) {
+  ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
+  arrow_properties.set_pre_buffer(true);
+  arrow_properties.set_cache_options(::arrow::io::CacheOptions::LazyDefaults());
+  TestGetRecordBatchReader(arrow_properties);
+}
+
 // Use coalesced reads, and explicitly wait for I/O to complete.
 TEST(TestArrowReadWrite, WaitCoalescedReads) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
