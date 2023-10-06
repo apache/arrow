@@ -30,9 +30,10 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     # Download static arrow from the apache artifactory
     quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
     get_file <- function(template, version) {
+      binary_version <- Sys.getenv("LIBARROW_BINARY_VERSION", version)
       try(
         suppressWarnings(
-          download.file(sprintf(template, version), "lib.zip", quiet = quietly)
+          download.file(sprintf(template, binary_version), "lib.zip", quiet = quietly)
         ),
         silent = quietly
       )
