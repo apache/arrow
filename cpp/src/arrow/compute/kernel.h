@@ -396,7 +396,7 @@ class ARROW_EXPORT KernelSignature {
   bool is_varargs_;
 
   // For caching the hash code after it's computed the first time
-  mutable uint64_t hash_code_;
+  mutable size_t hash_code_;
 };
 
 /// \brief A function may contain multiple variants of a kernel for a given
