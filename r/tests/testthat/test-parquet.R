@@ -32,7 +32,7 @@ test_that("simple int column roundtrip", {
   pq_tmp_file <- tempfile() # You can specify the .parquet here but that's probably not necessary
 
   write_parquet(df, pq_tmp_file)
-  df_read <- read_parquet(pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file, mmap = FALSE)
   expect_equal(df, df_read)
   # Make sure file connection is cleaned up
   expect_error(file.remove(pq_tmp_file), NA)
@@ -288,15 +288,21 @@ test_that("write_parquet() returns its input", {
 
 test_that("write_parquet() handles version argument", {
   df <- tibble::tibble(x = 1:5)
-  tf <- tempfile()
-  on.exit(unlink(tf))
 
-  purrr::walk(list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L), ~ {
-    write_parquet(df, tf, version = .x)
+  versions <- list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L)
+  purrr::walk(versions, function(x) {
+    tf <- tempfile()
+    on.exit(unlink(tf))
+
+    write_parquet(df, tf, version = x)
     expect_identical(read_parquet(tf), df)
   })
-  purrr::walk(list("3.0", 3.0, 3L, "A"), ~ {
-    expect_error(write_parquet(df, tf, version = .x))
+
+  invalid_versions <- list("3.0", 3.0, 3L, "A")
+  purrr::walk(invalid_versions, function(x) {
+    tf <- tempfile()
+    on.exit(unlink(tf))
+    expect_error(write_parquet(df, tf, version = x))
   })
 })
 
