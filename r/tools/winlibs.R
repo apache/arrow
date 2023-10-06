@@ -32,7 +32,7 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     get_file <- function(template, version) {
       try(
         suppressWarnings(
-          download.file(sprintf(template, version), "lib.zip", quiet = quietly)
+          download.file(sprintf(template, version), zip_file, quiet = quietly)
         ),
         silent = quietly
       )
@@ -50,10 +50,13 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     )
 
     dev_version <- package_version(VERSION)[1, 4]
+    zip_file <- sprintf("arrow-%s.zip", VERSION)
 
     # Small dev versions are added for R-only changes during CRAN submission.
     if (is.na(dev_version) || dev_version < "100") {
       VERSION <- package_version(VERSION)[1, 1:3]
+      zip_file <- sprintf("arrow-%s.zip", VERSION)
+
       get_file(artifactory, VERSION)
 
       checksum <- sprintf("tools/checksums/windows/arrow-%s.zip.sha512", VERSION)
@@ -62,13 +65,13 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
       ))
 
       if (checksum_ok != 0) {
-        stop("*** Checksum validation failed for libarrow binary!")
+        stop("*** Checksum validation failed for libarrow binary: ", zip_file)
       }
     } else {
       get_file(nightly, VERSION)
     }
   }
   dir.create("windows", showWarnings = FALSE)
-  unzip("lib.zip", exdir = "windows")
-  unlink("lib.zip")
+  unzip(zip_file, exdir = "windows")
+  unlink(zip_file)
 }
