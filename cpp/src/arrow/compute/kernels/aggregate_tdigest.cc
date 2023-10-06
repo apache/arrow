@@ -107,11 +107,11 @@ struct TDigestImpl : public ScalarAggregator {
     if (this->tdigest.is_empty() || !this->all_valid || this->count < options.min_count) {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[0], ctx->AllocateBitmap(out_length));
       std::memset(out_data->buffers[0]->mutable_data(), 0x00,
-                  out_data->buffers[0]->size());
+                  static_cast<size_t>(out_data->buffers[0]->size()));
       std::fill(out_buffer, out_buffer + out_length, 0.0);
       out_data->null_count = out_length;
     } else {
-      for (int64_t i = 0; i < out_length; ++i) {
+      for (size_t i = 0; i < static_cast<size_t>(out_length); ++i) {
         out_buffer[i] = this->tdigest.Quantile(this->options.q[i]);
       }
     }

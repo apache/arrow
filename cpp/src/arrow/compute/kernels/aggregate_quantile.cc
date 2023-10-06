@@ -96,7 +96,7 @@ struct SortQuantiler {
     // out type depends on options
     const bool is_datapoint = IsDataPoint(options);
     const std::shared_ptr<DataType> out_type = is_datapoint ? type : float64();
-    int64_t out_length = options.q.size();
+    auto out_length = options.q.size();
     if (in_buffer.empty()) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
                             MakeArrayOfNull(out_type, out_length, ctx->memory_pool()));
@@ -112,11 +112,12 @@ struct SortQuantiler {
                             ctx->Allocate(out_length * out_type->byte_width()));
 
       // find quantiles in descending order
-      std::vector<int64_t> q_indices(out_length);
+      std::vector<int64_t> q_indices(static_cast<size_t>(out_length));
       std::iota(q_indices.begin(), q_indices.end(), 0);
       std::sort(q_indices.begin(), q_indices.end(),
                 [&options](int64_t left_index, int64_t right_index) {
-                  return options.q[right_index] < options.q[left_index];
+                  return options.q[static_cast<size_t>(right_index)] <
+                         options.q[static_cast<size_t>(left_index)];
                 });
 
       // input array is partitioned around data point at `last_index` (pivot)
@@ -124,17 +125,19 @@ struct SortQuantiler {
       uint64_t last_index = in_buffer.size();
       if (is_datapoint) {
         CType* out_buffer = out_data->template GetMutableValues<CType>(1);
-        for (int64_t i = 0; i < out_length; ++i) {
+        for (size_t i = 0; i < out_length; ++i) {
           const int64_t q_index = q_indices[i];
-          out_buffer[q_index] = GetQuantileAtDataPoint(
-              in_buffer, &last_index, options.q[q_index], options.interpolation);
+          out_buffer[static_cast<size_t>(q_index)] = GetQuantileAtDataPoint(
+              in_buffer, &last_index, options.q[static_cast<size_t>(q_index)],
+              options.interpolation);
         }
       } else {
         double* out_buffer = out_data->template GetMutableValues<double>(1);
-        for (int64_t i = 0; i < out_length; ++i) {
+        for (size_t i = 0; i < out_length; ++i) {
           const int64_t q_index = q_indices[i];
-          out_buffer[q_index] = GetQuantileByInterp(
-              in_buffer, &last_index, options.q[q_index], options.interpolation, *type);
+          out_buffer[static_cast<size_t>(q_index)] = GetQuantileByInterp(
+              in_buffer, &last_index, options.q[static_cast<size_t>(q_index)],
+              options.interpolation, *type);
         }
       }
     }
@@ -156,7 +159,7 @@ struct SortQuantiler {
     }
 
     if (in_length > 0) {
-      in_buffer->resize(in_length);
+      in_buffer->resize(static_cast<size_t>(in_length));
       CopyNonNullValues(container, in_buffer->data());
 
       // drop nan
@@ -193,16 +196,17 @@ struct SortQuantiler {
   CType GetQuantileAtDataPoint(std::vector<CType, Allocator>& in, uint64_t* last_index,
                                double q,
                                enum QuantileOptions::Interpolation interpolation) {
-    const uint64_t datapoint_index = QuantileToDataPoint(in.size(), q, interpolation);
+    const auto datapoint_index = QuantileToDataPoint(in.size(), q, interpolation);
 
     if (datapoint_index != *last_index) {
       DCHECK_LT(datapoint_index, *last_index);
-      std::nth_element(in.begin(), in.begin() + datapoint_index,
-                       in.begin() + *last_index);
+      std::nth_element(in.begin(),
+                       in.begin() + static_cast<const ptrdiff_t>(datapoint_index),
+                       in.begin() + static_cast<ptrdiff_t>(*last_index));
       *last_index = datapoint_index;
     }
 
-    return in[datapoint_index];
+    return in[static_cast<size_t>(datapoint_index)];
   }
 
   // return quantile interpolated from adjacent input data points
@@ -215,10 +219,12 @@ struct SortQuantiler {
 
     if (lower_index != *last_index) {
       DCHECK_LT(lower_index, *last_index);
-      std::nth_element(in.begin(), in.begin() + lower_index, in.begin() + *last_index);
+      std::nth_element(in.begin(), in.begin() + static_cast<ptrdiff_t>(lower_index),
+                       in.begin() + static_cast<ptrdiff_t>(*last_index));
     }
 
-    const double lower_value = DataPointToDouble(in[lower_index], in_type);
+    const double lower_value =
+        DataPointToDouble(in[static_cast<size_t>(lower_index)], in_type);
     if (fraction == 0) {
       *last_index = lower_index;
       return lower_value;
@@ -229,12 +235,14 @@ struct SortQuantiler {
     if (lower_index != *last_index && higher_index != *last_index) {
       DCHECK_LT(higher_index, *last_index);
       // higher value must be the minimal value after lower_index
-      auto min = std::min_element(in.begin() + higher_index, in.begin() + *last_index);
-      std::iter_swap(in.begin() + higher_index, min);
+      auto min = std::min_element(in.begin() + static_cast<ptrdiff_t>(higher_index),
+                                  in.begin() + static_cast<ptrdiff_t>(*last_index));
+      std::iter_swap(in.begin() + static_cast<ptrdiff_t>(higher_index), min);
     }
     *last_index = lower_index;
 
-    const double higher_value = DataPointToDouble(in[higher_index], in_type);
+    const double higher_value =
+        DataPointToDouble(in[static_cast<size_t>(higher_index)], in_type);
 
     if (interpolation == QuantileOptions::LINEAR) {
       // more stable than naive linear interpolation
@@ -277,7 +285,7 @@ struct CountQuantiler {
     const bool is_datapoint = IsDataPoint(options);
     const std::shared_ptr<DataType> out_type =
         is_datapoint ? TypeTraits<InType>::type_singleton() : float64();
-    int64_t out_length = options.q.size();
+    auto out_length = options.q.size();
     if (in_length == 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
                             MakeArrayOfNull(out_type, out_length, ctx->memory_pool()));
@@ -297,21 +305,22 @@ struct CountQuantiler {
       std::iota(q_indices.begin(), q_indices.end(), 0);
       std::sort(q_indices.begin(), q_indices.end(),
                 [&options](int64_t left_index, int64_t right_index) {
-                  return options.q[left_index] < options.q[right_index];
+                  return options.q[static_cast<size_t>(left_index)] <
+                         options.q[static_cast<size_t>(right_index)];
                 });
 
       AdjacentBins bins{0, 0, this->counts[0]};
       if (is_datapoint) {
         CType* out_buffer = out_data->template GetMutableValues<CType>(1);
-        for (int64_t i = 0; i < out_length; ++i) {
-          const int64_t q_index = q_indices[i];
+        for (size_t i = 0; i < out_length; ++i) {
+          const auto q_index = static_cast<size_t>(q_indices[i]);
           out_buffer[q_index] = GetQuantileAtDataPoint(
               in_length, &bins, options.q[q_index], options.interpolation);
         }
       } else {
         double* out_buffer = out_data->template GetMutableValues<double>(1);
-        for (int64_t i = 0; i < out_length; ++i) {
-          const int64_t q_index = q_indices[i];
+        for (size_t i = 0; i < out_length; ++i) {
+          const auto q_index = static_cast<size_t>(q_indices[i]);
           out_buffer[q_index] = GetQuantileByInterp(in_length, &bins, options.q[q_index],
                                                     options.interpolation);
         }
@@ -353,7 +362,8 @@ struct CountQuantiler {
   // return quantile located exactly at some input data point
   CType GetQuantileAtDataPoint(int64_t in_length, AdjacentBins* bins, double q,
                                enum QuantileOptions::Interpolation interpolation) {
-    const uint64_t datapoint_index = QuantileToDataPoint(in_length, q, interpolation);
+    const uint64_t datapoint_index =
+        QuantileToDataPoint(static_cast<size_t>(in_length), q, interpolation);
     while (datapoint_index >= bins->total_count &&
            static_cast<size_t>(bins->left_index) < this->counts.size() - 1) {
       ++bins->left_index;
