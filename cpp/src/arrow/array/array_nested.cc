@@ -627,6 +627,22 @@ std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) cons
   return i == -1 ? nullptr : field(i);
 }
 
+Status StructArray::CanReferenceFieldByName(const std::string& name) const {
+  if (GetFieldByName(name) == nullptr) {
+    return Status::Invalid("Field named '", name,
+                           "' not found or not unique in the struct.");
+  }
+  return Status::OK();
+}
+
+Status StructArray::CanReferenceFieldsByNames(
+    const std::vector<std::string>& names) const {
+  for (const auto& name : names) {
+    ARROW_RETURN_NOT_OK(CanReferenceFieldByName(name));
+  }
+  return Status::OK();
+}
+
 Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
   ArrayVector flattened;
   flattened.resize(data_->child_data.size());

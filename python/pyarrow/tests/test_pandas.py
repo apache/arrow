@@ -50,6 +50,14 @@ except ImportError:
     pass
 
 
+try:
+    _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+except AttributeError:
+    from numpy.exceptions import (
+        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+    )
+
+
 # Marks all of the tests in this module
 pytestmark = pytest.mark.pandas
 
@@ -706,7 +714,7 @@ class TestConvertPrimitiveTypes:
 
     def test_float_nulls_to_ints(self):
         # ARROW-2135
-        df = pd.DataFrame({"a": [1.0, 2.0, np.NaN]})
+        df = pd.DataFrame({"a": [1.0, 2.0, np.nan]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
@@ -2329,7 +2337,7 @@ class TestConvertListTypes:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",
                                     "Creating an ndarray from ragged nested",
-                                    np.VisibleDeprecationWarning)
+                                    _np_VisibleDeprecationWarning)
             warnings.filterwarnings("ignore", "elementwise comparison failed",
                                     DeprecationWarning)
             tm.assert_series_equal(
@@ -2441,26 +2449,26 @@ class TestConvertListTypes:
         np_arr = chunked_arr.to_numpy()
 
         expected = np.array([[1., 2.], [3., 4., 5.], None,
-                            [6., np.NaN]], dtype="object")
+                            [6., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.NaN]])
+        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr[0].base, expected_base)
 
         np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
 
-        expected = np.array([[3, 4, 5], None, [6, np.NaN]], dtype="object")
+        expected = np.array([[3, 4, 5], None, [6, np.nan]], dtype="object")
         for left, right in zip(np_arr_sliced, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[3., 4., 5., 6., np.NaN]])
+        expected_base = np.array([[3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
 
     def test_list_values_behind_null(self):
@@ -2471,7 +2479,7 @@ class TestConvertListTypes:
         )
         np_arr = arr.to_numpy(zero_copy_only=False)
 
-        expected = np.array([[1., 2.], None, [3., np.NaN]], dtype="object")
+        expected = np.array([[1., 2.], None, [3., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right

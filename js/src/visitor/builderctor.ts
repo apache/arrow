@@ -30,6 +30,7 @@ import { FixedSizeBinaryBuilder } from '../builder/fixedsizebinary.js';
 import { FixedSizeListBuilder } from '../builder/fixedsizelist.js';
 import { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from '../builder/float.js';
 import { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from '../builder/interval.js';
+import { DurationBuilder, DurationSecondBuilder, DurationMillisecondBuilder, DurationMicrosecondBuilder, DurationNanosecondBuilder } from '../builder/duration.js';
 import { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from '../builder/int.js';
 import { ListBuilder } from '../builder/list.js';
 import { MapBuilder } from '../builder/map.js';
@@ -91,6 +92,11 @@ export class GetBuilderCtor extends Visitor {
     public visitInterval() { return IntervalBuilder; }
     public visitIntervalDayTime() { return IntervalDayTimeBuilder; }
     public visitIntervalYearMonth() { return IntervalYearMonthBuilder; }
+    public visitDuration() { return DurationBuilder; }
+    public visitDurationSecond() { return DurationSecondBuilder; }
+    public visitDurationMillisecond() { return DurationMillisecondBuilder; }
+    public visitDurationMicrosecond() { return DurationMicrosecondBuilder; }
+    public visistDurationNanosecond() { return DurationNanosecondBuilder; }
     public visitFixedSizeList() { return FixedSizeListBuilder; }
     public visitMap() { return MapBuilder; }
 }

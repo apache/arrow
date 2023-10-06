@@ -383,7 +383,11 @@ endif()
 #
 
 if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
-  list(APPEND ARROW_SRCS integration/json_integration.cc integration/json_internal.cc)
+  list(APPEND
+       ARROW_SRCS
+       integration/c_data_integration_internal.cc
+       integration/json_integration.cc
+       integration/json_internal.cc)
 endif()
 
 if(ARROW_CSV)

@@ -71,6 +71,30 @@ constexpr DataMemberProperty<Class, Type> DataMember(std::string_view name,
   return {name, ptr};
 }
 
+template <typename C, typename T>
+struct CoercedDataMemberProperty {
+  using Class = C;
+  using Type = T;
+
+  constexpr Type get(const Class& obj) const { return (obj.*get_coerced_)(); }
+
+  void set(Class* obj, Type value) const { (*obj).*ptr_for_set_ = std::move(value); }
+
+  constexpr std::string_view name() const { return name_; }
+
+  std::string_view name_;
+  Type Class::*ptr_for_set_;
+  Type (Class::*get_coerced_)() const;
+};
+
+template <typename Class, typename Type>
+constexpr CoercedDataMemberProperty<Class, Type> CoercedDataMember(std::string_view name,
+                                                                   Type Class::*ptr,
+                                                                   Type (Class::*get)()
+                                                                       const) {
+  return {name, ptr, get};
+}
+
 template <typename... Properties>
 struct PropertyTuple {
   template <typename Fn>

@@ -32,9 +32,5 @@ namespace Apache.Arrow
         ArrayData Data { get; }
 
         void Accept(IArrowArrayVisitor visitor);
-
-        //IArrowArray Slice(int offset);
-
-        //IArrowArray Slice(int offset, int length);
     }
 }

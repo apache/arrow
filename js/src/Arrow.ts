@@ -48,6 +48,7 @@ export {
     Union, DenseUnion, SparseUnion,
     Dictionary,
     Interval, IntervalDayTime, IntervalYearMonth,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     FixedSizeList,
     Map_
 } from './type.js';
@@ -75,6 +76,7 @@ export { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint
 export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './builder/time.js';
 export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
 export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
+export { DurationBuilder, DurationSecondBuilder, DurationMillisecondBuilder, DurationMicrosecondBuilder, DurationNanosecondBuilder } from './builder/duration.js';
 export { Utf8Builder } from './builder/utf8.js';
 export { BinaryBuilder } from './builder/binary.js';
 export { ListBuilder } from './builder/list.js';
@@ -99,6 +101,7 @@ import * as util_bit_ from './util/bit.js';
 import * as util_math_ from './util/math.js';
 import * as util_buffer_ from './util/buffer.js';
 import * as util_vector_ from './util/vector.js';
+import * as util_pretty_ from './util/pretty.js';
 import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator.js';
 
 /** @ignore */
@@ -109,6 +112,7 @@ export const util = {
     ...util_math_,
     ...util_buffer_,
     ...util_vector_,
+    ...util_pretty_,
     compareSchemas,
     compareFields,
     compareTypes,
