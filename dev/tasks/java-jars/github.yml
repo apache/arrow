@@ -27,6 +27,11 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
+      - name: Free up disk space
+        run: |
+            df -h
+            sudo rm -rf /opt/hostedtoolcache/CodeQL || :
+            df -h
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
