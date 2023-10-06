@@ -392,7 +392,7 @@ public class TestDoExchange {
       stream.getWriter().completed();
 
       // Must call reader.next() to get any errors after exchange, will return false if no error
-      final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, reader::next);
+      final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, stream::getResult);
       assertEquals("error completing exchange", fre.status().description());
     }
   }
@@ -438,7 +438,7 @@ public class TestDoExchange {
 
       // Close our write channel and ensure the server also closes theirs
       stream.getWriter().completed();
-      assertFalse(reader.next());
+      stream.getResult();
 
       // Not necessary to close reader here, but check closing twice doesn't lead to negative refcnt from metadata
       stream.getReader().close();
