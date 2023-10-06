@@ -664,7 +664,7 @@ Status SwissTable::grow_double() {
   // Allocate new buffers
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> blocks_new,
                         AllocateBuffer(block_size_total_after, pool_));
-  memset(blocks_new->mutable_data(), 0, block_size_total_after);
+  memset(blocks_new->mutable_data(), 0, static_cast<size_t>(block_size_total_after));
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hashes_new_buffer,
                         AllocateBuffer(hashes_size_total_after, pool_));
   auto hashes_new = reinterpret_cast<uint32_t*>(hashes_new_buffer->mutable_data());
@@ -787,7 +787,7 @@ Status SwissTable::init(int64_t hardware_flags, MemoryPool* pool, int log_blocks
   ARROW_ASSIGN_OR_RAISE(blocks_, AllocateBuffer(slot_bytes, pool_));
 
   // Make sure group ids are initially set to zero for all slots.
-  memset(blocks_->mutable_data(), 0, slot_bytes);
+  memset(blocks_->mutable_data(), 0, static_cast<size_t>(slot_bytes));
 
   // Initialize all status bytes to represent an empty slot.
   uint8_t* blocks_ptr = blocks_->mutable_data();

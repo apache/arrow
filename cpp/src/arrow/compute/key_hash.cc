@@ -142,7 +142,7 @@ void Hashing32::HashFixedLenImp(uint32_t num_rows, uint64_t length, const uint8_
     uint32_t acc1, acc2, acc3, acc4;
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-           length - (num_stripes - 1) * kStripeSize);
+           static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     ProcessLastStripe(mask1, mask2, mask3, mask4,
                       reinterpret_cast<const uint8_t*>(last_stripe_copy), &acc1, &acc2,
                       &acc3, &acc4);
@@ -214,7 +214,7 @@ void Hashing32::HashVarLenImp(uint32_t num_rows, const T* offsets,
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     if (length > 0) {
       memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-             length - (num_stripes - 1) * kStripeSize);
+             static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     }
     if (num_stripes > 0) {
       ProcessLastStripe(mask1, mask2, mask3, mask4,
@@ -611,7 +611,7 @@ void Hashing64::HashFixedLenImp(uint32_t num_rows, uint64_t length, const uint8_
     uint64_t acc1, acc2, acc3, acc4;
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-           length - (num_stripes - 1) * kStripeSize);
+           static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     ProcessLastStripe(mask1, mask2, mask3, mask4,
                       reinterpret_cast<const uint8_t*>(last_stripe_copy), &acc1, &acc2,
                       &acc3, &acc4);
@@ -682,7 +682,7 @@ void Hashing64::HashVarLenImp(uint32_t num_rows, const T* offsets,
     ProcessFullStripes(num_stripes, key, &acc1, &acc2, &acc3, &acc4);
     if (length > 0) {
       memcpy(last_stripe_copy, key + (num_stripes - 1) * kStripeSize,
-             length - (num_stripes - 1) * kStripeSize);
+             static_cast<size_t>(length - (num_stripes - 1) * kStripeSize));
     }
     if (num_stripes > 0) {
       ProcessLastStripe(mask1, mask2, mask3, mask4,
