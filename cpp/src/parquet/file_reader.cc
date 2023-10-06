@@ -367,21 +367,6 @@ class SerializedFile : public ParquetFileReader::Contents {
             ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col));
       }
     }
-#ifndef NDEBUG
-    if (!ranges.empty()) {
-      auto copied_ranges = ranges;
-      std::sort(copied_ranges.begin(), copied_ranges.end(),
-                [](const ::arrow::io::ReadRange& a, const ::arrow::io::ReadRange& b) {
-                  return a.offset < b.offset;
-                });
-      for (size_t i = 1; i < copied_ranges.size(); ++i) {
-        if (copied_ranges[i].offset <
-            copied_ranges[i - 1].offset + copied_ranges[i - 1].length) {
-          throw ParquetException("Overlapping column chunk ranges for pre-buffer");
-        }
-      }
-    }
-#endif
     PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
   }
 
