@@ -15,7 +15,6 @@
 // limitations under the License.
 
 // Package avro reads Avro OCF files and presents the extracted data as records
-
 package avro
 
 import (
@@ -66,7 +65,14 @@ func ArrowSchemaFromAvro(schema avro.Schema) (s *arrow.Schema, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			s = nil
-			err = fmt.Errorf("invalid avro schema: could not convert schema")
+			switch x := r.(type) {
+			case string:
+				err = fmt.Errorf("invalid avro schema: %s", x)
+			case error:
+				err = fmt.Errorf("invalid avro schema: %w", x)
+			default:
+				err = fmt.Errorf("invalid avro schema: unknown error")
+			}
 		}
 	}()
 	n := newSchemaNode()
@@ -77,7 +83,8 @@ func ArrowSchemaFromAvro(schema avro.Schema) (s *arrow.Schema, err error) {
 	for _, g := range c.Children() {
 		fields = append(fields, g.arrowField)
 	}
-	s = arrow.NewSchema(fields, nil)
+	m := arrow.MetadataFrom(map[string]string{"avroSchema": schema.String()})
+	s = arrow.NewSchema(fields, &m)
 	return s, nil
 }
 
@@ -95,7 +102,7 @@ func arrowSchemafromAvro(n *schemaNode) {
 			symbols[k] = symbol
 		}
 		var dt arrow.DictionaryType = arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint64, ValueType: arrow.BinaryTypes.String, Ordered: false}
-		sl := len(symbols)
+		sl := int64(len(symbols))
 		switch {
 		case sl <= math.MaxUint8:
 			dt.IndexType = arrow.PrimitiveTypes.Uint8
@@ -196,7 +203,7 @@ func iterateFields(n *schemaNode) {
 				symbols[k] = symbol
 			}
 			var dt arrow.DictionaryType = arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint64, ValueType: arrow.BinaryTypes.String, Ordered: false}
-			sl := len(symbols)
+			sl := int64(len(symbols))
 			switch {
 			case sl <= math.MaxUint8:
 				dt.IndexType = arrow.PrimitiveTypes.Uint8
