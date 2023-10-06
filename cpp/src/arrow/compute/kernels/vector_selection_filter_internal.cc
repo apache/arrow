@@ -998,6 +998,10 @@ class FilterMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
+    if ((args[1].kind() != Datum::ARRAY) and (args[1].kind() != Datum::CHUNKED_ARRAY)) {
+        return Status::NotImplemented("Filter should be array-like");
+    }
+
     const auto& filter_type = *args[1].type();
     const bool filter_is_plain_bool = filter_type.id() == Type::BOOL;
     const bool filter_is_ree_bool =
