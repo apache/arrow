@@ -3176,8 +3176,8 @@ def unify_schemas(schemas, *, promote_options="default"):
         Schemas to merge into a single one.
     promote_options : str, default default
         Accepts strings "default" and "permissive".
-        Default; null and only null can be unified with another type.
-        Permissive; promotes types to the greater common denominator.
+        Default: null and only null can be unified with another type.
+        Permissive: types are promoted to the greater common denominator.
 
     Returns
     -------

@@ -5028,12 +5028,12 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     """
     Concatenate pyarrow.Table objects.
 
-    If promote_options=="none", a zero-copy concatenation will be performed. The schemas
+    If promote_options="none", a zero-copy concatenation will be performed. The schemas
     of all the Tables must be the same (except the metadata), otherwise an
     exception will be raised. The result Table will share the metadata with the
     first table.
 
-    If promote_options=="default", any null type arrays will be casted to the type of other
+    If promote_options="default", any null type arrays will be casted to the type of other
     arrays in the column of the same name. If a table is missing a particular
     field, null values of the appropriate type will be generated to take the
     place of the missing field. The new schema will share the metadata with the
@@ -5084,9 +5084,9 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
 
     if "promote" in kwargs:
         warnings.warn(
-            "promote has been superseded by mode='default'.", FutureWarning)
+            "promote has been superseded by mode='default'.", FutureWarning, stacklevel=2)
         if kwargs['promote'] is True:
-            promote_options = "permissive"
+            promote_options = "default"
 
     for table in tables:
         c_tables.push_back(table.sp_table)
