@@ -28,11 +28,12 @@ if (test_mode && is.na(VERSION)) {
 }
 
 dev_version <- package_version(VERSION)[1, 4]
+is_release <- is.na(dev_version) || dev_version < "100"
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
 
 
 # Small dev versions are added for R-only changes during CRAN submission.
-if (is.na(dev_version) || dev_version < "100") {
+if (is_release) {
   VERSION <- package_version(VERSION)[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
@@ -103,6 +104,25 @@ download_binary <- function(lib) {
     }
     libfile <- NULL
   }
+
+  # validate binary checksum for CRAN release only
+  if (dir.exists("tools/checksums") && is_release ||
+    env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
+    checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1", binary_url)
+    checksum_file <- file.path("tools/checksums", checksum_file)
+
+    # shasum -a is more portable than sha512sum
+    checksum_ok <- system2("shasum", args = c(
+      "-a", "512", "--status", "-c", checksum
+    ))
+
+    if (checksum_ok != 0) {
+      cat("*** Checksum validation failed for libarrow binary: ", zip_file)
+      libfile <- NULL
+    }
+    cat("*** Checksum validated successfully for libarrow binary: ", zip_file)
+  }
+
   libfile
 }
 
