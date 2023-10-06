@@ -54,7 +54,15 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     # Small dev versions are added for R-only changes during CRAN submission.
     if (is.na(dev_version) || dev_version < "100") {
       VERSION <- package_version(VERSION)[1, 1:3]
+      get_file(artifactory, VERSION)
 
+      checksum <- sprintf("tools/checksums/windows/arrow-%s.zip.sha512", VERSION)
+      checksum_ok <- system2("shasum", args = c(
+        "-a", "512", "-c", checksum
+      ))
+
+      if (checksum_ok != 0) {
+        stop("*** Checksum validation failed for libarrow binary!")
       }
     } else {
       get_file(nightly, VERSION)
