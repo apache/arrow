@@ -1394,7 +1394,7 @@ def test_concat_tables_with_promote_option():
     t2 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.float32())], ["f"])
 
-    with pytest.raises(pa.ArrowTypeError, match="Schema at index 1 was different:"):
+    with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
         pa.concat_tables([t1, t2], promote=False)
 
 
