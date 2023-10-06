@@ -215,7 +215,7 @@ Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
   for (const auto& buffer : buffers) {
     // Passing nullptr to std::memcpy is undefined behavior, so skip empty buffers
     if (buffer->size() != 0) {
-      std::memcpy(out_data, buffer->data(), buffer->size());
+      std::memcpy(out_data, buffer->data(), static_cast<size_t>(buffer->size()));
       out_data += buffer->size();
     }
   }
