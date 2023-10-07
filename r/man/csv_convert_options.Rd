@@ -19,7 +19,7 @@ csv_convert_options(
 )
 }
 \arguments{
-\item{check_utf8}{Logical: check UTF8 validity of string columns? (default \code{TRUE})}
+\item{check_utf8}{Logical: check UTF8 validity of string columns?}
 
 \item{null_values}{Character vector of recognized spellings for null values.
 Analogous to the \code{na.strings} argument to
@@ -30,13 +30,12 @@ Analogous to the \code{na.strings} argument to
 \item{false_values}{Character vector of recognized spellings for \code{FALSE} values}
 
 \item{strings_can_be_null}{Logical: can string / binary columns have
-null values? Similar to the \code{quoted_na} argument to \code{\link[readr:read_delim]{readr::read_csv()}}.
-(default \code{FALSE})}
+null values? Similar to the \code{quoted_na} argument to \code{\link[readr:read_delim]{readr::read_csv()}}}
 
 \item{col_types}{A \code{Schema} or \code{NULL} to infer types}
 
 \item{auto_dict_encode}{Logical: Whether to try to automatically
-dictionary-encode string / binary data (think \code{stringsAsFactors}). Default \code{FALSE}.
+dictionary-encode string / binary data (think \code{stringsAsFactors}).
 This setting is ignored for non-inferred columns (those in \code{col_types}).}
 
 \item{auto_dict_max_cardinality}{If \code{auto_dict_encode}, string/binary columns

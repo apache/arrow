@@ -337,22 +337,22 @@ CsvTableReader <- R6Class("CsvTableReader",
   )
 )
 CsvTableReader$create <- function(file,
-                                  read_options = CsvReadOptions$create(),
-                                  parse_options = CsvParseOptions$create(),
-                                  convert_options = CsvConvertOptions$create(),
+                                  read_options = csv_read_options(),
+                                  parse_options = csv_parse_options(),
+                                  convert_options = csv_convert_options(),
                                   ...) {
   assert_is(file, "InputStream")
 
   if (is.list(read_options)) {
-    read_options <- do.call(CsvReadOptions$create, read_options)
+    read_options <- do.call(csv_read_options, read_options)
   }
 
   if (is.list(parse_options)) {
-    parse_options <- do.call(CsvParseOptions$create, parse_options)
+    parse_options <- do.call(csv_parse_options, parse_options)
   }
 
   if (is.list(convert_options)) {
-    convert_options <- do.call(CsvConvertOptions$create, convert_options)
+    convert_options <- do.call(csv_convert_options, convert_options)
   }
 
   if (!(tolower(read_options$encoding) %in% c("utf-8", "utf8"))) {
@@ -360,6 +360,52 @@ CsvTableReader$create <- function(file,
   }
 
   csv___TableReader__Make(file, read_options, parse_options, convert_options)
+}
+
+#' CSV Reading Options
+#'
+#' @param use_threads Whether to use the global CPU thread pool
+#' @param block_size Block size we request from the IO layer; also determines
+#'  the size of chunks when use_threads is `TRUE`.
+#' @param skip_rows Number of lines to skip before reading data (default 0).
+#' @param column_names Character vector to supply column names. If length-0
+#' (the default), the first non-skipped row will be parsed to generate column
+#' names, unless `autogenerate_column_names` is `TRUE`.
+#' @param autogenerate_column_names Logical: generate column names instead of
+#' using the first non-skipped row (the default)? If `TRUE`, column names will
+#' be "f0", "f1", ..., "fN".
+#' @param encoding The file encoding. (default `"UTF-8"`)
+#' @param skip_rows_after_names Number of lines to skip after the column names (default 0).
+#'    This number can be larger than the number of rows in one block, and empty rows are counted.
+#'    The order of application is as follows:
+#'      - `skip_rows` is applied (if non-zero);
+#'      - column names are read (unless `column_names` is set);
+#'      - `skip_rows_after_names` is applied (if non-zero).
+#'
+#' @export
+csv_read_options <- function(use_threads = option_use_threads(),
+                             block_size = 1048576L,
+                             skip_rows = 0L,
+                             column_names = character(0),
+                             autogenerate_column_names = FALSE,
+                             encoding = "UTF-8",
+                             skip_rows_after_names = 0L) {
+  assert_that(is.string(encoding))
+
+  options <- csv___ReadOptions__initialize(
+    list(
+      use_threads = use_threads,
+      block_size = block_size,
+      skip_rows = skip_rows,
+      skip_rows_after_names = skip_rows_after_names,
+      column_names = column_names,
+      autogenerate_column_names = autogenerate_column_names
+    )
+  )
+
+  options$encoding <- encoding
+
+  options
 }
 
 #' @title File reader options
@@ -490,53 +536,8 @@ CsvReadOptions <- R6Class("CsvReadOptions",
     skip_rows_after_names = function() csv___ReadOptions__skip_rows_after_names(self)
   )
 )
-CsvReadOptions$create <- function(use_threads = option_use_threads(),
-                                  block_size = 1048576L,
-                                  skip_rows = 0L,
-                                  column_names = character(0),
-                                  autogenerate_column_names = FALSE,
-                                  encoding = "UTF-8",
-                                  skip_rows_after_names = 0L) {
-  assert_that(is.string(encoding))
 
-  options <- csv___ReadOptions__initialize(
-    list(
-      use_threads = use_threads,
-      block_size = block_size,
-      skip_rows = skip_rows,
-      skip_rows_after_names = skip_rows_after_names,
-      column_names = column_names,
-      autogenerate_column_names = autogenerate_column_names
-    )
-  )
-
-  options$encoding <- encoding
-
-  options
-}
-
-#' CSV Reading Options
-#'
-#' @param use_threads Whether to use the global CPU thread pool
-#' @param block_size Block size we request from the IO layer; also determines
-#'  the size of chunks when use_threads is `TRUE`.
-#' @param skip_rows Number of lines to skip before reading data (default 0).
-#' @param column_names Character vector to supply column names. If length-0
-#' (the default), the first non-skipped row will be parsed to generate column
-#' names, unless `autogenerate_column_names` is `TRUE`.
-#' @param autogenerate_column_names Logical: generate column names instead of
-#' using the first non-skipped row (the default)? If `TRUE`, column names will
-#' be "f0", "f1", ..., "fN".
-#' @param encoding The file encoding. (default `"UTF-8"`)
-#' @param skip_rows_after_names Number of lines to skip after the column names (default 0).
-#'    This number can be larger than the number of rows in one block, and empty rows are counted.
-#'    The order of application is as follows:
-#'      - `skip_rows` is applied (if non-zero);
-#'      - column names are read (unless `column_names` is set);
-#'      - `skip_rows_after_names` is applied (if non-zero).
-#'
-#' @export
-csv_read_options <- CsvReadOptions$create
+CsvReadOptions$create <- csv_read_options
 
 readr_to_csv_write_options <- function(col_names = TRUE,
                                        batch_size = 1024L,
@@ -548,7 +549,7 @@ readr_to_csv_write_options <- function(col_names = TRUE,
   quote <- match(match.arg(quote), c("needed", "all", "none"))
   quote <- quoting_style_arrow_opts[quote]
 
-  CsvWriteOptions$create(
+  csv_write_options(
     include_header = col_names,
     batch_size = batch_size,
     delimiter = delim,
@@ -558,10 +559,19 @@ readr_to_csv_write_options <- function(col_names = TRUE,
   )
 }
 
-#' @rdname CsvReadOptions
+#' CSV Writing Options
+#'
+#' @param include_header Whether to write an initial header line with column names
+#' @param batch_size Maximum number of rows processed at a time.
+#' @param null_string The string to be written for null values. Must not contain quotation marks.
+#' @param delimiter Field delimiter
+#' @param eol The end of line character to use for ending rows
+#' @param quoting_style How to handle quotes. "Needed" (Only enclose values in quotes which need them, because their CSV
+#'    rendering can contain quotes itself (e.g. strings or binary values)), "AllValid" (Enclose all valid values in
+#'    quotes), or "None" (Do not enclose any values in quotes).
+#'
 #' @export
-CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
-CsvWriteOptions$create <- function(include_header = TRUE,
+csv_write_options <-  function(include_header = TRUE,
                                    batch_size = 1024L,
                                    null_string = "",
                                    delimiter = ",",
@@ -592,20 +602,10 @@ CsvWriteOptions$create <- function(include_header = TRUE,
   )
 }
 
-#' CSV Writing Options
-#'
-#' @param include_header Whether to write an initial header line with column names
-#' @param batch_size Maximum number of rows processed at a time. Default is 1024.
-#' @param null_string The string to be written for null values. Must not contain quotation marks. Default is an empty
-#' string (`""`).
-#' @param delimiter Field delimiter
-#' @param eol The end of line character to use for ending rows
-#' @param quoting_style How to handle quotes. "Needed" (Only enclose values in quotes which need them, because their CSV
-#'    rendering can contain quotes itself (e.g. strings or binary values)), "AllValid" (Enclose all valid values in
-#'    quotes), or "None" (Do not enclose any values in quotes).
-#'
+#' @rdname CsvReadOptions
 #' @export
-csv_write_options <- CsvWriteOptions$create
+CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
+CsvWriteOptions$create <- csv_write_options
 
 readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
   if (isTRUE(col_names)) {
@@ -613,26 +613,34 @@ readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
     col_names <- character(0)
   }
   if (identical(col_names, FALSE)) {
-    CsvReadOptions$create(skip_rows = skip, autogenerate_column_names = TRUE)
+    csv_read_options(skip_rows = skip, autogenerate_column_names = TRUE)
   } else {
-    CsvReadOptions$create(skip_rows = skip, column_names = col_names)
+    csv_read_options(skip_rows = skip, column_names = col_names)
   }
 }
 
-#' @rdname CsvReadOptions
-#' @usage NULL
-#' @format NULL
-#' @docType class
+#' CSV Parsing Options
+#'
+#' @param delimiter Field delimiting character
+#' @param quoting Logical: are strings quoted?
+#' @param quote_char Quoting character, if `quoting` is `TRUE`
+#' @param double_quote Logical: are quotes inside values double-quoted?
+#' @param escaping Logical: whether escaping is used
+#' @param escape_char Escaping character, if `escaping` is `TRUE`
+#' @param newlines_in_values Logical: are values allowed to contain CR (`0x0d`)
+#'    and LF (`0x0a`) characters?
+#' @param ignore_empty_lines Logical: should empty lines be ignored (default) or
+#'    generate a row of missing values (if `FALSE`)?
+#'
 #' @export
-CsvParseOptions <- R6Class("CsvParseOptions", inherit = ArrowObject)
-CsvParseOptions$create <- function(delimiter = ",",
-                                   quoting = TRUE,
-                                   quote_char = '"',
-                                   double_quote = TRUE,
-                                   escaping = FALSE,
-                                   escape_char = "\\",
-                                   newlines_in_values = FALSE,
-                                   ignore_empty_lines = TRUE) {
+csv_parse_options <- function(delimiter = ",",
+                              quoting = TRUE,
+                              quote_char = '"',
+                              double_quote = TRUE,
+                              escaping = FALSE,
+                              escape_char = "\\",
+                              newlines_in_values = FALSE,
+                              ignore_empty_lines = TRUE) {
   csv___ParseOptions__initialize(
     list(
       delimiter = delimiter,
@@ -647,21 +655,13 @@ CsvParseOptions$create <- function(delimiter = ",",
   )
 }
 
-#' CSV Parsing Options
-#'
-#' @param delimiter Field delimiting character (default `","`)
-#' @param quoting Logical: are strings quoted? (default `TRUE`)
-#' @param quote_char Quoting character, if `quoting` is `TRUE` (default `'"'`)
-#' @param double_quote Logical: are quotes inside values double-quoted? (default `TRUE`)
-#' @param escaping Logical: whether escaping is used (default `FALSE`)
-#' @param escape_char Escaping character, if `escaping` is `TRUE` (default `"\\"`)
-#' @param newlines_in_values Logical: are values allowed to contain CR (`0x0d`)
-#'    and LF (`0x0a`) characters? (default `FALSE`)
-#' @param ignore_empty_lines Logical: should empty lines be ignored (default) or
-#'    generate a row of missing values (if `FALSE`)?
-#'
+#' @rdname CsvReadOptions
+#' @usage NULL
+#' @format NULL
+#' @docType class
 #' @export
-csv_parse_options <- CsvParseOptions$create
+CsvParseOptions <- R6Class("CsvParseOptions", inherit = ArrowObject)
+CsvParseOptions$create <- csv_parse_options
 
 readr_to_csv_parse_options <- function(delim = ",",
                                        quote = '"',
@@ -670,7 +670,7 @@ readr_to_csv_parse_options <- function(delim = ",",
                                        skip_empty_rows = TRUE) {
   # This function translates from the readr argument list to the arrow arg names
   # TODO: validate inputs
-  CsvParseOptions$create(
+  csv_parse_options(
     delimiter = delim,
     quoting = nzchar(quote),
     quote_char = quote,
@@ -702,13 +702,39 @@ TimestampParser$create <- function(format = NULL) {
   }
 }
 
-#' @rdname CsvReadOptions
-#' @usage NULL
-#' @format NULL
-#' @docType class
+
+#' CSV Convert Options
+#'
+#' @param check_utf8 Logical: check UTF8 validity of string columns?
+#' @param null_values Character vector of recognized spellings for null values.
+#'    Analogous to the `na.strings` argument to
+#'    [`read.csv()`][utils::read.csv()] or `na` in [readr::read_csv()].
+#' @param strings_can_be_null Logical: can string / binary columns have
+#'    null values? Similar to the `quoted_na` argument to [readr::read_csv()]
+#' @param true_values Character vector of recognized spellings for `TRUE` values
+#' @param false_values Character vector of recognized spellings for `FALSE` values
+#' @param col_types A `Schema` or `NULL` to infer types
+#' @param auto_dict_encode Logical: Whether to try to automatically
+#'    dictionary-encode string / binary data (think `stringsAsFactors`).
+#'    This setting is ignored for non-inferred columns (those in `col_types`).
+#' @param auto_dict_max_cardinality If `auto_dict_encode`, string/binary columns
+#'    are dictionary-encoded up to this number of unique values (default 50),
+#'    after which it switches to regular encoding.
+#' @param include_columns If non-empty, indicates the names of columns from the
+#'    CSV file that should be actually read and converted (in the vector's order).
+#' @param include_missing_columns Logical: if `include_columns` is provided, should
+#'    columns named in it but not found in the data be included as a column of
+#'    type `null()`? The default (`FALSE`) means that the reader will instead
+#'    raise an error.
+#' @param timestamp_parsers User-defined timestamp parsers. If more than one
+#'    parser is specified, the CSV conversion logic will try parsing values
+#'    starting from the beginning of this vector. Possible values are
+#'    (a) `NULL`, the default, which uses the ISO-8601 parser;
+#'    (b) a character vector of [strptime][base::strptime()] parse strings; or
+#'    (c) a list of [TimestampParser] objects.
+#'
 #' @export
-CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = ArrowObject)
-CsvConvertOptions$create <- function(check_utf8 = TRUE,
+csv_convert_options <- function(check_utf8 = TRUE,
                                      null_values = c("", "NA"),
                                      true_values = c("T", "true", "TRUE"),
                                      false_values = c("F", "false", "FALSE"),
@@ -743,39 +769,13 @@ CsvConvertOptions$create <- function(check_utf8 = TRUE,
   )
 }
 
-#' CSV Convert Options
-#'
-#' @param check_utf8 Logical: check UTF8 validity of string columns? (default `TRUE`)
-#' @param null_values Character vector of recognized spellings for null values.
-#'    Analogous to the `na.strings` argument to
-#'    [`read.csv()`][utils::read.csv()] or `na` in [readr::read_csv()].
-#' @param strings_can_be_null Logical: can string / binary columns have
-#'    null values? Similar to the `quoted_na` argument to [readr::read_csv()].
-#'    (default `FALSE`)
-#' @param true_values Character vector of recognized spellings for `TRUE` values
-#' @param false_values Character vector of recognized spellings for `FALSE` values
-#' @param col_types A `Schema` or `NULL` to infer types
-#' @param auto_dict_encode Logical: Whether to try to automatically
-#'    dictionary-encode string / binary data (think `stringsAsFactors`). Default `FALSE`.
-#'    This setting is ignored for non-inferred columns (those in `col_types`).
-#' @param auto_dict_max_cardinality If `auto_dict_encode`, string/binary columns
-#'    are dictionary-encoded up to this number of unique values (default 50),
-#'    after which it switches to regular encoding.
-#' @param include_columns If non-empty, indicates the names of columns from the
-#'    CSV file that should be actually read and converted (in the vector's order).
-#' @param include_missing_columns Logical: if `include_columns` is provided, should
-#'    columns named in it but not found in the data be included as a column of
-#'    type `null()`? The default (`FALSE`) means that the reader will instead
-#'    raise an error.
-#' @param timestamp_parsers User-defined timestamp parsers. If more than one
-#'    parser is specified, the CSV conversion logic will try parsing values
-#'    starting from the beginning of this vector. Possible values are
-#'    (a) `NULL`, the default, which uses the ISO-8601 parser;
-#'    (b) a character vector of [strptime][base::strptime()] parse strings; or
-#'    (c) a list of [TimestampParser] objects.
-#'
+#' @rdname CsvReadOptions
+#' @usage NULL
+#' @format NULL
+#' @docType class
 #' @export
-csv_convert_options <- CsvConvertOptions$create
+CsvConvertOptions <- R6Class("CsvConvertOptions", inherit = ArrowObject)
+CsvConvertOptions$create <- csv_convert_options
 
 readr_to_csv_convert_options <- function(na,
                                          quoted_na,
@@ -825,7 +825,7 @@ readr_to_csv_convert_options <- function(na,
       include_columns <- setdiff(col_names, names(col_types)[nulls])
     }
   }
-  CsvConvertOptions$create(
+  csv_convert_options(
     null_values = na,
     strings_can_be_null = quoted_na,
     col_types = col_types,

@@ -16,10 +16,9 @@ csv_write_options(
 \arguments{
 \item{include_header}{Whether to write an initial header line with column names}
 
-\item{batch_size}{Maximum number of rows processed at a time. Default is 1024.}
+\item{batch_size}{Maximum number of rows processed at a time.}
 
-\item{null_string}{The string to be written for null values. Must not contain quotation marks. Default is an empty
-string (\code{""}).}
+\item{null_string}{The string to be written for null values. Must not contain quotation marks.}
 
 \item{delimiter}{Field delimiter}
 
