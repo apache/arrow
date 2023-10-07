@@ -18,7 +18,7 @@
 import FlatBuffers
 import Foundation
 
-fileprivate func makeBinaryHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+private func makeBinaryHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
     do {
         let arrowData = try ArrowData(ArrowType(ArrowType.ArrowBinary), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<Int8>.stride)
@@ -30,7 +30,7 @@ fileprivate func makeBinaryHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArray
     }
 }
 
-fileprivate func makeStringHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+private func makeStringHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
     do {
         let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<Int8>.stride)
@@ -42,7 +42,9 @@ fileprivate func makeStringHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArray
     }
 }
 
-fileprivate func makeFloatHolder(_ floatType: org_apache_arrow_flatbuf_FloatingPoint, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+private func makeFloatHolder(_ floatType: org_apache_arrow_flatbuf_FloatingPoint,
+                             buffers: [ArrowBuffer]
+) -> Result<ArrowArrayHolder, ArrowError> {
     switch floatType.precision {
     case .single:
         return makeFixedHolder(Float.self, buffers: buffers)
@@ -53,14 +55,16 @@ fileprivate func makeFloatHolder(_ floatType: org_apache_arrow_flatbuf_FloatingP
     }
 }
 
-fileprivate func makeDateHolder(_ dateType: org_apache_arrow_flatbuf_Date, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
-    do  {
+private func makeDateHolder(_ dateType: org_apache_arrow_flatbuf_Date,
+                            buffers: [ArrowBuffer]
+) -> Result<ArrowArrayHolder, ArrowError> {
+    do {
         if dateType.unit == .day {
             let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
                                           nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
             return .success(ArrowArrayHolder(Date32Array(arrowData)))
         }
-        
+
         let arrowData = try ArrowData(ArrowType(ArrowType.ArrowString), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
         return .success(ArrowArrayHolder(Date64Array(arrowData)))
@@ -71,17 +75,18 @@ fileprivate func makeDateHolder(_ dateType: org_apache_arrow_flatbuf_Date, buffe
     }
 }
 
-fileprivate func makeTimeHolder(_ timeType: org_apache_arrow_flatbuf_Time, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
-    do  {
+private func makeTimeHolder(_ timeType: org_apache_arrow_flatbuf_Time,
+                            buffers: [ArrowBuffer]
+) -> Result<ArrowArrayHolder, ArrowError> {
+    do {
         if timeType.unit == .second || timeType.unit == .millisecond {
-            let arrowUnit: ArrowTime32Unit = timeType.unit == .second ? .Seconds : .Milliseconds
+            let arrowUnit: ArrowTime32Unit = timeType.unit == .second ? .seconds : .milliseconds
             let arrowData = try ArrowData(ArrowTypeTime32(arrowUnit), buffers: buffers,
                                           nullCount: buffers[0].length, stride: MemoryLayout<Time32>.stride)
-            
             return .success(ArrowArrayHolder(FixedArray<Time32>(arrowData)))
         }
-        
-        let arrowUnit: ArrowTime64Unit = timeType.unit == .microsecond ? .Microseconds : .Nanoseconds
+
+        let arrowUnit: ArrowTime64Unit = timeType.unit == .microsecond ? .microseconds : .nanoseconds
         let arrowData = try ArrowData(ArrowTypeTime64(arrowUnit), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<Time64>.stride)
         return .success(ArrowArrayHolder(FixedArray<Time64>(arrowData)))
@@ -92,7 +97,7 @@ fileprivate func makeTimeHolder(_ timeType: org_apache_arrow_flatbuf_Time, buffe
     }
 }
 
-fileprivate func makeBoolHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+private func makeBoolHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
     do {
         let arrowData = try ArrowData(ArrowType(ArrowType.ArrowInt32), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<UInt8>.stride)
@@ -104,7 +109,7 @@ fileprivate func makeBoolHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHo
     }
 }
 
-fileprivate func makeFixedHolder<T>(_: T.Type, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+private func makeFixedHolder<T>(_: T.Type, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
     do {
         let arrowData = try ArrowData(ArrowType(ArrowType.ArrowInt32), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<T>.stride)
@@ -116,7 +121,10 @@ fileprivate func makeFixedHolder<T>(_: T.Type, buffers: [ArrowBuffer]) -> Result
     }
 }
 
-func makeArrayHolder(_ field: org_apache_arrow_flatbuf_Field, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+func makeArrayHolder( // swiftlint:disable:this cyclomatic_complexity
+    _ field: org_apache_arrow_flatbuf_Field,
+    buffers: [ArrowBuffer]
+) -> Result<ArrowArrayHolder, ArrowError> {
     let type = field.typeType
     switch type {
     case .int:
@@ -185,7 +193,8 @@ func isFixedPrimitive(_ type: org_apache_arrow_flatbuf_Type_) -> Bool {
     }
 }
 
-func findArrowType(_ field: org_apache_arrow_flatbuf_Field) -> ArrowType {
+func findArrowType( // swiftlint:disable:this cyclomatic_complexity
+    _ field: org_apache_arrow_flatbuf_Field) -> ArrowType {
     let type = field.typeType
     switch type {
     case .int:
@@ -217,15 +226,15 @@ func findArrowType(_ field: org_apache_arrow_flatbuf_Field) -> ArrowType {
         if dateType.unit == .day {
             return ArrowType(ArrowType.ArrowDate32)
         }
-        
+
         return ArrowType(ArrowType.ArrowDate64)
     case .time:
         let timeType = field.type(type: org_apache_arrow_flatbuf_Time.self)!
         if timeType.unit == .second || timeType.unit == .millisecond {
-            return ArrowTypeTime32(timeType.unit == .second ? .Seconds : .Milliseconds)
+            return ArrowTypeTime32(timeType.unit == .second ? .seconds : .milliseconds)
         }
-        
-        return ArrowTypeTime64(timeType.unit == .microsecond ? .Microseconds : .Nanoseconds)
+
+        return ArrowTypeTime64(timeType.unit == .microsecond ? .microseconds : .nanoseconds)
     default:
         return ArrowType(ArrowType.ArrowUnknown)
     }

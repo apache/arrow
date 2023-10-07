@@ -20,5 +20,6 @@ FROM swift:5.7.3
 # Install golang
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-        golang-go && \
+        golang-go \
+        unzip && \
     apt-get clean

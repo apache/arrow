@@ -24,7 +24,7 @@ public class ActionTypeStreamWriter {
     init(_ stream: GRPCAsyncResponseStreamWriter<Arrow_Flight_Protocol_ActionType>) {
         self.stream = stream
     }
-    
+
     public func write(_ actionType: FlightActionType) async throws {
         try await self.stream.send(actionType.toProtocol())
     }
@@ -35,7 +35,7 @@ public class ResultStreamWriter {
     init(_ stream: GRPCAsyncResponseStreamWriter<Arrow_Flight_Protocol_Result>) {
         self.stream = stream
     }
-    
+
     public func write(_ result: FlightResult) async throws {
         try await self.stream.send(result.toProtocol())
     }
@@ -46,7 +46,7 @@ public class FlightInfoStreamWriter {
     init(_ stream: GRPCAsyncResponseStreamWriter<Arrow_Flight_Protocol_FlightInfo>) {
         self.stream = stream
     }
-    
+
     public func write(_ result: FlightInfo) async throws {
         try await self.stream.send(result.toProtocol())
     }
@@ -57,7 +57,7 @@ public class PutResultDataStreamWriter {
     init(_ stream: GRPCAsyncResponseStreamWriter<Arrow_Flight_Protocol_PutResult>) {
         self.stream = stream
     }
-    
+
     public func write(_ result: FlightPutResult) async throws {
         try await self.stream.send(result.toProtocol())
     }
@@ -69,7 +69,7 @@ public class RecordBatchStreamWriter {
     init(_ stream: GRPCAsyncResponseStreamWriter<Arrow_Flight_Protocol_FlightData>) {
         self.stream = stream
     }
-    
+
     public func write(_ rb: RecordBatch) async throws {
         let info = ArrowWriter.Info(.recordbatch,
                                     schema: rb.schema,
@@ -82,7 +82,7 @@ public class RecordBatchStreamWriter {
             let data = Arrow_Flight_Protocol_FlightData.with {
                 $0.dataBody = rbResult
             }
-            
+
             try await self.stream.send(data)
         case .failure(let error):
             throw error
