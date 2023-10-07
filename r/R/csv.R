@@ -570,6 +570,10 @@ readr_to_csv_write_options <- function(col_names = TRUE,
 #'    rendering can contain quotes itself (e.g. strings or binary values)), "AllValid" (Enclose all valid values in
 #'    quotes), or "None" (Do not enclose any values in quotes).
 #'
+#' @examples
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_csv_arrow(airquality, tf, write_options = csv_write_options(null_string = "-99"))
 #' @export
 csv_write_options <-  function(include_header = TRUE,
                                    batch_size = 1024L,
@@ -846,7 +850,7 @@ readr_to_csv_convert_options <- function(na,
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
 #' @param na value to write for NA values. Must not contain quote marks. Default
 #'     is `""`.
-#' @param write_options see [file reader options][CsvWriteOptions]
+#' @param write_options see [CSV write options][csv_write_options]
 #' @param ... additional parameters
 #'
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],

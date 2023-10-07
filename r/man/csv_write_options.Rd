@@ -31,3 +31,8 @@ quotes), or "None" (Do not enclose any values in quotes).}
 \description{
 CSV Writing Options
 }
+\examples{
+tf <- tempfile()
+on.exit(unlink(tf))
+write_csv_arrow(airquality, tf, write_options = csv_write_options(null_string = "-99"))
+}
