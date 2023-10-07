@@ -110,11 +110,23 @@ download_binary <- function(lib) {
     env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
     checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
     checksum_file <- file.path(checksum_path, checksum_file)
+    checksum_cmd <- "shasum"
+    checksum_args <- c("--status", "-a", "512", "-c", checksum_file)
 
-    # shasum -a is more portable than sha512sum
-    checksum_ok <- system2("shasum", args = c(
-      "-a", "512", "--status", "-c", checksum_file
-    ))
+    # shasum is not available on all linux versions
+    status_shasum <- try(
+      suppressWarnings(
+        system2("shasum", args = c("--help"), stdout = FALSE, stderr = FALSE)
+      ),
+      silent = TRUE
+    )
+
+    if (inherits(status_shasum, "try-error") || is.integer(status_shasum) && status_shasum != 0) {
+      checksum_cmd <- "sha512sum"
+      checksum_args <- c("--status", "-c", checksum_file)
+    }
+
+    checksum_ok <- system2(check_cmd, args = checksum_args)
 
     if (checksum_ok != 0) {
       cat("*** Checksum validation failed for libarrow binary: ", libfile, "\n")
