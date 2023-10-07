@@ -113,14 +113,14 @@ download_binary <- function(lib) {
 
     # shasum -a is more portable than sha512sum
     checksum_ok <- system2("shasum", args = c(
-      "-a", "512", "--status", "-c", checksum
+      "-a", "512", "--status", "-c", checksum_file
     ))
 
     if (checksum_ok != 0) {
-      cat("*** Checksum validation failed for libarrow binary: ", zip_file)
+      cat("*** Checksum validation failed for libarrow binary: ", zip_file, "\n")
       libfile <- NULL
     }
-    cat("*** Checksum validated successfully for libarrow binary: ", zip_file)
+    cat("*** Checksum validated successfully for libarrow binary: ", zip_file, "\n")
   }
 
   libfile

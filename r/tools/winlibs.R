@@ -74,9 +74,9 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
       checksum_ok <- system2("sha512sum", args = c("--status", "-c", checksum))
 
       if (checksum_ok != 0) {
-        cat("*** Checksum validation failed for libarrow binary: ", zip_file)
+        stop("*** Checksum validation failed for libarrow binary: ", zip_file)
       }
-      cat("*** Checksum validated successfully for libarrow binary: ", zip_file)
+      cat("*** Checksum validated successfully for libarrow binary: ", zip_file, "\n")
     }
   }
   dir.create("windows", showWarnings = FALSE)
