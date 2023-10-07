@@ -154,7 +154,7 @@ jobs:
           VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
           # These files were created by the docker user so we have to chown them 
-          chown -R $USER:$USER arrow/r/libarrow
+          sudo chown -R $USER:$USER arrow/r/libarrow
 
           cd arrow/r/libarrow/dist
           zip -r $PKG_FILE lib/ include/
