@@ -17,6 +17,10 @@
 
 args <- commandArgs(TRUE)
 VERSION <- args[1]
+dev_version <- package_version(VERSION)[1, 4]
+is_release <- is.na(dev_version) || dev_version < "100"
+env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
+
 if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
   if (length(args) > 1) {
     # Arg 2 would be the path/to/lib.zip
@@ -49,26 +53,29 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
       "/libarrow/bin/windows/arrow-%1$s.zip"
     )
 
-    dev_version <- package_version(VERSION)[1, 4]
     zip_file <- sprintf("arrow-%s.zip", VERSION)
 
     # Small dev versions are added for R-only changes during CRAN submission.
-    if (is.na(dev_version) || dev_version < "100") {
+    if (is_release) {
       VERSION <- package_version(VERSION)[1, 1:3]
       zip_file <- sprintf("arrow-%s.zip", VERSION)
 
       get_file(artifactory, VERSION)
-
-      checksum <- sprintf("tools/checksums/windows/arrow-%s.zip.sha512", VERSION)
-      checksum_ok <- system2("shasum", args = c(
-        "-a", "512", "-c", checksum
-      ))
-
-      if (checksum_ok != 0) {
-        stop("*** Checksum validation failed for libarrow binary: ", zip_file)
-      }
     } else {
       get_file(nightly, VERSION)
+    }
+
+    # validate binary checksum for CRAN release only
+    if (dir.exists("tools/checksums") && is_release ||
+      env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
+      checksum <- sprintf("tools/checksums/windows/arrow-%s.zip.sha512", VERSION)
+      # rtools does not have shasum with default config
+      checksum_ok <- system2("sha512sum", args = c("--status", "-c", checksum))
+
+      if (checksum_ok != 0) {
+        cat("*** Checksum validation failed for libarrow binary: ", zip_file)
+      }
+      cat("*** Checksum validated successfully for libarrow binary: ", zip_file)
     }
   }
   dir.create("windows", showWarnings = FALSE)
