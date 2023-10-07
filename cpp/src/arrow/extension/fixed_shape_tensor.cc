@@ -53,7 +53,8 @@ Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& sh
     remaining = byte_width;
     for (auto i : permutation) {
       if (i > 0) {
-        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
+        if (internal::MultiplyWithOverflow(remaining, shape[static_cast<size_t>(i)],
+                                           &remaining)) {
           return Status::Invalid(
               "Strides computed from shape would not fit in 64-bit integer");
         }
@@ -69,7 +70,7 @@ Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& sh
   strides->push_back(remaining);
   for (auto i : permutation) {
     if (i > 0) {
-      remaining /= shape[i];
+      remaining /= shape[static_cast<size_t>(i)];
       strides->push_back(remaining);
     }
   }
@@ -196,13 +197,13 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
 
   std::vector<int64_t> cell_shape;
   for (auto i : permutation) {
-    cell_shape.emplace_back(tensor->shape()[i]);
+    cell_shape.emplace_back(tensor->shape()[static_cast<size_t>(i)]);
   }
 
   std::vector<std::string> dim_names;
   if (!tensor->dim_names().empty()) {
     for (auto i : permutation) {
-      dim_names.emplace_back(tensor->dim_names()[i]);
+      dim_names.emplace_back(tensor->dim_names()[static_cast<size_t>(i)]);
     }
   }
 
@@ -285,7 +286,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   std::vector<std::string> dim_names;
   if (!ext_type->dim_names().empty()) {
     for (auto i : permutation) {
-      dim_names.emplace_back(ext_type->dim_names()[i]);
+      dim_names.emplace_back(ext_type->dim_names()[static_cast<size_t>(i)]);
     }
     dim_names.insert(dim_names.begin(), 1, "");
   } else {
@@ -294,7 +295,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
 
   std::vector<int64_t> shape;
   for (int64_t& i : permutation) {
-    shape.emplace_back(ext_type->shape()[i]);
+    shape.emplace_back(ext_type->shape()[static_cast<size_t>(i)]);
     ++i;
   }
   shape.insert(shape.begin(), 1, this->length());
