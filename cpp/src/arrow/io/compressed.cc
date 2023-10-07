@@ -314,7 +314,8 @@ class CompressedInputStream::Impl {
     int64_t read_bytes = std::min(readable, nbytes);
 
     if (read_bytes > 0) {
-      memcpy(out, decompressed_->data() + decompressed_pos_, read_bytes);
+      memcpy(out, decompressed_->data() + decompressed_pos_,
+             static_cast<size_t>(read_bytes));
       decompressed_pos_ += read_bytes;
 
       if (decompressed_pos_ == decompressed_->size()) {

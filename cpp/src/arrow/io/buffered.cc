@@ -70,7 +70,7 @@ class BufferedBase {
 
   void AppendToBuffer(const void* data, int64_t nbytes) {
     DCHECK_LE(buffer_pos_ + nbytes, buffer_size_);
-    std::memcpy(buffer_data_ + buffer_pos_, data, nbytes);
+    std::memcpy(buffer_data_ + buffer_pos_, data, static_cast<size_t>(nbytes));
     buffer_pos_ += nbytes;
   }
 
@@ -381,7 +381,7 @@ class BufferedInputStream::Impl : public BufferedBase {
     // 1. First consume pre-buffered data.
     int64_t pre_buffer_copy_bytes = std::min(nbytes, bytes_buffered_);
     if (pre_buffer_copy_bytes > 0) {
-      memcpy(out, buffer_data_ + buffer_pos_, pre_buffer_copy_bytes);
+      memcpy(out, buffer_data_ + buffer_pos_, static_cast<size_t>(pre_buffer_copy_bytes));
       ConsumeBuffer(pre_buffer_copy_bytes);
     }
     int64_t remaining_bytes = nbytes - pre_buffer_copy_bytes;
@@ -407,7 +407,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(DoBuffer());
       int64_t bytes_copy_after_buffer = std::min(bytes_buffered_, remaining_bytes);
       memcpy(reinterpret_cast<uint8_t*>(out) + pre_buffer_copy_bytes,
-             buffer_data_ + buffer_pos_, bytes_copy_after_buffer);
+             buffer_data_ + buffer_pos_, static_cast<size_t>(bytes_copy_after_buffer));
       ConsumeBuffer(bytes_copy_after_buffer);
       return pre_buffer_copy_bytes + bytes_copy_after_buffer;
     }

@@ -39,7 +39,8 @@ Result<int64_t> StdoutStream::Tell() const { return pos_; }
 
 Status StdoutStream::Write(const void* data, int64_t nbytes) {
   pos_ += nbytes;
-  std::cout.write(reinterpret_cast<const char*>(data), nbytes);
+  std::cout.write(reinterpret_cast<const char*>(data),
+                  static_cast<std::streamsize>(nbytes));
   return Status::OK();
 }
 
@@ -57,7 +58,8 @@ Result<int64_t> StderrStream::Tell() const { return pos_; }
 
 Status StderrStream::Write(const void* data, int64_t nbytes) {
   pos_ += nbytes;
-  std::cerr.write(reinterpret_cast<const char*>(data), nbytes);
+  std::cerr.write(reinterpret_cast<const char*>(data),
+                  static_cast<std::streamsize>(nbytes));
   return Status::OK();
 }
 
@@ -74,7 +76,7 @@ bool StdinStream::closed() const { return false; }
 Result<int64_t> StdinStream::Tell() const { return pos_; }
 
 Result<int64_t> StdinStream::Read(int64_t nbytes, void* out) {
-  std::cin.read(reinterpret_cast<char*>(out), nbytes);
+  std::cin.read(reinterpret_cast<char*>(out), static_cast<std::streamsize>(nbytes));
   nbytes = std::cin.gcount();
   pos_ += nbytes;
   return nbytes;
