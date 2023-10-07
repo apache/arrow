@@ -108,7 +108,7 @@ download_binary <- function(lib) {
   # validate binary checksum for CRAN release only
   if (dir.exists(checksum_path) && is_release ||
     env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
-    checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1", binary_url)
+    checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
     checksum_file <- file.path(checksum_path, checksum_file)
 
     # shasum -a is more portable than sha512sum
