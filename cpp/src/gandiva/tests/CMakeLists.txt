@@ -40,3 +40,5 @@ if(ARROW_BUILD_STATIC)
                       EXTRA_LINK_LIBS
                       gandiva_static)
 endif()
+
+add_subdirectory(external_functions)

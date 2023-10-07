@@ -16,6 +16,7 @@
 // under the License.
 
 #include <chrono>
+#include <filesystem>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -24,6 +25,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
+#include "gandiva/llvm_external_ir_store.h"
 
 #pragma once
 
@@ -101,4 +103,16 @@ static inline std::shared_ptr<Configuration> TestConfiguration() {
   return builder.DefaultConfiguration();
 }
 
+#ifndef GANDIVA_EXTENSION_TEST_DIR
+#define GANDIVA_EXTENSION_TEST_DIR "."
+#endif
+
+static inline Status LoadTestLLVMIR() {
+  if (LLVMExternalIRStore::GetIRBuffers().empty()) {
+    std::filesystem::path base(GANDIVA_EXTENSION_TEST_DIR);
+    std::filesystem::path ir_file = base / "multiply_by_two.bc";
+    return LLVMExternalIRStore::Add(ir_file.string());
+  }
+  return arrow::Status::OK();
+}
 }  // namespace gandiva

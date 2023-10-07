@@ -66,7 +66,7 @@ SignatureMap FunctionRegistry::InitPCMap() {
   pc_registry_.insert(std::end(pc_registry_), v6.begin(), v6.end());
   for (auto& elem : pc_registry_) {
     for (auto& func_signature : elem.signatures()) {
-      map.insert(std::make_pair(&(func_signature), &elem));
+      map.emplace(&func_signature, &elem);
     }
   }
 
@@ -77,6 +77,15 @@ const NativeFunction* FunctionRegistry::LookupSignature(
     const FunctionSignature& signature) const {
   auto got = pc_registry_map_.find(&signature);
   return got == pc_registry_map_.end() ? nullptr : got->second;
+}
+
+Status FunctionRegistry::Add(NativeFunction func) {
+  pc_registry_.emplace_back(std::move(func));
+  auto const& last_func = pc_registry_.back();
+  for (auto& func_signature : last_func.signatures()) {
+    pc_registry_map_.emplace(&func_signature, &last_func);
+  }
+  return arrow::Status::OK();
 }
 
 }  // namespace gandiva

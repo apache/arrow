@@ -17,34 +17,24 @@
 
 #pragma once
 
+#include <arrow/status.h>
+#include <gandiva/visibility.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <memory>
 #include <vector>
-#include "gandiva/function_registry_common.h"
-#include "gandiva/gandiva_aliases.h"
-#include "gandiva/native_function.h"
-#include "gandiva/visibility.h"
 
 namespace gandiva {
+using arrow::Status;
 
-///\brief Registry of pre-compiled IR functions.
-class GANDIVA_EXPORT FunctionRegistry {
+class GANDIVA_EXPORT LLVMExternalIRStore {
  public:
-  using iterator = const NativeFunction*;
+  /// \brief add an LLVM IR to the store from a given bitcode file path
+  static Status Add(const std::string& bitcode_file_path);
 
-  /// Lookup a pre-compiled function by its signature.
-  const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
+  /// \brief add an LLVM memory buffer containing bitcode to the store
+  static Status Add(std::unique_ptr<llvm::MemoryBuffer> buffer);
 
-  /// \brief register a new function into the function registry
-  static Status Add(NativeFunction func);
-
-  iterator begin() const;
-  iterator end() const;
-  iterator back() const;
-
- private:
-  static SignatureMap InitPCMap();
-
-  static std::vector<NativeFunction> pc_registry_;
-  static SignatureMap pc_registry_map_;
+  /// \brief get a list of LLVM memory buffers saved in the store
+  static const std::vector<std::unique_ptr<llvm::MemoryBuffer>>& GetIRBuffers();
 };
-
 }  // namespace gandiva

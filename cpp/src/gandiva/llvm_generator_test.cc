@@ -17,6 +17,7 @@
 
 #include "gandiva/llvm_generator.h"
 
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -27,6 +28,7 @@
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
+#include "gandiva/llvm_external_ir_store.h"
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
@@ -113,6 +115,16 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 
   EXPECT_THAT(out, testing::ElementsAre(6, 8, 10, 12));
   EXPECT_EQ(out_bitmap, 0ULL);
+}
+
+TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
+  ARROW_EXPECT_OK(LoadTestLLVMIR());
+  std::unique_ptr<LLVMGenerator> generator;
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
+
+  auto module = generator->module();
+  ASSERT_OK(generator->engine_->LoadFunctionIRs());
+  EXPECT_NE(module->getFunction("multiply_by_two_int32"), nullptr);
 }
 
 }  // namespace gandiva

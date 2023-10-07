@@ -22,6 +22,7 @@
 #endif
 
 #include "gandiva/engine.h"
+#include "gandiva/llvm_external_ir_store.h"
 
 #include <iostream>
 #include <memory>
@@ -155,6 +156,7 @@ Status Engine::LoadFunctionIRs() {
   if (!functions_loaded_) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
+    ARROW_RETURN_NOT_OK(LoadExternalPreCompiledIR());
     functions_loaded_ = true;
   }
   return Status::OK();
@@ -251,11 +253,11 @@ Status Engine::LoadPreCompiledIR() {
                   Status::CodeGenError("Could not load module from IR: ",
                                        buffer_or_error.getError().message()));
 
-  std::unique_ptr<llvm::MemoryBuffer> buffer = std::move(buffer_or_error.get());
+  auto buffer = std::move(buffer_or_error.get());
 
   /// Parse the IR module.
-  llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
-      llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
+  auto module_or_error = llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
+
   if (!module_or_error) {
     // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
     // (ARROW-5148)
@@ -264,7 +266,8 @@ Status Engine::LoadPreCompiledIR() {
     stream << module_or_error.takeError();
     return Status::CodeGenError(stream.str());
   }
-  std::unique_ptr<llvm::Module> ir_module = std::move(module_or_error.get());
+
+  auto ir_module = std::move(module_or_error.get());
 
   // set dataLayout
   SetDataLayout(ir_module.get());
@@ -273,6 +276,27 @@ Status Engine::LoadPreCompiledIR() {
                   Status::CodeGenError("verify of IR Module failed"));
   ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
                   Status::CodeGenError("failed to link IR Modules"));
+
+  return Status::OK();
+}
+
+Status Engine::LoadExternalPreCompiledIR() {
+  auto const& buffers = LLVMExternalIRStore::GetIRBuffers();
+  for (auto const& buffer : buffers) {
+    auto module_or_error = llvm::parseBitcodeFile(buffer->getMemBufferRef(), *context());
+    if (!module_or_error) {
+      std::string str;
+      llvm::raw_string_ostream stream(str);
+      stream << module_or_error.takeError();
+      return Status::CodeGenError("Failed to parse bitcode file, error: " + stream.str());
+    }
+    auto ir_module = std::move(module_or_error.get());
+
+    ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
+                    Status::CodeGenError("verify of IR Module failed"));
+    ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
+                    Status::CodeGenError("failed to link IR Modules"));
+  }
 
   return Status::OK();
 }

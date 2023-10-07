@@ -93,6 +93,9 @@ class GANDIVA_EXPORT Engine {
   /// the main module.
   Status LoadPreCompiledIR();
 
+  // load external pre-compiled IR modules from LLVMIRStore
+  Status LoadExternalPreCompiledIR();
+
   // Create and add mappings for cpp functions that can be accessed from LLVM.
   void AddGlobalMappings();
 
