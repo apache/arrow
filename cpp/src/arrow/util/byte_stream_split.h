@@ -597,9 +597,9 @@ void ByteStreamSplitDecodeScalar(const uint8_t* data, int64_t num_values, int64_
   constexpr size_t kNumStreams = sizeof(T);
   auto output_buffer_raw = reinterpret_cast<uint8_t*>(out);
 
-  for (int64_t i = 0; i < num_values; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(num_values); ++i) {
     for (size_t b = 0; b < kNumStreams; ++b) {
-      const size_t byte_index = b * stride + i;
+      const size_t byte_index = b * static_cast<size_t>(stride) + i;
       output_buffer_raw[i * kNumStreams + b] = data[byte_index];
     }
   }

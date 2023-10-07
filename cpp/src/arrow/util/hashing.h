@@ -334,7 +334,8 @@ class HashTable {
   Status UpsizeBuffer(uint64_t capacity) {
     RETURN_NOT_OK(entries_builder_.Resize(capacity));
     entries_ = entries_builder_.mutable_data();
-    memset(static_cast<void*>(entries_), 0, capacity * sizeof(Entry));
+    memset(static_cast<void*>(entries_), 0,
+           static_cast<size_t>(capacity) * sizeof(Entry));
 
     return Status::OK();
   }
@@ -767,14 +768,14 @@ class BinaryMemoTable : public MemoTable {
 
     // The absolute byte offset of `start` value in the binary buffer.
     const builder_offset_type offset = binary_builder_.offset(start);
-    const auto length = binary_builder_.value_data_length() - static_cast<size_t>(offset);
+    const auto length = binary_builder_.value_data_length() - offset;
 
     if (out_size != -1) {
-      assert(static_cast<int64_t>(length) <= out_size);
+      assert(length <= out_size);
     }
 
     auto view = binary_builder_.GetView(start);
-    memcpy(out_data, view.data(), length);
+    memcpy(out_data, view.data(), static_cast<size_t>(length));
   }
 
   void CopyValues(uint8_t* out_data) const { CopyValues(0, -1, out_data); }
@@ -824,12 +825,13 @@ class BinaryMemoTable : public MemoTable {
     // Zero-initialize the null entry
     memset(out_data + left_size, 0, width_size);
 
-    auto right_size = values_size() - static_cast<size_t>(null_data_offset);
+    auto right_size = values_size() - null_data_offset;
     if (right_size > 0) {
       // skip the null fixed size value.
       auto out_offset = left_size + width_size;
       assert(out_data + out_offset + right_size == out_data + out_size);
-      memcpy(out_data + out_offset, in_data + null_data_offset, right_size);
+      memcpy(out_data + out_offset, in_data + null_data_offset,
+             static_cast<size_t>(right_size));
     }
   }
 
@@ -859,7 +861,7 @@ class BinaryMemoTable : public MemoTable {
                                                 builder_offset_type length) const {
     auto cmp_func = [&](const Payload* payload) {
       std::string_view lhs = binary_builder_.GetView(payload->memo_index);
-      std::string_view rhs(static_cast<const char*>(data), length);
+      std::string_view rhs(static_cast<const char*>(data), static_cast<size_t>(length));
       return lhs == rhs;
     };
     return hash_table_.Lookup(h, cmp_func);

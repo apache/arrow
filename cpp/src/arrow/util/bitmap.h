@@ -198,7 +198,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     }
     assert(*std::min_element(offsets, offsets + N) == 0);
 
-    int64_t whole_word_count = bit_length / kBitWidth;
+    auto whole_word_count = static_cast<size_t>(bit_length / kBitWidth);
     assert(whole_word_count >= 1);
 
     if (min_offset == max_offset) {
@@ -206,7 +206,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
       assert(
           std::all_of(offsets, offsets + N, [](int64_t offset) { return offset == 0; }));
 
-      for (int64_t word_i = 0; word_i < whole_word_count; ++word_i) {
+      for (size_t word_i = 0; word_i < whole_word_count; ++word_i) {
         for (size_t i = 0; i < N; ++i) {
           visited_words[i] = words[i][word_i];
         }
@@ -218,7 +218,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
 
       // word_i such that words[i][word_i] and words[i][word_i + 1] are lie entirely
       // within the bitmap for all i
-      for (int64_t word_i = 0; word_i < whole_word_count - 1; ++word_i) {
+      for (size_t word_i = 0; word_i < whole_word_count - 1; ++word_i) {
         for (size_t i = 0; i < N; ++i) {
           if (offsets[i] == 0) {
             visited_words[i] = words[i][word_i];

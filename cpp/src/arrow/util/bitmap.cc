@@ -31,9 +31,9 @@ namespace arrow {
 namespace internal {
 
 std::string Bitmap::ToString() const {
-  std::string out(length_ + ((length_ - 1) / 8), ' ');
+  std::string out(static_cast<size_t>(length_ + ((length_ - 1) / 8)), ' ');
   for (int64_t i = 0; i < length_; ++i) {
-    out[i + (i / 8)] = GetBit(i) ? '1' : '0';
+    out[static_cast<size_t>(i + (i / 8))] = GetBit(i) ? '1' : '0';
   }
   return out;
 }

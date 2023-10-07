@@ -62,8 +62,8 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
     futures.push_back(*pool->Submit(wrap_memcpy, dst + prefix + i * chunk_size,
                                     left + i * chunk_size, chunk_size));
   }
-  memcpy(dst, src, prefix);
-  memcpy(dst + prefix + num_threads * chunk_size, right, suffix);
+  memcpy(dst, src, static_cast<size_t>(prefix));
+  memcpy(dst + prefix + num_threads * chunk_size, right, static_cast<size_t>(suffix));
 
   for (auto& fut : futures) {
     ARROW_CHECK_OK(fut.status());

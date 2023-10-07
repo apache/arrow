@@ -141,7 +141,7 @@ class ARROW_EXPORT BitRunReader {
     if (ARROW_PREDICT_TRUE(bits_remaining >= 64)) {
       std::memcpy(&word_, bitmap_, 8);
     } else {
-      int64_t bytes_to_load = bit_util::BytesForBits(bits_remaining);
+      auto bytes_to_load = static_cast<size_t>(bit_util::BytesForBits(bits_remaining));
       auto word_ptr = reinterpret_cast<uint8_t*>(&word_);
       std::memcpy(word_ptr, bitmap_, bytes_to_load);
       // Ensure stoppage at last bit in bitmap by reversing the next higher
@@ -304,12 +304,13 @@ class BaseSetBitRunReader {
     if (Reverse) {
       // Read in the most significant bytes of the word
       bitmap_ -= num_bytes;
-      memcpy(reinterpret_cast<char*>(&word) + 8 - num_bytes, bitmap_, num_bytes);
+      memcpy(reinterpret_cast<char*>(&word) + 8 - num_bytes, bitmap_,
+             static_cast<size_t>(num_bytes));
       // XXX MostSignificantBitmask
       return (bit_util::ToLittleEndian(word) << bit_offset) &
              ~bit_util::LeastSignificantBitMask(64 - num_bits);
     } else {
-      memcpy(&word, bitmap_, num_bytes);
+      memcpy(&word, bitmap_, static_cast<size_t>(num_bytes));
       bitmap_ += num_bytes;
       return (bit_util::ToLittleEndian(word) >> bit_offset) &
              bit_util::LeastSignificantBitMask(num_bits);

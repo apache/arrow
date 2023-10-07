@@ -308,9 +308,9 @@ template <size_t N>
 static int64_t FillInArray(const std::array<uint64_t, N>& value_array,
                            uint32_t* result_array) {
   const auto value_array_le = bit_util::little_endian::Make(value_array);
-  int64_t next_index = 0;
+  size_t next_index = 0;
   // 1st loop to find out 1st non-negative value in input
-  int64_t i = N - 1;
+  size_t i = N - 1;
   for (; i >= 0; i--) {
     if (value_array_le[i] != 0) {
       if (value_array_le[i] <= std::numeric_limits<uint32_t>::max()) {
@@ -321,7 +321,7 @@ static int64_t FillInArray(const std::array<uint64_t, N>& value_array,
     }
   }
   // 2nd loop to fill in the rest of the array.
-  for (int64_t j = i; j >= 0; j--) {
+  for (auto j = i; j >= 0; j--) {
     result_array[next_index++] = static_cast<uint32_t>(value_array_le[j] >> 32);
     result_array[next_index++] = static_cast<uint32_t>(value_array_le[j]);
   }

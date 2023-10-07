@@ -158,7 +158,8 @@ Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
     ARROW_ASSIGN_OR_RAISE(
         auto new_buffer,
         AllocateBuffer(buffer->size(), minimum_desired_alignment, memory_pool));
-    std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
+    std::memcpy(new_buffer->mutable_data(), buffer->data(),
+                static_cast<size_t>(buffer->size()));
     return std::move(new_buffer);
   } else {
     return std::move(buffer);

@@ -105,7 +105,7 @@ void SetBitmapImpl(uint8_t* data, int64_t offset, int64_t length) {
 
   // set values per byte
   DCHECK_EQ(offset % 8, 0);
-  std::memset(data + offset / 8, set_byte, length / 8);
+  std::memset(data + offset / 8, set_byte, static_cast<size_t>(length / 8));
   offset += bit_util::RoundDown(length, 8);
   length -= bit_util::RoundDown(length, 8);
 
