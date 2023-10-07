@@ -283,6 +283,6 @@ def test_categorical_dtype(indices_type, bitwidth, f_string):
 
     df = table.__dataframe__()
     col = df.get_column(0)
-    assert col.dtype[0] == 23 # <DtypeKind.CATEGORICAL: 23>
+    assert col.dtype[0] == 23  # <DtypeKind.CATEGORICAL: 23>
     assert col.dtype[1] == bitwidth
     assert col.dtype[2] == f_string
