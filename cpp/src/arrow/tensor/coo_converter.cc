@@ -40,10 +40,10 @@ namespace {
 template <typename c_index_type>
 inline void IncrementRowMajorIndex(std::vector<c_index_type>& coord,
                                    const std::vector<int64_t>& shape) {
-  const int64_t ndim = shape.size();
+  const auto ndim = shape.size();
   ++coord[ndim - 1];
   if (coord[ndim - 1] == shape[ndim - 1]) {
-    int64_t d = ndim - 1;
+    auto d = ndim - 1;
     while (d > 0 && coord[d] == shape[d]) {
       coord[d] = 0;
       ++coord[d - 1];
@@ -78,25 +78,25 @@ void ConvertRowMajorTensor(const Tensor& tensor, c_index_type* indices,
 template <typename c_index_type, typename c_value_type>
 void ConvertColumnMajorTensor(const Tensor& tensor, c_index_type* out_indices,
                               c_value_type* out_values, const int64_t size) {
-  const auto ndim = tensor.ndim();
-  std::vector<c_index_type> indices(ndim * size);
-  std::vector<c_value_type> values(size);
+  const auto ndim = static_cast<size_t>(tensor.ndim());
+  std::vector<c_index_type> indices(static_cast<size_t>(ndim * size));
+  std::vector<c_value_type> values(static_cast<const size_t>(size));
   ConvertRowMajorTensor(tensor, indices.data(), values.data(), size);
 
   // transpose indices
-  for (int64_t i = 0; i < size; ++i) {
-    for (int j = 0; j < ndim / 2; ++j) {
+  for (size_t i = 0; i < static_cast<const size_t>(size); ++i) {
+    for (size_t j = 0; j < ndim / 2; ++j) {
       std::swap(indices[i * ndim + j], indices[i * ndim + ndim - j - 1]);
     }
   }
 
   // sort indices
-  std::vector<int64_t> order(size);
+  std::vector<int64_t> order(static_cast<const size_t>(size));
   std::iota(order.begin(), order.end(), 0);
   std::sort(order.begin(), order.end(), [&](const int64_t xi, const int64_t yi) {
-    const int64_t x_offset = xi * ndim;
-    const int64_t y_offset = yi * ndim;
-    for (int j = 0; j < ndim; ++j) {
+    const auto x_offset = static_cast<size_t>(xi * ndim);
+    const auto y_offset = static_cast<size_t>(yi * ndim);
+    for (size_t j = 0; j < ndim; ++j) {
       const auto x = indices[x_offset + j];
       const auto y = indices[y_offset + j];
       if (x < y) return true;
@@ -107,7 +107,7 @@ void ConvertColumnMajorTensor(const Tensor& tensor, c_index_type* out_indices,
 
   // transfer result
   const auto* indices_data = indices.data();
-  for (int64_t i = 0; i < size; ++i) {
+  for (size_t i = 0; i < static_cast<const size_t>(size); ++i) {
     out_values[i] = values[i];
 
     std::copy_n(indices_data, ndim, out_indices);
@@ -121,12 +121,12 @@ void ConvertStridedTensor(const Tensor& tensor, c_index_type* indices,
                           c_value_type* values, const int64_t size) {
   using ValueType = typename CTypeTraits<c_value_type>::ArrowType;
   const auto& shape = tensor.shape();
-  const auto ndim = tensor.ndim();
+  const auto ndim = static_cast<size_t>(tensor.ndim());
   std::vector<int64_t> coord(ndim, 0);
 
   constexpr c_value_type zero = 0;
   c_value_type x;
-  int64_t i;
+  size_t i;
   for (int64_t n = tensor.size(); n > 0; --n) {
     x = tensor.Value<ValueType>(coord);
     if (ARROW_PREDICT_FALSE(x != zero)) {
