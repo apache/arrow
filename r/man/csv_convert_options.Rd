@@ -60,3 +60,10 @@ starting from the beginning of this vector. Possible values are
 \description{
 CSV Convert Options
 }
+\examples{
+tf <- tempfile()
+on.exit(unlink(tf))
+writeLines('x\n1\nNULL\n2\nNA', tf)
+read_csv_arrow(tf, convert_options = csv_convert_options(null_values =  c("", "NA", "NULL")))
+open_csv_dataset(tf, convert_options = csv_convert_options(null_values =  c("", "NA", "NULL")))
+}
