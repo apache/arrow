@@ -89,7 +89,7 @@ thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tool
 
 
 download_binary <- function(lib) {
-  libfile <- tempfile()
+  libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
     if (!quietly) {
@@ -118,6 +118,7 @@ download_binary <- function(lib) {
 
     if (checksum_ok != 0) {
       cat("*** Checksum validation failed for libarrow binary: ", libfile, "\n")
+      unlink(libfile)
       libfile <- NULL
     } else {
       cat("*** Checksum validated successfully for libarrow binary: ", libfile, "\n")
