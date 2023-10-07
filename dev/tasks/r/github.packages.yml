@@ -351,6 +351,8 @@ jobs:
           ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
+          ARROW_R_ENFORCE_CHECKSUM: "true"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         shell: bash
         run: |
           Rscript -e '
@@ -435,8 +437,6 @@ jobs:
           LIBARROW_BINARY: "FALSE"
           ARROW_R_DEV: "TRUE"
           CMAKE_FIND_DEBUG_MODE: "ON"
-          ARROW_R_ENFORCE_CHECKSUM: "true"
-          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         shell: Rscript {0}
         run: |
