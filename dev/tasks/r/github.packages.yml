@@ -160,7 +160,7 @@ jobs:
         shell: bash
         run: |
           cd arrow/r/libarrow/dist
-          shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
+          sudo shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
