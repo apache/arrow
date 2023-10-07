@@ -324,8 +324,8 @@ Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* poo
                                            "efg", "456!@#!@#", "12312"};
   StringBuilder builder(pool);
   const size_t values_len = values.size();
-  for (int64_t i = 0; i < length; ++i) {
-    int64_t values_index = i % values_len;
+  for (size_t i = 0; i < static_cast<size_t>(length); ++i) {
+    auto values_index = i % values_len;
     if (include_nulls && values_index == 0) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
@@ -529,7 +529,7 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
 
   // construct individual nullable/non-nullable struct arrays
   std::shared_ptr<Array> no_nulls(new StructArray(type, list_batch->num_rows(), columns));
-  std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
+  std::vector<uint8_t> null_bytes(static_cast<size_t>(list_batch->num_rows()), 1);
   null_bytes[0] = 0;
   ARROW_ASSIGN_OR_RAISE(auto null_bitmap, internal::BytesToBits(null_bytes));
   std::shared_ptr<Array> with_nulls(
@@ -1120,8 +1120,8 @@ Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
   }
 
   const int64_t element_size = element_type.bit_width() / CHAR_BIT;
-  const int64_t len =
-      std::accumulate(shape.begin(), shape.end(), int64_t(1), std::multiplies<int64_t>());
+  const auto len = static_cast<size_t>(std::accumulate(
+      shape.begin(), shape.end(), int64_t(1), std::multiplies<int64_t>()));
 
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buf, AllocateBuffer(element_size * len));
 

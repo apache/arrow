@@ -464,7 +464,7 @@ static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
 
 static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
                                    std::vector<KeyValueOffset>* key_values) {
-  key_values->reserve(metadata.size());
+  key_values->reserve(static_cast<size_t>(metadata.size()));
   for (int i = 0; i < metadata.size(); ++i) {
     key_values->push_back(AppendKeyValue(fbb, metadata.key(i), metadata.value(i)));
   }
