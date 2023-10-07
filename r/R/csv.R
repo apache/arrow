@@ -641,7 +641,12 @@ readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
 #'    and LF (`0x0a`) characters?
 #' @param ignore_empty_lines Logical: should empty lines be ignored (default) or
 #'    generate a row of missing values (if `FALSE`)?
-#'
+#' @examples
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' writeLines('x\n1\n\n2', tf)
+#' read_csv_arrow(tf, parse_options = csv_parse_options(ignore_empty_lines =  FALSE))
+#' open_csv_dataset(tf, parse_options = csv_parse_options(ignore_empty_lines =  FALSE))
 #' @export
 csv_parse_options <- function(delimiter = ",",
                               quoting = TRUE,
