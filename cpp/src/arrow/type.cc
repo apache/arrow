@@ -1057,7 +1057,8 @@ std::string NullType::ToString() const { return name(); }
 // FieldPath
 
 size_t FieldPath::hash() const {
-  return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
+  return static_cast<size_t>(
+      internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int)));
 }
 
 std::string FieldPath::ToString() const {
@@ -1423,7 +1424,7 @@ void FieldRef::Flatten(std::vector<FieldRef> children) {
       if (n_indices == 0) {
         return;
       } else if (n_indices > 0) {
-        std::vector<int> indices(n_indices);
+        std::vector<int> indices(static_cast<size_t>(n_indices));
         auto out_indices = indices.begin();
         for (const auto& child : flattened_children) {
           for (int index : *child.field_path()) {

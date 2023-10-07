@@ -169,8 +169,9 @@ struct ScalarHashImpl {
       // We can't visit values without unboxing the whole array, so only hash
       // the null bitmap for now. Only hash the null bitmap if the null count
       // is not 0 to ensure hash consistency.
-      hash_ = internal::ComputeBitmapHash(validity, /*seed=*/hash_,
-                                          /*bits_offset=*/offset, /*num_bits=*/length);
+      hash_ = static_cast<size_t>(internal::ComputeBitmapHash(validity, /*seed=*/hash_,
+                                                              /*bits_offset=*/offset,
+                                                              /*num_bits=*/length));
     }
 
     // Hash the relevant child arrays for each type taking offset and length
@@ -791,7 +792,7 @@ struct MakeNullImpl {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> value,
                           AllocateBuffer(type.byte_width()));
     // Avoid exposing past memory contents
-    memset(value->mutable_data(), 0, value->size());
+    memset(value->mutable_data(), 0, static_cast<size_t>(value->size()));
     out_ = std::make_shared<FixedSizeBinaryScalar>(std::move(value), type_,
                                                    /*is_valid=*/false);
     return Status::OK();
