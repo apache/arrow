@@ -153,14 +153,16 @@ jobs:
           PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
           VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
+          # These files were created by the docker user so we have to chown them 
+          chown -R $USER:$USER arrow/r/libarrow
+
           cd arrow/r/libarrow/dist
-          # These files were created by the docker user so we have to sudo to get them
-          sudo -E zip -r $PKG_FILE lib/ include/
+          zip -r $PKG_FILE lib/ include/
       - name: Create Checksum
         shell: bash
         run: |
           cd arrow/r/libarrow/dist
-          sudo shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
+          shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
