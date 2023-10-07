@@ -322,28 +322,26 @@ func (f *fieldPos) namePath() []string {
 // GetValue retrieves the value from the map[string]any
 // by following the field's key path
 func (f *fieldPos) getValue(m any) any {
-	var value any = m
-	// The value of the type assertion is not assigned to a variable as `value` is reassigned
-	// and its type reasserted as the data is traversed
-	switch value.(type) {
+	// The value of the type assertion is not assigned to a variable as `value` is assigned
+	// to valueMap to traverse the map by its keys, if the type assertion inside the for loop
+	// fails it means the data is not there (tree path does not exist because of a null value)
+	switch m.(type) {
 	case map[string]any:
 		for _, key := range f.namePath() {
-			valueMap, ok := value.(map[string]any)
+			valueMap, ok := m.(map[string]any)
 			if !ok {
 				if key == "item" {
-					return value
+					return m
 				}
 				return nil
 			}
-			value, ok = valueMap[key]
+			m, ok = valueMap[key]
 			if !ok {
 				return nil
 			}
 		}
-	default:
-		return value
 	}
-	return value
+	return m
 }
 
 // Avro data is loaded to Arrow arrays using the following type mapping:
@@ -364,16 +362,15 @@ func (f *fieldPos) getValue(m any) any {
 //
 // mapFieldBuilders builds a tree of field builders matching the Arrow schema
 func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
+	f := parent.newChild(field.Name, b, field.Metadata)
 	switch bt := b.(type) {
 	case *array.BinaryBuilder:
-		f := parent.newChild(field.Name, bt, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendBinaryData(bt, data)
 			return nil
 		}
 	case *array.BinaryDictionaryBuilder:
 		// has metadata for Avro enum symbols
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendBinaryDictData(bt, data)
 			return nil
@@ -386,19 +383,16 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 		sa := sb.NewStringArray()
 		bt.InsertStringDictValues(sa)
 	case *array.BooleanBuilder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendBoolData(bt, data)
 			return nil
 		}
 	case *array.Date32Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendDate32Data(bt, data)
 			return nil
 		}
 	case *array.Decimal128Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			err := appendDecimal128Data(bt, data)
 			if err != nil {
@@ -407,7 +401,6 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			return nil
 		}
 	case *array.Decimal256Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			err := appendDecimal256Data(bt, data)
 			if err != nil {
@@ -416,7 +409,6 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			return nil
 		}
 	case *types.UUIDBuilder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			switch dt := data.(type) {
 			case nil:
@@ -436,41 +428,35 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			return nil
 		}
 	case *array.FixedSizeBinaryBuilder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendFixedSizeBinaryData(bt, data)
 			return nil
 		}
 	case *array.Float32Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendFloat32Data(bt, data)
 			return nil
 		}
 	case *array.Float64Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendFloat64Data(bt, data)
 			return nil
 		}
 	case *array.Int32Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendInt32Data(bt, data)
 			return nil
 		}
 	case *array.Int64Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendInt64Data(bt, data)
 			return nil
 		}
 	case *array.LargeListBuilder:
-		lf := parent.newChild(field.Name, b, field.Metadata)
 		vb := bt.ValueBuilder()
-		lf.isList = true
-		mapFieldBuilders(vb, field.Type.(*arrow.LargeListType).ElemField(), lf)
-		lf.appendFunc = func(data interface{}) error {
+		f.isList = true
+		mapFieldBuilders(vb, field.Type.(*arrow.LargeListType).ElemField(), f)
+		f.appendFunc = func(data interface{}) error {
 			switch dt := data.(type) {
 			case nil:
 				bt.AppendNull()
@@ -486,11 +472,10 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			return nil
 		}
 	case *array.ListBuilder:
-		lf := parent.newChild(field.Name, b, field.Metadata)
 		vb := bt.ValueBuilder()
-		lf.isList = true
-		mapFieldBuilders(vb, field.Type.(*arrow.ListType).ElemField(), lf)
-		lf.appendFunc = func(data interface{}) error {
+		f.isList = true
+		mapFieldBuilders(vb, field.Type.(*arrow.ListType).ElemField(), f)
+		f.appendFunc = func(data interface{}) error {
 			switch dt := data.(type) {
 			case nil:
 				bt.AppendNull()
@@ -507,13 +492,12 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 		}
 	case *array.MapBuilder:
 		// has metadata for objects in values
-		mf := parent.newChild(field.Name, b, field.Metadata)
-		mf.isMap = true
+		f.isMap = true
 		kb := bt.KeyBuilder()
 		ib := bt.ItemBuilder()
-		mapFieldBuilders(kb, field.Type.(*arrow.MapType).KeyField(), mf)
-		mapFieldBuilders(ib, field.Type.(*arrow.MapType).ItemField(), mf)
-		mf.appendFunc = func(data interface{}) error {
+		mapFieldBuilders(kb, field.Type.(*arrow.MapType).KeyField(), f)
+		mapFieldBuilders(ib, field.Type.(*arrow.MapType).ItemField(), f)
+		f.appendFunc = func(data interface{}) error {
 			switch data.(type) {
 			case nil:
 				bt.AppendNull()
@@ -523,27 +507,24 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			return nil
 		}
 	case *array.MonthDayNanoIntervalBuilder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendDurationData(bt, data)
 			return nil
 		}
 	case *array.StringBuilder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendStringData(bt, data)
 			return nil
 		}
 	case *array.StructBuilder:
 		// has metadata for Avro Union named types
-		sf := parent.newChild(field.Name, b, field.Metadata)
-		sf.typeName, _ = field.Metadata.GetValue("typeName")
-		sf.isStruct = true
+		f.typeName, _ = field.Metadata.GetValue("typeName")
+		f.isStruct = true
 		// create children
-		for i, f := range field.Type.(*arrow.StructType).Fields() {
-			mapFieldBuilders(bt.FieldBuilder(i), f, sf)
+		for i, p := range field.Type.(*arrow.StructType).Fields() {
+			mapFieldBuilders(bt.FieldBuilder(i), p, f)
 		}
-		sf.appendFunc = func(data interface{}) error {
+		f.appendFunc = func(data interface{}) error {
 			switch data.(type) {
 			case nil:
 				bt.AppendNull()
@@ -553,19 +534,16 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			return nil
 		}
 	case *array.Time32Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendTime32Data(bt, data)
 			return nil
 		}
 	case *array.Time64Builder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendTime64Data(bt, data)
 			return nil
 		}
 	case *array.TimestampBuilder:
-		f := parent.newChild(field.Name, b, field.Metadata)
 		f.appendFunc = func(data interface{}) error {
 			appendTimestampData(bt, data)
 			return nil
@@ -585,7 +563,7 @@ func appendBinaryData(b *array.BinaryBuilder, data interface{}) {
 			b.Append(ct.([]byte))
 		}
 	default:
-		b.Append([]byte(fmt.Sprint(data)))
+		b.Append(fmt.Append([]byte{}, data))
 	}
 }
 
@@ -596,11 +574,11 @@ func appendBinaryDictData(b *array.BinaryDictionaryBuilder, data interface{}) {
 	case string:
 		b.AppendString(dt)
 	case map[string]any:
-		switch dt["string"].(type) {
+		switch v := dt["string"].(type) {
 		case nil:
 			b.AppendNull()
 		case string:
-			b.AppendString(dt["string"].(string))
+			b.AppendString(v)
 		}
 	}
 }
@@ -612,11 +590,11 @@ func appendBoolData(b *array.BooleanBuilder, data interface{}) {
 	case bool:
 		b.Append(dt)
 	case map[string]any:
-		switch dt["boolean"].(type) {
+		switch v := dt["boolean"].(type) {
 		case nil:
 			b.AppendNull()
 		case bool:
-			b.Append(dt["boolean"].(bool))
+			b.Append(v)
 		}
 	}
 }
@@ -628,11 +606,11 @@ func appendDate32Data(b *array.Date32Builder, data interface{}) {
 	case int32:
 		b.Append(arrow.Date32(dt))
 	case map[string]any:
-		switch dt["int"].(type) {
+		switch v := dt["int"].(type) {
 		case nil:
 			b.AppendNull()
 		case int32:
-			b.Append(arrow.Date32(dt["int"].(int32)))
+			b.Append(arrow.Date32(v))
 		}
 	}
 }
@@ -642,9 +620,9 @@ func appendDecimal128Data(b *array.Decimal128Builder, data interface{}) error {
 	case nil:
 		b.AppendNull()
 	case []byte:
+		buf := bytes.NewBuffer(dt)
 		if len(dt) <= 38 {
 			var intData int64
-			buf := bytes.NewBuffer(dt)
 			err := binary.Read(buf, binary.BigEndian, &intData)
 			if err != nil {
 				return err
@@ -652,17 +630,12 @@ func appendDecimal128Data(b *array.Decimal128Builder, data interface{}) error {
 			b.Append(decimal128.FromI64(intData))
 		} else {
 			var bigIntData big.Int
-			buf := bytes.NewBuffer(dt)
-			err := binary.Read(buf, binary.BigEndian, &bigIntData)
-			if err != nil {
-				return err
-			}
-			b.Append(decimal128.FromBigInt(&bigIntData))
+			b.Append(decimal128.FromBigInt(bigIntData.SetBytes(buf.Bytes())))
 		}
 	case map[string]any:
+		buf := bytes.NewBuffer(dt["bytes"].([]byte))
 		if len(dt["bytes"].([]byte)) <= 38 {
 			var intData int64
-			buf := bytes.NewBuffer(dt["bytes"].([]byte))
 			err := binary.Read(buf, binary.BigEndian, &intData)
 			if err != nil {
 				return err
@@ -670,12 +643,7 @@ func appendDecimal128Data(b *array.Decimal128Builder, data interface{}) error {
 			b.Append(decimal128.FromI64(intData))
 		} else {
 			var bigIntData big.Int
-			buf := bytes.NewBuffer(dt["bytes"].([]byte))
-			err := binary.Read(buf, binary.BigEndian, &bigIntData)
-			if err != nil {
-				return err
-			}
-			b.Append(decimal128.FromBigInt(&bigIntData))
+			b.Append(decimal128.FromBigInt(bigIntData.SetBytes(buf.Bytes())))
 		}
 	}
 	return nil
@@ -688,32 +656,27 @@ func appendDecimal256Data(b *array.Decimal256Builder, data interface{}) error {
 	case []byte:
 		var bigIntData big.Int
 		buf := bytes.NewBuffer(dt)
-		err := binary.Read(buf, binary.BigEndian, &bigIntData)
-		if err != nil {
-			return err
-		}
-		b.Append(decimal256.FromBigInt(&bigIntData))
+		b.Append(decimal256.FromBigInt(bigIntData.SetBytes(buf.Bytes())))
 	case map[string]any:
 		var bigIntData big.Int
 		buf := bytes.NewBuffer(dt["bytes"].([]byte))
-		err := binary.Read(buf, binary.BigEndian, &bigIntData)
-		if err != nil {
-			return err
-		}
-		b.Append(decimal256.FromBigInt(&bigIntData))
+		b.Append(decimal256.FromBigInt(bigIntData.SetBytes(buf.Bytes())))
 	}
 	return nil
 }
 
+// Avro duration logical type annotates Avro fixed type of size 12, which stores three little-endian
+// unsigned integers that represent durations at different granularities of time. The first stores
+// a number in months, the second stores a number in days, and the third stores a number in milliseconds.
 func appendDurationData(b *array.MonthDayNanoIntervalBuilder, data interface{}) {
 	switch dt := data.(type) {
 	case nil:
 		b.AppendNull()
 	case []byte:
 		dur := new(arrow.MonthDayNanoInterval)
-		dur.Months = int32(binary.BigEndian.Uint64(dt[:3]))
-		dur.Days = int32(binary.BigEndian.Uint64(dt[4:7]))
-		dur.Nanoseconds = int64(binary.BigEndian.Uint64(dt[8:]) * 1000000)
+		dur.Months = int32(binary.LittleEndian.Uint16(dt[:3]))
+		dur.Days = int32(binary.LittleEndian.Uint16(dt[4:7]))
+		dur.Nanoseconds = int64(binary.LittleEndian.Uint32(dt[8:]) * 1000000)
 		b.Append(*dur)
 	case map[string]any:
 		switch dtb := dt["bytes"].(type) {
@@ -721,9 +684,9 @@ func appendDurationData(b *array.MonthDayNanoIntervalBuilder, data interface{}) 
 			b.AppendNull()
 		case []byte:
 			dur := new(arrow.MonthDayNanoInterval)
-			dur.Months = int32(binary.BigEndian.Uint64(dtb[:3]))
-			dur.Days = int32(binary.BigEndian.Uint64(dtb[4:7]))
-			dur.Nanoseconds = int64(binary.BigEndian.Uint64(dtb[8:]) * 1000000)
+			dur.Months = int32(binary.LittleEndian.Uint16(dtb[:3]))
+			dur.Days = int32(binary.LittleEndian.Uint16(dtb[4:7]))
+			dur.Nanoseconds = int64(binary.LittleEndian.Uint32(dtb[8:]) * 1000000)
 			b.Append(*dur)
 		}
 	}
@@ -736,11 +699,11 @@ func appendFixedSizeBinaryData(b *array.FixedSizeBinaryBuilder, data interface{}
 	case []byte:
 		b.Append(dt)
 	case map[string]any:
-		switch dt["bytes"].(type) {
+		switch v := dt["bytes"].(type) {
 		case nil:
 			b.AppendNull()
 		case []byte:
-			b.Append(dt["bytes"].([]byte))
+			b.Append(v)
 		}
 	}
 }
@@ -752,11 +715,11 @@ func appendFloat32Data(b *array.Float32Builder, data interface{}) {
 	case float32:
 		b.Append(dt)
 	case map[string]any:
-		switch dt["float"].(type) {
+		switch v := dt["float"].(type) {
 		case nil:
 			b.AppendNull()
 		case float32:
-			b.Append(dt["float"].(float32))
+			b.Append(v)
 		}
 	}
 }
@@ -768,11 +731,11 @@ func appendFloat64Data(b *array.Float64Builder, data interface{}) {
 	case float64:
 		b.Append(dt)
 	case map[string]any:
-		switch dt["double"].(type) {
+		switch v := dt["double"].(type) {
 		case nil:
 			b.AppendNull()
 		case float64:
-			b.Append(dt["double"].(float64))
+			b.Append(v)
 		}
 	}
 }
@@ -786,13 +749,13 @@ func appendInt32Data(b *array.Int32Builder, data interface{}) {
 	case int32:
 		b.Append(dt)
 	case map[string]any:
-		switch dt["int"].(type) {
+		switch v := dt["int"].(type) {
 		case nil:
 			b.AppendNull()
 		case int:
-			b.Append(int32(dt["int"].(int)))
+			b.Append(int32(v))
 		case int32:
-			b.Append(dt["int"].(int32))
+			b.Append(v)
 		}
 	}
 }
@@ -806,13 +769,13 @@ func appendInt64Data(b *array.Int64Builder, data interface{}) {
 	case int64:
 		b.Append(dt)
 	case map[string]any:
-		switch dt["long"].(type) {
+		switch v := dt["long"].(type) {
 		case nil:
 			b.AppendNull()
 		case int:
-			b.Append(int64(dt["long"].(int)))
+			b.Append(int64(v))
 		case int64:
-			b.Append(dt["long"].(int64))
+			b.Append(v)
 		}
 	}
 }
@@ -824,11 +787,11 @@ func appendStringData(b *array.StringBuilder, data interface{}) {
 	case string:
 		b.Append(dt)
 	case map[string]any:
-		switch dt["string"].(type) {
+		switch v := dt["string"].(type) {
 		case nil:
 			b.AppendNull()
 		case string:
-			b.Append(dt["string"].(string))
+			b.Append(v)
 		}
 	default:
 		b.Append(fmt.Sprint(data))
@@ -842,11 +805,11 @@ func appendTime32Data(b *array.Time32Builder, data interface{}) {
 	case int32:
 		b.Append(arrow.Time32(dt))
 	case map[string]any:
-		switch dt["int"].(type) {
+		switch v := dt["int"].(type) {
 		case nil:
 			b.AppendNull()
 		case int32:
-			b.Append(arrow.Time32(dt["int"].(int32)))
+			b.Append(arrow.Time32(v))
 		}
 	}
 }
@@ -858,11 +821,11 @@ func appendTime64Data(b *array.Time64Builder, data interface{}) {
 	case int64:
 		b.Append(arrow.Time64(dt))
 	case map[string]any:
-		switch dt["long"].(type) {
+		switch v := dt["long"].(type) {
 		case nil:
 			b.AppendNull()
 		case int64:
-			b.Append(arrow.Time64(dt["long"].(int64)))
+			b.Append(arrow.Time64(v))
 		}
 	}
 }
@@ -874,11 +837,11 @@ func appendTimestampData(b *array.TimestampBuilder, data interface{}) {
 	case int64:
 		b.Append(arrow.Timestamp(dt))
 	case map[string]any:
-		switch dt["long"].(type) {
+		switch v := dt["long"].(type) {
 		case nil:
 			b.AppendNull()
 		case int64:
-			b.Append(arrow.Timestamp(dt["long"].(int64)))
+			b.Append(arrow.Timestamp(v))
 		}
 	}
 }
