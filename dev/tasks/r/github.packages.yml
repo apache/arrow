@@ -259,7 +259,7 @@ jobs:
           ARROW_R_DEV: "true"
           LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
           ARROW_R_ENFORCE_CHECKSUM: "true"
-          ARROW_R_CHECKSUM_PATH: "repo/libarrow/bin"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
