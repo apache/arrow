@@ -442,7 +442,13 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
         dict_encoded_size_(0),
         memo_table_(pool, kInitialHashTableSize) {}
 
-  ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
+  ~DictEncoderImpl() override {
+#ifndef NDEBUG
+    if (!buffered_indices_.empty()) {
+      ARROW_LOG(WARNING) << "DictEncoderImpl destroyed without flushing or closing";
+    }
+#endif
+  }
 
   int dict_encoded_size() const override { return dict_encoded_size_; }
 
