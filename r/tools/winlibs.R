@@ -20,6 +20,7 @@ VERSION <- args[1]
 dev_version <- package_version(VERSION)[1, 4]
 is_release <- is.na(dev_version) || dev_version < "100"
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
+checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
 
 if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
   if (length(args) > 1) {
@@ -66,9 +67,9 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     }
 
     # validate binary checksum for CRAN release only
-    if (dir.exists("tools/checksums") && is_release ||
+    if (dir.exists(checksum_path) && is_release ||
       env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
-      checksum <- sprintf("tools/checksums/windows/arrow-%s.zip.sha512", VERSION)
+      checksum <- sprintf("%s/windows/arrow-%s.zip.sha512", checksum_path, VERSION)
       # rtools does not have shasum with default config
       checksum_ok <- system2("sha512sum", args = c("--status", "-c", checksum))
 

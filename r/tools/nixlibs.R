@@ -30,7 +30,7 @@ if (test_mode && is.na(VERSION)) {
 dev_version <- package_version(VERSION)[1, 4]
 is_release <- is.na(dev_version) || dev_version < "100"
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
-
+checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
 
 # Small dev versions are added for R-only changes during CRAN submission.
 if (is_release) {
@@ -106,10 +106,10 @@ download_binary <- function(lib) {
   }
 
   # validate binary checksum for CRAN release only
-  if (dir.exists("tools/checksums") && is_release ||
+  if (dir.exists(checksum_path) && is_release ||
     env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
     checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1", binary_url)
-    checksum_file <- file.path("tools/checksums", checksum_file)
+    checksum_file <- file.path(checksum_path, checksum_file)
 
     # shasum -a is more portable than sha512sum
     checksum_ok <- system2("shasum", args = c(
