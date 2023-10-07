@@ -150,7 +150,7 @@ template <class T, class Builder>
 Status MakeArray(const std::vector<uint8_t>& valid_bytes, const std::vector<T>& values,
                  int64_t size, Builder* builder, std::shared_ptr<Array>* out) {
   // Append the first 1000
-  for (int64_t i = 0; i < size; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(size); ++i) {
     if (valid_bytes[i] > 0) {
       RETURN_NOT_OK(builder->Append(values[i]));
     } else {

@@ -688,8 +688,9 @@ void AssertZeroPadded(const Array& array) {
     if (buffer) {
       const int64_t padding = buffer->capacity() - buffer->size();
       if (padding > 0) {
-        std::vector<uint8_t> zeros(padding);
-        ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(), padding));
+        std::vector<uint8_t> zeros(static_cast<size_t>(padding));
+        ASSERT_EQ(0, memcmp(buffer->data() + buffer->size(), zeros.data(),
+                            static_cast<size_t>(padding)));
       }
     }
   }
@@ -1199,7 +1200,8 @@ std::shared_ptr<ArrayData> UnalignBuffers(const ArrayData& array) {
     }
     EXPECT_OK_AND_ASSIGN(std::shared_ptr<Buffer> padded,
                          AllocateBuffer(buffer->size() + 1, default_memory_pool()));
-    memcpy(padded->mutable_data() + 1, buffer->data(), buffer->size());
+    memcpy(padded->mutable_data() + 1, buffer->data(),
+           static_cast<size_t>(buffer->size()));
     std::shared_ptr<Buffer> unaligned = SliceBuffer(padded, 1);
     new_buffers.push_back(std::move(unaligned));
   }
