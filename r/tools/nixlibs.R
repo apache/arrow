@@ -126,7 +126,7 @@ download_binary <- function(lib) {
       checksum_args <- c("--status", "-c", checksum_file)
     }
 
-    checksum_ok <- system2(check_cmd, args = checksum_args)
+    checksum_ok <- system2(checksum_cmd, args = checksum_args)
 
     if (checksum_ok != 0) {
       cat("*** Checksum validation failed for libarrow binary: ", libfile, "\n")
