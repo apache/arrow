@@ -18,9 +18,9 @@
 args <- commandArgs(TRUE)
 VERSION <- args[1]
 dev_version <- package_version(VERSION)[1, 4]
+# Small dev versions are added for R-only changes during CRAN submission.
 is_release <- is.na(dev_version) || dev_version < "100"
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
-checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
 
 if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
   if (length(args) > 1) {
@@ -35,10 +35,10 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
   } else {
     # Download static arrow from the apache artifactory
     quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
-    get_file <- function(template, version) {
+    get_file <- function(template, version, dest_file) {
       try(
         suppressWarnings(
-          download.file(sprintf(template, version), zip_file, quiet = quietly)
+          download.file(sprintf(template, version), dest_file, quiet = quietly)
         ),
         silent = quietly
       )
@@ -57,22 +57,22 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
 
     zip_file <- sprintf("arrow-%s.zip", VERSION)
 
-    # Small dev versions are added for R-only changes during CRAN submission.
     if (is_release) {
       VERSION <- package_version(VERSION)[1, 1:3]
       zip_file <- sprintf("arrow-%s.zip", VERSION)
 
-      get_file(artifactory, VERSION)
+      get_file(artifactory, VERSION, zip_file)
     } else {
-      get_file(nightly, VERSION)
+      get_file(nightly, VERSION, zip_file)
     }
 
+    checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
     # validate binary checksum for CRAN release only
     if (dir.exists(checksum_path) && is_release ||
       env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
-      checksum <- sprintf("%s/windows/arrow-%s.zip.sha512", checksum_path, VERSION)
+      checksum_file <- sprintf("%s/windows/arrow-%s.zip.sha512", checksum_path, VERSION)
       # rtools does not have shasum with default config
-      checksum_ok <- system2("sha512sum", args = c("--status", "-c", checksum))
+      checksum_ok <- system2("sha512sum", args = c("--status", "-c", checksum_file))
 
       if (checksum_ok != 0) {
         stop("*** Checksum validation failed for libarrow binary: ", zip_file)
