@@ -850,8 +850,8 @@ std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
       AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
   const uint8_t* raw_values = sink_.data();
-  ::arrow::util::internal::ByteStreamSplitEncode<T>(raw_values, num_values_in_buffer_,
-                                                    output_buffer_raw);
+  ::arrow::util::internal::ByteStreamSplitEncode<T>(
+      raw_values, static_cast<size_t>(num_values_in_buffer_), output_buffer_raw);
   sink_.Reset();
   num_values_in_buffer_ = 0;
   return std::move(output_buffer);
@@ -1018,7 +1018,7 @@ inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
   }
   // If bytes_to_decode == 0, data could be null
   if (bytes_to_decode > 0) {
-    memcpy(out, data, bytes_to_decode);
+    memcpy(out, data, static_cast<size_t>(bytes_to_decode));
   }
   return static_cast<int>(bytes_to_decode);
 }
@@ -1574,7 +1574,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
     // XXX(wesm): Cannot append "valid bits" directly to the builder
     std::vector<uint8_t> valid_bytes(num_values, 0);
-    int64_t i = 0;
+    size_t i = 0;
     VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() { valid_bytes[i++] = 1; }, [&]() { ++i; });
