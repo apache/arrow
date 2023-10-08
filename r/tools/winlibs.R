@@ -22,13 +22,9 @@ dev_version <- package_version(VERSION)[1, 4]
 is_release <- is.na(dev_version) || dev_version < "100"
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 # We want to log the message in the style of the configure script
-# not as an R error but still stop evaluation of this script.
+# not as an R error. Use `return` to exit the script after logging.
 lg <- function(...) {
   cat("*** ", sprintf(...), "\n")
-}
-exit <- function(...) {
-  lg(...)
-  return()
 }
 
 if (is_release) {
@@ -48,7 +44,8 @@ if (is_release) {
 }
 
 if (file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
-  exit("Found local Arrow %s!", VERSION)
+  lg("Found local Arrow %s!", VERSION)
+  return()
 }
 
 zip_file <- sprintf("arrow-%s.zip", VERSION)
@@ -57,7 +54,8 @@ if (length(args) > 1) {
   # Arg 2 would be the path/to/lib.zip
   localfile <- args[2]
   if (!file.exists(localfile)) {
-    exit("RWINLIB_LOCAL '%s' does not exist. Build will fail.", localfile)
+    lg("RWINLIB_LOCAL '%s' does not exist. Build will fail.", localfile)
+    return()
   } else {
     lg("Using RWINLIB_LOCAL %s", localfile)
   }
@@ -73,7 +71,8 @@ if (length(args) > 1) {
   )
 
   if (!file.exists(zip_file) || file.size(zip_file) == 0) {
-    exit("Failed to download libarrow binary from %s. Build will fail.", binary_url)
+    lg("Failed to download libarrow binary from %s. Build will fail.", binary_url)
+    return()
   }
 
   checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
@@ -85,7 +84,8 @@ if (length(args) > 1) {
     checksum_ok <- system2("sha512sum", args = c("--status", "-c", checksum_file))
 
     if (checksum_ok != 0) {
-      exit("Checksum validation failed for libarrow binary: %s", zip_file)
+      lg("Checksum validation failed for libarrow binary: %s", zip_file)
+      return()
     }
     lg("Checksum validated successfully for libarrow binary: %s", zip_file)
   }
