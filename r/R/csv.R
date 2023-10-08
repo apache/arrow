@@ -385,7 +385,7 @@ CsvTableReader$create <- function(file,
 #' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
-#' writeLines('my file has a non-data header\nx\n1\n2', tf)
+#' writeLines("my file has a non-data header\nx\n1\n2", tf)
 #' read_csv_arrow(tf, read_options = csv_read_options(skip_rows = 1))
 #' open_csv_dataset(tf, read_options = csv_read_options(skip_rows = 1))
 #' @export
@@ -581,12 +581,12 @@ readr_to_csv_write_options <- function(col_names = TRUE,
 #' on.exit(unlink(tf))
 #' write_csv_arrow(airquality, tf, write_options = csv_write_options(null_string = "-99"))
 #' @export
-csv_write_options <-  function(include_header = TRUE,
-                                   batch_size = 1024L,
-                                   null_string = "",
-                                   delimiter = ",",
-                                   eol = "\n",
-                                   quoting_style = c("Needed", "AllValid", "None")) {
+csv_write_options <- function(include_header = TRUE,
+                              batch_size = 1024L,
+                              null_string = "",
+                              delimiter = ",",
+                              eol = "\n",
+                              quoting_style = c("Needed", "AllValid", "None")) {
   quoting_style <- match.arg(quoting_style)
   quoting_style_opts <- c("Needed", "AllValid", "None")
   quoting_style <- match(quoting_style, quoting_style_opts) - 1L
@@ -644,9 +644,9 @@ readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
 #' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
-#' writeLines('x\n1\n\n2', tf)
-#' read_csv_arrow(tf, parse_options = csv_parse_options(ignore_empty_lines =  FALSE))
-#' open_csv_dataset(tf, parse_options = csv_parse_options(ignore_empty_lines =  FALSE))
+#' writeLines("x\n1\n\n2", tf)
+#' read_csv_arrow(tf, parse_options = csv_parse_options(ignore_empty_lines = FALSE))
+#' open_csv_dataset(tf, parse_options = csv_parse_options(ignore_empty_lines = FALSE))
 #' @export
 csv_parse_options <- function(delimiter = ",",
                               quoting = TRUE,
@@ -751,21 +751,21 @@ TimestampParser$create <- function(format = NULL) {
 #' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
-#' writeLines('x\n1\nNULL\n2\nNA', tf)
-#' read_csv_arrow(tf, convert_options = csv_convert_options(null_values =  c("", "NA", "NULL")))
-#' open_csv_dataset(tf, convert_options = csv_convert_options(null_values =  c("", "NA", "NULL")))
+#' writeLines("x\n1\nNULL\n2\nNA", tf)
+#' read_csv_arrow(tf, convert_options = csv_convert_options(null_values = c("", "NA", "NULL")))
+#' open_csv_dataset(tf, convert_options = csv_convert_options(null_values = c("", "NA", "NULL")))
 #' @export
 csv_convert_options <- function(check_utf8 = TRUE,
-                                     null_values = c("", "NA"),
-                                     true_values = c("T", "true", "TRUE"),
-                                     false_values = c("F", "false", "FALSE"),
-                                     strings_can_be_null = FALSE,
-                                     col_types = NULL,
-                                     auto_dict_encode = FALSE,
-                                     auto_dict_max_cardinality = 50L,
-                                     include_columns = character(),
-                                     include_missing_columns = FALSE,
-                                     timestamp_parsers = NULL) {
+                                null_values = c("", "NA"),
+                                true_values = c("T", "true", "TRUE"),
+                                false_values = c("F", "false", "FALSE"),
+                                strings_can_be_null = FALSE,
+                                col_types = NULL,
+                                auto_dict_encode = FALSE,
+                                auto_dict_max_cardinality = 50L,
+                                include_columns = character(),
+                                include_missing_columns = FALSE,
+                                timestamp_parsers = NULL) {
   if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
       "Unsupported `col_types` specification.",
