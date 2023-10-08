@@ -771,7 +771,7 @@ void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) con
   encoder->Put(&src, 1);
   auto buffer = encoder->FlushValues();
   auto ptr = reinterpret_cast<const char*>(buffer->data());
-  dst->assign(ptr, buffer->size());
+  dst->assign(ptr, static_cast<size_t>(buffer->size()));
 }
 
 template <typename DType>
