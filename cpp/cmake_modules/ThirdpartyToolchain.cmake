@@ -926,10 +926,13 @@ if(CMAKE_AR)
   list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_AR=${EP_CMAKE_AR})
 endif()
 
-if(CMAKE_RANLIB)
-  # Ensure using absolute path.
-  find_program(EP_CMAKE_RANLIB ${CMAKE_RANLIB} REQUIRED)
-  list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${EP_CMAKE_RANLIB})
+# RANLIB isn't used for MSVC
+if(NOT MSVC)
+  if(CMAKE_RANLIB)
+    # Ensure using absolute path.
+    find_program(EP_CMAKE_RANLIB ${CMAKE_RANLIB} REQUIRED)
+    list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${EP_CMAKE_RANLIB})
+  endif()
 endif()
 
 # External projects are still able to override the following declarations.
