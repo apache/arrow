@@ -30,7 +30,8 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     if (!file.exists(localfile)) {
       cat(sprintf("*** %s does not exist; build will fail\n", localfile))
     }
-    file.copy(localfile, "lib.zip")
+    zip_file <- "lib.zip"
+    file.copy(localfile, zip_file)
   } else {
     # Download static arrow from the apache artifactory
     quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
