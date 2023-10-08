@@ -571,6 +571,16 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(dst_dir, quoted_na = FALSE) %>% collect()
   expect_equal(ds$text, c("one", "two", "", "four"))
 
+  # parse_options
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  writeLines("x\n\n1\n\n\n2\n\n3", dst_file)
+  ds <- open_csv_dataset(
+    dst_dir,
+    parse_options = csv_parse_options(ignore_empty_lines = FALSE)
+  ) %>% collect()
+  expect_equal(ds$x, c(NA, 1L, NA, NA, 2L, NA, 3L))
+
   # timestamp_parsers
   skip("GH-33708: timestamp_parsers don't appear to be working properly")
 
