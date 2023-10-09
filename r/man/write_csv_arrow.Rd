@@ -34,7 +34,7 @@ system (\code{SubTreeFileSystem})}
 \item{na}{value to write for NA values. Must not contain quote marks. Default
 is \code{""}.}
 
-\item{write_options}{see \link[=CsvWriteOptions]{file reader options}}
+\item{write_options}{see \link[=csv_write_options]{CSV write options}}
 
 \item{...}{additional parameters}
 }
