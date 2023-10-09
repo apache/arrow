@@ -226,6 +226,104 @@ TEST(KeyColumnArray, SliceBool) {
   }
 }
 
+TEST(KeyColumnArray, SliceBinary) {
+  constexpr int kValuesByteLength = 128;
+  constexpr int kValidityByteLength = 16;
+  uint8_t validity_buffer[kValidityByteLength];
+  uint8_t values_buffer[kValuesByteLength];
+
+  // Initializing the validity and value buffers
+  memset(validity_buffer, 0xFF, kValidityByteLength);
+  for (int i = 0; i < kValuesByteLength; ++i) {
+    values_buffer[i] = static_cast<uint8_t>(i);
+  }
+
+  // Assuming binary data and setting metadata
+  KeyColumnMetadata metadata(false, sizeof(uint32_t));
+  // Calculating the number of values
+  int64_t length = kValuesByteLength / sizeof(uint32_t);
+  KeyColumnArray array(metadata, length, validity_buffer, values_buffer, nullptr);
+
+  for (int offset : {0, 4, 12}) {
+    ARROW_SCOPED_TRACE("Offset: ", offset);
+    for (int length : {0, 4}) {
+      ARROW_SCOPED_TRACE("Length: ", length);
+      KeyColumnArray sliced = array.Slice(offset, length);
+
+      // Calculating the offset of the validity buffer
+      int expected_validity_bit_offset = (offset == 0) ? 0 : 4;
+      int expected_validity_byte_offset = (offset == 12) ? 1 : 0;
+
+      // Calculating the offset of the value buffer
+      int expected_values_byte_offset = sizeof(uint32_t) * offset;
+
+      // Verifying the slicing of the validity and value buffers is correct
+      ASSERT_EQ(expected_validity_bit_offset, sliced.bit_offset(0));
+      ASSERT_EQ(0, sliced.bit_offset(1));
+      ASSERT_EQ(validity_buffer + expected_validity_byte_offset, sliced.mutable_data(0));
+      ASSERT_EQ(values_buffer + expected_values_byte_offset, sliced.mutable_data(1));
+
+      // Verifying the values of the sliced value buffer
+      for (int i = 0; i < length; ++i) {
+        ASSERT_EQ(values_buffer[expected_values_byte_offset + i],
+                  sliced.mutable_data(1)[i]);
+      }
+    }
+  }
+}
+
+TEST(KeyColumnArray, SliceLargeBinary) {
+  constexpr int kValuesByteLength = 128;
+  constexpr int kValidityByteLength = 16;
+  uint8_t validity_buffer[kValidityByteLength];
+  uint8_t values_buffer[kValuesByteLength];
+  uint64_t offsets_buffer[kValuesByteLength / sizeof(uint64_t) + 1];
+
+  // Initializing validity and value buffers
+  memset(validity_buffer, 0xFF, kValidityByteLength);
+  for (int i = 0; i < kValuesByteLength; ++i) {
+    values_buffer[i] = static_cast<uint8_t>(i);
+  }
+
+  // Initializing offset buffer (arbitrary offsets for this example)
+  for (size_t i = 0; i < sizeof(offsets_buffer) / sizeof(uint64_t); ++i) {
+    offsets_buffer[i] = i * 8;
+  }
+
+  // Assuming large binary data and setting metadata
+  KeyColumnMetadata metadata(false, sizeof(uint64_t));
+  int64_t length = kValuesByteLength / sizeof(uint64_t);
+  KeyColumnArray array(metadata, length, validity_buffer, values_buffer,
+                       reinterpret_cast<uint8_t*>(offsets_buffer));
+
+  for (int offset : {0, 4, 12}) {
+    ARROW_SCOPED_TRACE("Offset: ", offset);
+    for (int length : {0, 4}) {
+      ARROW_SCOPED_TRACE("Length: ", length);
+      KeyColumnArray sliced = array.Slice(offset, length);
+
+      // Calculating expected offsets for the validity buffer
+      int expected_validity_bit_offset = (offset == 0) ? 0 : 4;
+      int expected_validity_byte_offset = (offset == 12) ? 1 : 0;
+
+      // Calculating expected offsets for the value buffer
+      int expected_values_byte_offset = sizeof(uint64_t) * offset;
+
+      // Verifying if the slicing of validity and value buffers is correct
+      ASSERT_EQ(expected_validity_bit_offset, sliced.bit_offset(0));
+      ASSERT_EQ(0, sliced.bit_offset(1));
+      ASSERT_EQ(validity_buffer + expected_validity_byte_offset, sliced.mutable_data(0));
+      ASSERT_EQ(values_buffer + expected_values_byte_offset, sliced.mutable_data(1));
+
+      // Verifying the values of the sliced value buffer
+      for (int i = 0; i < length; ++i) {
+        ASSERT_EQ(values_buffer[expected_values_byte_offset + i],
+                  sliced.mutable_data(1)[i]);
+      }
+    }
+  }
+}
+
 TEST(ResizableArrayData, Basic) {
   std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
   for (const auto& type : kSampleFixedDataTypes) {
