@@ -19,36 +19,45 @@
 
 # arrow 13.0.0.9000
 
-## Breaking changes
-
 ## New features
 
-* Can't read in partitioning column in CSV datasets when both (non-hive) partition and schema supplied (#37658)
-* Add write_csv_dataset (#36436)
-* Add quoted_na argument to open_delim_dataset() (#37828)
+* The `schema` argument to `open_dataset()` is now supported when reading CSV
+  datasets (#37658).
+* Added `write_csv_dataset()` as a friendlier alternative to the existing
+  dataset writer (#36436).
+* Added `quoted_na` argument to `open_delim_dataset()` (#37828).
+* Implemented `infer_schema()` method for `data.frame` (#37843).
 
 ## Minor improvements and fixes
 
-* Add default descriptions in CsvParseOptions$create() docs (@angela-li, #37909)
-
-* Use `SafeCallIntoR()` to call garbage collector after a failed allocation (#37565)
-* Use RunWithCapturedR for reading Parquet files (#37274)
-* stringr helper functions drop calling environment when evaluating (#36784)
-* Expose Parquet ReaderProperties (#36992)
-* Split out R6 classes and convenience functions (#36394)
-* Documentation for read_parquet() et al needs updating (#37020)
-* calling read_parquet on S3 connections results in error message being ignored (#37024)
-* CRAN failures due to "invalid non-character version specification" (#37387)
-* Improve error message around add_filename (@amoeba, #37372)
-* Implement infer_schema.data.frame() (#37843)
+* Added default descriptions in `CsvParseOptions$create()` docs (@angela-li, #37909)
+* Fixed a code path which may have resulted in R code being called from a
+  non-R thread after a failed allocation (#37565).
+* Fixed a bug where large Parquet files could not be read from R connections
+  (#37274).
+* Implemented more robust evaluation of stringr helpers (e.g., `fixed()`
+  `regex()` when using variables to parameterize arguments (#36784).
+* Exposed Parquet ReaderProperties to improve testing of Parquet reading
+  functionality (#36992).
+* Improved documentation of R6 classes and helper functions (#36394).
+* Improved error reporting to certain types of errors that occurred when
+  calling `read_parquet()` (#37024)
+* Updated use of R's version compare functionality to align with updates to
+  R-devel (#37387).
+* Improved error message that occurred when calling  `add_filename()`
+  (@amoeba, #37372).
 
 ## Installation
 
-* Move macOS build system to nixlibs.R (@assignUser, #37684)
-* Add a message if we detect running under emulation (#37777)
-* Use currrently running R binary to compile test program (nix install) (@meztez, #37225)
-* Provide extra output for failed builds (@amoeba, #37727)
-* Error with create_package_with_all_dependencies() on Windows (#37226)
+* MacOS builds now use the same installation pathway as on Linux (@assignUser,
+  #37684).
+* Added a warning message on package load when running under emulation
+  on MacOS (i.e., use of x86 installation of R on M1/aarch64) on MacOS (#37777).
+* Improve installation configuration when using an installation of R that
+  is not on PATH (@meztez, #37225).
+* Addwd extra output for failed builds (@amoeba, #37727).
+* Fixed an error that occured within `create_package_with_all_dependencies()`
+  on Windows (#37226).
 
 # arrow 13.0.0.1
 
