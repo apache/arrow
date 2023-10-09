@@ -2139,10 +2139,22 @@ function(build_gtest)
             FORCE)
   string(APPEND CMAKE_INSTALL_INCLUDEDIR "/arrow-gtest")
   fetchcontent_makeavailable(googletest)
-  set_target_properties(gmock PROPERTIES OUTPUT_NAME "arrow_gmock")
-  set_target_properties(gmock_main PROPERTIES OUTPUT_NAME "arrow_gmock_main")
-  set_target_properties(gtest PROPERTIES OUTPUT_NAME "arrow_gtest")
-  set_target_properties(gtest_main PROPERTIES OUTPUT_NAME "arrow_gtest_main")
+  foreach(target gmock gmock_main gtest gtest_main)
+    set_target_properties(${target}
+                          PROPERTIES OUTPUT_NAME "arrow_${target}"
+                                     PDB_NAME "arrow_${target}"
+                                     PDB_NAME_DEBUG "arrow_${target}d"
+                                     COMPILE_PDB_NAME "arrow_${target}"
+                                     COMPILE_PDB_NAME_DEBUG "arrow_${target}d"
+                                     RUNTIME_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     LIBRARY_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     ARCHIVE_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     PDB_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  endforeach()
   install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
                     "${googletest_SOURCE_DIR}/googletest/include/"
           DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
