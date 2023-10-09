@@ -177,7 +177,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
-  void TestDictionaryFallbackEncoding(ParquetVersion::type version) {
+  void TestDictionaryFallbackEncoding(ParquetVersion::type version,
+                                      ParquetDataPageVersion data_page_version) {
     this->GenerateData(VERY_LARGE_SIZE);
     ColumnProperties column_properties;
     column_properties.set_dictionary_enabled(true);
@@ -188,7 +189,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       column_properties.set_encoding(Encoding::RLE_DICTIONARY);
     }
 
-    auto writer = this->BuildWriter(VERY_LARGE_SIZE, column_properties, version);
+    auto writer =
+        this->BuildWriter(VERY_LARGE_SIZE, column_properties, version, data_page_version);
 
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     writer->Close();
@@ -205,13 +207,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     if (this->type_num() == Type::BOOLEAN) {
       // Dictionary encoding is not allowed for boolean type
       std::set<Encoding::type> expected;
-      if (version == ParquetVersion::PARQUET_1_0) {
-        // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case for
-        // version 1.0. Note that RLE is used for DL/RL.
-        expected = {Encoding::PLAIN, Encoding::RLE};
-      } else {
-        // There is only 1 encoding (RLE) in a fallback case for version 2.0
+      if (version != ParquetVersion::PARQUET_1_0 &&
+          data_page_version == ParquetDataPageVersion::V2) {
+        // There is only 1 encoding (RLE) in a fallback case for version 2.0 and data page
+        // v2 enabled.
         expected = {Encoding::RLE};
+      } else {
+        // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case for
+        // version 1.0 or data page v1. Note that RLE is used for DL/RL.
+        expected = {Encoding::PLAIN, Encoding::RLE};
       }
       ASSERT_EQ(encodings, expected);
     } else if (version == ParquetVersion::PARQUET_1_0) {
