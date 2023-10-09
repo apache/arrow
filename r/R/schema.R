@@ -107,14 +107,15 @@ Schema <- R6Class("Schema",
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     },
     export_to_c = function(ptr) ExportSchema(self, ptr),
-    code = function() {
+    code = function(explicit_pkg_name=FALSE) {
       names <- self$names
       codes <- map2(names, self$fields, function(name, field) {
-        field$type$code()
+        field$type$code(explicit_pkg_name)
       })
       codes <- set_names(codes, names)
 
-      call2("schema", !!!codes)
+      call_name <- add_pkg_name("schema", explicit_pkg_name)
+      call2(call_name, !!!codes)
     },
     WithNames = function(names) {
       if (!inherits(names, "character")) {

@@ -262,3 +262,8 @@ check_named_cols <- function(df) {
     )
   }
 }
+
+add_pkg_name <- function(x, explicit_pkg_name) {
+  if(!explicit_pkg_name) x
+  else paste0("arrow::", x)
+}
