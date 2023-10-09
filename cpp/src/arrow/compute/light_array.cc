@@ -80,6 +80,7 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
   KeyColumnArray sliced;
   sliced.metadata_ = metadata_;
   sliced.length_ = length;
+  uint32_t fixed_size = metadata_.fixed_length;
 
   sliced.buffers_[0] =
       buffers_[0] ? buffers_[0] + (bit_offset_[0] + offset) / 8 : nullptr;
@@ -95,9 +96,9 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
                                      : nullptr;
     sliced.bit_offset_[1] = (bit_offset_[1] + offset) % 8;
   } else {
-    sliced.buffers_[1] = buffers_[1] ? buffers_[1] + offset * metadata_.fixed_length : nullptr;
+    sliced.buffers_[1] = buffers_[1] ? buffers_[1] + offset * fixed_size : nullptr;
     sliced.mutable_buffers_[1] =
-        mutable_buffers_[1] ? mutable_buffers_[1] + offset * metadata_.fixed_length : nullptr;
+        mutable_buffers_[1] ? mutable_buffers_[1] + offset * fixed_size : nullptr;
     sliced.bit_offset_[1] = 0;
   }
 
