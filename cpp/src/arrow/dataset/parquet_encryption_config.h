@@ -37,7 +37,7 @@ namespace dataset {
 /// to objects defining encryption strategy, Key Management Service (KMS) configuration,
 /// and specific encryption configurations for Parquet data.
 struct ARROW_DS_EXPORT ParquetEncryptionConfig {
-  ///  Shared pointer to CryptoFactory object, responsible for reating cryptographic
+  ///  Shared pointer to CryptoFactory object, responsible for creating cryptographic
   ///  components like encryptors and decryptors.
   std::shared_ptr<parquet::encryption::CryptoFactory> crypto_factory;
 
