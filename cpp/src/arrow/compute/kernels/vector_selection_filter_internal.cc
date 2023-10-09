@@ -942,7 +942,7 @@ Result<std::shared_ptr<Table>> FilterTable(const Table& table, const Datum& filt
       inputs.back() = filter.chunked_array()->chunks();
       break;
     default:
-      return Status::NotImplemented("Filter should be array-like");
+      return Status::TypeError("Filter should be array-like");
   }
 
   // Rechunk inputs to allow consistent iteration over their respective chunks
@@ -999,7 +999,7 @@ class FilterMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     if (args[1].kind() != Datum::ARRAY && args[1].kind() != Datum::CHUNKED_ARRAY) {
-        return Status::NotImplemented("Filter should be array-like");
+        return Status::TypeError("Filter should be array-like");
     }
 
     const auto& filter_type = *args[1].type();

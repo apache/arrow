@@ -1359,9 +1359,6 @@ def test_filter_table():
         result = table.filter(mask, null_selection_behavior="emit_null")
         assert result.equals(expected_null)
 
-    with pytest.raises(NotImplementedError):
-        result = table.filter(table)
-
 
 def test_filter_errors():
     arr = pa.chunked_array([["a", None], ["c", "d", "e"]])
@@ -1380,6 +1377,9 @@ def test_filter_errors():
         with pytest.raises(pa.ArrowInvalid,
                            match="must all be the same length"):
             obj.filter(mask)
+
+    with pytest.raises(TypeError):
+        result = table.filter(table)
 
 
 def test_filter_null_type():
