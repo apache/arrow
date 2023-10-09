@@ -647,3 +647,18 @@ test_that("GH-34640 - CSV datasets are read in correctly when both schema and pa
       summarize(mean = mean(integer))
   )
 })
+
+test_that("open_dataset() with `decimal_point` argument", {
+  temp_dir <- make_temp_dir()
+  writeLines("x\ty\n1,2\tc", con = file.path(temp_dir, "file1.csv"))
+
+  expect_equal(
+    open_dataset(temp_dir, format = "tsv") %>% collect(),
+    tibble(x = "1,2", y = "c")
+  )
+
+  expect_equal(
+    open_dataset(temp_dir, format = "tsv", decimal_point = ",") %>% collect(),
+    tibble(x = 1.2, y = "c")
+  )
+})
