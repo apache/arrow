@@ -22,7 +22,8 @@
 #' `readr::read_delim()`, and `col_select` was inspired by `vroom::vroom()`.
 #'
 #' `read_csv_arrow()` and `read_tsv_arrow()` are wrappers around
-#' `read_delim_arrow()` that specify a delimiter.
+#' `read_delim_arrow()` that specify a delimiter. `read_csv2_arrow()` uses `;`⁠ for
+#' the delimiter and `,` for the decimal point.
 #'
 #' Note that not all `readr` options are currently implemented here. Please file
 #' an issue if you encounter one that `arrow` should support.
@@ -129,6 +130,7 @@
 #' @param read_options see [CSV reading options][csv_read_options()]
 #' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
+#' @param decimal_point Character to use for decimal point in floating point numbers.
 #'
 #' @return A `tibble`, or a Table if `as_data_frame = FALSE`.
 #' @export
@@ -178,7 +180,8 @@ read_delim_arrow <- function(file,
                              convert_options = NULL,
                              read_options = NULL,
                              as_data_frame = TRUE,
-                             timestamp_parsers = NULL) {
+                             timestamp_parsers = NULL,
+                             decimal_point = ".") {
   if (inherits(schema, "Schema")) {
     col_names <- names(schema)
     col_types <- schema
@@ -197,8 +200,9 @@ read_delim_arrow <- function(file,
   }
   if (is.null(convert_options)) {
     convert_options <- readr_to_csv_convert_options(
-      na,
-      quoted_na,
+      na = na,
+      quoted_na = quoted_na,
+      decimal_point = decimal_point,
       col_types = col_types,
       col_names = read_options$column_names,
       timestamp_parsers = timestamp_parsers
@@ -275,6 +279,32 @@ read_csv_arrow <- function(file,
                            timestamp_parsers = NULL) {
   mc <- match.call()
   mc$delim <- ","
+  mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
+  eval.parent(mc)
+}
+
+#' @rdname read_delim_arrow
+#' @export
+read_csv2_arrow <- function(file,
+                            quote = '"',
+                            escape_double = TRUE,
+                            escape_backslash = FALSE,
+                            schema = NULL,
+                            col_names = TRUE,
+                            col_types = NULL,
+                            col_select = NULL,
+                            na = c("", "NA"),
+                            quoted_na = TRUE,
+                            skip_empty_rows = TRUE,
+                            skip = 0L,
+                            parse_options = NULL,
+                            convert_options = NULL,
+                            read_options = NULL,
+                            as_data_frame = TRUE,
+                            timestamp_parsers = NULL) {
+  mc <- match.call()
+  mc$delim <- ";"
+  mc$decimal_point = ","
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
@@ -497,6 +527,7 @@ csv_read_options <- function(use_threads = option_use_threads(),
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
+#' - `decimal_point` Character to use for decimal point in floating point numbers. Default: "."
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
@@ -747,6 +778,7 @@ TimestampParser$create <- function(format = NULL) {
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
+#' @param decimal_point Character to use for decimal point in floating point numbers.
 #'
 #' @examples
 #' tf <- tempfile()
@@ -765,7 +797,8 @@ csv_convert_options <- function(check_utf8 = TRUE,
                                 auto_dict_max_cardinality = 50L,
                                 include_columns = character(),
                                 include_missing_columns = FALSE,
-                                timestamp_parsers = NULL) {
+                                timestamp_parsers = NULL,
+                                decimal_point = ".") {
   if (!is.null(col_types) && !inherits(col_types, "Schema")) {
     abort(c(
       "Unsupported `col_types` specification.",
@@ -785,7 +818,8 @@ csv_convert_options <- function(check_utf8 = TRUE,
       auto_dict_max_cardinality = auto_dict_max_cardinality,
       include_columns = include_columns,
       include_missing_columns = include_missing_columns,
-      timestamp_parsers = timestamp_parsers
+      timestamp_parsers = timestamp_parsers,
+      decimal_point = decimal_point
     )
   )
 }
@@ -800,6 +834,7 @@ CsvConvertOptions$create <- csv_convert_options
 
 readr_to_csv_convert_options <- function(na,
                                          quoted_na,
+                                         decimal_point,
                                          col_types = NULL,
                                          col_names = NULL,
                                          timestamp_parsers = NULL) {
@@ -851,7 +886,8 @@ readr_to_csv_convert_options <- function(na,
     strings_can_be_null = quoted_na,
     col_types = col_types,
     timestamp_parsers = timestamp_parsers,
-    include_columns = include_columns
+    include_columns = include_columns,
+    decimal_point = decimal_point
   )
 }
 

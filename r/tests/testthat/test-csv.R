@@ -733,3 +733,10 @@ test_that("Can read CSV files from a URL", {
   expect_true(tibble::is_tibble(cu))
   expect_identical(dim(cu), c(100L, 13L))
 })
+
+test_that("read_csv2_arrow correctly parses comma decimals", {
+  tf <- tempfile()
+  writeLines("x;y\n1,2;c", con = tf)
+  expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
+
+})
