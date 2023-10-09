@@ -1,8 +1,6 @@
 #!/bin/bash
 set -ex
 
-export DISABLE_AUTOBREW=1
-
 # arrow uses C++17
 export ARROW_R_CXXFLAGS="${ARROW_R_CXXFLAGS} -std=c++17"
 export LIBARROW_BUILD=false
