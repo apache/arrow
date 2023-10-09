@@ -389,44 +389,26 @@ func viewOffsetsFromLengthsArray32(
 	offsets := make([]int32, sizesArray.Len())
 
 	offsetDeltaRand := rand.New(rand.NewSource(seed))
-	sampleOffsetDelta := func() int32 {
-		return int32(offsetDeltaRand.Int63n(2*int64(avgLength)) - int64(avgLength))
+	sampleOffset := func(offsetBase int32) int32 {
+		delta := int32(offsetDeltaRand.Int63n(2*int64(avgLength)) - int64(avgLength))
+		offset := offsetBase + delta
+		if offset < 0 {
+			return 0
+		}
+		return offset
 	}
 	offsetBase := int32(0)
 	for i := 0; i < sizesArray.Len(); i += 1 {
-		// We want to always sample the offsetDeltaRand to make sure different
-		// options regarding nulls and empty views don't affect the other offsets.
-		offset := offsetBase + sampleOffsetDelta()
-		if sizesArray.IsNull(i) {
-			if forceEmptyNulls {
-				sizes[i] = 0
-			}
-			if zeroUndefinedOffsets {
-				offsets[i] = 0
-			} else {
-				offsets[i] = offset
-			}
-			continue
+		isNull := sizesArray.IsNull(i)
+		if forceEmptyNulls && isNull {
+			sizes[i] = 0
 		}
-
-		size := sizes[i]
-		if size == 0 {
-			if zeroUndefinedOffsets {
-				offsets[i] = 0
-			} else {
-				offsets[i] = offset
-			}
+		if zeroUndefinedOffsets && (isNull || sizes[i] == 0) {
+			offsets[i] = 0
 		} else {
-			// Ensure that the size is not too large.
-			if size > valuesLength {
-				size = valuesLength
-				sizes[i] = size // Fix the size.
-			}
-			// Ensure the offset is not negative or too large.
-			if offset < 0 {
-				offset = 0
-			} else if offset > valuesLength-size {
-				offset = valuesLength - size
+			offset := sampleOffset(offsetBase)
+			if offset > valuesLength-sizes[i] {
+				offset = valuesLength - sizes[i]
 			}
 			offsets[i] = offset
 		}
@@ -448,44 +430,26 @@ func viewOffsetsFromLengthsArray64(
 	offsets := make([]int64, sizesArray.Len())
 
 	offsetDeltaRand := rand.New(rand.NewSource(seed))
-	sampleOffsetDelta := func() int64 {
-		return int64(offsetDeltaRand.Int63n(2*avgLength) - avgLength)
+	sampleOffset := func(offsetBase int64) int64 {
+		delta := int64(offsetDeltaRand.Int63n(2*avgLength) - avgLength)
+		offset := offsetBase + delta
+		if offset < 0 {
+			return 0
+		}
+		return offset
 	}
 	offsetBase := int64(0)
 	for i := 0; i < sizesArray.Len(); i += 1 {
-		// We want to always sample the offsetDeltaRand to make sure different
-		// options regarding nulls and empty views don't affect the other offsets.
-		offset := offsetBase + sampleOffsetDelta()
-		if sizesArray.IsNull(i) {
-			if forceEmptyNulls {
-				sizes[i] = 0
-			}
-			if zeroUndefinedOffsets {
-				offsets[i] = 0
-			} else {
-				offsets[i] = offset
-			}
-			continue
+		isNull := sizesArray.IsNull(i)
+		if forceEmptyNulls && isNull {
+			sizes[i] = 0
 		}
-
-		size := sizes[i]
-		if size == 0 {
-			if zeroUndefinedOffsets {
-				offsets[i] = 0
-			} else {
-				offsets[i] = offset
-			}
+		if zeroUndefinedOffsets && (isNull || sizes[i] == 0) {
+			offsets[i] = 0
 		} else {
-			// Ensure that the size is not too large.
-			if size > valuesLength {
-				size = valuesLength
-				sizes[i] = size // Fix the size.
-			}
-			// Ensure the offset is not negative or too large.
-			if offset < 0 {
-				offset = 0
-			} else if offset > valuesLength-size {
-				offset = valuesLength - size
+			offset := sampleOffset(offsetBase)
+			if offset > valuesLength-sizes[i] {
+				offset = valuesLength - sizes[i]
 			}
 			offsets[i] = offset
 		}
