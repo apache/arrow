@@ -18,6 +18,7 @@
 import contextlib
 import functools
 import os
+import sys
 import subprocess
 
 from . import cdata
@@ -42,7 +43,12 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
-_dll_suffix = ".dll" if os.name == "nt" else ".so"
+if sys.platform == "darwin":
+    _dll_suffix = ".dylib"
+elif os.name == "nt":
+    _dll_suffix = ".dll"
+else:
+    _dll_suffix = ".so"
 
 _DLL_PATH = os.path.join(
     ARROW_ROOT_DEFAULT,

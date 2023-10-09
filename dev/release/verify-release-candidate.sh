@@ -868,6 +868,22 @@ test_go() {
   go test ./...
   go install -buildvcs=false ./...
   go clean -modcache
+  pushd arrow/internal/cdata_integration
+
+  case "$(uname)" in
+    Linux)
+      go_lib="arrow_go_integration.so"
+      ;;
+    Darwin)
+      go_lib="arrow_go_integration.dylib"
+      ;;
+    MINGW*)
+      go_lib="arrow_go_integration.dll"
+      ;;
+  esac
+  go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+
+  popd
   popd
 }
 
@@ -878,7 +894,7 @@ test_integration() {
   maybe_setup_conda || exit 1
   maybe_setup_virtualenv || exit 1
 
-  pip install -e dev/archery
+  pip install -e dev/archery[integration]
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
@@ -894,6 +910,7 @@ test_integration() {
 
   # Flight integration test executable have runtime dependency on release/libgtest.so
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
+    --run-ipc --run-flight --run-c-data \
     --with-cpp=${TEST_INTEGRATION_CPP} \
     --with-java=${TEST_INTEGRATION_JAVA} \
     --with-js=${TEST_INTEGRATION_JS} \
