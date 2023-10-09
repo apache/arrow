@@ -1122,7 +1122,11 @@ PlainBooleanDecoder::PlainBooleanDecoder(const ColumnDescriptor* descr)
 
 void PlainBooleanDecoder::SetData(int num_values, const uint8_t* data, int len) {
   num_values_ = num_values;
-  bit_reader_ = std::make_unique<bit_util::BitReader>(data, len);
+  if (bit_reader_ == nullptr) {
+    bit_reader_ = std::make_unique<bit_util::BitReader>(data, len);
+  } else {
+    bit_reader_->Reset(data, len);
+  }
 }
 
 int PlainBooleanDecoder::DecodeArrow(
@@ -1156,16 +1160,21 @@ inline int PlainBooleanDecoder::DecodeArrow(
 
 int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
-  bool val;
+  constexpr int kBatchSize = 1024;
+  std::array<bool, kBatchSize> bit_read_scratch;
   ::arrow::internal::BitmapWriter bit_writer(buffer, 0, max_values);
-  for (int i = 0; i < max_values; ++i) {
-    if (!bit_reader_->GetValue(1, &val)) {
+  for (int i = 0; i < max_values; i += kBatchSize) {
+    int batch_size = std::min(max_values - i, kBatchSize);
+    if (bit_reader_->GetBatch(/*num_bits=*/1, bit_read_scratch.data(), batch_size) !=
+        batch_size) {
       ParquetException::EofException();
     }
-    if (val) {
-      bit_writer.Set();
+    for (int j = 0; j < batch_size; ++j) {
+      if (bit_read_scratch[j]) {
+        bit_writer.Set();
+      }
+      bit_writer.Next();
     }
-    bit_writer.Next();
   }
   bit_writer.Finish();
   num_values_ -= max_values;
@@ -1174,7 +1183,7 @@ int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
 
 int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
-  if (bit_reader_->GetBatch(1, buffer, max_values) != max_values) {
+  if (bit_reader_->GetBatch(/*num_bits=*/1, buffer, max_values) != max_values) {
     ParquetException::EofException();
   }
   num_values_ -= max_values;
