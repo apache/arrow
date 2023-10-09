@@ -998,8 +998,7 @@ class FilterMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    if ((args[1].kind() != Datum::ARRAY) &&
-        (args[1].kind() != Datum::CHUNKED_ARRAY)) {
+    if (args[1].kind() != Datum::ARRAY && args[1].kind() != Datum::CHUNKED_ARRAY) {
         return Status::NotImplemented("Filter should be array-like");
     }
 

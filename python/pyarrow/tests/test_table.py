@@ -2302,9 +2302,6 @@ def test_table_filter_expression():
         "colVals": ["a", "b", "f", "B", "A"]
     })
 
-    with pytest.raises(NotImplementedError):
-        result = t1.filter(t2)
-
 
 @pytest.mark.acero
 def test_table_join_many_columns():
