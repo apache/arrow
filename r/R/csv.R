@@ -205,8 +205,7 @@ read_delim_arrow <- function(file,
       decimal_point = decimal_point,
       col_types = col_types,
       col_names = read_options$column_names,
-      timestamp_parsers = timestamp_parsers,
-      decimal_point = decimal_point
+      timestamp_parsers = timestamp_parsers
     )
   }
 
