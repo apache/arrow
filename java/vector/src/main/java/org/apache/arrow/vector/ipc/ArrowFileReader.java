@@ -123,11 +123,6 @@ public class ArrowFileReader extends ArrowReader {
     if (footer.getRecordBatches().size() == 0) {
       return;
     }
-    // Read and load all dictionaries from schema
-    for (int i = 0; i < dictionaries.size(); i++) {
-      ArrowDictionaryBatch dictionaryBatch = readDictionary();
-      loadDictionary(dictionaryBatch);
-    }
   }
 
   /**
@@ -164,6 +159,13 @@ public class ArrowFileReader extends ArrowReader {
       ArrowBlock block = footer.getRecordBatches().get(currentRecordBatch++);
       ArrowRecordBatch batch = readRecordBatch(in, block, allocator);
       loadRecordBatch(batch);
+
+      // Read and load all dictionaries from schema
+      for (int i = 0; i < dictionaries.size(); i++) {
+        ArrowDictionaryBatch dictionaryBatch = readDictionary();
+        loadDictionary(dictionaryBatch);
+      }
+
       return true;
     } else {
       return false;
@@ -185,7 +187,7 @@ public class ArrowFileReader extends ArrowReader {
   }
 
   /**
-   * Loads record batch for the given block.
+   * Loads record batch and dictionaries for the given block.
    */
   public boolean loadRecordBatch(ArrowBlock block) throws IOException {
     ensureInitialized();
@@ -193,6 +195,8 @@ public class ArrowFileReader extends ArrowReader {
     if (blockIndex == -1) {
       throw new IllegalArgumentException("Arrow block does not exist in record batches: " + block);
     }
+
+    currentDictionaryBatch = blockIndex * dictionaries.size();
     currentRecordBatch = blockIndex;
     return loadNextBatch();
   }

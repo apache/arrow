@@ -52,7 +52,6 @@ public class ArrowFileWriter extends ArrowWriter {
   private final List<ArrowBlock> recordBlocks = new ArrayList<>();
 
   private Map<String, String> metaData;
-  private boolean dictionariesWritten = false;
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     super(root, provider, out);
@@ -129,12 +128,6 @@ public class ArrowFileWriter extends ArrowWriter {
   @Override
   protected void ensureDictionariesWritten(DictionaryProvider provider, Set<Long> dictionaryIdsUsed)
       throws IOException {
-    if (dictionariesWritten) {
-      return;
-    }
-    dictionariesWritten = true;
-    // Write out all dictionaries required.
-    // Replacement dictionaries are not supported in the IPC file format.
     for (long id : dictionaryIdsUsed) {
       Dictionary dictionary = provider.lookup(id);
       writeDictionaryBatch(dictionary);
