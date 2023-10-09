@@ -39,6 +39,7 @@
 #' - `$WithMetadata(metadata)`: returns a new `Schema` with the key-value
 #'    `metadata` set. Note that all list elements in `metadata` will be coerced
 #'    to `character`.
+#' - `$code(explicit_pkg_name)`: Produces an R call for the schema. Use `explicit_pkg_name=TRUE` to call with `arrow::`.
 #'
 #' @section Active bindings:
 #'

@@ -27,7 +27,7 @@
 #' - `$ToString()`: String representation of the DataType
 #' - `$Equals(other)`: Is the DataType equal to `other`
 #' - `$fields()`: The children fields associated with this type
-#' - `$code()`: Produces an R call of the data type.
+#' - `$code(explicit_pkg_name)`: Produces an R call of the data type. Use `explicit_pkg_name=TRUE` to call with `arrow::`.
 #'
 #' There are also some active bindings:
 #' - `$id`: integer Arrow type id.
