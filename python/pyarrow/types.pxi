@@ -1558,7 +1558,7 @@ cdef class FixedShapeTensorType(BaseExtensionType):
 
     >>> import pyarrow as pa
     >>> pa.fixed_shape_tensor(pa.int32(), [2, 2])
-    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>)
 
     Create an instance of fixed shape tensor extension type with
     permutation:
@@ -4746,7 +4746,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     >>> import pyarrow as pa
     >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
     >>> tensor_type
-    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>)
 
     Inspect the data type:
 
@@ -4762,7 +4762,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
     >>> pa.table([tensor], names=["tensor_array"])
     pyarrow.Table
-    tensor_array: extension<arrow.fixed_shape_tensor>
+    tensor_array: extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>
     ----
     tensor_array: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
 
