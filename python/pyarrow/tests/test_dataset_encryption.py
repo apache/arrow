@@ -23,7 +23,7 @@ import numpy as np
 import tempfile
 import os
 
-encryption_enabled = False
+encryption_unavailable = False
 
 try:
     import pyarrow.dataset as ds
@@ -34,7 +34,7 @@ try:
     from pyarrow.tests.parquet.encryption import InMemoryKmsClient
     import pyarrow.parquet.encryption as pe
 except ImportError:
-    encryption_enabled = True
+    encryption_unavailable = True
 
 FOOTER_KEY = b"0123456789112345"
 FOOTER_KEY_NAME = "footer_key"
@@ -89,7 +89,7 @@ def kms_factory(kms_connection_configuration):
 
 
 @pytest.mark.skipif(
-    encryption_enabled, reason="Parquet Encryption is not currently enabled"
+    encryption_unavailable, reason="Parquet Encryption is not currently enabled"
 )
 def test_dataset_encryption_decryption():
     table = create_sample_table()
@@ -131,7 +131,7 @@ def test_dataset_encryption_decryption():
 
 
 @pytest.mark.skipif(
-    not encryption_enabled, reason="Parquet Encryption is currently enabled"
+    not encryption_unavailable, reason="Parquet Encryption is currently enabled"
 )
 def test_write_dataset_parquet_without_encryption():
     """Test write_dataset with ParquetFileFormat and test if an exception is thrown
