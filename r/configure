@@ -373,8 +373,6 @@ find_or_build_libarrow
 
 # We should have a valid libarrow build in $_LIBARROW_FOUND
 # Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
-# _LIBARROW_FOUND should only be unset in the FORCE_AUTOBREW case,
-# and autobrew sets its own PKG_* vars. (See the TODO about changing that.)
 if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
   set_pkg_vars ${_LIBARROW_FOUND}
 fi
