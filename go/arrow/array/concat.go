@@ -378,8 +378,14 @@ func putListViewOffsets32(in arrow.ArrayData, displacement int32, out *memory.Bu
 
 	dstOffsets := arrow.Int32Traits.CastFromBytes(out.Bytes())
 	for i, offset := range srcOffsets {
-		debug.Assert(!isValidAndNonEmpty(i) || offset+displacement >= 0, "putListViewOffsets32: offset underflow while concatenating arrays")
-		dstOffsets[outOff+i] = offset + displacement
+		if isValidAndNonEmpty(i) {
+			// This is guaranteed by RangeOfValuesUsed returning the smallest offset
+			// of valid and non-empty list-views.
+			debug.Assert(offset+displacement >= 0, "putListViewOffsets32: offset underflow while concatenating arrays")
+			dstOffsets[outOff+i] = offset + displacement
+		} else {
+			dstOffsets[outOff+i] = 0
+		}
 	}
 }
 
@@ -398,9 +404,14 @@ func putListViewOffsets64(in arrow.ArrayData, displacement int64, out *memory.Bu
 
 	dstOffsets := arrow.Int64Traits.CastFromBytes(out.Bytes())
 	for i, offset := range srcOffsets {
-		debug.Assert(!isValidAndNonEmpty(i) || offset+displacement >= 0,
-			"putListViewOffsets64: offset underflow while concatenating arrays")
-		dstOffsets[outOff+i] = offset + displacement
+		if isValidAndNonEmpty(i) {
+			// This is guaranteed by RangeOfValuesUsed returning the smallest offset
+			// of valid and non-empty list-views.
+			debug.Assert(offset+displacement >= 0, "putListViewOffsets32: offset underflow while concatenating arrays")
+			dstOffsets[outOff+i] = offset + displacement
+		} else {
+			dstOffsets[outOff+i] = 0
+		}
 	}
 }
 
@@ -465,6 +476,26 @@ func concatListView(data []arrow.ArrayData, offsetType arrow.FixedWidthDataType,
 	// Concatenate the sizes
 	sizeBuffers := gatherBuffersFixedWidthType(data, 2, offsetType)
 	sizeBuffer := concatBuffers(sizeBuffers, mem)
+	if out.Buffers()[0] != nil {
+		// To make sure the sizes don't reference values that are not in the new
+		// concatenated values array, we zero the sizes of null list-view values.
+		validity := out.Buffers()[0].Bytes()
+		if offsetType.ID() == arrow.INT32 {
+			sizes := arrow.Int32Traits.CastFromBytes(sizeBuffer.Bytes())
+			for i := 0; i < out.Len(); i++ {
+				if !bitutil.BitIsSet(validity, out.offset+i) {
+					sizes[i] = 0
+				}
+			}
+		} else {
+			sizes := arrow.Int64Traits.CastFromBytes(sizeBuffer.Bytes())
+			for i := 0; i < out.Len(); i++ {
+				if !bitutil.BitIsSet(validity, out.offset+i) {
+					sizes[i] = 0
+				}
+			}
+		}
+	}
 
 	out.childData = []arrow.ArrayData{values}
 	out.buffers[1] = offsetBuffer
