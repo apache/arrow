@@ -98,10 +98,11 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       int64_t output_size = SMALL_SIZE,
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
+      const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
-    wp_builder.version(version);
+    wp_builder.version(version)->data_page_version(data_page_version);
     if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
         column_properties.encoding() == Encoding::RLE_DICTIONARY) {
       wp_builder.enable_dictionary();
@@ -262,8 +263,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                        enable_statistics);
     column_properties.set_codec_options(
         std::make_shared<CodecOptions>(compression_level));
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
@@ -281,8 +283,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                        enable_statistics);
     column_properties.set_codec_options(
         std::make_shared<CodecOptions>(compression_level));
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatchSpaced(this->values_.size(), nullptr, nullptr, valid_bits.data(), 0,
                              this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
@@ -767,9 +770,12 @@ TEST_F(TestValuesWriterInt32Type, OptionalNullValueChunk) {
 
 class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
  public:
-  void TestWithEncoding(ParquetVersion::type version, Encoding::type encoding) {
+  void TestWithEncoding(ParquetVersion::type version,
+                        ParquetDataPageVersion data_page_version,
+                        Encoding::type encoding) {
     this->SetUpSchema(Repetition::REQUIRED);
     auto writer = this->BuildWriter(SMALL_SIZE, ColumnProperties(), version,
+                                    ParquetDataPageVersion::V1,
                                     /*enable_checksum*/ false);
     for (int i = 0; i < SMALL_SIZE; i++) {
       bool value = (i % 2 == 0) ? true : false;
@@ -789,12 +795,18 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
 // PARQUET-764
 // Correct bitpacking for boolean write at non-byte boundaries
 TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
-  TestWithEncoding(ParquetVersion::PARQUET_1_0, Encoding::PLAIN);
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWithEncoding(ParquetVersion::PARQUET_1_0, data_page_version, Encoding::PLAIN);
+  }
 }
 
 // Default encoding for boolean is RLE when using V2 pages
 TEST_F(TestBooleanValuesWriter, RleEncodedBooleanValues) {
-  TestWithEncoding(ParquetVersion::PARQUET_2_4, Encoding::RLE);
+  TestWithEncoding(ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V1,
+                   Encoding::PLAIN);
+  TestWithEncoding(ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V2,
+                   Encoding::RLE);
 }
 
 // PARQUET-979
