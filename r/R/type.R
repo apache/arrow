@@ -57,7 +57,7 @@ DataType <- R6Class("DataType",
   active = list(
     id = function() DataType__id(self),
     name = function() DataType__name(self),
-    num_fields = function() DataType__num_fields(self),
+    num_fields = function() DataType__num_fields(self)
   ),
   private = list(
     code_name = function() call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
