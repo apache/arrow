@@ -56,7 +56,7 @@ if [[ -n "${ARROW_GO_INTEGRATION}" ]]; then
             go_lib="arrow_go_integration.dll"
             ;;
     esac
-    go build -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+    go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
 
     popd
 fi
