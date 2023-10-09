@@ -19,6 +19,37 @@
 
 # arrow 13.0.0.9000
 
+## Breaking changes
+
+## New features
+
+* Can't read in partitioning column in CSV datasets when both (non-hive) partition and schema supplied (#37658)
+* Add write_csv_dataset (#36436)
+* Add quoted_na argument to open_delim_dataset() (#37828)
+
+## Minor improvements and fixes
+
+* Add default descriptions in CsvParseOptions$create() docs (#37909)
+
+* Use `SafeCallIntoR()` to call garbage collector after a failed allocation (#37565)
+* Use RunWithCapturedR for reading Parquet files (#37274)
+* stringr helper functions drop calling environment when evaluating (#36784)
+* Expose Parquet ReaderProperties (#36992)
+* Split out R6 classes and convenience functions (#36394)
+* Documentation for read_parquet() et al needs updating (#37020)
+* calling read_parquet on S3 connections results in error message being ignored (#37024)
+* CRAN failures due to "invalid non-character version specification" (#37387)
+* Improve error message around add_filename (#37372)
+* Implement infer_schema.data.frame() (#37843)
+
+## Installation
+
+* Move macOS build system to nixlibs.R (#37684)
+* Add a message if we detect running under emulation (#37777)
+* Use currrently running R binary to compile test program (nix install) (#37225)
+* Provide extra output for failed builds (#37727)
+* Error with create_package_with_all_dependencies() on Windows (#37226)
+
 # arrow 13.0.0.1
 
 * Remove reference to legacy timezones to prevent CRAN check failures (#37671)
