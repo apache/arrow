@@ -703,6 +703,10 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             "use_compliant_nested_type",
         }
 
+        encryption_fields = {
+            "encryption_config",
+        }
+
         setters = set()
         for name, value in kwargs.items():
             if name not in self._properties:
@@ -710,6 +714,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             self._properties[name] = value
             if name in arrow_fields:
                 setters.add(self._set_arrow_properties)
+            elif name in encryption_fields:
+                setters.add(self._set_encryption_config)
             else:
                 setters.add(self._set_properties)
 
@@ -755,9 +761,15 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         )
 
     def _set_encryption_config(self):
-        cdef CParquetFileWriteOptions* opts = self.parquet_options
-        
-        opts.parquet_encryption_config = self._properties["encryption_config"]
+        IF PARQUET_ENCRYPTION_ENABLED:
+            cdef CParquetFileWriteOptions* opts = self.parquet_options
+            config = self._properties["encryption_config"]
+            if not isinstance(config, ParquetEncryptionConfig):
+                return
+            opts.parquet_encryption_config = (<ParquetEncryptionConfig> config).unwrap()
+        ELSE:
+            raise NotImplementedError(
+                "Encryption is not enabled, but a encryption_config was provided.")
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
