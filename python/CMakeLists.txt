@@ -627,6 +627,9 @@ if(PYARROW_BUILD_PARQUET)
   endif()
   if(PYARROW_BUILD_DATASET)
     list(APPEND CYTHON_EXTENSIONS _dataset_parquet)
+    # include this always, even if PYARROW_BUILD_PARQUET_ENCRYPTION is not
+    # enabled (source file gets replaced with dummies below)
+    list(APPEND CYTHON_EXTENSIONS _dataset_parquet_encryption)
   endif()
 endif()
 
@@ -713,14 +716,6 @@ endif()
 # Error on any warnings not already explicitly ignored.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 
-if(PYARROW_BUILD_PARQUET_ENCRYPTION)
-  message(STATUS "Parquet Encryption Enabled")
-  list(APPEND CYTHON_FLAGS "-E" "PARQUET_ENCRYPTION_ENABLED=1")
-else()
-  message(STATUS "Parquet Encryption is NOT Enabled")
-  list(APPEND CYTHON_FLAGS "-E" "PARQUET_ENCRYPTION_ENABLED=0")
-endif()
-
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})
   list(GET directories -1 module_name)
@@ -729,6 +724,16 @@ foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." "/" module_root "${module}")
   set(module_SRC pyarrow/${module_root}.pyx)
   set_source_files_properties(${module_SRC} PROPERTIES CYTHON_IS_CXX TRUE)
+
+  if(${module_name} STREQUAL "_dataset_parquet_encryption")
+    if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+      message(STATUS "Parquet Encryption Enabled")
+      set(module_SRC pyarrow/_dataset_parquet_encryption.pyx)
+    else()
+      message(STATUS "Parquet Encryption is NOT Enabled")
+      set(module_SRC pyarrow/_dataset_parquet_no_encryption.pyx)
+    endif()
+  endif()
 
   cython_add_module(${module_name} ${module_name}_pyx ${module_name}_output ${module_SRC})
 

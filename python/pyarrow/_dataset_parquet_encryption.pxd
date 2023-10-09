@@ -15,18 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# distutils: language = c++
+# cython: language_level = 3
 
-from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow._parquet cimport *
+"""Dataset support for Parquet encryption."""
 
-cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
-    cdef cppclass CParquetFileWriteOptions \
-            "arrow::dataset::ParquetFileWriteOptions"(CFileWriteOptions):
-        shared_ptr[WriterProperties] writer_properties
-        shared_ptr[ArrowWriterProperties] arrow_writer_properties
+from pyarrow.includes.libarrow_dataset_parquet cimport *
 
-    cdef cppclass CParquetFragmentScanOptions \
-            "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):
-        shared_ptr[CReaderProperties] reader_properties
-        shared_ptr[ArrowReaderProperties] arrow_reader_properties
+
+cdef bint is_encryption_enabled()
+cdef set_decryption_config(CParquetFragmentScanOptions * parquet_options, config)

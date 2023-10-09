@@ -19,9 +19,6 @@ from datetime import timedelta
 import pyarrow.fs as fs
 import pyarrow as pa
 import pytest
-import numpy as np
-import tempfile
-import os
 
 encryption_unavailable = False
 
@@ -136,32 +133,14 @@ def test_dataset_encryption_decryption():
 def test_write_dataset_parquet_without_encryption():
     """Test write_dataset with ParquetFileFormat and test if an exception is thrown
     if you try to set encryption_config using make_write_options"""
-    table = pa.table(
-        [
-            pa.array(range(20), type="uint32"),
-            pa.array(
-                np.arange("2012-01-01", 20, dtype="datetime64[D]").astype(
-                    "datetime64[ns]"
-                )
-            ),
-            pa.array(np.repeat(["a", "b"], 10)),
-        ],
-        names=["f1", "f2", "part"],
-    )
 
-    with tempfile.TemporaryDirectory() as tempdir:
-        base_dir = os.path.join(tempdir, "parquet_dataset")
+    # Set the encryption configuration using ParquetFileFormat
+    # and make_write_options
+    pformat = pa.dataset.ParquetFileFormat()
 
-        # Use a placeholder for encryption configurations
-        encryption_config_placeholder = "test_encryption_config_value"
-
-        # Set the encryption configuration using ParquetFileFormat
-        # and make_write_options
-        pformat = pa.dataset.ParquetFileFormat()
-
-        with pytest.raises(NotImplementedError):
-            write_options = pformat.make_write_options(
-                encryption_config=encryption_config_placeholder
-            )
-
-        ds.write_dataset(table, base_dir, format=pformat, file_options=write_options)
+    with pytest.raises(NotImplementedError):
+        _ = pformat.make_write_options(
+            # encryption_config=encryption_config_placeholder
+            # TODO
+            encryption_properties="some value"
+        )

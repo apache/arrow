@@ -18,13 +18,38 @@
 # distutils: language = c++
 
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.includes.libparquet_encryption cimport *
+
 from pyarrow._parquet cimport *
+
+cdef extern from "arrow/dataset/parquet_encryption_config.h" namespace "arrow::dataset" nogil:
+    cdef cppclass CParquetEncryptionConfig "arrow::dataset::ParquetEncryptionConfig":
+        shared_ptr[CCryptoFactory] crypto_factory
+        shared_ptr[CKmsConnectionConfig] kms_connection_config
+        shared_ptr[CEncryptionConfiguration] encryption_config
+
+    cdef cppclass CParquetDecryptionConfig "arrow::dataset::ParquetDecryptionConfig":
+        shared_ptr[CCryptoFactory] crypto_factory
+        shared_ptr[CKmsConnectionConfig] kms_connection_config
+        shared_ptr[CDecryptionConfiguration] decryption_config
+
+cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *
+cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *
+cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *
+cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *
+
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileWriter \
             "arrow::dataset::ParquetFileWriter"(CFileWriter):
         const shared_ptr[FileWriter]& parquet_writer() const
+
+    cdef cppclass CParquetFileWriteOptions \
+            "arrow::dataset::ParquetFileWriteOptions"(CFileWriteOptions):
+        shared_ptr[WriterProperties] writer_properties
+        shared_ptr[ArrowWriterProperties] arrow_writer_properties
+        shared_ptr[CParquetEncryptionConfig] parquet_encryption_config
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(
             CFileFragment):
@@ -51,6 +76,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CExpression partition_expression,
             shared_ptr[CSchema] physical_schema,
             vector[int] row_groups)
+
+    cdef cppclass CParquetFragmentScanOptions \
+            "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):
+        shared_ptr[CReaderProperties] reader_properties
+        shared_ptr[ArrowReaderProperties] arrow_reader_properties
+        shared_ptr[CParquetDecryptionConfig] parquet_decryption_config
 
     cdef cppclass CParquetFactoryOptions \
             "arrow::dataset::ParquetFactoryOptions":

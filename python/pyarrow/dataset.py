@@ -83,14 +83,6 @@ _parquet_msg = (
 
 try:
     from pyarrow._dataset_parquet import (  # noqa
-        ParquetDecryptionConfig,
-        ParquetEncryptionConfig,
-    )
-except ImportError:
-    pass
-
-try:
-    from pyarrow._dataset_parquet import (  # noqa
         ParquetDatasetFactory,
         ParquetFactoryOptions,
         ParquetFileFormat,
@@ -101,6 +93,15 @@ try:
         RowGroupInfo,
     )
     _parquet_available = True
+except ImportError:
+    pass
+
+
+try:
+    from pyarrow._dataset_parquet_encryption import (  # noqa
+        ParquetDecryptionConfig,
+        ParquetEncryptionConfig,
+    )
 except ImportError:
     pass
 
