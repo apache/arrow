@@ -21,17 +21,21 @@
 
 ## New features
 
-* When reading partitioned CSV datasets and supplying a schema to `open_dataset()`, the partition variables are now included in the resulting dataset (#37658).
+* When reading partitioned CSV datasets and supplying a schema to
+  `open_dataset()`, the partition variables are now included in the resulting
+  dataset (#37658).
 * Added `write_csv_dataset()` as a friendlier alternative to the existing
   dataset writer (#36436).
 * Added `quoted_na` argument to `open_delim_dataset()` (#37828).
 * Implemented `infer_schema()` method for `data.frame` (#37843).
-* Added functionality to read CSVs with comma or other character as decimal mark both in 
-  dataset reading functions and new function `read_csv2_arrow()` (#38002).
+* Added functionality to read CSVs with comma or other character as decimal
+  mark both in dataset reading functions and new function `read_csv2_arrow()`
+  (#38002).
 
 ## Minor improvements and fixes
 
-* Added default descriptions in `CsvParseOptions$create()` docs (@angela-li, #37909)
+* Added default descriptions in `CsvParseOptions$create()` docs (@angela-li,
+  #37909).
 * Fixed a code path which may have resulted in R code being called from a
   non-R thread after a failed allocation (#37565).
 * Fixed a bug where large Parquet files could not be read from R connections
@@ -56,7 +60,7 @@
   on MacOS (i.e., use of x86 installation of R on M1/aarch64) on MacOS (#37777).
 * Improve installation configuration when using an installation of R that
   is not on PATH (@meztez, #37225).
-* Addwd extra output for failed builds (@amoeba, #37727).
+* Add extra output for failed builds (@amoeba, #37727).
 * Fixed an error that occured within `create_package_with_all_dependencies()`
   on Windows (#37226).
 
