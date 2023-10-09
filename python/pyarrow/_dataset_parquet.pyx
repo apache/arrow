@@ -754,6 +754,11 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             )
         )
 
+    def _set_encryption_config(self):
+        cdef CParquetFileWriteOptions* opts = self.parquet_options
+        
+        opts.parquet_encryption_config = self._properties["encryption_config"]
+
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
         self.parquet_options = <CParquetFileWriteOptions*> sp.get()
@@ -780,6 +785,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
         self._set_properties()
         self._set_arrow_properties()
+        self._set_encryption_config()
 
     def __repr__(self):
         return "<pyarrow.dataset.ParquetFileWriteOptions {0}>".format(
