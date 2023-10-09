@@ -14,20 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
 // +build !noasm
 
 package bmi
 
 import "unsafe"
-
-//go:noescape
-func _extract_bits_neon(bitmap, selectBitmap uint64) (res uint64)
-
-// There is no single instruction similar with 'pext' on Arm64.
-// The equivalent of 'pext' was implemented with Arm64 Neon for Parallel Bits Extract 
-func extractBitsNEON(bitmap, selectBitmap uint64) uint64 {
-	return _extract_bits_neon(bitmap, selectBitmap)
-}
 
 //go:noescape
 func _levels_to_bitmap_neon(levels unsafe.Pointer, numLevels int, rhs int16) (res uint64)

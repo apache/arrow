@@ -1843,7 +1843,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
       }
       metadata_->key_value_metadata.clear();
-      metadata_->key_value_metadata.reserve(key_value_metadata_->size());
+      metadata_->key_value_metadata.reserve(
+          static_cast<size_t>(key_value_metadata_->size()));
       for (int64_t i = 0; i < key_value_metadata_->size(); ++i) {
         format::KeyValue kv_pair;
         kv_pair.__set_key(key_value_metadata_->key(i));

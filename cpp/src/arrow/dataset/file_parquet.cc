@@ -479,29 +479,35 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                                                          default_fragment_scan_options));
   auto properties =
       MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
-  auto reader_fut = parquet::ParquetFileReader::OpenAsync(
-      std::move(input), std::move(properties), metadata);
-  auto path = source.path();
+
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
-  return reader_fut.Then(
-      [=](const std::unique_ptr<parquet::ParquetFileReader>&) mutable
-      -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-        ARROW_ASSIGN_OR_RAISE(std::unique_ptr<parquet::ParquetFileReader> reader,
-                              reader_fut.MoveResult());
-        std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-        auto arrow_properties =
-            MakeArrowReaderProperties(*this, *metadata, *options, *parquet_scan_options);
-        std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-        RETURN_NOT_OK(parquet::arrow::FileReader::Make(options->pool, std::move(reader),
-                                                       std::move(arrow_properties),
-                                                       &arrow_reader));
-        return std::move(arrow_reader);
-      },
-      [path](
-          const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-        return WrapSourceError(status, path);
+
+  return source.OpenAsync().Then(
+      [=](const std::shared_ptr<io::RandomAccessFile>& input) mutable {
+        return parquet::ParquetFileReader::OpenAsync(input, std::move(properties),
+                                                     metadata)
+            .Then(
+                [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
+                -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                  auto arrow_properties = MakeArrowReaderProperties(
+                      *self, *reader->metadata(), *options, *parquet_scan_options);
+
+                  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+                  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
+                      options->pool,
+                      // TODO(ARROW-12259): workaround since we have Future<(move-only
+                      // type)> It *wouldn't* be safe to const_cast reader except that
+                      // here we know there are no other waiters on the reader.
+                      std::move(const_cast<std::unique_ptr<parquet::ParquetFileReader>&>(
+                          reader)),
+                      std::move(arrow_properties), &arrow_reader));
+
+                  return std::move(arrow_reader);
+                },
+                [path = source.path()](const Status& status)
+                    -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                  return WrapSourceError(status, path);
+                });
       });
 }
 

@@ -366,9 +366,11 @@ class NullArrayFactory {
     }
 
     template <typename T>
-    enable_if_var_size_list<T, Status> Visit(const T&) {
+    enable_if_var_size_list<T, Status> Visit(const T& type) {
       // values array may be empty, but there must be at least one offset of 0
-      return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
+      RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * (length_ + 1)));
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
+      return Status::OK();
     }
 
     template <typename T>
