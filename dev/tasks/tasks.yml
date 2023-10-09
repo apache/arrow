@@ -82,8 +82,6 @@ groups:
 
   r:
     - test*-r-*
-    - homebrew-r-autobrew
-    - homebrew-r-brew
     # r-conda tasks
     - conda-linux-x64-cpu-r*
     - conda-linux-aarch64-cpu-r*
@@ -149,10 +147,7 @@ groups:
     - conan-*
     - conda-*
     - java-jars
-    # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
-    - homebrew-r-autobrew
-    - homebrew-r-brew
     - nuget
     - test-*
     - example-*
@@ -172,10 +167,7 @@ groups:
     - conda-*
     - conan-*
     - java-jars
-    # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
-    - homebrew-r-autobrew
-    - homebrew-r-brew
     - nuget
     - wheel-*
     - python-sdist
@@ -776,24 +768,6 @@ tasks:
   homebrew-cpp:
     ci: github
     template: homebrew-formulae/github.macos.yml
-    params:
-      formula: apache-arrow.rb
-
-  homebrew-cpp-autobrew:
-    ci: github
-    template: homebrew-formulae/github.macos.yml
-    params:
-      formula: autobrew/apache-arrow.rb
-
-  homebrew-r-autobrew:
-    # This tests that the autobrew formula + script work in practice
-    ci: github
-    template: r/github.macos.autobrew.yml
-
-  homebrew-r-brew:
-    # This tests that the autobrew formula + script work in practice
-    ci: github
-    template: r/github.macos.brew.yml
     params:
       formula: apache-arrow.rb
 
