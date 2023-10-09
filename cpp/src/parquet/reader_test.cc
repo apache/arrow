@@ -506,42 +506,18 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
 // reader. The functionality of read_dense_for_nullable is tested
 // elsewhere.
 TEST(TestFileReader, RecordReaderReadDenseForNullable) {
-  // Default is false.
-  {
-    ReaderProperties reader_props;
+  // We test the default which is false, and also test enabling and disabling
+  // read_dense_for_nullable.
+  std::vector<ReaderProperties> reader_properties(3);
+  reader_properties[1].enable_read_dense_for_nullable();
+  reader_properties[2].disable_read_dense_for_nullable();
+  for (const auto& reader_props : reader_properties) {
     std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
         alltypes_plain(), /* memory_map = */ false, reader_props);
     std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
-
-    std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
-
-    ASSERT_FALSE(col_record_reader_->read_dense_for_nullable());
-  }
-  // Test enabling it.
-  {
-    ReaderProperties reader_props;
-    reader_props.enable_read_dense_for_nullable();
-    std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
-        alltypes_plain(), /* memory_map = */ false, reader_props);
-    std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
-
-    std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
-
-    ASSERT_TRUE(col_record_reader_->read_dense_for_nullable());
-  }
-  // Test disabling it.
-  {
-    ReaderProperties reader_props;
-    // We tested that enabling it works above.
-    reader_props.enable_read_dense_for_nullable();
-    reader_props.disable_read_dense_for_nullable();
-    std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
-        alltypes_plain(), /* memory_map = */ false, reader_props);
-    std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
-
-    std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
-
-    ASSERT_FALSE(col_record_reader_->read_dense_for_nullable());
+    std::shared_ptr<internal::RecordReader> col_record_reader = group->RecordReader(0);
+    ASSERT_EQ(reader_props.read_dense_for_nullable(),
+              col_record_reader->read_dense_for_nullable());
   }
 }
 

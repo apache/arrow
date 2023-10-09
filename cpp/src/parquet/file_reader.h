@@ -62,7 +62,7 @@ class PARQUET_EXPORT RowGroupReader {
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
 
-  // Construct a RecordReader for the indicated row group-relative column i.
+  // EXPERIMENTAL: Construct a RecordReader for the indicated column of the row group.
   // Ownership is shared with the RowGroupReader.
   std::shared_ptr<internal::RecordReader> RecordReader(int i);
 
