@@ -69,6 +69,7 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        emscripten \
         gdb \
         git \
         libbenchmark-dev \
@@ -148,6 +149,10 @@ RUN if [ "${gcc_version}" = "" ]; then \
       update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++ 100 && \
       update-alternatives --set c++ /usr/bin/g++; \
     fi
+
+RUN EM_CACHE=/usr/share/emscripten/cache \
+    EM_FROZEN_CACHE= \
+      embuilder --pic build zlib
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
