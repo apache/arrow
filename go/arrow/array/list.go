@@ -27,7 +27,6 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/bitutil"
 	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
 	"github.com/apache/arrow/go/v14/internal/json"
 )
 
@@ -961,51 +960,18 @@ func outOfBoundsListViewSize(l offsetsAndSizes, slot int64, offsetLimit int64) e
 
 // Pre-condition: Basic validation has already been performed
 func (a *array) fullyValidateOffsetsAndSizes(l offsetsAndSizes, offsetLimit int64) error {
-	validity := a.NullBitmapBytes()
-
-	slot := int64(0)
-	if validity != nil {
-		counter := bitutils.NewBitBlockCounter(validity, int64(a.Offset()), int64(a.Len()))
-		var block bitutils.BitBlockCount
-		for i := 0; i < a.Len(); i += int(block.Len) {
-			block = counter.NextWord()
-			if block.NoneSet() {
-				continue
+	for slot := int64(0); slot < int64(a.Len()); slot += 1 {
+		size := l.sizeAt(slot)
+		if size > 0 {
+			offset := l.offsetAt(slot)
+			if offset < 0 || offset > offsetLimit {
+				return outOfBoundsListViewOffset(l, slot, offsetLimit)
 			}
-			allSet := block.AllSet()
-			for j := 0; j < int(block.Len); j += 1 {
-				slot = int64(i + j)
-				valid := allSet || bitutil.BitIsSet(validity, a.Offset()+int(slot))
-				if valid {
-					size := l.sizeAt(slot)
-					if size > 0 {
-						offset := l.offsetAt(slot)
-						if offset < 0 || offset > offsetLimit {
-							return outOfBoundsListViewOffset(l, slot, offsetLimit)
-						}
-						if size > offsetLimit-offset {
-							return outOfBoundsListViewSize(l, slot, offsetLimit)
-						}
-					} else if size < 0 {
-						return outOfBoundsListViewSize(l, slot, offsetLimit)
-					}
-				}
-			}
-		}
-	} else {
-		for ; slot < int64(a.Len()); slot += 1 {
-			size := l.sizeAt(slot)
-			if size > 0 {
-				offset := l.offsetAt(slot)
-				if offset < 0 || offset > offsetLimit {
-					return outOfBoundsListViewOffset(l, slot, offsetLimit)
-				}
-				if size > offsetLimit-int64(offset) {
-					return outOfBoundsListViewSize(l, slot, offsetLimit)
-				}
-			} else if size < 0 {
+			if size > offsetLimit-int64(offset) {
 				return outOfBoundsListViewSize(l, slot, offsetLimit)
 			}
+		} else if size < 0 {
+			return outOfBoundsListViewSize(l, slot, offsetLimit)
 		}
 	}
 
