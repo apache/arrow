@@ -2114,15 +2114,11 @@ if(ARROW_MIMALLOC)
   add_library(mimalloc::mimalloc STATIC IMPORTED)
   set_target_properties(mimalloc::mimalloc PROPERTIES IMPORTED_LOCATION
                                                       "${MIMALLOC_STATIC_LIB}")
-  if(ARROW_ENABLE_THREADING)
-    target_link_libraries(mimalloc::mimalloc INTERFACE Threads::Threads)
-  endif()
   target_include_directories(mimalloc::mimalloc BEFORE
                              INTERFACE "${MIMALLOC_INCLUDE_DIR}")
+  target_link_libraries(mimalloc::mimalloc INTERFACE Threads::Threads)
   if(WIN32)
-    set_property(TARGET mimalloc::mimalloc
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES "bcrypt.lib" "psapi.lib")
+    target_link_libraries(mimalloc::mimalloc INTERFACE "bcrypt.lib" "psapi.lib")
   endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
