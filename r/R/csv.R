@@ -130,6 +130,7 @@
 #' @param read_options see [CSV reading options][csv_read_options()]
 #' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
+#' @param decimal_point Character to use for decimal point in floating point numbers.
 #'
 #' @return A `tibble`, or a Table if `as_data_frame = FALSE`.
 #' @export
@@ -179,7 +180,8 @@ read_delim_arrow <- function(file,
                              convert_options = NULL,
                              read_options = NULL,
                              as_data_frame = TRUE,
-                             timestamp_parsers = NULL) {
+                             timestamp_parsers = NULL,
+                             decimal_point = ".") {
   if (inherits(schema, "Schema")) {
     col_names <- names(schema)
     col_types <- schema
@@ -198,11 +200,12 @@ read_delim_arrow <- function(file,
   }
   if (is.null(convert_options)) {
     convert_options <- readr_to_csv_convert_options(
-      na,
-      quoted_na,
+      na = na,
+      quoted_na = quoted_na,
+      decimal_point = decimal_point,
       col_types = col_types,
       col_names = read_options$column_names,
-      timestamp_parsers = timestamp_parsers
+      timestamp_parsers = timestamp_parsers,
     )
   }
 
@@ -295,12 +298,13 @@ read_csv2_arrow <- function(file,
                             skip_empty_rows = TRUE,
                             skip = 0L,
                             parse_options = NULL,
-                            convert_options = CsvConvertOptions$create(decimal_point = ","),
+                            convert_options = NULL,
                             read_options = NULL,
                             as_data_frame = TRUE,
                             timestamp_parsers = NULL) {
   mc <- match.call()
   mc$delim <- ";"
+  mc$decimal_point = ","
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
@@ -830,6 +834,7 @@ CsvConvertOptions$create <- csv_convert_options
 
 readr_to_csv_convert_options <- function(na,
                                          quoted_na,
+                                         decimal_point,
                                          col_types = NULL,
                                          col_names = NULL,
                                          timestamp_parsers = NULL) {
@@ -881,7 +886,8 @@ readr_to_csv_convert_options <- function(na,
     strings_can_be_null = quoted_na,
     col_types = col_types,
     timestamp_parsers = timestamp_parsers,
-    include_columns = include_columns
+    include_columns = include_columns,
+    decimal_point = decimal_point
   )
 }
 

@@ -25,7 +25,8 @@ read_delim_arrow(
   convert_options = NULL,
   read_options = NULL,
   as_data_frame = TRUE,
-  timestamp_parsers = NULL
+  timestamp_parsers = NULL,
+  decimal_point = "."
 )
 
 read_csv_arrow(
@@ -62,7 +63,7 @@ read_csv2_arrow(
   skip_empty_rows = TRUE,
   skip = 0L,
   parse_options = NULL,
-  convert_options = CsvConvertOptions$create(decimal_point = ","),
+  convert_options = NULL,
   read_options = NULL,
   as_data_frame = TRUE,
   timestamp_parsers = NULL
@@ -160,6 +161,8 @@ starting from the beginning of this vector. Possible values are:
 \item a character vector of \link[base:strptime]{strptime} parse strings
 \item a list of \link{TimestampParser} objects
 }}
+
+\item{decimal_point}{Character to use for decimal point in floating point numbers.}
 }
 \value{
 A \code{tibble}, or a Table if \code{as_data_frame = FALSE}.
