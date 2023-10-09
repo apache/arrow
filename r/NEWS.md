@@ -21,8 +21,7 @@
 
 ## New features
 
-* The `schema` argument to `open_dataset()` is now supported when reading CSV
-  datasets (#37658).
+* When reading partitioned CSV datasets and supplying a schema to `open_dataset()`, the partition variables are now included in the resulting dataset (#37658).
 * Added `write_csv_dataset()` as a friendlier alternative to the existing
   dataset writer (#36436).
 * Added `quoted_na` argument to `open_delim_dataset()` (#37828).
