@@ -276,7 +276,8 @@ open_delim_dataset <- function(sources,
                                convert_options = NULL,
                                read_options = NULL,
                                timestamp_parsers = NULL,
-                               quoted_na = TRUE) {
+                               quoted_na = TRUE,
+                               parse_options = NULL) {
   open_dataset(
     sources = sources,
     schema = schema,
@@ -297,7 +298,8 @@ open_delim_dataset <- function(sources,
     convert_options = convert_options,
     read_options = read_options,
     timestamp_parsers = timestamp_parsers,
-    quoted_na = quoted_na
+    quoted_na = quoted_na,
+    parse_options = parse_options
   )
 }
 
@@ -320,7 +322,8 @@ open_csv_dataset <- function(sources,
                              convert_options = NULL,
                              read_options = NULL,
                              timestamp_parsers = NULL,
-                             quoted_na = TRUE) {
+                             quoted_na = TRUE,
+                             parse_options = NULL) {
   mc <- match.call()
   mc$delim <- ","
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
@@ -346,7 +349,8 @@ open_tsv_dataset <- function(sources,
                              convert_options = NULL,
                              read_options = NULL,
                              timestamp_parsers = NULL,
-                             quoted_na = TRUE) {
+                             quoted_na = TRUE,
+                             parse_options = NULL) {
   mc <- match.call()
   mc$delim <- "\t"
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))

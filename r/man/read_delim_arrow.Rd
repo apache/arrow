@@ -120,13 +120,13 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{parse_options}{see \link[=CsvReadOptions]{file reader options}.
+\item{parse_options}{see \link[=csv_parse_options]{CSV parsing options}.
 If given, this overrides any
 parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
 
-\item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}}
 
-\item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{read_options}{see \link[=csv_read_options]{CSV reading options}}
 
 \item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
