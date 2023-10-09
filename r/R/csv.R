@@ -774,6 +774,7 @@ TimestampParser$create <- function(format = NULL) {
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
+#' @param decimal_point Character to use for decimal point in floating point numbers.
 #'
 #' @examples
 #' tf <- tempfile()
