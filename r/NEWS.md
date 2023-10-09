@@ -26,6 +26,8 @@
   dataset writer (#36436).
 * Added `quoted_na` argument to `open_delim_dataset()` (#37828).
 * Implemented `infer_schema()` method for `data.frame` (#37843).
+* Added functionality to read CSVs with comma or other character as decimal mark both in 
+  dataset reading functions and new function `read_csv2_arrow()` (#38002).
 
 ## Minor improvements and fixes
 
