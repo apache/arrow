@@ -17,7 +17,7 @@
 
 # cython: language_level = 3
 
-"""Dataset support for Parquest file format."""
+"""Dataset support for Parquet file format."""
 
 from cython cimport binding
 from cython.operator cimport dereference as deref
@@ -33,13 +33,6 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._fs cimport FileSystem
 
-IF PARQUET_ENCRYPTION_ENABLED:
-    from pyarrow.includes.libarrow_parquet_readwrite_encryption cimport *
-    from pyarrow._parquet_encryption cimport *
-ELSE:
-    from pyarrow.includes.libarrow_parquet_readwrite cimport *
-
-
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._dataset cimport (
     _make_file_source,
@@ -54,145 +47,25 @@ from pyarrow._dataset cimport (
     WrittenFile
 )
 
-
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
     FileMetaData,
 )
 
 
+try:
+    from pyarrow._dataset_parquet_encryption import (
+        set_encryption_config, set_decryption_config
+    )
+    parquet_encryption_enabled = True
+except ImportError:
+    parquet_encryption_enabled = False
+
+
 cdef Expression _true = Expression._scalar(True)
 
 ctypedef CParquetFileWriter* _CParquetFileWriterPtr
 
-IF PARQUET_ENCRYPTION_ENABLED:
-    cdef class ParquetEncryptionConfig(_Weakrefable):
-        """
-        Core configuration class encapsulating parameters for high-level encryption
-        within the Parquet framework.
-
-        The ParquetEncryptionConfig class serves as a bridge for passing encryption-related
-        parameters to the appropriate components within the Parquet library. It maintains references
-        to objects that define the encryption strategy, Key Management Service (KMS) configuration,
-        and specific encryption configurations for Parquet data.
-
-        Parameters
-        ----------
-        crypto_factory : pyarrow.parquet.encryption.CryptoFactory
-            Shared pointer to a `CryptoFactory` object. The `CryptoFactory` is responsible for
-            creating cryptographic components, such as encryptors and decryptors.
-        kms_connection_config : pyarrow.parquet.encryption.KmsConnectionConfig
-            Shared pointer to a `KmsConnectionConfig` object. This object holds the configuration
-            parameters necessary for connecting to a Key Management Service (KMS).
-        encryption_config : pyarrow.parquet.encryption.EncryptionConfiguration
-            Shared pointer to an `EncryptionConfiguration` object. This object defines specific
-            encryption settings for Parquet data, including the keys assigned to different columns.
-
-        Raises
-        ------
-        ValueError
-            Raised if `encryption_config` is None.
-        """
-        cdef:
-            shared_ptr[CParquetEncryptionConfig] c_config
-
-        # Avoid mistakenly creating attributes
-        __slots__ = ()
-
-        def __cinit__(self, CryptoFactory crypto_factory, KmsConnectionConfig kms_connection_config,
-                      EncryptionConfiguration encryption_config):
-
-            cdef shared_ptr[CEncryptionConfiguration] c_encryption_config
-
-            if crypto_factory is None:
-                raise ValueError("crypto_factory cannot be None")
-
-            if kms_connection_config is None:
-                raise ValueError("kms_connection_config cannot be None")
-
-            if encryption_config is None:
-                raise ValueError("encryption_config cannot be None")
-
-            self.c_config.reset(new CParquetEncryptionConfig())
-
-            c_encryption_config = pyarrow_unwrap_encryptionconfig(
-                encryption_config)
-
-            self.c_config.get().crypto_factory = pyarrow_unwrap_cryptofactory(crypto_factory)
-            self.c_config.get().kms_connection_config = pyarrow_unwrap_kmsconnectionconfig(
-                kms_connection_config)
-            self.c_config.get().encryption_config = c_encryption_config
-
-        @staticmethod
-        cdef wrap(shared_ptr[CParquetEncryptionConfig] c_config):
-            cdef ParquetEncryptionConfig python_config = ParquetEncryptionConfig.__new__(ParquetEncryptionConfig)
-            python_config.c_config = c_config
-            return python_config
-
-        cdef shared_ptr[CParquetEncryptionConfig] unwrap(self):
-            return self.c_config
-
-    cdef class ParquetDecryptionConfig(_Weakrefable):
-        """
-        Core configuration class encapsulating parameters for high-level decryption
-        within the Parquet framework.
-
-        ParquetDecryptionConfig is designed to pass decryption-related parameters to
-        the appropriate decryption components within the Parquet library. It holds references to
-        objects that define the decryption strategy, Key Management Service (KMS) configuration,
-        and specific decryption configurations for reading encrypted Parquet data.
-
-        Parameters
-        ----------
-        crypto_factory : pyarrow.parquet.encryption.CryptoFactory
-            Shared pointer to a `CryptoFactory` object, pivotal in creating cryptographic
-            components for the decryption process.
-        kms_connection_config : pyarrow.parquet.encryption.KmsConnectionConfig
-            Shared pointer to a `KmsConnectionConfig` object, containing parameters necessary
-            for connecting to a Key Management Service (KMS) during decryption.
-        decryption_config : pyarrow.parquet.encryption.DecryptionConfiguration
-            Shared pointer to a `DecryptionConfiguration` object, specifying decryption settings
-            for reading encrypted Parquet data.
-
-        Raises
-        ------
-        ValueError
-            Raised if `decryption_config` is None.
-        """
-
-        cdef:
-            shared_ptr[CParquetDecryptionConfig] c_config
-
-        # Avoid mistakingly creating attributes
-        __slots__ = ()
-
-        def __cinit__(self, CryptoFactory crypto_factory, KmsConnectionConfig kms_connection_config,
-                      DecryptionConfiguration decryption_config):
-
-            cdef shared_ptr[CDecryptionConfiguration] c_decryption_config
-
-            if decryption_config is None:
-                raise ValueError(
-                    "decryption_config cannot be None")
-
-            self.c_config.reset(new CParquetDecryptionConfig())
-
-            c_decryption_config = pyarrow_unwrap_decryptionconfig(
-                decryption_config)
-
-            self.c_config.get().crypto_factory = pyarrow_unwrap_cryptofactory(crypto_factory)
-            self.c_config.get().kms_connection_config = pyarrow_unwrap_kmsconnectionconfig(
-                kms_connection_config)
-            self.c_config.get().decryption_config = c_decryption_config
-
-        @staticmethod
-        cdef wrap(shared_ptr[CParquetDecryptionConfig] c_config):
-            cdef ParquetDecryptionConfig python_config = ParquetDecryptionConfig.__new__(ParquetDecryptionConfig)
-            python_config.c_config = c_config
-            return python_config
-
-        cdef shared_ptr[CParquetDecryptionConfig] unwrap(self):
-            return self.c_config
 
 cdef class ParquetFileFormat(FileFormat):
     """
@@ -686,10 +559,6 @@ cdef class ParquetReadOptions(_Weakrefable):
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
 
-    cdef:
-        CParquetFileWriteOptions* parquet_options
-        object _properties
-
     def update(self, **kwargs):
         """
         Parameters
@@ -703,10 +572,6 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             "use_compliant_nested_type",
         }
 
-        encryption_fields = {
-            "encryption_config",
-        }
-
         setters = set()
         for name, value in kwargs.items():
             if name not in self._properties:
@@ -714,7 +579,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             self._properties[name] = value
             if name in arrow_fields:
                 setters.add(self._set_arrow_properties)
-            elif name in encryption_fields:
+            elif name == "encryption_config" and value is not None:
                 setters.add(self._set_encryption_config)
             else:
                 setters.add(self._set_properties)
@@ -761,15 +626,12 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         )
 
     def _set_encryption_config(self):
-        IF PARQUET_ENCRYPTION_ENABLED:
-            cdef CParquetFileWriteOptions* opts = self.parquet_options
-            config = self._properties["encryption_config"]
-            if not isinstance(config, ParquetEncryptionConfig):
-                return
-            opts.parquet_encryption_config = (<ParquetEncryptionConfig> config).unwrap()
-        ELSE:
+        if not parquet_encryption_enabled:
             raise NotImplementedError(
-                "Encryption is not enabled, but a encryption_config was provided.")
+                "Encryption is not enabled in your installation of pyarrow, but an "
+                "encryption_config was provided."
+            )
+        set_encryption_config(self, self._properties["encryption_config"])
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
@@ -797,7 +659,6 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
         self._set_properties()
         self._set_arrow_properties()
-        self._set_encryption_config()
 
     def __repr__(self):
         return "<pyarrow.dataset.ParquetFileWriteOptions {0}>".format(
@@ -839,10 +700,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Parquet file.
     """
 
-    cdef CParquetFragmentScanOptions* parquet_options
-    IF PARQUET_ENCRYPTION_ENABLED:
-        cdef ParquetDecryptionConfig _parquet_decryption_config
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -861,14 +718,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.thrift_string_size_limit = thrift_string_size_limit
         if thrift_container_size_limit is not None:
             self.thrift_container_size_limit = thrift_container_size_limit
-
-        IF PARQUET_ENCRYPTION_ENABLED:
-            if decryption_config:
-                self.parquet_decryption_config = decryption_config
-        ELSE:
-            if decryption_config is not None:
-                raise NotImplementedError(
-                    "Encryption is not enabled, but a decryption_config was provided.")
+        if decryption_config is not None:
+            self.parquet_decryption_config = decryption_config
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -879,30 +730,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
 
     cdef ArrowReaderProperties* arrow_reader_properties(self):
         return self.parquet_options.arrow_reader_properties.get()
-
-    IF PARQUET_ENCRYPTION_ENABLED:
-        @property
-        def parquet_decryption_config(self):
-            return self._parquet_decryption_config
-
-        @parquet_decryption_config.setter
-        def parquet_decryption_config(self, ParquetDecryptionConfig config):
-            cdef shared_ptr[CParquetDecryptionConfig] c_config
-            if not isinstance(config, ParquetDecryptionConfig):
-                raise ValueError("config must be a ParquetDecryptionConfig")
-            self._parquet_decryption_config = config
-            c_config = config.unwrap()
-            self.parquet_options.parquet_decryption_config = c_config
-    ELSE:
-        @property
-        def parquet_decryption_config(self):
-            raise NotImplementedError(
-                "Unable to access encryption features; the code was compiled without the necessary encryption support.")
-
-        @parquet_decryption_config.setter
-        def parquet_decryption_config(self, ParquetDecryptionConfig config):
-            raise NotImplementedError(
-                "Unable to access encryption features; the code was compiled without the necessary encryption support.")
 
     @property
     def use_buffered_stream(self):
@@ -952,6 +779,25 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if size <= 0:
             raise ValueError("size must be larger than zero")
         self.reader_properties().set_thrift_container_size_limit(size)
+
+    @property
+    def parquet_decryption_config(self):
+        if not parquet_encryption_enabled:
+           raise NotImplementedError(
+               "Unable to access encryption features. "
+               "Encryption is not enabled in your installation of pyarrow."
+        )
+        return self._parquet_decryption_config
+
+    @parquet_decryption_config.setter
+    def parquet_decryption_config(self, config):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Encryption is not enabled in your installation of pyarrow, but a "
+                "decryption_config was provided."
+            )
+        set_decryption_config(self, config)
+        self._parquet_decryption_config = config
 
     def equals(self, ParquetFragmentScanOptions other):
         """
