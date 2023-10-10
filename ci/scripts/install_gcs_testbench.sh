@@ -36,7 +36,7 @@ esac
 
 version=$1
 if [[ "${version}" -eq "default" ]]; then
-  version="v0.37.0"
+  version="v0.39.0"
 fi
 
 ${PYTHON:-python3} -m pip install \
