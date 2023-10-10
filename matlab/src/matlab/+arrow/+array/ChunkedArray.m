@@ -61,11 +61,11 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
         end
 
         function data = toMATLAB(obj)
-            data = preallocateMATLABArray(obj.Type,  obj.Length);
+            data = preallocateMATLABArray(obj.Type,  obj.NumElements);
             startIndex = 1;
             for ii = 1:obj.NumChunks
                 chunk = obj.chunk(ii);
-                endIndex = startIndex + chunk.Length - 1;
+                endIndex = startIndex + chunk.NumElements - 1;
                 % Use 2D indexing to support tabular MATLAB types.
                 data(startIndex:endIndex, :) = toMATLAB(chunk);
                 startIndex = endIndex + 1;
