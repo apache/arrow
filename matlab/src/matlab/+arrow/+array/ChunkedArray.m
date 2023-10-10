@@ -25,7 +25,7 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
     properties(Dependent, SetAccess=private, GetAccess=public)
         Type
         NumChunks
-        Length
+        NumElements
     end
 
     methods
@@ -41,8 +41,8 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
             numChunks = obj.Proxy.getNumChunks();
         end
 
-        function length = get.Length(obj)
-            length = obj.Proxy.getLength();
+        function numElements = get.NumElements(obj)
+            numElements = obj.Proxy.getNumElements();
         end
 
         function type = get.Type(obj)
