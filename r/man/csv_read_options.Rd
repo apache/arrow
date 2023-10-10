@@ -45,7 +45,7 @@ CSV Reading Options
 \examples{
 tf <- tempfile()
 on.exit(unlink(tf))
-writeLines('my file has a non-data header\nx\n1\n2', tf)
+writeLines("my file has a non-data header\nx\n1\n2", tf)
 read_csv_arrow(tf, read_options = csv_read_options(skip_rows = 1))
 open_csv_dataset(tf, read_options = csv_read_options(skip_rows = 1))
 }

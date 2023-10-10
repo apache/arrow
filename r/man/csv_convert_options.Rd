@@ -15,7 +15,8 @@ csv_convert_options(
   auto_dict_max_cardinality = 50L,
   include_columns = character(),
   include_missing_columns = FALSE,
-  timestamp_parsers = NULL
+  timestamp_parsers = NULL,
+  decimal_point = "."
 )
 }
 \arguments{
@@ -56,6 +57,8 @@ starting from the beginning of this vector. Possible values are
 (a) \code{NULL}, the default, which uses the ISO-8601 parser;
 (b) a character vector of \link[base:strptime]{strptime} parse strings; or
 (c) a list of \link{TimestampParser} objects.}
+
+\item{decimal_point}{Character to use for decimal point in floating point numbers.}
 }
 \description{
 CSV Convert Options
@@ -63,7 +66,7 @@ CSV Convert Options
 \examples{
 tf <- tempfile()
 on.exit(unlink(tf))
-writeLines('x\n1\nNULL\n2\nNA', tf)
-read_csv_arrow(tf, convert_options = csv_convert_options(null_values =  c("", "NA", "NULL")))
-open_csv_dataset(tf, convert_options = csv_convert_options(null_values =  c("", "NA", "NULL")))
+writeLines("x\n1\nNULL\n2\nNA", tf)
+read_csv_arrow(tf, convert_options = csv_convert_options(null_values = c("", "NA", "NULL")))
+open_csv_dataset(tf, convert_options = csv_convert_options(null_values = c("", "NA", "NULL")))
 }
