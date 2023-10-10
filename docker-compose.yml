@@ -1807,7 +1807,8 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
+        pip install arrow/dev/archery[lint] &&
+        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
 
   ######################### Integration Tests #################################
 
