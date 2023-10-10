@@ -19,6 +19,7 @@
 # cython: language_level = 3
 
 from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow.includes.libparquet_encryption cimport *
 from pyarrow._parquet cimport (ParquetCipher,
                                CFileEncryptionProperties,
@@ -48,3 +49,9 @@ cdef class KmsConnectionConfig(_Weakrefable):
 
     @staticmethod
     cdef wrap(const CKmsConnectionConfig& config)
+
+
+cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *
+cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *
+cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *
+cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *

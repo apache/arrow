@@ -17,7 +17,7 @@
 
 # cython: language_level = 3
 
-"""Dataset support for Parquest file format."""
+"""Dataset support for Parquet file format."""
 
 from cython cimport binding
 from cython.operator cimport dereference as deref
@@ -46,12 +46,18 @@ from pyarrow._dataset cimport (
     PartitioningFactory,
     WrittenFile
 )
-from pyarrow._dataset_parquet_encryption cimport *
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
     FileMetaData,
 )
+
+
+try:
+    from pyarrow._dataset_parquet_encryption import set_decryption_config
+    parquet_encryption_enabled = True
+except ImportError:
+    parquet_encryption_enabled = False
 
 
 cdef Expression _true = Expression._scalar(True)
@@ -576,8 +582,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         for name, value in kwargs.items():
             if name not in self._properties:
                 raise TypeError("unexpected parquet write option: " + name)
-            if name == "encryption_properties" and not is_encryption_enabled():
-                raise NotImplementedError("...")
+            # if name == "encryption_properties" and not is_encryption_enabled():
+            #     raise NotImplementedError("...")
             self._properties[name] = value
             if name in arrow_fields:
                 setters.add(self._set_arrow_properties)
@@ -706,9 +712,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Parquet file.
     """
 
-    cdef CParquetFragmentScanOptions* parquet_options
-    cdef object _parquet_decryption_config
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -742,19 +745,24 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
 
     @property
     def parquet_decryption_config(self):
-        if not is_encryption_enabled():
-            raise NotImplementedError(
-                "Unable to access encryption features; the code was compiled without the necessary encryption support.")
+        #if not is_encryption_enabled():
+        #    raise NotImplementedError(
+        #        "Unable to access encryption features; the code was compiled without the necessary encryption support.")
         return self._parquet_decryption_config
 
     @parquet_decryption_config.setter
     def parquet_decryption_config(self, config):
-        if not is_encryption_enabled():
+
+        # try:
+        #     from pyarrow._dataset_parquet_encryption import set_decryption_config
+        # except ImportError:
+        #     #if not is_encryption_enabled():
+        #     raise NotImplementedError(
+        #         "Unable to access encryption features; the code was compiled without the necessary encryption support.")
+        if not parquet_encryption_enabled:
             raise NotImplementedError(
-                "Unable to access encryption features; the code was compiled without the necessary encryption support.")
-        # raise NotImplementedError(
-        #             "Encryption is not enabled, but a decryption_config was provided.")
-        set_decryption_config(self.parquet_options, config)
+                    "Encryption is not enabled, but a decryption_config was provided.")
+        set_decryption_config(self, config)
         self._parquet_decryption_config = config
 
     @property

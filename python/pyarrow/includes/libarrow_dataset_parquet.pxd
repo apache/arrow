@@ -33,11 +33,6 @@ cdef extern from "arrow/dataset/parquet_encryption_config.h" namespace "arrow::d
         shared_ptr[CKmsConnectionConfig] kms_connection_config
         shared_ptr[CDecryptionConfiguration] decryption_config
 
-cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *
-cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *
-cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *
-cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *
-
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 

@@ -19,13 +19,9 @@
 
 """Dataset support for Parquet encryption."""
 
-#from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._parquet_encryption cimport *
-
-
-cdef bint is_encryption_enabled():
-    return True
+from pyarrow._dataset_parquet cimport ParquetFragmentScanOptions
 
 
 cdef class ParquetEncryptionConfig(_Weakrefable):
@@ -158,9 +154,9 @@ cdef class ParquetDecryptionConfig(_Weakrefable):
         return self.c_config
 
 
-cdef set_decryption_config(CParquetFragmentScanOptions * parquet_options, config):
+def set_decryption_config(ParquetFragmentScanOptions parquet_options, config):
     cdef shared_ptr[CParquetDecryptionConfig] c_config
     if not isinstance(config, ParquetDecryptionConfig):
         raise ValueError("config must be a ParquetDecryptionConfig")
     c_config = (<ParquetDecryptionConfig>config).unwrap()
-    parquet_options.parquet_decryption_config = c_config
+    parquet_options.parquet_options.parquet_decryption_config = c_config

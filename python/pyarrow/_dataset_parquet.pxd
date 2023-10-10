@@ -17,10 +17,19 @@
 
 # cython: language_level = 3
 
-"""Dataset support for Parquet encryption."""
+"""Dataset support for Parquet file format."""
 
+from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 
+from pyarrow._dataset cimport FragmentScanOptions
 
-cdef bint is_encryption_enabled()
-cdef set_decryption_config(CParquetFragmentScanOptions * parquet_options, config)
+
+cdef class ParquetFragmentScanOptions(FragmentScanOptions):
+    cdef:
+        CParquetFragmentScanOptions* parquet_options
+        object _parquet_decryption_config
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp)
+    cdef CReaderProperties* reader_properties(self)
+    cdef ArrowReaderProperties* arrow_reader_properties(self)
