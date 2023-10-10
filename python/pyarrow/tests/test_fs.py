@@ -699,6 +699,7 @@ def test_get_file_info_with_selector(fs, pathfn):
 
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
+            # s3fs only lists directories if they are not empty
             len(infos) == 4
         else:
             assert len(infos) == 5
@@ -719,6 +720,7 @@ def test_get_file_info_with_selector(fs, pathfn):
 
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
+            # s3fs only lists directories if they are not empty
             assert len(infos) == 3
         else:
             assert len(infos) == 4
