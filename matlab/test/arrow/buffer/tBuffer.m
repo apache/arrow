@@ -69,7 +69,7 @@ classdef tBuffer < matlab.unittest.TestCase
 
         function fromMATLABUint8Vector(testCase)
             % Verifies fromMATLAB returns the expected arrow.buffer.Buffer
-            % value when given an uint8 vector.
+            % value when given a uint8 vector.
 
             import arrow.buffer.Buffer
             
@@ -90,7 +90,7 @@ classdef tBuffer < matlab.unittest.TestCase
 
         function fromMATLABDoubleVector(testCase)
             % Verifies fromMATLAB returns the expected arrow.buffer.Buffer
-            % value when given an double vector.
+            % value when given a double vector.
 
             import arrow.buffer.Buffer
             
