@@ -2921,7 +2921,7 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
     _, path = _create_single_file(tempdir, table=table)
     child4 = ds.dataset(path)
 
-    with pytest.raises(pa.ArrowInvalid, match='Unable to merge'):
+    with pytest.raises(pa.ArrowTypeError, match='Unable to merge'):
         ds.dataset([child1, child4])
 
 
