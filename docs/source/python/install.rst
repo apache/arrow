@@ -75,3 +75,20 @@ Optional dependencies
 
 Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
 and **pytz**, **dateutil** or **tzdata** package for timezones.
+
+tzdata on Windows
+^^^^^^^^^^^^^^^^^
+
+While Arrow uses the OS-provided timezone database on Linux and macOS, it requires a
+user-provided database on Windows. To download and extract the text version of
+the IANA timezone database follow the instructions in the C++
+:ref:`download-timezone-database`.
+
+By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``.
+If the database has been downloaded in a different location, you will need to set
+a custom path to the database from Python:
+
+.. code-block:: python
+
+   >>> import pyarrow as pa
+   >>> pa.set_timezone_db_path("custom_path")
