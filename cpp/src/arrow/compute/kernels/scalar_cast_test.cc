@@ -211,8 +211,8 @@ TEST(Cast, CanCast) {
     ExpectCannotCast(from_base_binary, {null()});
   }
 
-  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
-  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO)});
+  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI), date32(), date64()});
+  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO), date32(), date64()});
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
                    {binary(), large_binary()});  // no formatting supported
 
@@ -2013,6 +2013,23 @@ TEST(Cast, StringToTimestamp) {
                                    "[1582934400, 1583140152]"));
 
     // NOTE: timestamp parsing is tested comprehensively in value_parsing_test.cc
+  }
+}
+
+TEST(Cast, StringToDate) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    auto strings = ArrayFromJSON(string_type, R"(["1970-01-01", null, "2000-02-29"])");
+
+    CheckCast(strings, ArrayFromJSON(date32(), "[0, null, 11016]"));
+    CheckCast(strings, ArrayFromJSON(date64(), "[0, null, 951782400000]"));
+
+    for (auto date_type : {date32(), date64()}) {
+      for (std::string not_ts : {"", "2012-01-xx", "2012-01-01 09:00:00"}) {
+        auto options = CastOptions::Safe(date_type);
+        CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_ts + "\"]"), options);
+      }
+    }
+    // NOTE: YYYY-MM-DD parsing is tested comprehensively in value_parsing_test.cc
   }
 }
 
