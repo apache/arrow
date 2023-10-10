@@ -33,9 +33,7 @@ class Buffer : public libmexclass::proxy::Proxy {
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-
     protected:
-
         void getNumBytes(libmexclass::proxy::method::Context& context);
 
         void toMATLAB(libmexclass::proxy::method::Context& context);
