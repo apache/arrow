@@ -41,6 +41,7 @@ func init() {
 	Records["primitives"] = makePrimitiveRecords()
 	Records["structs"] = makeStructsRecords()
 	Records["lists"] = makeListsRecords()
+	Records["list_views"] = makeListViewsRecords()
 	Records["strings"] = makeStringsRecords()
 	Records["fixed_size_lists"] = makeFixedSizeListsRecords()
 	Records["fixed_width_types"] = makeFixedWidthTypesRecords()
@@ -301,6 +302,63 @@ func makeListsRecords() []arrow.Record {
 				defer bldr.Release()
 
 				return bldr.NewListArray()
+			}(),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]arrow.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
+func makeListViewsRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+	dtype := arrow.ListViewOf(arrow.PrimitiveTypes.Int32)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "list_view_nullable", Type: dtype, Nullable: true},
+	}, nil)
+
+	mask := []bool{true, false, false, true, true}
+
+	chunks := [][]arrow.Array{
+		{
+			listViewOf(mem, []arrow.Array{
+				arrayOf(mem, []int32{1, 2, 3, 4, 5}, mask),
+				arrayOf(mem, []int32{11, 12, 13, 14, 15}, mask),
+				arrayOf(mem, []int32{21, 22, 23, 24, 25}, mask),
+			}, nil),
+		},
+		{
+			listViewOf(mem, []arrow.Array{
+				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, mask),
+				arrayOf(mem, []int32{-11, -12, -13, -14, -15}, mask),
+				arrayOf(mem, []int32{-21, -22, -23, -24, -25}, mask),
+			}, nil),
+		},
+		{
+			listViewOf(mem, []arrow.Array{
+				arrayOf(mem, []int32{-1, -2, -3, -4, -5}, mask),
+				arrayOf(mem, []int32{}, []bool{}),
+				arrayOf(mem, []int32{-21, -22, -23, -24, -25}, mask),
+			}, []bool{true, false, true}),
+		},
+		{
+			func() arrow.Array {
+				bldr := array.NewListViewBuilder(mem, arrow.PrimitiveTypes.Int32)
+				defer bldr.Release()
+
+				return bldr.NewListViewArray()
 			}(),
 		},
 	}
@@ -1437,6 +1495,30 @@ func listOf(mem memory.Allocator, values []arrow.Array, valids []bool) *array.Li
 	}
 
 	return bldr.NewListArray()
+}
+
+func listViewOf(mem memory.Allocator, values []arrow.Array, valids []bool) *array.ListView {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	bldr := array.NewListViewBuilder(mem, values[0].DataType())
+	defer bldr.Release()
+
+	valid := func(i int) bool {
+		return valids[i]
+	}
+
+	if valids == nil {
+		valid = func(i int) bool { return true }
+	}
+
+	for i, value := range values {
+		bldr.AppendWithSize(valid(i), value.Len())
+		buildArray(bldr.ValueBuilder(), value)
+	}
+
+	return bldr.NewListViewArray()
 }
 
 func fixedSizeListOf(mem memory.Allocator, n int32, values []arrow.Array, valids []bool) *array.FixedSizeList {

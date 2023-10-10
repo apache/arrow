@@ -78,6 +78,8 @@ func TestConcatenate(t *testing.T) {
 		{arrow.BinaryTypes.LargeString},
 		{arrow.ListOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.LargeListOf(arrow.PrimitiveTypes.Int8)},
+		{arrow.ListViewOf(arrow.PrimitiveTypes.Int8)},
+		{arrow.LargeListViewOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int8)},
 		{arrow.StructOf()},
 		{arrow.MapOf(arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int8)},
@@ -200,6 +202,16 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Arra
 			}
 		}
 		return bldr.NewArray()
+	case arrow.LIST_VIEW:
+		arr := cts.rng.ListView(cts.dt.(arrow.VarLenListLikeType), size, 0, 20, nullprob)
+		err := arr.ValidateFull()
+		cts.NoError(err)
+		return arr
+	case arrow.LARGE_LIST_VIEW:
+		arr := cts.rng.LargeListView(cts.dt.(arrow.VarLenListLikeType), size, 0, 20, nullprob)
+		err := arr.ValidateFull()
+		cts.NoError(err)
+		return arr
 	case arrow.FIXED_SIZE_LIST:
 		const listsize = 3
 		valuesSize := size * listsize
@@ -317,11 +329,20 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 
 					slices := cts.slices(arr, offsets)
 					for _, s := range slices {
+						if s.DataType().ID() == arrow.LIST_VIEW {
+							err := s.(*array.ListView).ValidateFull()
+							cts.NoError(err)
+						}
 						defer s.Release()
 					}
 
 					actual, err := array.Concatenate(slices, cts.mem)
 					cts.NoError(err)
+					if arr.DataType().ID() == arrow.LIST_VIEW {
+						lv := actual.(*array.ListView)
+						err := lv.ValidateFull()
+						cts.NoError(err)
+					}
 					defer actual.Release()
 
 					cts.Truef(array.Equal(expected, actual), "expected: %s\ngot: %s\n", expected, actual)

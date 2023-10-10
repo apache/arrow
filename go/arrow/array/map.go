@@ -222,6 +222,10 @@ func (b *MapBuilder) Append(v bool) {
 	b.listBuilder.Append(v)
 }
 
+func (b *MapBuilder) AppendWithSize(v bool, _ int) {
+	b.Append(v)
+}
+
 // AppendNull adds a null map entry to the array.
 func (b *MapBuilder) AppendNull() {
 	b.Append(false)

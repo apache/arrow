@@ -112,16 +112,14 @@ func TestGetZeroBasedValueOffsets(t *testing.T) {
 
 	env := &recordEncoder{mem: alloc}
 
-	offsets, err := env.getZeroBasedValueOffsets(arr)
-	require.NoError(t, err)
+	offsets := env.getZeroBasedValueOffsets(arr)
 	defer offsets.Release()
 	assert.Equal(t, 44, offsets.Len(), "include all offsets if array is not sliced")
 
 	sl := array.NewSlice(arr, 0, 4)
 	defer sl.Release()
 
-	offsets, err = env.getZeroBasedValueOffsets(sl)
-	require.NoError(t, err)
+	offsets = env.getZeroBasedValueOffsets(sl)
 	defer offsets.Release()
 	assert.Equal(t, 20, offsets.Len(), "trim trailing offsets after slice")
 }
