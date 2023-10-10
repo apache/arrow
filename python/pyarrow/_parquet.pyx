@@ -74,7 +74,7 @@ cdef class Statistics(_Weakrefable):
 
     def to_dict(self):
         """
-        Get dictionary represenation of statistics.
+        Get dictionary representation of statistics.
 
         Returns
         -------
@@ -349,7 +349,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     def to_dict(self):
         """
-        Get dictionary represenation of the column chunk metadata.
+        Get dictionary representation of the column chunk metadata.
 
         Returns
         -------
@@ -571,7 +571,7 @@ cdef class RowGroupMetaData(_Weakrefable):
 
     def to_dict(self):
         """
-        Get dictionary represenation of the row group metadata.
+        Get dictionary representation of the row group metadata.
 
         Returns
         -------
@@ -647,7 +647,7 @@ cdef class FileMetaData(_Weakrefable):
 
     def to_dict(self):
         """
-        Get dictionary represenation of the file metadata.
+        Get dictionary representation of the file metadata.
 
         Returns
         -------
