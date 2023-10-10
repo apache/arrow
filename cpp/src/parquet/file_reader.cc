@@ -139,8 +139,10 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 ::arrow::io::ReadRange ComputeColumnChunkRange(FileMetaData* file_metadata,
                                                int64_t source_size, int row_group_index,
                                                int column_index) {
-  auto row_group_metadata = file_metadata->RowGroup(row_group_index);
-  auto column_metadata = row_group_metadata->ColumnChunk(column_index);
+  std::unique_ptr<RowGroupMetaData> row_group_metadata =
+      file_metadata->RowGroup(row_group_index);
+  std::unique_ptr<ColumnChunkMetaData> column_metadata =
+      row_group_metadata->ColumnChunk(column_index);
 
   int64_t col_start = column_metadata->data_page_offset();
   if (column_metadata->has_dictionary_page() &&
@@ -918,7 +920,7 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
             ScanAllValues(column_batch_size, def_levels.data(), rep_levels.data(),
                           values.data(), &values_read, col_reader.get());
         if (col_reader->descr()->max_repetition_level() > 0) {
-          for (int64_t i = 0; i < levels_read; i++) {
+          for (size_t i = 0; i < static_cast<size_t>(levels_read); i++) {
             if (rep_levels[i] == 0) {
               total_rows[col]++;
             }

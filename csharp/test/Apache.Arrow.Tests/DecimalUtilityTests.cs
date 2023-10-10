@@ -46,6 +46,25 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(d, result.GetValue(0));
                 }
             }
+
+            [Theory]
+            [InlineData(4.56, 38, 9, false)]
+            [InlineData(7.89, 76, 38, true)]
+            public void Decimal256HasExpectedResultOrThrows(decimal d, int precision, int scale, bool shouldThrow)
+            {
+                var builder = new Decimal256Array.Builder(new Decimal256Type(precision, scale));
+                builder.Append(d);
+                Decimal256Array result = builder.Build(new TestMemoryAllocator()); ;
+                
+                if (shouldThrow)
+                {
+                    Assert.Throws<OverflowException>(() => result.GetValue(0));
+                }
+                else
+                {
+                    Assert.Equal(d, result.GetValue(0));
+                }
+            }
         }
     }
 }

@@ -61,6 +61,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
         dim_names_(dim_names) {}
 
   std::string extension_name() const override { return "arrow.fixed_shape_tensor"; }
+  std::string ToString() const override;
 
   /// Number of dimensions of tensor elements
   size_t ndim() { return shape_.size(); }

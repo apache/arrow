@@ -999,7 +999,8 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
     for (int row_group : row_groups) {
       int64_t num_rows = parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
 
-      batches.insert(batches.end(), num_rows / batch_size, max_sized_batch);
+      batches.insert(batches.end(), static_cast<size_t>(num_rows / batch_size),
+                     max_sized_batch);
 
       if (int64_t trailing_rows = num_rows % batch_size) {
         batches.push_back(max_sized_batch->Slice(0, trailing_rows));
