@@ -680,7 +680,7 @@ class RepeatedArrayFactory {
   template <typename T>
   enable_if_binary_view_like<T, Status> Visit(const T& type) {
     std::string_view value{*scalar<T>().value};
-    auto s = util::ToIndexOffsetBinaryView(value, 0, 0);
+    auto s = util::ToBinaryView(value, 0, 0);
     RETURN_NOT_OK(FinishFixedWidth(&s, sizeof(s)));
     if (!s.is_inline()) {
       out_->data()->buffers.push_back(scalar<T>().value);

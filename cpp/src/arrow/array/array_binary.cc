@@ -107,7 +107,7 @@ BinaryViewArray::BinaryViewArray(std::shared_ptr<DataType> type, int64_t length,
 
 std::string_view BinaryViewArray::GetView(int64_t i) const {
   const std::shared_ptr<Buffer>* data_buffers = data_->buffers.data() + 2;
-  return util::FromIndexOffsetBinaryView(raw_values_[i], data_buffers);
+  return util::FromBinaryView(raw_values_[i], data_buffers);
 }
 
 StringViewArray::StringViewArray(std::shared_ptr<ArrayData> data) {

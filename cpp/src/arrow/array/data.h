@@ -540,7 +540,7 @@ struct ARROW_EXPORT ArraySpan {
   /// sizeof(shared_ptr<Buffer>).
   ///
   /// \see HasVariadicBuffers
-  util::span<std::shared_ptr<Buffer> const> GetVariadicBuffers() const;
+  util::span<const std::shared_ptr<Buffer>> GetVariadicBuffers() const;
   bool HasVariadicBuffers() const;
 
  private:

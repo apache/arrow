@@ -21,7 +21,6 @@
 #include <utility>
 
 #include "arrow/type.h"
-#include "arrow/util/assume_aligned.h"
 #include "arrow/util/span.h"
 
 namespace arrow::util {
@@ -38,9 +37,8 @@ inline BinaryViewType::c_type ToInlineBinaryView(std::string_view v) {
   return ToInlineBinaryView(v.data(), static_cast<int32_t>(v.size()));
 }
 
-inline BinaryViewType::c_type ToIndexOffsetBinaryView(const void* data, int32_t size,
-                                                      int32_t buffer_index,
-                                                      int32_t offset) {
+inline BinaryViewType::c_type ToBinaryView(const void* data, int32_t size,
+                                           int32_t buffer_index, int32_t offset) {
   if (size <= BinaryViewType::kInlineSize) {
     return ToInlineBinaryView(data, size);
   }
@@ -52,27 +50,24 @@ inline BinaryViewType::c_type ToIndexOffsetBinaryView(const void* data, int32_t 
   return out;
 }
 
-inline BinaryViewType::c_type ToIndexOffsetBinaryView(std::string_view v,
-                                                      int32_t buffer_index,
-                                                      int32_t offset) {
-  return ToIndexOffsetBinaryView(v.data(), static_cast<int32_t>(v.size()), buffer_index,
-                                 offset);
+inline BinaryViewType::c_type ToBinaryView(std::string_view v, int32_t buffer_index,
+                                           int32_t offset) {
+  return ToBinaryView(v.data(), static_cast<int32_t>(v.size()), buffer_index, offset);
 }
 
 template <typename BufferPtr>
-std::string_view FromIndexOffsetBinaryView(const BinaryViewType::c_type& v,
-                                           const BufferPtr* data_buffers) {
+std::string_view FromBinaryView(const BinaryViewType::c_type& v,
+                                const BufferPtr* data_buffers) {
   auto* data = v.is_inline() ? v.inlined.data.data()
                              : data_buffers[v.ref.buffer_index]->data() + v.ref.offset;
   return {reinterpret_cast<const char*>(data), static_cast<size_t>(v.size())};
 }
 template <typename BufferPtr>
-std::string_view FromIndexOffsetBinaryView(BinaryViewType::c_type&&,
-                                           const BufferPtr*) = delete;
+std::string_view FromBinaryView(BinaryViewType::c_type&&, const BufferPtr*) = delete;
 
-template <typename... BufferPtr>
-bool EqualIndexOffsetBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
-                                const BufferPtr*... buffers) {
+template <typename BufferPtr>
+bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
+                     const BufferPtr* l_buffers, const BufferPtr* r_buffers) {
   int64_t l_size_and_prefix, r_size_and_prefix;
   memcpy(&l_size_and_prefix, &l, sizeof(l_size_and_prefix));
   memcpy(&r_size_and_prefix, &r, sizeof(r_size_and_prefix));
@@ -83,18 +78,13 @@ bool EqualIndexOffsetBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type
     // The inline part is zeroed at construction, so we can compare
     // a word at a time if data extends past 'prefix_'.
     int64_t l_inlined, r_inlined;
-    memcpy(&l_inlined,
-           AssumeAlignedAs<int64_t>(l.inline_data() + BinaryViewType::kPrefixSize),
-           sizeof(l_size_and_prefix));
-    memcpy(&r_inlined,
-           AssumeAlignedAs<int64_t>(r.inline_data() + BinaryViewType::kPrefixSize),
-           sizeof(r_size_and_prefix));
+    memcpy(&l_inlined, l.inline_data() + BinaryViewType::kPrefixSize, sizeof(l_inlined));
+    memcpy(&r_inlined, r.inline_data() + BinaryViewType::kPrefixSize, sizeof(r_inlined));
     return l_inlined == r_inlined;
   }
 
   // Sizes are equal and this is not inline, therefore both are out
   // of line and have kPrefixSize first in common.
-  auto [l_buffers, r_buffers] = std::pair{buffers...};
   const uint8_t* l_data = l_buffers[l.ref.buffer_index]->data() + l.ref.offset;
   const uint8_t* r_data = r_buffers[r.ref.buffer_index]->data() + r.ref.offset;
   return memcmp(l_data + BinaryViewType::kPrefixSize,

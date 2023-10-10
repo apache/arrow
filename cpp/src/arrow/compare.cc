@@ -271,8 +271,8 @@ class RangeDataEqualsImpl {
     auto* right_buffers = right_.buffers.data() + 2;
     VisitValidRuns([&](int64_t i, int64_t length) {
       for (auto end_i = i + length; i < end_i; ++i) {
-        if (!util::EqualIndexOffsetBinaryView(left_values[i], right_values[i],
-                                              left_buffers, right_buffers)) {
+        if (!util::EqualBinaryView(left_values[i], right_values[i], left_buffers,
+                                   right_buffers)) {
           return false;
         }
       }

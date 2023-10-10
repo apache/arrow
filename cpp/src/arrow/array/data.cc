@@ -93,7 +93,7 @@ bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
-BufferSpan PackVariadicBuffers(util::span<std::shared_ptr<Buffer> const> buffers) {
+BufferSpan PackVariadicBuffers(util::span<const std::shared_ptr<Buffer>> buffers) {
   return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(buffers.data())),
           static_cast<int64_t>(buffers.size() * sizeof(std::shared_ptr<Buffer>))};
 }
@@ -372,7 +372,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     static_assert(sizeof(BinaryViewType::c_type) <= sizeof(scalar.scratch_space_));
     auto* view = new (&scalar.scratch_space_) BinaryViewType::c_type;
     if (scalar.is_valid) {
-      *view = util::ToIndexOffsetBinaryView(std::string_view{*scalar.value}, 0, 0);
+      *view = util::ToBinaryView(std::string_view{*scalar.value}, 0, 0);
       this->buffers[2] = internal::PackVariadicBuffers({&scalar.value, 1});
     } else {
       *view = {};
@@ -565,7 +565,7 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
   return result;
 }
 
-util::span<std::shared_ptr<Buffer> const> ArraySpan::GetVariadicBuffers() const {
+util::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const {
   DCHECK(HasVariadicBuffers());
   return {buffers[2].data_as<std::shared_ptr<Buffer>>(),
           buffers[2].size / sizeof(std::shared_ptr<Buffer>)};

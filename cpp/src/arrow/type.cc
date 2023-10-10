@@ -256,11 +256,7 @@ struct PhysicalTypeVisitor {
 
   template <typename Type, typename PhysicalType = typename Type::PhysicalType>
   Status Visit(const Type& type) {
-    if constexpr (std::is_base_of_v<BinaryViewType, Type>) {
-      result = binary_view();
-    } else {
-      result = TypeTraits<PhysicalType>::type_singleton();
-    }
+    result = TypeTraits<PhysicalType>::type_singleton();
     return Status::OK();
   }
 };

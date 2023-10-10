@@ -347,7 +347,8 @@ struct TypeTraits<BinaryViewType> {
   using BuilderType = BinaryViewBuilder;
   using ScalarType = BinaryViewScalar;
   using CType = BinaryViewType::c_type;
-  constexpr static bool is_parameter_free = false;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return binary_view(); }
 };
 
 template <>
@@ -386,7 +387,8 @@ struct TypeTraits<StringViewType> {
   using BuilderType = StringViewBuilder;
   using ScalarType = StringViewScalar;
   using CType = BinaryViewType::c_type;
-  constexpr static bool is_parameter_free = false;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return utf8_view(); }
 };
 
 template <>

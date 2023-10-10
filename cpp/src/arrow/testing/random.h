@@ -374,10 +374,11 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///            determined by the uniform distribution
   /// \param[in] max_length the upper bound of the string length
   ///            determined by the uniform distribution
+  /// \param[in] null_probability the probability of a value being null
   /// \param[in] max_data_buffer_length the data buffer size at which
   ///            a new chunk will be generated
   /// \param[in] alignment alignment for memory allocations (in bytes)
-  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> StringView(int64_t size, int32_t min_length, int32_t max_length,

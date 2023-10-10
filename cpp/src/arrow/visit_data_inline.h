@@ -161,7 +161,7 @@ struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
     return VisitBitBlocks(
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t index) {
-          return valid_func(util::FromIndexOffsetBinaryView(s[index], data_buffers));
+          return valid_func(util::FromBinaryView(s[index], data_buffers));
         },
         [&]() { return null_func(); });
   }
@@ -177,7 +177,7 @@ struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
     VisitBitBlocksVoid(
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t index) {
-          valid_func(util::FromIndexOffsetBinaryView(s[index], data_buffers));
+          valid_func(util::FromBinaryView(s[index], data_buffers));
         },
         std::forward<NullFunc>(null_func));
   }

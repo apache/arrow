@@ -35,6 +35,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -51,12 +52,17 @@ Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offse
   auto bitmap = array.GetValues<uint8_t>(0, 0);
   auto values = array.GetValues<BinaryViewType::c_type>(1) + offset;
 
-  int64_t out_of_line_total = 0;
-  for (int64_t i = 0; i < length; i++) {
-    if (!values[i].is_inline()) {
-      out_of_line_total += static_cast<int64_t>(values[i].size());
-    }
-  }
+  int64_t out_of_line_total = 0, i = 0;
+  VisitNullBitmapInline(
+      array.buffers[0].data, array.offset, array.length, array.null_count,
+      [&] {
+        if (!values[i].is_inline()) {
+          out_of_line_total += static_cast<int64_t>(values[i].size());
+        }
+        ++i;
+      },
+      [&] { ++i; });
+
   RETURN_NOT_OK(Reserve(length));
   RETURN_NOT_OK(ReserveData(out_of_line_total));
 
@@ -66,8 +72,7 @@ Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offse
       continue;
     }
 
-    UnsafeAppend(
-        util::FromIndexOffsetBinaryView(values[i], array.GetVariadicBuffers().data()));
+    UnsafeAppend(util::FromBinaryView(values[i], array.GetVariadicBuffers().data()));
   }
   return Status::OK();
 }

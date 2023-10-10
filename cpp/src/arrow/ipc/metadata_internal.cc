@@ -996,7 +996,10 @@ static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
   BodyCompressionOffset fb_compression;
   RETURN_NOT_OK(GetBodyCompression(fbb, options, &fb_compression));
 
-  auto fb_variadic_buffer_counts = fbb.CreateVector(variadic_buffer_counts);
+  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_variadic_buffer_counts{};
+  if (!variadic_buffer_counts.empty()) {
+    fb_variadic_buffer_counts = fbb.CreateVector(variadic_buffer_counts);
+  }
 
   *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers, fb_compression,
                                        fb_variadic_buffer_counts);

@@ -405,41 +405,39 @@ TEST(StringViewArray, Validate) {
 
   // non-inline views are expected to reference only buffers managed by the array
   EXPECT_THAT(
-      MakeBinaryViewArray({buffer_s, buffer_y},
-                          {util::ToIndexOffsetBinaryView(
-                               "supe", static_cast<int32_t>(buffer_s->size()), 0, 0),
-                           util::ToIndexOffsetBinaryView(
-                               "yyyy", static_cast<int32_t>(buffer_y->size()), 1, 0)}),
+      MakeBinaryViewArray(
+          {buffer_s, buffer_y},
+          {util::ToBinaryView("supe", static_cast<int32_t>(buffer_s->size()), 0, 0),
+           util::ToBinaryView("yyyy", static_cast<int32_t>(buffer_y->size()), 1, 0)}),
       Ok());
 
   // views may not reference data buffers not present in the array
   EXPECT_THAT(
-      MakeBinaryViewArray({}, {util::ToIndexOffsetBinaryView(
-                                  "supe", static_cast<int32_t>(buffer_s->size()), 0, 0)}),
+      MakeBinaryViewArray(
+          {}, {util::ToBinaryView("supe", static_cast<int32_t>(buffer_s->size()), 0, 0)}),
       Raises(StatusCode::IndexError));
   // ... or ranges which overflow the referenced data buffer
   EXPECT_THAT(
       MakeBinaryViewArray(
-          {buffer_s}, {util::ToIndexOffsetBinaryView(
+          {buffer_s}, {util::ToBinaryView(
                           "supe", static_cast<int32_t>(buffer_s->size() + 50), 0, 0)}),
       Raises(StatusCode::IndexError));
 
   // Additionally, the prefixes of non-inline views must match the data buffer
   EXPECT_THAT(
-      MakeBinaryViewArray({buffer_s, buffer_y},
-                          {util::ToIndexOffsetBinaryView(
-                               "SUPE", static_cast<int32_t>(buffer_s->size()), 0, 0),
-                           util::ToIndexOffsetBinaryView(
-                               "yyyy", static_cast<int32_t>(buffer_y->size()), 1, 0)}),
+      MakeBinaryViewArray(
+          {buffer_s, buffer_y},
+          {util::ToBinaryView("SUPE", static_cast<int32_t>(buffer_s->size()), 0, 0),
+           util::ToBinaryView("yyyy", static_cast<int32_t>(buffer_y->size()), 1, 0)}),
       Raises(StatusCode::Invalid));
 
   // Invalid string views which are masked by a null bit do not cause validation to fail
   auto invalid_but_masked =
-      MakeBinaryViewArray({buffer_s},
-                          {util::ToIndexOffsetBinaryView(
-                               "SUPE", static_cast<int32_t>(buffer_s->size()), 0, 0),
-                           util::ToIndexOffsetBinaryView("yyyy", 50, 40, 30)},
-                          /*validate=*/false)
+      MakeBinaryViewArray(
+          {buffer_s},
+          {util::ToBinaryView("SUPE", static_cast<int32_t>(buffer_s->size()), 0, 0),
+           util::ToBinaryView("yyyy", 50, 40, 30)},
+          /*validate=*/false)
           .ValueOrDie()
           ->data();
   invalid_but_masked->null_count = 2;
@@ -447,19 +445,19 @@ TEST(StringViewArray, Validate) {
   EXPECT_THAT(internal::ValidateArrayFull(*invalid_but_masked), Ok());
 
   // overlapping views are allowed
-  EXPECT_THAT(MakeBinaryViewArray(
-                  {buffer_s},
-                  {
-                      util::ToIndexOffsetBinaryView(
-                          "supe", static_cast<int32_t>(buffer_s->size()), 0, 0),
-                      util::ToIndexOffsetBinaryView(
-                          "uper", static_cast<int32_t>(buffer_s->size() - 1), 0, 1),
-                      util::ToIndexOffsetBinaryView(
-                          "perc", static_cast<int32_t>(buffer_s->size() - 2), 0, 2),
-                      util::ToIndexOffsetBinaryView(
-                          "erca", static_cast<int32_t>(buffer_s->size() - 3), 0, 3),
-                  }),
-              Ok());
+  EXPECT_THAT(
+      MakeBinaryViewArray(
+          {buffer_s},
+          {
+              util::ToBinaryView("supe", static_cast<int32_t>(buffer_s->size()), 0, 0),
+              util::ToBinaryView("uper", static_cast<int32_t>(buffer_s->size() - 1), 0,
+                                 1),
+              util::ToBinaryView("perc", static_cast<int32_t>(buffer_s->size() - 2), 0,
+                                 2),
+              util::ToBinaryView("erca", static_cast<int32_t>(buffer_s->size() - 3), 0,
+                                 3),
+          }),
+      Ok());
 }
 
 template <typename T>
@@ -982,13 +980,7 @@ class TestBaseBinaryDataVisitor : public ::testing::Test {
  public:
   using TypeClass = T;
 
-  void SetUp() override {
-    if constexpr (is_binary_view_like_type<TypeClass>::value) {
-      type_ = TypeClass::is_utf8 ? utf8_view() : binary_view();
-    } else {
-      type_ = TypeTraits<TypeClass>::type_singleton();
-    }
-  }
+  void SetUp() override { type_ = TypeTraits<TypeClass>::type_singleton(); }
 
   void TestBasics() {
     auto array = ArrayFromJSON(

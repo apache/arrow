@@ -242,7 +242,7 @@ class ConcatenateImpl {
     ARROW_ASSIGN_OR_RAISE(auto view_buffers, Buffers(1, BinaryViewType::kSize));
     ARROW_ASSIGN_OR_RAISE(auto view_buffer, ConcatenateBuffers(view_buffers, pool_));
 
-    auto* s = view_buffer->mutable_data_as<BinaryViewType::c_type>();
+    auto* views = view_buffer->mutable_data_as<BinaryViewType::c_type>();
     size_t preceding_buffer_count = 0;
 
     int64_t i = in_[0]->length;
@@ -250,8 +250,9 @@ class ConcatenateImpl {
       preceding_buffer_count += in_[in_index - 1]->buffers.size() - 2;
 
       for (int64_t end_i = i + in_[in_index]->length; i < end_i; ++i) {
-        if (s[i].is_inline()) continue;
-        s[i].ref.buffer_index += static_cast<int32_t>(preceding_buffer_count);
+        if (views[i].is_inline()) continue;
+        views[i].ref.buffer_index = SafeSignedAdd(
+            views[i].ref.buffer_index, static_cast<int32_t>(preceding_buffer_count));
       }
     }
 

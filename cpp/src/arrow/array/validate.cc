@@ -650,7 +650,18 @@ struct ValidateArrayImpl {
                                views[i].size());
       }
 
-      if (views[i].is_inline()) continue;
+      if (views[i].is_inline()) {
+        auto padding_bytes = util::span(views[i].inlined.data).subspan(views[i].size());
+        for (auto padding_byte : padding_bytes) {
+          if (padding_byte != 0) {
+            return Status::Invalid("View at slot ", i, " was inline with size ",
+                                   views[i].size(),
+                                   " but its padding bytes were not all zero: ",
+                                   HexEncode(padding_bytes.data(), padding_bytes.size()));
+          }
+        }
+        continue;
+      }
 
       auto [size, prefix, buffer_index, offset] = views[i].ref;
 

@@ -107,9 +107,11 @@ std::string GetTimeUnitName(TimeUnit::type unit) {
   return "UNKNOWN";
 }
 
-std::string_view GetStringView(const rj::Value& str) {
-  DCHECK(str.IsString());
-  return {str.GetString(), str.GetStringLength()};
+Result<std::string_view> GetStringView(const rj::Value& str) {
+  if (!str.IsString()) {
+    return Status::Invalid("field was not a string line ", __LINE__);
+  }
+  return std::string_view{str.GetString(), str.GetStringLength()};
 }
 
 class SchemaWriter {
@@ -1413,7 +1415,7 @@ class ArrayReader {
     BufferVector buffers;
     buffers.resize(json_variadic_bufs.Size() + 2);
     for (auto [json_buf, buf] : Zip(json_variadic_bufs, span{buffers}.subspan(2))) {
-      auto hex_string = GetStringView(json_buf);
+      ARROW_ASSIGN_OR_RAISE(auto hex_string, GetStringView(json_buf));
       ARROW_ASSIGN_OR_RAISE(
           buf, AllocateBuffer(static_cast<int64_t>(hex_string.size()) / 2, pool_));
       RETURN_NOT_OK(ParseHexValues(hex_string, buf->mutable_data()));
@@ -1433,9 +1435,9 @@ class ArrayReader {
                static_cast<size_t>(length_)};
 
     int64_t null_count = 0;
-    for (auto [json_view, s, is_valid] : Zip(json_views, views, is_valid_)) {
+    for (auto [json_view, out_view, is_valid] : Zip(json_views, views, is_valid_)) {
       if (!is_valid) {
-        s = {};
+        out_view = {};
         ++null_count;
         continue;
       }
@@ -1451,16 +1453,16 @@ class ArrayReader {
       if (size <= BinaryViewType::kInlineSize) {
         auto json_inlined = json_view_obj.FindMember("INLINED");
         RETURN_NOT_STRING("INLINED", json_inlined, json_view_obj);
-        s.inlined = {size, {}};
+        out_view.inlined = {size, {}};
 
         if constexpr (ViewType::is_utf8) {
           DCHECK_LE(json_inlined->value.GetStringLength(), BinaryViewType::kInlineSize);
-          memcpy(&s.inlined.data, json_inlined->value.GetString(), size);
+          memcpy(&out_view.inlined.data, json_inlined->value.GetString(), size);
         } else {
           DCHECK_LE(json_inlined->value.GetStringLength(),
                     BinaryViewType::kInlineSize * 2);
-          RETURN_NOT_OK(
-              ParseHexValues(GetStringView(json_inlined->value), s.inlined.data.data()));
+          ARROW_ASSIGN_OR_RAISE(auto inlined, GetStringView(json_inlined->value));
+          RETURN_NOT_OK(ParseHexValues(inlined, out_view.inlined.data.data()));
         }
         continue;
       }
@@ -1472,7 +1474,7 @@ class ArrayReader {
       RETURN_NOT_INT("BUFFER_INDEX", json_buffer_index, json_view_obj);
       RETURN_NOT_INT("OFFSET", json_offset, json_view_obj);
 
-      s.ref = {
+      out_view.ref = {
           size,
           {},
           static_cast<int32_t>(json_buffer_index->value.GetInt64()),
@@ -1480,12 +1482,12 @@ class ArrayReader {
       };
 
       DCHECK_EQ(json_prefix->value.GetStringLength(), BinaryViewType::kPrefixSize * 2);
-      RETURN_NOT_OK(
-          ParseHexValues(GetStringView(json_prefix->value), s.ref.prefix.data()));
+      ARROW_ASSIGN_OR_RAISE(auto prefix, GetStringView(json_prefix->value));
+      RETURN_NOT_OK(ParseHexValues(prefix, out_view.ref.prefix.data()));
 
-      DCHECK_LE(static_cast<size_t>(s.ref.buffer_index), buffers.size() - 2);
-      DCHECK_LE(static_cast<int64_t>(s.ref.offset) + s.size(),
-                buffers[s.ref.buffer_index + 2]->size());
+      DCHECK_LE(static_cast<size_t>(out_view.ref.buffer_index), buffers.size() - 2);
+      DCHECK_LE(static_cast<int64_t>(out_view.ref.offset) + out_view.size(),
+                buffers[out_view.ref.buffer_index + 2]->size());
     }
 
     data_ = ArrayData::Make(type_, length_, std::move(buffers), null_count);

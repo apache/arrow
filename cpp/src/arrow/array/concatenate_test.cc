@@ -99,8 +99,8 @@ class ConcatenateTest : public ::testing::Test {
         for (auto slice : slices) {
           ASSERT_OK(slice->ValidateFull());
         }
-        ASSERT_OK(expected->ValidateFull());
         ASSERT_OK_AND_ASSIGN(auto actual, Concatenate(slices));
+        ASSERT_OK(actual->ValidateFull());
         AssertArraysEqual(*expected, *actual);
         if (actual->data()->buffers[0]) {
           CheckTrailingBitsAreZeroed(actual->data()->buffers[0], actual->length());
@@ -163,7 +163,7 @@ TEST_F(ConcatenateTest, StringType) {
 
 TEST_F(ConcatenateTest, StringViewType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+    *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/40, null_probability);
     ASSERT_OK((**out).ValidateFull());
   });
 }

@@ -86,18 +86,5 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
 ARROW_EXPORT
 std::vector<ArrayVector> RechunkArraysConsistently(const std::vector<ArrayVector>&);
 
-/// Convert between index/offset and raw pointer views.
-///
-/// This function can be used to overwrite a buffer of views if desired,
-/// IE it is supported for `in.buffers[1].data == out`.
-///
-/// Note that calling this function is not necessary if all views happen to be
-/// Inline; this is usually efficiently detectable by checking for an absence of any
-/// data buffers.
-///
-/// Will raise IndexError if a view refers to memory outside the data buffers.
-ARROW_EXPORT
-Status SwapBinaryViewPointers(const ArraySpan& in, BinaryViewType::c_type* out);
-
 }  // namespace internal
 }  // namespace arrow
