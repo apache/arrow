@@ -77,7 +77,8 @@ RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
 
 # Set up Python 3 and its dependencies
-RUN ln -s /usr/bin/python3 /usr/local/bin/python
+RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
+    ln -s /usr/bin/pip3 /usr/local/bin/pip
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/

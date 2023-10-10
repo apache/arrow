@@ -37,6 +37,8 @@ esac
 version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
+  # Latests versions of Testbench require newer setuptools
+  ${PYTHON:-python3} -m pip install --upgrade setuptools
 fi
 
 ${PYTHON:-python3} -m pip install \

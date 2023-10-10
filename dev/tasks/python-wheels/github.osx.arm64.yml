@@ -99,7 +99,7 @@ jobs:
         run: |
           $PYTHON -m venv test-arm64-env
           source test-arm64-env/bin/activate
-          pip install --upgrade setuptools pip wheel
+          pip install --upgrade pip wheel
           # libffi has to be installed on the m1 runner which causes issues with 
           # the cffi wheel. We build cffi with the flags pointing to the correct libffi location.
           LDFLAGS=-L$(brew --prefix libffi)/lib CFLAGS=-I$(brew --prefix libffi)/include \
