@@ -364,7 +364,7 @@ func sumArraySizes(data []arrow.ArrayData) int {
 	return outSize
 }
 
-func getListViewOffsets[T int32 | int64](data arrow.ArrayData, i int) []T {
+func getListViewBufferValues[T int32 | int64](data arrow.ArrayData, i int) []T {
 	bytes := data.Buffers()[i].Bytes()
 	base := (*T)(unsafe.Pointer(&bytes[0]))
 	ret := unsafe.Slice(base, data.Offset()+data.Len())
@@ -378,8 +378,8 @@ func putListViewOffsets32(in arrow.ArrayData, displacement int32, out *memory.Bu
 		return
 	}
 	bitmap := in.Buffers()[0]
-	srcOffsets := getListViewOffsets[int32](in, 1)
-	srcSizes := getListViewOffsets[int32](in, 2)
+	srcOffsets := getListViewBufferValues[int32](in, 1)
+	srcSizes := getListViewBufferValues[int32](in, 2)
 	isValidAndNonEmpty := func(i int) bool {
 		return (bitmap == nil || bitutil.BitIsSet(bitmap.Bytes(), inOff+i)) && srcSizes[i] > 0
 	}
@@ -404,8 +404,8 @@ func putListViewOffsets64(in arrow.ArrayData, displacement int64, out *memory.Bu
 		return
 	}
 	bitmap := in.Buffers()[0]
-	srcOffsets := getListViewOffsets[int64](in, 1)
-	srcSizes := getListViewOffsets[int64](in, 2)
+	srcOffsets := getListViewBufferValues[int64](in, 1)
+	srcSizes := getListViewBufferValues[int64](in, 2)
 	isValidAndNonEmpty := func(i int) bool {
 		return (bitmap == nil || bitutil.BitIsSet(bitmap.Bytes(), inOff+i)) && srcSizes[i] > 0
 	}
@@ -459,7 +459,7 @@ func zeroNullListViewSizes[T int32 | int64](data arrow.ArrayData) {
 		return
 	}
 	validity := data.Buffers()[0].Bytes()
-	sizes := getListViewOffsets[T](data, 2)
+	sizes := getListViewBufferValues[T](data, 2)
 
 	for i := 0; i < data.Len(); i++ {
 		if !bitutil.BitIsSet(validity, data.Offset()+i) {
