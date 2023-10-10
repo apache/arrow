@@ -3154,13 +3154,13 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(schemas):
+def unify_schemas(schemas, *, promote_options="default"):
     """
     Unify schemas by merging fields by name.
 
     The resulting schema will contain the union of fields from all schemas.
     Fields with the same name will be merged. Note that two fields with
-    different types will fail merging.
+    different types will fail merging by default.
 
     - The unified field will inherit the metadata from the schema where
         that field is first defined.
@@ -3174,6 +3174,10 @@ def unify_schemas(schemas):
     ----------
     schemas : list of Schema
         Schemas to merge into a single one.
+    promote_options : str, default default
+        Accepts strings "default" and "permissive".
+        Default: null and only null can be unified with another type.
+        Permissive: types are promoted to the greater common denominator.
 
     Returns
     -------
@@ -3187,12 +3191,22 @@ def unify_schemas(schemas):
     """
     cdef:
         Schema schema
+        CField.CMergeOptions c_options
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
         if not isinstance(schema, Schema):
             raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
-    return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
+
+    if promote_options == "default":
+        c_options = CField.CMergeOptions.Defaults()
+    elif promote_options == "permissive":
+        c_options = CField.CMergeOptions.Permissive()
+    else:
+        raise ValueError(f"Invalid merge mode: {promote_options}")
+
+    return pyarrow_wrap_schema(
+        GetResultValue(UnifySchemas(c_schemas, c_options)))
 
 
 cdef dict _type_cache = {}
