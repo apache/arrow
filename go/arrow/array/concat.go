@@ -381,7 +381,7 @@ func putListViewOffsets32(in arrow.ArrayData, displacement int32, out *memory.Bu
 		if isValidAndNonEmpty(i) {
 			// This is guaranteed by RangeOfValuesUsed returning the smallest offset
 			// of valid and non-empty list-views.
-			debug.Assert(offset+displacement >= 0, "putListViewOffsets32: offset underflow while concatenating arrays")
+			debug.Assert(offset+displacement >= 0, "putListViewOffsets64: offset underflow while concatenating arrays")
 			dstOffsets[outOff+i] = offset + displacement
 		} else {
 			dstOffsets[outOff+i] = 0
