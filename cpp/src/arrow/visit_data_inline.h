@@ -176,9 +176,7 @@ struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
     auto* data_buffers = arr.GetVariadicBuffers().data();
     VisitBitBlocksVoid(
         arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t index) {
-          valid_func(util::FromBinaryView(s[index], data_buffers));
-        },
+        [&](int64_t index) { valid_func(util::FromBinaryView(s[index], data_buffers)); },
         std::forward<NullFunc>(null_func));
   }
 };

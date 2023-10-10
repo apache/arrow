@@ -43,6 +43,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -254,6 +255,16 @@ class ConcatenateImpl {
         views[i].ref.buffer_index = SafeSignedAdd(
             views[i].ref.buffer_index, static_cast<int32_t>(preceding_buffer_count));
       }
+    }
+
+    if (out_->buffers[0] != nullptr) {
+      i = in_[0]->length;
+      VisitNullBitmapInline(
+          out_->buffers[0]->data(), in_[0]->length, out_->length, out_->null_count,
+          [&] { ++i; },
+          [&] {
+            views[i++] = {};  // overwrite views under null bits with an empty view
+          });
     }
 
     out_->buffers[1] = std::move(view_buffer);
