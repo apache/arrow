@@ -247,6 +247,10 @@ def download_tzdata_on_windows():
     if response.status_code == 200:
         with open(tzdata_compressed, 'wb') as f:
             f.write(response.raw.read())
+    else:
+        raise TypeError(f"Timezone database not available")
+
+    assert os.path.exists(tzdata_compressed)
 
     tarfile.open(tzdata_compressed).extractall(tzdata_path)
 
