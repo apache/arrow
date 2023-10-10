@@ -58,7 +58,7 @@ cdef class ParquetEncryptionConfig(_Weakrefable):
     __slots__ = ()
 
     def __cinit__(self, CryptoFactory crypto_factory, KmsConnectionConfig kms_connection_config,
-                    EncryptionConfiguration encryption_config):
+                  EncryptionConfiguration encryption_config):
 
         cdef shared_ptr[CEncryptionConfiguration] c_encryption_config
 
@@ -126,7 +126,7 @@ cdef class ParquetDecryptionConfig(_Weakrefable):
     __slots__ = ()
 
     def __cinit__(self, CryptoFactory crypto_factory, KmsConnectionConfig kms_connection_config,
-                    DecryptionConfiguration decryption_config):
+                  DecryptionConfiguration decryption_config):
 
         cdef shared_ptr[CDecryptionConfiguration] c_decryption_config
 

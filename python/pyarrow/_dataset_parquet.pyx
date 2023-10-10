@@ -783,10 +783,10 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     @property
     def parquet_decryption_config(self):
         if not parquet_encryption_enabled:
-           raise NotImplementedError(
-               "Unable to access encryption features. "
-               "Encryption is not enabled in your installation of pyarrow."
-        )
+            raise NotImplementedError(
+                "Unable to access encryption features. "
+                "Encryption is not enabled in your installation of pyarrow."
+            )
         return self._parquet_decryption_config
 
     @parquet_decryption_config.setter
