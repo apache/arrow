@@ -16,7 +16,7 @@
 classdef tListTraits < hTypeTraits
 
     properties
-        TraitsConstructor = @arrow.type.traits.ListTraits 
+        TraitsConstructor = @arrow.type.traits.ListTraits
         ArrayConstructor = missing
         ArrayClassName = missing
         ArrayProxyClassName = missing
