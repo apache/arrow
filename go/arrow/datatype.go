@@ -152,6 +152,13 @@ const (
 
 	RUN_END_ENCODED
 
+	// String (UTF8) view type with 4-byte prefix and inline
+	// small string optimizations
+	STRING_VIEW
+
+	// Bytes view with 4-byte prefix and inline small byte arrays optimization
+	BINARY_VIEW
+
 	// LIST_VIEW is a list of some logical data type represented with offsets and sizes
 	LIST_VIEW
 
