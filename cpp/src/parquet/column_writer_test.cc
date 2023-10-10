@@ -700,12 +700,19 @@ TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {
 
 // Test cases for dictionary fallback encoding
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion1_0) {
-  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_1_0);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_1_0,
+                                       ParquetDataPageVersion::V1);
 }
 
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion2_0) {
-  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4);
-  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_6);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4,
+                                       ParquetDataPageVersion::V1);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4,
+                                       ParquetDataPageVersion::V2);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_6,
+                                       ParquetDataPageVersion::V1);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_6,
+                                       ParquetDataPageVersion::V2);
 }
 
 TEST(TestWriter, NullValuesBuffer) {
