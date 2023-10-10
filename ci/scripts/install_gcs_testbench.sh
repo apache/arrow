@@ -39,6 +39,5 @@ if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
 fi
 
-${PYTHON:-python3} -m pip install pipx
-
-pipx install "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
+${PYTHON:-python3} -m pip install \
+  "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
