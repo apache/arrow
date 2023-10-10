@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cinttypes>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -1501,8 +1502,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       thrift_encoding_stats.push_back(data_enc_stat);
       add_encoding(data_encoding);
     }
-    column_chunk_->meta_data.__set_encodings(thrift_encodings);
-    column_chunk_->meta_data.__set_encoding_stats(thrift_encoding_stats);
+    column_chunk_->meta_data.__set_encodings(std::move(thrift_encodings));
+    column_chunk_->meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
 
     const auto& encrypt_md =
         properties_->column_encryption_properties(column_->path()->ToDotString());
@@ -1521,7 +1522,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
       }
-      column_chunk_->__set_crypto_metadata(ccmd);
+      column_chunk_->__set_crypto_metadata(std::move(ccmd));
 
       bool encrypted_footer =
           properties_->file_encryption_properties()->encrypted_footer();
@@ -1601,16 +1602,13 @@ std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
 
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
     std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column)
-    : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
-          new ColumnChunkMetaDataBuilderImpl(std::move(props), column))} {}
+    : impl_{std::make_unique<ColumnChunkMetaDataBuilderImpl>(std::move(props), column)} {}
 
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
     std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column,
     void* contents)
-    : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
-          new ColumnChunkMetaDataBuilderImpl(
-              std::move(props), column,
-              reinterpret_cast<format::ColumnChunk*>(contents)))} {}
+    : impl_{std::make_unique<ColumnChunkMetaDataBuilderImpl>(
+          std::move(props), column, reinterpret_cast<format::ColumnChunk*>(contents))} {}
 
 ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() = default;
 
@@ -1782,7 +1780,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         key_value_metadata_(std::move(key_value_metadata)) {
     if (properties_->file_encryption_properties() != nullptr &&
         properties_->file_encryption_properties()->encrypted_footer()) {
-      crypto_metadata_.reset(new format::FileCryptoMetaData());
+      crypto_metadata_ = std::make_unique<format::FileCryptoMetaData>();
     }
   }
 
@@ -1956,8 +1954,8 @@ std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
 FileMetaDataBuilder::FileMetaDataBuilder(
     const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
     std::shared_ptr<const KeyValueMetadata> key_value_metadata)
-    : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(new FileMetaDataBuilderImpl(
-          schema, std::move(props), std::move(key_value_metadata)))} {}
+    : impl_{std::make_unique<FileMetaDataBuilderImpl>(schema, std::move(props),
+                                                      std::move(key_value_metadata))} {}
 
 FileMetaDataBuilder::~FileMetaDataBuilder() = default;
 
