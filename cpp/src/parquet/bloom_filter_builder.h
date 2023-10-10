@@ -28,6 +28,18 @@ struct BloomFilterOptions;
 struct BloomFilterLocation;
 
 /// \brief Interface for collecting bloom filter of a parquet file.
+///
+/// ```
+/// auto bloom_filter_builder = BloomFilterBuilder::Make(schema, properties);
+/// for (int i = 0; i < num_row_groups; i++) {
+///   bloom_filter_builder->AppendRowGroup();
+///   auto* bloom_filter =
+///   bloom_filter_builder->GetOrCreateBloomFilter(bloom_filter_column);
+///   // Add bloom filter entries.
+///   // ...
+/// }
+/// bloom_filter_builder->WriteTo(sink, location);
+/// ```
 class PARQUET_EXPORT BloomFilterBuilder {
  public:
   /// \brief API convenience to create a BloomFilterBuilder.
@@ -36,7 +48,7 @@ class PARQUET_EXPORT BloomFilterBuilder {
 
   /// Append a new row group to host all incoming bloom filters.
   ///
-  /// This method must be called before Finish.
+  /// This method must be called before WriteTo.
   virtual void AppendRowGroup() = 0;
 
   /// \brief Get the BloomFilter from column ordinal.
@@ -49,17 +61,12 @@ class PARQUET_EXPORT BloomFilterBuilder {
 
   /// \brief Write the bloom filter to sink.
   ///
-  /// The bloom filter must have been finished first.
+  /// The bloom filter cannot be modified after this method is called.
   ///
   /// \param[out] sink The output stream to write the bloom filter.
-  /// \param[out] location The location of all bloom filter to the start of sink.
+  /// \param[out] location The location of all bloom filter relative to the start of sink.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
                        BloomFilterLocation* location) = 0;
-
-  /// \brief Complete the bloom filter builder and no more write is allowed.
-  ///
-  /// This method must be called before WriteTo.
-  virtual void Finish() = 0;
 
   virtual ~BloomFilterBuilder() = default;
 };

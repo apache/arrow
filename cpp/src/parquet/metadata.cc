@@ -1837,12 +1837,12 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
             const auto& row_group_bloom_filter_location = iter->second;
             for (size_t i = 0; i < row_group_bloom_filter_location.size(); ++i) {
               DCHECK(i < row_group_metadata.columns.size());
-              auto& column = row_group_metadata.columns.at(i);
+              auto& column = row_group_metadata.columns[i];
               auto& column_metadata = column.meta_data;
-              const auto& bloom_filter_location = row_group_bloom_filter_location.at(i);
+              const auto& bloom_filter_location = row_group_bloom_filter_location[i];
               if (bloom_filter_location.has_value()) {
                 column_metadata.__set_bloom_filter_offset(bloom_filter_location->offset);
-                // TODO(mwish): Allow this after Parquet 2.10 is released.
+                // TODO(mwish): GH-38181: Allow this after Parquet 2.10 is released.
                 // column_metadata.__set_bloom_filter_length(bloom_filter_location->length);
               }
             }

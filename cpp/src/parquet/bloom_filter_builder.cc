@@ -49,8 +49,6 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   /// deletes all bloom filters after they have been flushed.
   void WriteTo(::arrow::io::OutputStream* sink, BloomFilterLocation* location) override;
 
-  void Finish() override { finished_ = true; }
-
  private:
   /// Make sure column ordinal is not out of bound and the builder is in good state.
   void CheckState(int32_t column_ordinal) const {
@@ -100,7 +98,7 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;
   }
-  BloomFilterOptions& bloom_filter_options = bloom_filter_options_opt.value();
+  BloomFilterOptions& bloom_filter_options = *bloom_filter_options_opt;
   std::unique_ptr<BloomFilter>& bloom_filter = file_bloom_filters_.back()[column_ordinal];
   if (bloom_filter == nullptr) {
     auto block_split_bloom_filter =
@@ -114,13 +112,10 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
 
 void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
                                      BloomFilterLocation* location) {
-  if (!finished_) {
-    throw ParquetException("Cannot call WriteTo() to unfinished PageIndexBuilder.");
+  if (finished_) {
+    throw ParquetException("Cannot call WriteTo() multiple times.");
   }
-  if (file_bloom_filters_.empty()) {
-    // Return quickly if there is no bloom filter
-    return;
-  }
+  finished_ = true;
 
   for (size_t row_group_ordinal = 0; row_group_ordinal < file_bloom_filters_.size();
        ++row_group_ordinal) {

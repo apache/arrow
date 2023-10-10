@@ -94,7 +94,6 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   for (uint64_t hash : insert_hashes) {
     bloom_filter->InsertHash(hash);
   }
-  builder->Finish();
   auto sink = CreateOutputStream();
   BloomFilterLocation location;
   builder->WriteTo(sink.get(), &location);
@@ -140,11 +139,10 @@ TEST(BloomFilterBuilderTest, InvalidOperations) {
   builder->GetOrCreateBloomFilter(0);
   auto sink = CreateOutputStream();
   BloomFilterLocation location;
-  // WriteTo() before Finish() expect throw.
-  ASSERT_THROW(builder->WriteTo(sink.get(), &location), ParquetException);
-  builder->Finish();
   builder->WriteTo(sink.get(), &location);
   EXPECT_EQ(1, location.bloom_filter_location.size());
+  // Multiple WriteTo() expect throw.
+  ASSERT_THROW(builder->WriteTo(sink.get(), &location), ParquetException);
 }
 
 }  // namespace parquet::test
