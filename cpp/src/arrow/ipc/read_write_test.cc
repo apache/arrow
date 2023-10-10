@@ -2187,10 +2187,15 @@ TEST(TestStreamDecoder, Reset) {
   ASSERT_OK(writer_helper.WriteBatch(batch));
   ASSERT_OK(writer_helper.Finish());
 
-  ASSERT_OK(decoder.Consume(writer_helper.buffer_));
-  ASSERT_EQ(1, listener->num_record_batches());
-  ASSERT_OK(decoder.Consume(writer_helper.buffer_));
+  ASSERT_OK_AND_ASSIGN(auto all_buffer, ConcatenateBuffers({writer_helper.buffer_,
+                                                            writer_helper.buffer_}));
+  // Consume by Buffer
+  ASSERT_OK(decoder.Consume(all_buffer));
   ASSERT_EQ(2, listener->num_record_batches());
+
+  // Consume by raw data
+  ASSERT_OK(decoder.Consume(all_buffer->data(), all_buffer->size()));
+  ASSERT_EQ(4, listener->num_record_batches());
 }
 
 TEST(TestStreamDecoder, NextRequiredSize) {
