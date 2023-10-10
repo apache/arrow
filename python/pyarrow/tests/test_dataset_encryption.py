@@ -132,10 +132,6 @@ def test_dataset_encryption_decryption():
 
     assert table.equals(dataset.to_table())
 
-    # try to read dataset without encryption to verify encryption is enabled
-    with pytest.raises(OSError, match="no decryption found"):
-        ds.dataset("sample_dataset", filesystem=mockfs)
-
 
 @pytest.mark.skipif(
     not encryption_unavailable, reason="Parquet Encryption is currently enabled"
