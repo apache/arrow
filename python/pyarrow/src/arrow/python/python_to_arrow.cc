@@ -926,14 +926,14 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     }
     switch (input_kind_) {
       case InputKind::DICT:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendDict(value);
+        RETURN_NOT_OK(AppendDict(value));
+        return this->struct_builder_->Append();
       case InputKind::TUPLE:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendTuple(value);
+        RETURN_NOT_OK(AppendTuple(value));
+        return this->struct_builder_->Append();
       case InputKind::ITEMS:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendItems(value);
+        RETURN_NOT_OK(AppendItems(value));
+        return this->struct_builder_->Append();
       default:
         RETURN_NOT_OK(InferInputKind(value));
         return Append(value);
@@ -943,6 +943,10 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
  protected:
   Status Init(MemoryPool* pool) override {
     RETURN_NOT_OK((StructConverter<PyConverter, PyConverterTrait>::Init(pool)));
+
+    // This implementation will check the child values before appending itself,
+    // so no rewind is necessary
+    this->rewind_on_overflow_ = false;
 
     // Store the field names as a PyObjects for dict matching
     num_fields_ = this->struct_type_->num_fields();

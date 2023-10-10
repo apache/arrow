@@ -1691,6 +1691,7 @@ class TestConvertStringLikeTypes:
             'strings': [[v1]] * 20 + [[v2]] + [[b'x']]
         })
         arr = pa.array(df['strings'], from_pandas=True)
+        arr.validate(full=True)
         assert isinstance(arr, pa.ChunkedArray)
         assert arr.num_chunks == 2
         assert len(arr.chunk(0)) == 21
@@ -2381,6 +2382,7 @@ class TestConvertListTypes:
             "b": range(n)
         })
         table = pa.Table.from_pandas(df)
+        table.validate(full=True)
 
         column_a = table[0]
         assert column_a.num_chunks == 2
@@ -2623,6 +2625,7 @@ class TestConvertStructTypes:
         ty = pa.struct([pa.field('x', pa.float64()),
                         pa.field('y', pa.binary())])
         arr = pa.array(data, type=ty, from_pandas=True)
+        arr.validate(full=True)
         assert arr.num_chunks == 2
 
         def iter_chunked_array(arr):
@@ -2655,6 +2658,7 @@ class TestConvertStructTypes:
         # Now with explicit mask
         mask = np.random.random_sample(n) < 0.2
         arr = pa.array(data, type=ty, mask=mask, from_pandas=True)
+        arr.validate(full=True)
         assert arr.num_chunks == 2
 
         check(arr, data, mask)
@@ -4826,6 +4830,7 @@ def test_roundtrip_nested_map_array_with_pydicts_sliced():
 
     def assert_roundtrip(series: pd.Series, data) -> None:
         array_roundtrip = pa.chunked_array(pa.Array.from_pandas(series, type=ty))
+        array_roundtrip.validate(full=True)
         assert data.equals(array_roundtrip)
 
     assert_roundtrip(series_default, chunked_array)
@@ -4944,3 +4949,42 @@ def test_array_conversion_for_datetime():
 
     result = arr.to_pandas()
     tm.assert_series_equal(result, series)
+
+
+@pytest.mark.large_memory
+def test_nested_chunking_valid():
+    # GH-32439: Chunking can cause arrays to be in invalid state
+    # when nested types are involved.
+    # Here we simply ensure we validate correctly.
+
+    def roundtrip(df, schema=None):
+        tab = pa.Table.from_pandas(df, schema=schema)
+        tab.validate(full=True)
+        # we expect to trigger chunking internally
+        # an assertion failure here may just mean this threshold has changed
+        num_chunks = tab.column(0).num_chunks
+        assert num_chunks > 1
+        tm.assert_frame_equal(tab.to_pandas(self_destruct=True,
+                                            maps_as_pydicts="strict"), df)
+
+    x = b"0" * 720000000
+    roundtrip(pd.DataFrame({"strings": [x, x, x]}))
+
+    struct = {"struct_field": x}
+    roundtrip(pd.DataFrame({"structs": [struct, struct, struct]}))
+
+    lists = [x]
+    roundtrip(pd.DataFrame({"lists": [lists, lists, lists]}))
+
+    los = [struct]
+    roundtrip(pd.DataFrame({"los": [los, los, los]}))
+
+    sol = {"struct_field": lists}
+    roundtrip(pd.DataFrame({"sol": [sol, sol, sol]}))
+
+    map_of_los = {"a": los}
+    map_type = pa.map_(pa.string(),
+                       pa.list_(pa.struct([("struct_field", pa.binary())])))
+    schema = pa.schema([("maps", map_type)])
+    roundtrip(pd.DataFrame({"maps": [map_of_los, map_of_los, map_of_los]}),
+              schema=schema)
