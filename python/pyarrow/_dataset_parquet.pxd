@@ -22,7 +22,7 @@
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 
-from pyarrow._dataset cimport FragmentScanOptions
+from pyarrow._dataset cimport FragmentScanOptions, FileWriteOptions
 
 
 cdef class ParquetFragmentScanOptions(FragmentScanOptions):
@@ -33,3 +33,10 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp)
     cdef CReaderProperties* reader_properties(self)
     cdef ArrowReaderProperties* arrow_reader_properties(self)
+
+
+cdef class ParquetFileWriteOptions(FileWriteOptions):
+
+    cdef:
+        CParquetFileWriteOptions* parquet_options
+        object _properties

@@ -21,7 +21,7 @@
 
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._parquet_encryption cimport *
-from pyarrow._dataset_parquet cimport ParquetFragmentScanOptions
+from pyarrow._dataset_parquet cimport ParquetFragmentScanOptions, ParquetFileWriteOptions
 
 
 cdef class ParquetEncryptionConfig(_Weakrefable):
@@ -154,9 +154,17 @@ cdef class ParquetDecryptionConfig(_Weakrefable):
         return self.c_config
 
 
-def set_decryption_config(ParquetFragmentScanOptions parquet_options, config):
+def set_encryption_config(ParquetFileWriteOptions opts, config):
+    cdef shared_ptr[CParquetEncryptionConfig] c_config
+    if not isinstance(config, ParquetEncryptionConfig):
+        raise ValueError("config must be a ParquetEncryptionConfig")
+    c_config = (<ParquetEncryptionConfig>config).unwrap()
+    opts.parquet_options.parquet_encryption_config = c_config
+
+
+def set_decryption_config(ParquetFragmentScanOptions opts, config):
     cdef shared_ptr[CParquetDecryptionConfig] c_config
     if not isinstance(config, ParquetDecryptionConfig):
         raise ValueError("config must be a ParquetDecryptionConfig")
     c_config = (<ParquetDecryptionConfig>config).unwrap()
-    parquet_options.parquet_options.parquet_decryption_config = c_config
+    opts.parquet_options.parquet_decryption_config = c_config

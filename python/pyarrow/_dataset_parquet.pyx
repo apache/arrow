@@ -54,7 +54,9 @@ from pyarrow._parquet cimport (
 
 
 try:
-    from pyarrow._dataset_parquet_encryption import set_decryption_config
+    from pyarrow._dataset_parquet_encryption import (
+        set_encryption_config, set_decryption_config
+    )
     parquet_encryption_enabled = True
 except ImportError:
     parquet_encryption_enabled = False
@@ -557,9 +559,10 @@ cdef class ParquetReadOptions(_Weakrefable):
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
 
-    cdef:
-        CParquetFileWriteOptions* parquet_options
-        object _properties
+    # in .pxd file
+    # cdef:
+    #     CParquetFileWriteOptions* parquet_options
+    #     object _properties
 
     def update(self, **kwargs):
         """
@@ -574,20 +577,14 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             "use_compliant_nested_type",
         }
 
-        encryption_fields = {
-            "encryption_config",
-        }
-
         setters = set()
         for name, value in kwargs.items():
             if name not in self._properties:
                 raise TypeError("unexpected parquet write option: " + name)
-            # if name == "encryption_properties" and not is_encryption_enabled():
-            #     raise NotImplementedError("...")
             self._properties[name] = value
             if name in arrow_fields:
                 setters.add(self._set_arrow_properties)
-            elif name in encryption_fields:
+            elif name == "encryption_config" and value is not None:
                 setters.add(self._set_encryption_config)
             else:
                 setters.add(self._set_properties)
@@ -634,15 +631,11 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         )
 
     def _set_encryption_config(self):
-        IF PARQUET_ENCRYPTION_ENABLED:
-            cdef CParquetFileWriteOptions* opts = self.parquet_options
-            config = self._properties["encryption_config"]
-            if not isinstance(config, ParquetEncryptionConfig):
-                return
-            opts.parquet_encryption_config = (<ParquetEncryptionConfig> config).unwrap()
-        ELSE:
+        if not parquet_encryption_enabled:
             raise NotImplementedError(
-                "Encryption is not enabled, but a encryption_config was provided.")
+                "Encryption is not enabled, but a encryption_config was provided."
+            )
+        set_encryption_config(self, self._properties["encryption_config"])
 
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
@@ -670,7 +663,6 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
         self._set_properties()
         self._set_arrow_properties()
-        self._set_encryption_config()
 
     def __repr__(self):
         return "<pyarrow.dataset.ParquetFileWriteOptions {0}>".format(
