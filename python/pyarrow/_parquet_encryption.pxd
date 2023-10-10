@@ -19,7 +19,6 @@
 # cython: language_level = 3
 
 from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow.includes.libparquet_encryption cimport *
 from pyarrow._parquet cimport (ParquetCipher,
                                CFileEncryptionProperties,

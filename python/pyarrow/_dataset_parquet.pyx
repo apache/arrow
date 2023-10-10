@@ -559,11 +559,6 @@ cdef class ParquetReadOptions(_Weakrefable):
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
 
-    # in .pxd file
-    # cdef:
-    #     CParquetFileWriteOptions* parquet_options
-    #     object _properties
-
     def update(self, **kwargs):
         """
         Parameters
@@ -633,7 +628,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
     def _set_encryption_config(self):
         if not parquet_encryption_enabled:
             raise NotImplementedError(
-                "Encryption is not enabled, but a encryption_config was provided."
+                "Encryption is not enabled in your installation of pyarrow, but an "
+                "encryption_config was provided."
             )
         set_encryption_config(self, self._properties["encryption_config"])
 
@@ -736,28 +732,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         return self.parquet_options.arrow_reader_properties.get()
 
     @property
-    def parquet_decryption_config(self):
-        #if not is_encryption_enabled():
-        #    raise NotImplementedError(
-        #        "Unable to access encryption features; the code was compiled without the necessary encryption support.")
-        return self._parquet_decryption_config
-
-    @parquet_decryption_config.setter
-    def parquet_decryption_config(self, config):
-
-        # try:
-        #     from pyarrow._dataset_parquet_encryption import set_decryption_config
-        # except ImportError:
-        #     #if not is_encryption_enabled():
-        #     raise NotImplementedError(
-        #         "Unable to access encryption features; the code was compiled without the necessary encryption support.")
-        if not parquet_encryption_enabled:
-            raise NotImplementedError(
-                    "Encryption is not enabled, but a decryption_config was provided.")
-        set_decryption_config(self, config)
-        self._parquet_decryption_config = config
-
-    @property
     def use_buffered_stream(self):
         return self.reader_properties().is_buffered_stream_enabled()
 
@@ -805,6 +779,25 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if size <= 0:
             raise ValueError("size must be larger than zero")
         self.reader_properties().set_thrift_container_size_limit(size)
+
+    @property
+    def parquet_decryption_config(self):
+        if not parquet_encryption_enabled:
+           raise NotImplementedError(
+               "Unable to access encryption features. "
+               "Encryption is not enabled in your installation of pyarrow."
+        )
+        return self._parquet_decryption_config
+
+    @parquet_decryption_config.setter
+    def parquet_decryption_config(self, config):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Encryption is not enabled in your installation of pyarrow, but a "
+                "decryption_config was provided."
+            )
+        set_decryption_config(self, config)
+        self._parquet_decryption_config = config
 
     def equals(self, ParquetFragmentScanOptions other):
         """

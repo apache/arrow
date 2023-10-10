@@ -22,6 +22,7 @@ from pyarrow.includes.libparquet_encryption cimport *
 
 from pyarrow._parquet cimport *
 
+
 cdef extern from "arrow/dataset/parquet_encryption_config.h" namespace "arrow::dataset" nogil:
     cdef cppclass CParquetEncryptionConfig "arrow::dataset::ParquetEncryptionConfig":
         shared_ptr[CCryptoFactory] crypto_factory
