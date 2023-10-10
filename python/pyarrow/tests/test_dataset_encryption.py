@@ -145,8 +145,4 @@ def test_write_dataset_parquet_without_encryption():
     pformat = pa.dataset.ParquetFileFormat()
 
     with pytest.raises(NotImplementedError):
-        _ = pformat.make_write_options(
-            # encryption_config=encryption_config_placeholder
-            # TODO
-            encryption_properties="some value"
-        )
+        _ = pformat.make_write_options(encryption_config="some value")
