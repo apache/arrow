@@ -208,8 +208,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
-      - name: Update setuptools
-        run: pip install --upgrade setuptools
       - name: Install Google Cloud Storage Testbench
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Install Azurite Storage Emulator
