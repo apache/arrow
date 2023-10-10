@@ -24,7 +24,6 @@
 namespace arrow::matlab::buffer::proxy {
 
     Buffer::Buffer(std::shared_ptr<arrow::Buffer> buffer) : buffer{std::move(buffer)} {
-        
         REGISTER_METHOD(Buffer, getNumBytes);
         REGISTER_METHOD(Buffer, isEqual);
         REGISTER_METHOD(Buffer, toMATLAB);
