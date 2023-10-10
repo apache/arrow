@@ -34,6 +34,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["primitives"] = makePrimitiveWantJSONs()
 	wantJSONs["structs"] = makeStructsWantJSONs()
 	wantJSONs["lists"] = makeListsWantJSONs()
+	wantJSONs["list_views"] = makeListViewsWantJSONs()
 	wantJSONs["strings"] = makeStringsWantJSONs()
 	wantJSONs["fixed_size_lists"] = makeFixedSizeListsWantJSONs()
 	wantJSONs["fixed_width_types"] = makeFixedWidthTypesWantJSONs()
@@ -1366,7 +1367,7 @@ func makeListsWantJSONs() string {
             1,
             1,
             1
-          ],          
+          ],
           "children": [
             {
               "name": "item",
@@ -1550,6 +1551,237 @@ func makeListsWantJSONs() string {
           ],
           "OFFSET": [
             0
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeListViewsWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "list_view_nullable",
+        "type": {
+          "name": "listview"
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "item",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            1
+          ],
+          "children": [
+            {
+              "name": "item",
+              "count": 15,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1
+              ],
+              "DATA": [
+                1,
+                0,
+                0,
+                4,
+                5,
+                11,
+                0,
+                0,
+                14,
+                15,
+                21,
+                0,
+                0,
+                24,
+                25
+              ]
+            }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            10
+          ],
+          "SIZE": [
+            5,
+            5,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            1
+          ],
+          "children": [
+            {
+              "name": "item",
+              "count": 15,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1
+              ],
+              "DATA": [
+                -1,
+                0,
+                0,
+                -4,
+                -5,
+                -11,
+                0,
+                0,
+                -14,
+                -15,
+                -21,
+                0,
+                0,
+                -24,
+                -25
+              ]
+            }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            10
+          ],
+          "SIZE": [
+            5,
+            5,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "children": [
+            {
+              "name": "item",
+              "count": 10,
+              "VALIDITY": [
+                1,
+                0,
+                0,
+                1,
+                1,
+                1,
+                0,
+                0,
+                1,
+                1
+              ],
+              "DATA": [
+                -1,
+                0,
+                0,
+                -4,
+                -5,
+                -21,
+                0,
+                0,
+                -24,
+                -25
+              ]
+            }
+          ],
+          "OFFSET": [
+            0,
+            5,
+            5
+          ],
+          "SIZE": [
+            5,
+            0,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "count": 0,
+      "columns": [
+        {
+          "name": "list_view_nullable",
+          "count": 0,
+          "children": [
+            {
+              "name": "item",
+              "count": 0
+            }
+          ],
+          "OFFSET": [
+          ],
+          "SIZE": [
           ]
         }
       ]
@@ -3575,7 +3807,7 @@ func makeMapsWantJSONs() string {
           "VALIDITY": [
             1,
             0
-          ],          
+          ],
           "children": [
             {
               "name": "entries",

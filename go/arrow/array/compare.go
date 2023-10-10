@@ -292,6 +292,12 @@ func Equal(left, right arrow.Array) bool {
 	case *LargeList:
 		r := right.(*LargeList)
 		return arrayEqualLargeList(l, r)
+	case *ListView:
+		r := right.(*ListView)
+		return arrayEqualListView(l, r)
+	case *LargeListView:
+		r := right.(*LargeListView)
+		return arrayEqualLargeListView(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayEqualFixedSizeList(l, r)
@@ -536,6 +542,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *LargeList:
 		r := right.(*LargeList)
 		return arrayApproxEqualLargeList(l, r, opt)
+	case *ListView:
+		r := right.(*ListView)
+		return arrayApproxEqualListView(l, r, opt)
+	case *LargeListView:
+		r := right.(*LargeListView)
+		return arrayApproxEqualLargeListView(l, r, opt)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayApproxEqualFixedSizeList(l, r, opt)
@@ -664,6 +676,44 @@ func arrayApproxEqualList(left, right *List, opt equalOption) bool {
 }
 
 func arrayApproxEqualLargeList(left, right *LargeList, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualListView(left, right *ListView, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualLargeListView(left, right *LargeListView, opt equalOption) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue

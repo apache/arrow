@@ -152,6 +152,19 @@ const (
 
 	RUN_END_ENCODED
 
+	// String (UTF8) view type with 4-byte prefix and inline
+	// small string optimizations
+	STRING_VIEW
+
+	// Bytes view with 4-byte prefix and inline small byte arrays optimization
+	BINARY_VIEW
+
+	// LIST_VIEW is a list of some logical data type represented with offsets and sizes
+	LIST_VIEW
+
+	// like LIST but with 64-bit offsets
+	LARGE_LIST_VIEW
+
 	// Alias to ensure we do not break any consumers
 	DECIMAL = DECIMAL128
 )
@@ -384,7 +397,7 @@ func IsListLike(t Type) bool {
 // IsNested returns true for List, LargeList, FixedSizeList, Map, Struct, and Unions
 func IsNested(t Type) bool {
 	switch t {
-	case LIST, LARGE_LIST, FIXED_SIZE_LIST, MAP, STRUCT, SPARSE_UNION, DENSE_UNION:
+	case LIST, LARGE_LIST, FIXED_SIZE_LIST, MAP, LIST_VIEW, LARGE_LIST_VIEW, STRUCT, SPARSE_UNION, DENSE_UNION:
 		return true
 	}
 	return false

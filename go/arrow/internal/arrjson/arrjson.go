@@ -208,6 +208,10 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = nameJSON{"list"}
 	case *arrow.LargeListType:
 		typ = nameJSON{"largelist"}
+	case *arrow.ListViewType:
+		typ = nameJSON{"listview"}
+	case *arrow.LargeListViewType:
+		typ = nameJSON{"largelistview"}
 	case *arrow.MapType:
 		typ = mapJSON{Name: "map", KeysSorted: dt.KeysSorted}
 	case *arrow.StructType:
@@ -395,6 +399,20 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		})
 	case "largelist":
 		arrowType = arrow.LargeListOfField(arrow.Field{
+			Name:     children[0].Name,
+			Type:     children[0].arrowType,
+			Metadata: children[0].arrowMeta,
+			Nullable: children[0].Nullable,
+		})
+	case "listview":
+		arrowType = arrow.ListViewOfField(arrow.Field{
+			Name:     children[0].Name,
+			Type:     children[0].arrowType,
+			Metadata: children[0].arrowMeta,
+			Nullable: children[0].Nullable,
+		})
+	case "largelistview":
+		arrowType = arrow.LargeListViewOfField(arrow.Field{
 			Name:     children[0].Name,
 			Type:     children[0].arrowType,
 			Metadata: children[0].arrowMeta,
@@ -798,6 +816,7 @@ type Array struct {
 	Data     []interface{}         `json:"DATA,omitempty"`
 	TypeID   []arrow.UnionTypeCode `json:"TYPE_ID,omitempty"`
 	Offset   interface{}           `json:"OFFSET,omitempty"`
+	Size     interface{}           `json:"SIZE,omitempty"`
 	Children []Array               `json:"children,omitempty"`
 }
 
@@ -806,7 +825,8 @@ func (a *Array) MarshalJSON() ([]byte, error) {
 	aux := struct {
 		*Alias
 		OutOffset interface{} `json:"OFFSET,omitempty"`
-	}{Alias: (*Alias)(a), OutOffset: a.Offset}
+		OutSize   interface{} `json:"SIZE,omitempty"`
+	}{Alias: (*Alias)(a), OutOffset: a.Offset, OutSize: a.Size}
 	return json.Marshal(aux)
 }
 
@@ -815,6 +835,7 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 	aux := &struct {
 		*Alias
 		RawOffset json.RawMessage `json:"OFFSET,omitempty"`
+		RawSize   json.RawMessage `json:"SIZE,omitempty"`
 	}{Alias: (*Alias)(a)}
 
 	dec := json.NewDecoder(bytes.NewReader(b))
@@ -824,6 +845,7 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 		return
 	}
 
+	// Offsets
 	if len(aux.RawOffset) == 0 {
 		return
 	}
@@ -853,6 +875,38 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 			out[i] = int32(o.(float64))
 		}
 		a.Offset = out
+	}
+
+	if len(aux.RawSize) == 0 {
+		return
+	}
+
+	// Sizes
+	var rawSizes []interface{}
+	if err = json.Unmarshal(aux.RawSize, &rawSizes); err != nil {
+		return
+	}
+
+	if len(rawSizes) == 0 {
+		return
+	}
+
+	switch rawSizes[0].(type) {
+	case string:
+		out := make([]int64, len(rawSizes))
+		for i, o := range rawSizes {
+			out[i], err = strconv.ParseInt(o.(string), 10, 64)
+			if err != nil {
+				return
+			}
+		}
+		a.Size = out
+	case float64:
+		out := make([]int32, len(rawSizes))
+		for i, o := range rawSizes {
+			out[i] = int32(o.(float64))
+		}
+		a.Size = out
 	}
 
 	return nil
@@ -1049,6 +1103,44 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Offset.([]int64)))},
 			[]arrow.ArrayData{elems}, nulls, 0)
+
+	case *arrow.ListViewType:
+		valids := validsFromJSON(arr.Valids)
+		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
+		defer elems.Release()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		var offsets, sizes *memory.Buffer
+		if arr.Count == 0 {
+			emptyBuffer := memory.NewBufferBytes(nil)
+			offsets, sizes = emptyBuffer, emptyBuffer
+		} else {
+			offsets = memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))
+			sizes = memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Size.([]int32)))
+		}
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap, offsets, sizes}, []arrow.ArrayData{elems}, nulls, 0)
+
+	case *arrow.LargeListViewType:
+		valids := validsFromJSON(arr.Valids)
+		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
+		defer elems.Release()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		var offsets, sizes *memory.Buffer
+		if arr.Count == 0 {
+			emptyBuffer := memory.NewBufferBytes(nil)
+			offsets, sizes = emptyBuffer, emptyBuffer
+		} else {
+			offsets = memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Offset.([]int64)))
+			sizes = memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Size.([]int64)))
+		}
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap, offsets, sizes}, []arrow.ArrayData{elems}, nulls, 0)
 
 	case *arrow.FixedSizeListType:
 		valids := validsFromJSON(arr.Valids)
@@ -1419,6 +1511,44 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Offset: strOffsets,
 			Children: []Array{
 				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.LargeListType).Elem()}, arr.ListValues()),
+			},
+		}
+
+	case *array.ListView:
+		o := Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Valids: validsToJSON(arr),
+			Offset: arr.Offsets(),
+			Size:   arr.Sizes(),
+			Children: []Array{
+				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.ListViewType).Elem()}, arr.ListValues()),
+			},
+		}
+		if arr.Len() == 0 {
+			o.Offset, o.Size = []int32{}, []int32{}
+		}
+		return o
+
+	case *array.LargeListView:
+		offsets := arr.Offsets()
+		strOffsets := make([]string, len(offsets))
+		for i, o := range offsets {
+			strOffsets[i] = strconv.FormatInt(o, 10)
+		}
+		sizes := arr.Sizes()
+		strSizes := make([]string, len(sizes))
+		for i, s := range sizes {
+			strSizes[i] = strconv.FormatInt(s, 10)
+		}
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Valids: validsToJSON(arr),
+			Offset: strOffsets,
+			Size:   strSizes,
+			Children: []Array{
+				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.LargeListViewType).Elem()}, arr.ListValues()),
 			},
 		}
 
