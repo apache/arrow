@@ -227,100 +227,116 @@ TEST(KeyColumnArray, SliceBool) {
 }
 
 TEST(KeyColumnArray, SliceBinary) {
-  constexpr int kValuesByteLength = 128;
-  constexpr int kValidityByteLength = 16;
-  uint8_t validity_buffer[kValidityByteLength];
-  uint8_t values_buffer[kValuesByteLength];
+  auto type = binary();
+  // Sample binary data using ArrayFromJSON
+  std::shared_ptr<Array> array =
+      ArrayFromJSON(type, R"(["Hello", "World", "Slice", "Binary", "Test"])");
 
-  // Initializing the validity and value buffers
-  memset(validity_buffer, 0xFF, kValidityByteLength);
-  for (int i = 0; i < kValuesByteLength; ++i) {
-    values_buffer[i] = static_cast<uint8_t>(i);
-  }
+  // Create KeyColumnArray from the ArrayData
+  KeyColumnArray kc_array =
+      ColumnArrayFromArrayData(array->data(), 0, array->length()).ValueOrDie();
 
-  // Assuming binary data and setting metadata
-  KeyColumnMetadata metadata(false, sizeof(uint32_t));
-  // Calculating the number of values
-  int64_t length = kValuesByteLength / sizeof(uint32_t);
-  KeyColumnArray array(metadata, length, validity_buffer, values_buffer, nullptr);
+  // Define test cases
+  struct {
+    int offset;
+    int length;
+    std::vector<std::string> expected;
+  } testCases[] = {
+      {0, 1, {"Hello"}},
+      {1, 1, {"World"}},
+      {2, 1, {"Slice"}},
+      {3, 1, {"Binary"}},
+      {4, 1, {"Test"}},
+      {0, 2, {"Hello", "World"}},
+      {1, 2, {"World", "Slice"}},
+      {2, 2, {"Slice", "Binary"}},
+      {3, 2, {"Binary", "Test"}},
+      {0, 3, {"Hello", "World", "Slice"}},
+      {1, 3, {"World", "Slice", "Binary"}},
+      {2, 3, {"Slice", "Binary", "Test"}},
+      {0, 4, {"Hello", "World", "Slice", "Binary"}},
+      {1, 4, {"World", "Slice", "Binary", "Test"}},
+      {0, 5, {"Hello", "World", "Slice", "Binary", "Test"}},
+  };
 
-  for (int offset : {0, 4, 12}) {
-    ARROW_SCOPED_TRACE("Offset: ", offset);
-    for (int length : {0, 4}) {
-      ARROW_SCOPED_TRACE("Length: ", length);
-      KeyColumnArray sliced = array.Slice(offset, length);
+  for (const auto& testCase : testCases) {
+    ARROW_SCOPED_TRACE("Offset: ", testCase.offset, " Length: ", testCase.length);
+    KeyColumnArray sliced = kc_array.Slice(testCase.offset, testCase.length);
 
-      // Calculating the offset of the validity buffer
-      int expected_validity_bit_offset = (offset == 0) ? 0 : 4;
-      int expected_validity_byte_offset = (offset == 12) ? 1 : 0;
+    // Extract binary data from the sliced KeyColumnArray
+    std::vector<std::string> sliced_data;
 
-      // Calculating the offset of the value buffer
-      int expected_values_byte_offset = sizeof(uint32_t) * offset;
+    const auto* offset_data = reinterpret_cast<const int32_t*>(sliced.data(1));
+    const auto* string_data = reinterpret_cast<const char*>(sliced.data(2));
 
-      // Verifying the slicing of the validity and value buffers is correct
-      ASSERT_EQ(expected_validity_bit_offset, sliced.bit_offset(0));
-      ASSERT_EQ(0, sliced.bit_offset(1));
-      ASSERT_EQ(validity_buffer + expected_validity_byte_offset, sliced.mutable_data(0));
-      ASSERT_EQ(values_buffer + expected_values_byte_offset, sliced.mutable_data(1));
-
-      // Verifying the values of the sliced value buffer
-      for (int i = 0; i < length; ++i) {
-        ASSERT_EQ(values_buffer[expected_values_byte_offset + i],
-                  sliced.mutable_data(1)[i]);
-      }
+    for (auto i = 0; i < testCase.length; ++i) {
+      auto start = offset_data[i];
+      auto end = offset_data[i + 1];
+      sliced_data.push_back(std::string(string_data + start, string_data + end));
     }
+
+    // Compare the sliced values to the expected string
+    ASSERT_EQ(testCase.expected, sliced_data);
   }
 }
 
 TEST(KeyColumnArray, SliceLargeBinary) {
-  constexpr int kValuesByteLength = 128;
-  constexpr int kValidityByteLength = 16;
-  uint8_t validity_buffer[kValidityByteLength];
-  uint8_t values_buffer[kValuesByteLength];
-  uint64_t offsets_buffer[kValuesByteLength / sizeof(uint64_t) + 1];
+  auto type = large_binary();
+  // Sample binary data using ArrayFromJSON
+  std::shared_ptr<Array> array =
+      ArrayFromJSON(type, R"(["Hello", "World", "Slice", "Large", "Binary", "Test"])");
 
-  // Initializing validity and value buffers
-  memset(validity_buffer, 0xFF, kValidityByteLength);
-  for (int i = 0; i < kValuesByteLength; ++i) {
-    values_buffer[i] = static_cast<uint8_t>(i);
-  }
+  // Create KeyColumnArray from the ArrayData
+  KeyColumnArray kc_array =
+      ColumnArrayFromArrayData(array->data(), 0, array->length()).ValueOrDie();
 
-  // Initializing offset buffer (arbitrary offsets for this example)
-  for (size_t i = 0; i < sizeof(offsets_buffer) / sizeof(uint64_t); ++i) {
-    offsets_buffer[i] = i * 8;
-  }
+  // Define test cases
+  struct {
+    int offset;
+    int length;
+    std::vector<std::string> expected;
+  } testCases[] = {
+      {0, 1, {"Hello"}},
+      {1, 1, {"World"}},
+      {2, 1, {"Slice"}},
+        {3, 1, {"Large"}},
+        {4, 1, {"Binary"}},
+        {5, 1, {"Test"}},
+        {0, 2, {"Hello", "World"}},
+        {1, 2, {"World", "Slice"}},
+        {2, 2, {"Slice", "Large"}},
+        {3, 2, {"Large", "Binary"}},
+        {4, 2, {"Binary", "Test"}},
+        {0, 3, {"Hello", "World", "Slice"}},
+        {1, 3, {"World", "Slice", "Large"}},
+        {2, 3, {"Slice", "Large", "Binary"}},
+        {3, 3, {"Large", "Binary", "Test"}},
+        {0, 4, {"Hello", "World", "Slice", "Large"}},
+        {1, 4, {"World", "Slice", "Large", "Binary"}},
+        {2, 4, {"Slice", "Large", "Binary", "Test"}},
+        {0, 5, {"Hello", "World", "Slice", "Large", "Binary"}},
+        {1, 5, {"World", "Slice", "Large", "Binary", "Test"}},
+        {0, 6, {"Hello", "World", "Slice", "Large", "Binary", "Test"}},
+  };
 
-  // Assuming large binary data and setting metadata
-  KeyColumnMetadata metadata(false, sizeof(uint64_t));
-  int64_t length = kValuesByteLength / sizeof(uint64_t);
-  KeyColumnArray array(metadata, length, validity_buffer, values_buffer,
-                       reinterpret_cast<uint8_t*>(offsets_buffer));
+  for (const auto& testCase : testCases) {
+    ARROW_SCOPED_TRACE("Offset: ", testCase.offset, " Length: ", testCase.length);
+    KeyColumnArray sliced = kc_array.Slice(testCase.offset, testCase.length);
 
-  for (int offset : {0, 4, 12}) {
-    ARROW_SCOPED_TRACE("Offset: ", offset);
-    for (int length : {0, 4}) {
-      ARROW_SCOPED_TRACE("Length: ", length);
-      KeyColumnArray sliced = array.Slice(offset, length);
+    // Extract binary data from the sliced KeyColumnArray
+    std::vector<std::string> sliced_data;
 
-      // Calculating expected offsets for the validity buffer
-      int expected_validity_bit_offset = (offset == 0) ? 0 : 4;
-      int expected_validity_byte_offset = (offset == 12) ? 1 : 0;
+    const auto* offset_data = reinterpret_cast<const uint64_t*>(sliced.data(1));
+    const auto* string_data = reinterpret_cast<const char*>(sliced.data(2));
 
-      // Calculating expected offsets for the value buffer
-      int expected_values_byte_offset = sizeof(uint64_t) * offset;
-
-      // Verifying if the slicing of validity and value buffers is correct
-      ASSERT_EQ(expected_validity_bit_offset, sliced.bit_offset(0));
-      ASSERT_EQ(0, sliced.bit_offset(1));
-      ASSERT_EQ(validity_buffer + expected_validity_byte_offset, sliced.mutable_data(0));
-      ASSERT_EQ(values_buffer + expected_values_byte_offset, sliced.mutable_data(1));
-
-      // Verifying the values of the sliced value buffer
-      for (int i = 0; i < length; ++i) {
-        ASSERT_EQ(values_buffer[expected_values_byte_offset + i],
-                  sliced.mutable_data(1)[i]);
-      }
+    for (auto i = 0; i < testCase.length; ++i) {
+      auto start = offset_data[i];
+      auto end = offset_data[i + 1];
+      sliced_data.push_back(std::string(string_data + start, string_data + end));
     }
+
+    // Compare the sliced values to the expected string
+    ASSERT_EQ(testCase.expected, sliced_data);
   }
 }
 
