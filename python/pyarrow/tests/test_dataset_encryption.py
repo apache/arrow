@@ -90,7 +90,6 @@ def kms_factory(kms_connection_configuration):
 )
 def test_dataset_encryption_decryption():
     table = create_sample_table()
-    dataset = ds.dataset(table)
 
     encryption_config = create_encryption_config()
     decryption_config = create_decryption_config()
@@ -104,27 +103,34 @@ def test_dataset_encryption_decryption():
         crypto_factory, kms_connection_config, decryption_config
     )
 
-    # set encryption config for parquet fragment scan options
-    pq_scan_opts = ds.ParquetFragmentScanOptions(
-        decryption_config=parquet_decryption_cfg
-    )
-    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
     # create write_options with dataset encryption config
+    pformat = pa.dataset.ParquetFileFormat()
     write_options = pformat.make_write_options(encryption_config=parquet_encryption_cfg)
 
     mockfs = fs._MockFileSystem()
     mockfs.create_dir("/")
 
     ds.write_dataset(
-        data=dataset,
+        data=table,
         base_dir="sample_dataset",
         format=pformat,
         file_options=write_options,
         filesystem=mockfs,
     )
-    dataset2 = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
-    assert table.equals(dataset2.to_table())
+    # read without descryption config -> should error is dataset was properly encrypted
+    pformat = pa.dataset.ParquetFileFormat()
+    with pytest.raises(IOError, match=r"no decryption"):
+        ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+
+    # set decryption config for parquet fragment scan options
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_config=parquet_decryption_cfg
+    )
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+
+    assert table.equals(dataset.to_table())
 
 
 @pytest.mark.skipif(
