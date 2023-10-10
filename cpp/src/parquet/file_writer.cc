@@ -161,7 +161,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                                             ? column_properties.codec_options().get()
                                             : nullptr;
     BloomFilter* bloom_filter =
-        bloom_filter_builder_
+        bloom_filter_builder_ && column_properties.page_index_enabled()
             ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
             : nullptr;
 
@@ -301,6 +301,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     for (int i = 0; i < num_columns(); i++) {
       auto col_meta = metadata_->NextColumnChunk();
       const auto& path = col_meta->descr()->path();
+      const ColumnProperties& column_properties = properties_->column_properties(path);
       const int32_t column_ordinal = next_column_index_++;
       auto meta_encryptor =
           file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path->ToDotString())
@@ -308,17 +309,17 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto data_encryptor =
           file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
                           : nullptr;
-      auto ci_builder = page_index_builder_ && properties_->page_index_enabled(path)
+      auto ci_builder = page_index_builder_ && column_properties.page_index_enabled()
                             ? page_index_builder_->GetColumnIndexBuilder(column_ordinal)
                             : nullptr;
-      auto oi_builder = page_index_builder_ && properties_->page_index_enabled(path)
+      auto oi_builder = page_index_builder_ && column_properties.page_index_enabled()
                             ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                             : nullptr;
-      auto codec_options = properties_->codec_options(path)
-                               ? (properties_->codec_options(path)).get()
+      auto codec_options = column_properties.codec_options()
+                               ? column_properties.codec_options().get()
                                : nullptr;
       BloomFilter* bloom_filter =
-          bloom_filter_builder_
+          bloom_filter_builder_ && column_properties.bloom_filter_enabled()
               ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
               : nullptr;
       std::unique_ptr<PageWriter> pager;
