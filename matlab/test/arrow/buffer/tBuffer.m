@@ -60,7 +60,7 @@ classdef tBuffer < matlab.unittest.TestCase
             testCase.verifyEqual(values, uint8.empty(0, 1));
 
             % Create buffer from 1x0 uint8 array
-            source = uint8.empty(0, 1);
+            source = uint8.empty(1, 0);
             buffer = Buffer.fromMATLAB(source);
             testCase.verifyEqual(buffer.NumBytes, int64(0));
             values = toMATLAB(buffer);
