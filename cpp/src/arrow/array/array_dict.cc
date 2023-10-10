@@ -294,8 +294,7 @@ Result<std::unique_ptr<Buffer>> CompactTransposeMap(
     case Type::INT64:
       return CompactTransposeMapImpl<Int64Type>(data, pool, out_compact_dictionary);
     default:
-      ARROW_CHECK(false) << "unreachable";
-      return Status::TypeError("Expected an Index Type of Int or UInt");
+      util::Unreachable("Expected an Index Type of Int or UInt");
   }
 }
 }  // namespace
