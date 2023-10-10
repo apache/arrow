@@ -154,17 +154,17 @@ cdef class ParquetDecryptionConfig(_Weakrefable):
         return self.c_config
 
 
-def set_encryption_config(ParquetFileWriteOptions opts, config):
-    cdef shared_ptr[CParquetEncryptionConfig] c_config
-    if not isinstance(config, ParquetEncryptionConfig):
-        raise ValueError("config must be a ParquetEncryptionConfig")
-    c_config = (<ParquetEncryptionConfig>config).unwrap()
+def set_encryption_config(
+    ParquetFileWriteOptions opts not None,
+    ParquetEncryptionConfig config not None
+):
+    cdef shared_ptr[CParquetEncryptionConfig] c_config = config.unwrap()
     opts.parquet_options.parquet_encryption_config = c_config
 
 
-def set_decryption_config(ParquetFragmentScanOptions opts, config):
-    cdef shared_ptr[CParquetDecryptionConfig] c_config
-    if not isinstance(config, ParquetDecryptionConfig):
-        raise ValueError("config must be a ParquetDecryptionConfig")
-    c_config = (<ParquetDecryptionConfig>config).unwrap()
+def set_decryption_config(
+    ParquetFragmentScanOptions opts not None,
+    ParquetDecryptionConfig config not None
+):
+    cdef shared_ptr[CParquetDecryptionConfig] c_config = config.unwrap()
     opts.parquet_options.parquet_decryption_config = c_config
