@@ -786,11 +786,11 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
  public:
   void TestWithEncoding(ParquetVersion::type version,
                         ParquetDataPageVersion data_page_version,
-                        Encoding::type encoding) {
+                        std::set<Encoding::type> encodings) {
     this->SetUpSchema(Repetition::REQUIRED);
-    auto writer = this->BuildWriter(SMALL_SIZE, ColumnProperties(), version,
-                                    ParquetDataPageVersion::V1,
-                                    /*enable_checksum*/ false);
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, ColumnProperties(), version, data_page_version,
+                          /*enable_checksum*/ false);
     for (int i = 0; i < SMALL_SIZE; i++) {
       bool value = (i % 2 == 0) ? true : false;
       writer->WriteBatch(1, nullptr, nullptr, &value);
@@ -800,9 +800,10 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
     for (int i = 0; i < SMALL_SIZE; i++) {
       ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
     }
-    const auto& encodings = this->metadata_encodings();
-    auto iter = std::find(encodings.begin(), encodings.end(), encoding);
-    ASSERT_TRUE(iter != encodings.end());
+    auto metadata_encodings = this->metadata_encodings();
+    std::set<Encoding::type> metadata_encodings_set{metadata_encodings.begin(),
+                                                    metadata_encodings.end()};
+    EXPECT_EQ(encodings, metadata_encodings_set);
   }
 };
 
@@ -811,16 +812,17 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
 TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
   for (auto data_page_version :
        {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWithEncoding(ParquetVersion::PARQUET_1_0, data_page_version, Encoding::PLAIN);
+    TestWithEncoding(ParquetVersion::PARQUET_1_0, data_page_version,
+                     {Encoding::PLAIN, Encoding::RLE});
   }
 }
 
-// Default encoding for boolean is RLE when using V2 pages
+// Default encoding for boolean is RLE when both V2 format and V2 pages enabled.
 TEST_F(TestBooleanValuesWriter, RleEncodedBooleanValues) {
   TestWithEncoding(ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V1,
-                   Encoding::PLAIN);
+                   {Encoding::PLAIN, Encoding::RLE});
   TestWithEncoding(ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V2,
-                   Encoding::RLE);
+                   {Encoding::RLE});
 }
 
 // PARQUET-979
