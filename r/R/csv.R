@@ -304,7 +304,7 @@ read_csv2_arrow <- function(file,
                             timestamp_parsers = NULL) {
   mc <- match.call()
   mc$delim <- ";"
-  mc$decimal_point = ","
+  mc$decimal_point <- ","
   mc[[1]] <- get("read_delim_arrow", envir = asNamespace("arrow"))
   eval.parent(mc)
 }
