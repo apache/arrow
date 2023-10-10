@@ -2336,7 +2336,8 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   Encoding::type encoding = properties->encoding(descr->path());
   if (encoding == Encoding::UNKNOWN) {
     encoding = (descr->physical_type() == Type::BOOLEAN &&
-                properties->version() != ParquetVersion::PARQUET_1_0)
+                properties->version() != ParquetVersion::PARQUET_1_0 &&
+                properties->data_page_version() == ParquetDataPageVersion::V2)
                    ? Encoding::RLE
                    : Encoding::PLAIN;
   }
