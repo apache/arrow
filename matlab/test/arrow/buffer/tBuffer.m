@@ -26,7 +26,7 @@ classdef tBuffer < matlab.unittest.TestCase
             testCase.verifyInstanceOf(buffer, "arrow.buffer.Buffer");
         end
 
-        function fromMATLABUint8Scalar(testCase)
+        function fromMATLABUInt8Scalar(testCase)
             % Verifies fromMATLAB returns the expected arrow.buffer.Buffer
             % instance when given a scalar uint8 value.
 
