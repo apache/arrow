@@ -39,7 +39,7 @@ classdef tBuffer < matlab.unittest.TestCase
             testCase.verifyEqual(values, source);
         end
 
-        function fromMATLABFromEmptyUint8(testCase)
+        function fromMATLABFromEmptyUInt8(testCase)
             % Verifies fromMATLAB returns the expected arrow.buffer.Buffer
             % value when given an empty uint8 array.
 
@@ -67,7 +67,7 @@ classdef tBuffer < matlab.unittest.TestCase
             testCase.verifyEqual(values, uint8.empty(0, 1));
         end
 
-        function fromMATLABUint8Vector(testCase)
+        function fromMATLABUInt8Vector(testCase)
             % Verifies fromMATLAB returns the expected arrow.buffer.Buffer
             % value when given a uint8 vector.
 
