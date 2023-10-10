@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/apache/arrow/go/v14/arrow/bitutil"
@@ -363,6 +364,13 @@ func sumArraySizes(data []arrow.ArrayData) int {
 	return outSize
 }
 
+func getListViewOffsets[T int32 | int64](data arrow.ArrayData, i int) []T {
+	bytes := data.Buffers()[i].Bytes()
+	base := (*T)(unsafe.Pointer(&bytes[0]))
+	ret := unsafe.Slice(base, data.Offset()+data.Len())
+	return ret[data.Offset():]
+}
+
 func putListViewOffsets32(in arrow.ArrayData, displacement int32, out *memory.Buffer, outOff int) {
 	debug.Assert(in.DataType().ID() == arrow.LIST_VIEW, "putListViewOffsets32: expected LIST_VIEW data")
 	inOff, inLen := in.Offset(), in.Len()
@@ -446,6 +454,20 @@ func concatListViewOffsets(data []arrow.ArrayData, byteWidth int, valueRanges []
 	return out, nil
 }
 
+func zeroNullListViewSizes[T int32 | int64](data arrow.ArrayData) {
+	if data.Len() == 0 || data.Buffers()[0] == nil {
+		return
+	}
+	validity := data.Buffers()[0].Bytes()
+	sizes := getListViewOffsets[T](data, 2)
+
+	for i := 0; i < data.Len(); i++ {
+		if !bitutil.BitIsSet(validity, data.Offset()+i) {
+			sizes[i] = 0
+		}
+	}
+}
+
 func concatListView(data []arrow.ArrayData, offsetType arrow.FixedWidthDataType, out *Data, mem memory.Allocator) (err error) {
 	// Calculate the ranges of values that each list-view array uses
 	valueRanges := make([]rng, len(data))
@@ -476,30 +498,18 @@ func concatListView(data []arrow.ArrayData, offsetType arrow.FixedWidthDataType,
 	// Concatenate the sizes
 	sizeBuffers := gatherBuffersFixedWidthType(data, 2, offsetType)
 	sizeBuffer := concatBuffers(sizeBuffers, mem)
-	if out.Buffers()[0] != nil {
-		// To make sure the sizes don't reference values that are not in the new
-		// concatenated values array, we zero the sizes of null list-view values.
-		validity := out.Buffers()[0].Bytes()
-		if offsetType.ID() == arrow.INT32 {
-			sizes := arrow.Int32Traits.CastFromBytes(sizeBuffer.Bytes())
-			for i := 0; i < out.Len(); i++ {
-				if !bitutil.BitIsSet(validity, out.offset+i) {
-					sizes[i] = 0
-				}
-			}
-		} else {
-			sizes := arrow.Int64Traits.CastFromBytes(sizeBuffer.Bytes())
-			for i := 0; i < out.Len(); i++ {
-				if !bitutil.BitIsSet(validity, out.offset+i) {
-					sizes[i] = 0
-				}
-			}
-		}
-	}
 
 	out.childData = []arrow.ArrayData{values}
 	out.buffers[1] = offsetBuffer
 	out.buffers[2] = sizeBuffer
+
+	// To make sure the sizes don't reference values that are not in the new
+	// concatenated values array, we zero the sizes of null list-view values.
+	if offsetType.ID() == arrow.INT32 {
+		zeroNullListViewSizes[int32](out)
+	} else {
+		zeroNullListViewSizes[int64](out)
+	}
 
 	return nil
 }
