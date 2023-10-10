@@ -97,6 +97,9 @@ classdef tBuffer < matlab.unittest.TestCase
             % Create buffer from 1x3 double array
             source = [3 9 27];
             buffer = Buffer.fromMATLAB(source);
+            % Since the input vector is a 1x3 double (i.e. 64-bit floating 
+            % point value)  array - each of the 3 elements takes up 8 bytes
+            % (3 elements * 8 bytes per element = 24 bytes).
             testCase.verifyEqual(buffer.NumBytes, int64(24));
             values = toMATLAB(buffer);
             expected = typecast(source', "uint8");
@@ -186,9 +189,9 @@ classdef tBuffer < matlab.unittest.TestCase
         end
 
         function IsEqualFalse(testCase)
-            % Verifies two buffers are considered equal if
-            %   1. They have the same size (NumBytes)
-            %   2. They contain the same bytes
+            % Verifies two buffers are not considered equal if
+            %   1. They do not have the same size (NumBytes) OR
+            %   2. They do not contain the same bytes
 
             import arrow.buffer.Buffer
                 
