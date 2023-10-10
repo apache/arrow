@@ -572,7 +572,9 @@ test_package_java() {
   maybe_setup_conda maven openjdk=17.0.3 || exit 1
 
   pushd java
-  mvn test
+  if [ ${TEST_JAVA} -gt 0 ]; then
+    mvn test
+  fi
   mvn package
   popd
 }
@@ -649,15 +651,17 @@ test_and_install_cpp() {
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
   cmake --build . --target install
 
-  # Explicitly set site-package directory, otherwise the C++ tests are unable
-  # to load numpy in a python virtualenv
-  local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
+  if [ ${TEST_CPP} -gt 0 ]; then
+    # Explicitly set site-package directory, otherwise the C++ tests are unable
+    # to load numpy in a python virtualenv
+    local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
 
-  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
-    --label-regex unittest \
-    --output-on-failure \
-    --parallel $NPROC \
-    --timeout 300
+    LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
+      --label-regex unittest \
+      --output-on-failure \
+      --parallel $NPROC \
+      --timeout 300
+  fi
 
   popd
 }
@@ -852,8 +856,10 @@ test_js() {
   yarn clean:all
   yarn lint
   yarn build
-  yarn test
-  yarn test:bundle
+  if [ ${TEST_JS} -gt 0 ]; then
+    yarn test
+    yarn test:bundle
+  fi
   popd
 }
 
@@ -865,7 +871,9 @@ test_go() {
 
   pushd go
   go get -v ./...
-  go test ./...
+  if [ ${TEST_GO} -gt 0 ]; then
+    go test ./...
+  fi
   go install -buildvcs=false ./...
   go clean -modcache
   pushd arrow/internal/cdata_integration
@@ -979,16 +987,16 @@ test_source_distribution() {
 
   pushd $ARROW_SOURCE_DIR
 
-  if [ ${TEST_GO} -gt 0 ]; then
+  if [ ${BUILD_GO} -gt 0 ]; then
     test_go
   fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
   fi
-  if [ ${TEST_JS} -gt 0 ]; then
+  if [ ${BUILD_JS} -gt 0 ]; then
     test_js
   fi
-  if [ ${TEST_CPP} -gt 0 ]; then
+  if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
   fi
   if [ ${TEST_PYTHON} -gt 0 ]; then
@@ -1000,7 +1008,7 @@ test_source_distribution() {
   if [ ${TEST_RUBY} -gt 0 ]; then
     test_ruby
   fi
-  if [ ${TEST_JAVA} -gt 0 ]; then
+  if [ ${BUILD_JAVA} -gt 0 ]; then
     test_package_java
   fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
@@ -1181,12 +1189,15 @@ test_jars() {
 : ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
 
+# Automatically build if its activated by a dependent
+BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
+BUILD_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
+BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
+BUILD_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
+
 # Automatically test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
-TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
-TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
 # Execute tests in a conda enviroment
