@@ -999,7 +999,7 @@ class FilterMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     if (args[1].kind() != Datum::ARRAY && args[1].kind() != Datum::CHUNKED_ARRAY) {
-        return Status::TypeError("Filter should be array-like");
+      return Status::TypeError("Filter should be array-like");
     }
 
     const auto& filter_type = *args[1].type();
