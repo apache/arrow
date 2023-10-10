@@ -53,6 +53,16 @@ if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
   esac
 fi
 
+if [ "${ARROW_ENABLE_THREADING:-ON}" = "OFF" ]; then
+  ARROW_FLIGHT=OFF
+  ARROW_FLIGHT_SQL=OFF
+  ARROW_GCS=OFF
+  ARROW_JEMALLOC=OFF
+  ARROW_MIMALLOC=OFF
+  ARROW_S3=OFF
+  ARROW_WITH_OPENTELEMETRY=OFF
+fi
+
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -sv 2>/dev/null || ccache -s
