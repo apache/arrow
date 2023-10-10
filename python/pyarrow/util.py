@@ -228,3 +228,31 @@ def _break_traceback_cycle_from_frame(frame):
         # us visit the outer frame).
         refs = gc.get_referrers(frame)
     refs = frame = this_frame = None
+
+
+def download_tzdata_on_windows():
+    if sys.platform != 'win32':
+        raise TypeError(f"Timezone database is already provided by {sys.platform}")
+
+    import requests
+    import tarfile
+
+    tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
+    tzdata_compressed = os.path.join(tzdata_path, "tzdata.tar.gz")
+    os.makedirs(tzdata_path)
+
+    response = requests.get(
+        'https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz')
+
+    if response.status_code == 200:
+        with open(tzdata_compressed, 'wb') as f:
+            f.write(response.raw.read())
+
+    tarfile.open(tzdata_compressed).extractall(tzdata_path)
+
+    response_zones = requests.get(
+        'https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml')   # noqa
+
+    if response_zones.status_code == 200:
+        with open(os.path.join(tzdata_path, "windowsZones.xml"), "wb") as f:
+            f.write(response_zones.raw.read())

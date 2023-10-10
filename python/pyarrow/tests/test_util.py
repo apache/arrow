@@ -16,6 +16,7 @@
 # under the License.
 
 import gc
+import os
 import signal
 import sys
 import textwrap
@@ -23,7 +24,8 @@ import weakref
 
 import pytest
 
-from pyarrow.util import doc, _break_traceback_cycle_from_frame
+from pyarrow.util import (doc, _break_traceback_cycle_from_frame,
+                          download_tzdata_on_windows)
 from pyarrow.tests.util import disabled_gc
 
 
@@ -207,3 +209,19 @@ def test_signal_refcycle():
         assert wr() is not None
         _break_traceback_cycle_from_frame(sys._getframe(0))
         assert wr() is None
+
+
+@pytest.mark.skipif(sys.platform != "win32",
+                    reason="Timezone database is already provided.")
+def test_download_tzdata_on_windows():
+    # Download timezone database
+    download_tzdata_on_windows()
+
+    # Inspect the folder
+    tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
+    tzdata_zones_path = os.path.join(tzdata_path, "windowsZones.xml")
+    assert os.path.exists(tzdata_path)
+    assert os.path.exists(tzdata_zones_path)
+    # 31 files in tzdata + compressed tzdata.tar.gz + windowsZones.xml
+    assert len(os.listdir(tzdata_path)) == 33
+    assert 'version' in os.listdir(tzdata_path)
