@@ -952,10 +952,9 @@ func outOfBoundsListViewSize(l offsetsAndSizes, slot int64, offsetLimit int64) e
 	size := l.sizeAt(slot)
 	if size < 0 {
 		return fmt.Errorf("%w: Offset invariant failure: size for slot %d out of bounds: %d < 0", arrow.ErrInvalid, slot, size)
-	} else {
-		offset := l.offsetAt(slot)
-		return fmt.Errorf("%w: Offset invariant failure: size for slot %d out of bounds: %d + %d > %d", arrow.ErrInvalid, slot, offset, size, offsetLimit)
 	}
+	offset := l.offsetAt(slot)
+	return fmt.Errorf("%w: Offset invariant failure: size for slot %d out of bounds: %d + %d > %d", arrow.ErrInvalid, slot, offset, size, offsetLimit)
 }
 
 // Pre-condition: Basic validation has already been performed
@@ -984,18 +983,14 @@ func (a *array) validateOffsetsAndMaybeSizes(l offsetsAndSizes, offsetByteWidth 
 		// For length 0, an empty offsets buffer is accepted (ARROW-544).
 		if nonEmpty {
 			return fmt.Errorf("non-empty array but offsets are null")
-		} else {
-			return nil
 		}
+		return nil
 	}
-	if isListView {
-		if a.data.buffers[2] == nil {
-			if nonEmpty {
-				return fmt.Errorf("non-empty array but sizes are null")
-			} else {
-				return nil
-			}
+	if isListView && a.data.buffers[2] == nil {
+		if nonEmpty {
+			return fmt.Errorf("non-empty array but sizes are null")
 		}
+		return nil
 	}
 
 	var requiredOffsets int
@@ -1024,11 +1019,10 @@ func (a *array) validateOffsetsAndMaybeSizes(l offsetsAndSizes, offsetByteWidth 
 	if fullValidation && requiredOffsets > 0 {
 		if isListView {
 			return a.fullyValidateOffsetsAndSizes(l, offsetLimit)
-		} else {
-			// TODO: implement validation of List and LargeList
-			// return fullyValidateOffsets(offset_limit)
-			return nil
 		}
+		// TODO: implement validation of List and LargeList
+		// return fullyValidateOffsets(offset_limit)
+		return nil
 	}
 	return nil
 }
