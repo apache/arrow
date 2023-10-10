@@ -122,7 +122,7 @@ RUN apt-get update -y -q && \
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
-RUN pip3 install -U pip setuptools
+RUN pip3 install -U setuptools
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
