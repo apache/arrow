@@ -240,6 +240,18 @@ Result<std::unique_ptr<Buffer>> CompactTransposeMapImpl(
 
     dict_used[current_index] = true;
   }
+  CType max_used_index = 0, used_count = 0;
+  for (auto [i, used] : Zip(Enumerate<CType>, dict_used)) {
+    if (used) {
+      max_used_index = i;
+      ++used_count;
+    }
+  }
+  if (max_used_index == used_count - 1) {
+    // The dictionary is already compact, so just return here
+    out_compact_dictionary = MakeArray(data);
+    return nullptr;
+  }
 
   using BuilderType = NumericBuilder<IndexArrowType>;
   using arrow::compute::Take;
