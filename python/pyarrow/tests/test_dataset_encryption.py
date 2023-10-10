@@ -23,6 +23,7 @@ import numpy as np
 import tempfile
 import os
 
+
 encryption_unavailable = False
 
 try:
@@ -128,6 +129,10 @@ def test_dataset_encryption_decryption():
     dataset2 = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
 
     assert table.equals(dataset2.to_table())
+
+    # try to read dataset without encryption to verify encryption is enabled
+    with pytest.raises(OSError, match="no decryption found"):
+        ds.dataset("sample_dataset", filesystem=mockfs)
 
 
 @pytest.mark.skipif(
