@@ -90,11 +90,11 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
 
 BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
   CheckState(column_ordinal);
-  if (schema_->Column(column_ordinal)->physical_type() == Type::BOOLEAN) {
+  const ColumnDescriptor* column_descr = schema_->Column(column_ordinal);
+  if (column_descr->physical_type() == Type::BOOLEAN) {
     return nullptr;
   }
-  auto bloom_filter_options_opt =
-      properties_.bloom_filter_options(schema_->Column(column_ordinal)->path());
+  auto bloom_filter_options_opt = properties_.bloom_filter_options(column_descr->path());
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;
   }

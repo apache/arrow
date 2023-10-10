@@ -56,7 +56,9 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// \param column_ordinal Column ordinal in schema, which is only for leaf columns.
   ///
   /// \return BloomFilter for the column and its memory ownership belongs to the
-  /// BloomFilterBuilder.
+  /// BloomFilterBuilder. It will throw an exception if the BloomFilter is already
+  /// Finished or column_ordinal is out of bound. It will return nullptr if bloom filter
+  /// is not enabled for the column.
   virtual BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) = 0;
 
   /// \brief Write the bloom filter to sink.
