@@ -93,8 +93,6 @@ function typeTraits = traits(type)
                 typeTraits = TimestampTraits();
             case "duration"
                 typeTraits = Time64Traits();
-            case "cell"
-                typeTraits = ListTraits();
             case "table"
                 typeTraits = StructTraits();
             otherwise

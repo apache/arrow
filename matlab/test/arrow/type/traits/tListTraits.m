@@ -13,9 +13,10 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef ListTraits < arrow.type.traits.TypeTraits
+classdef tListTraits < hTypeTraits
 
-    properties (Constant)
+    properties
+        TraitsConstructor = @arrow.type.traits.ListTraits 
         ArrayConstructor = missing
         ArrayClassName = missing
         ArrayProxyClassName = missing

@@ -265,5 +265,33 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             actualDisplay = evalc('disp(type)');
             verify(testCase, actualDisplay, expectedDisplay);
         end
+
+        function ListTypeDisplay(testCase)
+            % Verify the display of ListType objects.
+            %
+            % Example:
+            %
+            %  ListType with properties:
+            %
+            %          ID: Struct
+            %        Type: [1x1 arrow.type.StringType]
+
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+            import arrow.internal.test.display.makeDimensionString
+
+            type = arrow.list(arrow.string()); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.type.ListType", ClassName="ListType", BoldFont=true);
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad(["ID:"; "Type:"]));
+            dimensionString = makeDimensionString([1 1]);
+            typeString = compose("[%s %s]", dimensionString, "arrow.type.StringType");
+            body = body + " " + ["List"; typeString];
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            verify(testCase, actualDisplay, expectedDisplay);
+        end
     end
 end
