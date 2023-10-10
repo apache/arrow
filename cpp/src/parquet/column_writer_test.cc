@@ -786,7 +786,7 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
  public:
   void TestWithEncoding(ParquetVersion::type version,
                         ParquetDataPageVersion data_page_version,
-                        std::set<Encoding::type> encodings) {
+                        const std::set<Encoding::type>& expected_encodings) {
     this->SetUpSchema(Repetition::REQUIRED);
     auto writer =
         this->BuildWriter(SMALL_SIZE, ColumnProperties(), version, data_page_version,
@@ -803,7 +803,7 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
     auto metadata_encodings = this->metadata_encodings();
     std::set<Encoding::type> metadata_encodings_set{metadata_encodings.begin(),
                                                     metadata_encodings.end()};
-    EXPECT_EQ(encodings, metadata_encodings_set);
+    EXPECT_EQ(expected_encodings, metadata_encodings_set);
   }
 };
 
