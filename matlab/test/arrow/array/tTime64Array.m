@@ -229,7 +229,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             % Verifies arrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. They have the same number of elements (i.e. their Length properties are equal)
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
             %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
             %  4. All corresponding valid elements have the same values
             
@@ -269,7 +269,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % Their Length properties are not equal
+            % Their NumElements properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
             % Comparing an arrow.array.Array to a MATLAB double
