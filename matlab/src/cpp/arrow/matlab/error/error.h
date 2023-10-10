@@ -198,4 +198,5 @@ namespace arrow::matlab::error {
     static const char* STRUCT_ARRAY_MAKE_FAILED = "arrow:array:StructArrayMakeFailed";
     static const char* INDEX_EMPTY_CONTAINER = "arrow:index:EmptyContainer";
     static const char* INDEX_OUT_OF_RANGE = "arrow:index:OutOfRange";
+    static const char* BUFFER_VIEW_OR_COPY_FAILED = "arrow:buffer:ViewOrCopyFailed";
 }
