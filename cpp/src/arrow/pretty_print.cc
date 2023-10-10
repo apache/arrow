@@ -151,14 +151,14 @@ class ArrayPrinter : public PrettyPrinter {
         IndentAfterNewline();
         (*sink_) << "...";
         if (!is_last && options_.skip_new_lines) {
-          (*sink_) << ",";
+          (*sink_) << options_.array_delimiters.element;
         }
         i = array.length() - window - 1;
       } else if (array.IsNull(i)) {
         IndentAfterNewline();
         (*sink_) << options_.null_rep;
         if (!is_last) {
-          (*sink_) << ",";
+          (*sink_) << options_.array_delimiters.element;
         }
       } else {
         if (indent_non_null_values) {
@@ -166,7 +166,7 @@ class ArrayPrinter : public PrettyPrinter {
         }
         RETURN_NOT_OK(func(i));
         if (!is_last) {
-          (*sink_) << ",";
+          (*sink_) << options_.array_delimiters.element;
         }
       }
       Newline();
@@ -453,12 +453,12 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   if (!skip_new_lines) {
     *sink << "\n";
   }
-  bool skip_comma = true;
+  bool skip_element_delimiter = true;
   for (int i = 0; i < num_chunks; ++i) {
-    if (skip_comma) {
-      skip_comma = false;
+    if (skip_element_delimiter) {
+      skip_element_delimiter = false;
     } else {
-      (*sink) << ",";
+      (*sink) << options.chunked_array_delimiters.element;
       if (!skip_new_lines) {
         *sink << "\n";
       }
@@ -467,12 +467,13 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       for (int i = 0; i < indent; ++i) {
         (*sink) << " ";
       }
-      (*sink) << "...,";
+      (*sink) << "...";
+      (*sink) << options.chunked_array_delimiters.element;
       if (!skip_new_lines) {
         *sink << "\n";
       }
       i = num_chunks - window - 1;
-      skip_comma = true;
+      skip_element_delimiter = true;
     } else {
       PrettyPrintOptions chunk_options = options;
       chunk_options.indent += options.indent_size;

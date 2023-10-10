@@ -206,8 +206,14 @@ namespace Apache.Arrow.C
 
                     return new FixedSizeListType(childField, width);
                 }
+                else if (format == "+m")
+                {
+                    return new MapType(
+                        ParseChildren("map").Single(),
+                        (_cSchema->flags & CArrowSchema.ArrowFlagMapKeysSorted) != 0);
+                }
 
-                // TODO: Map type and large list type
+                // TODO: Large list type
 
                 // Decimals
                 if (format.StartsWith("d:"))

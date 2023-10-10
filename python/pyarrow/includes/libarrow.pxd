@@ -80,6 +80,11 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
 
     CRuntimeInfo GetRuntimeInfo()
 
+    cdef cppclass CGlobalOptions" arrow::GlobalOptions":
+        optional[c_string] timezone_db_path
+
+    CStatus Initialize(const CGlobalOptions& options)
+
 
 cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
     cdef cppclass CFuture_Void" arrow::Future<>":
@@ -404,11 +409,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const shared_ptr[CDataType]& value_type()
 
     cdef cppclass CField" arrow::Field":
-        cppclass CMergeOptions "arrow::Field::MergeOptions":
+        cppclass CMergeOptions "MergeOptions":
+            CMergeOptions()
             c_bool promote_nullability
 
             @staticmethod
             CMergeOptions Defaults()
+
+            @staticmethod
+            CMergeOptions Permissive()
 
         const c_string& name()
         shared_ptr[CDataType] type()
@@ -509,7 +518,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] RemoveMetadata()
 
     CResult[shared_ptr[CSchema]] UnifySchemas(
-        const vector[shared_ptr[CSchema]]& schemas)
+        const vector[shared_ptr[CSchema]]& schemas,
+        CField.CMergeOptions field_merge_options)
 
     cdef cppclass PrettyPrintOptions:
         PrettyPrintOptions()
