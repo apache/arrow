@@ -3,6 +3,7 @@
 \name{read_delim_arrow}
 \alias{read_delim_arrow}
 \alias{read_csv_arrow}
+\alias{read_csv2_arrow}
 \alias{read_tsv_arrow}
 \title{Read a CSV or other delimited file with Arrow}
 \usage{
@@ -24,10 +25,31 @@ read_delim_arrow(
   convert_options = NULL,
   read_options = NULL,
   as_data_frame = TRUE,
-  timestamp_parsers = NULL
+  timestamp_parsers = NULL,
+  decimal_point = "."
 )
 
 read_csv_arrow(
+  file,
+  quote = "\\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  schema = NULL,
+  col_names = TRUE,
+  col_types = NULL,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE,
+  timestamp_parsers = NULL
+)
+
+read_csv2_arrow(
   file,
   quote = "\\"",
   escape_double = TRUE,
@@ -139,6 +161,8 @@ starting from the beginning of this vector. Possible values are:
 \item a character vector of \link[base:strptime]{strptime} parse strings
 \item a list of \link{TimestampParser} objects
 }}
+
+\item{decimal_point}{Character to use for decimal point in floating point numbers.}
 }
 \value{
 A \code{tibble}, or a Table if \code{as_data_frame = FALSE}.
@@ -150,7 +174,8 @@ Arrow C++ options have been mapped to argument names that follow those of
 }
 \details{
 \code{read_csv_arrow()} and \code{read_tsv_arrow()} are wrappers around
-\code{read_delim_arrow()} that specify a delimiter.
+\code{read_delim_arrow()} that specify a delimiter. \code{read_csv2_arrow()} uses \verb{;}⁠ for
+the delimiter and \verb{,} for the decimal point.
 
 Note that not all \code{readr} options are currently implemented here. Please file
 an issue if you encounter one that \code{arrow} should support.

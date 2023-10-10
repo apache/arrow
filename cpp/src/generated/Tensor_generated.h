@@ -59,6 +59,7 @@ struct TensorDimBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  TensorDimBuilder &operator=(const TensorDimBuilder &);
   flatbuffers::Offset<TensorDim> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TensorDim>(end);
@@ -170,6 +171,18 @@ struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
   const org::apache::arrow::flatbuf::RunEndEncoded *type_as_RunEndEncoded() const {
     return type_type() == org::apache::arrow::flatbuf::Type::RunEndEncoded ? static_cast<const org::apache::arrow::flatbuf::RunEndEncoded *>(type()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::BinaryView *type_as_BinaryView() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::BinaryView ? static_cast<const org::apache::arrow::flatbuf::BinaryView *>(type()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::Utf8View *type_as_Utf8View() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::Utf8View ? static_cast<const org::apache::arrow::flatbuf::Utf8View *>(type()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::ListView *type_as_ListView() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::ListView ? static_cast<const org::apache::arrow::flatbuf::ListView *>(type()) : nullptr;
+  }
+  const org::apache::arrow::flatbuf::LargeListView *type_as_LargeListView() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::LargeListView ? static_cast<const org::apache::arrow::flatbuf::LargeListView *>(type()) : nullptr;
   }
   /// The dimensions of the tensor, optionally named
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape() const {
@@ -287,6 +300,22 @@ template<> inline const org::apache::arrow::flatbuf::RunEndEncoded *Tensor::type
   return type_as_RunEndEncoded();
 }
 
+template<> inline const org::apache::arrow::flatbuf::BinaryView *Tensor::type_as<org::apache::arrow::flatbuf::BinaryView>() const {
+  return type_as_BinaryView();
+}
+
+template<> inline const org::apache::arrow::flatbuf::Utf8View *Tensor::type_as<org::apache::arrow::flatbuf::Utf8View>() const {
+  return type_as_Utf8View();
+}
+
+template<> inline const org::apache::arrow::flatbuf::ListView *Tensor::type_as<org::apache::arrow::flatbuf::ListView>() const {
+  return type_as_ListView();
+}
+
+template<> inline const org::apache::arrow::flatbuf::LargeListView *Tensor::type_as<org::apache::arrow::flatbuf::LargeListView>() const {
+  return type_as_LargeListView();
+}
+
 struct TensorBuilder {
   typedef Tensor Table;
   flatbuffers::FlatBufferBuilder &fbb_;
@@ -310,6 +339,7 @@ struct TensorBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  TensorBuilder &operator=(const TensorBuilder &);
   flatbuffers::Offset<Tensor> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Tensor>(end);
