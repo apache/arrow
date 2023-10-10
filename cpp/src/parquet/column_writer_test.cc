@@ -236,7 +236,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         this->metadata_encoding_stats();
     if (this->type_num() == Type::BOOLEAN) {
       ASSERT_EQ(encoding_stats[0].encoding,
-                version == ParquetVersion::PARQUET_1_0 ? Encoding::PLAIN : Encoding::RLE);
+                version != ParquetVersion::PARQUET_1_0 &&
+                        data_page_version == ParquetDataPageVersion::V2
+                    ? Encoding::RLE
+                    : Encoding::PLAIN);
       ASSERT_EQ(encoding_stats[0].page_type, PageType::DATA_PAGE);
     } else if (version == ParquetVersion::PARQUET_1_0) {
       std::vector<Encoding::type> expected(
