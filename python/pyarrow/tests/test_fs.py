@@ -699,10 +699,8 @@ def test_get_file_info_with_selector(fs, pathfn):
 
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
-            # s3fs only lists directories if they are not empty, but depending
-            # on the s3fs/fsspec version combo, it includes the base_dir
-            # (https://github.com/dask/s3fs/issues/393)
-            assert (len(infos) == 4) or (len(infos) == 5)
+            # s3fs only lists directories if they are not empty
+            len(infos) == 4
         else:
             assert len(infos) == 5
 
@@ -712,10 +710,6 @@ def test_get_file_info_with_selector(fs, pathfn):
                 assert info.type == FileType.File
             elif (info.path.rstrip("/").endswith(dir_a) or
                   info.path.rstrip("/").endswith(dir_b)):
-                assert info.type == FileType.Directory
-            elif (fs.type_name == "py::fsspec+s3" and
-                  info.path.rstrip("/").endswith("selector-dir")):
-                # s3fs can include base dir, see above
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
@@ -727,10 +721,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
             # s3fs only lists directories if they are not empty
-            # + for s3fs 0.5.2 all directories are dropped because of buggy
-            # side-effect of previous find() call
-            # (https://github.com/dask/s3fs/issues/410)
-            assert (len(infos) == 3) or (len(infos) == 2)
+            assert len(infos) == 3
         else:
             assert len(infos) == 4
 
