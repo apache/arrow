@@ -266,3 +266,23 @@ def test_buffer(int, use_batch):
         for idx, truth in enumerate(arr):
             val = ctype.from_address(dataBuf.ptr + idx * (bitwidth // 8)).value
             assert val == truth, f"Buffer at index {idx} mismatch"
+
+
+@pytest.mark.parametrize(
+    "indices_type, bitwidth, f_string", [
+        (pa.int8(), 8, "c"),
+        (pa.int16(), 16, "s"),
+        (pa.int32(), 32, "i"),
+        (pa.int64(), 64, "l")
+    ]
+)
+def test_categorical_dtype(indices_type, bitwidth, f_string):
+    type = pa.dictionary(indices_type, pa.string())
+    arr = pa.array(["a", "b", None, "d"], type)
+    table = pa.table({'a': arr})
+
+    df = table.__dataframe__()
+    col = df.get_column(0)
+    assert col.dtype[0] == 23  # <DtypeKind.CATEGORICAL: 23>
+    assert col.dtype[1] == bitwidth
+    assert col.dtype[2] == f_string
