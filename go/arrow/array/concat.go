@@ -378,8 +378,8 @@ func putListViewOffsets32(in arrow.ArrayData, displacement int32, out *memory.Bu
 		return
 	}
 	bitmap := in.Buffers()[0]
-	srcOffsets := arrow.Int32Traits.CastFromBytes(in.Buffers()[1].Bytes())[inOff : inOff+inLen]
-	srcSizes := arrow.Int32Traits.CastFromBytes(in.Buffers()[2].Bytes())[inOff : inOff+inLen]
+	srcOffsets := getListViewOffsets[int32](in, 1)
+	srcSizes := getListViewOffsets[int32](in, 2)
 	isValidAndNonEmpty := func(i int) bool {
 		return (bitmap == nil || bitutil.BitIsSet(bitmap.Bytes(), inOff+i)) && srcSizes[i] > 0
 	}
@@ -400,12 +400,12 @@ func putListViewOffsets32(in arrow.ArrayData, displacement int32, out *memory.Bu
 func putListViewOffsets64(in arrow.ArrayData, displacement int64, out *memory.Buffer, outOff int) {
 	debug.Assert(in.DataType().ID() == arrow.LARGE_LIST_VIEW, "putListViewOffsets64: expected LARGE_LIST_VIEW data")
 	inOff, inLen := in.Offset(), in.Len()
-	if in.Len() == 0 {
+	if inLen == 0 {
 		return
 	}
 	bitmap := in.Buffers()[0]
-	srcOffsets := arrow.Int64Traits.CastFromBytes(in.Buffers()[1].Bytes())[in.Offset():(in.Offset() + in.Len())]
-	srcSizes := arrow.Int64Traits.CastFromBytes(in.Buffers()[2].Bytes())[inOff : inOff+inLen]
+	srcOffsets := getListViewOffsets[int64](in, 1)
+	srcSizes := getListViewOffsets[int64](in, 2)
 	isValidAndNonEmpty := func(i int) bool {
 		return (bitmap == nil || bitutil.BitIsSet(bitmap.Bytes(), inOff+i)) && srcSizes[i] > 0
 	}
