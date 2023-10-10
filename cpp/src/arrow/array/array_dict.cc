@@ -235,7 +235,7 @@ Result<std::unique_ptr<Buffer>> CompactTransposeMapImpl(
 
     CType current_index = indices_data[i];
     if (current_index < 0 || current_index >= dict_len) {
-      return Status::IndexError("indice out of bound:", current_index);
+      return Status::IndexError("Index out of bounds while compacting dictionary array: ", current_index, "(dictionary is ", dict_length, " long) at position ", i);
     } else if (!dict_used[current_index]) {
       dict_used[current_index] = true;
     }
