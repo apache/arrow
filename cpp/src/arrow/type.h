@@ -397,14 +397,76 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
   /// \brief Options that control the behavior of `MergeWith`.
   /// Options are to be added to allow type conversions, including integer
   /// widening, promotion from integer to float, or conversion to or from boolean.
-  struct MergeOptions {
+  struct ARROW_EXPORT MergeOptions : public util::ToStringOstreamable<MergeOptions> {
     /// If true, a Field of NullType can be unified with a Field of another type.
     /// The unified field will be of the other type and become nullable.
     /// Nullability will be promoted to the looser option (nullable if one is not
     /// nullable).
     bool promote_nullability = true;
 
+    /// Allow a decimal to be unified with another decimal of the same
+    /// width, adjusting scale and precision as appropriate. May fail
+    /// if the adjustment is not possible.
+    bool promote_decimal = false;
+
+    /// Allow a decimal to be promoted to a float. The float type will
+    /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
+    bool promote_decimal_to_float = false;
+
+    /// Allow an integer to be promoted to a decimal.
+    ///
+    /// May fail if the decimal has insufficient precision to
+    /// accommodate the integer (see promote_numeric_width).
+    bool promote_integer_to_decimal = false;
+
+    /// Allow an integer of a given bit width to be promoted to a
+    /// float; the result will be a float of an equal or greater bit
+    /// width to both of the inputs. Examples:
+    ///  - int8 + float32 = float32
+    ///  - int32 + float32 = float64
+    ///  - int32 + float64 = float64
+    /// Because an int32 cannot always be represented exactly in the
+    /// 24 bits of a float32 mantissa.
+    bool promote_integer_to_float = false;
+
+    /// Allow an unsigned integer of a given bit width to be promoted
+    /// to a signed integer that fits into the signed type:
+    /// uint + int16 = int16
+    /// When widening is needed, set promote_numeric_width to true:
+    /// uint16 + int16 = int32
+    bool promote_integer_sign = false;
+
+    /// Allow an integer, float, or decimal of a given bit width to be
+    /// promoted to an equivalent type of a greater bit width.
+    bool promote_numeric_width = false;
+
+    /// Allow strings to be promoted to binary types. Promotion of fixed size
+    /// binary types to variable sized formats, and binary to large binary,
+    /// and string to large string.
+    bool promote_binary = false;
+
+    /// Second to millisecond, Time32 to Time64, Time32(SECOND) to Time32(MILLI), etc
+    bool promote_temporal_unit = false;
+
+    /// Allow promotion from a list to a large-list and from a fixed-size list to a
+    /// variable sized list
+    bool promote_list = false;
+
+    /// Unify dictionary index types and dictionary value types.
+    bool promote_dictionary = false;
+
+    /// Allow merging ordered and non-ordered dictionaries.
+    /// The result will be ordered if and only if both inputs
+    /// are ordered.
+    bool promote_dictionary_ordered = false;
+
+    /// Get default options. Only NullType will be merged with other types.
     static MergeOptions Defaults() { return MergeOptions(); }
+    /// Get permissive options. All options are enabled, except
+    /// promote_dictionary_ordered.
+    static MergeOptions Permissive();
+    /// Get a human-readable representation of the options.
+    std::string ToString() const;
   };
 
   /// \brief Merge the current field with a field of the same name.

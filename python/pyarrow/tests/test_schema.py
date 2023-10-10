@@ -717,12 +717,15 @@ def test_schema_merge():
     ])
     assert result.equals(expected)
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError):
         pa.unify_schemas([b, d])
 
     # ARROW-14002: Try with tuple instead of list
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
+
+    result = pa.unify_schemas([b, d], promote_options="permissive")
+    assert result.equals(d)
 
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):
