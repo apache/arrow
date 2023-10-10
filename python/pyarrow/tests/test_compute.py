@@ -1378,6 +1378,11 @@ def test_filter_errors():
                            match="must all be the same length"):
             obj.filter(mask)
 
+    scalar = pa.scalar(True)
+    for filt in [batch, table, scalar]:
+        with pytest.raises(TypeError):
+            table.filter(filt)
+
 
 def test_filter_null_type():
     # ARROW-10027
