@@ -31,7 +31,7 @@ namespace arrow::matlab::array::proxy {
 
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
-        REGISTER_METHOD(Array, getLength);
+        REGISTER_METHOD(Array, getNumElements);
         REGISTER_METHOD(Array, getValid);
         REGISTER_METHOD(Array, getType);
         REGISTER_METHOD(Array, isEqual);
@@ -50,7 +50,7 @@ namespace arrow::matlab::array::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void Array::getLength(libmexclass::proxy::method::Context& context) {
+    void Array::getNumElements(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
         auto length_mda = factory.createScalar(array->length());
         context.outputs[0] = length_mda;

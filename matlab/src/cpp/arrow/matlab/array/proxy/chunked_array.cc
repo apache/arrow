@@ -47,7 +47,7 @@ namespace arrow::matlab::array::proxy {
     ChunkedArray::ChunkedArray(std::shared_ptr<arrow::ChunkedArray> chunked_array) : chunked_array{std::move(chunked_array)} {
 
         // Register Proxy methods.
-        REGISTER_METHOD(ChunkedArray, getLength);
+        REGISTER_METHOD(ChunkedArray, getNumElements);
         REGISTER_METHOD(ChunkedArray, getNumChunks);
         REGISTER_METHOD(ChunkedArray, getChunk);
         REGISTER_METHOD(ChunkedArray, getType);
@@ -86,11 +86,11 @@ namespace arrow::matlab::array::proxy {
         return chunked_array;
     }
 
-    void ChunkedArray::getLength(libmexclass::proxy::method::Context& context) {
+    void ChunkedArray::getNumElements(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
-        auto length_mda = factory.createScalar(chunked_array->length());
-        context.outputs[0] = length_mda;
+        auto num_elements_mda = factory.createScalar(chunked_array->length());
+        context.outputs[0] = num_elements_mda;
     }
 
     void ChunkedArray::getNumChunks(libmexclass::proxy::method::Context& context) {
