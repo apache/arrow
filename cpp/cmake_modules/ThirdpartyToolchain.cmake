@@ -5078,7 +5078,7 @@ function(build_azure_sdk)
     # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
     # here. We may be able to use more earlier version here.
     message(FATAL_ERROR "Building Azure SDK for C++ requires at least CMake 3.22. "
-      "(At least we can't use CMake 3.16)")
+                        "(At least we can't use CMake 3.16)")
   endif()
   message(STATUS "Building Azure SDK for C++ from source")
   fetchcontent_declare(azure_sdk
