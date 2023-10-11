@@ -1344,10 +1344,6 @@ tasks:
       env:
         CMAKE_BUILD_TYPE: MinSizeRel
 
-  test-r-devdocs:
-    ci: github
-    template: r/github.devdocs.yml
-
   test-r-depsource-bundled:
     ci: azure
     template: r/azure.linux.yml
