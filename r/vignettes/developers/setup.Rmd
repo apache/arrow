@@ -38,12 +38,6 @@ set -e
 set -x
 ```
 
-
-```{bash, save=run & windows, hide=TRUE}
-# For some reason CRAN Mirror goes missing in CI
-echo 'options(repos=structure(c(CRAN="https://cloud.r-project.org")))' > $HOME/.Rprofile
-```
-
 Windows and macOS users who wish to contribute to the R package and
 don't need to alter libarrow (Arrow's C++ library) may be able to obtain a
 recent version of the library without building from source.
@@ -103,43 +97,6 @@ sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 brew install cmake openssl
 ```
 
-#### Windows
-
-The package can be built on Windows using [RTools 4](https://cran.r-project.org/bin/windows/Rtools/). It can be built for mingw32 (i386), mingw64 (x64), or ucrt64 (UCRT x64). mingw64 is the recommended 64-bit installation.
-
-Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
-
-Install CMake, ccache, and Ninja with:
-
-```{bash, save=run & windows}
-pacman --sync --refresh --noconfirm \
-  ${MINGW_PACKAGE_PREFIX}-{ccache,cmake,ninja,openssl}
-export CMAKE_GENERATOR=Ninja
-```
-
-You will need to add R to your path. For a user-level installation, R will be at something like `~/Documents/R/R-4.1.2/bin`. For a global installation, R will be at something like `/c/Program\ Files/R/R-4.1.2/bin`. The R on your path needs to match the architecture you are compiling for, so if you are compiling on 32-bit specify `.../bin/i386` instead of `.../bin/x64`.
-
-```{bash}
-export PATH=~/Documents/R/R-4.1.2/bin/x64:$PATH
-```
-
-You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
-
-```{bash, save=run & windows}
-pacman --sync --refresh --noconfirm \
-  ${MINGW_PACKAGE_PREFIX}-boost \
-  ${MINGW_PACKAGE_PREFIX}-brotli \
-  ${MINGW_PACKAGE_PREFIX}-lz4 \
-  ${MINGW_PACKAGE_PREFIX}-protobuf \
-  ${MINGW_PACKAGE_PREFIX}-snappy \
-  ${MINGW_PACKAGE_PREFIX}-thrift \
-  ${MINGW_PACKAGE_PREFIX}-zlib \
-  ${MINGW_PACKAGE_PREFIX}-zstd \
-  ${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp \
-  ${MINGW_PACKAGE_PREFIX}-re2 \
-  ${MINGW_PACKAGE_PREFIX}-libutf8proc
-```
-
 ### Step 2 - Configure the libarrow build
 
 We recommend that you configure libarrow to be built to a user-level directory rather than a system directory for your development work.  This is so that the development version you are using doesn't overwrite a released version of libarrow you may already have installed, and so that you are also able work with more than one version of libarrow (by using different `ARROW_HOME` directories for the different versions).
@@ -156,13 +113,6 @@ _Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
-```
-
-_Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to your `PATH` if you are using dynamic libraries (which is recommended).
-
-```{bash, save=run & windows}
-export PATH=$ARROW_HOME/bin:$PATH
-echo "export PATH=\"$ARROW_HOME/bin:$PATH\"" >> ~/.bash_profile
 ```
 
 Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
@@ -197,31 +147,9 @@ cmake \
   ..
 ```
 
-##### Windows
-
-```{bash, save=run & !sys_install & windows}
-cmake \
-  -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-  -DCMAKE_INSTALL_LIBDIR=lib \
-  -DARROW_COMPUTE=ON \
-  -DARROW_CSV=ON \
-  -DARROW_DATASET=ON \
-  -DARROW_EXTRA_ERROR_CONTEXT=ON \
-  -DARROW_FILESYSTEM=ON \
-  -DARROW_MIMALLOC=ON \
-  -DARROW_JSON=ON \
-  -DARROW_PARQUET=ON \
-  -DARROW_WITH_SNAPPY=OFF \
-  -DARROW_WITH_ZLIB=ON \
-  ..
-```
-
 #### {-}
 
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
-
-**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows.
-
 
 ```{bash, save=run & !sys_install, hide=TRUE}
 # For testing purposes, build with only shared libraries
