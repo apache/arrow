@@ -384,7 +384,7 @@ jobs:
       matrix:
         platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
-          - {runs_on: "macos-latest", name: "macOS"}
+          - {runs_on: ["self-hosted", "macos-10.13"] , name: "macOS"}
     steps:
       - name: Install R
         uses: r-lib/actions/setup-r@v2
@@ -398,11 +398,6 @@ jobs:
       - name: Install R package system dependencies (Linux)
         if: matrix.platform.name == 'Linux'
         run: sudo apt-get install -y libcurl4-openssl-dev libssl-dev
-      - name: Install R package system dependencies (macOS)
-        if: matrix.platform.name != 'Linux'
-        run: |
-          brew install sccache crc32c
-          brew bundle --file arrow/cpp/Brewfile
       - name: Remove arrow/
         run: |
           rm -rf arrow/
