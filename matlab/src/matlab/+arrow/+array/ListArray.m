@@ -19,6 +19,11 @@ classdef ListArray < arrow.array.Array
         NullSubstitutionValue = missing;
     end
 
+    properties (Dependent, GetAccess=public, SetAccess=private)
+        Values % STUB
+        Offsets %STUB
+    end
+
     methods
         
         function obj = ListArray(proxy)
@@ -30,8 +35,19 @@ classdef ListArray < arrow.array.Array
         end
 
         function matlabArray = toMATLAB(obj)
-            matlabArray = obj.Proxy.toMATLAB();
-            matlabArray(~obj.Valid) = obj.NullSubstitutionValue;
+            numElements = obj.NumElements;
+            matlabArray = cell(numElements, 1);
+
+            values = toMATLAB(obj.Values);
+            offsets = toMATLAB(obj.Offsets) + 1;
+
+            startIndex = offsets(1); 
+            for ii = 1:numElements
+                endIndex = offsets(ii + 1) - 1;
+                matlabArray{ii} = values(startIndex:endIndex, :);
+            end
+
+            matlabArray{~obj.Valid} = obj.NullSubstitutionValue;
         end
 
     end
