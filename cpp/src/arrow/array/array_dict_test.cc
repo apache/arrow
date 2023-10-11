@@ -1477,6 +1477,12 @@ TEST(TestDictionary, Compact) {
     CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, null, 1]",
                            "[null, false]", "[1, null, 0]");
 
+    // indices out of bound
+    auto temp_indices = ArrayFromJSON(index_type, "[8, 0]");
+    auto temp_dictionary = ArrayFromJSON(type, "[true, false]");
+    DictionaryArray input(dict_type, temp_indices, temp_dictionary);
+    ASSERT_RAISES(IndexError, input.Compact());
+
     type = int64();
     dict_type = dictionary(index_type, type);
 
