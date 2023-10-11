@@ -406,7 +406,7 @@ jobs:
       - name: Install R package system dependencies (macOS)
         if: matrix.platform.name != 'Linux'
         run: |
-          brew install sccache
+          brew install sccache crc32c
           brew bundle --file arrow/cpp/Brewfile
       - name: Remove arrow/
         run: |
