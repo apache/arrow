@@ -206,21 +206,6 @@ Variable shape tensor
     This allows for interpreting the tensor correctly without accounting for
     uniform dimensions while still permitting optional optimizations that
     take advantage of the uniformity.
-  * **uniform_dimensions** = indices of dimensions whose sizes are
-    guaranteed to remain constant. Indices are a subset of all possible
-    dimension indices ([0, 1, .., N-1]).
-    The uniform dimensions must still be represented in the `shape` field,
-    and must always be the same value for all tensors in the array -- this
-    allows code to interpret the tensor correctly without accounting for
-    uniform dimensions while still permitting optional optimizations that
-    take advantage of the uniformity. uniform_dimensions can be left out,
-    in which case it is assumed that all dimensions might be variable.
-
-  * **uniform_shape** = shape of the dimensions that are guaranteed to stay
-    constant over all tensors in the array, with the shape of the ragged dimensions
-    set to 0.
-    An array containing tensor with shape (2, 3, 4) and uniform dimensions
-    (0, 2) would have uniform shape (2, 0, 4).
 
 * Description of the serialization:
 
@@ -241,11 +226,6 @@ Variable shape tensor
     with fixed height, variable width and three color channels:
 
     ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, null, 3] }``
-
-  - Example with ``uniform_dimensions`` metadata for a set of color images
-    with variable width:
-
-    ``{ "dim_names": ["H", "W", "C"], "uniform_dimensions": [1] }``
 
   - Example of permuted 3-dimensional tensor:
 
