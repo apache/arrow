@@ -17,8 +17,8 @@
 
 .. _format:
 
-Specifications and Protocols
-============================
+Specifications
+==============
 
 .. toctree::
    :maxdepth: 2

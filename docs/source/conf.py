@@ -296,7 +296,7 @@ html_theme_options = {
       "image_dark": "_static/arrow-dark.png",
     },
     "header_links_before_dropdown": 2,
-    "header_dropdown_text": "Language implementations",
+    "header_dropdown_text": "Implementations",
     "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
         {
