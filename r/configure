@@ -135,7 +135,7 @@ if [ "${OPENSSL_ROOT_DIR}" = "" ] && brew --prefix openssl >/dev/null 2>&1; then
   export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 fi
 # Look for openssl with pkg-config for non-brew sources(e.g. CRAN) and Linux
-if [ "${OPENSSL_ROOT_DIR}" = ""] && [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
+if [ "${OPENSSL_ROOT_DIR}" = "" -a "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
   if ${PKG_CONFIG} --exists openssl; then
     export OPENSSL_ROOT_DIR="`${PKG_CONFIG} --variable=prefix openssl`"
   fi
