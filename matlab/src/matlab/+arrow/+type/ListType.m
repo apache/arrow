@@ -16,9 +16,9 @@
 classdef ListType < arrow.type.Type
 
     properties (Dependent, GetAccess=public, SetAccess=private)
-        % The inner element type of the ListType.
-        % For example, for List64<UInt64Type>, Type = UInt64Type.
-        Type
+        % The inner element type T of the List<T>.
+        % For example: for List<UInt64>, ValueType = UInt64.
+        ValueType
     end
 
     methods
@@ -33,18 +33,18 @@ classdef ListType < arrow.type.Type
 
     methods(Access = protected)
         function groups = getDisplayPropertyGroups(~)
-            targets = ["ID", "Type"];
+            targets = ["ID", "ValueType"];
             groups = matlab.mixin.util.PropertyGroup(targets);
         end
     end
 
 
     methods
-        function type = get.Type(obj)
-            typeStruct = obj.Proxy.getType();
-            traits = arrow.type.traits.traits(arrow.type.ID(typeStruct.TypeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=typeStruct.ProxyID);
-            type = traits.TypeConstructor(proxy);
+        function valueType = get.ValueType(obj)
+            valueTypeStruct = obj.Proxy.getValueType();
+            traits = arrow.type.traits.traits(arrow.type.ID(valueTypeStruct.ValueTypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=valueTypeStruct.ValueTypeProxyID);
+            valueType = traits.TypeConstructor(proxy);
         end
     end
 

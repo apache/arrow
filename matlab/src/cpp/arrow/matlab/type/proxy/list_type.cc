@@ -23,26 +23,26 @@
 namespace arrow::matlab::type::proxy {
 
     ListType::ListType(std::shared_ptr<arrow::ListType> list_type) : Type(std::move(list_type)) {
-        REGISTER_METHOD(ListType, getType);
+        REGISTER_METHOD(ListType, getValueType);
     }
 
-    void ListType::getType(libmexclass::proxy::method::Context& context) {
+    void ListType::getValueType(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
         const auto list_type = std::static_pointer_cast<arrow::ListType>(data_type);
-        const auto type = list_type->value_type();
-        const auto type_id = static_cast<int32_t>(type->id());
+        const auto value_type = list_type->value_type();
+        const auto value_type_id = static_cast<int32_t>(value_type->id());
 
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy,
-                                    type::proxy::wrap(type),
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto value_type_proxy,
+                                    type::proxy::wrap(value_type),
                                     context,
-                                    error::LIST_TYPE_FAILED_TO_CREATE_TYPE_PROXY);
-        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
+                                    error::LIST_TYPE_FAILED_TO_CREATE_VALUE_TYPE_PROXY);
+        const auto value_type_proxy_id = libmexclass::proxy::ProxyManager::manageProxy(value_type_proxy);
 
-        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-        output[0]["ProxyID"] = factory.createScalar(proxy_id);
-        output[0]["TypeID"] = factory.createScalar(type_id);
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ValueTypeProxyID", "ValueTypeID"});
+        output[0]["ValueTypeProxyID"] = factory.createScalar(value_type_proxy_id);
+        output[0]["ValueTypeID"] = factory.createScalar(value_type_id);
 
         context.outputs[0] = output;
     }
@@ -53,12 +53,12 @@ namespace arrow::matlab::type::proxy {
         using ListTypeProxy = arrow::matlab::type::proxy::ListType;
 
         mda::StructArray args = constructor_arguments[0];
-        const mda::TypedArray<uint64_t> type_proxy_id_mda = args[0]["TypeProxyID"];
-        const auto proxy_id = type_proxy_id_mda[0];
-        const auto proxy = ProxyManager::getProxy(proxy_id);
-        const auto type_proxy = std::static_pointer_cast<type::proxy::Type>(proxy);
-        const auto type = type_proxy->unwrap();
-        const auto list_type = std::static_pointer_cast<arrow::ListType>(arrow::list(type));
+        const mda::TypedArray<uint64_t> value_type_proxy_id_mda = args[0]["ValueTypeProxyID"];
+        const auto value_type_proxy_id = value_type_proxy_id_mda[0];
+        const auto proxy = ProxyManager::getProxy(value_type_proxy_id);
+        const auto value_type_proxy = std::static_pointer_cast<type::proxy::Type>(proxy);
+        const auto value_type = value_type_proxy->unwrap();
+        const auto list_type = std::static_pointer_cast<arrow::ListType>(arrow::list(value_type));
         return std::make_shared<ListTypeProxy>(std::move(list_type));
     }
 }

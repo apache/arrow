@@ -14,13 +14,13 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function l = list(type)
+function listType = list(valueType)
     arguments
-        type(1, 1) arrow.type.Type
+        valueType(1, 1) arrow.type.Type
     end
 
-    typeProxyID = type.Proxy.ID;
-    args = struct(TypeProxyID=typeProxyID);
+    valueTypeProxyID = valueType.Proxy.ID;
+    args = struct(ValueTypeProxyID=valueTypeProxyID);
     proxy = arrow.internal.proxy.create("arrow.type.proxy.ListType", args);
-    l = arrow.type.ListType(proxy);
+    listType = arrow.type.ListType(proxy);
 end

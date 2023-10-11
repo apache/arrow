@@ -28,7 +28,7 @@ namespace arrow::matlab::type::proxy {
 
         ~ListType() {}
 
-        void getType(libmexclass::proxy::method::Context& context);
+        void getValueType(libmexclass::proxy::method::Context& context);
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 };
