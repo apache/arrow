@@ -405,7 +405,7 @@ jobs:
           ARROW_SOURCE_HOME: arrow
       - name: Install R package system dependencies (macOS)
         run: |
-          brew sccache
+          brew install sccache
           brew bundle --file arrow/cpp/Brewfile
       - name: Remove arrow/
         run: |
