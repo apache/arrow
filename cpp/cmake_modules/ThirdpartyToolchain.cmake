@@ -5070,8 +5070,20 @@ endif()
 # Azure SDK for C++
 
 function(build_azure_sdk)
+  if(CMAKE_VERSION VERSION_LESS 3.22)
+    # We can't disable installing Azure SDK for C++ by
+    # "set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY
+    # EXCLUDE_FROM_ALL TRUE)" with CMake 3.16.
+    #
+    # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
+    # here. We may be able to use more earlier version here.
+    message(FATAL_ERROR "Building Azure SDK for C++ requires at least CMake 3.22. "
+                        "(At least we can't use CMake 3.16)")
+  endif()
   message(STATUS "Building Azure SDK for C++ from source")
   fetchcontent_declare(azure_sdk
+                       # EXCLUDE_FROM_ALL is available since CMake 3.28
+                       # EXCLUDE_FROM_ALL TRUE
                        URL ${ARROW_AZURE_SDK_URL}
                        URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
@@ -5084,6 +5096,9 @@ function(build_azure_sdk)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
   set(WARNINGS_AS_ERRORS FALSE)
   fetchcontent_makeavailable(azure_sdk)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
