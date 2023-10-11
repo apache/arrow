@@ -26,28 +26,21 @@
   dataset (#37658).
 * New function `write_csv_dataset()` now wraps `write_dataset()` and mirrors the syntax of `write_csv_arrow()` (@dgreiss, #36436).
 * `open_delim_dataset()` now accepts `quoted_na` argument to empty strings to be parsed as NA values (#37828).
-* Implemented `infer_schema()` method for `data.frame` (#37843).
-* Added functionality to read CSVs with comma or other character as decimal
-  mark both in dataset reading functions and new function `read_csv2_arrow()`
-  (#38002).
+* `schema()` can now be called on `data.frame` objects to retrieve their inferred Arrow schema  (#37843).
+* CSVs with a comma or other character as decimal mark can now be read in by the dataset
+   reading functions and new function `read_csv2_arrow()`  (#38002).
 
 ## Minor improvements and fixes
 
-* Added default descriptions in `CsvParseOptions$create()` docs (@angela-li,
-  #37909).
+* Documentation for `CsvParseOptions` object creation now contains more information about 
+  default values (@angela-li,  #37909).
 * Fixed a code path which may have resulted in R code being called from a
   non-R thread after a failed allocation (#37565).
 * Fixed a bug where large Parquet files could not be read from R connections
   (#37274).
-* Implemented more robust evaluation of stringr helpers (e.g., `fixed()`
-  `regex()` when using variables to parameterize arguments (#36784).
-* Exposed Parquet ReaderProperties to improve testing of Parquet reading
-  functionality (#36992).
-* Improved documentation of R6 classes and helper functions (#36394).
-* Improved error reporting to certain types of errors that occurred when
-  calling `read_parquet()` (#37024)
-* Updated use of R's version compare functionality to align with updates to
-  R-devel (#37387).
+* Bindings to stringr helpers (e.g., `fixed()`, `regex()` etc) now allow variables to be used in their
+  arguments (#36784).
+* Thrift string and container size limits can now be configured via newly exposed ParquetReaderProperties, allowing users to work with Parquet files with unusually large metadata (#36992).
 * Improved error message that occurred when calling  `add_filename()`
   (@amoeba, #37372).
 
@@ -55,13 +48,12 @@
 
 * MacOS builds now use the same installation pathway as on Linux (@assignUser,
   #37684).
-* Added a warning message on package load when running under emulation
+* A warning message is now issued on package load when running under emulation
   on MacOS (i.e., use of x86 installation of R on M1/aarch64) on MacOS (#37777).
 * Improve installation configuration when using an installation of R that
   is not on PATH (@meztez, #37225).
 * Failed libarrow builds now return more detailed output (@amoeba, #37727).
-* Fixed an error that occured within `create_package_with_all_dependencies()`
-  on Windows (#37226).
+* `create_package_with_all_dependencies()` now properly escape paths on Windows (#37226).
 
 # arrow 13.0.0.1
 
