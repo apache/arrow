@@ -248,7 +248,7 @@ def download_tzdata_on_windows():
         with open(tzdata_compressed, 'wb') as f:
             f.write(response.raw.read())
     else:
-        raise TypeError(f"Timezone database not available")
+        raise TypeError("Timezone database not available")
 
     assert os.path.exists(tzdata_compressed)
 
