@@ -751,7 +751,7 @@ if(NOT ARROW_GIT_ID)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+  execute_process(COMMAND "git" "describe" "--tags"
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   ERROR_QUIET
                   OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION
