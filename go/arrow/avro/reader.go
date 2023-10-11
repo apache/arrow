@@ -131,7 +131,7 @@ func NewOCFReader(r io.Reader, opts ...Option) (*OCFReader, error) {
 	go rr.decodeOCFToChan()
 
 	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
-	rr.bldMap = new(fieldPos)
+	rr.bldMap = newFieldPos()
 	rr.ldr = newDataLoader()
 	for idx, fb := range rr.bld.Fields() {
 		mapFieldBuilders(fb, rr.schema.Field(idx), rr.bldMap)

@@ -88,7 +88,7 @@ func (d *dataLoader) loadDatum(data any) error {
 		}
 		for _, f := range d.fields {
 			if d.mapValue == nil {
-				err := f.appendFunc(f.getValue(data.(map[string]any)))
+				err := f.appendFunc(f.getValue(data))
 				if err != nil {
 					return err
 				}
@@ -132,7 +132,7 @@ func (d *dataLoader) loadDatum(data any) error {
 				case map[string]any:
 					c.loadDatum(c.mapField.getValue(dt))
 				default:
-					c.loadDatum(c.mapField.getValue(data).(map[string]any))
+					c.loadDatum(c.mapField.getValue(data))
 				}
 			}
 		}
@@ -158,7 +158,7 @@ func (d *dataLoader) loadDatum(data any) error {
 							c.loadDatum(c.list.getValue(e))
 						}
 						if c.mapField != nil {
-							c.loadDatum(c.mapField.getValue(e).(map[string]any))
+							c.loadDatum(c.mapField.getValue(e))
 						}
 					}
 				}
@@ -188,7 +188,6 @@ func (d *dataLoader) loadDatum(data any) error {
 			case nil:
 				d.mapField.appendFunc(dt)
 			case map[string]any:
-
 				d.mapField.appendFunc(dt)
 				for k, v := range dt {
 					d.mapKey.appendFunc(k)
@@ -250,18 +249,7 @@ type fieldPos struct {
 
 func newFieldPos() *fieldPos { return &fieldPos{index: -1} }
 
-func (f *fieldPos) name() string { return f.fieldName }
-
-func (f *fieldPos) child(index int) (*fieldPos, error) {
-	if index < len(f.children()) {
-		return f.childrens[index], nil
-	}
-	return nil, fmt.Errorf("%v child index %d not found", f.namePath(), index)
-}
-
 func (f *fieldPos) children() []*fieldPos { return f.childrens }
-
-func (f *fieldPos) metadata() arrow.Metadata { return f.metadatas }
 
 func (f *fieldPos) newChild(childName string, childBuilder array.Builder, meta arrow.Metadata) *fieldPos {
 	var child fieldPos = fieldPos{
@@ -322,23 +310,20 @@ func (f *fieldPos) namePath() []string {
 // GetValue retrieves the value from the map[string]any
 // by following the field's key path
 func (f *fieldPos) getValue(m any) any {
-	// The value of the type assertion is not assigned to a variable as `value` is assigned
-	// to valueMap to traverse the map by its keys, if the type assertion inside the for loop
-	// fails it means the data is not there (tree path does not exist because of a null value)
-	switch m.(type) {
-	case map[string]any:
-		for _, key := range f.namePath() {
-			valueMap, ok := m.(map[string]any)
-			if !ok {
-				if key == "item" {
-					return m
-				}
-				return nil
+	if _, ok := m.(map[string]any); !ok {
+		return m
+	}
+	for _, key := range f.namePath() {
+		valueMap, ok := m.(map[string]any)
+		if !ok {
+			if key == "item" {
+				return m
 			}
-			m, ok = valueMap[key]
-			if !ok {
-				return nil
-			}
+			return nil
+		}
+		m, ok = valueMap[key]
+		if !ok {
+			return nil
 		}
 	}
 	return m
@@ -424,7 +409,6 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 					return err
 				}
 			}
-
 			return nil
 		}
 	case *array.FixedSizeBinaryBuilder:

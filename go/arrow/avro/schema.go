@@ -45,6 +45,16 @@ func newSchemaNode() *schemaNode {
 	return &schemaNode{name: "", index: -1, schemaCache: &schemaCache}
 }
 
+func (node *schemaNode) schemaPath() string {
+	var path string
+	n := node
+	for n.parent != nil {
+		path = "." + n.name + path
+		n = n.parent
+	}
+	return path
+}
+
 func (node *schemaNode) newChild(n string, s avro.Schema) *schemaNode {
 	child := &schemaNode{
 		name:        n,
@@ -52,14 +62,12 @@ func (node *schemaNode) newChild(n string, s avro.Schema) *schemaNode {
 		schema:      s,
 		schemaCache: node.schemaCache,
 		index:       int32(len(node.children)),
-		depth:       node.depth + 1,
-	}
+		depth:       node.depth + 1}
 	node.children = append(node.children, child)
 	return child
 }
-func (node *schemaNode) Children() []*schemaNode { return node.children }
 
-func (node *schemaNode) Name() string { return node.name }
+func (node *schemaNode) childList() []*schemaNode { return node.children }
 
 // ArrowSchemaFromAvro returns a new Arrow schema from an Avro schema
 func ArrowSchemaFromAvro(schema avro.Schema) (s *arrow.Schema, err error) {
@@ -81,11 +89,10 @@ func ArrowSchemaFromAvro(schema avro.Schema) (s *arrow.Schema, err error) {
 	c := n.newChild(n.schema.(avro.NamedSchema).Name(), n.schema)
 	arrowSchemafromAvro(c)
 	var fields []arrow.Field
-	for _, g := range c.Children() {
+	for _, g := range c.childList() {
 		fields = append(fields, g.arrowField)
 	}
-	m := arrow.MetadataFrom(map[string]string{"avroSchema": schema.String()})
-	s = arrow.NewSchema(fields, &m)
+	s = arrow.NewSchema(fields, nil)
 	return s, nil
 }
 
@@ -112,7 +119,7 @@ func arrowSchemafromAvro(n *schemaNode) {
 		case sl > math.MaxUint16 && sl <= math.MaxUint32:
 			dt.IndexType = arrow.PrimitiveTypes.Uint32
 		}
-		n.arrowField = arrow.Field{Name: n.Name(), Type: &dt, Nullable: n.nullable, Metadata: arrow.MetadataFrom(symbols)}
+		n.arrowField = buildArrowField(n, &dt, arrow.MetadataFrom(symbols))
 	case "array":
 		// logical items type
 		c := n.newChild(n.name, n.schema.(*avro.ArraySchema).Items())
@@ -125,7 +132,7 @@ func arrowSchemafromAvro(n *schemaNode) {
 	case "map":
 		c := n.newChild(n.name, n.schema.(*avro.MapSchema).Values())
 		arrowSchemafromAvro(c)
-		n.arrowField = arrow.Field{Name: n.name, Type: arrow.MapOf(arrow.BinaryTypes.String, c.arrowField.Type), Metadata: c.arrowField.Metadata, Nullable: n.nullable}
+		n.arrowField = buildArrowField(n, arrow.MapOf(arrow.BinaryTypes.String, c.arrowField.Type), c.arrowField.Metadata)
 	case "union":
 		if n.schema.(*avro.UnionSchema).Nullable() {
 			if len(n.schema.(*avro.UnionSchema).Types()) > 1 {
@@ -140,21 +147,26 @@ func arrowSchemafromAvro(n *schemaNode) {
 		if isLogicalSchemaType(n.schema) {
 			avroLogicalToArrowField(n)
 		} else {
-			n.arrowField = arrow.Field{Name: n.Name(), Type: &arrow.FixedSizeBinaryType{ByteWidth: n.schema.(*avro.FixedSchema).Size()}, Nullable: n.nullable}
+			n.arrowField = buildArrowField(n, &arrow.FixedSizeBinaryType{ByteWidth: n.schema.(*avro.FixedSchema).Size()}, arrow.Metadata{})
 		}
 	case "string", "bytes", "int", "long":
 		if isLogicalSchemaType(n.schema) {
 			avroLogicalToArrowField(n)
 		} else {
-			n.arrowField = arrow.Field{Name: n.name, Type: avroPrimitiveToArrowType(string(st)), Nullable: n.nullable}
+			n.arrowField = buildArrowField(n, avroPrimitiveToArrowType(string(st)), arrow.Metadata{})
 		}
 	case "float", "double", "boolean":
 		n.arrowField = arrow.Field{Name: n.name, Type: avroPrimitiveToArrowType(string(st)), Nullable: n.nullable}
 	case "<ref>":
-		n.schema = n.schemaCache.Get(n.schema.(*avro.RefSchema).Schema().Name())
+		refSchema := n.schemaCache.Get(string(n.schema.(*avro.RefSchema).Schema().Name()))
+		if refSchema == nil {
+			panic(fmt.Errorf("could not find schema for '%v' in schema cache - %v", n.schemaPath(), n.schema.(*avro.RefSchema).Schema().Name()))
+		}
+		n.schema = refSchema
 		arrowSchemafromAvro(n)
 	case "null":
-		n.arrowField = arrow.Field{Name: n.name, Type: arrow.Null, Nullable: true}
+		n.nullable = true
+		n.arrowField = buildArrowField(n, arrow.Null, arrow.Metadata{})
 	}
 }
 
@@ -172,7 +184,7 @@ func iterateFields(n *schemaNode) {
 			} else {
 				arrowSchemafromAvro(c)
 			}
-			c.arrowField = arrow.Field{Name: c.name, Type: arrow.ListOfField(c.arrowField), Metadata: c.arrowField.Metadata, Nullable: c.nullable}
+			c.arrowField = buildArrowField(n, arrow.ListOfField(c.arrowField), c.arrowField.Metadata)
 		// Avro "enum" field type = Arrow dictionary type
 		case *avro.EnumSchema:
 			n.schemaCache.Add(f.Name(), f.Type())
@@ -183,7 +195,7 @@ func iterateFields(n *schemaNode) {
 				symbols[k] = symbol
 			}
 			var dt arrow.DictionaryType = arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint64, ValueType: arrow.BinaryTypes.String, Ordered: false}
-			sl := int64(len(symbols))
+			sl := len(symbols)
 			switch {
 			case sl <= math.MaxUint8:
 				dt.IndexType = arrow.PrimitiveTypes.Uint8
@@ -192,7 +204,7 @@ func iterateFields(n *schemaNode) {
 			case sl > math.MaxUint16 && sl <= math.MaxUint32:
 				dt.IndexType = arrow.PrimitiveTypes.Uint32
 			}
-			c.arrowField = arrow.Field{Name: f.Name(), Type: &dt, Nullable: c.nullable, Metadata: arrow.MetadataFrom(symbols)}
+			c.arrowField = buildArrowField(n, &dt, arrow.MetadataFrom(symbols))
 		// Avro "fixed" field type = Arrow FixedSize Primitive BinaryType
 		case *avro.FixedSchema:
 			n.schemaCache.Add(f.Name(), f.Type())
@@ -215,8 +227,7 @@ func iterateFields(n *schemaNode) {
 			if ft.Values().Type() != "union" {
 				valType = c.arrowField.Type.(arrow.BinaryDataType)
 			}
-			c.arrowField = arrow.Field{Name: f.Name(), Type: arrow.MapOf(arrow.BinaryTypes.String, valType),
-				Metadata: c.arrowField.Metadata, Nullable: c.nullable}
+			c.arrowField = buildArrowField(n, arrow.MapOf(arrow.BinaryTypes.String, valType), c.arrowField.Metadata)
 		case *avro.UnionSchema:
 			if ft.Nullable() {
 				if len(ft.Types()) > 1 {
@@ -240,16 +251,17 @@ func iterateFields(n *schemaNode) {
 		}
 	}
 	var fields []arrow.Field
-	for _, child := range n.Children() {
+	for _, child := range n.childList() {
 		fields = append(fields, child.arrowField)
 	}
 
 	namedSchema, ok := isNamedSchema(n.schema)
+
 	var md arrow.Metadata
 	if ok && namedSchema != n.name+"_data" && n.union {
 		md = arrow.NewMetadata([]string{"typeName"}, []string{namedSchema})
 	}
-	n.arrowField = arrow.Field{Name: n.name, Type: arrow.StructOf(fields...), Metadata: md, Nullable: n.nullable}
+	n.arrowField = buildArrowField(n, arrow.StructOf(fields...), md)
 }
 
 func isLogicalSchemaType(s avro.Schema) bool {
@@ -268,6 +280,15 @@ func isNamedSchema(s avro.Schema) (string, bool) {
 		return ns.FullName(), ok
 	}
 	return "", false
+}
+
+func buildArrowField(n *schemaNode, t arrow.DataType, m arrow.Metadata) arrow.Field {
+	return arrow.Field{
+		Name:     n.name,
+		Type:     t,
+		Metadata: m,
+		Nullable: n.nullable,
+	}
 }
 
 // Avro primitive type.
@@ -300,7 +321,7 @@ func avroPrimitiveToArrowType(avroFieldType string) arrow.DataType {
 	return nil
 }
 
-func avroLogicalToArrowField(n *schemaNode) arrow.Field {
+func avroLogicalToArrowField(n *schemaNode) {
 	var dt arrow.DataType
 	// Avro logical types
 	switch lt := n.schema.(avro.LogicalTypeSchema).Logical(); lt.Type() {
@@ -392,6 +413,5 @@ func avroLogicalToArrowField(n *schemaNode) arrow.Field {
 	case "duration":
 		dt = arrow.FixedWidthTypes.MonthDayNanoInterval
 	}
-	n.arrowField = arrow.Field{Name: n.name, Type: dt, Nullable: true}
-	return arrow.Field{Name: n.name, Type: dt, Nullable: true}
+	n.arrowField = buildArrowField(n, dt, arrow.Metadata{})
 }
