@@ -720,8 +720,14 @@ is_feature_requested <- function(env_varname, default = env_is("LIBARROW_MINIMAL
 }
 
 with_cloud_support <- function(env_var_list) {
-  arrow_s3 <- is_feature_requested("ARROW_S3")
-  arrow_gcs <- is_feature_requested("ARROW_GCS")
+  have_cloud_libs <- cmake_find_package("CURL", NULL, env_var_list) &&
+    cmake_find_package("OpenSSL", "1.0.2", env_var_list)
+  # Build with cloud support when libs are available unless user explicitly turns them off
+  # Only show warnings if user explicitly requests cloud support.
+  arrow_s3 <- !env_is("ARROW_S3", "off") && have_cloud_libs ||
+    is_feature_requested("ARROW_S3")
+  arrow_gcs <- !env_is("ARROW_GCS", "off") && have_cloud_libs ||
+    is_feature_requested("ARROW_GCS")
   if (arrow_s3 || arrow_gcs) {
     # User wants S3 or GCS support.
     # Make sure that we have curl and openssl system libs
