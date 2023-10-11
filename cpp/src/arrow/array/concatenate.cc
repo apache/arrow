@@ -260,8 +260,7 @@ class ConcatenateImpl {
     if (out_->buffers[0] != nullptr) {
       i = in_[0]->length;
       VisitNullBitmapInline(
-          out_->buffers[0]->data(), in_[0]->length, out_->length, out_->null_count,
-          [&] { ++i; },
+          out_->buffers[0]->data(), i, out_->length - i, out_->null_count, [&] { ++i; },
           [&] {
             views[i++] = {};  // overwrite views under null bits with an empty view
           });
