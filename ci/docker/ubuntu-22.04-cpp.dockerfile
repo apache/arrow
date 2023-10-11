@@ -65,11 +65,11 @@ RUN latest_system_llvm=14 && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        bzip2 \
         ca-certificates \
         ccache \
         cmake \
-        curl \
-        emscripten \
+        curl \        
         gdb \
         git \
         libbenchmark-dev \
@@ -114,9 +114,19 @@ RUN apt-get update -y -q && \
         rapidjson-dev \
         rsync \
         tzdata \
-        wget && \
+        wget \
+        xz-utils  && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+# install emscripten using EMSDK
+ARG emscripten_version="3.1.45"
+RUN cd ~ && git clone https://github.com/emscripten-core/emsdk.git && \
+    cd emsdk && \
+    ./emsdk install ${emscripten_version} && \
+    ./emsdk activate ${emscripten_version} && \
+    echo "Installed emsdk to:" ~/emsdk
+
 
 ARG gcc_version=""
 RUN if [ "${gcc_version}" = "" ]; then \
@@ -150,9 +160,8 @@ RUN if [ "${gcc_version}" = "" ]; then \
       update-alternatives --set c++ /usr/bin/g++; \
     fi
 
-RUN EM_CACHE=/usr/share/emscripten/cache \
-    EM_FROZEN_CACHE= \
-      embuilder --pic build zlib
+# make sure zlib is cached in the EMSDK folder
+RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local

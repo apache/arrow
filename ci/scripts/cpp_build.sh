@@ -82,6 +82,12 @@ mkdir -p ${build_dir}
 pushd ${build_dir}
 
 if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
+  export
+  if [ "${UBUNTU}" = "20.04" ]; then
+    echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
+    exit -1
+  fi
+  source ~/emsdk/emsdk_env.sh
   emcmake cmake \
     --preset=ninja-${ARROW_BUILD_TYPE:-debug}-emscripten \
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE:-OFF} \

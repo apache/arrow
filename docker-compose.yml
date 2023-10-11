@@ -672,6 +672,7 @@ services:
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_EMSCRIPTEN: "ON"
+      UBUNTU:
     command: *cpp-command
 
   fedora-cpp:
