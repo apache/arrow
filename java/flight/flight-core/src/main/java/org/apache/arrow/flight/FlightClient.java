@@ -436,7 +436,7 @@ public class FlightClient implements AutoCloseable {
      */
     public void getResult() {
       // After exchange is complete, make sure stream is drained to propagate errors through reader
-      reader.next();
+      while (reader.next()) { };
     }
 
     /** Shut down the streams in this call. */
