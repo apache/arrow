@@ -102,12 +102,16 @@ jobs:
         run: |
           cd arrow/r/libarrow/dist
           zip -r $PKG_FILE lib/ include/
-
+      - name: Create Checksum
+        shell: bash
+        run: |
+          cd arrow/r/libarrow/dist
+          shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
-          path: arrow/r/libarrow/dist/arrow-*.zip
+          path: arrow/r/libarrow/dist/arrow-*.zip*
 
   linux-cpp:
     name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
@@ -149,15 +153,21 @@ jobs:
           PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
           VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
-          cd arrow/r/libarrow/dist
-          # These files were created by the docker user so we have to sudo to get them
-          sudo -E zip -r $PKG_FILE lib/ include/
+          # These files were created by the docker user so we have to chown them 
+          sudo chown -R $USER:$USER arrow/r/libarrow
 
+          cd arrow/r/libarrow/dist
+          zip -r $PKG_FILE lib/ include/
+      - name: Create Checksum
+        shell: bash
+        run: |
+          cd arrow/r/libarrow/dist
+          shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
-          path: arrow/r/libarrow/dist/arrow-*.zip
+          path: arrow/r/libarrow/dist/arrow-*.zip*
 
   windows-cpp:
     name: C++ Binary Windows RTools (40 only)
@@ -181,11 +191,16 @@ jobs:
           ARROW_HOME: "arrow"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/r_windows_build.sh
+      - name: Create Checksum
+        shell: bash
+        run: |
+          cd build
+          sha512sum arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
           name: r-lib__libarrow__bin__windows
-          path: build/arrow-*.zip
+          path: build/arrow-*.zip*
 
   r-packages:
     needs: [source, windows-cpp, macos-cpp]
@@ -222,7 +237,6 @@ jobs:
           rig system add-pak
       {{ macros.github_setup_local_r_repo(false, true, true)|indent }}
       - name: Prepare Dependency Installation
-
         shell: bash
         run: |
           tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
@@ -244,6 +258,8 @@ jobs:
           NOT_CRAN: "false" # actions/setup-r sets this implicitly
           ARROW_R_DEV: "true"
           LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
+          ARROW_R_ENFORCE_CHECKSUM: "true"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -335,6 +351,8 @@ jobs:
           ARROW_R_DEV: "TRUE"
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
+          ARROW_R_ENFORCE_CHECKSUM: "true"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         shell: bash
         run: |
           Rscript -e '

@@ -28,11 +28,12 @@ if (test_mode && is.na(VERSION)) {
 }
 
 dev_version <- package_version(VERSION)[1, 4]
+is_release <- is.na(dev_version) || dev_version < "100"
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
-
+checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
 
 # Small dev versions are added for R-only changes during CRAN submission.
-if (is.na(dev_version) || dev_version < "100") {
+if (is_release) {
   VERSION <- package_version(VERSION)[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
@@ -88,7 +89,7 @@ thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tool
 
 
 download_binary <- function(lib) {
-  libfile <- tempfile()
+  libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
     if (!quietly) {
@@ -103,6 +104,42 @@ download_binary <- function(lib) {
     }
     libfile <- NULL
   }
+  # Explicitly setting the env var to "false" will skip checksum validation
+  # e.g. in case the included checksums are stale.
+  skip_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "false")
+  enforce_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "true")
+  # validate binary checksum for CRAN release only
+  if (!skip_checksum && dir.exists(checksum_path) && is_release ||
+    enforce_checksum) {
+    checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
+    checksum_file <- file.path(checksum_path, checksum_file)
+    checksum_cmd <- "shasum"
+    checksum_args <- c("--status", "-a", "512", "-c", checksum_file)
+
+    # shasum is not available on all linux versions
+    status_shasum <- try(
+      suppressWarnings(
+        system2("shasum", args = c("--help"), stdout = FALSE, stderr = FALSE)
+      ),
+      silent = TRUE
+    )
+
+    if (inherits(status_shasum, "try-error") || is.integer(status_shasum) && status_shasum != 0) {
+      checksum_cmd <- "sha512sum"
+      checksum_args <- c("--status", "-c", checksum_file)
+    }
+
+    checksum_ok <- system2(checksum_cmd, args = checksum_args)
+
+    if (checksum_ok != 0) {
+      cat("*** Checksum validation failed for libarrow binary: ", libfile, "\n")
+      unlink(libfile)
+      libfile <- NULL
+    } else {
+      cat("*** Checksum validated successfully for libarrow binary: ", libfile, "\n")
+    }
+  }
+
   libfile
 }
 
