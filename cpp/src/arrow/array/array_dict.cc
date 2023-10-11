@@ -250,15 +250,14 @@ struct CompactTransposeMapVistor {
             "(dictionary is ", dict_length, " long) at position ", i);
       }
       if (dict_used[current_index]) continue;
-        dict_used[current_index] = true;
-        dict_used_count++;
+      dict_used[current_index] = true;
+      dict_used_count++;
 
-        if (dict_used_count == dict_length) {
-          // The dictionary is already compact, so just return here
-          output_map = nullptr;
-          out_compact_dictionary = nullptr;
-          return Status::OK();
-        }
+      if (dict_used_count == dict_length) {
+        // The dictionary is already compact, so just return here
+        output_map = nullptr;
+        out_compact_dictionary = nullptr;
+        return Status::OK();
       }
     }
 
@@ -266,13 +265,14 @@ struct CompactTransposeMapVistor {
     using arrow::compute::Take;
     using arrow::compute::TakeOptions;
     BuilderType dict_indices_builder(pool);
+    ARROW_RETURN_NOT_OK(dict_indices_builder.Reserve(dict_used_count));
     ARROW_ASSIGN_OR_RAISE(output_map,
                           AllocateBuffer(dict_length * sizeof(int32_t), pool));
     auto* output_map_raw = output_map->mutable_data_as<int32_t>();
     int32_t current_index = 0;
     for (CType i = 0; i < dict_len; i++) {
       if (dict_used[i]) {
-        ARROW_RETURN_NOT_OK(dict_indices_builder.Append(i));
+        dict_indices_builder.UnsafeAppend(i);
         output_map_raw[i] = current_index;
         current_index++;
       } else {
