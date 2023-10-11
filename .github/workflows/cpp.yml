@@ -204,6 +204,10 @@ jobs:
         run: |
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest /usr/local
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
       - name: Install Google Cloud Storage Testbench
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Install Azurite Storage Emulator
@@ -427,6 +431,10 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: |
