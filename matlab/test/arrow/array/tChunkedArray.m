@@ -413,7 +413,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = arrow.array(dates(6:5));
             a3 = arrow.array(dates(6:end));
 
-            % ChunkedArray with three chunks and nonzero at least one element
+            % ChunkedArray with three chunks and at least one element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = dates';
