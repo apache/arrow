@@ -97,6 +97,15 @@ except ImportError:
     pass
 
 
+try:
+    from pyarrow._dataset_parquet_encryption import (  # noqa
+        ParquetDecryptionConfig,
+        ParquetEncryptionConfig,
+    )
+except ImportError:
+    pass
+
+
 def __getattr__(name):
     if name == "OrcFileFormat" and not _orc_available:
         raise ImportError(_orc_msg)
