@@ -248,7 +248,8 @@ struct CompactTransposeMapVistor {
         return Status::IndexError(
             "Index out of bounds while compacting dictionary array: ", current_index,
             "(dictionary is ", dict_length, " long) at position ", i);
-      } else if (!dict_used[current_index]) {
+      }
+      if (dict_used[current_index]) continue;
         dict_used[current_index] = true;
         dict_used_count++;
 
