@@ -736,11 +736,6 @@ with_cloud_support <- function(env_var_list) {
       cat("**** ", start_msg, " support ", msg, "; building with ", off_flags, "\n")
     }
 
-    # Check the features
-    # This duplicates what we do with the test program above when we check
-    # capabilities for using binaries. We could consider consolidating this
-    # logic, though these use cmake in order to match exactly what we do in the
-    # libarrow build, and maybe that increases the fidelity.
     if (!cmake_find_package("CURL", NULL, env_var_list)) {
       # curl on macos should be installed, so no need to alter this for macos
       # TODO: check for apt/yum/etc. and message the right thing?
