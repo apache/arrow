@@ -25,7 +25,7 @@
   `open_dataset()`, the partition variables are now included in the resulting
   dataset (#37658).
 * New function `write_csv_dataset()` now wraps `write_dataset()` and mirrors the syntax of `write_csv_arrow()` (@dgreiss, #36436).
-* Added `quoted_na` argument to `open_delim_dataset()` (#37828).
+* `open_delim_dataset()` now accepts `quoted_na` argument to empty strings to be parsed as NA values (#37828).
 * Implemented `infer_schema()` method for `data.frame` (#37843).
 * Added functionality to read CSVs with comma or other character as decimal
   mark both in dataset reading functions and new function `read_csv2_arrow()`
