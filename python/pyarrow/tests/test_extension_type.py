@@ -1712,7 +1712,7 @@ def test_tensor_type_is_picklable(pickle_module):
         'fixed_shape_tensor[value_type=int64, shape=[2,2,3], dim_names=[C,H,W]]'
     )
 ])
-def test_tensor_type_str(tensor_type, text):
+def test_tensor_type_str(tensor_type, text, pickle_module):
     tensor_type_str = tensor_type.__str__()
     assert text in tensor_type_str
 
