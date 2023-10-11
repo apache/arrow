@@ -607,11 +607,20 @@ test_and_install_cpp() {
     ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G ${CMAKE_GENERATOR}"
   fi
 
+  local ARROW_BUILD_INTEGRATION=OFF
+  local ARROW_BUILD_TESTS=OFF
+  if [ ${TEST_INTEGRATION_CPP} -gt 0 ]; then
+    ARROW_BUILD_INTEGRATION=ON
+  fi
+  if [ ${TEST_CPP} -gt 0 ]; then
+    ARROW_BUILD_TESTS=ON
+  fi
+
   cmake \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_EXAMPLES=OFF \
-    -DARROW_BUILD_INTEGRATION=ON \
-    -DARROW_BUILD_TESTS=ON \
+    -DARROW_BUILD_INTEGRATION=${ARROW_BUILD_INTEGRATION} \
+    -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
     -DARROW_BUILD_UTILITIES=ON \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
@@ -652,11 +661,7 @@ test_and_install_cpp() {
   cmake --build . --target install
 
   if [ ${TEST_CPP} -gt 0 ]; then
-    # Explicitly set site-package directory, otherwise the C++ tests are unable
-    # to load numpy in a python virtualenv
-    local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
-
-    LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
+    LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
       --label-regex unittest \
       --output-on-failure \
       --parallel $NPROC \
@@ -876,22 +881,24 @@ test_go() {
   fi
   go install -buildvcs=false ./...
   go clean -modcache
-  pushd arrow/internal/cdata_integration
 
-  case "$(uname)" in
-    Linux)
-      go_lib="arrow_go_integration.so"
-      ;;
-    Darwin)
-      go_lib="arrow_go_integration.dylib"
-      ;;
-    MINGW*)
-      go_lib="arrow_go_integration.dll"
-      ;;
-  esac
-  go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+  if [ ${TEST_INTEGRATION_GO} -gt 0 ]; then
+    pushd arrow/internal/cdata_integration
+    case "$(uname)" in
+      Linux)
+        go_lib="arrow_go_integration.so"
+        ;;
+      Darwin)
+        go_lib="arrow_go_integration.dylib"
+        ;;
+      MINGW*)
+        go_lib="arrow_go_integration.dll"
+        ;;
+    esac
+    go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+    popd
+  fi
 
-  popd
   popd
 }
 
@@ -1189,14 +1196,12 @@ test_jars() {
 : ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
 
-# Automatically build if its activated by a dependent
+# Automatically build/test if its activated by a dependent
+TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
 BUILD_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
 BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 BUILD_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
-
-# Automatically test if its activated by a dependent
-TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
 TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
