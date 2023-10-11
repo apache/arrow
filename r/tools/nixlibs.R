@@ -104,10 +104,13 @@ download_binary <- function(lib) {
     }
     libfile <- NULL
   }
-
+  # Explicitly setting the env var to "false" will skip checksum validation
+  # e.g. in case the included checksums are stale.
+  skip_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "false")
+  enforce_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "true")
   # validate binary checksum for CRAN release only
-  if (dir.exists(checksum_path) && is_release ||
-    env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
+  if (!skip_checksum && dir.exists(checksum_path) && is_release ||
+    enforce_checksum) {
     checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
     checksum_file <- file.path(checksum_path, checksum_file)
     checksum_cmd <- "shasum"

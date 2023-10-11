@@ -76,9 +76,13 @@ if (length(args) > 1) {
   }
 
   checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
+  # Explicitly setting the env var to "false" will skip checksum validation
+  # e.g. in case the included checksums are stale.
+  skip_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "false")
+  enforce_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "true")
   # validate binary checksum for CRAN release only
-  if (dir.exists(checksum_path) && is_release ||
-    env_is("ARROW_R_ENFORCE_CHECKSUM", "true")) {
+  if (!skip_checksum && dir.exists(checksum_path) && is_release ||
+    enforce_checksum) {
     checksum_file <- sprintf("%s/windows/arrow-%s.zip.sha512", checksum_path, VERSION)
     # rtools does not have shasum with default config
     checksum_ok <- system2("sha512sum", args = c("--status", "-c", checksum_file))
