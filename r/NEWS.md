@@ -59,7 +59,7 @@
   on MacOS (i.e., use of x86 installation of R on M1/aarch64) on MacOS (#37777).
 * Improve installation configuration when using an installation of R that
   is not on PATH (@meztez, #37225).
-* Add extra output for failed builds (@amoeba, #37727).
+* Failed libarrow builds now return more detailed output (@amoeba, #37727).
 * Fixed an error that occured within `create_package_with_all_dependencies()`
   on Windows (#37226).
 
