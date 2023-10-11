@@ -37,11 +37,15 @@ class GANDIVA_EXPORT ExportedFuncsRegistry {
   static void AddMappings(Engine* engine);
 
   static bool Register(std::shared_ptr<ExportedFuncsBase> entry) {
-    registered().emplace_back(std::move(entry));
+    registered()->emplace_back(std::move(entry));
     return true;
   }
 
-  static list_type& registered();
+  // list all the registered ExportedFuncsBase
+  static const list_type& Registered();
+
+ private:
+  static list_type* registered();
 };
 
 #define REGISTER_EXPORTED_FUNCS(classname)               \
