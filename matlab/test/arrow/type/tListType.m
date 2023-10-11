@@ -41,15 +41,15 @@ classdef tListType < matlab.unittest.TestCase
         end
 
         function ConstructionFcnInvalidInputTypeError(testCase)
-            % Verify construction function errors if any one of the input
-            % arguments is not an arrow.type.Type object.
+            % Verify construction function errors if the input
+            % argument is not an arrow.type.Type object.
             fcn = @() testCase.ConstructionFcn("abc");
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
         function ConstructionFcnEmptyTypeError(testCase)
             % Verify construction function errors if given an empty
-            % arrow.type.Type array as one of its inputs.
+            % arrow.type.Type array as the input argument.
             fcn = @() testCase.ConstructionFcn(arrow.type.Type.empty(0, 0));
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
