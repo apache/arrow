@@ -267,7 +267,7 @@ struct CompactTransposeMapVistor {
     BuilderType dict_indices_builder(pool);
     ARROW_ASSIGN_OR_RAISE(output_map,
                           AllocateBuffer(dict_length * sizeof(int32_t), pool));
-    int32_t* output_map_raw = reinterpret_cast<int32_t*>(output_map->mutable_data());
+    auto* output_map_raw = output_map->mutable_data_as<int32_t>();
     int32_t current_index = 0;
     for (CType i = 0; i < dict_len; i++) {
       if (dict_used[i]) {
