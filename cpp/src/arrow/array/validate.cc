@@ -909,7 +909,7 @@ struct ValidateArrayImpl {
 
     const auto offsets_byte_size = data.buffers[1]->size();
     const auto required_offsets = ((data.length > 0) || (offsets_byte_size > 0))
-                                      ? data.length + data.offset + 1
+                                      ? data.length + data.offset + (is_list_view ? 0 : 1)
                                       : 0;
     if (offsets_byte_size / static_cast<int32_t>(sizeof(offset_type)) <
         required_offsets) {
