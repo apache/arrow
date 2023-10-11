@@ -38,44 +38,49 @@ set -e
 set -x
 ```
 
-Windows and macOS users who wish to contribute to the R package and
-don't need to alter libarrow (Arrow's C++ library) may be able to obtain a
-recent version of the library without building from source.
+The Arrow R package is unique compared to other R packages that you may have
+contributed to because it builds on top of the large and feature-rich Arrow C++
+implementation.
 
-### Linux
+## Option 1: Using pre-built libarrow binaries
 
-On Linux, you can download a .zip file containing libarrow from the
+On Linux and MacOS, you can download a .zip file containing libarrow from the
 [nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/).
 
 The directory names correspond to the OpenSSL version the binaries built with:
-- "linux-openssl-1.0" (OpenSSL 1.0)
-- "linux-openssl-1.1" (OpenSSL 1.1)
-- "linux-openssl-3.0" (OpenSSL 3.0)
 
-Version numbers in that repository correspond to dates.
+- "linux-openssl-1.0" (OpenSSL 1.0, e.g., Centos7)
+- "linux-openssl-1.1" (OpenSSL 1.1, e.g., Ubuntu 18.04)
+- "linux-openssl-3.0" (OpenSSL >=3.0, e.g., MacOS or Ubuntu >= 20.04)
 
-You'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the compiled libarrow binary files into it.
+Version numbers in that repository correspond to dates. Use the version with
+the highest number (i.e., that was modified most frequently).
 
-### macOS
-On macOS, you can install libarrow using [Homebrew](https://brew.sh/):
+You'll need to create a `libarrow` directory inside the R package directory and
+unzip the zip file containing the compiled libarrow binary files into it.
 
-```bash
-# For the released version:
-brew install apache-arrow
-# Or for a development version, you can try:
-brew install apache-arrow --HEAD
-```
+On Windows, the binary can be found in the
+[corresponding subdirectory of the nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/windows/)
+but must be extracted to `windows/libarrow`.
 
-### Windows
+Most of the time, you won't need to update your version of libarrow because
+the R package rarely changes with updates to the C++ library; however, if you
+start to get errors when rebuilding the R package, you may have to remove the
+`libarrow` directory and repeat the above steps with a newer nightly build.
 
-On Windows, you can download a .zip file containing libarrow from the
-[nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/windows/).
+## Option 2: Using the bundled build
 
-Version numbers in that repository correspond to dates.
+On Linux and MacOS, you can use the same workflow you might use for another
+package that contains compiled code (e.g., `R CMD INSTALL . --preclean` from
+the shell, `devtools::load_all()` from an R prompt, or `Install & Restart` from
+RStudio). If the `libarrow` directory is not populated, the configure script will
+attempt to build the bundled version of the C++ library. This will take a few
+minutes the first time you try to install or load the package; however, subsequent
+reloading will skip this step.
 
-You can set the `RWINLIB_LOCAL` environment variable to point to the zip file containing libarrow before installing the arrow R package.
+This option is not currently supported on Windows.
 
-## R and C++
+## Option 3: Use a local Arrow C++ development build
 
 If you need to alter both libarrow and the R package code, or if you can't get a binary version of the latest libarrow elsewhere, you'll need to build it from source. This section discusses how to set up a C++ libarrow build configured to work with the R package. For more general resources, see the [Arrow C++ developer guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
