@@ -397,12 +397,7 @@ jobs:
           arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
       - name: Install R package system dependencies (Linux)
         if: matrix.platform.name == 'Linux'
-        run: |
-          sudo arrow/ci/scripts/r_install_system_dependencies.sh
-        env:
-          ARROW_GCS: "ON"
-          ARROW_S3: "ON"
-          ARROW_SOURCE_HOME: arrow
+        run: sudo apt-get install -y libcurl4-openssl-dev libssl-dev
       - name: Install R package system dependencies (macOS)
         if: matrix.platform.name != 'Linux'
         run: |
