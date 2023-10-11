@@ -82,7 +82,15 @@ mkdir -p ${build_dir}
 pushd ${build_dir}
 
 if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
-  export
+  if [ "${ARROW_BUILD_TYPE:-debug}" = "debug" ]; then
+    echo "Forcing non-parallel build for emscripten debug"
+    export CMAKE_BUILD_PARALLEL_LEVEL=1 
+    # emscripten debug linking takes *tons* of memory
+    # https://github.com/WebAssembly/binaryen/issues/4261
+    # so stop parallel builds for debug build
+    # or else crossbow CI runs out of memory
+  fi
+  
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
     exit -1
