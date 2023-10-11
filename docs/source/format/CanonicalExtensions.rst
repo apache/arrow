@@ -214,11 +214,7 @@ Variable shape tensor
   with key **"permutation"**.
   Shapes of tensors can be defined in a subset of dimensions by providing
   key **"uniform_shape"**.
-  Minimal metadata is an empty JSON object.
-
-  - Example of minimal metadata is:
-
-    ``{}``
+  Minimal metadata is an empty string.
 
   - Example with ``dim_names`` metadata for NCHW ordered data (note that the first
     logical dimension, ``N``, is mapped to the **data** List array: each element in the List
