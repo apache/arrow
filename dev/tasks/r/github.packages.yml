@@ -435,7 +435,7 @@ jobs:
 
   upload-binaries:
     # Only upload binaries if all tests pass.
-    needs: [r-packages, test-linux-source, test-linux-binary]
+    needs: [r-packages, test-source, test-linux-binary]
     name: Upload artifacts
     runs-on: ubuntu-latest
     steps:
