@@ -358,6 +358,7 @@ class ArrowConan(ConanFile):
 
     def requirements(self):
         if self._with_thrift():
+            self.requires("zlib/1.2.13")
             self.requires("thrift/0.17.0")
         if self._with_protobuf():
             self.requires("protobuf/3.21.4")
