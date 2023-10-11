@@ -17,10 +17,16 @@
 #ifndef FLATBUFFERS_BUFFER_REF_H_
 #define FLATBUFFERS_BUFFER_REF_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/base.h"
 #include "flatbuffers/verifier.h"
 
-namespace flatbuffers {
+namespace arrow_vendored_private::flatbuffers {
 
 // Convenient way to bundle a buffer and its length, to pass it around
 // typed by its root.
@@ -48,6 +54,6 @@ template<typename T> struct BufferRef : BufferRefBase {
   bool must_free;
 };
 
-}  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_BUFFER_REF_H_

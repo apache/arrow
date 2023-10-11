@@ -17,9 +17,16 @@
 #ifndef FLATBUFFERS_VERIFIER_H_
 #define FLATBUFFERS_VERIFIER_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/base.h"
 #include "flatbuffers/vector.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 // Helper class to verify the integrity of a FlatBuffer
@@ -328,5 +335,6 @@ inline size_t Verifier::VerifyOffset<uoffset64_t>(const size_t start) const {
 }
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_VERIFIER_H_

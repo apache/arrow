@@ -17,6 +17,12 @@
 #ifndef FLATBUFFERS_VECTOR_DOWNWARD_H_
 #define FLATBUFFERS_VECTOR_DOWNWARD_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include <algorithm>
 #include <cstdint>
 
@@ -24,6 +30,7 @@
 #include "flatbuffers/default_allocator.h"
 #include "flatbuffers/detached_buffer.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 // This is a minimal replication of std::vector<uint8_t> functionality,
@@ -285,5 +292,6 @@ template<typename SizeT = uoffset_t> class vector_downward {
 };
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_VECTOR_DOWNWARD_H_

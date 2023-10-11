@@ -17,9 +17,16 @@
 #ifndef FLATBUFFERS_TABLE_H_
 #define FLATBUFFERS_TABLE_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/base.h"
 #include "flatbuffers/verifier.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 // "tables" use an offset table (possibly shared) that allows fields to be
@@ -184,5 +191,6 @@ inline flatbuffers::Optional<bool> Table::GetOptional<uint8_t, bool>(
 }
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_TABLE_H_

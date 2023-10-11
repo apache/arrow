@@ -17,8 +17,15 @@
 #ifndef FLATBUFFERS_STRUCT_H_
 #define FLATBUFFERS_STRUCT_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/base.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 // "structs" are flat structures that do not have an offset table, thus
@@ -49,5 +56,6 @@ class Struct FLATBUFFERS_FINAL_CLASS {
 };
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_STRUCT_H_

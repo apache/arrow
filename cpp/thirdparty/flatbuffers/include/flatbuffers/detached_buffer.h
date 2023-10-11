@@ -17,11 +17,17 @@
 #ifndef FLATBUFFERS_DETACHED_BUFFER_H_
 #define FLATBUFFERS_DETACHED_BUFFER_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/allocator.h"
 #include "flatbuffers/base.h"
 #include "flatbuffers/default_allocator.h"
 
-namespace flatbuffers {
+namespace arrow_vendored_private::flatbuffers {
 
 // DetachedBuffer is a finished flatbuffer memory region, detached from its
 // builder. The original memory region and allocator are also stored so that
@@ -109,6 +115,6 @@ class DetachedBuffer {
   }
 };
 
-}  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_DETACHED_BUFFER_H_

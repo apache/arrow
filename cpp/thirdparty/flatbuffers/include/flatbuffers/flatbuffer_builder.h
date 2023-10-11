@@ -17,6 +17,12 @@
 #ifndef FLATBUFFERS_FLATBUFFER_BUILDER_H_
 #define FLATBUFFERS_FLATBUFFER_BUILDER_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include <algorithm>
 #include <cstdint>
 #include <functional>
@@ -38,6 +44,7 @@
 #include "flatbuffers/vector_downward.h"
 #include "flatbuffers/verifier.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 // Converts a Field ID to a virtual table offset.
@@ -1461,5 +1468,6 @@ const T *GetTemporaryPointer(FlatBufferBuilder &fbb, Offset<T> offset) {
 }
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_FLATBUFFER_BUILDER_H_

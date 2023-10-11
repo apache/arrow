@@ -26,6 +26,12 @@
 #include <memory>
 #include <limits>
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #ifndef FLATBUFFERS_USE_STD_OPTIONAL
   // Detect C++17 compatible compiler.
   // __cplusplus >= 201703L - a compiler has support of 'static inline' variables.
@@ -64,6 +70,7 @@
 #endif // defined(FLATBUFFERS_USE_STD_SPAN)
 
 // This header provides backwards compatibility for older versions of the STL.
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 #if defined(FLATBUFFERS_TEMPLATES_ALIASES)
@@ -509,5 +516,6 @@ flatbuffers::span<const ElementType, dynamic_extent> make_span(const ElementType
 #endif // !defined(FLATBUFFERS_SPAN_MINIMAL)
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_STL_EMULATION_H_

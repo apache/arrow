@@ -17,6 +17,12 @@
 #ifndef FLATBUFFERS_ARRAY_H_
 #define FLATBUFFERS_ARRAY_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include <cstdint>
 #include <memory>
 
@@ -24,7 +30,7 @@
 #include "flatbuffers/stl_emulation.h"
 #include "flatbuffers/vector.h"
 
-namespace flatbuffers {
+namespace arrow_vendored_private::flatbuffers {
 
 // This is used as a helper type for accessing arrays.
 template<typename T, uint16_t length> class Array {
@@ -251,6 +257,6 @@ bool operator==(const Array<T, length> &lhs,
           std::memcmp(lhs.Data(), rhs.Data(), rhs.size() * sizeof(T)) == 0);
 }
 
-}  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_ARRAY_H_

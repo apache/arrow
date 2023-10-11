@@ -17,9 +17,15 @@
 #ifndef FLATBUFFERS_ALLOCATOR_H_
 #define FLATBUFFERS_ALLOCATOR_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/base.h"
 
-namespace flatbuffers {
+namespace arrow_vendored_private::flatbuffers {
 
 // Allocator interface. This is flatbuffers-specific and meant only for
 // `vector_downward` usage.
@@ -63,6 +69,6 @@ class Allocator {
   }
 };
 
-}  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_ALLOCATOR_H_

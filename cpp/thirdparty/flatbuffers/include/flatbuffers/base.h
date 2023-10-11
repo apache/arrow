@@ -1,6 +1,12 @@
 #ifndef FLATBUFFERS_BASE_H_
 #define FLATBUFFERS_BASE_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 // clang-format off
 
 // If activate should be declared and included first.
@@ -144,9 +150,12 @@
 #define FLATBUFFERS_VERSION_REVISION 26
 #define FLATBUFFERS_STRING_EXPAND(X) #X
 #define FLATBUFFERS_STRING(X) FLATBUFFERS_STRING_EXPAND(X)
+
+namespace arrow_vendored_private {
 namespace flatbuffers {
   // Returns version as string  "MAJOR.MINOR.REVISION".
   const char* FLATBUFFERS_VERSION();
+}
 }
 
 #if (!defined(_MSC_VER) || _MSC_VER > 1600) && \
@@ -222,14 +231,14 @@ namespace flatbuffers {
     // Check for std::string_view (in c++17)
     #if __has_include(<string_view>) && (__cplusplus >= 201606 || (defined(_HAS_CXX17) && _HAS_CXX17))
       #include <string_view>
-      namespace flatbuffers {
+      namespace arrow_vendored_private::flatbuffers {
         typedef std::string_view string_view;
       }
       #define FLATBUFFERS_HAS_STRING_VIEW 1
     // Check for std::experimental::string_view (in c++14, compiler-dependent)
     #elif __has_include(<experimental/string_view>) && (__cplusplus >= 201411)
       #include <experimental/string_view>
-      namespace flatbuffers {
+      namespace arrow_vendored_private::flatbuffers {
         typedef std::experimental::string_view string_view;
       }
       #define FLATBUFFERS_HAS_STRING_VIEW 1
@@ -240,7 +249,7 @@ namespace flatbuffers {
       #include "absl/base/config.h"
       #if !defined(ABSL_USES_STD_STRING_VIEW)
         #include "absl/strings/string_view.h"
-        namespace flatbuffers {
+        namespace arrow_vendored_private::flatbuffers {
           typedef absl::string_view string_view;
         }
         #define FLATBUFFERS_HAS_STRING_VIEW 1
@@ -317,6 +326,7 @@ template<typename T> FLATBUFFERS_CONSTEXPR inline bool IsConstTrue(T t) {
 /// @endcond
 
 /// @file
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 /// @cond FLATBUFFERS_INTERNAL
@@ -492,4 +502,6 @@ inline bool IsInRange(const T &v, const T &low, const T &high) {
 }
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
+
 #endif  // FLATBUFFERS_BASE_H_

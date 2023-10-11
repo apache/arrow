@@ -17,6 +17,12 @@
 #ifndef FLATBUFFERS_H_
 #define FLATBUFFERS_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include <algorithm>
 
 // TODO: These includes are for mitigating the pains of users editing their
@@ -35,6 +41,7 @@
 #include "flatbuffers/vector_downward.h"
 #include "flatbuffers/verifier.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 /// @brief This can compute the start of a FlatBuffer from a root pointer, i.e.
@@ -278,6 +285,7 @@ inline const char *flatbuffers_version_string() {
     }
 /// @endcond
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 // clang-format on
 

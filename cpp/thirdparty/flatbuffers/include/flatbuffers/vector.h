@@ -17,10 +17,17 @@
 #ifndef FLATBUFFERS_VECTOR_H_
 #define FLATBUFFERS_VECTOR_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/base.h"
 #include "flatbuffers/buffer.h"
 #include "flatbuffers/stl_emulation.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 struct String;
@@ -393,5 +400,6 @@ template<typename T> static inline size_t VectorLength(const Vector<T> *v) {
 }
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_VERIFIER_H_

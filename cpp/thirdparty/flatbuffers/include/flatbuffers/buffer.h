@@ -17,11 +17,17 @@
 #ifndef FLATBUFFERS_BUFFER_H_
 #define FLATBUFFERS_BUFFER_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include <algorithm>
 
 #include "flatbuffers/base.h"
 
-namespace flatbuffers {
+namespace arrow_vendored_private::flatbuffers {
 
 // Wrapper for uoffset_t to allow safe template specialization.
 // Value is allowed to be 0 to indicate a null object (see e.g. AddOffset).
@@ -194,6 +200,6 @@ const T *GetSizePrefixedRoot(const void *buf) {
   return GetRoot<T>(reinterpret_cast<const uint8_t *>(buf) + sizeof(SizeT));
 }
 
-}  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_BUFFER_H_

@@ -17,9 +17,16 @@
 #ifndef FLATBUFFERS_STRING_H_
 #define FLATBUFFERS_STRING_H_
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private::flatbuffers {
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #include "flatbuffers/base.h"
 #include "flatbuffers/vector.h"
 
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 struct String : public Vector<char> {
@@ -60,5 +67,6 @@ static inline flatbuffers::string_view GetStringView(const String *str) {
 #endif  // FLATBUFFERS_HAS_STRING_VIEW
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_STRING_H_
