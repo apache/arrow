@@ -18,7 +18,7 @@
 -->
 
 This directory contains a vendored version of Flatbuffers
-(v23.5.26), with a patch for ARROW-15388 and ARROW-17280.
+(v23.5.26), with a patch for ARROW-17280.
 
 ```diff
 diff --git a/cpp/thirdparty/flatbuffers/include/flatbuffers/allocator.h b/cpp/thirdparty/flatbuffers/include/flatbuffers/allocator.h
