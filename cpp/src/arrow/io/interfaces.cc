@@ -425,7 +425,7 @@ ThreadPool* GetIOThreadPool() {
 namespace {
 
 struct ReadRangeCombiner {
-  std::vector<ReadRange> Coalesce(std::vector<ReadRange> ranges) {
+  Result<std::vector<ReadRange>> Coalesce(std::vector<ReadRange> ranges) {
     if (ranges.empty()) {
       return ranges;
     }
@@ -454,7 +454,9 @@ struct ReadRangeCombiner {
       const auto& left = ranges[i];
       const auto& right = ranges[i + 1];
       DCHECK_LE(left.offset, right.offset);
-      DCHECK_LE(left.offset + left.length, right.offset) << "Some read ranges overlap";
+      if (left.offset + left.length > right.offset) {
+        return Status::IOError("Some read ranges overlap");
+      }
     }
 #endif
 
@@ -509,9 +511,9 @@ struct ReadRangeCombiner {
 
 };  // namespace
 
-std::vector<ReadRange> CoalesceReadRanges(std::vector<ReadRange> ranges,
-                                          int64_t hole_size_limit,
-                                          int64_t range_size_limit) {
+Result<std::vector<ReadRange>> CoalesceReadRanges(std::vector<ReadRange> ranges,
+                                                  int64_t hole_size_limit,
+                                                  int64_t range_size_limit) {
   DCHECK_GT(range_size_limit, hole_size_limit);
 
   ReadRangeCombiner combiner{hole_size_limit, range_size_limit};

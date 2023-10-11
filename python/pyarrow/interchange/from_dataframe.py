@@ -136,6 +136,10 @@ def _from_dataframe(df: DataFrameObject, allow_copy=True):
         batch = protocol_df_chunk_to_pyarrow(chunk, allow_copy)
         batches.append(batch)
 
+    if not batches:
+        batch = protocol_df_chunk_to_pyarrow(df)
+        batches.append(batch)
+
     return pa.Table.from_batches(batches)
 
 

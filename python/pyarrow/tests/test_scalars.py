@@ -352,6 +352,13 @@ def test_cast_int_to_float():
         int_scalar.cast(pa.float64())  # verify default is safe cast
 
 
+@pytest.mark.parametrize("typ", [pa.date32(), pa.date64()])
+def test_cast_string_to_date(typ):
+    scalar = pa.scalar('2021-01-01')
+    result = scalar.cast(typ)
+    assert result == pa.scalar(datetime.date(2021, 1, 1), type=typ)
+
+
 @pytest.mark.pandas
 def test_timestamp():
     import pandas as pd
