@@ -35,6 +35,7 @@
 #include "arrow/matlab/type/proxy/time32_type.h"
 #include "arrow/matlab/type/proxy/time64_type.h"
 #include "arrow/matlab/type/proxy/struct_type.h"
+#include "arrow/matlab/type/proxy/list_type.h"
 #include "arrow/matlab/type/proxy/field.h"
 #include "arrow/matlab/io/feather/proxy/writer.h"
 #include "arrow/matlab/io/feather/proxy/reader.h"
@@ -89,6 +90,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.Date32Type     , arrow::matlab::type::proxy::Date32Type);
     REGISTER_PROXY(arrow.type.proxy.Date64Type     , arrow::matlab::type::proxy::Date64Type);
     REGISTER_PROXY(arrow.type.proxy.StructType     , arrow::matlab::type::proxy::StructType);
+    REGISTER_PROXY(arrow.type.proxy.ListType       , arrow::matlab::type::proxy::ListType);
     REGISTER_PROXY(arrow.io.feather.proxy.Writer   , arrow::matlab::io::feather::proxy::Writer);
     REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::matlab::io::feather::proxy::Reader);
     REGISTER_PROXY(arrow.io.csv.proxy.TableWriter  , arrow::matlab::io::csv::proxy::TableWriter);
