@@ -42,7 +42,7 @@ using arrow::internal::SetBitRunReader;
 /// \pre input.length() > 0 && input.null_count() != input.length()
 /// \param input A LIST_VIEW or LARGE_LIST_VIEW array
 template <typename offset_type>
-int64_t MinViewOffset(const ArraySpan& input) {
+std::optional<int64_t> MinViewOffset(const ArraySpan& input) {
   const uint8_t* validity = input.buffers[0].data;
   const auto* offsets = input.GetValues<offset_type>(1);
   const auto* sizes = input.GetValues<offset_type>(2);
@@ -83,7 +83,7 @@ int64_t MinViewOffset(const ArraySpan& input) {
       }
     }
   }
-  return min_offset.value_or(0);
+  return min_offset;
 
 #undef MINIMIZE_MIN_VIEW_OFFSET
 }
@@ -151,9 +151,13 @@ std::pair<int64_t, int64_t> RangeOfValuesUsedByListView(const ArraySpan& input) 
   if (input.length == 0 || input.GetNullCount() == input.length) {
     return {0, 0};
   }
-  const int64_t min_offset = MinViewOffset<offset_type>(input);
+  const auto min_offset = MinViewOffset<offset_type>(input);
+  // If all list-views are empty, min_offset will be std::nullopt.
+  if (!min_offset.has_value()) {
+    return {0, 0};
+  }
   const int64_t max_end = MaxViewEnd<offset_type>(input);
-  return {min_offset, max_end - min_offset};
+  return {*min_offset, max_end - *min_offset};
 }
 
 template <typename offset_type>
@@ -162,7 +166,7 @@ std::pair<int64_t, int64_t> RangeOfValuesUsedByList(const ArraySpan& input) {
   if (input.length == 0) {
     return {0, 0};
   }
-  const auto* offsets = reinterpret_cast<const offset_type*>(input.buffers[1].data);
+  const auto* offsets = input.buffers[1].data_as<offset_type>();
   const int64_t min_offset = offsets[input.offset];
   const int64_t max_end = offsets[input.offset + input.length];
   return {min_offset, max_end - min_offset};
