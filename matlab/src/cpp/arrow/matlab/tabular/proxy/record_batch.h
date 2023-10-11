@@ -35,6 +35,7 @@ namespace arrow::matlab::tabular::proxy {
     
         protected:
             void toString(libmexclass::proxy::method::Context& context);
+            void getNumRows(libmexclass::proxy::method::Context& context);
             void getNumColumns(libmexclass::proxy::method::Context& context);
             void getColumnNames(libmexclass::proxy::method::Context& context);
             void getColumnByIndex(libmexclass::proxy::method::Context& context);
