@@ -146,7 +146,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # static Arrow to run Flight/Flight SQL tests
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
-    ARROW_AZURE=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
