@@ -197,7 +197,7 @@ jobs:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
           - { runs_on: ["self-hosted", "macos-10.13"], name: "macOS High Sierra"}
-          # - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur" }
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur" }
         r_version:
           - { rtools: "{{ macros.r_release.rt }}", r: "{{ macros.r_release.ver }}" }
           - { rtools: "{{ macros.r_oldrel.rt }}", r: "{{ macros.r_oldrel.ver }}" }
@@ -378,11 +378,11 @@ jobs:
   test-source:
     needs: source
     name: Test {{ '${{ matrix.platform.name }}' }} source build
-    runs-on: {{ '${{ matrix.platform.runs_on }}' }} 
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
       fail-fast: false
       matrix:
-        platform: 
+        platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
           - {runs_on: "macos-latest", name: "macOS"}
     steps:
