@@ -35,38 +35,48 @@ classdef tListType < matlab.unittest.TestCase
         end
 
         function ConstructionFcnTooFewInputsError(testCase)
-            % Verify construction function errors if given zero input arguments.
+            % Verify construction function errors if given too few input arguments.
             fcn = @() testCase.ConstructionFcn();
             testCase.verifyError(fcn, "MATLAB:minrhs");
         end
 
-        function ConstructionFcnInvalidInputTypeError(testCase)
-            % Verify construction function errors if the input
-            % argument is not an arrow.type.Type object.
-            fcn = @() testCase.ConstructionFcn("abc");
+        function ConstructionFcnTooManyInputsError(testCase)
+            % Verify construction function errors if given too many input arguments.
+            fcn = @() testCase.ConstructionFcn(1, 2);
+            testCase.verifyError(fcn, "MATLAB:TooManyInputs");
+        end
+
+        function ConstructionFcnInvalidValueTypeError(testCase)
+            % Verify construction function errors if the supplied
+            % valueType is not an arrow.type.Type object.
+            valueType = "abc";
+            fcn = @() testCase.ConstructionFcn(valueType);
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
-        function ConstructionFcnEmptyTypeError(testCase)
+        function ConstructionFcnEmptyValueTypeError(testCase)
             % Verify construction function errors if given an empty
-            % arrow.type.Type array as the input argument.
-            fcn = @() testCase.ConstructionFcn(arrow.type.Type.empty(0, 0));
+            % arrow.type.Type array as the valueType input argument.
+            valueType = arrow.type.Type.empty(0, 0);
+            fcn = @() testCase.ConstructionFcn(valueType);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
-        function TypeGetter(testCase)
-            % Verify the Type property getter returns the expected value.
-            type = testCase.BasicList;
-            testCase.verifyEqual(type.Type, arrow.int8());
+        function ValueTypeGetter(testCase)
+            % Verify the ValueType property getter returns the expected value.
+            valueType = arrow.int8();
+            type = arrow.list(valueType);
+            testCase.verifyEqual(type.ValueType, valueType);
 
-            type = testCase.NestedList;
-            testCase.verifyEqual(type.Type, arrow.list(arrow.list(arrow.uint64())));
+            valueType = arrow.list(arrow.uint64());
+            type = arrow.list(valueType);
+            testCase.verifyEqual(type.ValueType, valueType);
         end
 
-        function TypeNoSetter(testCase)
-            % Verify the Type property is not settable.
+        function ValueTypeNoSetter(testCase)
+            % Verify the ValueType property is not settable.
             type = testCase.BasicList;
-            fcn = @() setfield(type, "Type", arrow.string());
+            fcn = @() setfield(type, "ValueType", arrow.string());
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
@@ -86,11 +96,12 @@ classdef tListType < matlab.unittest.TestCase
         end
 
         function IsEqualTrue(testCase)
-            % Verify two ListTypes are considered equal if their Type
-            % properties are equal.
+            % Verify two ListTypes are considered equal if their
+            % ValueType properties are equal.
 
-            type1 = arrow.list(arrow.list(arrow.string()));
-            type2 = arrow.list(arrow.list(arrow.string()));
+            valueType = arrow.string();
+            type1 = arrow.list(arrow.list(valueType));
+            type2 = arrow.list(arrow.list(valueType));
             testCase.verifyTrue(isequal(type1, type2));
 
             % Non-scalar arrow.type.ListType arrays
@@ -101,12 +112,20 @@ classdef tListType < matlab.unittest.TestCase
 
         function IsEqualFalse(testCase)
             % Verify isequal returns false when expected.
-            type1 = arrow.list(arrow.time32());
-            type2 = arrow.list(arrow.time64());
-            type3 = arrow.list(arrow.timestamp());
-            type4 = arrow.list(arrow.list(arrow.timestamp()));
 
-            % Type properties are different.
+            valueType = arrow.time32();
+            type1 = arrow.list(valueType);
+
+            valueType = arrow.time64();
+            type2 = arrow.list(valueType);
+
+            valueType = arrow.timestamp();
+            type3 = arrow.list(valueType);
+
+            valueType = arrow.list(arrow.timestamp());
+            type4 = arrow.list(valueType);
+
+            % ValueType properties are different.
             testCase.verifyFalse(isequal(type1, type2));
             testCase.verifyFalse(isequal(type3, type4));
 

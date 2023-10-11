@@ -274,18 +274,19 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %  ListType with properties:
             %
             %          ID: Struct
-            %        Type: [1x1 arrow.type.StringType]
+            %   ValueType: [1x1 arrow.type.StringType]
 
             import arrow.internal.test.display.verify
             import arrow.internal.test.display.makeLinkString
             import arrow.internal.test.display.makeDimensionString
 
-            type = arrow.list(arrow.string()); %#ok<NASGU>
+            valueType = arrow.string();
+            type = arrow.list(valueType); %#ok<NASGU>
             classnameLink = makeLinkString(FullClassName="arrow.type.ListType", ClassName="ListType", BoldFont=true);
             header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "Type:"]));
+            body = strjust(pad(["ID:"; "ValueType:"]));
             dimensionString = makeDimensionString([1 1]);
-            typeString = compose("[%s %s]", dimensionString, "arrow.type.StringType");
+            typeString = compose("[%s %s]", dimensionString, string(class(valueType)));
             body = body + " " + ["List"; typeString];
             body = "    " + body;
             footer = string(newline);
