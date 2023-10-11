@@ -29,7 +29,7 @@ VERSION <- args[1]
 tools_root <- ""
 
 if (length(args) != 1) {
-  stop("Usage: Rscript tools/update-checksum.R <version>")
+  stop("Usage: Rscript tools/update-checksums.R <version>")
 }
 
 tasks_yml <- "../dev/tasks/tasks.yml"
