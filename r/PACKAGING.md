@@ -68,6 +68,7 @@ Wait for the release candidate to be cut:
 - [ ] Create a PR entitled `WIP: [R] Verify CRAN release-10.0.1-rc0`. Add
   a comment `@github-actions crossbow submit --group r` to run all R crossbow
   jobs against the CRAN-specific release branch.
+- [ ] Run `Rscript tools/update-checksums.R <libarrow version>` to download the checksums for the pre-compiled binaries from the ASF artifactory into the tools directory.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
 Ensure linux binary packages are available:
