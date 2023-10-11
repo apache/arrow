@@ -404,6 +404,7 @@ jobs:
           ARROW_S3: "ON"
           ARROW_SOURCE_HOME: arrow
       - name: Install R package system dependencies (macOS)
+        if: matrix.platform.name != 'Linux'
         run: |
           brew install sccache
           brew bundle --file arrow/cpp/Brewfile
