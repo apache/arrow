@@ -99,7 +99,7 @@ Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
   return Status::OK();
 }
 
-int64_t SumBufferSizes(const BufferVector& buffers) {
+int64_t SumBufferSizesInBytes(const BufferVector& buffers) {
   int64_t size = 0;
   for (const auto& buffer : buffers) {
     size += buffer->size();
@@ -122,8 +122,8 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
   values_ranges->resize(buffers.size());
 
   // allocate output buffer
-  const int64_t out_size = SumBufferSizes(buffers);
-  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(sizeof(Offset) + out_size, pool));
+  const int64_t out_size_in_bytes = SumBufferSizesInBytes(buffers);
+  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(sizeof(Offset) + out_size_in_bytes, pool));
   auto* out_data = reinterpret_cast<Offset*>((*out)->mutable_data());
 
   int64_t elements_length = 0;
@@ -138,7 +138,7 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
   }
 
   // the final element in out_data is the length of all values spanned by the offsets
-  out_data[out_size / sizeof(Offset)] = values_length;
+  out_data[out_size_in_bytes / sizeof(Offset)] = values_length;
   return Status::OK();
 }
 
@@ -190,8 +190,8 @@ template <typename offset_type>
 Status ConcatenateListViewOffsets(const BufferVector& buffers,
                                   const std::vector<Range>& value_ranges,
                                   MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  const int64_t out_size = SumBufferSizes(buffers);
-  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(out_size, pool));
+  const int64_t out_size_in_bytes = SumBufferSizesInBytes(buffers);
+  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(out_size_in_bytes, pool));
   auto* out_data = (*out)->mutable_data_as<offset_type>();
 
   int64_t num_child_values = 0;
@@ -207,7 +207,8 @@ Status ConcatenateListViewOffsets(const BufferVector& buffers,
       return Status::Invalid("offset overflow while concatenating arrays");
     }
   }
-  DCHECK_EQ(elements_length, static_cast<int64_t>(out_size / sizeof(offset_type)));
+  DCHECK_EQ(elements_length,
+            static_cast<int64_t>(out_size_in_bytes / sizeof(offset_type)));
 
   return Status::OK();
 }
