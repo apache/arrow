@@ -52,7 +52,6 @@ class ArrowConan(ConanFile):
         "acero": [True, False],
         "cli": [True, False],
         "compute": ["auto", True, False],
-        "acero": ["auto", True, False],
         "dataset_modules":  ["auto", True, False],
         "deprecated": [True, False],
         "encryption": [True, False],
@@ -100,7 +99,6 @@ class ArrowConan(ConanFile):
         "acero": False,
         "cli": False,
         "compute": "auto",
-        "acero": "auto",
         "dataset_modules": "auto",
         "deprecated": True,
         "encryption": False,
@@ -181,6 +179,7 @@ class ArrowConan(ConanFile):
             del self.options.with_opentelemetry
         if Version(self.version) < "8.0.0":
             del self.options.substrait
+
         self.options.parquet = self._parquet()
         self.options.compute = self._compute()
         self.options.dataset_modules = self._dataset_modules()
@@ -206,27 +205,15 @@ class ArrowConan(ConanFile):
 
     def _compute(self):
         if self.options.compute == "auto":
-            return bool(self._parquet()) or bool(self._acero())
+            return bool(self._parquet() or self._dataset_modules()) or bool(self.options.get_safe("substrait", False))
         else:
             return bool(self.options.compute)
-
-    def _acero(self, required=False):
-        if required or self.options.acero == "auto":
-            return bool(self._dataset_modules())
-        else:
-            return bool(self.options.acero)
 
     def _parquet(self):
         if self.options.parquet == "auto":
             return bool(self.options.get_safe("substrait", False))
         else:
             return bool(self.options.parquet)
-
-    def _plasma(self, required=False):
-        if Version(self.version) >= "12.0.0":
-            return False
-        else:
-            return required or self.options.plasma
 
     def _dataset_modules(self):
         if self.options.dataset_modules == "auto":
@@ -419,28 +406,8 @@ class ArrowConan(ConanFile):
             self.tool_requires("cmake/[>=3.16 <4]")
 
     def source(self):
-        # START
-        # This block should be removed when we update upstream:
-        # https://github.com/conan-io/conan-center-index/tree/master/recipes/arrow/
-        if not self.version in self.conan_data.get("sources", {}):
-            import shutil
-            top_level = os.environ.get("ARROW_HOME")
-            shutil.copytree(os.path.join(top_level, "cpp"),
-                            os.path.join(self.source_folder, "cpp"))
-            shutil.copytree(os.path.join(top_level, "format"),
-                            os.path.join(self.source_folder, "format"))
-            top_level_files = [
-                ".env",
-                "LICENSE.txt",
-                "NOTICE.txt",
-            ]
-            for top_level_file in top_level_files:
-                shutil.copy(os.path.join(top_level, top_level_file),
-                            self.source_folder)
-            return
-        # END
         get(self, **self.conan_data["sources"][self.version],
-                  filename=f"apache-arrow-{self.version}.tar.gz", destination=self.source_folder, strip_root=True)
+            filename=f"apache-arrow-{self.version}.tar.gz", strip_root=True)
 
     def generate(self):
         tc = CMakeToolchain(self)
@@ -623,7 +590,7 @@ class ArrowConan(ConanFile):
         if self.options.get_safe("substrait"):
             self.cpp_info.components["libarrow_substrait"].set_property("pkg_config_name", "arrow_substrait")
             self.cpp_info.components["libarrow_substrait"].libs = [f"arrow_substrait{suffix}"]
-            self.cpp_info.components["libarrow_substrait"].requires = ["libparquet", "dataset", "acero"]
+            self.cpp_info.components["libarrow_substrait"].requires = ["libparquet", "dataset"]
 
         # Plasma was deprecated in Arrow 12.0.0
         del self.options.plasma
@@ -651,9 +618,6 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow_flight_sql"].set_property("pkg_config_name", "flight_sql")
             self.cpp_info.components["libarrow_flight_sql"].libs = [f"arrow_flight_sql{suffix}"]
             self.cpp_info.components["libarrow_flight_sql"].requires = ["libarrow", "libarrow_flight"]
-
-        if self._acero():
-            self.cpp_info.components["acero"].libs = ["arrow_acero"]
 
         if self.options.dataset_modules:
             self.cpp_info.components["dataset"].libs = ["arrow_dataset"]
