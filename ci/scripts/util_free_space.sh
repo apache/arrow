@@ -24,12 +24,19 @@ if [ "${GITHUB_ACTIONS}" = "true" ]; then
   echo "::group::/usr/local/*"
   du -hsc /usr/local/*
   echo "::endgroup::"
+  # ~1GB
+  sudo rm -rf \
+    /usr/local/aws-cli \
+    /usr/local/aws-sam-cil \
+    /usr/local/julia* || :
   echo "::group::/usr/local/bin/*"
   du -hsc /usr/local/bin/*
   echo "::endgroup::"
   # ~1GB (From 1.2GB to 214MB)
   sudo rm -rf \
     /usr/local/bin/aliyun \
+    /usr/local/bin/aws \
+    /usr/local/bin/aws_completer \
     /usr/local/bin/azcopy \
     /usr/local/bin/bicep \
     /usr/local/bin/cmake-gui \
@@ -41,16 +48,21 @@ if [ "${GITHUB_ACTIONS}" = "true" ]; then
     /usr/local/bin/node \
     /usr/local/bin/packer \
     /usr/local/bin/pulumi* \
+    /usr/local/bin/sam \
     /usr/local/bin/stack \
     /usr/local/bin/terraform || :
   echo "::group::/usr/local/share/*"
   du -hsc /usr/local/share/*
   echo "::endgroup::"
+  # 506MB
+  sudo rm -rf /usr/local/share/chromium || :
   # 1.3GB
   sudo rm -rf /usr/local/share/powershell || :
   echo "::group::/opt/*"
   du -hsc /opt/*
   echo "::endgroup::"
+  # 679MB
+  sudo rm -rf /opt/az || :
   echo "::group::/opt/hostedtoolcache/*"
   du -hsc /opt/hostedtoolcache/*
   echo "::endgroup::"
