@@ -368,6 +368,41 @@ TEST_P(CodecTest, CodecRoundtrip) {
   }
 }
 
+TEST(CodecTest, CodecRoundtripGzipMembers) {
+  int sizes[] = {0, 10000, 100000};
+
+  std::unique_ptr<Codec> c1;
+  ASSERT_OK_AND_ASSIGN(c1, Codec::Create(Compression::GZIP));
+
+  for (int data_half_size : sizes) {
+    int64_t actual_size_p1, actual_size_p2;
+    std::vector<uint8_t> data_half = MakeRandomData(data_half_size);
+    std::vector<uint8_t> data_full(data_half.begin(), data_half.end());
+    data_full.insert(data_full.end(), data_half.begin(), data_half.end());
+
+    int max_compressed_len_half =
+      static_cast<int>(c1->MaxCompressedLen(data_half.size(), data_half.data()));
+    std::vector<uint8_t> compressed(max_compressed_len_half * 2);
+
+    // Compress in 2 steps
+    ASSERT_OK_AND_ASSIGN(actual_size_p1, c1->Compress(data_half.size(), data_half.data(),
+                                         max_compressed_len_half, compressed.data()));
+    ASSERT_OK_AND_ASSIGN(actual_size_p2, c1->Compress(data_half.size(), data_half.data(),
+                                         max_compressed_len_half, compressed.data()+actual_size_p1));
+    compressed.resize(actual_size_p1 + actual_size_p2);
+
+    // Decompress the concatenated data
+    std::vector<uint8_t> decompressed(data_half_size*2);
+    int64_t actual_decompressed_size;
+    ASSERT_OK_AND_ASSIGN(actual_decompressed_size,
+                         c1->Decompress(compressed.size(), compressed.data(),
+                                        decompressed.size(), decompressed.data()));
+
+    ASSERT_EQ(data_half.size()*2, actual_decompressed_size);
+    ASSERT_EQ(data_full, decompressed);
+  }
+}
+
 TEST(TestCodecMisc, SpecifyCompressionLevel) {
   struct CombinationOption {
     Compression::type codec;
