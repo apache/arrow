@@ -33,6 +33,11 @@ try:
 except ImportError:
     encryption_unavailable = True
 
+
+# Marks all of the tests in this module
+pytestmark = pytest.mark.dataset
+
+
 FOOTER_KEY = b"0123456789112345"
 FOOTER_KEY_NAME = "footer_key"
 COL_KEY = b"1234567890123450"
