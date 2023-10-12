@@ -320,7 +320,7 @@ html_theme_options = {
     ],
     "show_version_warning_banner": True,
     "switcher": {
-        "json_url": "/docs/_static/versions.json",
+        "json_url": "https://arrow.apache.org/docs/_static/versions.json",
         "version_match": switcher_version,
     },
 }
