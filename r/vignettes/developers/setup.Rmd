@@ -51,7 +51,7 @@ package that contains compiled code (e.g., `R CMD INSTALL .` from
 a terminal, `devtools::load_all()` from an R prompt, or `Install & Restart` from
 RStudio). If the `libarrow` directory is not populated, the configure script will
 attempt to download the latest nightly libarrow binary, extract it to the
-`arrow/r/libarrow` directory (MacOS, Linux) or `arrow/r/windows/libarrow`
+`arrow/r/libarrow` directory (MacOS, Linux) or `arrow/r/windows`
 directory (Windows), and continue building the R package as usual.
 
 Most of the time, you won't need to update your version of libarrow because
