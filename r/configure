@@ -203,6 +203,15 @@ find_arrow () {
 do_bundled_build () {
   ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
 
+  if [ $? -ne 0 ]; then
+    # If the nixlibs.R script failed, we can't continue
+    echo "------------------------- NOTE ---------------------------"
+    echo "There was an issue building the Arrow C++ libraries."
+    echo "See https://arrow.apache.org/docs/r/articles/install.html"
+    echo "---------------------------------------------------------"
+    exit 1
+  fi
+
   # Handle a few special cases, using what we know about the bundled build
   # and our ability to make edits to it since we "own" it.
   _LIBARROW_FOUND="`pwd`/libarrow/arrow-${VERSION}"
