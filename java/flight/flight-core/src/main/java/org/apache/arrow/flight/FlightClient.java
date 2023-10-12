@@ -429,6 +429,16 @@ public class FlightClient implements AutoCloseable {
       return writer;
     }
 
+    /**
+     * Make sure stream is drained. You must call this to be notified of any errors that may have
+     * happened after the exchange is complete. This should be called after `getWriter().completed()`
+     * and instead of `getWriter().getResult()`.
+     */
+    public void getResult() {
+      // After exchange is complete, make sure stream is drained to propagate errors through reader
+      while (reader.next()) { };
+    }
+
     /** Shut down the streams in this call. */
     @Override
     public void close() throws Exception {
