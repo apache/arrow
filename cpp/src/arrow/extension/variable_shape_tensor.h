@@ -44,14 +44,12 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
                           const uint32_t& ndim,
                           const std::vector<int64_t>& permutation = {},
                           const std::vector<std::string>& dim_names = {},
-                          const std::vector<int64_t>& uniform_dimensions = {},
                           const std::vector<int64_t>& uniform_shape = {})
       : ExtensionType(struct_({::arrow::field("shape", fixed_size_list(uint32(), ndim)),
                                ::arrow::field("data", list(value_type))})),
         value_type_(value_type),
         permutation_(permutation),
         dim_names_(dim_names),
-        uniform_dimensions_(uniform_dimensions),
         uniform_shape_(uniform_shape) {}
 
   std::string extension_name() const override { return "arrow.variable_shape_tensor"; }
@@ -70,9 +68,6 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
 
   /// Dimension names of tensor elements. Dimensions are ordered physically.
   const std::vector<std::string>& dim_names() const { return dim_names_; }
-
-  /// Indexes of ragged dimensions.
-  const std::vector<int64_t>& uniform_dimensions() const { return uniform_dimensions_; }
 
   /// Shape of uniform dimensions.
   const std::vector<int64_t>& uniform_shape() const { return uniform_shape_; }
@@ -93,7 +88,6 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
       const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
       const std::vector<int64_t>& permutation = {},
       const std::vector<std::string>& dim_names = {},
-      const std::vector<int64_t>& uniform_dimensions = {},
       const std::vector<int64_t>& uniform_shape = {});
 
  private:
@@ -101,7 +95,6 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> permutation_;
   std::vector<std::string> dim_names_;
-  std::vector<int64_t> uniform_dimensions_;
   std::vector<int64_t> uniform_shape_;
 };
 
@@ -110,7 +103,6 @@ ARROW_EXPORT std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
     const std::vector<int64_t>& permutation = {},
     const std::vector<std::string>& dim_names = {},
-    const std::vector<int64_t>& uniform_dimensions = {},
     const std::vector<int64_t>& uniform_shape = {});
 
 }  // namespace extension
