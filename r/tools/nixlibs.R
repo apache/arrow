@@ -32,6 +32,11 @@ exit <- function(..., .status = 1) {
 
 # checks the nightly repo for the latest nightly version X.Y.Z.100<dev>
 find_latest_nightly <- function(description_version) {
+  if (!startsWith(arrow_repo, "https://nightlies.apache.org/arrow/r")) {
+    lg("Detected non standard dev repo: %s, not checking latest nightly version.", arrow_repo)
+    return(description_version)
+  }
+
   res <- try(
     {
       url_file <- tempfile()
