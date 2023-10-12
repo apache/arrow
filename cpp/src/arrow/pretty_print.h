@@ -36,6 +36,12 @@ class Table;
 /// \brief Options for controlling which delimiters to use when printing
 /// an Array or ChunkedArray.
 struct ARROW_EXPORT PrettyPrintDelimiters {
+  /// Delimiter to use when opening an Array or ChunkedArray (e.g. "[")
+  std::string open = "[";
+
+  /// Delimiter to use when closing an Array or ChunkedArray (e.g. "]")
+  std::string close = "]";
+
   /// Delimiter for separating individual elements of an Array (e.g. ","),
   /// or individual chunks of a ChunkedArray
   std::string element = ",";

@@ -259,6 +259,25 @@ TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
   }
 }
 
+TEST_F(TestPrettyPrint, ArrayCustomOpenCloseDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom opening Array delimiter of "{", rather than the default "]".
+  options.array_delimiters.open = "{";
+  // Use a custom closing Array delimiter of "}", rather than the default "]".
+  options.array_delimiters.close = "}";
+
+  std::vector<bool> is_valid = {true, true, false, true, false};
+  std::vector<int32_t> values = {1, 2, 3, 4, 5};
+  static const char* expected = R"expected({
+  1,
+  2,
+  null,
+  4,
+  null
+})expected";
+  CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+}
+
 TEST_F(TestPrettyPrint, Int8) {
   static const char* expected = R"expected([
   0,
@@ -1126,6 +1145,60 @@ TEST_F(TestPrettyPrint, ChunkedArrayCustomElementDelimiter) {
     null
   ]
 ])expected";
+
+    CheckStream(chunked_array, options, expected);
+  }
+}
+
+TEST_F(TestPrettyPrint, ChunkedArrayCustomOpenCloseDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom opening Array delimiter of "{", rather than the default "]".
+  options.array_delimiters.open = "{";
+  // Use a custom closing Array delimiter of "}", rather than the default "]".
+  options.array_delimiters.close = "}";
+  // Use a custom opening ChunkedArray delimiter of "<", rather than the default "]".
+  options.chunked_array_delimiters.open = "<";
+  // Use a custom closing ChunkedArray delimiter of ">", rather than the default "]".
+  options.chunked_array_delimiters.close = ">";
+
+  const auto chunk = ArrayFromJSON(int32(), "[1, 2, null, 4, null]");
+
+  // ChunkedArray with 1 chunk
+  {
+    const ChunkedArray chunked_array(chunk);
+
+    static const char* expected = R"expected(<
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  }
+>)expected";
+    CheckStream(chunked_array, options, expected);
+  }
+
+  // ChunkedArray with 2 chunks
+  {
+    const ChunkedArray chunked_array({chunk, chunk});
+
+    static const char* expected = R"expected(<
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  },
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  }
+>)expected";
 
     CheckStream(chunked_array, options, expected);
   }
