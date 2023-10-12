@@ -571,6 +571,18 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   /**
    * Construct a transfer pair of this vector and another vector of same type.
+   * @param field The field materialized by this vector.
+   * @param allocator allocator for the target vector
+   * @param callBack not used
+   * @return TransferPair
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(field, allocator);
+  }
+
+  /**
+   * Construct a transfer pair of this vector and another vector of same type.
    * @param allocator allocator for the target vector
    * @return TransferPair
    */

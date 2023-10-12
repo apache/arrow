@@ -134,7 +134,11 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
+  TransferPair getTransferPair(Field field, BufferAllocator allocator);
+
   TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack);
+
+  TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack);
 
   /**
    * Makes a new transfer pair used to transfer underlying buffers.

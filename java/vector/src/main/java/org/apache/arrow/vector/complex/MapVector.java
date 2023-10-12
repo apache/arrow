@@ -76,6 +76,11 @@ public class MapVector extends ListVector {
     defaultDataVectorName = DATA_VECTOR_NAME;
   }
 
+  public MapVector(Field field, BufferAllocator allocator, CallBack callBack) {
+    super(field, allocator, callBack);
+    defaultDataVectorName = DATA_VECTOR_NAME;
+  }
+
   /**
    * Initialize child vectors of the map from the given list of fields.
    *
@@ -131,6 +136,11 @@ public class MapVector extends ListVector {
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator, null);
+  }
+
+  @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new TransferImpl(ref, allocator, callBack);
   }
@@ -146,7 +156,11 @@ public class MapVector extends ListVector {
     TransferPair dataTransferPair;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      this(new MapVector(name, allocator, fieldType, callBack));
+      this(new MapVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new MapVector(field, allocator, callBack));
     }
 
     public TransferImpl(MapVector to) {

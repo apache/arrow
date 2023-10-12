@@ -71,8 +71,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   private FieldVector vector;
   private ArrowBuf validityBuffer;
   private final int listSize;
-  private final FieldType fieldType;
-  private final String name;
+  private final Field field;
 
   private UnionFixedSizeListReader reader;
   private int valueCount;
@@ -92,11 +91,31 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
                              CallBack unusedSchemaChangeCallback) {
     super(allocator);
 
-    this.name = name;
     this.validityBuffer = allocator.getEmpty();
     this.vector = ZeroVector.INSTANCE;
-    this.fieldType = fieldType;
     this.listSize = ((ArrowType.FixedSizeList) fieldType.getType()).getListSize();
+    Preconditions.checkArgument(listSize >= 0, "list size must be non-negative");
+    this.valueCount = 0;
+    this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
+    this.field = new Field(name, fieldType, null);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use for creating/reallocating buffers for the vector.
+   * @param unusedSchemaChangeCallback Currently unused.
+   */
+  public FixedSizeListVector(Field field,
+                             BufferAllocator allocator,
+                             CallBack unusedSchemaChangeCallback) {
+    super(allocator);
+
+    this.field = field;
+    this.validityBuffer = allocator.getEmpty();
+    this.vector = ZeroVector.INSTANCE;
+    this.listSize = ((ArrowType.FixedSizeList) field.getFieldType().getType()).getListSize();
     Preconditions.checkArgument(listSize >= 0, "list size must be non-negative");
     this.valueCount = 0;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
@@ -104,8 +123,8 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public Field getField() {
-    List<Field> children = Collections.singletonList(getDataVector().getField());
-    return new Field(name, fieldType, children);
+    return field.getChildren().isEmpty() ? new Field(field.getName(), field.getFieldType(),
+        Collections.singletonList(getDataVector().getField())) : field;
   }
 
   @Override
@@ -115,7 +134,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public String getName() {
-    return name;
+    return field.getName();
   }
 
   /** Get the fixed size for each list. */
@@ -171,8 +190,6 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   /**
    * Get the inner vectors.
-   *
-   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
    *
    * @return the inner vectors for this field as defined by the TypeLayout
    */
@@ -403,7 +420,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public UnionVector promoteToUnion() {
-    UnionVector vector = new UnionVector(name, allocator, /* field type */ null, /* call-back */ null);
+    UnionVector vector = new UnionVector(getName(), allocator, /* field type */ null, /* call-back */ null);
     this.vector.clear();
     this.vector = vector;
     invalidateReader();
@@ -520,8 +537,18 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return getTransferPair(field, allocator, null);
+  }
+
+  @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new TransferImpl(ref, allocator, callBack);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new TransferImpl(field, allocator, callBack);
   }
 
   @Override
@@ -567,7 +594,11 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     TransferPair dataPair;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      this(new FixedSizeListVector(name, allocator, fieldType, callBack));
+      this(new FixedSizeListVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new FixedSizeListVector(field, allocator, callBack));
     }
 
     public TransferImpl(FixedSizeListVector to) {

@@ -62,7 +62,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   private final SingleStructReaderImpl reader = new SingleStructReaderImpl(this);
-  protected final FieldType fieldType;
+  protected final Field field;
   public int valueCount;
 
   /**
@@ -81,7 +81,26 @@ public class NonNullableStructVector extends AbstractStructVector {
         callBack,
         null,
         true);
-    this.fieldType = checkNotNull(fieldType);
+    this.field = new Field(name, checkNotNull(fieldType), null);
+    this.valueCount = 0;
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
+  public NonNullableStructVector(Field field,
+                                 BufferAllocator allocator,
+                                 CallBack callBack) {
+    super(field.getName(),
+        allocator,
+        callBack,
+        null,
+        true);
+    this.field = field;
     this.valueCount = 0;
   }
 
@@ -101,7 +120,25 @@ public class NonNullableStructVector extends AbstractStructVector {
                                  ConflictPolicy conflictPolicy,
                                  boolean allowConflictPolicyChanges) {
     super(name, allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
-    this.fieldType = checkNotNull(fieldType);
+    this.field = new Field(name, checkNotNull(fieldType), null);
+    this.valueCount = 0;
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use to allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   * @param conflictPolicy How to handle duplicate field names in the struct.
+   */
+  public NonNullableStructVector(Field field,
+                                 BufferAllocator allocator,
+                                 CallBack callBack,
+                                 ConflictPolicy conflictPolicy,
+                                 boolean allowConflictPolicyChanges) {
+    super(field.getName(), allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
+    this.field = field;
     this.valueCount = 0;
   }
 
@@ -208,7 +245,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new StructTransferPair(this, new NonNullableStructVector(name,
         allocator,
-        fieldType,
+        field.getFieldType(),
         callBack,
         getConflictPolicy(),
         allowConflictPolicyChanges), false);
@@ -223,7 +260,25 @@ public class NonNullableStructVector extends AbstractStructVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new StructTransferPair(this, new NonNullableStructVector(ref,
         allocator,
-        fieldType,
+        field.getFieldType(),
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new StructTransferPair(this, new NonNullableStructVector(field,
+        allocator,
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new StructTransferPair(this, new NonNullableStructVector(field,
+        allocator,
         callBack,
         getConflictPolicy(),
         allowConflictPolicyChanges), false);
@@ -412,11 +467,14 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public Field getField() {
+    if (!field.getChildren().isEmpty()) {
+      return field;
+    }
     List<Field> children = new ArrayList<>();
     for (ValueVector child : getChildren()) {
       children.add(child.getField());
     }
-    return new Field(name, fieldType, children);
+    return new Field(name, field.getFieldType(), children);
   }
 
   @Override

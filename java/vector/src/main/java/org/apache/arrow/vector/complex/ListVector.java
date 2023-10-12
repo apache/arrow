@@ -76,7 +76,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   protected ArrowBuf validityBuffer;
   protected UnionListReader reader;
   private CallBack callBack;
-  protected final FieldType fieldType;
+  protected final Field field;
   protected int validityAllocationSizeInBytes;
 
   /**
@@ -95,7 +95,23 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   public ListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.validityBuffer = allocator.getEmpty();
-    this.fieldType = checkNotNull(fieldType);
+    this.field = new Field(name, checkNotNull(fieldType), null);
+    this.callBack = callBack;
+    this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
+    this.lastSet = -1;
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use for allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
+  public ListVector(Field field, BufferAllocator allocator, CallBack callBack) {
+    super(field.getName(), allocator, callBack);
+    this.validityBuffer = allocator.getEmpty();
+    this.field = field;
     this.callBack = callBack;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
     this.lastSet = -1;
@@ -393,8 +409,18 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return getTransferPair(field, allocator, null);
+  }
+
+  @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new TransferImpl(ref, allocator, callBack);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new TransferImpl(field, allocator, callBack);
   }
 
   @Override
@@ -462,7 +488,11 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     TransferPair dataTransferPair;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      this(new ListVector(name, allocator, fieldType, callBack));
+      this(new ListVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new ListVector(field, allocator, callBack));
     }
 
     public TransferImpl(ListVector to) {
@@ -633,7 +663,8 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public Field getField() {
-    return new Field(getName(), fieldType, Collections.singletonList(getDataVector().getField()));
+    return field.getChildren().isEmpty() ? new Field(field.getName(), field.getFieldType(),
+        Collections.singletonList(getDataVector().getField())) : field;
   }
 
   @Override

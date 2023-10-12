@@ -115,7 +115,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
   private long typeBufferAllocationSizeInBytes;
   private long offsetBufferAllocationSizeInBytes;
 
-  private final FieldType fieldType;
+  private final Field field;
 
   public static final byte TYPE_WIDTH = 1;
   public static final byte OFFSET_WIDTH = 4;
@@ -131,7 +131,23 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
 
   public DenseUnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
-    this.fieldType = fieldType;
+    this.field = new Field(name, fieldType, null);
+    this.internalStruct = new NonNullableStructVector(
+        "internal",
+        allocator,
+        INTERNAL_STRUCT_TYPE,
+        callBack,
+        AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
+        false);
+    this.typeBuffer = allocator.getEmpty();
+    this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
+    this.offsetBuffer = allocator.getEmpty();
+    this.offsetBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
+  }
+
+  public DenseUnionVector(Field field, BufferAllocator allocator, CallBack callBack) {
+    super(field.getName(), allocator, callBack);
+    this.field = field;
     this.internalStruct = new NonNullableStructVector(
         "internal",
         allocator,
@@ -234,8 +250,8 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
               typeFields.length + " relative types. Please use union of union instead");
     }
     byte typeId = nextTypeId;
-    if (fieldType != null) {
-      int[] typeIds = ((ArrowType.Union) fieldType.getType()).getTypeIds();
+    if (field.getFieldType() != null) {
+      int[] typeIds = ((ArrowType.Union) field.getFieldType().getType()).getTypeIds();
       if (typeIds != null) {
         int thisTypeId = typeIds[nextTypeId];
         if (thisTypeId > Byte.MAX_VALUE) {
@@ -528,12 +544,12 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
     }
 
     FieldType fieldType;
-    if (this.fieldType == null) {
+    if (field.getFieldType() == null) {
       fieldType = FieldType.nullable(new ArrowType.Union(Dense, typeIds));
     } else {
       final UnionMode mode = UnionMode.Dense;
-      fieldType = new FieldType(this.fieldType.isNullable(), new ArrowType.Union(mode, typeIds),
-              this.fieldType.getDictionary(), this.fieldType.getMetadata());
+      fieldType = new FieldType(field.getFieldType().isNullable(), new ArrowType.Union(mode, typeIds),
+          field.getFieldType().getDictionary(), field.getFieldType().getMetadata());
     }
 
     return new Field(name, fieldType, childFields);
@@ -552,6 +568,16 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new org.apache.arrow.vector.complex.DenseUnionVector.TransferImpl(ref, allocator, callBack);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return getTransferPair(field, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new org.apache.arrow.vector.complex.DenseUnionVector.TransferImpl(field, allocator, callBack);
   }
 
   @Override
@@ -594,6 +620,12 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
       to = new DenseUnionVector(name, allocator, null, callBack);
+      internalStruct.makeTransferPair(to.internalStruct);
+      createTransferPairs();
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      to = new DenseUnionVector(field.getName(), allocator, null, callBack);
       internalStruct.makeTransferPair(to.internalStruct);
       createTransferPairs();
     }

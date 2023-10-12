@@ -103,7 +103,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
   private int typeBufferAllocationSizeInBytes;
 
-  private final FieldType fieldType;
+  private final Field field;
   private final Field[] typeIds = new Field[Byte.MAX_VALUE + 1];
 
   public static final byte TYPE_WIDTH = 1;
@@ -118,7 +118,21 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
   public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
-    this.fieldType = fieldType;
+    this.field = new Field(name, fieldType, null);
+    this.internalStruct = new NonNullableStructVector(
+        "internal",
+        allocator,
+        INTERNAL_STRUCT_TYPE,
+        callBack,
+        AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
+        false);
+    this.typeBuffer = allocator.getEmpty();
+    this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
+  }
+
+  public UnionVector(Field field, BufferAllocator allocator, CallBack callBack) {
+    super(field.getName(), allocator, callBack);
+    this.field = field;
     this.internalStruct = new NonNullableStructVector(
         "internal",
         allocator,
@@ -144,8 +158,8 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     int count = 0;
     for (Field child: children) {
       int typeId = Types.getMinorTypeForArrowType(child.getType()).ordinal();
-      if (fieldType != null) {
-        int[] typeIds = ((ArrowType.Union)fieldType.getType()).getTypeIds();
+      if (field.getFieldType() != null) {
+        int[] typeIds = ((ArrowType.Union)field.getFieldType().getType()).getTypeIds();
         if (typeIds != null) {
           typeId = typeIds[count++];
         }
@@ -469,12 +483,12 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     }
 
     FieldType fieldType;
-    if (this.fieldType == null) {
+    if (field.getFieldType() == null) {
       fieldType = FieldType.nullable(new ArrowType.Union(Sparse, typeIds));
     } else {
-      final UnionMode mode = ((ArrowType.Union)this.fieldType.getType()).getMode();
-      fieldType = new FieldType(this.fieldType.isNullable(), new ArrowType.Union(mode, typeIds),
-          this.fieldType.getDictionary(), this.fieldType.getMetadata());
+      final UnionMode mode = ((ArrowType.Union)field.getFieldType().getType()).getMode();
+      fieldType = new FieldType(field.getFieldType().isNullable(), new ArrowType.Union(mode, typeIds),
+          field.getFieldType().getDictionary(), field.getFieldType().getMetadata());
     }
 
     return new Field(name, fieldType, childFields);
@@ -493,6 +507,16 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new org.apache.arrow.vector.complex.UnionVector.TransferImpl(ref, allocator, callBack);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return getTransferPair(field, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new org.apache.arrow.vector.complex.UnionVector.TransferImpl(field, allocator, callBack);
   }
 
   @Override
@@ -544,6 +568,11 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
       to = new UnionVector(name, allocator, /* field type */ null, callBack);
+      internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      to = new UnionVector(field.getName(), allocator, null, callBack);
       internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
     }
 
