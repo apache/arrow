@@ -15,22 +15,58 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 #include "arrow/matlab/array/proxy/list_array.h"
+#include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/error/error.h"
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::array::proxy {
 
-    ListArray::ListArray(std::shared_ptr<arrow::ListArray> array) : array{std::move(array)} {
+    ListArray::ListArray(std::shared_ptr<arrow::ListArray> list_array) : proxy::Array{std::move(list_array)} {
         REGISTER_METHOD(ListArray, getValues);
         REGISTER_METHOD(ListArray, getOffsets);
     }
 
+    libmexclass::proxy::MakeResult ListArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        namespace mda = ::matlab::data;
+        using libmexclass::proxy::ProxyManager;
+        using Int32ArrayProxy = ::arrow::matlab::array::proxy::NumericArray<arrow::Int32Type>;
+        using ListArrayProxy = ::arrow::matlab::array::proxy::ListArray;
+        using ArrayProxy = ::arrow::matlab::array::proxy::Array;
+
+        mda::StructArray opts = constructor_arguments[0];
+        const mda::TypedArray<uint64_t> offsets_proxy_id_mda = opts[0]["OffsetsProxyID"];
+        const mda::TypedArray<uint64_t> values_proxy_id_mda = opts[0]["ValuesProxyID"];
+        const mda::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
+
+        const auto offsets_proxy_id = offsets_proxy_id_mda[0];
+        const auto values_proxy_id = values_proxy_id_mda[0];
+
+        const auto offsets_proxy = std::static_pointer_cast<Int32ArrayProxy>(ProxyManager::getProxy(offsets_proxy_id));
+        const auto values_proxy = std::static_pointer_cast<ArrayProxy>(ProxyManager::getProxy(values_proxy_id));
+
+        const auto offsets = offsets_proxy->unwrap();
+        const auto values = values_proxy->unwrap();
+
+        // Pack the validity bitmap values.
+        MATLAB_ASSIGN_OR_ERROR(auto validity_bitmap_buffer,
+                               bit::packValid(validity_bitmap_mda),
+                               error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+
+        // Create a ListArray from values and offsets.
+        MATLAB_ASSIGN_OR_ERROR(auto array,
+                               arrow::ListArray::FromArrays(*offsets, *values, arrow::default_memory_pool(), validity_bitmap_buffer),
+                               error::LIST_ARRAY_FROM_ARRAYS_FAILED);
+
+        // Return a ListArray Proxy.
+        auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
+        return std::make_shared<ListArrayProxy>(std::move(list_array));
+    }
 
     void ListArray::getValues(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
+        using libmexclass::proxy::ProxyManager;
 
         auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
         auto value_array = list_array->values();
@@ -47,16 +83,17 @@ namespace arrow::matlab::array::proxy {
         // arrow.array.Array subclass.
         mda::ArrayFactory factory;
         mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-        output[0]["ProxyID"] = factory.createScalar(field_array_proxy_id);
+        output[0]["ProxyID"] = factory.createScalar(value_array_proxy_id);
         output[0]["TypeID"] = factory.createScalar(static_cast<int32_t>(type_id));
         context.outputs[0] = output;
     }
 
     void ListArray::getOffsets(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
-        using Int32ArrayProxy = arrow::matlab::array::proxy::Int32Array;
+        using libmexclass::proxy::ProxyManager;
+        using Int32ArrayProxy = ::arrow::matlab::array::proxy::NumericArray<arrow::Int32Type>;
         auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
-        auto offsets_array = array->offsets();
+        auto offsets_array = list_array->offsets();
         auto offsets_int32_array = std::static_pointer_cast<arrow::Int32Array>(offsets_array);
         auto offsets_int32_array_proxy = std::make_shared<Int32ArrayProxy>(offsets_int32_array);
         const auto offsets_int32_array_proxy_id = ProxyManager::manageProxy(offsets_int32_array_proxy);
