@@ -1629,8 +1629,6 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
   HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
 #endif
   int64_t total_bytes_read = 0;
-  util::tracing::Span span;
-  START_SPAN(span, "FileRead", {{"fd", fd}});
 
   while (total_bytes_read < nbytes) {
     const int64_t chunksize =
@@ -1664,14 +1662,11 @@ Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
     buffer += bytes_read;
     total_bytes_read += bytes_read;
   }
-  ATTRIBUTE_ON_CURRENT_SPAN("bytes_read", total_bytes_read);
   return total_bytes_read;
 }
 
 Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes) {
   int64_t bytes_read = 0;
-  util::tracing::Span span;
-  START_SPAN(span, "FileReadAt", {{"fd", fd}});
 
   while (bytes_read < nbytes) {
     int64_t chunksize =
@@ -1689,7 +1684,6 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
     position += ret;
     bytes_read += ret;
   }
-  ATTRIBUTE_ON_CURRENT_SPAN("bytes_read", bytes_read);
   return bytes_read;
 }
 
@@ -1699,8 +1693,6 @@ Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nb
 
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes) {
   int64_t bytes_written = 0;
-  util::tracing::Span span;
-  START_SPAN(span, "FileWrite", {{"nbytes", nbytes}, {"fd", fd}});
 
   while (bytes_written < nbytes) {
     const int64_t chunksize =
