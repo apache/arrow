@@ -866,8 +866,8 @@ download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 # `create_package_with_all_dependencies()` in install-arrow.R
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
-# configure.win uses a different libarrow dir
-dst_dir <- paste0(ifelse(on_windows, "windows", "libarrow"), "/arrow-", VERSION)
+# configure.win uses a different libarrow dir and and the zip is already nested
+dst_dir <- ifelse(on_windows, "windows", paste0("libarrow/arrow-", VERSION))
 
 if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
