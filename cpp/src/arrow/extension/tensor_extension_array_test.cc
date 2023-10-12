@@ -493,9 +493,8 @@ class TestVariableShapeTensorType : public ::testing::Test {
     permutation_ = {0, 1, 2};
     dim_names_ = {"x", "y", "z"};
     uniform_shape_ = {0, 1, 0};
-    ext_type_ = internal::checked_pointer_cast<ExtensionType>(
-        variable_shape_tensor(value_type_, ndim_, permutation_, dim_names_,
-                              uniform_shape_));
+    ext_type_ = internal::checked_pointer_cast<ExtensionType>(variable_shape_tensor(
+        value_type_, ndim_, permutation_, dim_names_, uniform_shape_));
     shapes_ =
         ArrayFromJSON(fixed_size_list(uint32(), ndim_), "[[2,1,3],[2,1,2],[3,1,3]]");
     data_ = ArrayFromJSON(list(value_type_),
