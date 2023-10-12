@@ -174,8 +174,8 @@ Arrow C++ options have been mapped to argument names that follow those of
 }
 \details{
 \code{read_csv_arrow()} and \code{read_tsv_arrow()} are wrappers around
-\code{read_delim_arrow()} that specify a delimiter. \code{read_csv2_arrow()} uses \verb{;}⁠ for
-the delimiter and \verb{,} for the decimal point.
+\code{read_delim_arrow()} that specify a delimeter. \code{read_csv2_arrow()} uses \verb{;} for
+the delimeter and \verb{,} for the decimal point.
 
 Note that not all \code{readr} options are currently implemented here. Please file
 an issue if you encounter one that \code{arrow} should support.
