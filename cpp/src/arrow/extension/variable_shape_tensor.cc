@@ -120,7 +120,11 @@ std::string VariableShapeTensorType::Serialize() const {
   if (!uniform_shape_.empty()) {
     rj::Value uniform_shape(rj::kArrayType);
     for (auto v : uniform_shape_) {
-      uniform_shape.PushBack(v, allocator);
+      if (v.has_value()) {
+        uniform_shape.PushBack(v.value(), allocator);
+      } else {
+        uniform_shape.PushBack(rj::Value{}.SetNull(), allocator);
+      }
     }
     document.AddMember(rj::Value("uniform_shape", allocator), uniform_shape, allocator);
   }
@@ -166,10 +170,14 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
     }
   }
 
-  std::vector<int64_t> uniform_shape;
+  std::vector<std::optional<int64_t>> uniform_shape;
   if (document.HasMember("uniform_shape")) {
     for (auto& x : document["uniform_shape"].GetArray()) {
-      uniform_shape.emplace_back(x.GetInt64());
+      if (x.IsNull()) {
+        uniform_shape.emplace_back(std::nullopt);
+      } else {
+        uniform_shape.emplace_back(x.GetInt64());
+      }
     }
     if (uniform_shape.size() > ndim) {
       return Status::Invalid("Invalid uniform_shape");
@@ -191,7 +199,7 @@ std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
-    const std::vector<int64_t>& uniform_shape) {
+    const std::vector<std::optional<int64_t>>& uniform_shape) {
   if (!permutation.empty() && permutation.size() != ndim) {
     return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
                            " Got: ", permutation.size());
@@ -210,7 +218,7 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
 std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
-    const std::vector<int64_t>& uniform_shape) {
+    const std::vector<std::optional<int64_t>>& uniform_shape) {
   auto maybe_type = VariableShapeTensorType::Make(value_type, ndim, permutation,
                                                   dim_names, uniform_shape);
   ARROW_DCHECK_OK(maybe_type.status());

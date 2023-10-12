@@ -1786,11 +1786,21 @@ cdef class VariableShapeTensorType(BaseExtensionType):
         """
         Shape over dimensions that are guaranteed to be constant.
         """
-        uniform_shape = self.tensor_ext_type.uniform_shape()
-        if len(uniform_shape) != 0:
-            return uniform_shape
-        else:
+        cdef:
+            vector[optional[int64_t]] c_uniform_shape = self.tensor_ext_type.uniform_shape()
+            length = c_uniform_shape.size()
+
+        if length == 0:
             return None
+
+        uniform_shape = []
+        for i in range(length):
+            if c_uniform_shape[i].has_value():
+                uniform_shape.append(c_uniform_shape[i].value())
+            else:
+                uniform_shape.append(None)
+
+        return uniform_shape
 
     def __arrow_ext_serialize__(self):
         """
@@ -5349,7 +5359,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         uint32_t c_ndim
         vector[int64_t] c_permutation
         vector[c_string] c_dim_names
-        vector[int64_t] c_uniform_shape
+        vector[optional[int64_t]] c_uniform_shape
         shared_ptr[CDataType] c_tensor_ext_type
 
     assert value_type is not None
@@ -5366,11 +5376,11 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
             c_dim_names.push_back(tobytes(x))
 
     if uniform_shape is not None:
-        for i in uniform_shape:
-            if i is None:
-                c_uniform_shape.push_back(-1)
+        for x in uniform_shape:
+            if x is None:
+                c_uniform_shape.push_back(<optional[int64_t]>nullopt)
             else:
-                c_uniform_shape.push_back(i)
+                c_uniform_shape.push_back(<optional[int64_t]>(<int64_t>x))
 
     cdef VariableShapeTensorType out = VariableShapeTensorType.__new__(VariableShapeTensorType)
 
