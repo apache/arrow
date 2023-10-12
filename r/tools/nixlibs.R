@@ -828,8 +828,8 @@ if (is_release) {
   VERSION <- VERSION[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
-  VERSION <- find_latest_nightly(VERSION)
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+  VERSION <- find_latest_nightly(VERSION)
 }
 
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
