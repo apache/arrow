@@ -1477,8 +1477,7 @@ def test_variable_shape_tensor_class_method(value_type):
         ndim,
         dim_names=["H", "W"],
         permutation=[0, 1],
-        uniform_dimensions=[0],
-        uniform_shape=[2, 0],
+        uniform_shape=[None, None],
     )
     fields = [pa.field("shape", shape_type), pa.field("data", pa.list_(arrow_type))]
 
@@ -1499,7 +1498,7 @@ def test_variable_shape_tensor_class_method(value_type):
 
     ndarray_list = [
         np.array([[1, 2, 3], [4, 5, 6]], dtype=value_type),
-        np.array([[7, 8]], dtype=value_type),
+        np.array([[7], [8]], dtype=value_type),
     ]
     assert all(zip(x == y for x, y in zip(arr.to_numpy_ndarray(), ndarray_list)))
 
@@ -1512,7 +1511,7 @@ def test_variable_shape_tensor_class_method(value_type):
 
     assert arr.to_pylist() == [
         {"data": [1, 2, 3, 4, 5, 6], "shape": [2, 3]},
-        {"data": [7, 8], "shape": [1, 2]},
+        {"data": [7, 8], "shape": [2, 1]},
     ]
 
 
@@ -1550,7 +1549,7 @@ def test_tensor_type_ipc(tensor_type):
     pa.variable_shape_tensor(pa.int8(), 2),
     pa.variable_shape_tensor(pa.int8(), 2, permutation=[1, 0]),
     pa.variable_shape_tensor(pa.int8(), 2, dim_names=['H', 'W']),
-    pa.variable_shape_tensor(pa.int8(), 2, uniform_dimensions=[0, 1]),
+    pa.variable_shape_tensor(pa.int8(), 2, uniform_shape=[None, None]),
 ))
 def test_variable_shape_tensor_type_ipc(tensor_type):
     shape_type = tensor_type.storage_type.field(0).type
