@@ -650,7 +650,7 @@ StructType <- R6Class("StructType",
     code = function(explicit_pkg_name = FALSE) {
       field_names <- StructType__field_names(self)
       codes <- map(field_names, function(name) {
-        self$GetFieldByName(name)$type$code()
+        self$GetFieldByName(name)$type$code(explicit_pkg_name)
       })
       codes <- set_names(codes, field_names)
       call2(private$call_name, !!!codes, .ns = get_pkg_ns(explicit_pkg_name))
@@ -675,7 +675,7 @@ ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name, self$value_type$code(), .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name, self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
@@ -695,7 +695,7 @@ LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name, self$value_type$code(), .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name, self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
@@ -717,7 +717,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name, self$value_type$code(), .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name, self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
