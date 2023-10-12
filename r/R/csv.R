@@ -23,7 +23,7 @@
 #'
 #' `read_csv_arrow()` and `read_tsv_arrow()` are wrappers around
 #' `read_delim_arrow()` that specify a delimeter. `read_csv2_arrow()` uses `;` for
-#' the delimeter and `.` for the decimal point.
+#' the delimeter and `,` for the decimal point.
 #'
 #' Note that not all `readr` options are currently implemented here. Please file
 #' an issue if you encounter one that `arrow` should support.
