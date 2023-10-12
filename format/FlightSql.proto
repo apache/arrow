@@ -817,6 +817,17 @@ enum SqlInfo {
    * - true: if invoking user-defined or vendor functions using the stored procedure escape syntax is supported.
    */
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
+
+  /*
+   * Retrieves a boolean value indicating whether transactions are supported for bulk ingestion. If not, invoking
+   * the method commit in the context of a bulk ingestion is a noop, and the isolation level is
+   * `arrow.flight.protocol.sql.SqlTransactionIsolationLevel.TRANSACTION_NONE`.
+   *
+   * Returns:
+   * - false: if bulk ingestion transactions are unsupported;
+   * - true: if bulk ingestion transactions are supported.
+   */
+   INGEST_TRANSACTIONS_SUPPORTED = 577;
 }
 
 // The level of support for Flight SQL transaction RPCs.
@@ -1776,6 +1787,44 @@ message CommandPreparedStatementUpdate {
 
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
+}
+
+  /*
+   * Represents a bulk ingestion request. Used in the command member of FlightDescriptor
+   * for the the RPC call DoPut to cause the server load the contents of the stream's
+   * FlightData into the target destination.
+   */
+message CommandStatementIngest {
+  option (experimental) = true;
+
+  // Describes the behavior for loading bulk data.
+  enum IngestMode {
+    // Ingestion behavior unspecified.
+    INGEST_MODE_UNSPECIFIED = 0;
+    // Create the target table. Fail if the target table already exists.
+    INGEST_MODE_CREATE = 1;
+    // Append to an existing target table. Fail if the target table does not exist.
+    INGEST_MODE_APPEND = 2;
+    // Drop the target table if it exists. Then follow INGEST_MODE_CREATE behavior.
+    INGEST_MODE_REPLACE = 3;
+    // Create the target table if it does not exist. Then follow INGEST_MODE_APPEND behavior.
+    INGEST_MODE_CREATE_APPEND = 4;
+  }
+
+  // The ingestion behavior.
+  IngestMode mode = 1;
+  // The table to load data into.
+  string target_table = 2;
+  // The db_schema of the target_table to load data into. If unset, ... (TODO)
+  optional string target_schema = 3;
+  // The catalog of the target_table to load data into. If unset, ... (TODO)
+  optional string target_catalog = 4;
+  // Use a temporary table for target_table.
+  optional bool temporary = 5;
+  // Perform the ingestion as part of this transaction (if unset, the query is auto-committed).
+  optional bool transaction_id = 6;
+  // Backend-specific options.
+  map<string, string> options = 1000;
 }
 
 /*
