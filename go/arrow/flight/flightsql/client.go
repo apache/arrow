@@ -243,6 +243,58 @@ func (c *Client) ExecuteSubstraitUpdate(ctx context.Context, plan SubstraitPlan,
 	return updateResult.GetRecordCount(), nil
 }
 
+var ErrTooManyPutResults = fmt.Errorf("%w: server sent multiple PutResults, expected one ", arrow.ErrInvalid)
+
+// ExecuteIngest is for executing a bulk ingestion and only returns the number of affected rows.
+func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqOptions *ExecuteIngestOpts, opts ...grpc.CallOption) (n int64, err error) {
+	var (
+		desc         *flight.FlightDescriptor
+		stream       pb.FlightService_DoPutClient
+		wr           *flight.Writer
+		res          *pb.PutResult
+		updateResult pb.DoPutUpdateResult
+	)
+
+	cmd := (*pb.CommandStatementIngest)(reqOptions)
+	if desc, err = descForCommand(cmd); err != nil {
+		return
+	}
+
+	if stream, err = c.Client.DoPut(ctx, opts...); err != nil {
+		return
+	}
+
+	wr = flight.NewRecordWriter(stream, ipc.WithAllocator(c.Alloc), ipc.WithSchema(rdr.Schema()))
+	defer wr.Close()
+
+	wr.SetFlightDescriptor(desc)
+
+	for rdr.Next() {
+		rec := rdr.Record()
+		wr.Write(rec)
+	}
+
+	if err = stream.CloseSend(); err != nil {
+		return
+	}
+
+	if res, err = stream.Recv(); err != nil {
+		return
+	}
+
+	// Drain the stream, ensuring only a single result was sent by the server.
+	// Flight RPC allows multiple server results, so the check may be removed if Flight SQL ingestion defines semanatics for this scenario.
+	if _, err = stream.Recv(); err != io.EOF {
+		return 0, ErrTooManyPutResults
+	}
+
+	if err = proto.Unmarshal(res.GetAppMetadata(), &updateResult); err != nil {
+		return
+	}
+
+	return updateResult.GetRecordCount(), nil
+}
+
 // GetCatalogs requests the list of catalogs from the server and
 // returns a flightInfo object where the response can be retrieved
 func (c *Client) GetCatalogs(ctx context.Context, opts ...grpc.CallOption) (*flight.FlightInfo, error) {

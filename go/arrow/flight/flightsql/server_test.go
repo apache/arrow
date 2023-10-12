@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
 	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
 	"github.com/apache/arrow/go/v16/arrow/flight/session"
+	"github.com/apache/arrow/go/v16/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -178,6 +179,15 @@ func (*testServer) CloseSession(ctx context.Context, req *flight.CloseSessionReq
 	return &flight.CloseSessionResult{Status: flight.CloseSessionResultClosed}, nil
 }
 
+func (*testServer) DoPutCommandStatementIngest(ctx context.Context, cmd flightsql.StatementIngest, rdr flight.MessageReader) (int64, error) {
+	var nRecords int64
+	for rdr.Next() {
+		rec := rdr.Record()
+		nRecords += rec.NumRows()
+	}
+	return nRecords, nil
+}
+
 type FlightSqlServerSuite struct {
 	suite.Suite
 
@@ -279,6 +289,21 @@ func (s *FlightSqlServerSuite) TestExecutePoll() {
 	s.NotNil(poll)
 	s.Nil(poll.GetFlightDescriptor())
 	s.Len(poll.GetInfo().Endpoint, 2)
+}
+
+func (s *FlightSqlServerSuite) TestExecuteIngest() {
+	var nRecordsExpected int64
+
+	reclist := arrdata.Records["primitives"]
+	for _, rec := range reclist {
+		nRecordsExpected += rec.NumRows()
+	}
+
+	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
+	nRecords, err := s.cl.ExecuteIngest(context.TODO(), rdr, &flightsql.ExecuteIngestOpts{})
+
+	s.Require().NoError(err)
+	s.Equal(nRecordsExpected, nRecords)
 }
 
 type UnimplementedFlightSqlServerSuite struct {
@@ -457,6 +482,17 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoGet() {
 			s.True(strings.HasSuffix(err.Error(), tt.name+" not implemented"), err.Error())
 		})
 	}
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestExecuteIngest() {
+	reclist := arrdata.Records["primitives"]
+	rdr, _ := array.NewRecordReader(reclist[0].Schema(), reclist)
+	info, err := s.cl.ExecuteIngest(context.TODO(), rdr, &flightsql.ExecuteIngestOpts{})
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal(st.Message(), "DoPutCommandStatementIngest not implemented")
+	s.Zero(info)
 }
 
 func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {
