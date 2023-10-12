@@ -81,7 +81,7 @@ public class NonNullableStructVector extends AbstractStructVector {
         callBack,
         null,
         true);
-    this.field = new Field(name, checkNotNull(fieldType), null);
+    this.field = new Field(name, fieldType, null);
     this.valueCount = 0;
   }
 

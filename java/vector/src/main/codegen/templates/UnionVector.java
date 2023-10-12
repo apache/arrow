@@ -103,7 +103,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
   private int typeBufferAllocationSizeInBytes;
 
-  private final Field field;
+  private final FieldType fieldType;
   private final Field[] typeIds = new Field[Byte.MAX_VALUE + 1];
 
   public static final byte TYPE_WIDTH = 1;
@@ -118,21 +118,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
   public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
-    this.field = new Field(name, fieldType, null);
-    this.internalStruct = new NonNullableStructVector(
-        "internal",
-        allocator,
-        INTERNAL_STRUCT_TYPE,
-        callBack,
-        AbstractStructVector.ConflictPolicy.CONFLICT_REPLACE,
-        false);
-    this.typeBuffer = allocator.getEmpty();
-    this.typeBufferAllocationSizeInBytes = BaseValueVector.INITIAL_VALUE_ALLOCATION * TYPE_WIDTH;
-  }
-
-  public UnionVector(Field field, BufferAllocator allocator, CallBack callBack) {
-    super(field.getName(), allocator, callBack);
-    this.field = field;
+    this.fieldType = fieldType;
     this.internalStruct = new NonNullableStructVector(
         "internal",
         allocator,
@@ -158,8 +144,8 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     int count = 0;
     for (Field child: children) {
       int typeId = Types.getMinorTypeForArrowType(child.getType()).ordinal();
-      if (field.getFieldType() != null) {
-        int[] typeIds = ((ArrowType.Union)field.getFieldType().getType()).getTypeIds();
+      if (this.fieldType != null) {
+        int[] typeIds = ((ArrowType.Union)this.fieldType.getType()).getTypeIds();
         if (typeIds != null) {
           typeId = typeIds[count++];
         }
@@ -483,12 +469,12 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     }
 
     FieldType fieldType;
-    if (field.getFieldType() == null) {
+    if (this.fieldType == null) {
       fieldType = FieldType.nullable(new ArrowType.Union(Sparse, typeIds));
     } else {
-      final UnionMode mode = ((ArrowType.Union)field.getFieldType().getType()).getMode();
-      fieldType = new FieldType(field.getFieldType().isNullable(), new ArrowType.Union(mode, typeIds),
-          field.getFieldType().getDictionary(), field.getFieldType().getMetadata());
+      final UnionMode mode = ((ArrowType.Union)this.fieldType.getType()).getMode();
+      fieldType = new FieldType(this.fieldType.isNullable(), new ArrowType.Union(mode, typeIds),
+          this.fieldType.getDictionary(), this.fieldType.getMetadata());
     }
 
     return new Field(name, fieldType, childFields);
