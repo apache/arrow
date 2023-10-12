@@ -215,7 +215,7 @@ class MiddlewareServer : public FlightServerBase {
       // Return a fake location - the test doesn't read it
       ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 10010));
       std::vector<FlightEndpoint> endpoints{
-          FlightEndpoint{{"foo"}, {location}, std::nullopt}};
+          FlightEndpoint{{"foo"}, {location}, std::nullopt, ""}};
       ARROW_ASSIGN_OR_RAISE(
           auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
       *result = std::make_unique<FlightInfo>(info);
@@ -296,13 +296,13 @@ class OrderedServer : public FlightServerBase {
     auto schema = BuildSchema();
     std::vector<FlightEndpoint> endpoints;
     if (ordered) {
-      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt, ""});
     } else {
-      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt, ""});
     }
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, ordered));
@@ -557,7 +557,7 @@ class ExpirationTimeServer : public FlightServerBase {
   void AddEndpoint(std::vector<FlightEndpoint>& endpoints, std::string ticket,
                    std::optional<Timestamp> expiration_time) {
     endpoints.push_back(FlightEndpoint{
-        {std::to_string(statuses_.size()) + ": " + ticket}, {}, expiration_time});
+        {std::to_string(statuses_.size()) + ": " + ticket}, {}, expiration_time, ""});
     statuses_.emplace_back(expiration_time);
   }
 
@@ -754,7 +754,7 @@ class PollFlightInfoServer : public FlightServerBase {
                         std::unique_ptr<PollInfo>* result) override {
     auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
     std::vector<FlightEndpoint> endpoints = {
-        FlightEndpoint{{"long-running query"}, {}, std::nullopt}};
+        FlightEndpoint{{"long-running query"}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     if (descriptor == FlightDescriptor::Command("poll")) {
@@ -983,7 +983,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       schema = GetQueryWithTransactionSchema().get();
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt}};
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
@@ -1008,7 +1008,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       schema = GetQueryWithTransactionSchema().get();
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt}};
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
@@ -1452,7 +1452,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
     std::vector<FlightEndpoint> endpoints{
-        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt}};
+        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 

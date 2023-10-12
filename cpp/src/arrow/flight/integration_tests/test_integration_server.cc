@@ -89,7 +89,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
 
       ARROW_ASSIGN_OR_RAISE(auto server_location,
                             Location::ForGrpcTcp("127.0.0.1", port()));
-      FlightEndpoint endpoint1({{request.path[0]}, {server_location}, std::nullopt});
+      FlightEndpoint endpoint1({{request.path[0]}, {server_location}, std::nullopt, ""});
 
       FlightInfo::Data flight_data;
       RETURN_NOT_OK(internal::SchemaToString(*flight.schema, &flight_data.schema));
