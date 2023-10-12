@@ -249,7 +249,7 @@ Time32 <- R6Class("Time32",
       } else {
         "s"
       }
-      call2(private$call_name, unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name(), unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
     }
   ),
   private = list(
@@ -265,7 +265,7 @@ Time64 <- R6Class("Time64",
       } else {
         "us"
       }
-      call2(private$call_name, unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name(), unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
     }
   ),
   private = list(
@@ -294,9 +294,9 @@ Timestamp <- R6Class("Timestamp",
       unit <- c("s", "ms", "us", "ns")[self$unit() + 1L]
       tz <- self$timezone()
       if (identical(tz, "")) {
-        call2(private$call_name, unit = unit, .ns = get_pkg_ns(explicit_pkg_name))
+        call2(private$call_name(), unit = unit, .ns = get_pkg_ns(explicit_pkg_name))
       } else {
-        call2(private$call_name, unit = unit, timezone = tz, .ns = get_pkg_ns(explicit_pkg_name))
+        call2(private$call_name(), unit = unit, timezone = tz, .ns = get_pkg_ns(explicit_pkg_name))
       }
     },
     timezone = function() TimestampType__timezone(self),
@@ -311,7 +311,7 @@ DecimalType <- R6Class("DecimalType",
   inherit = FixedWidthType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name, precision = self$precision(), scale = self$scale(), .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name(), precision = self$precision(), scale = self$scale(), .ns = get_pkg_ns(explicit_pkg_name))
     },
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
@@ -653,7 +653,7 @@ StructType <- R6Class("StructType",
         self$GetFieldByName(name)$type$code(explicit_pkg_name)
       })
       codes <- set_names(codes, field_names)
-      call2(private$call_name, !!!codes, .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name(), !!!codes, .ns = get_pkg_ns(explicit_pkg_name))
     },
     GetFieldByName = function(name) StructType__GetFieldByName(self, name),
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
@@ -675,7 +675,7 @@ ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name, self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name(), self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
@@ -695,7 +695,7 @@ LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name, self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name(), self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
@@ -717,7 +717,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name, self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
+      call2(private$call_name(), self$value_type$code(explicit_pkg_name), list_size = self$list_size, .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
