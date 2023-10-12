@@ -44,7 +44,7 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
                           const uint32_t& ndim,
                           const std::vector<int64_t>& permutation = {},
                           const std::vector<std::string>& dim_names = {},
-                          const std::vector<int64_t>& uniform_shape = {})
+                          const std::vector<std::optional<int64_t>>& uniform_shape = {})
       : ExtensionType(struct_({::arrow::field("shape", fixed_size_list(uint32(), ndim)),
                                ::arrow::field("data", list(value_type))})),
         value_type_(value_type),
@@ -70,7 +70,9 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   const std::vector<std::string>& dim_names() const { return dim_names_; }
 
   /// Shape of uniform dimensions.
-  const std::vector<int64_t>& uniform_shape() const { return uniform_shape_; }
+  const std::vector<std::optional<int64_t>>& uniform_shape() const {
+    return uniform_shape_;
+  }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 
@@ -88,14 +90,14 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
       const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
       const std::vector<int64_t>& permutation = {},
       const std::vector<std::string>& dim_names = {},
-      const std::vector<int64_t>& uniform_shape = {});
+      const std::vector<std::optional<int64_t>>& uniform_shape = {});
 
  private:
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> permutation_;
   std::vector<std::string> dim_names_;
-  std::vector<int64_t> uniform_shape_;
+  std::vector<std::optional<int64_t>> uniform_shape_;
 };
 
 /// \brief Return a VariableShapeTensorType instance.
@@ -103,7 +105,7 @@ ARROW_EXPORT std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
     const std::vector<int64_t>& permutation = {},
     const std::vector<std::string>& dim_names = {},
-    const std::vector<int64_t>& uniform_shape = {});
+    const std::vector<std::optional<int64_t>>& uniform_shape = {});
 
 }  // namespace extension
 }  // namespace arrow
