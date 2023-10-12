@@ -405,7 +405,7 @@ jobs:
       - name: Enable parallel build
         run: |
           echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
-      - name: Install arrow from nightly repo
+      - name: Install arrow source package
         env:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
