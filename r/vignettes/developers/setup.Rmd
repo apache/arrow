@@ -40,13 +40,15 @@ set -x
 
 The Arrow R package is unique compared to other R packages that you may have
 contributed to because it builds on top of the large and feature-rich Arrow C++
-implementation.
+implementation. Because the R package integrates tightly with Arrow C++,
+it typically requires a dedicated copy of the library (i.e., it is usually
+not possible to link to a system version of libarrow during development).
 
-## Option 1: Using the bundled build with nightly libarrow binaries
+## Option 1: Using nightly libarrow binaries
 
-On Linux and MacOS, you can use the same workflow you might use for another
-package that contains compiled code (e.g., `R CMD INSTALL . --preclean` from
-the shell, `devtools::load_all()` from an R prompt, or `Install & Restart` from
+On Linux, MacOS, and Windows you can use the same workflow you might use for another
+package that contains compiled code (e.g., `R CMD INSTALL .` from
+a terminal, `devtools::load_all()` from an R prompt, or `Install & Restart` from
 RStudio). If the `libarrow` directory is not populated, the configure script will
 attempt to download the latest nightly libarrow binary, extract it to the
 `arrow/r/libarrow` directory (MacOS, Linux) or `arrow/r/windows/libarrow`
