@@ -160,8 +160,9 @@ class RowArrayMerge {
   // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
+                                bool is_key_data, 
                                 std::vector<int64_t>* first_target_row_id,
-                                MemoryPool* pool, bool check_key_size);
+                                MemoryPool* pool);
 
   // Copy rows from source array to target array.
   // Both arrays must have the same row metadata.
