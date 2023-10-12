@@ -412,7 +412,7 @@ CsvTableReader$create <- function(file,
 #'      - column names are read (unless `column_names` is set);
 #'      - `skip_rows_after_names` is applied (if non-zero).
 #'
-#' @examples
+#' @examplesIf arrow_with_dataset()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' writeLines("my file has a non-data header\nx\n1\n2", tf)
@@ -672,7 +672,7 @@ readr_to_csv_read_options <- function(skip = 0, col_names = TRUE) {
 #'    and LF (`0x0a`) characters?
 #' @param ignore_empty_lines Logical: should empty lines be ignored (default) or
 #'    generate a row of missing values (if `FALSE`)?
-#' @examples
+#' @examplesIf arrow_with_dataset()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' writeLines("x\n1\n\n2", tf)
@@ -780,7 +780,7 @@ TimestampParser$create <- function(format = NULL) {
 #'    (c) a list of [TimestampParser] objects.
 #' @param decimal_point Character to use for decimal point in floating point numbers.
 #'
-#' @examples
+#' @examplesIf arrow_with_dataset()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' writeLines("x\n1\nNULL\n2\nNA", tf)
