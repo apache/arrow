@@ -33,3 +33,8 @@ test_that("arrow_repos", {
     expect_identical(arrow_repos(c(ours, other), nightly = TRUE), c(ours, other))
   })
 })
+
+test_that("on_rosetta() does not warn", {
+  # There is no warning
+  expect_warning(on_rosetta(), NA)
+})
