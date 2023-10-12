@@ -241,12 +241,6 @@ on_macos_10_13_or_lower <- function() {
     package_version(unname(Sys.info()["release"])) < "18.0.0"
 }
 
-on_rosetta <- function() {
-  # make sure to suppress warnings and ignore the stdout + stderr so that this is silent
-  identical(tolower(Sys.info()[["sysname"]]), "darwin") &&
-    identical(suppressWarnings(system("sysctl -n sysctl.proc_translated", intern = TRUE, ignore.stderr = TRUE)), "1")
-}
-
 option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
 }
