@@ -54,6 +54,13 @@ namespace arrow::matlab::array::proxy {
 
     void ListArray::getOffsets(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
-        // STUB METHOD
+        using Int32ArrayProxy = arrow::matlab::array::proxy::Int32Array;
+        auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
+        auto offsets_array = array->offsets();
+        auto offsets_int32_array = std::static_pointer_cast<arrow::Int32Array>(offsets_array);
+        auto offsets_int32_array_proxy = std::make_shared<Int32ArrayProxy>(offsets_int32_array);
+        const auto offsets_int32_array_proxy_id = ProxyManager::manageProxy(offsets_int32_array_proxy);
+        mda::ArrayFactory factory;
+        context.outputs[0] = factory.createScalar(offsets_int32_array_proxy_id);
     }
 }
