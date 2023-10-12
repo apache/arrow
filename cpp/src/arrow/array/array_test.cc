@@ -471,6 +471,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
 
 TEST_F(TestArray, TestMakeArrayOfNull) {
   for (int64_t length : {0, 1, 16, 133}) {
+    ARROW_SCOPED_TRACE("length = ", length);
     for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
       ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
@@ -499,6 +500,18 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       }
     }
   }
+
+  auto req = [](auto type) { return field("", std::move(type), /*nullable=*/false); };
+
+  // union with no nullable fields cannot represent a null
+  ASSERT_RAISES(Invalid, MakeArrayOfNull(dense_union({req(int8())}), 1));
+
+  // struct with no nullable fields has a top level bitmap and can mask them
+  ASSERT_OK_AND_ASSIGN(auto s, MakeArrayOfNull(struct_({req(int8())}), 1));
+  ASSERT_OK(s->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(s, MakeArrayOfNull(struct_({req(dictionary(int8(), int8()))}), 1));
+  ASSERT_OK(s->ValidateFull());
 }
 
 TEST_F(TestArray, TestMakeArrayOfNullUnion) {
