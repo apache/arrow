@@ -288,6 +288,14 @@ html_theme = 'pydata_sphinx_theme'
 # documentation.
 #
 
+switcher_version = version
+if ".dev" in version:
+    switcher_version = "dev/"
+else:
+    # If we are not building dev version of the docs, we are building
+    # docs for the stable version
+    switcher_version = ""
+
 html_theme_options = {
     "show_toc_level": 2,
     "use_edit_page_button": True,
@@ -313,7 +321,7 @@ html_theme_options = {
     "show_version_warning_banner": True,
     "switcher": {
         "json_url": "/docs/_static/versions.json",
-        "version_match": version,
+        "version_match": switcher_version,
     },
 }
 
