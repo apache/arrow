@@ -126,8 +126,7 @@ arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSQLiteQuery(
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
     const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
   std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}
-  };
+      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}};
   ARROW_ASSIGN_OR_RAISE(auto result,
                         FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
