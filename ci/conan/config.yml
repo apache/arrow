@@ -21,6 +21,14 @@
 # SOFTWARE.
 
 versions:
+  "13.0.0":
+    folder: all
+  "12.0.1":
+    folder: all
+  "12.0.0":
+    folder: all
+  "11.0.0":
+    folder: all
   "10.0.1":
     folder: all
   "10.0.0":
