@@ -15,40 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-args <- commandArgs(TRUE)
-VERSION <- package_version(args[1])
-dst_dir <- paste0("libarrow/arrow-", VERSION)
-
-# TESTING is set in test-nixlibs.R; it won't be set when called from configure
-test_mode <- exists("TESTING")
-
-# Prevent error with binary selection during testing.
-if (test_mode && is.na(VERSION)) {
-  VERSION <- package_version("8.0.0.9000")
-}
-
-dev_version <- VERSION[1, 4]
-# Small dev versions are added for R-only changes during CRAN submission
-is_release <- is.na(dev_version) || dev_version < "100"
-
-on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
-on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-
-
+#### Fuctions #### check end of file for main logic
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
-# For local debugging, set ARROW_R_DEV=TRUE to make this script print more
-quietly <- !env_is("ARROW_R_DEV", "true")
 
 # Log messages in the style of the configure script
 lg <- function(..., .indent = "***") {
   cat(.indent, " ", sprintf(...), "\n", sep = "")
 }
+
 # Exit the script after logging with .status=1 instead of throwing an error
 exit <- function(..., .status = 1) {
   lg(...)
   q(save = "no", status = .status)
 }
 
+
+# checks the nightly repo for the latest nightly version X.Y.Z.100<dev>
 find_latest_nightly <- function(description_version) {
   res <- try(
     {
@@ -77,18 +59,6 @@ find_latest_nightly <- function(description_version) {
   latest
 }
 
-if (is_release) {
-  VERSION <- VERSION[1, 1:3]
-  arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
-} else {
-  VERSION <- find_latest_nightly(VERSION)
-  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
-}
-
-options(.arrow.cleanup = character()) # To collect dirs to rm on exit
-on.exit(unlink(getOption(".arrow.cleanup")))
-
-
 try_download <- function(from_url, to_file, hush = quietly) {
   status <- try(
     suppressWarnings(
@@ -99,36 +69,6 @@ try_download <- function(from_url, to_file, hush = quietly) {
   # Return whether the download was successful
   !inherits(status, "try-error") && status == 0
 }
-
-not_cran <- env_is("NOT_CRAN", "true")
-# enable full featured builds and binaries for macOS (or if the NOT_CRAN variable has been set)
-if (not_cran || on_macos) {
-  # Set more eager defaults
-  if (env_is("LIBARROW_BINARY", "")) {
-    Sys.setenv(LIBARROW_BINARY = "true")
-  }
-  if (env_is("LIBARROW_MINIMAL", "")) {
-    Sys.setenv(LIBARROW_MINIMAL = "false")
-  }
-}
-
-
-# The default will build from source as a fallback if a binary is not found or shouldn't be used
-# Set LIBARROW_BUILD=FALSE to ensure that we use a previously built libarrow
-# and don't fall back to a full source build
-build_ok <- !env_is("LIBARROW_BUILD", "false")
-
-# Check if we're authorized to download (not asked an offline build).
-# (Note that cmake will still be downloaded if necessary
-#  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
-download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
-
-# This "tools/thirdparty_dependencies" path, within the tar file, might exist if
-# create_package_with_all_dependencies() was run, or if someone has created it
-# manually before running make build.
-# If you change this path, you also need to edit
-# `create_package_with_all_dependencies()` in install-arrow.R
-thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
 download_binary <- function(lib) {
   libfile <- paste0("arrow-", VERSION, ".zip")
@@ -852,7 +792,68 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
   system(cmake_cmd, ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
 }
 
-#####
+############### Main logic #############
+args <- commandArgs(TRUE)
+VERSION <- package_version(args[1])
+dst_dir <- paste0("libarrow/arrow-", VERSION)
+
+# TESTING is set in test-nixlibs.R; it won't be set when called from configure
+test_mode <- exists("TESTING")
+
+# Prevent error with binary selection during testing.
+if (test_mode && is.na(VERSION)) {
+  VERSION <- package_version("8.0.0.9000")
+}
+
+dev_version <- VERSION[1, 4]
+# Small dev versions are added for R-only changes during CRAN submission
+is_release <- is.na(dev_version) || dev_version < "100"
+
+on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
+on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+
+# For local debugging, set ARROW_R_DEV=TRUE to make this script print more
+quietly <- !env_is("ARROW_R_DEV", "true")
+
+if (is_release) {
+  VERSION <- VERSION[1, 1:3]
+  arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
+} else {
+  VERSION <- find_latest_nightly(VERSION)
+  arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
+
+options(.arrow.cleanup = character()) # To collect dirs to rm on exit
+on.exit(unlink(getOption(".arrow.cleanup")))
+
+not_cran <- env_is("NOT_CRAN", "true")
+# enable full featured builds for macOS in case of CRAN source builds.
+if (not_cran || on_macos) {
+  # Set more eager defaults
+  if (env_is("LIBARROW_BINARY", "")) {
+    Sys.setenv(LIBARROW_BINARY = "true")
+  }
+  if (env_is("LIBARROW_MINIMAL", "")) {
+    Sys.setenv(LIBARROW_MINIMAL = "false")
+  }
+}
+
+# The default will build from source as a fallback if a binary is not found or shouldn't be used
+# Set LIBARROW_BUILD=FALSE to ensure that we use a previously built libarrow
+# and don't fall back to a full source build
+build_ok <- !env_is("LIBARROW_BUILD", "false")
+
+# Check if we're authorized to download (not asked an offline build).
+# (Note that cmake will still be downloaded if necessary
+#  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
+download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
+
+# This "tools/thirdparty_dependencies" path, within the tar file, might exist if
+# create_package_with_all_dependencies() was run, or if someone has created it
+# manually before running make build.
+# If you change this path, you also need to edit
+# `create_package_with_all_dependencies()` in install-arrow.R
+thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
 if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
