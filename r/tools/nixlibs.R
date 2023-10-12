@@ -57,7 +57,7 @@ try_download <- function(from_url, to_file, hush = quietly) {
 }
 
 not_cran <- env_is("NOT_CRAN", "true")
-# enable full featured builds for macOS in case of CRAN source builds.
+# enable full featured builds and binaries for macOS (or if the NOT_CRAN variable has been set)
 if (not_cran || on_macos) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
