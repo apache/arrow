@@ -16,7 +16,7 @@
 # under the License.
 
 args <- commandArgs(TRUE)
-VERSION <- args[1]
+VERSION <- package_version(args[1])
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 # TESTING is set in test-nixlibs.R; it won't be set when called from configure
@@ -24,12 +24,17 @@ test_mode <- exists("TESTING")
 
 # Prevent error with binary selection during testing.
 if (test_mode && is.na(VERSION)) {
-  VERSION <- "8.0.0.9000"
+  VERSION <- package_version("8.0.0.9000")
 }
 
-dev_version <- package_version(VERSION)[1, 4]
+dev_version <- VERSION[1, 4]
+# Small dev versions are added for R-only changes during CRAN submission
 is_release <- is.na(dev_version) || dev_version < "100"
+
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
+on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+
+
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
@@ -44,11 +49,39 @@ exit <- function(..., .status = 1) {
   q(save = "no", status = .status)
 }
 
-# Small dev versions are added for R-only changes during CRAN submission.
+find_latest_nightly <- function(description_version) {
+  res <- try(
+    {
+      url_file <- tempfile()
+      on.exit(unlink(url_file))
+      # Binaries are only uploaded if all jobs pass so can just look at the source versions.
+      download.file("https://nightlies.apache.org/arrow/r/src/contrib", url_file, quiet = TRUE)
+      urls <- readLines(url_file)
+      versions <- grep("arrow_.*\\.tar\\.gz", urls, value = TRUE)
+      versions <- sub(".*arrow_(.*)\\.tar\\.gz.*", "\\1", x = versions)
+      versions <- sapply(versions, package_version)
+      versions <- data.frame(do.call(rbind, versions))
+      matching_major <- versions[versions$X1 == description_version[1, 1], ]
+      latest <- matching_major[which.max(matching_major$X4), ]
+      package_version(paste0(latest, collapse = "."))
+    },
+    silent = quietly
+  )
+  if (inherits(res, "try-error")) {
+    lg("Failed to find latest nightly for %s", description_version)
+    latest <- description_version
+  } else {
+    lg("Found latest nightly for %s: %s", description_version, res)
+    latest <- res
+  }
+  latest
+}
+
 if (is_release) {
-  VERSION <- package_version(VERSION)[1, 1:3]
+  VERSION <- VERSION[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
+  VERSION <- find_latest_nightly(VERSION)
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
 }
 
@@ -79,8 +112,6 @@ if (not_cran || on_macos) {
   }
 }
 
-# For local debugging, set ARROW_R_DEV=TRUE to make this script print more
-quietly <- !env_is("ARROW_R_DEV", "true")
 
 # The default will build from source as a fallback if a binary is not found or shouldn't be used
 # Set LIBARROW_BUILD=FALSE to ensure that we use a previously built libarrow
@@ -98,7 +129,6 @@ download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 # If you change this path, you also need to edit
 # `create_package_with_all_dependencies()` in install-arrow.R
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
-
 
 download_binary <- function(lib) {
   libfile <- paste0("arrow-", VERSION, ".zip")
