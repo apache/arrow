@@ -23,7 +23,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
-using FlatBuffers;
+using Google.FlatBuffers;
 
 namespace Apache.Arrow.Ipc
 {
@@ -50,10 +50,12 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
+            IArrowArrayVisitor<UnionArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -111,6 +113,13 @@ namespace Apache.Arrow.Ipc
                 array.Values.Accept(this);
             }
 
+            public void Visit(FixedSizeListArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+
+                array.Values.Accept(this);
+            }
+
             public void Visit(StringArray array) => Visit(array as BinaryArray);
 
             public void Visit(BinaryArray array)
@@ -141,6 +150,22 @@ namespace Apache.Arrow.Ipc
             public void Visit(StructArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(this);
+                }
+            }
+
+            public void Visit(UnionArray array)
+            {
+                _buffers.Add(CreateBuffer(array.TypeBuffer));
+
+                ArrowBuffer? offsets = (array as DenseUnionArray)?.ValueOffsetBuffer;
+                if (offsets != null)
+                {
+                    _buffers.Add(CreateBuffer(offsets.Value));
+                }
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
@@ -210,7 +235,7 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
 
-        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V4;
+        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
         private static readonly byte[] s_padding = new byte[64];
 

@@ -65,7 +65,8 @@ public class TestPerf {
         Field.nullable("d", MinorType.BIGINT.getType())
     ));
 
-    ByteString serializedSchema = ByteString.copyFrom(pojoSchema.toByteArray());
+    byte[] bytes = pojoSchema.serializeAsMessage();
+    ByteString serializedSchema = ByteString.copyFrom(bytes);
 
     return FlightDescriptor.command(Perf.newBuilder()
         .setRecordsPerStream(recordCount)

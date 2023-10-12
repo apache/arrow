@@ -17,8 +17,7 @@
 
 #include "parquet/encryption/kms_client.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr const char KmsClient::kKmsInstanceIdDefault[];
 constexpr const char KmsClient::kKmsInstanceUrlDefault[];
@@ -40,5 +39,4 @@ void KmsConnectionConfig::SetDefaultIfEmpty() {
   }
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

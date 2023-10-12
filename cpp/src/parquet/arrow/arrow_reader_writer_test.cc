@@ -2354,10 +2354,11 @@ void TestGetRecordBatchReader(
 
 TEST(TestArrowReadWrite, GetRecordBatchReader) { TestGetRecordBatchReader(); }
 
-// Same as the test above, but using coalesced reads.
-TEST(TestArrowReadWrite, CoalescedReads) {
+// Same as the test above, but using non-coalesced reads.
+TEST(TestArrowReadWrite, NoneCoalescedReads) {
   ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
-  arrow_properties.set_pre_buffer(true);
+  arrow_properties.set_pre_buffer(false);
+  arrow_properties.set_cache_options(::arrow::io::CacheOptions::Defaults());
   TestGetRecordBatchReader(arrow_properties);
 }
 
@@ -2413,9 +2414,9 @@ TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
 
   ASSERT_EQ(2, reader->num_row_groups());
 
-  // Pre-buffer 3 columns in the 2nd row group.
+  // Pre-buffer column 0 and column 3 in the 2nd row group.
   const std::vector<int> row_groups = {1};
-  const std::vector<int> column_indices = {0, 1, 4};
+  const std::vector<int> column_indices = {0, 3};
   reader->parquet_reader()->PreBuffer(row_groups, column_indices,
                                       ::arrow::io::IOContext(),
                                       ::arrow::io::CacheOptions::Defaults());

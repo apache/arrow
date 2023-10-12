@@ -146,7 +146,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
   /// \brief Return the children fields associated with this type.
-  const std::vector<std::shared_ptr<Field>>& fields() const { return children_; }
+  const FieldVector& fields() const { return children_; }
 
   /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
@@ -204,7 +204,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   std::string ComputeMetadataFingerprint() const override;
 
   Type::type id_;
-  std::vector<std::shared_ptr<Field>> children_;
+  FieldVector children_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
@@ -397,14 +397,76 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
   /// \brief Options that control the behavior of `MergeWith`.
   /// Options are to be added to allow type conversions, including integer
   /// widening, promotion from integer to float, or conversion to or from boolean.
-  struct MergeOptions {
+  struct ARROW_EXPORT MergeOptions : public util::ToStringOstreamable<MergeOptions> {
     /// If true, a Field of NullType can be unified with a Field of another type.
     /// The unified field will be of the other type and become nullable.
     /// Nullability will be promoted to the looser option (nullable if one is not
     /// nullable).
     bool promote_nullability = true;
 
+    /// Allow a decimal to be unified with another decimal of the same
+    /// width, adjusting scale and precision as appropriate. May fail
+    /// if the adjustment is not possible.
+    bool promote_decimal = false;
+
+    /// Allow a decimal to be promoted to a float. The float type will
+    /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
+    bool promote_decimal_to_float = false;
+
+    /// Allow an integer to be promoted to a decimal.
+    ///
+    /// May fail if the decimal has insufficient precision to
+    /// accommodate the integer (see promote_numeric_width).
+    bool promote_integer_to_decimal = false;
+
+    /// Allow an integer of a given bit width to be promoted to a
+    /// float; the result will be a float of an equal or greater bit
+    /// width to both of the inputs. Examples:
+    ///  - int8 + float32 = float32
+    ///  - int32 + float32 = float64
+    ///  - int32 + float64 = float64
+    /// Because an int32 cannot always be represented exactly in the
+    /// 24 bits of a float32 mantissa.
+    bool promote_integer_to_float = false;
+
+    /// Allow an unsigned integer of a given bit width to be promoted
+    /// to a signed integer that fits into the signed type:
+    /// uint + int16 = int16
+    /// When widening is needed, set promote_numeric_width to true:
+    /// uint16 + int16 = int32
+    bool promote_integer_sign = false;
+
+    /// Allow an integer, float, or decimal of a given bit width to be
+    /// promoted to an equivalent type of a greater bit width.
+    bool promote_numeric_width = false;
+
+    /// Allow strings to be promoted to binary types. Promotion of fixed size
+    /// binary types to variable sized formats, and binary to large binary,
+    /// and string to large string.
+    bool promote_binary = false;
+
+    /// Second to millisecond, Time32 to Time64, Time32(SECOND) to Time32(MILLI), etc
+    bool promote_temporal_unit = false;
+
+    /// Allow promotion from a list to a large-list and from a fixed-size list to a
+    /// variable sized list
+    bool promote_list = false;
+
+    /// Unify dictionary index types and dictionary value types.
+    bool promote_dictionary = false;
+
+    /// Allow merging ordered and non-ordered dictionaries.
+    /// The result will be ordered if and only if both inputs
+    /// are ordered.
+    bool promote_dictionary_ordered = false;
+
+    /// Get default options. Only NullType will be merged with other types.
     static MergeOptions Defaults() { return MergeOptions(); }
+    /// Get permissive options. All options are enabled, except
+    /// promote_dictionary_ordered.
+    static MergeOptions Permissive();
+    /// Get a human-readable representation of the options.
+    std::string ToString() const;
   };
 
   /// \brief Merge the current field with a field of the same name.
@@ -421,7 +483,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
       const std::shared_ptr<Field>& other,
       MergeOptions options = MergeOptions::Defaults()) const;
 
-  std::vector<std::shared_ptr<Field>> Flatten() const;
+  FieldVector Flatten() const;
 
   /// \brief Indicate if fields are equals.
   ///
@@ -1078,7 +1140,7 @@ class ARROW_EXPORT StructType : public NestedType {
 
   static constexpr const char* type_name() { return "struct"; }
 
-  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
+  explicit StructType(const FieldVector& fields);
 
   ~StructType() override;
 
@@ -1093,7 +1155,7 @@ class ARROW_EXPORT StructType : public NestedType {
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
   /// Return all fields having this name
-  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+  FieldVector GetAllFieldsByName(const std::string& name) const;
 
   /// Returns -1 if name not found or if there are multiple fields having the
   /// same name
@@ -1125,8 +1187,8 @@ class ARROW_EXPORT UnionType : public NestedType {
   static constexpr int kInvalidChildId = -1;
 
   static Result<std::shared_ptr<DataType>> Make(
-      const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+      const FieldVector& fields, const std::vector<int8_t>& type_codes,
+      UnionMode::type mode = UnionMode::SPARSE) {
     if (mode == UnionMode::SPARSE) {
       return sparse_union(fields, type_codes);
     } else {
@@ -1152,10 +1214,9 @@ class ARROW_EXPORT UnionType : public NestedType {
   UnionMode::type mode() const;
 
  protected:
-  UnionType(std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes,
-            Type::type id);
+  UnionType(FieldVector fields, std::vector<int8_t> type_codes, Type::type id);
 
-  static Status ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
+  static Status ValidateParameters(const FieldVector& fields,
                                    const std::vector<int8_t>& type_codes,
                                    UnionMode::type mode);
 
@@ -1183,12 +1244,11 @@ class ARROW_EXPORT SparseUnionType : public UnionType {
 
   static constexpr const char* type_name() { return "sparse_union"; }
 
-  SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                  std::vector<int8_t> type_codes);
+  SparseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
   // A constructor variant that validates input parameters
-  static Result<std::shared_ptr<DataType>> Make(
-      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+  static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
+                                                std::vector<int8_t> type_codes);
 
   std::string name() const override { return "sparse_union"; }
 };
@@ -1213,12 +1273,11 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 
   static constexpr const char* type_name() { return "dense_union"; }
 
-  DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                 std::vector<int8_t> type_codes);
+  DenseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
   // A constructor variant that validates input parameters
-  static Result<std::shared_ptr<DataType>> Make(
-      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+  static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
+                                                std::vector<int8_t> type_codes);
 
   std::string name() const override { return "dense_union"; }
 };
@@ -2051,6 +2110,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Return the indices of all fields having this name
   std::vector<int> GetAllFieldIndices(const std::string& name) const;
 
+  /// Indicate if field named `name` can be found unambiguously in the schema.
+  Status CanReferenceFieldByName(const std::string& name) const;
+
   /// Indicate if fields named `names` can be found unambiguously in the schema.
   Status CanReferenceFieldsByNames(const std::vector<std::string>& names) const;
 
@@ -2141,8 +2203,7 @@ class ARROW_EXPORT SchemaBuilder {
   /// \brief Construct a SchemaBuilder from a list of fields
   /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
-      std::vector<std::shared_ptr<Field>> fields,
-      ConflictPolicy conflict_policy = CONFLICT_APPEND,
+      FieldVector fields, ConflictPolicy conflict_policy = CONFLICT_APPEND,
       Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
   /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
@@ -2167,7 +2228,7 @@ class ARROW_EXPORT SchemaBuilder {
   ///
   /// \param[in] fields to add to the constructed Schema.
   /// \return The first failure encountered, if any.
-  Status AddFields(const std::vector<std::shared_ptr<Field>>& fields);
+  Status AddFields(const FieldVector& fields);
 
   /// \brief Add fields of a Schema to the constructed Schema.
   ///

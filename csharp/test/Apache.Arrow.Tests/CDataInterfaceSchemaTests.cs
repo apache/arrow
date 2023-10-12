@@ -35,7 +35,7 @@ namespace Apache.Arrow.Tests
             Assert.Equal(0, cSchema->n_children);
             Assert.True(cSchema->children == null);
             Assert.True(cSchema->dictionary == null);
-            Assert.True(cSchema->release == null);
+            Assert.True(cSchema->release == default);
             Assert.True(cSchema->private_data == null);
 
             CArrowSchema.Free(cSchema);
@@ -86,12 +86,13 @@ namespace Apache.Arrow.Tests
         {
             CArrowSchema* cSchema = CArrowSchema.Create();
             CArrowSchemaExporter.ExportType(Int32Type.Default, cSchema);
-            Assert.False(cSchema->release == null);
+            Assert.False(cSchema->release == default);
             CArrowSchemaImporter.ImportType(cSchema);
-            Assert.True(cSchema->release == null);
+            Assert.True(cSchema->release == default);
             CArrowSchema.Free(cSchema);
         }
 
+#if NET5_0_OR_GREATER // can't round-trip marshaled delegate
         [Fact]
         public unsafe void CallsReleaseForInvalid()
         {
@@ -103,7 +104,7 @@ namespace Apache.Arrow.Tests
             var releaseCallback = (CArrowSchema* cSchema) =>
             {
                 wasCalled = true;
-                cSchema->release = null;
+                cSchema->release = default;
             };
             cSchema->release = (delegate* unmanaged<CArrowSchema*, void>)Marshal.GetFunctionPointerForDelegate(
                 releaseCallback);
@@ -117,5 +118,6 @@ namespace Apache.Arrow.Tests
 
             GC.KeepAlive(releaseCallback);
         }
+#endif
     }
 }

@@ -123,14 +123,22 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
     null
   ])expected";
   CheckPrimitive<Int32Type, int32_t>({2, 10}, is_valid, values, ex_in2);
+
   static const char* ex_in2_w2 = R"expected(  [
     0,
     1,
-    ...
+    null,
     3,
     null
   ])expected";
   CheckPrimitive<Int32Type, int32_t>({2, 2}, is_valid, values, ex_in2_w2);
+
+  static const char* ex_in2_w1 = R"expected(  [
+    0,
+    ...
+    null
+  ])expected";
+  CheckPrimitive<Int32Type, int32_t>({2, 1}, is_valid, values, ex_in2_w1);
 
   std::vector<double> values2 = {0., 1., 2., 3., 4.};
   static const char* ex2 = R"expected([
@@ -190,6 +198,65 @@ TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
 
   expected = "[0,1,null,3,...,99,44,null,42]";
   CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+}
+
+TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom array element delimiter of " | ",
+  // rather than the default delimiter (i.e. ",").
+  options.array_delimiters.element = " | ";
+
+  // Short array without ellipsis
+  {
+    std::vector<bool> is_valid = {true, true, false, true, false};
+    std::vector<int32_t> values = {1, 2, 3, 4, 5};
+    static const char* expected = R"expected([
+  1 | 
+  2 | 
+  null | 
+  4 | 
+  null
+])expected";
+    CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+  }
+
+  // Longer array with ellipsis
+  {
+    std::vector<bool> is_valid = {true, false, true};
+    std::vector<int32_t> values = {1, 2, 3};
+    // Append 20 copies of the value "10" to the end of the values vector.
+    values.insert(values.end(), 20, 10);
+    // Append 20 copies of the value "true" to the end of the validity bitmap vector.
+    is_valid.insert(is_valid.end(), 20, true);
+    // Append the values 4, 5, and 6 to the end of the values vector.
+    values.insert(values.end(), {4, 5, 6});
+    // Append the values true, false, and true to the end of the validity bitmap vector.
+    is_valid.insert(is_valid.end(), {true, false, true});
+    static const char* expected = R"expected([
+  1 | 
+  null | 
+  3 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  ...
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  4 | 
+  null | 
+  6
+])expected";
+    CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+  }
 }
 
 TEST_F(TestPrettyPrint, Int8) {
@@ -738,7 +805,7 @@ TEST_F(TestPrettyPrint, ListType) {
     null
   ],
   [],
-  ...
+  null,
   [
     4,
     6,
@@ -790,7 +857,12 @@ TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
   options.window = 2;
   options.container_window = 2;
   CheckArray(*empty_array, options, "[]", false);
-  CheckArray(*array, options, "[[NA],[],...,[4,5,...,7,8],[2,3]]", false);
+  CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
+
+  options.window = 1;
+  options.container_window = 2;
+  CheckArray(*empty_array, options, "[]", false);
+  CheckArray(*array, options, "[[NA],[],NA,[4,...,8],[2,3]]", false);
 }
 
 TEST_F(TestPrettyPrint, MapType) {
@@ -854,7 +926,7 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
     3,
     null
   ],
-  ...
+  null,
   [
     4,
     6,
@@ -876,23 +948,23 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
               R"expected([
   [
     null,
-    ...
+    0,
     1
   ],
   [
     2,
-    ...
+    3,
     null
   ],
   null,
   [
     4,
-    ...
+    6,
     7
   ],
   [
     8,
-    ...
+    9,
     5
   ]
 ])expected");
@@ -901,13 +973,13 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
               R"expected([
   [
     null,
-    ...
+    0,
     1
   ],
   ...
   [
     8,
-    ...
+    9,
     5
   ]
 ])expected");
@@ -1005,6 +1077,58 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
 ])expected";
 
   CheckStream(chunked_array_2, {0}, expected_2);
+}
+
+TEST_F(TestPrettyPrint, ChunkedArrayCustomElementDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom ChunkedArray element delimiter of ";",
+  // rather than the default delimiter (i.e. ",").
+  options.chunked_array_delimiters.element = ";";
+  // Use a custom Array element delimiter of " | ",
+  // rather than the default delimiter (i.e. ",").
+  options.array_delimiters.element = " | ";
+
+  const auto chunk = ArrayFromJSON(int32(), "[1, 2, null, 4, null]");
+
+  // ChunkedArray with 1 chunk
+  {
+    const ChunkedArray chunked_array(chunk);
+
+    static const char* expected = R"expected([
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ]
+])expected";
+    CheckStream(chunked_array, options, expected);
+  }
+
+  // ChunkedArray with 2 chunks
+  {
+    const ChunkedArray chunked_array({chunk, chunk});
+
+    static const char* expected = R"expected([
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ];
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ]
+])expected";
+
+    CheckStream(chunked_array, options, expected);
+  }
 }
 
 TEST_F(TestPrettyPrint, TablePrimitive) {

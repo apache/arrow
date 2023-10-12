@@ -17,10 +17,10 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v14/parquet/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 

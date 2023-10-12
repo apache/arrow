@@ -21,10 +21,10 @@
 namespace arrow::matlab::type::proxy {
 
     FixedWidthType::FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type) : Type(std::move(type)) {
-        REGISTER_METHOD(FixedWidthType, bitWidth);
+        REGISTER_METHOD(FixedWidthType, getBitWidth);
     }
 
-    void FixedWidthType::bitWidth(libmexclass::proxy::method::Context& context) {
+    void FixedWidthType::getBitWidth(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
          mda::ArrayFactory factory;
      

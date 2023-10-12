@@ -114,14 +114,14 @@ void Buffer::CheckCPU() const {
 
 Result<std::shared_ptr<io::RandomAccessFile>> Buffer::GetReader(
     std::shared_ptr<Buffer> buf) {
-  return buf->memory_manager_->GetBufferReader(buf);
+  return buf->memory_manager_->GetBufferReader(std::move(buf));
 }
 
 Result<std::shared_ptr<io::OutputStream>> Buffer::GetWriter(std::shared_ptr<Buffer> buf) {
   if (!buf->is_mutable()) {
     return Status::Invalid("Expected mutable buffer");
   }
-  return buf->memory_manager_->GetBufferWriter(buf);
+  return buf->memory_manager_->GetBufferWriter(std::move(buf));
 }
 
 Result<std::shared_ptr<Buffer>> Buffer::Copy(std::shared_ptr<Buffer> source,
@@ -213,8 +213,11 @@ Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
   ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(out_length, pool));
   auto out_data = out->mutable_data();
   for (const auto& buffer : buffers) {
-    std::memcpy(out_data, buffer->data(), buffer->size());
-    out_data += buffer->size();
+    // Passing nullptr to std::memcpy is undefined behavior, so skip empty buffers
+    if (buffer->size() != 0) {
+      std::memcpy(out_data, buffer->data(), buffer->size());
+      out_data += buffer->size();
+    }
   }
   return std::move(out);
 }

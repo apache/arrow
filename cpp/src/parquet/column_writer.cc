@@ -330,7 +330,7 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDictionaryPageHeader);
     }
     const int64_t header_size =
-        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_.get());
 
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
@@ -422,7 +422,7 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDataPageHeader);
     }
     const int64_t header_size =
-        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_.get());
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
     /// Collect page index
@@ -895,11 +895,13 @@ class ColumnWriterImpl {
   void ConcatenateBuffers(int64_t definition_levels_rle_size,
                           int64_t repetition_levels_rle_size,
                           const std::shared_ptr<Buffer>& values, uint8_t* combined) {
-    memcpy(combined, repetition_levels_rle_->data(), repetition_levels_rle_size);
+    memcpy(combined, repetition_levels_rle_->data(),
+           static_cast<size_t>(repetition_levels_rle_size));
     combined += repetition_levels_rle_size;
-    memcpy(combined, definition_levels_rle_->data(), definition_levels_rle_size);
+    memcpy(combined, definition_levels_rle_->data(),
+           static_cast<size_t>(definition_levels_rle_size));
     combined += definition_levels_rle_size;
-    memcpy(combined, values->data(), values->size());
+    memcpy(combined, values->data(), static_cast<size_t>(values->size()));
   }
 };
 
@@ -1219,6 +1221,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
       chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
     }
+    pages_change_on_record_boundaries_ =
+        properties->data_page_version() == ParquetDataPageVersion::V2 ||
+        properties->page_index_enabled(descr_->path());
   }
 
   int64_t Close() override { return ColumnWriterImpl::Close(); }
@@ -1386,8 +1391,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   const WriterProperties* properties() override { return properties_; }
 
   bool pages_change_on_record_boundaries() const {
-    return properties_->data_page_version() == ParquetDataPageVersion::V2 ||
-           properties_->page_index_enabled(descr_->path());
+    return pages_change_on_record_boundaries_;
   }
 
  private:
@@ -1402,6 +1406,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   DictEncoder<DType>* current_dict_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
+  bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the
   // dictionary passed to DictEncoder<T>::PutDictionary so we can check
@@ -2329,6 +2334,13 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
                               descr->physical_type() != Type::BOOLEAN;
   Encoding::type encoding = properties->encoding(descr->path());
+  if (encoding == Encoding::UNKNOWN) {
+    encoding = (descr->physical_type() == Type::BOOLEAN &&
+                properties->version() != ParquetVersion::PARQUET_1_0 &&
+                properties->data_page_version() == ParquetDataPageVersion::V2)
+                   ? Encoding::RLE
+                   : Encoding::PLAIN;
+  }
   if (use_dictionary) {
     encoding = properties->dictionary_index_encoding();
   }

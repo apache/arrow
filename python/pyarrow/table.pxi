@@ -160,6 +160,17 @@ cdef class ChunkedArray(_PandasConvertible):
         return frombytes(result, safe=True)
 
     def format(self, **kwargs):
+        """
+        DEPRECATED, use pyarrow.ChunkedArray.to_string
+
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        str
+        """
         import warnings
         warnings.warn('ChunkedArray.format is deprecated, '
                       'use ChunkedArray.to_string')
@@ -4588,8 +4599,9 @@ cdef class Table(_Tabular):
         """
         return self.drop_columns(columns)
 
-    def group_by(self, keys):
-        """Declare a grouping over the columns of the table.
+    def group_by(self, keys, use_threads=True):
+        """
+        Declare a grouping over the columns of the table.
 
         Resulting grouping can then be used to perform aggregations
         with a subsequent ``aggregate()`` method.
@@ -4598,6 +4610,9 @@ cdef class Table(_Tabular):
         ----------
         keys : str or list[str]
             Name of the columns that should be used as the grouping key.
+        use_threads : bool, default True
+            Whether to use multithreading or not. When set to True (the
+            default), no stable ordering of the output is guaranteed.
 
         Returns
         -------
@@ -4624,7 +4639,7 @@ cdef class Table(_Tabular):
         year: [[2020,2022,2021,2019]]
         n_legs_sum: [[2,6,104,5]]
         """
-        return TableGroupBy(self, keys)
+        return TableGroupBy(self, keys, use_threads=use_threads)
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
@@ -5009,16 +5024,16 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs):
     """
     Concatenate pyarrow.Table objects.
 
-    If promote==False, a zero-copy concatenation will be performed. The schemas
+    If promote_options="none", a zero-copy concatenation will be performed. The schemas
     of all the Tables must be the same (except the metadata), otherwise an
     exception will be raised. The result Table will share the metadata with the
     first table.
 
-    If promote==True, any null type arrays will be casted to the type of other
+    If promote_options="default", any null type arrays will be casted to the type of other
     arrays in the column of the same name. If a table is missing a particular
     field, null values of the appropriate type will be generated to take the
     place of the missing field. The new schema will share the metadata with the
@@ -5026,14 +5041,18 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     first table which has the field defined. Note that type promotions may
     involve additional allocations on the given ``memory_pool``.
 
+    If promote_options="permissive", the behavior of default plus types will be promoted
+    to the common denominator that fits all the fields.
+
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
         Pyarrow tables to concatenate into a single Table.
-    promote : bool, default False
-        If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
+    promote_options : str, default none
+        Accepts strings "none", "default" and "permissive".
+    **kwargs : dict, optional
 
     Examples
     --------
@@ -5063,11 +5082,24 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
         CConcatenateTablesOptions options = (
             CConcatenateTablesOptions.Defaults())
 
+    if "promote" in kwargs:
+        warnings.warn(
+            "promote has been superseded by mode='default'.", FutureWarning, stacklevel=2)
+        if kwargs['promote'] is True:
+            promote_options = "default"
+
     for table in tables:
         c_tables.push_back(table.sp_table)
 
+    if promote_options == "permissive":
+        options.field_merge_options = CField.CMergeOptions.Permissive()
+    elif promote_options in {"default", "none"}:
+        options.field_merge_options = CField.CMergeOptions.Defaults()
+    else:
+        raise ValueError(f"Invalid promote options: {promote_options}")
+
     with nogil:
-        options.unify_schemas = promote
+        options.unify_schemas = promote_options != "none"
         c_result_table = GetResultValue(
             ConcatenateTables(c_tables, options, pool))
 
@@ -5172,6 +5204,9 @@ class TableGroupBy:
         Input table to execute the aggregation on.
     keys : str or list[str]
         Name of the grouped columns.
+    use_threads : bool, default True
+        Whether to use multithreading or not. When set to True (the default),
+        no stable ordering of the output is guaranteed.
 
     Examples
     --------
@@ -5197,12 +5232,13 @@ class TableGroupBy:
     values_sum: [[3,7,5]]
     """
 
-    def __init__(self, table, keys):
+    def __init__(self, table, keys, use_threads=True):
         if isinstance(keys, str):
             keys = [keys]
 
         self._table = table
         self.keys = keys
+        self._use_threads = use_threads
 
     def aggregate(self, aggregations):
         """
@@ -5317,4 +5353,6 @@ list[tuple(str, str, FunctionOptions)]
                 aggr_name = "_".join(target) + "_" + func_nohash
             group_by_aggrs.append((target, func, opt, aggr_name))
 
-        return _pac()._group_by(self._table, group_by_aggrs, self.keys)
+        return _pac()._group_by(
+            self._table, group_by_aggrs, self.keys, use_threads=self._use_threads
+        )

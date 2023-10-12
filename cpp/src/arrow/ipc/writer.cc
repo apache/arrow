@@ -1077,6 +1077,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteRecordBatch(
       const RecordBatch& batch,
       const std::shared_ptr<const KeyValueMetadata>& custom_metadata) override {
+    if (closed_) {
+      return Status::Invalid("Destination already closed");
+    }
     if (!batch.schema()->Equals(schema_, false /* check_metadata */)) {
       return Status::Invalid("Tried to write record batch with different schema");
     }
@@ -1108,7 +1111,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
   Status Close() override {
     RETURN_NOT_OK(CheckStarted());
-    return payload_writer_->Close();
+    RETURN_NOT_OK(payload_writer_->Close());
+    closed_ = true;
+    return Status::OK();
   }
 
   Status Start() {
@@ -1220,6 +1225,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   std::unordered_map<int64_t, std::shared_ptr<Array>> last_dictionaries_;
 
   bool started_ = false;
+  bool closed_ = false;
   IpcWriteOptions options_;
   WriteStats stats_;
 };

@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Server;
+using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Core.Utils;
 
@@ -84,6 +85,21 @@ namespace Apache.Arrow.Flight.TestWeb
                 return Task.FromResult(flightHolder.GetFlightInfo());
             }
             throw new RpcException(new Status(StatusCode.NotFound, "Flight not found"));
+        }
+
+        public override async Task Handshake(IAsyncStreamReader<FlightHandshakeRequest> requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
+        {
+            while (await requestStream.MoveNext().ConfigureAwait(false))
+            {
+                if (requestStream.Current.Payload.ToStringUtf8() == "Hello")
+                {
+                    await responseStream.WriteAsync(new(ByteString.CopyFromUtf8("Hello handshake"))).ConfigureAwait(false);
+                }
+                else
+                {
+                    await responseStream.WriteAsync(new(ByteString.CopyFromUtf8("Done"))).ConfigureAwait(false);
+                }
+            }
         }
 
         public override Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context)

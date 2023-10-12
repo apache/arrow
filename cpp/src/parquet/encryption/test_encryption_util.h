@@ -37,8 +37,7 @@
 
 namespace parquet {
 class ParquetFileReader;
-namespace encryption {
-namespace test {
+namespace encryption::test {
 
 using ::arrow::internal::TemporaryDir;
 
@@ -114,14 +113,21 @@ class FileEncryptor {
 
 class FileDecryptor {
  public:
-  void DecryptFile(std::string file_name,
-                   std::shared_ptr<FileDecryptionProperties> file_decryption_properties);
+  void DecryptFile(
+      const std::string& file_name,
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties);
+  void DecryptPageIndex(
+      const std::string& file_name,
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties);
 
  private:
-  void CheckFile(parquet::ParquetFileReader* file_reader,
-                 FileDecryptionProperties* file_decryption_properties);
+  void CheckFile(
+      parquet::ParquetFileReader* file_reader,
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties);
+  void CheckPageIndex(
+      parquet::ParquetFileReader* file_reader,
+      const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties);
 };
 
-}  // namespace test
-}  // namespace encryption
+}  // namespace encryption::test
 }  // namespace parquet

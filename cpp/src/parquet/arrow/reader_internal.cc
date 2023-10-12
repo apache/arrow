@@ -94,8 +94,7 @@ using ParquetType = parquet::Type;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 namespace {
 
 template <typename ArrowType>
@@ -366,7 +365,7 @@ Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum
   // Transfer boolean values to packed bitmap
   auto values = reinterpret_cast<const bool*>(reader->values());
   uint8_t* data_ptr = data->mutable_data();
-  memset(data_ptr, 0, buffer_size);
+  memset(data_ptr, 0, static_cast<size_t>(buffer_size));
 
   for (int64_t i = 0; i < length; i++) {
     if (values[i]) {
@@ -856,5 +855,4 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
   return Status::OK();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

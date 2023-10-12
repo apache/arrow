@@ -29,8 +29,7 @@
 
 #include "parquet/properties.h"
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 using ::arrow::default_memory_pool;
 using ::arrow::field;
@@ -644,5 +643,4 @@ TEST_F(MultipathLevelBuilderTest, TestPrimitiveNonNullable) {
   EXPECT_THAT(results_[0].post_list_elements[0].end, Eq(4));
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

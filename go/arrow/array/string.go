@@ -23,9 +23,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
@@ -71,6 +71,14 @@ func (a *String) ValueOffset(i int) int {
 
 func (a *String) ValueOffset64(i int) int64 {
 	return int64(a.ValueOffset(i))
+}
+
+func (a *String) ValueLen(i int) int {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	beg := a.array.data.offset + i
+	return int(a.offsets[beg+1] - a.offsets[beg])
 }
 
 func (a *String) ValueOffsets() []int32 {

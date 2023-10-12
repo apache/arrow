@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	shared_utils "github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -156,7 +156,7 @@ func (d *DeltaBitPackInt32Decoder) unpackNextMini() error {
 // Decode retrieves min(remaining values, len(out)) values from the data and returns the number
 // of values actually decoded and any errors encountered.
 func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
-	max := shared_utils.MinInt(len(out), d.nvals)
+	max := shared_utils.MinInt(len(out), int(d.totalValues))
 	if max == 0 {
 		return 0, nil
 	}
@@ -315,7 +315,7 @@ const (
 // Consists of a header followed by blocks of delta encoded values binary packed.
 //
 //	Format
-// 		[header] [block 1] [block 2] ... [block N]
+//		[header] [block 1] [block 2] ... [block N]
 //
 //	Header
 //		[block size] [number of mini blocks per block] [total value count] [first value]
@@ -355,7 +355,7 @@ func (enc *deltaBitPackEncoder) flushBlock() {
 
 	enc.bitWriter.WriteZigZagVlqInt(minDelta)
 	// reserve enough bytes to write out our miniblock deltas
-	offset := enc.bitWriter.ReserveBytes(int(enc.numMiniBlocks))
+	offset, _ := enc.bitWriter.SkipBytes(int(enc.numMiniBlocks))
 
 	valuesToWrite := int64(len(enc.deltas))
 	for i := 0; i < int(enc.numMiniBlocks); i++ {

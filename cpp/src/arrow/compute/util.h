@@ -139,69 +139,56 @@ class TempVectorHolder {
   uint32_t num_elements_;
 };
 
-class ARROW_EXPORT bit_util {
- public:
-  static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
-                              const int num_bits, const uint8_t* bits, int* num_indexes,
-                              uint16_t* indexes, int bit_offset = 0);
+namespace bit_util {
 
-  static void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
+ARROW_EXPORT void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
                                   const int num_bits, const uint8_t* bits,
-                                  const uint16_t* input_indexes, int* num_indexes,
-                                  uint16_t* indexes, int bit_offset = 0);
+                                  int* num_indexes, uint16_t* indexes,
+                                  int bit_offset = 0);
 
-  // Input and output indexes may be pointing to the same data (in-place filtering).
-  static void bits_split_indexes(int64_t hardware_flags, const int num_bits,
-                                 const uint8_t* bits, int* num_indexes_bit0,
-                                 uint16_t* indexes_bit0, uint16_t* indexes_bit1,
-                                 int bit_offset = 0);
+ARROW_EXPORT void bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
+                                      const int num_bits, const uint8_t* bits,
+                                      const uint16_t* input_indexes, int* num_indexes,
+                                      uint16_t* indexes, int bit_offset = 0);
 
-  // Bit 1 is replaced with byte 0xFF.
-  static void bits_to_bytes(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bits, uint8_t* bytes, int bit_offset = 0);
+// Input and output indexes may be pointing to the same data (in-place filtering).
+ARROW_EXPORT void bits_split_indexes(int64_t hardware_flags, const int num_bits,
+                                     const uint8_t* bits, int* num_indexes_bit0,
+                                     uint16_t* indexes_bit0, uint16_t* indexes_bit1,
+                                     int bit_offset = 0);
 
-  // Return highest bit of each byte.
-  static void bytes_to_bits(int64_t hardware_flags, const int num_bits,
-                            const uint8_t* bytes, uint8_t* bits, int bit_offset = 0);
+// Bit 1 is replaced with byte 0xFF.
+ARROW_EXPORT void bits_to_bytes(int64_t hardware_flags, const int num_bits,
+                                const uint8_t* bits, uint8_t* bytes, int bit_offset = 0);
 
-  static bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
-                                 uint32_t num_bytes);
+// Return highest bit of each byte.
+ARROW_EXPORT void bytes_to_bits(int64_t hardware_flags, const int num_bits,
+                                const uint8_t* bytes, uint8_t* bits, int bit_offset = 0);
 
- private:
-  inline static uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes);
-  inline static void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value);
-  inline static void bits_to_indexes_helper(uint64_t word, uint16_t base_index,
-                                            int* num_indexes, uint16_t* indexes);
-  inline static void bits_filter_indexes_helper(uint64_t word,
-                                                const uint16_t* input_indexes,
-                                                int* num_indexes, uint16_t* indexes);
-  template <int bit_to_search, bool filter_input_indexes>
-  static void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
-                                       const uint8_t* bits, const uint16_t* input_indexes,
-                                       int* num_indexes, uint16_t* indexes,
-                                       uint16_t base_index = 0);
+ARROW_EXPORT bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
+                                     uint32_t num_bytes);
 
-#if defined(ARROW_HAVE_AVX2)
-  static void bits_to_indexes_avx2(int bit_to_search, const int num_bits,
-                                   const uint8_t* bits, int* num_indexes,
-                                   uint16_t* indexes, uint16_t base_index = 0);
-  static void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
-                                       const uint8_t* bits, const uint16_t* input_indexes,
-                                       int* num_indexes, uint16_t* indexes);
-  template <int bit_to_search>
-  static void bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
-                                       int* num_indexes, uint16_t* indexes,
-                                       uint16_t base_index = 0);
-  template <int bit_to_search>
-  static void bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
+#if defined(ARROW_HAVE_RUNTIME_AVX2) && defined(ARROW_HAVE_RUNTIME_BMI2)
+// The functions below use BMI2 instructions, be careful before calling!
+
+namespace avx2 {
+ARROW_EXPORT void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
+                                           const uint8_t* bits,
                                            const uint16_t* input_indexes,
                                            int* num_indexes, uint16_t* indexes);
-  static void bits_to_bytes_avx2(const int num_bits, const uint8_t* bits, uint8_t* bytes);
-  static void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes, uint8_t* bits);
-  static bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes);
-#endif
-};
+ARROW_EXPORT void bits_to_indexes_avx2(int bit_to_search, const int num_bits,
+                                       const uint8_t* bits, int* num_indexes,
+                                       uint16_t* indexes, uint16_t base_index = 0);
+ARROW_EXPORT void bits_to_bytes_avx2(const int num_bits, const uint8_t* bits,
+                                     uint8_t* bytes);
+ARROW_EXPORT void bytes_to_bits_avx2(const int num_bits, const uint8_t* bytes,
+                                     uint8_t* bits);
+ARROW_EXPORT bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes);
+}  // namespace avx2
 
+#endif
+
+}  // namespace bit_util
 }  // namespace util
 
 namespace compute {

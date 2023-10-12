@@ -20,7 +20,7 @@ import os
 import uuid
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List
 
 from benchadapt import BenchmarkResult
 from benchadapt.adapters import BenchmarkAdapter
@@ -33,9 +33,9 @@ SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
 
 # `github_commit_info` is meant to communicate GitHub-flavored commit
 # information to Conbench. See
-# https://github.com/conbench/conbench/blob/7c4968e631ecdc064559c86a1174a1353713b700/benchadapt/python/benchadapt/result.py#L66
+# https://github.com/conbench/conbench/blob/cf7931f/benchadapt/python/benchadapt/result.py#L66
 # for a specification.
-github_commit_info: Optional[Dict] = None
+github_commit_info = {"repository": "https://github.com/apache/arrow"}
 
 if os.environ.get("CONBENCH_REF") == "main":
     # Assume GitHub Actions CI. The environment variable lookups below are
@@ -53,7 +53,7 @@ else:
 
     # This is probably a local dev environment, for testing. In this case, it
     # does usually not make sense to provide commit information (not a
-    # controlled CI environment). Explicitly keep `github_commit_info=None` to
+    # controlled CI environment). Explicitly leave out "commit" and "pr_number" to
     # reflect that (to not send commit information).
 
     # Reflect 'local dev' scenario in run_reason. Allow user to (optionally)
@@ -95,7 +95,7 @@ class GoAdapter(BenchmarkAdapter):
                     batch_id=batch_id,
                     stats={
                         "data": [data],
-                        "unit": "b/s",
+                        "unit": "B/s",
                         "times": [time],
                         "time_unit": "i/s",
                         "iterations": benchmark["Runs"],
@@ -114,10 +114,9 @@ class GoAdapter(BenchmarkAdapter):
                     run_reason=run_reason,
                     github=github_commit_info,
                 )
-                if github_commit_info is not None:
-                    parsed.run_name = (
-                        f"{parsed.run_reason}: {github_commit_info['commit']}"
-                    )
+                parsed.run_name = (
+                    f"{parsed.run_reason}: {github_commit_info.get('commit')}"
+                )
                 parsed_results.append(parsed)
 
         return parsed_results

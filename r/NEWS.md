@@ -17,7 +17,95 @@
   under the License.
 -->
 
-# arrow 12.0.1.9000
+# arrow 13.0.0.9000
+
+## New features
+
+* When reading partitioned CSV datasets and supplying a schema to
+  `open_dataset()`, the partition variables are now included in the resulting
+  dataset (#37658).
+* New function `write_csv_dataset()` now wraps `write_dataset()` and mirrors
+  the syntax of `write_csv_arrow()` (@dgreiss, #36436).
+* `open_delim_dataset()` now accepts `quoted_na` argument to empty strings
+  to be parsed as NA values (#37828).
+* `schema()` can now be called on `data.frame` objects to retrieve their
+  inferred Arrow schema  (#37843).
+* CSVs with a comma or other character as decimal mark can now be read in
+  by the dataset reading functions and new function `read_csv2_arrow()` 
+  (#38002).
+
+## Minor improvements and fixes
+
+* Documentation for `CsvParseOptions` object creation now contains more
+  information about default values (@angela-li, #37909).
+* Fixed a code path which may have resulted in R code being called from a
+  non-R thread after a failed allocation (#37565).
+* Fixed a bug where large Parquet files could not be read from R connections
+  (#37274).
+* Bindings to stringr helpers (e.g., `fixed()`, `regex()` etc.) now allow
+  variables to be reliably used in their arguments (#36784).
+* Thrift string and container size limits can now be configured via newly
+  exposed `ParquetReaderProperties`, allowing users to work with Parquet files
+  with unusually large metadata (#36992).
+* Error messages resulting from use of `add_filename()` are improved
+  (@amoeba, #37372).
+
+## Installation
+
+* MacOS builds now use the same installation pathway as on Linux (@assignUser,
+  #37684).
+* A warning message is now issued on package load when running under emulation
+  on MacOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
+* R scripts that run during configuration and installation are now run
+  using the correct R interpreter (@meztez, #37225).
+* Failed libarrow builds now return more detailed output (@amoeba, #37727).
+* `create_package_with_all_dependencies()` now properly escapes paths on
+  Windows (#37226).
+
+# arrow 13.0.0.1
+
+* Remove reference to legacy timezones to prevent CRAN check failures (#37671)
+
+# arrow 13.0.0
+
+## Breaking changes
+
+* Input objects which inherit only from `data.frame` and no other classes now have the `class` attribute dropped, resulting in now always returning tibbles from file reading functions and `arrow_table()`, which results in consistency in the type of returned objects.  Calling `as.data.frame()` on Arrow Tabular objects now always returns a `data.frame` object (#34775)
+
+## New features
+
+* `open_dataset()` now works with ND-JSON files (#35055)
+* Calling `schema()` on multiple Arrow objects now returns the object's schema (#35543)
+* dplyr `.by`/`by` argument now supported in arrow implementation of dplyr verbs  (@eitsupi, #35667)
+* Binding for `dplyr::case_when()` now accepts `.default` parameter to match the update in dplyr 1.1.0 (#35502)
+
+## Minor improvements and fixes
+
+* Convenience function `arrow_array()` can be used to create Arrow Arrays (#36381)
+* Convenience function `scalar()` can be used to create Arrow Scalars  (#36265)
+* Prevent crashed when passing data between arrow and duckdb by always calling `RecordBatchReader::ReadNext()` from DuckDB from the main R thread (#36307)
+* Issue a warning for `set_io_thread_count()` with `num_threads` < 2 (#36304)
+* Ensure missing grouping variables are added to the beginning of the variable list (#36305)
+* CSV File reader options class objects can print the selected values (#35955)
+* Schema metadata can be set as a named character vector (#35954)
+* Ensure that the RStringViewer helper class does not own any Array references (#35812)
+* `strptime()` in arrow will return a timezone-aware timestamp if `%z` is part of the format string (#35671)
+* Column ordering when combining `group_by()` and `across()` now matches dplyr (@eitsupi, #35473)
+
+## Installation
+
+* Link to correct version of OpenSSL when using autobrew (#36551)
+* Require cmake 3.16 in bundled build script (#36321)
+
+## Docs
+
+* Split out R6 classes and convenience functions to improve readability (#36394)
+* Enable pkgdown built-in search (@eitsupi, #36374)
+* Re-organise reference page on pkgdown site to improve readability (#36171)
+
+# arrow 12.0.1.1
+
+* Update a package version reference to be text only instead of numeric due to CRAN update requiring this (#36353, #36364)
 
 # arrow 12.0.1
 

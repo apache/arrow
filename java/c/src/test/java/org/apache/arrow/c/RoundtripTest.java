@@ -535,6 +535,14 @@ public class RoundtripTest {
   }
 
   @Test
+  public void testEmptyListVector() {
+    try (final ListVector vector = ListVector.empty("v", allocator)) {
+      setVector(vector, new ArrayList<Integer>());
+      assertTrue(roundtrip(vector, ListVector.class));
+    }
+  }
+
+  @Test
   public void testLargeListVector() {
     try (final LargeListVector vector = LargeListVector.empty("v", allocator)) {
       setVector(vector, Arrays.stream(new int[] { 1, 2 }).boxed().collect(Collectors.toList()),

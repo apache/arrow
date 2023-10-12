@@ -77,8 +77,7 @@ using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 namespace {
 
 ::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked) {
@@ -259,16 +258,6 @@ class FileReaderImpl : public FileReader {
   Status GetSchema(std::shared_ptr<::arrow::Schema>* out) override {
     return FromParquetSchema(reader_->metadata()->schema(), reader_properties_,
                              reader_->metadata()->key_value_metadata(), out);
-  }
-
-  Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
-    auto included_leaves = VectorToSharedSet(Iota(reader_->metadata()->num_columns()));
-    std::vector<int> row_groups = Iota(reader_->metadata()->num_row_groups());
-
-    std::unique_ptr<ColumnReaderImpl> reader;
-    RETURN_NOT_OK(GetFieldReader(i, included_leaves, row_groups, &reader));
-
-    return ReadColumn(i, row_groups, reader.get(), out);
   }
 
   Status ReadColumn(int i, const std::vector<int>& row_groups, ColumnReader* reader,
@@ -1019,7 +1008,8 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
     for (int row_group : row_groups) {
       int64_t num_rows = parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
 
-      batches.insert(batches.end(), num_rows / batch_size, max_sized_batch);
+      batches.insert(batches.end(), static_cast<size_t>(num_rows / batch_size),
+                     max_sized_batch);
 
       if (int64_t trailing_rows = num_rows % batch_size) {
         batches.push_back(max_sized_batch->Slice(0, trailing_rows));
@@ -1427,5 +1417,4 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
 
 }  // namespace internal
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

@@ -310,17 +310,17 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
       std::unique_ptr<PageWriter> pager;
       if (!codec_options) {
-        pager = PageWriter::Open(sink_, properties_->compression(path), col_meta,
-                                 row_group_ordinal_, static_cast<int16_t>(column_ordinal),
-                                 properties_->memory_pool(), false, meta_encryptor,
-                                 data_encryptor, properties_->page_checksum_enabled(),
-                                 ci_builder, oi_builder, CodecOptions());
+        pager = PageWriter::Open(
+            sink_, properties_->compression(path), col_meta, row_group_ordinal_,
+            static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
+            buffered_row_group_, meta_encryptor, data_encryptor,
+            properties_->page_checksum_enabled(), ci_builder, oi_builder, CodecOptions());
       } else {
-        pager = PageWriter::Open(sink_, properties_->compression(path), col_meta,
-                                 row_group_ordinal_, static_cast<int16_t>(column_ordinal),
-                                 properties_->memory_pool(), false, meta_encryptor,
-                                 data_encryptor, properties_->page_checksum_enabled(),
-                                 ci_builder, oi_builder, *codec_options);
+        pager = PageWriter::Open(
+            sink_, properties_->compression(path), col_meta, row_group_ordinal_,
+            static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
+            buffered_row_group_, meta_encryptor, data_encryptor,
+            properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
       }
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
@@ -471,10 +471,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   void WritePageIndex() {
     if (page_index_builder_ != nullptr) {
-      if (properties_->file_encryption_properties()) {
-        throw ParquetException("Encryption is not supported with page index");
-      }
-
       // Serialize page index after all row groups have been written and report
       // location to the file metadata.
       PageIndexLocation page_index_location;
@@ -533,7 +529,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
 
     if (properties_->page_index_enabled()) {
-      page_index_builder_ = PageIndexBuilder::Make(&schema_);
+      page_index_builder_ = PageIndexBuilder::Make(&schema_, file_encryptor_.get());
     }
   }
 };

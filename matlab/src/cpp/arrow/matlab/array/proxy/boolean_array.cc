@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/matlab/array/proxy/boolean_array.h"
+#include "arrow/matlab/type/proxy/primitive_ctype.h"
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
@@ -24,7 +25,9 @@
 namespace arrow::matlab::array::proxy {
 
         BooleanArray::BooleanArray(std::shared_ptr<arrow::BooleanArray> array) 
-            : arrow::matlab::array::proxy::Array{std::move(array)} {}
+            : arrow::matlab::array::proxy::Array{std::move(array)} {
+                REGISTER_METHOD(BooleanArray, toMATLAB);
+            }
 
         libmexclass::proxy::MakeResult BooleanArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             ::matlab::data::StructArray opts = constructor_arguments[0];
@@ -53,5 +56,4 @@ namespace arrow::matlab::array::proxy {
             auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length);
             context.outputs[0] = logical_array_mda;
         }
-
 }

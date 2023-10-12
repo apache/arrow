@@ -19,6 +19,8 @@ library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
 
 skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 tbl <- example_data
 tbl$verses <- verses[[1]]
