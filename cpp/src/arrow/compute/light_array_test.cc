@@ -202,46 +202,42 @@ TEST(KeyColumnArray, Slice) {
   }
 }
 
-TEST(KeyColumnArray, SliceBool) {
-  constexpr int kValuesByteLength = 2;
-  constexpr int kValidityByteLength = 2;
-  uint8_t validity_buffer[kValidityByteLength];
-  uint8_t values_buffer[kValuesByteLength];
-  int length = 16;
-  KeyColumnMetadata metadata(true, /*byte_width=*/0);
-  KeyColumnArray array(metadata, length, validity_buffer, values_buffer, nullptr);
+struct SliceTestCase {
+  int offset;
+  int length;
+  std::vector<std::string> expected;
+};
 
-  for (int offset : {0, 4, 12}) {
-    ARROW_SCOPED_TRACE("Offset: ", offset);
-    for (int length : {0, 4}) {
-      ARROW_SCOPED_TRACE("Length: ", length);
-      KeyColumnArray sliced = array.Slice(offset, length);
-      int expected_bit_offset = (offset == 0) ? 0 : 4;
-      int expected_byte_offset = (offset == 12) ? 1 : 0;
-      ASSERT_EQ(expected_bit_offset, sliced.bit_offset(0));
-      ASSERT_EQ(expected_bit_offset, sliced.bit_offset(1));
-      ASSERT_EQ(validity_buffer + expected_byte_offset, sliced.mutable_data(0));
-      ASSERT_EQ(values_buffer + expected_byte_offset, sliced.mutable_data(1));
-    }
-  }
-}
-
-TEST(KeyColumnArray, SliceBinary) {
-  auto type = binary();
-  // Sample binary data using ArrayFromJSON
-  std::shared_ptr<Array> array =
-      ArrayFromJSON(type, R"(["Hello", "World", "Slice", "Binary", "Test"])");
-
-  // Create KeyColumnArray from the ArrayData
+template <typename OffsetType>
+void GenericTestSlice(const std::shared_ptr<DataType>& type, const char* json_data,
+                      const std::vector<SliceTestCase>& testCases) {
+  auto array = ArrayFromJSON(type, json_data);
   KeyColumnArray kc_array =
       ColumnArrayFromArrayData(array->data(), 0, array->length()).ValueOrDie();
 
-  // Define test cases
-  struct {
-    int offset;
-    int length;
-    std::vector<std::string> expected;
-  } testCases[] = {
+  for (const auto& testCase : testCases) {
+    ARROW_SCOPED_TRACE("Offset: ", testCase.offset, " Length: ", testCase.length);
+    KeyColumnArray sliced = kc_array.Slice(testCase.offset, testCase.length);
+
+    // Extract binary data from the sliced KeyColumnArray
+    std::vector<std::string> sliced_data;
+    const auto* offset_data = reinterpret_cast<const OffsetType*>(sliced.data(1));
+    const auto* string_data = reinterpret_cast<const char*>(sliced.data(2));
+
+    for (auto i = 0; i < testCase.length; ++i) {
+      auto start = offset_data[i];
+      auto end = offset_data[i + 1];
+      sliced_data.push_back(std::string(string_data + start, string_data + end));
+    }
+
+    // Compare the sliced values to the expected string
+    ASSERT_EQ(testCase.expected, sliced_data);
+  }
+}
+
+TEST(KeyColumnArray, SliceBinaryTest) {
+  const char* json_test_strings = R"(["Hello", "World", "Slice", "Binary", "Test"])";
+  std::vector<SliceTestCase> testCases = {
       {0, 1, {"Hello"}},
       {1, 1, {"World"}},
       {2, 1, {"Slice"}},
@@ -259,85 +255,11 @@ TEST(KeyColumnArray, SliceBinary) {
       {0, 5, {"Hello", "World", "Slice", "Binary", "Test"}},
   };
 
-  for (const auto& testCase : testCases) {
-    ARROW_SCOPED_TRACE("Offset: ", testCase.offset, " Length: ", testCase.length);
-    KeyColumnArray sliced = kc_array.Slice(testCase.offset, testCase.length);
+  // Run tests with binary type
+  GenericTestSlice<int32_t>(binary(), json_test_strings, testCases);
 
-    // Extract binary data from the sliced KeyColumnArray
-    std::vector<std::string> sliced_data;
-
-    const auto* offset_data = reinterpret_cast<const int32_t*>(sliced.data(1));
-    const auto* string_data = reinterpret_cast<const char*>(sliced.data(2));
-
-    for (auto i = 0; i < testCase.length; ++i) {
-      auto start = offset_data[i];
-      auto end = offset_data[i + 1];
-      sliced_data.push_back(std::string(string_data + start, string_data + end));
-    }
-
-    // Compare the sliced values to the expected string
-    ASSERT_EQ(testCase.expected, sliced_data);
-  }
-}
-
-TEST(KeyColumnArray, SliceLargeBinary) {
-  auto type = large_binary();
-  // Sample binary data using ArrayFromJSON
-  std::shared_ptr<Array> array =
-      ArrayFromJSON(type, R"(["Hello", "World", "Slice", "Large", "Binary", "Test"])");
-
-  // Create KeyColumnArray from the ArrayData
-  KeyColumnArray kc_array =
-      ColumnArrayFromArrayData(array->data(), 0, array->length()).ValueOrDie();
-
-  // Define test cases
-  struct {
-    int offset;
-    int length;
-    std::vector<std::string> expected;
-  } testCases[] = {
-      {0, 1, {"Hello"}},
-      {1, 1, {"World"}},
-      {2, 1, {"Slice"}},
-      {3, 1, {"Large"}},
-      {4, 1, {"Binary"}},
-      {5, 1, {"Test"}},
-      {0, 2, {"Hello", "World"}},
-      {1, 2, {"World", "Slice"}},
-      {2, 2, {"Slice", "Large"}},
-      {3, 2, {"Large", "Binary"}},
-      {4, 2, {"Binary", "Test"}},
-      {0, 3, {"Hello", "World", "Slice"}},
-      {1, 3, {"World", "Slice", "Large"}},
-      {2, 3, {"Slice", "Large", "Binary"}},
-      {3, 3, {"Large", "Binary", "Test"}},
-      {0, 4, {"Hello", "World", "Slice", "Large"}},
-      {1, 4, {"World", "Slice", "Large", "Binary"}},
-      {2, 4, {"Slice", "Large", "Binary", "Test"}},
-      {0, 5, {"Hello", "World", "Slice", "Large", "Binary"}},
-      {1, 5, {"World", "Slice", "Large", "Binary", "Test"}},
-      {0, 6, {"Hello", "World", "Slice", "Large", "Binary", "Test"}},
-  };
-
-  for (const auto& testCase : testCases) {
-    ARROW_SCOPED_TRACE("Offset: ", testCase.offset, " Length: ", testCase.length);
-    KeyColumnArray sliced = kc_array.Slice(testCase.offset, testCase.length);
-
-    // Extract binary data from the sliced KeyColumnArray
-    std::vector<std::string> sliced_data;
-
-    const auto* offset_data = reinterpret_cast<const uint64_t*>(sliced.data(1));
-    const auto* string_data = reinterpret_cast<const char*>(sliced.data(2));
-
-    for (auto i = 0; i < testCase.length; ++i) {
-      auto start = offset_data[i];
-      auto end = offset_data[i + 1];
-      sliced_data.push_back(std::string(string_data + start, string_data + end));
-    }
-
-    // Compare the sliced values to the expected string
-    ASSERT_EQ(testCase.expected, sliced_data);
-  }
+  // Run tests with large binary type
+  GenericTestSlice<int64_t>(large_binary(), json_test_strings, testCases);
 }
 
 TEST(ResizableArrayData, Basic) {
