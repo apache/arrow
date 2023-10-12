@@ -144,6 +144,10 @@ download_binary <- function(lib) {
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
+  if (on_windows) {
+    return("windows")
+  }
+
   lib <- tolower(lib)
   if (identical(lib, "")) {
     # Not specified. Check the allowlist.
@@ -152,16 +156,16 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
 
   if (identical(lib, "false")) {
     # Do not download a binary
-    NULL
+    lib <- NULL
   } else if (!identical(lib, "true")) {
     # Env var provided an os-version to use, to override our logic.
     # We don't validate that this exists. If it doesn't, the download will fail
     # and the build will fall back to building from source
-    lib
   } else {
     # See if we can find a suitable binary
-    select_binary()
+    lib <- select_binary()
   }
+  return(lib)
 }
 
 check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt") {
@@ -795,7 +799,6 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
 ############### Main logic #############
 args <- commandArgs(TRUE)
 VERSION <- package_version(args[1])
-dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 # TESTING is set in test-nixlibs.R; it won't be set when called from configure
 test_mode <- exists("TESTING")
@@ -855,14 +858,19 @@ download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 # `create_package_with_all_dependencies()` in install-arrow.R
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
+# configure.win uses a different libarrow dir
+dst_dir <- paste0(ifelse(on_windows, "windows", "libarrow"), "/arrow-", VERSION)
+
 if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
   # If we're working in a local checkout and have already built the libs, we
   # don't need to do anything. Otherwise,
   # (1) Look for a prebuilt binary for this version
   bin_file <- src_dir <- NULL
 
-  if (!identical(Sys.getenv("ARROW_DOWNLOADED_BINARIES"), "")) {
-    bin_zip <- Sys.getenv("ARROW_DOWNLOADED_BINARIES")
+  # Keep backwards compatibility with winlibs.R
+  bin_zip <- Sys.getenv("ARROW_DOWNLOADED_BINARIES", Sys.getenv("RWINLIB_LOCAL", NA))
+
+  if (!is.na(bin_zip)) {
     lg("Using pre-downloaded zip for libarrow binaries: %s", bin_zip)
     if (file.exists(bin_zip)) {
       bin_file <- tempfile()
@@ -884,7 +892,7 @@ if (!test_mode && !file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     dir.create(dst_dir, showWarnings = !quietly, recursive = TRUE)
     unzip(bin_file, exdir = dst_dir)
     unlink(bin_file)
-  } else if (build_ok) {
+  } else if (build_ok && !on_windows) {
     # (2) Find source and build it
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
