@@ -6,6 +6,13 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+// Ensure the included flatbuffers.h is the same version as when this file was
+// generated, otherwise it may not be compatible.
+static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
+              FLATBUFFERS_VERSION_MINOR == 5 &&
+              FLATBUFFERS_VERSION_REVISION == 26,
+             "Non-compatible flatbuffers version included");
+
 #include "Schema_generated.h"
 
 namespace org {
@@ -22,7 +29,7 @@ struct TensorBuilder;
 /// ----------------------------------------------------------------------
 /// Data structures for dense tensors
 /// Shape data for a single axis in a tensor
-struct TensorDim FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct TensorDim FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef TensorDimBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_SIZE = 4,
@@ -33,12 +40,12 @@ struct TensorDim FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return GetField<int64_t>(VT_SIZE, 0);
   }
   /// Name of the dimension, optional
-  const flatbuffers::String *name() const {
-    return GetPointer<const flatbuffers::String *>(VT_NAME);
+  const ::flatbuffers::String *name() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_NAME);
   }
-  bool Verify(flatbuffers::Verifier &verifier) const {
+  bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int64_t>(verifier, VT_SIZE) &&
+           VerifyField<int64_t>(verifier, VT_SIZE, 8) &&
            VerifyOffset(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
            verifier.EndTable();
@@ -47,38 +54,37 @@ struct TensorDim FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 
 struct TensorDimBuilder {
   typedef TensorDim Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
   void add_size(int64_t size) {
     fbb_.AddElement<int64_t>(TensorDim::VT_SIZE, size, 0);
   }
-  void add_name(flatbuffers::Offset<flatbuffers::String> name) {
+  void add_name(::flatbuffers::Offset<::flatbuffers::String> name) {
     fbb_.AddOffset(TensorDim::VT_NAME, name);
   }
-  explicit TensorDimBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit TensorDimBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TensorDimBuilder &operator=(const TensorDimBuilder &);
-  flatbuffers::Offset<TensorDim> Finish() {
+  ::flatbuffers::Offset<TensorDim> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<TensorDim>(end);
+    auto o = ::flatbuffers::Offset<TensorDim>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<TensorDim> CreateTensorDim(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<TensorDim> CreateTensorDim(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t size = 0,
-    flatbuffers::Offset<flatbuffers::String> name = 0) {
+    ::flatbuffers::Offset<::flatbuffers::String> name = 0) {
   TensorDimBuilder builder_(_fbb);
   builder_.add_size(size);
   builder_.add_name(name);
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<TensorDim> CreateTensorDimDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<TensorDim> CreateTensorDimDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t size = 0,
     const char *name = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
@@ -88,7 +94,7 @@ inline flatbuffers::Offset<TensorDim> CreateTensorDimDirect(
       name__);
 }
 
-struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct Tensor FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef TensorBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE_TYPE = 4,
@@ -185,21 +191,21 @@ struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     return type_type() == org::apache::arrow::flatbuf::Type::LargeListView ? static_cast<const org::apache::arrow::flatbuf::LargeListView *>(type()) : nullptr;
   }
   /// The dimensions of the tensor, optionally named
-  const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *>(VT_SHAPE);
+  const ::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *>(VT_SHAPE);
   }
   /// Non-negative byte offsets to advance one value cell along each dimension
   /// If omitted, default to row-major order (C-like).
-  const flatbuffers::Vector<int64_t> *strides() const {
-    return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_STRIDES);
+  const ::flatbuffers::Vector<int64_t> *strides() const {
+    return GetPointer<const ::flatbuffers::Vector<int64_t> *>(VT_STRIDES);
   }
   /// The location and size of the tensor's data
   const org::apache::arrow::flatbuf::Buffer *data() const {
     return GetStruct<const org::apache::arrow::flatbuf::Buffer *>(VT_DATA);
   }
-  bool Verify(flatbuffers::Verifier &verifier) const {
+  bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint8_t>(verifier, VT_TYPE_TYPE) &&
+           VerifyField<uint8_t>(verifier, VT_TYPE_TYPE, 1) &&
            VerifyOffsetRequired(verifier, VT_TYPE) &&
            VerifyType(verifier, type(), type_type()) &&
            VerifyOffsetRequired(verifier, VT_SHAPE) &&
@@ -207,7 +213,7 @@ struct Tensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVectorOfTables(shape()) &&
            VerifyOffset(verifier, VT_STRIDES) &&
            verifier.VerifyVector(strides()) &&
-           VerifyFieldRequired<org::apache::arrow::flatbuf::Buffer>(verifier, VT_DATA) &&
+           VerifyFieldRequired<org::apache::arrow::flatbuf::Buffer>(verifier, VT_DATA, 8) &&
            verifier.EndTable();
   }
 };
@@ -318,31 +324,30 @@ template<> inline const org::apache::arrow::flatbuf::LargeListView *Tensor::type
 
 struct TensorBuilder {
   typedef Tensor Table;
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
   void add_type_type(org::apache::arrow::flatbuf::Type type_type) {
     fbb_.AddElement<uint8_t>(Tensor::VT_TYPE_TYPE, static_cast<uint8_t>(type_type), 0);
   }
-  void add_type(flatbuffers::Offset<void> type) {
+  void add_type(::flatbuffers::Offset<void> type) {
     fbb_.AddOffset(Tensor::VT_TYPE, type);
   }
-  void add_shape(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>> shape) {
+  void add_shape(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>> shape) {
     fbb_.AddOffset(Tensor::VT_SHAPE, shape);
   }
-  void add_strides(flatbuffers::Offset<flatbuffers::Vector<int64_t>> strides) {
+  void add_strides(::flatbuffers::Offset<::flatbuffers::Vector<int64_t>> strides) {
     fbb_.AddOffset(Tensor::VT_STRIDES, strides);
   }
   void add_data(const org::apache::arrow::flatbuf::Buffer *data) {
     fbb_.AddStruct(Tensor::VT_DATA, data);
   }
-  explicit TensorBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit TensorBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TensorBuilder &operator=(const TensorBuilder &);
-  flatbuffers::Offset<Tensor> Finish() {
+  ::flatbuffers::Offset<Tensor> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Tensor>(end);
+    auto o = ::flatbuffers::Offset<Tensor>(end);
     fbb_.Required(o, Tensor::VT_TYPE);
     fbb_.Required(o, Tensor::VT_SHAPE);
     fbb_.Required(o, Tensor::VT_DATA);
@@ -350,13 +355,13 @@ struct TensorBuilder {
   }
 };
 
-inline flatbuffers::Offset<Tensor> CreateTensor(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<Tensor> CreateTensor(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>> shape = 0,
-    flatbuffers::Offset<flatbuffers::Vector<int64_t>> strides = 0,
-    const org::apache::arrow::flatbuf::Buffer *data = 0) {
+    ::flatbuffers::Offset<void> type = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>> shape = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int64_t>> strides = 0,
+    const org::apache::arrow::flatbuf::Buffer *data = nullptr) {
   TensorBuilder builder_(_fbb);
   builder_.add_data(data);
   builder_.add_strides(strides);
@@ -366,14 +371,14 @@ inline flatbuffers::Offset<Tensor> CreateTensor(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Tensor> CreateTensorDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<Tensor> CreateTensorDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     org::apache::arrow::flatbuf::Type type_type = org::apache::arrow::flatbuf::Type::NONE,
-    flatbuffers::Offset<void> type = 0,
-    const std::vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape = nullptr,
+    ::flatbuffers::Offset<void> type = 0,
+    const std::vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape = nullptr,
     const std::vector<int64_t> *strides = nullptr,
-    const org::apache::arrow::flatbuf::Buffer *data = 0) {
-  auto shape__ = shape ? _fbb.CreateVector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>(*shape) : 0;
+    const org::apache::arrow::flatbuf::Buffer *data = nullptr) {
+  auto shape__ = shape ? _fbb.CreateVector<::flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>>(*shape) : 0;
   auto strides__ = strides ? _fbb.CreateVector<int64_t>(*strides) : 0;
   return org::apache::arrow::flatbuf::CreateTensor(
       _fbb,
@@ -385,32 +390,32 @@ inline flatbuffers::Offset<Tensor> CreateTensorDirect(
 }
 
 inline const org::apache::arrow::flatbuf::Tensor *GetTensor(const void *buf) {
-  return flatbuffers::GetRoot<org::apache::arrow::flatbuf::Tensor>(buf);
+  return ::flatbuffers::GetRoot<org::apache::arrow::flatbuf::Tensor>(buf);
 }
 
 inline const org::apache::arrow::flatbuf::Tensor *GetSizePrefixedTensor(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<org::apache::arrow::flatbuf::Tensor>(buf);
+  return ::flatbuffers::GetSizePrefixedRoot<org::apache::arrow::flatbuf::Tensor>(buf);
 }
 
 inline bool VerifyTensorBuffer(
-    flatbuffers::Verifier &verifier) {
+    ::flatbuffers::Verifier &verifier) {
   return verifier.VerifyBuffer<org::apache::arrow::flatbuf::Tensor>(nullptr);
 }
 
 inline bool VerifySizePrefixedTensorBuffer(
-    flatbuffers::Verifier &verifier) {
+    ::flatbuffers::Verifier &verifier) {
   return verifier.VerifySizePrefixedBuffer<org::apache::arrow::flatbuf::Tensor>(nullptr);
 }
 
 inline void FinishTensorBuffer(
-    flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Tensor> root) {
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::Tensor> root) {
   fbb.Finish(root);
 }
 
 inline void FinishSizePrefixedTensorBuffer(
-    flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::Tensor> root) {
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::Tensor> root) {
   fbb.FinishSizePrefixed(root);
 }
 
