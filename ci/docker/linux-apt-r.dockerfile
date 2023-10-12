@@ -57,7 +57,8 @@ RUN apt-get update -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install TinyTex
+# Install TinyTex:
+# R CMD CHECK --as-cran needs pdflatex to build the package manual
 RUN wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh
 
 ARG gcc_version=""
