@@ -87,7 +87,7 @@ void PrettyPrinter::OpenArray(const Array& array) {
   if (!options_.skip_new_lines) {
     Indent();
   }
-  (*sink_) << "[";
+  (*sink_) << options_.array_delimiters.open;
   if (array.length() > 0) {
     Newline();
     indent_ += options_.indent_size;
@@ -101,7 +101,7 @@ void PrettyPrinter::CloseArray(const Array& array) {
       Indent();
     }
   }
-  (*sink_) << "]";
+  (*sink_) << options_.array_delimiters.close;
 }
 
 void PrettyPrinter::Write(std::string_view data) { (*sink_) << data; }
@@ -449,7 +449,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
   }
-  (*sink) << "[";
+  (*sink) << options.chunked_array_delimiters.open;
   if (!skip_new_lines) {
     *sink << "\n";
   }
@@ -488,7 +488,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
   }
-  (*sink) << "]";
+  (*sink) << options.chunked_array_delimiters.close;
 
   return Status::OK();
 }
