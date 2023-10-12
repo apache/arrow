@@ -33,7 +33,6 @@
 #' - `$id`: integer Arrow type id.
 #' - `$name`: string Arrow type name.
 #' - `$num_fields`: number of child fields.
-#' - `$code_name`: Name of the call used by code().
 #'
 #' @seealso [infer_type()]
 #' @rdname DataType-class
@@ -52,7 +51,7 @@ DataType <- R6Class("DataType",
       DataType__fields(self)
     },
     export_to_c = function(ptr) ExportType(self, ptr),
-    code = function(explicit_pkg_name = FALSE) call(add_pkg_name(self$code_name(), explicit_pkg_name = explicit_pkg_name))
+    code = function(explicit_pkg_name=FALSE) call2(private$call_name(), .ns=get_pkg_ns(explicit_pkg_name))
   ),
   active = list(
     id = function() DataType__id(self),
@@ -60,7 +59,7 @@ DataType <- R6Class("DataType",
     num_fields = function() DataType__num_fields(self)
   ),
   private = list(
-    code_name = function() call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
+    call_name = function() call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
   )
 )
 
@@ -165,7 +164,7 @@ FixedWidthType <- R6Class("FixedWidthType",
     bit_width = function() FixedWidthType__bit_width(self)
   ),
   private = list(
-    code_name = function() tolower(self$name)
+    call_name = function() tolower(self$name)
   )
 )
 
@@ -182,32 +181,32 @@ Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64",
   inherit = FixedWidthType,
   private = list(
-    code_name = function() "float64"
+    call_name = function() "float64"
   )
 )
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8",
   inherit = DataType,
   private = list(
-    code_name = function() "utf8"
+    call_name = function() "utf8"
   )
 )
 LargeUtf8 <- R6Class("LargeUtf8",
   inherit = DataType,
   private = list(
-    code_name = function() "large_utf8"
+    call_name = function() "large_utf8"
   )
 )
 Binary <- R6Class("Binary",
   inherit = DataType,
   private = list(
-    code_name = function() "binary"
+    call_name = function() "binary"
   )
 )
 LargeBinary <- R6Class("LargeBinary",
   inherit = DataType,
   private = list(
-    code_name = function() "large_binary"
+    call_name = function() "large_binary"
   )
 )
 FixedSizeBinary <- R6Class("FixedSizeBinary",
@@ -215,26 +214,21 @@ FixedSizeBinary <- R6Class("FixedSizeBinary",
   public = list(
     byte_width = function() FixedSizeBinary__byte_width(self),
     code = function(explicit_pkg_name = FALSE) {
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
-      call2(call_name, byte_width = self$byte_width())
+      call2(private$call_name(), byte_width = self$byte_width(), .ns=get_pkg_ns(explicit_pkg_name))
     }
   ),
   private = list(
-    code_name = function() "fixed_size_binary"
+    call_name = function() "fixed_size_binary"
   )
 )
 
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
   public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
-      call2(call_name)
-    },
     unit = function() DateType__unit(self)
   ),
   private = list(
-    code_name = function() tolower(self$name)
+    call_name = function() tolower(self$name)
   )
 )
 Date32 <- R6Class("Date32", inherit = DateType)
@@ -255,12 +249,11 @@ Time32 <- R6Class("Time32",
       } else {
         "s"
       }
-      call_name <- add_pkg_name(self$code_name, explicit_pkg_name)
-      call2(call_name, unit = unit)
+      call2(private$call_name, unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
     }
   ),
   private = list(
-    code_name = function() "time32"
+    call_name = function() "time32"
   )
 )
 Time64 <- R6Class("Time64",
@@ -272,12 +265,11 @@ Time64 <- R6Class("Time64",
       } else {
         "us"
       }
-      call_name <- add_pkg_name(self$code_name, explicit_pkg_name)
-      call2(call_name, unit = unit)
+      call2(private$call_name, unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
     }
   ),
   private = list(
-    code_name = function() "time64"
+    call_name = function() "time64"
   )
 )
 
@@ -291,7 +283,7 @@ DurationType <- R6Class("DurationType",
 Null <- R6Class("Null",
   inherit = DataType,
   private = list(
-    code_name = function() "null"
+    call_name = function() "null"
   )
 )
 
@@ -301,19 +293,17 @@ Timestamp <- R6Class("Timestamp",
     code = function(explicit_pkg_name = FALSE) {
       unit <- c("s", "ms", "us", "ns")[self$unit() + 1L]
       tz <- self$timezone()
-
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
       if (identical(tz, "")) {
-        call2(call_name, unit = unit)
+        call2(private$call_name, unit = unit, .ns = get_pkg_ns(explicit_pkg_name))
       } else {
-        call2(call_name, unit = unit, timezone = tz)
+        call2(private$call_name, unit = unit, timezone = tz, .ns = get_pkg_ns(explicit_pkg_name))
       }
     },
     timezone = function() TimestampType__timezone(self),
     unit = function() TimestampType__unit(self)
   ),
   private = list(
-    code_name = function() "timestamp"
+    call_name = function() "timestamp"
   )
 )
 
@@ -321,14 +311,13 @@ DecimalType <- R6Class("DecimalType",
   inherit = FixedWidthType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
-      call2(call_name, precision = self$precision(), scale = self$scale())
+      call2(private$call_name, precision = self$precision(), scale = self$scale(), .ns = get_pkg_ns(explicit_pkg_name))
     },
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
   ),
   private = list(
-    code_name = function() "decimal"
+    call_name = function() "decimal"
   )
 )
 
@@ -664,14 +653,13 @@ StructType <- R6Class("StructType",
         self$GetFieldByName(name)$type$code()
       })
       codes <- set_names(codes, field_names)
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
-      call2(call_name, !!!codes)
+      call2(private$call_name, !!!codes, .ns = get_pkg_ns(explicit_pkg_name))
     },
     GetFieldByName = function(name) StructType__GetFieldByName(self, name),
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
   ),
   private = list(
-    code_name = function() "struct"
+    call_name = function() "struct"
   )
 )
 StructType$create <- function(...) struct__(.fields(list(...)))
@@ -687,8 +675,7 @@ ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
-      call(call_name, self$value_type$code())
+      call2(private$call_name, self$value_type$code(), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
@@ -696,7 +683,7 @@ ListType <- R6Class("ListType",
     value_type = function() ListType__value_type(self)
   ),
   private = list(
-    code_name = function() "list_of"
+    call_name = function() "list_of"
   )
 )
 
@@ -708,8 +695,7 @@ LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
-      call2(call_name, self$value_type$code())
+      call2(private$call_name, self$value_type$code(), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
@@ -717,7 +703,7 @@ LargeListType <- R6Class("LargeListType",
     value_type = function() LargeListType__value_type(self)
   ),
   private = list(
-    code_name = function() "large_list_of"
+    call_name = function() "large_list_of"
   )
 )
 
@@ -731,8 +717,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function(explicit_pkg_name = FALSE) {
-      call_name <- add_pkg_name(self$code_name(), explicit_pkg_name)
-      call2(call_name, self$value_type$code(), list_size = self$list_size)
+      call2(private$call_name, self$value_type$code(), .ns = get_pkg_ns(explicit_pkg_name))
     }
   ),
   active = list(
@@ -741,7 +726,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
     list_size = function() FixedSizeListType__list_size(self)
   ),
   private = list(
-    code_name = function() "fixed_size_list_of"
+    call_name = function() "fixed_size_list_of"
   )
 )
 

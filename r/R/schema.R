@@ -111,12 +111,10 @@ Schema <- R6Class("Schema",
     code = function(explicit_pkg_name = FALSE) {
       names <- self$names
       codes <- map2(names, self$fields, function(name, field) {
-        field$type$code(explicit_pkg_name)
+        field$type$code(explicit_pkg_name = explicit_pkg_name)
       })
       codes <- set_names(codes, names)
-
-      call_name <- add_pkg_name("schema", explicit_pkg_name)
-      call2(call_name, !!!codes)
+      call2(private$call_name(), !!!codes, .ns = get_pkg_ns(explicit_pkg_name))
     },
     WithNames = function(names) {
       if (!inherits(names, "character")) {
@@ -184,6 +182,9 @@ Schema <- R6Class("Schema",
         self
       }
     }
+  ),
+  private = list(
+    call_name = function() "schema"
   )
 )
 Schema$create <- function(...) {

@@ -263,7 +263,9 @@ check_named_cols <- function(df) {
   }
 }
 
-add_pkg_name <- function(x, explicit_pkg_name) {
-  if(!explicit_pkg_name) x
-  else paste0("arrow::", x)
+#' Prepares the value of `.ns` to use with `rlang::call2()`
+#'
+#' @param explicit_pkg_name Whether to include the package name or not.
+get_pkg_ns <- function(explicit_pkg_name) {
+  if(explicit_pkg_name) getPackageName() else NULL
 }

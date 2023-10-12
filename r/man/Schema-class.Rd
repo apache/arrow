@@ -24,6 +24,7 @@ Many Arrow objects, including \link{Table} and \link{Dataset}, have a \verb{$sch
 \item \verb{$WithMetadata(metadata)}: returns a new \code{Schema} with the key-value
 \code{metadata} set. Note that all list elements in \code{metadata} will be coerced
 to \code{character}.
+\item \verb{$code(explicit_pkg_name)}: Produces an R call for the schema. Use \code{explicit_pkg_name=TRUE} to call with \verb{arrow::}.
 }
 }
 

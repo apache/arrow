@@ -13,7 +13,7 @@ DataType class
 \item \verb{$ToString()}: String representation of the DataType
 \item \verb{$Equals(other)}: Is the DataType equal to \code{other}
 \item \verb{$fields()}: The children fields associated with this type
-\item \verb{$code()}: Produces an R call of the data type.
+\item \verb{$code(explicit_pkg_name)}: Produces an R call of the data type. Use \code{explicit_pkg_name=TRUE} to call with \verb{arrow::}.
 }
 
 There are also some active bindings:
