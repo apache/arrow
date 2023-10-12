@@ -215,12 +215,12 @@ func (r *OCFReader) editAvroSchema(e schemaEdit) error {
 	case "set":
 		r.avroSchema, err = sjson.Set(r.avroSchema, e.path, e.value)
 		if err != nil {
-			return fmt.Errorf("%w: schema edit 'set %s = %v' failure - %w", arrow.ErrInvalid, e.path, e.value, err)
+			return fmt.Errorf("%w: schema edit 'set %s = %v' failure - %v", arrow.ErrInvalid, e.path, e.value, err)
 		}
 	case "delete":
 		r.avroSchema, err = sjson.Delete(r.avroSchema, e.path)
 		if err != nil {
-			return fmt.Errorf("%w: schema edit 'delete' failure - %w", arrow.ErrInvalid, err)
+			return fmt.Errorf("%w: schema edit 'delete' failure - %v", arrow.ErrInvalid, err)
 		}
 	default:
 		return fmt.Errorf("%w: schema edit method must be 'set' or 'delete'", arrow.ErrInvalid)

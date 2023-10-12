@@ -263,49 +263,48 @@ func (f *fieldPos) newChild(childName string, childBuilder array.Builder, meta a
 	if f.isList {
 		child.isItem = true
 	}
-	child.path = child.namePath()
+	child.path = child.buildNamePath()
 	f.childrens = append(f.childrens, &child)
 	return &child
 }
 
-// NamePath returns a slice of keys making up the path to the field
-func (f *fieldPos) namePath() []string {
-	if len(f.path) == 0 {
-		var path []string
-		var listPath []string
-		cur := f
-		for i := f.depth - 1; i >= 0; i-- {
-			if cur.typeName == "" {
-				path = append([]string{cur.fieldName}, path...)
-			} else {
-				path = append([]string{cur.fieldName, cur.typeName}, path...)
-			}
-			if !cur.parent.isMap {
-				cur = cur.parent
-			}
+func (f *fieldPos) buildNamePath() []string {
+	var path []string
+	var listPath []string
+	cur := f
+	for i := f.depth - 1; i >= 0; i-- {
+		if cur.typeName == "" {
+			path = append([]string{cur.fieldName}, path...)
+		} else {
+			path = append([]string{cur.fieldName, cur.typeName}, path...)
 		}
-		if f.parent.parent != nil && f.parent.parent.isList {
-			for i := len(path) - 1; i >= 0; i-- {
-				if path[i] != "item" {
-					listPath = append([]string{path[i]}, listPath...)
-				} else {
-					return listPath
-				}
-			}
+		if !cur.parent.isMap {
+			cur = cur.parent
 		}
-		if f.parent != nil && f.parent.fieldName == "value" {
-			for i := len(path) - 1; i >= 0; i-- {
-				if path[i] != "value" {
-					listPath = append([]string{path[i]}, listPath...)
-				} else {
-					return listPath
-				}
-			}
-		}
-		return path
 	}
-	return f.path
+	if f.parent.parent != nil && f.parent.parent.isList {
+		for i := len(path) - 1; i >= 0; i-- {
+			if path[i] != "item" {
+				listPath = append([]string{path[i]}, listPath...)
+			} else {
+				return listPath
+			}
+		}
+	}
+	if f.parent != nil && f.parent.fieldName == "value" {
+		for i := len(path) - 1; i >= 0; i-- {
+			if path[i] != "value" {
+				listPath = append([]string{path[i]}, listPath...)
+			} else {
+				return listPath
+			}
+		}
+	}
+	return path
 }
+
+// NamePath returns a slice of keys making up the path to the field
+func (f *fieldPos) namePath() []string { return f.path }
 
 // GetValue retrieves the value from the map[string]any
 // by following the field's key path

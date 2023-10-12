@@ -225,9 +225,8 @@ func TestEditSchemaStringEqual(t *testing.T) {
 			}`,
 			arrowSchema: []arrow.Field{
 				{
-					Name:     "explicitNamespace",
-					Type:     &arrow.FixedSizeBinaryType{ByteWidth: 12},
-					Nullable: true,
+					Name: "explicitNamespace",
+					Type: &arrow.FixedSizeBinaryType{ByteWidth: 12},
 				},
 				{
 					Name: "fullName",
@@ -241,17 +240,14 @@ func TestEditSchemaStringEqual(t *testing.T) {
 							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16},
 						},
 					),
-					Nullable: true,
 				},
 				{
-					Name:     "id",
-					Type:     arrow.PrimitiveTypes.Int32,
-					Nullable: true,
+					Name: "id",
+					Type: arrow.PrimitiveTypes.Int32,
 				},
 				{
-					Name:     "bigId",
-					Type:     arrow.PrimitiveTypes.Int64,
-					Nullable: true,
+					Name: "bigId",
+					Type: arrow.PrimitiveTypes.Int64,
 				},
 				{
 					Name:     "temperature",
@@ -264,9 +260,8 @@ func TestEditSchemaStringEqual(t *testing.T) {
 					Nullable: true,
 				},
 				{
-					Name:     "is_emergency",
-					Type:     arrow.FixedWidthTypes.Boolean,
-					Nullable: true,
+					Name: "is_emergency",
+					Type: arrow.FixedWidthTypes.Boolean,
 				},
 				{
 					Name:     "remote_ip",
@@ -277,25 +272,21 @@ func TestEditSchemaStringEqual(t *testing.T) {
 					Name: "person",
 					Type: arrow.StructOf(
 						arrow.Field{
-							Name:     "lastname",
-							Type:     arrow.BinaryTypes.String,
-							Nullable: true,
+							Name: "lastname",
+							Type: arrow.BinaryTypes.String,
 						},
 						arrow.Field{
 							Name: "address",
 							Type: arrow.StructOf(
 								arrow.Field{
-									Name:     "streetaddress",
-									Type:     arrow.BinaryTypes.String,
-									Nullable: true,
+									Name: "streetaddress",
+									Type: arrow.BinaryTypes.String,
 								},
 								arrow.Field{
-									Name:     "city",
-									Type:     arrow.BinaryTypes.String,
-									Nullable: true,
+									Name: "city",
+									Type: arrow.BinaryTypes.String,
 								},
 							),
-							Nullable: true,
 						},
 						arrow.Field{
 							Name:     "mapfield",
@@ -303,52 +294,42 @@ func TestEditSchemaStringEqual(t *testing.T) {
 							Nullable: true,
 						},
 						arrow.Field{
-							Name:     "arrayField",
-							Type:     arrow.ListOf(arrow.BinaryTypes.String),
-							Nullable: true,
+							Name: "arrayField",
+							Type: arrow.ListOfNonNullable(arrow.BinaryTypes.String),
 						},
 					),
-					Nullable: true,
 				},
 				{
-					Name:     "decimalField",
-					Type:     &arrow.Decimal128Type{Precision: 4, Scale: 2},
-					Nullable: true,
+					Name: "decimalField",
+					Type: &arrow.Decimal128Type{Precision: 4, Scale: 2},
 				},
 				{
-					Name:     "uuidField",
-					Type:     arrow.BinaryTypes.String,
-					Nullable: true,
+					Name: "uuidField",
+					Type: arrow.BinaryTypes.String,
 				},
 				{
-					Name:     "timemillis",
-					Type:     arrow.FixedWidthTypes.Time32ms,
-					Nullable: true,
+					Name: "timemillis",
+					Type: arrow.FixedWidthTypes.Time32ms,
 				},
 				{
-					Name:     "timemicros",
-					Type:     arrow.FixedWidthTypes.Time64us,
-					Nullable: true,
+					Name: "timemicros",
+					Type: arrow.FixedWidthTypes.Time64us,
 				},
 				{
-					Name:     "timestampmillis",
-					Type:     arrow.FixedWidthTypes.Timestamp_ms,
-					Nullable: true,
+					Name: "timestampmillis",
+					Type: arrow.FixedWidthTypes.Timestamp_ms,
 				},
 				{
-					Name:     "timestampmicros",
-					Type:     arrow.FixedWidthTypes.Timestamp_us,
-					Nullable: true,
+					Name: "timestampmicros",
+					Type: arrow.FixedWidthTypes.Timestamp_us,
 				},
 				{
-					Name:     "duration",
-					Type:     arrow.FixedWidthTypes.MonthDayNanoInterval,
-					Nullable: true,
+					Name: "duration",
+					Type: arrow.FixedWidthTypes.MonthDayNanoInterval,
 				},
 				{
-					Name:     "date",
-					Type:     arrow.FixedWidthTypes.Date32,
-					Nullable: true,
+					Name: "date",
+					Type: arrow.FixedWidthTypes.Date32,
 				},
 			},
 		},
