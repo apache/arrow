@@ -404,7 +404,8 @@ jobs:
           rm -rf arrow/
       - name: Enable parallel build
         run: |
-          echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
+          cores=`nproc || sysctl -n hw.logicalcpu`
+          echo "MAKEFLAGS=-j$cores" >> $GITHUB_ENV
       - name: Install arrow source package
         env:
           # Test source build so be sure not to download a binary
