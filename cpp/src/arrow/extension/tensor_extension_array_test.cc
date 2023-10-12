@@ -492,7 +492,7 @@ class TestVariableShapeTensorType : public ::testing::Test {
     shape_type_ = fixed_size_list(uint32(), ndim_);
     permutation_ = {0, 1, 2};
     dim_names_ = {"x", "y", "z"};
-    uniform_shape_ = {0, 1, 0};
+    uniform_shape_ = {std::nullopt, std::optional<int64_t>(1), std::nullopt};
     ext_type_ = internal::checked_pointer_cast<ExtensionType>(variable_shape_tensor(
         value_type_, ndim_, permutation_, dim_names_, uniform_shape_));
     shapes_ =
@@ -500,7 +500,7 @@ class TestVariableShapeTensorType : public ::testing::Test {
     data_ = ArrayFromJSON(list(value_type_),
                           "[[0,1,2,3,4,5],[6,7,8,9],[10,11,12,13,14,15,16,17,18]]");
     serialized_ =
-        R"({"permutation":[0,1,2],"dim_names":["x","y","z"],"uniform_shape":[0,1,0]})";
+        R"({"permutation":[0,1,2],"dim_names":["x","y","z"],"uniform_shape":[null,1,null]})";
     storage_arr_ = ArrayFromJSON(
         ext_type_->storage_type(),
         R"([[[2,3,1],[0,1,2,3,4,5]],[[1,2,2],[6,7,8,9]],[[3,1,3],[10,11,12,13,14,15,16,17,18]]])");
@@ -514,7 +514,7 @@ class TestVariableShapeTensorType : public ::testing::Test {
   std::shared_ptr<DataType> data_type_;
   std::shared_ptr<DataType> shape_type_;
   std::vector<int64_t> permutation_;
-  std::vector<int64_t> uniform_shape_;
+  std::vector<std::optional<int64_t>> uniform_shape_;
   std::vector<std::string> dim_names_;
   std::shared_ptr<ExtensionType> ext_type_;
   std::shared_ptr<Array> shapes_;
