@@ -798,16 +798,17 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
 
 ############### Main logic #############
 args <- commandArgs(TRUE)
-VERSION <- package_version(args[1])
+VERSION <- args[1]
 
 # TESTING is set in test-nixlibs.R; it won't be set when called from configure
 test_mode <- exists("TESTING")
 
 # Prevent error with binary selection during testing.
 if (test_mode && is.na(VERSION)) {
-  VERSION <- package_version("8.0.0.9000")
+  VERSION <- "8.0.0.9000"
 }
 
+VERSION <- package_version(VERSION)
 dev_version <- VERSION[1, 4]
 # Small dev versions are added for R-only changes during CRAN submission
 is_release <- is.na(dev_version) || dev_version < "100"
