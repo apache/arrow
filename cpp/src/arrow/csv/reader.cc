@@ -403,8 +403,6 @@ class BlockParsingOperator {
         num_rows_seen_(first_row) {}
 
   Result<ParsedBlock> operator()(const CSVBlock& block) {
-    util::tracing::Span span;
-    START_SPAN(span, "arrow::csv::BlockParsingOperator");
     constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
     auto parser = std::make_shared<BlockParser>(
         io_context_.pool(), parse_options_, num_csv_cols_, num_rows_seen_, max_num_rows);
@@ -435,7 +433,6 @@ class BlockParsingOperator {
       num_rows_seen_ += parser->total_num_rows();
     }
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
-    ATTRIBUTE_ON_CURRENT_SPAN("parsed_size", parsed_size);
     return ParsedBlock{std::move(parser), block.block_index,
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
   }
@@ -453,8 +450,6 @@ class BlockParsingOperator {
 class BlockDecodingOperator {
  public:
   Future<DecodedBlock> operator()(const ParsedBlock& block) {
-    util::tracing::Span span;
-    START_SPAN(span, "arrow::csv::BlockDecodingOperator");
     DCHECK(!state_->column_decoders.empty());
     std::vector<Future<std::shared_ptr<Array>>> decoded_array_futs;
     for (auto& decoder : state_->column_decoders) {
@@ -463,23 +458,6 @@ class BlockDecodingOperator {
     auto bytes_parsed_or_skipped = block.bytes_parsed_or_skipped;
     auto decoded_arrays_fut = All(std::move(decoded_array_futs));
     auto state = state_;
-#ifdef ARROW_WITH_OPENTELEMETRY
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
-    return decoded_arrays_fut.Then(
-        [state, bytes_parsed_or_skipped, raw_span](
-            const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
-            -> Result<DecodedBlock> {
-          ARROW_ASSIGN_OR_RAISE(auto decoded_arrays,
-                                arrow::internal::UnwrapOrRaise(maybe_decoded_arrays));
-
-          ARROW_ASSIGN_OR_RAISE(auto batch,
-                                state->DecodedArraysToBatch(std::move(decoded_arrays)));
-          raw_span->SetAttribute("arrow.csv.output_batch_size_bytes",
-                                 util::TotalBufferSize(*batch));
-          return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
-        });
-#else
     return decoded_arrays_fut.Then(
         [state, bytes_parsed_or_skipped](
             const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
@@ -491,7 +469,6 @@ class BlockDecodingOperator {
                                 state->DecodedArraysToBatch(std::move(decoded_arrays)));
           return DecodedBlock{std::move(batch), bytes_parsed_or_skipped};
         });
-#endif
   }
 
   static Result<BlockDecodingOperator> Make(io::IOContext io_context,
@@ -908,25 +885,7 @@ class StreamingReaderImpl : public ReaderMixin,
   Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
     util::tracing::Span span;
     START_SPAN(span, "arrow::csv::ReadNextAsync");
-    auto future = record_batch_gen_();
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto longer_living_span = std::make_unique<util::tracing::Span>(std::move(span));
-    future.AddCallback(
-        [span = std::move(longer_living_span)](
-            const arrow::Result<std::shared_ptr<arrow::RecordBatch>>& result) {
-          opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-              ::arrow::internal::tracing::UnwrapSpan(span->details.get());
-          if (result.ok()) {
-            auto result_batch = result.ValueOrDie();
-            if (result_batch) {
-              raw_span->SetAttribute("batch.size_bytes",
-                                     ::arrow::util::TotalBufferSize(*result_batch));
-            }
-          }
-          END_SPAN((*span));
-        });
-#endif
-    return future;
+    return record_batch_gen_();
   }
 
  protected:
@@ -936,9 +895,6 @@ class StreamingReaderImpl : public ReaderMixin,
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
-
-    util::tracing::Span init_span;
-    START_SPAN(init_span, "arrow::csv::InitAfterFirstBuffer");
 
     // Create a arrow::csv::ReadNextAsync span so that grouping by that name does not
     // ignore the work performed for this first block.
@@ -964,23 +920,10 @@ class StreamingReaderImpl : public ReaderMixin,
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
-    auto init_finished = rb_gen().Then([self, rb_gen, max_readahead
-#ifdef ARROW_WITH_OPENTELEMETRY
-                                        ,
-                                        init_span = std::move(init_span),
+    auto init_finished = rb_gen().Then([self, rb_gen, max_readahead,
                                         read_span = std::move(read_span)
-#endif
     ](const DecodedBlock& first_block) {
-      auto fut = self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
-#ifdef ARROW_WITH_OPENTELEMETRY
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-          ::arrow::internal::tracing::UnwrapSpan(read_span.details.get());
-      raw_span->SetAttribute("batch.size_bytes",
-                             util::TotalBufferSize(*first_block.record_batch));
-#endif
-      END_SPAN(read_span);
-      END_SPAN(init_span);
-      return fut;
+      return self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
     });
     return init_finished;
   }

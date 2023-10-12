@@ -212,9 +212,6 @@ class DatasetWriterFileQueue {
       START_SPAN(span, "DatasetWriter::Push",
                  {{"batch.size_rows", batch->num_rows()},
                   {"rows_currently_staged", rows_currently_staged_},
-                  // staged_rows_count is updated at the end, after this push and possibly
-                  // multiple pops
-                  //        {"staged_rows_count", writer_state_->staged_rows_count},
                   {"options_.min_rows_per_group", options_.min_rows_per_group},
                   {"max_rows_staged", writer_state_->max_rows_staged}});
       staged_batches_.push_back(std::move(batch));

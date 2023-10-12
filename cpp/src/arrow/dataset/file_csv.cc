@@ -278,11 +278,6 @@ static inline Result<csv::ReadOptions> GetReadOptions(
 static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto tracer = arrow::internal::tracing::GetTracer();
-  // This span also captures task submission, possibly including wait time
-  auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
-#endif
   ARROW_ASSIGN_OR_RAISE(
       auto fragment_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
@@ -301,8 +296,6 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
   // input->Peek call blocks so we run the whole thing on the I/O thread pool.
   auto reader_fut = DeferNotOk(input->io_context().executor()->Submit(
       [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
-        util::tracing::Span lambda_span;
-        START_SPAN(lambda_span, "arrow::csv::PeekAndMakeAsync", {{"threadpool", "IO"}});
 
         ARROW_ASSIGN_OR_RAISE(auto first_block, input->Peek(reader_options.block_size));
         const auto& parse_options = format.parse_options;
@@ -310,30 +303,17 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
             auto convert_options,
             GetConvertOptions(format, scan_options ? scan_options.get() : nullptr,
                               first_block));
-        auto fut = csv::StreamingReader::MakeAsync(
+        return csv::StreamingReader::MakeAsync(
             io::default_io_context(), std::move(input), cpu_executor, reader_options,
             parse_options, convert_options);
-        return fut.Then([lambda_span = std::move(lambda_span)](
-                            const std::shared_ptr<csv::StreamingReader>& reader) {
-          END_SPAN(lambda_span);
-          return reader;
-        });
       }));
   return reader_fut.Then(
       // Adds the filename to the error
       [=](const std::shared_ptr<csv::StreamingReader>& reader)
           -> Result<std::shared_ptr<csv::StreamingReader>> {
-#ifdef ARROW_WITH_OPENTELEMETRY
-        span->SetStatus(opentelemetry::trace::StatusCode::kOk);
-        span->End();
-#endif
         return reader;
       },
       [=](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
-#ifdef ARROW_WITH_OPENTELEMETRY
-        arrow::internal::tracing::MarkSpan(err, span.get());
-        span->End();
-#endif
         return err.WithMessage("Could not open CSV input source '", path, "': ", err);
       });
 }
