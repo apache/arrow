@@ -270,6 +270,7 @@ wslify_path <- function(path) {
 }
 
 on_rosetta <- function() {
+  # make sure to suppress warnings and ignore the stderr so that this is silent where proc_translated doesn't exist
   identical(tolower(Sys.info()[["sysname"]]), "darwin") &&
-    identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
+    identical(suppressWarnings(system("sysctl -n sysctl.proc_translated", intern = TRUE, ignore.stderr = TRUE)), "1")
 }
