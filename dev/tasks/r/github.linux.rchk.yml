@@ -35,7 +35,7 @@ jobs:
       - uses: r-lib/actions/setup-pandoc@v2
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          working-directory: 'r'
+          working-directory: 'arrow/r'
           extra-packages: |
             any::rcmdcheck
       - name: Build arrow package
