@@ -47,8 +47,6 @@ RUN apt-get update -y && \
         libxml2-dev \
         libgit2-dev \
         libssl-dev \
-        # R CMD CHECK --as-cran needs pdflatex to build the package manual
-        texlive-latex-base \
         # Need locales so we can set UTF-8
         locales \
         # Need Python to check py-to-r bridge
@@ -58,6 +56,9 @@ RUN apt-get update -y && \
     locale-gen en_US.UTF-8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install TinyTex
+RUN wget -qO- "https://yihui.org/tinytex/install-bin-unix.sh" | sh
 
 ARG gcc_version=""
 RUN if [ "${gcc_version}" != "" ]; then \
