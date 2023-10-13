@@ -27,7 +27,7 @@
 #' - `$ToString()`: String representation of the DataType
 #' - `$Equals(other)`: Is the DataType equal to `other`
 #' - `$fields()`: The children fields associated with this type
-#' - `$code(explicit_pkg_name)`: Produces an R call of the data type. Use `explicit_pkg_name=TRUE` to call with `arrow::`.
+#' - `$code(namespace)`: Produces an R call for the schema. Use `namespace=TRUE` to call with `arrow::`.
 #'
 #' There are also some active bindings:
 #' - `$id`: integer Arrow type id.
@@ -39,28 +39,25 @@
 #' @name DataType
 #' @seealso [`data-type`]
 DataType <- R6Class("DataType",
-  inherit = ArrowObject,
-  public = list(
-    ToString = function() {
-      DataType__ToString(self)
-    },
-    Equals = function(other, check_metadata = FALSE, ...) {
-      inherits(other, "DataType") && DataType__Equals(self, other, isTRUE(check_metadata))
-    },
-    fields = function() {
-      DataType__fields(self)
-    },
-    export_to_c = function(ptr) ExportType(self, ptr),
-    code = function(explicit_pkg_name=FALSE) call2(private$call_name(), .ns=get_pkg_ns(explicit_pkg_name))
-  ),
-  active = list(
-    id = function() DataType__id(self),
-    name = function() DataType__name(self),
-    num_fields = function() DataType__num_fields(self)
-  ),
-  private = list(
-    call_name = function() call("stop", paste0("Unsupported type: <", self$ToString(), ">."))
-  )
+                    inherit = ArrowObject,
+                    public = list(
+                      ToString = function() {
+                        DataType__ToString(self)
+                      },
+                      Equals = function(other, check_metadata = FALSE, ...) {
+                        inherits(other, "DataType") && DataType__Equals(self, other, isTRUE(check_metadata))
+                      },
+                      fields = function() {
+                        DataType__fields(self)
+                      },
+                      export_to_c = function(ptr) ExportType(self, ptr),
+                      code = function(namespace = FALSE) call2("stop", paste0("Unsupported type: <", self$ToString(), ">."))
+                    ),
+                    active = list(
+                      id = function() DataType__id(self),
+                      name = function() DataType__name(self),
+                      num_fields = function() DataType__num_fields(self)
+                    )
 )
 
 #' @include arrowExports.R
@@ -159,13 +156,13 @@ infer_type.Expression <- function(x, ...) x$type()
 #' @rdname FixedWidthType
 #' @name FixedWidthType
 FixedWidthType <- R6Class("FixedWidthType",
-  inherit = DataType,
-  active = list(
-    bit_width = function() FixedWidthType__bit_width(self)
-  ),
-  private = list(
-    call_name = function() tolower(self$name)
-  )
+                          inherit = DataType,
+                          public = list(
+                            code = function(namespace = FALSE) call2(tolower(self$name), .ns = if(namespace) "arrow")
+                          ),
+                          active = list(
+                            bit_width = function() FixedWidthType__bit_width(self)
+                          )
 )
 
 Int8 <- R6Class("Int8", inherit = FixedWidthType)
@@ -179,146 +176,126 @@ UInt64 <- R6Class("UInt64", inherit = FixedWidthType)
 Float16 <- R6Class("Float16", inherit = FixedWidthType)
 Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64",
-  inherit = FixedWidthType,
-  private = list(
-    call_name = function() "float64"
-  )
+                   inherit = FixedWidthType,
+                   public = list(
+                     code = function(namespace = FALSE) call2("float64", .ns = if(namespace) "arrow")
+                   )
 )
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8",
-  inherit = DataType,
-  private = list(
-    call_name = function() "utf8"
-  )
+                inherit = DataType,
+                public = list(
+                  code = function(namespace = FALSE) call2("utf8", .ns = if(namespace) "arrow")
+                )
 )
 LargeUtf8 <- R6Class("LargeUtf8",
-  inherit = DataType,
-  private = list(
-    call_name = function() "large_utf8"
-  )
+                     inherit = DataType,
+                     public = list(
+                       code = function(namespace = FALSE) call2("large_utf8", .ns = if(namespace) "arrow")
+                     )
 )
 Binary <- R6Class("Binary",
-  inherit = DataType,
-  private = list(
-    call_name = function() "binary"
-  )
+                  inherit = DataType,
+                  public = list(
+                    code = function(namespace = FALSE) call2("binary", .ns = if(namespace) "arrow")
+                  )
 )
 LargeBinary <- R6Class("LargeBinary",
-  inherit = DataType,
-  private = list(
-    call_name = function() "large_binary"
-  )
+                       inherit = DataType, public = list(
+                         code = function(namespace = FALSE) call2("large_binary", .ns = if(namespace) "arrow")
+                       )
 )
 FixedSizeBinary <- R6Class("FixedSizeBinary",
-  inherit = FixedWidthType,
-  public = list(
-    byte_width = function() FixedSizeBinary__byte_width(self),
-    code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name(), byte_width = self$byte_width(), .ns=get_pkg_ns(explicit_pkg_name))
-    }
-  ),
-  private = list(
-    call_name = function() "fixed_size_binary"
-  )
+                           inherit = FixedWidthType,
+                           public = list(
+                             byte_width = function() FixedSizeBinary__byte_width(self),
+                             code = function(namespace = FALSE) call2("fixed_size_binary", byte_width = self$byte_width(), .ns = if(namespace) "arrow")
+                           )
 )
 
 DateType <- R6Class("DateType",
-  inherit = FixedWidthType,
-  public = list(
-    unit = function() DateType__unit(self)
-  ),
-  private = list(
-    call_name = function() tolower(self$name)
-  )
+                    inherit = FixedWidthType,
+                    public = list(
+                      code = function(namespace = FALSE) call2(tolower(self$name), .ns = if(namespace) "arrow"),
+                      unit = function() DateType__unit(self)
+                    )
 )
 Date32 <- R6Class("Date32", inherit = DateType)
 Date64 <- R6Class("Date64", inherit = DateType)
 
 TimeType <- R6Class("TimeType",
-  inherit = FixedWidthType,
-  public = list(
-    unit = function() TimeType__unit(self)
-  )
+                    inherit = FixedWidthType,
+                    public = list(
+                      unit = function() TimeType__unit(self)
+                    )
 )
 Time32 <- R6Class("Time32",
-  inherit = TimeType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      unit <- if (self$unit() == TimeUnit$MILLI) {
-        "ms"
-      } else {
-        "s"
-      }
-      call2(private$call_name(), unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
-    }
-  ),
-  private = list(
-    call_name = function() "time32"
-  )
+                  inherit = TimeType,
+                  public = list(
+                    code = function(namespace = FALSE) {
+                      unit <- if (self$unit() == TimeUnit$MILLI) {
+                        "ms"
+                      } else {
+                        "s"
+                      }
+                      call2("time32", unit = unit, .ns = if(namespace) "arrow")
+                    }
+                  )
 )
 Time64 <- R6Class("Time64",
-  inherit = TimeType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      unit <- if (self$unit() == TimeUnit$NANO) {
-        "ns"
-      } else {
-        "us"
-      }
-      call2(private$call_name(), unit = unit, .ns=get_pkg_ns(explicit_pkg_name))
-    }
-  ),
-  private = list(
-    call_name = function() "time64"
-  )
+                  inherit = TimeType,
+                  public = list(
+                    code = function(namespace = FALSE) {
+                      unit <- if (self$unit() == TimeUnit$NANO) {
+                        "ns"
+                      } else {
+                        "us"
+                      }
+                      call2("time64", unit = unit, .ns = if(namespace) "arrow")
+                    }
+                  )
 )
 
 DurationType <- R6Class("DurationType",
-  inherit = FixedWidthType,
-  public = list(
-    unit = function() DurationType__unit(self)
-  )
+                        inherit = FixedWidthType,
+                        public = list(
+                          unit = function() DurationType__unit(self)
+                        )
 )
 
 Null <- R6Class("Null",
-  inherit = DataType,
-  private = list(
-    call_name = function() "null"
-  )
+                inherit = DataType,
+                public = list(
+                  code = function(namespace = FALSE) call2("null", .ns = if(namespace) "arrow")
+                )
 )
 
 Timestamp <- R6Class("Timestamp",
-  inherit = FixedWidthType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      unit <- c("s", "ms", "us", "ns")[self$unit() + 1L]
-      tz <- self$timezone()
-      if (identical(tz, "")) {
-        call2(private$call_name(), unit = unit, .ns = get_pkg_ns(explicit_pkg_name))
-      } else {
-        call2(private$call_name(), unit = unit, timezone = tz, .ns = get_pkg_ns(explicit_pkg_name))
-      }
-    },
-    timezone = function() TimestampType__timezone(self),
-    unit = function() TimestampType__unit(self)
-  ),
-  private = list(
-    call_name = function() "timestamp"
-  )
+                     inherit = FixedWidthType,
+                     public = list(
+                       code = function(namespace = FALSE) {
+                         unit <- c("s", "ms", "us", "ns")[self$unit() + 1L]
+                         tz <- self$timezone()
+                         if (identical(tz, "")) {
+                           call2("timestamp", unit = unit, .ns = if(namespace) "arrow")
+                         } else {
+                           call2("timestamp", unit = unit, timezone = tz, .ns = if(namespace) "arrow")
+                         }
+                       },
+                       timezone = function() TimestampType__timezone(self),
+                       unit = function() TimestampType__unit(self)
+                     )
 )
 
 DecimalType <- R6Class("DecimalType",
-  inherit = FixedWidthType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name(), precision = self$precision(), scale = self$scale(), .ns = get_pkg_ns(explicit_pkg_name))
-    },
-    precision = function() DecimalType__precision(self),
-    scale = function() DecimalType__scale(self)
-  ),
-  private = list(
-    call_name = function() "decimal"
-  )
+                       inherit = FixedWidthType,
+                       public = list(
+                         code = function(namespace = FALSE) {
+                           call2("decimal", precision = self$precision(), scale = self$scale(), .ns = if(namespace) "arrow")
+                         },
+                         precision = function() DecimalType__precision(self),
+                         scale = function() DecimalType__scale(self)
+                       )
 )
 
 Decimal128Type <- R6Class("Decimal128Type", inherit = DecimalType)
@@ -645,22 +622,19 @@ check_decimal_args <- function(precision, scale) {
 }
 
 StructType <- R6Class("StructType",
-  inherit = NestedType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      field_names <- StructType__field_names(self)
-      codes <- map(field_names, function(name) {
-        self$GetFieldByName(name)$type$code(explicit_pkg_name)
-      })
-      codes <- set_names(codes, field_names)
-      call2(private$call_name(), !!!codes, .ns = get_pkg_ns(explicit_pkg_name))
-    },
-    GetFieldByName = function(name) StructType__GetFieldByName(self, name),
-    GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
-  ),
-  private = list(
-    call_name = function() "struct"
-  )
+                      inherit = NestedType,
+                      public = list(
+                        code = function(namespace = FALSE) {
+                          field_names <- StructType__field_names(self)
+                          codes <- map(field_names, function(name) {
+                            self$GetFieldByName(name)$type$code(namespace)
+                          })
+                          codes <- set_names(codes, field_names)
+                          call2("struct", !!!codes, .ns = if(namespace) "arrow")
+                        },
+                        GetFieldByName = function(name) StructType__GetFieldByName(self, name),
+                        GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
+                      )
 )
 StructType$create <- function(...) struct__(.fields(list(...)))
 
@@ -672,19 +646,16 @@ struct <- StructType$create
 names.StructType <- function(x) StructType__field_names(x)
 
 ListType <- R6Class("ListType",
-  inherit = NestedType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name(), self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
-    }
-  ),
-  active = list(
-    value_field = function() ListType__value_field(self),
-    value_type = function() ListType__value_type(self)
-  ),
-  private = list(
-    call_name = function() "list_of"
-  )
+                    inherit = NestedType,
+                    public = list(
+                      code = function(namespace = FALSE) {
+                        call2("list_of", self$value_type$code(namespace), .ns = if(namespace) "arrow")
+                      }
+                    ),
+                    active = list(
+                      value_field = function() ListType__value_field(self),
+                      value_type = function() ListType__value_type(self)
+                    )
 )
 
 #' @rdname data-type
@@ -692,19 +663,16 @@ ListType <- R6Class("ListType",
 list_of <- function(type) list__(type)
 
 LargeListType <- R6Class("LargeListType",
-  inherit = NestedType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name(), self$value_type$code(explicit_pkg_name), .ns = get_pkg_ns(explicit_pkg_name))
-    }
-  ),
-  active = list(
-    value_field = function() LargeListType__value_field(self),
-    value_type = function() LargeListType__value_type(self)
-  ),
-  private = list(
-    call_name = function() "large_list_of"
-  )
+                         inherit = NestedType,
+                         public = list(
+                           code = function(namespace = FALSE) {
+                             call2("large_list_of", self$value_type$code(namespace), .ns = if(namespace) "arrow")
+                           }
+                         ),
+                         active = list(
+                           value_field = function() LargeListType__value_field(self),
+                           value_type = function() LargeListType__value_type(self)
+                         )
 )
 
 #' @rdname data-type
@@ -714,20 +682,17 @@ large_list_of <- function(type) large_list__(type)
 #' @rdname data-type
 #' @export
 FixedSizeListType <- R6Class("FixedSizeListType",
-  inherit = NestedType,
-  public = list(
-    code = function(explicit_pkg_name = FALSE) {
-      call2(private$call_name(), self$value_type$code(explicit_pkg_name), list_size = self$list_size, .ns = get_pkg_ns(explicit_pkg_name))
-    }
-  ),
-  active = list(
-    value_field = function() FixedSizeListType__value_field(self),
-    value_type = function() FixedSizeListType__value_type(self),
-    list_size = function() FixedSizeListType__list_size(self)
-  ),
-  private = list(
-    call_name = function() "fixed_size_list_of"
-  )
+                             inherit = NestedType,
+                             public = list(
+                               code = function(namespace = FALSE) {
+                                 call2("fixed_size_list_of", self$value_type$code(namespace), list_size = self$list_size, .ns = if(namespace) "arrow")
+                               }
+                             ),
+                             active = list(
+                               value_field = function() FixedSizeListType__value_field(self),
+                               value_type = function() FixedSizeListType__value_type(self),
+                               list_size = function() FixedSizeListType__list_size(self)
+                             )
 )
 
 #' @rdname data-type
@@ -737,14 +702,14 @@ fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_siz
 #' @rdname data-type
 #' @export
 MapType <- R6Class("MapType",
-  inherit = ListType,
-  active = list(
-    key_field = function() MapType__key_field(self),
-    item_field = function() MapType__item_field(self),
-    key_type = function() MapType__key_type(self),
-    item_type = function() MapType__item_type(self),
-    keys_sorted = function() MapType__keys_sorted(self)
-  )
+                   inherit = ListType,
+                   active = list(
+                     key_field = function() MapType__key_field(self),
+                     item_field = function() MapType__item_field(self),
+                     key_type = function() MapType__key_type(self),
+                     item_type = function() MapType__item_type(self),
+                     keys_sorted = function() MapType__keys_sorted(self)
+                   )
 )
 
 #' @rdname data-type
@@ -770,47 +735,47 @@ canonical_type_str <- function(type_str) {
     stop("Cannot interpret string representations of data types that have parameters", call. = FALSE)
   }
   switch(type_str,
-    int8 = "int8",
-    int16 = "int16",
-    int32 = "int32",
-    int64 = "int64",
-    uint8 = "uint8",
-    uint16 = "uint16",
-    uint32 = "uint32",
-    uint64 = "uint64",
-    float16 = "halffloat",
-    halffloat = "halffloat",
-    float32 = "float",
-    float = "float",
-    float64 = "double",
-    double = "double",
-    boolean = "bool",
-    bool = "bool",
-    utf8 = "string",
-    large_utf8 = "large_string",
-    large_string = "large_string",
-    binary = "binary",
-    large_binary = "large_binary",
-    fixed_size_binary = "fixed_size_binary",
-    string = "string",
-    date32 = "date32",
-    date64 = "date64",
-    time32 = "time32",
-    time64 = "time64",
-    null = "null",
-    timestamp = "timestamp",
-    decimal128 = "decimal128",
-    decimal256 = "decimal256",
-    struct = "struct",
-    list_of = "list",
-    list = "list",
-    large_list_of = "large_list",
-    large_list = "large_list",
-    fixed_size_list_of = "fixed_size_list",
-    fixed_size_list = "fixed_size_list",
-    map_of = "map",
-    duration = "duration",
-    stop("Unrecognized string representation of data type", call. = FALSE)
+         int8 = "int8",
+         int16 = "int16",
+         int32 = "int32",
+         int64 = "int64",
+         uint8 = "uint8",
+         uint16 = "uint16",
+         uint32 = "uint32",
+         uint64 = "uint64",
+         float16 = "halffloat",
+         halffloat = "halffloat",
+         float32 = "float",
+         float = "float",
+         float64 = "double",
+         double = "double",
+         boolean = "bool",
+         bool = "bool",
+         utf8 = "string",
+         large_utf8 = "large_string",
+         large_string = "large_string",
+         binary = "binary",
+         large_binary = "large_binary",
+         fixed_size_binary = "fixed_size_binary",
+         string = "string",
+         date32 = "date32",
+         date64 = "date64",
+         time32 = "time32",
+         time64 = "time64",
+         null = "null",
+         timestamp = "timestamp",
+         decimal128 = "decimal128",
+         decimal256 = "decimal256",
+         struct = "struct",
+         list_of = "list",
+         list = "list",
+         large_list_of = "large_list",
+         large_list = "large_list",
+         fixed_size_list_of = "fixed_size_list",
+         fixed_size_list = "fixed_size_list",
+         map_of = "map",
+         duration = "duration",
+         stop("Unrecognized string representation of data type", call. = FALSE)
   )
 }
 

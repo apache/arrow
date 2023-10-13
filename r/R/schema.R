@@ -39,7 +39,7 @@
 #' - `$WithMetadata(metadata)`: returns a new `Schema` with the key-value
 #'    `metadata` set. Note that all list elements in `metadata` will be coerced
 #'    to `character`.
-#' - `$code(explicit_pkg_name)`: Produces an R call for the schema. Use `explicit_pkg_name=TRUE` to call with `arrow::`.
+#' - `$code(namespace)`: Produces an R call for the schema. Use `namespace=TRUE` to call with `arrow::`.
 #'
 #' @section Active bindings:
 #'
@@ -108,13 +108,13 @@ Schema <- R6Class("Schema",
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     },
     export_to_c = function(ptr) ExportSchema(self, ptr),
-    code = function(explicit_pkg_name = FALSE) {
+    code = function(namespace = FALSE) {
       names <- self$names
       codes <- map2(names, self$fields, function(name, field) {
-        field$type$code(explicit_pkg_name = explicit_pkg_name)
+        field$type$code(namespace)
       })
       codes <- set_names(codes, names)
-      call2(private$call_name(), !!!codes, .ns = get_pkg_ns(explicit_pkg_name))
+      call2("schema", !!!codes, .ns = if(namespace) "arrow")
     },
     WithNames = function(names) {
       if (!inherits(names, "character")) {
@@ -182,9 +182,6 @@ Schema <- R6Class("Schema",
         self
       }
     }
-  ),
-  private = list(
-    call_name = function() "schema"
   )
 )
 Schema$create <- function(...) {

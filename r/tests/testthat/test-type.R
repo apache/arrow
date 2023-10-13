@@ -345,7 +345,7 @@ test_that("infer_type() infers type for lists starting with NULL - ARROW-17639",
 })
 
 
-test_that("code() works for data types without arguments",{
+test_that("code(namespace) works for data types without arguments",{
   # Names encode type aliases.
   # No names means the type alias matches the string
   type_strs <- c(
@@ -365,7 +365,7 @@ test_that("code() works for data types without arguments",{
     type_obj <- eval(call2(type_str, .ns=getPackageName()))
 
     expect_code_roundtrip(type_obj, info = type_str)
-    expect_code_roundtrip(type_obj, explicit_pkg_name = TRUE, info = type_str)
+    expect_code_roundtrip(type_obj, namespace = TRUE, info = type_str)
 
     type_code <- as.character(type_obj$code())[1]  # Ignore units in time types.
     type_code_with_ns <- as.character(type_obj$code(TRUE))[1]  # Ignore units in time types.
@@ -377,7 +377,7 @@ test_that("code() works for data types without arguments",{
 
 })
 
-test_that("code() works for simple data types with arguments",{
+test_that("code(namespace) works for simple data types with arguments",{
   types_with_args <- list(
     # type_str, args, type_alias
     list("fixed_size_binary", list(42), "fixed_size_binary"),
@@ -394,15 +394,15 @@ test_that("code() works for simple data types with arguments",{
 
     if(type_str == type_alias) {
       expect_code_roundtrip(type_obj, info = type_str)
-      expect_code_roundtrip(type_obj, explicit_pkg_name = TRUE, info = type_str)
+      expect_code_roundtrip(type_obj, namespace = TRUE, info = type_str)
     }
 
     type_code <- as.character(type_obj$code())
     type_code_with_ns <- as.character(type_obj$code(TRUE))
 
     # test info
-    build_test_info <- function(test_str, explicit_pkg_name=FALSE) {
-      glue::glue("`{type_str}` {test_str} (explicit_pkg_name={explicit_pkg_name})")
+    build_test_info <- function(test_str, namespace=FALSE) {
+      glue::glue("`{type_str}` {test_str} (namespace={namespace})")
     }
 
     # type name
@@ -416,7 +416,7 @@ test_that("code() works for simple data types with arguments",{
   purrr::walk(types_with_args, evaluate_type_with_arg)
 })
 
-test_that("code() works for nested_types",{
+test_that("code(namespace) works for nested_types",{
   # Nested Types
   nested_types <- list(
     list("struct", list(foo=int32())),
@@ -431,15 +431,15 @@ test_that("code() works for nested_types",{
     type_obj <- eval(call2(type_str, !!!args, .ns=getPackageName()))
 
     expect_code_roundtrip(type_obj, info = type_str)
-    expect_code_roundtrip(type_obj, explicit_pkg_name = TRUE, info = type_str)
+    expect_code_roundtrip(type_obj, namespace = TRUE, info = type_str)
 
     type_code <- as.character(type_obj$code())
     type_code_with_ns <- as.character(type_obj$code(TRUE))
 
 
     # test info
-    build_test_info <- function(test_str, explicit_pkg_name=FALSE) {
-      glue::glue("`{type_str}` {test_str} (explicit_pkg_name={explicit_pkg_name})")
+    build_test_info <- function(test_str, namespace=FALSE) {
+      glue::glue("`{type_str}` {test_str} (namespace={namespace})")
     }
 
     # type name
@@ -448,9 +448,9 @@ test_that("code() works for nested_types",{
                  info=build_test_info("type name", TRUE))
 
     # first arg (also a type)
-    build_expected_str <- function(explicit_pkg_name=FALSE) {
+    build_expected_str <- function(namespace=FALSE) {
       paste0(
-        as.character(args[[1]]$code(explicit_pkg_name)),
+        as.character(args[[1]]$code(namespace)),
         "()"  # The () is kept in arguments.
       )
     }
@@ -468,7 +468,7 @@ test_that("code() works for nested_types",{
 
 })
 
-test_that("code() works for map_of",{
+test_that("code(namespace) works for map_of",{
 
   type_str <- "map_of"
   args <- list(string(), string())
@@ -478,8 +478,8 @@ test_that("code() works for map_of",{
 
 
   # test info
-  build_test_info <- function(test_str, explicit_pkg_name=FALSE) {
-    glue::glue("`{type_str}` {test_str} (explicit_pkg_name={explicit_pkg_name})")
+  build_test_info <- function(test_str, namespace=FALSE) {
+    glue::glue("`{type_str}` {test_str} (namespace={namespace})")
   }
 
   # list_of
@@ -488,8 +488,8 @@ test_that("code() works for map_of",{
                info=build_test_info("list_of", TRUE))
 
   # struct argument
-  expect_struct_code_matches <- function(struct_code, explicit_pkg_name=FALSE) {
-    get_code_str <- function(obj) as.character(obj$code(explicit_pkg_name))
+  expect_struct_code_matches <- function(struct_code, namespace=FALSE) {
+    get_code_str <- function(obj) as.character(obj$code(namespace))
 
     expect_true(grepl(get_code_str(arrow::struct()), struct_code, fixed = TRUE))
     for(arg in args) {

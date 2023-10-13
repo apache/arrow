@@ -43,6 +43,6 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
   invisible(a)
 }
 
-expect_code_roundtrip <- function(x, explicit_pkg_name = FALSE, ...) {
-  expect_equal(eval(x$code(explicit_pkg_name)), x, ...)
+expect_code_roundtrip <- function(x, namespace = FALSE, ...) {
+  expect_equal(eval(x$code(namespace)), x, ...)
 }
