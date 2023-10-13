@@ -95,6 +95,7 @@ download_binary <- function(lib) {
   # e.g. in case the included checksums are stale.
   skip_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "false")
   enforce_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "true")
+  checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
   # validate binary checksum for CRAN release only
   if (!skip_checksum && dir.exists(checksum_path) && is_release ||
     enforce_checksum) {
