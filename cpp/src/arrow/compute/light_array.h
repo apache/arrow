@@ -184,17 +184,12 @@ class ARROW_EXPORT KeyColumnArray {
   // to be used when accessing buffers that store bit vectors.
   int bit_offset_[kMaxBuffers - 1];
 
-  bool is_dictionary_type() const {
-    return metadata_.is_fixed_length && metadata_.fixed_length != 0 &&
-           !metadata_.is_null_type;
-  }
-
   bool is_bool_type() const {
     return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
            !metadata_.is_null_type;
   }
 
-  bool is_other_fixed_width_types() const {
+  bool is_fixed_width_types() const {
     return metadata_.is_fixed_length && metadata_.fixed_length != 0 &&
            !metadata_.is_null_type;
   }
