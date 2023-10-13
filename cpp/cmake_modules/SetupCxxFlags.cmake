@@ -736,7 +736,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
   set(CMAKE_SHARED_LINKER_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
 
-  # limit debug info because building with DWARF debug info requires 
+  # limit debug info because building with DWARF debug info requires
   # absolutely tons of memory
   # https://github.com/WebAssembly/binaryen/issues/4261
   if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
