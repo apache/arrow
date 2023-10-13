@@ -452,8 +452,10 @@ Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
   }
 
   std::vector<std::shared_ptr<Array>> concatenated_columns;
+  concatenated_columns.reserve(cols);
   for (int col = 0; col < cols; ++col) {
     ArrayVector column_arrays;
+    column_arrays.reserve(batches.size());
     for (const auto& batch : batches) {
       column_arrays.emplace_back(batch->column(col));
     }

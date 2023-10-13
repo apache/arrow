@@ -573,6 +573,8 @@ TEST_F(TestRecordBatch, ConcatenateRecordBatches) {
 
   ASSERT_OK_AND_ASSIGN(auto batch, ConcatenateRecordBatches({b1, b2}));
   ASSERT_EQ(batch->num_rows(), b1->num_rows() + b2->num_rows());
+  ASSERT_BATCHES_EQUAL(*batch->Slice(0, b1->num_rows()), *b1);
+  ASSERT_BATCHES_EQUAL(*batch->Slice(b1->num_rows()), *b2);
 
   f0 = field("fd0", int32());
   f1 = field("fd1", uint8());
@@ -587,6 +589,7 @@ TEST_F(TestRecordBatch, ConcatenateRecordBatches) {
                                       std::vector<std::shared_ptr<ArrayData>>{});
   ASSERT_OK_AND_ASSIGN(batch, ConcatenateRecordBatches({null_batch}));
   ASSERT_EQ(batch->num_rows(), null_batch->num_rows());
+  ASSERT_BATCHES_EQUAL(*batch, *null_batch);
 }
 
 }  // namespace arrow
