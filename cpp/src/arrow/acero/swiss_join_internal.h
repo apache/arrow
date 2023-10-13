@@ -160,7 +160,7 @@ class RowArrayMerge {
   // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
-                                bool is_key_data, 
+                                bool is_key_data,
                                 std::vector<int64_t>* first_target_row_id,
                                 MemoryPool* pool);
 

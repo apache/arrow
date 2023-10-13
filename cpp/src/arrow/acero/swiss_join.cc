@@ -1332,9 +1332,8 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
     partition_keys[i] = prtn_states_[i].keys.keys();
   }
 
-  RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(target_->map_.keys(), partition_keys,
-                                               true, &partition_keys_first_row_id_, 
-                                               pool_));
+  RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(target_->map_.keys(), partition_keys, true,
+                                               &partition_keys_first_row_id_, pool_));
 
   // 2. SwissTable:
   //
