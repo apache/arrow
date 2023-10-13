@@ -22,8 +22,8 @@
 #' `readr::read_delim()`, and `col_select` was inspired by `vroom::vroom()`.
 #'
 #' `read_csv_arrow()` and `read_tsv_arrow()` are wrappers around
-#' `read_delim_arrow()` that specify a delimeter. `read_csv2_arrow()` uses `;` for
-#' the delimeter and `,` for the decimal point.
+#' `read_delim_arrow()` that specify a delimiter. `read_csv2_arrow()` uses `;` for
+#' the delimiter and `,` for the decimal point.
 #'
 #' Note that not all `readr` options are currently implemented here. Please file
 #' an issue if you encounter one that `arrow` should support.
