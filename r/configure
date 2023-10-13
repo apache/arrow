@@ -121,15 +121,24 @@ else
   ARROW_USE_PKG_CONFIG="false"
 fi
 
-# find openssl on macos. macOS ships with libressl. openssl is installable
-# with brew, but it is generally not linked. We can over-ride this and find
-# openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
-# the installation process). FWIW, arrow's cmake process uses this
-# same process to find openssl, but doing it now allows us to catch it in
-# nixlibs.R and throw a nicer error.
+## Find openssl
+# Arrow's cmake process uses this same process to find openssl,
+# but doing it now allows us to catch it in
+# nixlibs.R and activate S3 and GCS support for the source build.
+
+# macOS ships with libressl. openssl is installable with brew, but it is 
+# generally not linked. We can over-ride this and find
+# openssl by setting OPENSSL_ROOT_DIR (which cmake will pick up later in
+# the installation process).
 if [ "${OPENSSL_ROOT_DIR}" = "" ] && brew --prefix openssl >/dev/null 2>&1; then
   export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
   export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+fi
+# Look for openssl with pkg-config for non-brew sources(e.g. CRAN) and Linux
+if [ "${OPENSSL_ROOT_DIR}" = "" -a "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
+  if ${PKG_CONFIG} --exists openssl; then
+    export OPENSSL_ROOT_DIR="`${PKG_CONFIG} --variable=prefix openssl`"
+  fi
 fi
 
 #############
