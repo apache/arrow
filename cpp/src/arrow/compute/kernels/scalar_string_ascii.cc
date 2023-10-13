@@ -2090,7 +2090,7 @@ struct RegexSubstringReplacer {
         i = end;
       } else {
         // wind back to the beginning of the match
-        const char* pos = mutable_s.begin() - found.length();
+        const char* pos = mutable_s.data() - found.length();
         // the string before the pattern
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(pos - i)));
@@ -2101,7 +2101,7 @@ struct RegexSubstringReplacer {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(found.data()),
                                       static_cast<int64_t>(found.length())));
         // skip pattern
-        i = mutable_s.begin();
+        i = mutable_s.data();
         max_replacements--;
       }
     }
