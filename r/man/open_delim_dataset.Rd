@@ -25,7 +25,8 @@ open_delim_dataset(
   convert_options = NULL,
   read_options = NULL,
   timestamp_parsers = NULL,
-  quoted_na = TRUE
+  quoted_na = TRUE,
+  parse_options = NULL
 )
 
 open_csv_dataset(
@@ -46,7 +47,8 @@ open_csv_dataset(
   convert_options = NULL,
   read_options = NULL,
   timestamp_parsers = NULL,
-  quoted_na = TRUE
+  quoted_na = TRUE,
+  parse_options = NULL
 )
 
 open_tsv_dataset(
@@ -67,7 +69,8 @@ open_tsv_dataset(
   convert_options = NULL,
   read_options = NULL,
   timestamp_parsers = NULL,
-  quoted_na = TRUE
+  quoted_na = TRUE,
+  parse_options = NULL
 )
 }
 \arguments{
@@ -169,9 +172,9 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}}
 
-\item{read_options}{see \link[=CsvReadOptions]{file reader options}}
+\item{read_options}{see \link[=csv_read_options]{CSV reading options}}
 
 \item{timestamp_parsers}{User-defined timestamp parsers. If more than one
 parser is specified, the CSV conversion logic will try parsing values
@@ -186,6 +189,10 @@ starting from the beginning of this vector. Possible values are:
 values (the default) or strings. (Note that this is different from the
 the Arrow C++ default for the corresponding convert option,
 \code{strings_can_be_null}.)}
+
+\item{parse_options}{see \link[=csv_parse_options]{CSV parsing options}.
+If given, this overrides any
+parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
 }
 \description{
 A wrapper around \link{open_dataset} which explicitly includes parameters mirroring \code{\link[=read_csv_arrow]{read_csv_arrow()}},

@@ -1330,6 +1330,23 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
+def test_concat_tables_permissive():
+    t1 = pa.Table.from_arrays([list(range(10))], names=('a',))
+    t2 = pa.Table.from_arrays([list(('a', 'b', 'c'))], names=('a',))
+
+    with pytest.raises(
+            pa.ArrowTypeError,
+            match="Unable to merge: Field a has incompatible types: int64 vs string"):
+        _ = pa.concat_tables([t1, t2], promote_options="permissive")
+
+
+def test_concat_tables_invalid_option():
+    t = pa.Table.from_arrays([list(range(10))], names=('a',))
+
+    with pytest.raises(ValueError, match="Invalid promote options: invalid"):
+        pa.concat_tables([t, t], promote_options="invalid")
+
+
 def test_concat_tables_none_table():
     # ARROW-11997
     with pytest.raises(AttributeError):
@@ -1359,18 +1376,50 @@ def test_concat_tables_with_different_schema_metadata():
     assert table2.schema.equals(table3.schema)
 
 
+def test_concat_tables_with_promote_option():
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["int64_field"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
+
+    with pytest.warns(FutureWarning):
+        result = pa.concat_tables([t1, t2], promote=True)
+
+    assert result.equals(pa.Table.from_arrays([
+        pa.array([1, 2, None, None], type=pa.int64()),
+        pa.array([None, None, 1.0, 2.0], type=pa.float32()),
+    ], ["int64_field", "float_field"]))
+
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.float32())], ["f"])
+
+    with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
+        with pytest.warns(FutureWarning):
+            pa.concat_tables([t1, t2], promote=False)
+
+
 def test_concat_tables_with_promotion():
     t1 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.int64())], ["int64_field"])
     t2 = pa.Table.from_arrays(
         [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
 
-    result = pa.concat_tables([t1, t2], promote=True)
+    result = pa.concat_tables([t1, t2], promote_options="default")
 
     assert result.equals(pa.Table.from_arrays([
         pa.array([1, 2, None, None], type=pa.int64()),
         pa.array([None, None, 1.0, 2.0], type=pa.float32()),
     ], ["int64_field", "float_field"]))
+
+    t3 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int32())], ["int64_field"])
+    result = pa.concat_tables(
+        [t1, t3], promote_options="permissive")
+    assert result.equals(pa.Table.from_arrays([
+        pa.array([1, 2, 1, 2], type=pa.int64()),
+    ], ["int64_field"]))
 
 
 def test_concat_tables_with_promotion_error():
@@ -1379,8 +1428,8 @@ def test_concat_tables_with_promotion_error():
     t2 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.float32())], ["f"])
 
-    with pytest.raises(pa.ArrowInvalid):
-        pa.concat_tables([t1, t2], promote=True)
+    with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
+        pa.concat_tables([t1, t2], promote_options="default")
 
 
 def test_table_negative_indexing():
@@ -2173,6 +2222,21 @@ def test_table_group_by():
         "keys": ["a", "b"],
         "values_sum": [6, 9]
     }
+
+
+@pytest.mark.acero
+def test_table_group_by_first():
+    # "first" is an ordered aggregation -> requires to specify use_threads=False
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a', 'b'] * 2})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b', 'a'] * 2})
+    table = pa.concat_tables([table1, table2])
+
+    with pytest.raises(NotImplementedError):
+        table.group_by("b").aggregate([("a", "first")])
+
+    result = table.group_by("b", use_threads=False).aggregate([("a", "first")])
+    expected = pa.table({"b": ["a", "b"], "a_first": [1, 2]})
+    assert result.equals(expected)
 
 
 def test_table_to_recordbatchreader():

@@ -1,37 +1,5 @@
 	.text
 	.file	"bitmap_bmi2.c"
-	.globl	extract_bits_neon       // -- Begin function extract_bits_neon
-	.p2align	2
-	.type	extract_bits_neon,@function
-extract_bits_neon:                      // @extract_bits_neon
-// %bb.0:
-	stp	x29, x30, [sp, #-16]!   // 16-byte Folded Spill
-	mov	x29, sp
-	cbz	x1, .LBB0_4
-// %bb.1:
-	mov	x8, x0
-	mov	x0, xzr
-	mov	w9, #1
-.LBB0_2:                                // =>This Inner Loop Header: Depth=1
-	and	x10, x1, x8
-	neg	x11, x1
-	tst	x10, x11
-	sub	x12, x1, #1             // =1
-	csel	x10, xzr, x9, eq
-	ands	x1, x12, x1
-	orr	x0, x10, x0
-	lsl	x9, x9, #1
-	b.ne	.LBB0_2
-// %bb.3:
-	ldp	x29, x30, [sp], #16     // 16-byte Folded Reload
-	ret
-.LBB0_4:
-	mov	x0, xzr
-	ldp	x29, x30, [sp], #16     // 16-byte Folded Reload
-	ret
-.Lfunc_end0:
-	.size	extract_bits_neon, .Lfunc_end0-extract_bits_neon
-                                        // -- End function
 	.section	.rodata.cst16,"aM",@progbits,16
 	.p2align	4               // -- Begin function levels_to_bitmap_neon
 .LCPI1_0:

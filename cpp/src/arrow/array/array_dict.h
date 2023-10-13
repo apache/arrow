@@ -96,6 +96,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
       const int32_t* transpose_map, MemoryPool* pool = default_memory_pool()) const;
 
+  Result<std::shared_ptr<Array>> Compact(MemoryPool* pool = default_memory_pool()) const;
+
   /// \brief Determine whether dictionary arrays may be compared without unification
   bool CanCompareIndices(const DictionaryArray& other) const;
 

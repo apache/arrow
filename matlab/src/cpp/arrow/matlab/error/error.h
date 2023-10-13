@@ -174,6 +174,7 @@ namespace arrow::matlab::error {
     static const char* INVALID_TIME_UNIT = "arrow:type:InvalidTimeUnit";
     static const char* FIELD_FAILED_TO_CREATE_TYPE_PROXY = "arrow:field:FailedToCreateTypeProxy";
     static const char* ARRAY_FAILED_TO_CREATE_TYPE_PROXY = "arrow:array:FailedToCreateTypeProxy";
+    static const char* LIST_TYPE_FAILED_TO_CREATE_VALUE_TYPE_PROXY = "arrow:type:list:FailedToCreateValueTypeProxy";
     static const char* ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME = "arrow:tabular:schema:AmbiguousFieldName";
     static const char* UNKNOWN_PROXY_FOR_ARRAY_TYPE = "arrow:array:UnknownProxyForArrayType";
     static const char* RECORD_BATCH_NUMERIC_INDEX_WITH_EMPTY_RECORD_BATCH = "arrow:tabular:recordbatch:NumericIndexWithEmptyRecordBatch";
@@ -198,4 +199,5 @@ namespace arrow::matlab::error {
     static const char* STRUCT_ARRAY_MAKE_FAILED = "arrow:array:StructArrayMakeFailed";
     static const char* INDEX_EMPTY_CONTAINER = "arrow:index:EmptyContainer";
     static const char* INDEX_OUT_OF_RANGE = "arrow:index:OutOfRange";
+    static const char* BUFFER_VIEW_OR_COPY_FAILED = "arrow:buffer:ViewOrCopyFailed";
 }

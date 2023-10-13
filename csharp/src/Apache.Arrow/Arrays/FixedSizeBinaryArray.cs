@@ -111,14 +111,14 @@ namespace Apache.Arrow.Arrays
             public TBuilder Reserve(int capacity)
             {
                 ValueBuffer.Reserve(capacity * ByteWidth);
-                ValidityBuffer.Reserve(capacity + 1);
+                ValidityBuffer.Reserve(capacity);
                 return Instance;
             }
 
             public TBuilder Resize(int length)
             {
                 ValueBuffer.Resize(length * ByteWidth);
-                ValidityBuffer.Resize(length + 1);
+                ValidityBuffer.Resize(length);
                 return Instance;
             }
 

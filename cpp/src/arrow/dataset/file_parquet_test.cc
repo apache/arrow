@@ -24,6 +24,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -422,6 +423,32 @@ TEST_F(TestParquetFileSystemDataset, WriteWithSupersetPartitioningSchema) {
 
 TEST_F(TestParquetFileSystemDataset, WriteWithEmptyPartitioningSchema) {
   TestWriteWithEmptyPartitioningSchema();
+}
+
+TEST_F(TestParquetFileSystemDataset, WriteWithEncryptionConfigNotSupported) {
+#ifndef PARQUET_REQUIRE_ENCRYPTION
+  // Create a dummy ParquetEncryptionConfig
+  std::shared_ptr<ParquetEncryptionConfig> encryption_config =
+      std::make_shared<ParquetEncryptionConfig>();
+
+  auto options =
+      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
+
+  // Set the encryption config in the options
+  options->parquet_encryption_config = encryption_config;
+
+  // Setup mock filesystem and test data
+  auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  std::shared_ptr<Schema> test_schema = schema({field("x", int32())});
+  std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(test_schema, "[[0]]");
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::OutputStream> out_stream,
+                       mock_fs->OpenOutputStream("/foo.parquet"));
+  // Try to create a writer with the encryption config
+  auto result =
+      format_->MakeWriter(out_stream, test_schema, options, {mock_fs, "/foo.parquet"});
+  // Expect an error if encryption is not supported in the build
+  EXPECT_TRUE(result.status().IsNotImplemented());
+#endif
 }
 
 class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper> {

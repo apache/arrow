@@ -895,11 +895,13 @@ class ColumnWriterImpl {
   void ConcatenateBuffers(int64_t definition_levels_rle_size,
                           int64_t repetition_levels_rle_size,
                           const std::shared_ptr<Buffer>& values, uint8_t* combined) {
-    memcpy(combined, repetition_levels_rle_->data(), repetition_levels_rle_size);
+    memcpy(combined, repetition_levels_rle_->data(),
+           static_cast<size_t>(repetition_levels_rle_size));
     combined += repetition_levels_rle_size;
-    memcpy(combined, definition_levels_rle_->data(), definition_levels_rle_size);
+    memcpy(combined, definition_levels_rle_->data(),
+           static_cast<size_t>(definition_levels_rle_size));
     combined += definition_levels_rle_size;
-    memcpy(combined, values->data(), values->size());
+    memcpy(combined, values->data(), static_cast<size_t>(values->size()));
   }
 };
 
@@ -2334,7 +2336,8 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   Encoding::type encoding = properties->encoding(descr->path());
   if (encoding == Encoding::UNKNOWN) {
     encoding = (descr->physical_type() == Type::BOOLEAN &&
-                properties->version() != ParquetVersion::PARQUET_1_0)
+                properties->version() != ParquetVersion::PARQUET_1_0 &&
+                properties->data_page_version() == ParquetDataPageVersion::V2)
                    ? Encoding::RLE
                    : Encoding::PLAIN;
   }
