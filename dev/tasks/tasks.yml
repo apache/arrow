@@ -1241,7 +1241,7 @@ tasks:
     params:
       env:
         PYTHON: "{{ python_version }}"
-        PYTEST_ARGS: '-W error -W \"ignore:Setting custom ClientSession:DeprecationWarning\"'
+        PYTEST_ARGS: "-W error -W 'ignore:Setting custom ClientSession:DeprecationWarning'"
       image: conda-python
 {% endfor %}
 
