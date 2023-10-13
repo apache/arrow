@@ -393,36 +393,38 @@ jobs:
           read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
           print(arrow_info())
 
-  #TODO test macos source build?
-  test-linux-source:
+  test-source:
     needs: source
-    name: Test linux source build
-    runs-on: ubuntu-latest
+    name: Test {{ '${{ matrix.platform.name }}' }} source build
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - {runs_on: "ubuntu-latest", name: "Linux"}
+          - {runs_on: ["self-hosted", "macos-10.13"] , name: "macOS"}
     steps:
       - name: Install R
+        if: matrix.platform.name == 'Linux'
         uses: r-lib/actions/setup-r@v2
-        with:
-          install-r: false
       {{ macros.github_setup_local_r_repo(false, false)|indent }}
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(action_v="3")|indent }}
       - name: Install sccache
+        if: matrix.platform.name == 'Linux'
         shell: bash
         run: |
           arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
-      - name: Install R package system dependencies
-        run: |
-          sudo arrow/ci/scripts/r_install_system_dependencies.sh
-        env:
-          ARROW_GCS: "ON"
-          ARROW_S3: "ON"
-          ARROW_SOURCE_HOME: arrow
+      - name: Install R package system dependencies (Linux)
+        if: matrix.platform.name == 'Linux'
+        run: sudo apt-get install -y libcurl4-openssl-dev libssl-dev
       - name: Remove arrow/
         run: |
           rm -rf arrow/
       - name: Enable parallel build
         run: |
-          echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
-      - name: Install arrow from nightly repo
+          cores=`nproc || sysctl -n hw.logicalcpu`
+          echo "MAKEFLAGS=-j$cores" >> $GITHUB_ENV
+      - name: Install arrow source package
         env:
           # Test source build so be sure not to download a binary
           LIBARROW_BINARY: "FALSE"
@@ -444,7 +446,7 @@ jobs:
 
   upload-binaries:
     # Only upload binaries if all tests pass.
-    needs: [r-packages, test-linux-source, test-linux-binary]
+    needs: [r-packages, test-source, test-linux-binary]
     name: Upload artifacts
     runs-on: ubuntu-latest
     steps:
