@@ -35,17 +35,16 @@ classdef ListArray < arrow.array.Array
         end
 
         function values = get.Values(obj)
-            valueStruct = obj.Proxy.getValues(args);
+            valueStruct = obj.Proxy.getValues();
             traits = arrow.type.traits.traits(arrow.type.ID(valueStruct.TypeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=valueStruct.ProxyID);
             values = traits.ArrayConstructor(proxy);
         end
 
         function offsets = get.Offsets(obj)
-            offsetStruct = obj.Proxy.getValues(args);
-            traits = arrow.type.traits.traits(arrow.type.ID(offsetStruct.TypeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=offsetStruct.ProxyID);
-            offsets = traits.ArrayConstructor(proxy);
+            proxyID = obj.Proxy.getOffsets();
+            proxy = libmexclass.proxy.Proxy(Name="arrow.array.proxy.Int32Array", ID=proxyID);
+            offsets = arrow.array.Int32Array(proxy);
         end
 
         function matlabArray = toMATLAB(obj)
