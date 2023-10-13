@@ -240,7 +240,7 @@ func (r *OCFReader) Next() bool {
 		r.maxOCF = len(r.avroChan)
 	}
 	if r.maxRec < len(r.recChan) {
-		r.maxRec = len(r.avroChan)
+		r.maxRec = len(r.recChan)
 	}
 	select {
 	case r.cur = <-r.recChan:
