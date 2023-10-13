@@ -2116,8 +2116,8 @@ TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
           ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
       EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"(["1.00"])"), options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": "1.00", "max": "1.00"})")));
-      
-      //compact dictionary
+
+      // compact dictionary
       EXPECT_THAT(
           MinMax(
               DictArrayFromJSON(
