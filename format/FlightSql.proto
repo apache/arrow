@@ -1815,9 +1815,9 @@ message CommandStatementIngest {
   IngestMode mode = 1;
   // The table to load data into.
   string target_table = 2;
-  // The db_schema of the target_table to load data into. If unset, ... (TODO)
+  // The db_schema of the target_table to load data into. If unset, a backend-specific default may be used.
   optional string target_schema = 3;
-  // The catalog of the target_table to load data into. If unset, ... (TODO)
+  // The catalog of the target_table to load data into. If unset, a backend-specific default may be used.
   optional string target_catalog = 4;
   // Use a temporary table for target_table.
   optional bool temporary = 5;
