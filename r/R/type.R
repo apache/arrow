@@ -27,7 +27,7 @@
 #' - `$ToString()`: String representation of the DataType
 #' - `$Equals(other)`: Is the DataType equal to `other`
 #' - `$fields()`: The children fields associated with this type
-#' - `$code(namespace)`: Produces an R call for the schema. Use `namespace=TRUE` to call with `arrow::`.
+#' - `$code(namespace)`: Produces an R call of the data type. Use `namespace=TRUE` to call with `arrow::`.
 #'
 #' There are also some active bindings:
 #' - `$id`: integer Arrow type id.
