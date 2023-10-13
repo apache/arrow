@@ -232,6 +232,21 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false) {}
+
+    explicit Builder(const WriterProperties& properties)
+        : pool_(properties.memory_pool()),
+          dictionary_pagesize_limit_(properties.dictionary_pagesize_limit()),
+          write_batch_size_(properties.write_batch_size()),
+          max_row_group_length_(properties.max_row_group_length()),
+          pagesize_(properties.data_pagesize()),
+          version_(properties.version()),
+          data_page_version_(properties.data_page_version()),
+          created_by_(properties.created_by()),
+          store_decimal_as_integer_(properties.store_decimal_as_integer()),
+          page_checksum_enabled_(properties.page_checksum_enabled()),
+          sorting_columns_(properties.sorting_columns()),
+          default_column_properties_(properties.default_column_properties()) {}
+
     virtual ~Builder() {}
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
@@ -240,36 +255,42 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Enable dictionary encoding in general for all columns. Default enabled.
+    /// Enable dictionary encoding in general for all columns. Default
+    /// enabled.
     Builder* enable_dictionary() {
       default_column_properties_.set_dictionary_enabled(true);
       return this;
     }
 
-    /// Disable dictionary encoding in general for all columns. Default enabled.
+    /// Disable dictionary encoding in general for all columns. Default
+    /// enabled.
     Builder* disable_dictionary() {
       default_column_properties_.set_dictionary_enabled(false);
       return this;
     }
 
-    /// Enable dictionary encoding for column specified by `path`. Default enabled.
+    /// Enable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* enable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = true;
       return this;
     }
 
-    /// Enable dictionary encoding for column specified by `path`. Default enabled.
+    /// Enable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* enable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_dictionary(path->ToDotString());
     }
 
-    /// Disable dictionary encoding for column specified by `path`. Default enabled.
+    /// Disable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* disable_dictionary(const std::string& path) {
       dictionary_enabled_[path] = false;
       return this;
     }
 
-    /// Disable dictionary encoding for column specified by `path`. Default enabled.
+    /// Disable dictionary encoding for column specified by `path`. Default
+    /// enabled.
     Builder* disable_dictionary(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_dictionary(path->ToDotString());
     }
@@ -280,8 +301,8 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Specify the write batch size while writing batches of Arrow values into Parquet.
-    /// Default 1024.
+    /// Specify the write batch size while writing batches of Arrow values
+    /// into Parquet. Default 1024.
     Builder* write_batch_size(int64_t write_batch_size) {
       write_batch_size_ = write_batch_size;
       return this;
@@ -560,8 +581,8 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Disable decimal logical type with 1 <= precision <= 18 to be stored as
-    /// integer physical type.
+    /// Disable decimal logical type with 1 <= precision <= 18 to be stored
+    /// as integer physical type.
     ///
     /// Default disabled.
     Builder* disable_store_decimal_as_integer() {
@@ -773,6 +794,11 @@ class PARQUET_EXPORT WriterProperties {
     } else {
       return NULLPTR;
     }
+  }
+
+  // \brief Return the default column properties
+  const ColumnProperties& default_column_properties() const {
+    return default_column_properties_;
   }
 
  private:

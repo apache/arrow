@@ -880,8 +880,6 @@ test_go() {
     go test ./...
   fi
   go install -buildvcs=false ./...
-  go clean -modcache
-
   if [ ${TEST_INTEGRATION_GO} -gt 0 ]; then
     pushd arrow/internal/cdata_integration
     case "$(uname)" in
@@ -898,7 +896,7 @@ test_go() {
     go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
     popd
   fi
-
+  go clean -modcache
   popd
 }
 
@@ -1052,7 +1050,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11 3.12}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
   for python in ${python_versions}; do
@@ -1074,11 +1072,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10 3.11"
+    local python_versions="3.8 3.9 3.10 3.11 3.12"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.8 3.9 3.10 3.11"
+    local python_versions="3.8 3.9 3.10 3.11 3.12"
     local platform_tags="macosx_10_14_x86_64"
   fi
 
@@ -1204,7 +1202,7 @@ BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 BUILD_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-# Execute tests in a conda enviroment
+# Execute tests in a conda environment
 : ${USE_CONDA:=0}
 
 # Build options for the C++ library

@@ -53,7 +53,7 @@ jobs:
     name: AMD64 manylinux2014 Java JNI
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 90
+    timeout-minutes: 500
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4

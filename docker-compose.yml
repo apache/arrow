@@ -1033,7 +1033,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2022-10-25-fbea779
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2023-10-03-72cdc42
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2014
@@ -1056,7 +1056,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-01-14-103cb93
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-10-03-72cdc42
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2_28
@@ -1807,7 +1807,8 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
+        pip install arrow/dev/archery[lint] &&
+        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
 
   ######################### Integration Tests #################################
 

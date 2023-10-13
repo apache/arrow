@@ -15,7 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that("on_rosetta() does not warn", {
-  # There is no warning
-  expect_warning(on_rosetta(), NA)
-})
+# cython: language_level = 3
+
+"""Dataset support for Parquet file format."""
+
+from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.includes.libarrow_dataset_parquet cimport *
+
+from pyarrow._dataset cimport FragmentScanOptions, FileWriteOptions
+
+
+cdef class ParquetFragmentScanOptions(FragmentScanOptions):
+    cdef:
+        CParquetFragmentScanOptions* parquet_options
+        object _parquet_decryption_config
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp)
+    cdef CReaderProperties* reader_properties(self)
+    cdef ArrowReaderProperties* arrow_reader_properties(self)
+
+
+cdef class ParquetFileWriteOptions(FileWriteOptions):
+
+    cdef:
+        CParquetFileWriteOptions* parquet_options
+        object _properties
