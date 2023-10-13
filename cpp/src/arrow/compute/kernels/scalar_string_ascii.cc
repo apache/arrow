@@ -2068,7 +2068,7 @@ struct RegexSubstringReplacer {
 
     // If s is empty, then it's essentially global
     if (options_.max_replacements == -1 || s.empty()) {
-      std::string s_copy = s.ToString();
+      std::string s_copy{s.data(), s.length()};
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
