@@ -59,4 +59,4 @@ export PYARROW_TEST_PARQUET
 export PYARROW_TEST_S3
 
 # Testing PyArrow
-pytest -r s $(PYTEST_ARGS) --pyargs pyarrow
+pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
