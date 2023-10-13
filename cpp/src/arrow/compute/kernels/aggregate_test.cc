@@ -2116,6 +2116,22 @@ TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
           ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
       EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"(["1.00"])"), options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": "1.00", "max": "1.00"})")));
+      
+      //compact dictionary
+      EXPECT_THAT(
+          MinMax(
+              DictArrayFromJSON(
+                  dict_ty, R"([3, 1, 1, 4, 0, 2])",
+                  R"(["5.10", "-1.23", "2.00", "3.45", "4.56", "8.20", "9.20", "10.20"])"),
+              options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "5.10"})")));
+      EXPECT_THAT(
+          MinMax(
+              DictArrayFromJSON(
+                  dict_ty, R"([5, 1, 1, 6, 0, 2])",
+                  R"(["5.10", "-1.23", "2.00", "3.45", "4.56", "8.20", "9.20", "10.20"])"),
+              options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "9.20"})")));
     }
 
     std::shared_ptr<arrow::DataType> item_ty = null();

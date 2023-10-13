@@ -926,34 +926,39 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     this->options.min_count = std::max<uint32_t>(1, this->options.min_count);
   }
 
-  Status Consume(KernelContext*, const ExecSpan& batch) override {
+  Status Consume(KernelContext* ctx, const ExecSpan& batch) override {
     if (batch[0].is_scalar()) {
       return Status::NotImplemented("No min/max implemented for DictionaryScalar");
     }
 
-    DictionaryArray arr(batch[0].array.ToArrayData());
-    this->has_nulls = arr.null_count() > 0;
-    this->count += arr.length() - arr.null_count();
+    DictionaryArray dict_arr(batch[0].array.ToArrayData());
+    ARROW_ASSIGN_OR_RAISE(auto compacted_arr, dict_arr.Compact(ctx->memory_pool()));
+    const DictionaryArray& compacted_dict_arr =
+        checked_cast<const DictionaryArray&>(*compacted_arr);
+    this->has_nulls = compacted_dict_arr.null_count() > 0;
+    this->count += compacted_dict_arr.length() - compacted_dict_arr.null_count();
 
-    const std::shared_ptr<Array>& dict = arr.dictionary();
+    const std::shared_ptr<Array>& dict = compacted_dict_arr.dictionary();
     if (dict->length() == 0) {
       return Status::OK();
     }
 
     Datum dict_values(std::move(dict));
-    ARROW_ASSIGN_OR_RAISE(Datum result, MinMax(std::move(dict_values)));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum result, MinMax(std::move(dict_values), ScalarAggregateOptions::Defaults(),
+                             ctx->exec_context()));
     const StructScalar& struct_result =
         checked_cast<const StructScalar&>(*result.scalar());
     ARROW_ASSIGN_OR_RAISE(auto dict_min, struct_result.field(FieldRef("min")));
     ARROW_ASSIGN_OR_RAISE(auto dict_max, struct_result.field(FieldRef("max")));
-    ARROW_RETURN_NOT_OK(CompareMinMax(std::move(dict_min), std::move(dict_max)));
+    ARROW_RETURN_NOT_OK(CompareMinMax(std::move(dict_min), std::move(dict_max), ctx));
     return Status::OK();
   }
 
-  Status MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext* ctx, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
 
-    ARROW_RETURN_NOT_OK(CompareMinMax(other.min, other.max));
+    ARROW_RETURN_NOT_OK(CompareMinMax(other.min, other.max, ctx));
     this->has_nulls = this->has_nulls || other.has_nulls;
     this->count += other.count;
     return Status::OK();
@@ -987,12 +992,13 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
 
  private:
   Status CompareMinMax(const std::shared_ptr<Scalar>& other_min,
-                       const std::shared_ptr<Scalar>& other_max) {
+                       const std::shared_ptr<Scalar>& other_max, KernelContext* ctx) {
     if (this->min == nullptr || this->min->type->id() == Type::NA) {
       this->min = other_min;
     } else if (other_min != nullptr && other_min->type->id() != Type::NA) {
-      ARROW_ASSIGN_OR_RAISE(Datum greater_result,
-                            CallFunction("greater", {this->min, other_min}));
+      ARROW_ASSIGN_OR_RAISE(
+          Datum greater_result,
+          CallFunction("greater", {this->min, other_min}, ctx->exec_context()));
       const BooleanScalar& greater_scalar =
           checked_cast<const BooleanScalar&>(*greater_result.scalar());
 
@@ -1004,8 +1010,9 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     if (this->max == nullptr || this->max->type->id() == Type::NA) {
       this->max = other_max;
     } else if (other_max != nullptr && other_max->type->id() != Type::NA) {
-      ARROW_ASSIGN_OR_RAISE(Datum less_result,
-                            CallFunction("less", {this->max, other_max}));
+      ARROW_ASSIGN_OR_RAISE(
+          Datum less_result,
+          CallFunction("less", {this->max, other_max}, ctx->exec_context()));
       const BooleanScalar& less_scalar =
           checked_cast<const BooleanScalar&>(*less_result.scalar());
 
