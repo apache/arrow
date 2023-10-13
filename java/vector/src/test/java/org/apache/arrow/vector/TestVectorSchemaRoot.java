@@ -29,8 +29,9 @@ import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -92,23 +93,23 @@ public class TestVectorSchemaRoot {
 
   private VectorSchemaRoot createBatch() {
     FieldType varCharType = new FieldType(true, new ArrowType.Utf8(), /*dictionary=*/null);
-    FieldType listType = new FieldType(true, new ArrowType.List(), /*dictionary=*/null);
+    FieldType unionType = new FieldType(true, new ArrowType.Union(UnionMode.Sparse, null), /*dictionary=*/null);
 
     // create the schema
     List<Field> schemaFields = new ArrayList<>();
     Field childField = new Field("varCharCol", varCharType, null);
     List<Field> childFields = new ArrayList<>();
     childFields.add(childField);
-    schemaFields.add(new Field("listCol", listType, childFields));
+    schemaFields.add(new Field("listCol", unionType, childFields));
     Schema schema = new Schema(schemaFields);
 
     VectorSchemaRoot schemaRoot = VectorSchemaRoot.create(schema, allocator);
     // get and allocate the vector
-    ListVector vector = (ListVector) schemaRoot.getVector("listCol");
+    UnionVector vector = (UnionVector) schemaRoot.getVector("listCol");
     vector.allocateNew();
 
     // write data to the vector
-    UnionListWriter writer = vector.getWriter();
+    FieldWriter writer = vector.getWriter();
 
     writer.setPosition(0);
 

@@ -663,7 +663,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public Field getField() {
-    if(!field.getChildren().isEmpty()){
+    if (field.getChildren().contains(getDataVector().getField())) {
       return field;
     }
     field.setChildren(Collections.singletonList(getDataVector().getField()));

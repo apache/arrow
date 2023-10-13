@@ -815,7 +815,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public Field getField() {
-    if(!field.getChildren().isEmpty()){
+    if (field.getChildren().contains(getDataVector().getField())) {
       return field;
     }
     field.setChildren(Collections.singletonList(getDataVector().getField()));

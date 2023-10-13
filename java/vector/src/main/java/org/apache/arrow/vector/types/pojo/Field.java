@@ -257,7 +257,7 @@ public class Field {
   }
 
   public void setChildren(List<Field> children) {
-     this.children = Collections2.toImmutableList(children);
+    this.children = Collections2.toImmutableList(children);
   }
 
   @JsonIgnore
