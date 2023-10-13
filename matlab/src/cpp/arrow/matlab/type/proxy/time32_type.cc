@@ -16,45 +16,12 @@
 // under the License.
 
 #include "arrow/matlab/type/proxy/time32_type.h"
-#include "arrow/matlab/type/time_unit.h"
-#include "arrow/matlab/error/error.h"
-#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::type::proxy {
 
-    Time32Type::Time32Type(std::shared_ptr<arrow::Time32Type> time32_type) : FixedWidthType(std::move(time32_type)) {
-        REGISTER_METHOD(Time32Type, getTimeUnit);
-    }
+    Time32Type::Time32Type(std::shared_ptr<arrow::Time32Type> time32_type) : TimeType(std::move(time32_type)) {}
 
     libmexclass::proxy::MakeResult Time32Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        namespace mda = ::matlab::data;
-
-        using Time32TypeProxy = arrow::matlab::type::proxy::Time32Type;
-
-        mda::StructArray opts = constructor_arguments[0];
-
-        const mda::StringArray timeunit_mda = opts[0]["TimeUnit"];
-
-        // extract the time unit
-        const std::u16string& utf16_timeunit = timeunit_mda[0];
-        MATLAB_ASSIGN_OR_ERROR(const auto timeunit,
-                               arrow::matlab::type::timeUnitFromString(utf16_timeunit),
-                               error::UKNOWN_TIME_UNIT_ERROR_ID);
-
-        auto type = arrow::time32(timeunit);
-        auto time_type = std::static_pointer_cast<arrow::Time32Type>(type);
-        return std::make_shared<Time32TypeProxy>(std::move(time_type));
-    }
-
-    void Time32Type::getTimeUnit(libmexclass::proxy::method::Context& context) {
-        namespace mda = ::matlab::data;
-        mda::ArrayFactory factory;
-
-        auto time32_type = std::static_pointer_cast<arrow::Time32Type>(data_type);
-        const auto timeunit = time32_type->unit();
-        // Cast to uint8_t since there are only four supported TimeUnit enumeration values:
-        // Nanosecond, Microsecond, Millisecond, Second
-        auto timeunit_mda = factory.createScalar(static_cast<uint8_t>(timeunit));
-        context.outputs[0] = timeunit_mda;
+        return make_time_type<arrow::Time32Type>(constructor_arguments);
     }
 }

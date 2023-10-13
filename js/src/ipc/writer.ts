@@ -342,7 +342,7 @@ export class RecordBatchFileWriter<T extends TypeMap = any> extends RecordBatchW
 
     protected _writeFooter(schema: Schema<T>) {
         const buffer = Footer.encode(new Footer(
-            schema, MetadataVersion.V4,
+            schema, MetadataVersion.V5,
             this._recordBatchBlocks, this._dictionaryBlocks
         ));
         return super

@@ -23,7 +23,12 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+)
+
+const (
+	MaxPrecision = 38
+	MaxScale     = 38
 )
 
 var (

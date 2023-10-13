@@ -1,3 +1,5 @@
+%TIMESTAMPTYPE Type class for timestamp data.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,9 +16,9 @@
 % permissions and limitations under the License.
 
 classdef TimestampType < arrow.type.TemporalType
-%TIMESTAMPTYPE Type class for timestamp data.
 
     properties(Dependent, GetAccess=public, SetAccess=private)
+        TimeUnit
         TimeZone
     end
 
@@ -29,15 +31,26 @@ classdef TimestampType < arrow.type.TemporalType
             obj@arrow.type.TemporalType(proxy);
         end
 
+        function timeUnit = get.TimeUnit(obj)
+            timeUnitValue = obj.Proxy.getTimeUnit();
+            timeUnit = arrow.type.TimeUnit(timeUnitValue);
+        end
+
         function tz = get.TimeZone(obj)
             tz = obj.Proxy.getTimeZone();
         end
     end
 
     methods (Access=protected)
-        function group = getPropertyGroups(~)
-          targets = ["ID" "TimeUnit" "TimeZone"];
-          group = matlab.mixin.util.PropertyGroup(targets);
+        function groups = getDisplayPropertyGroups(~)
+            targets = ["ID" "TimeUnit" "TimeZone"];
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+    
+    methods(Hidden)
+        function data = preallocateMATLABArray(obj, length)
+            data = NaT([length, 1], TimeZone=obj.TimeZone);
         end
     end
 end

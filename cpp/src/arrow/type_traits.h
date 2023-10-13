@@ -1132,6 +1132,36 @@ constexpr bool is_temporal(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a time type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_time(Type::type type_id) {
+  switch (type_id) {
+    case Type::TIME32:
+    case Type::TIME64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a date type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_date(Type::type type_id) {
+  switch (type_id) {
+    case Type::DATE32:
+    case Type::DATE64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for an interval type
 ///
 /// \param[in] type_id the type-id to check
@@ -1188,6 +1218,22 @@ constexpr bool is_var_length_list(Type::type type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
     case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a list type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a list type one
+constexpr bool is_list(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::FIXED_SIZE_LIST:
       return true;
     default:
       break;

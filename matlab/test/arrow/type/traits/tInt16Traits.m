@@ -20,6 +20,7 @@ classdef tInt16Traits < hTypeTraits
         ArrayConstructor = @arrow.array.Int16Array
         ArrayClassName = "arrow.array.Int16Array"
         ArrayProxyClassName = "arrow.array.proxy.Int16Array"
+        ArrayStaticConstructor = @arrow.array.Int16Array.fromMATLAB
         TypeConstructor = @arrow.type.Int16Type
         TypeClassName = "arrow.type.Int16Type"
         TypeProxyClassName = "arrow.type.proxy.Int16Type"

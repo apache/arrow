@@ -50,11 +50,15 @@ if release_type != "patch":
     # Create new versions
     new_versions = [
         {"name": f"{dev_compatible_version} (dev)",
-         "version": "dev/"},
+         "version": "dev/",
+         "url": "https://arrow.apache.org/docs/dev/"},
         {"name": f"{stable_compatible_version} (stable)",
-         "version": ""},
+         "version": "",
+         "url": "https://arrow.apache.org/docs/",
+         "preferred": True},
         {"name": previous_compatible_version,
-         "version": f"{previous_compatible_version}/"},
+         "version": f"{previous_compatible_version}/",
+         "url": f"https://arrow.apache.org/docs/{previous_compatible_version}/"},
         *old_versions[2:],
     ]
     with open(main_versions_path, 'w') as json_file:

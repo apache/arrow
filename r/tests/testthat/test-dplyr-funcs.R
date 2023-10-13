@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
+
 test_that("register_binding()/unregister_binding() works", {
   fake_registry <- new.env(parent = emptyenv())
   fun1 <- function() NULL

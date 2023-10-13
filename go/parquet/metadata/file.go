@@ -24,12 +24,12 @@ import (
 	"reflect"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/compress"
-	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/compress"
+	"github.com/apache/arrow/go/v14/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v14/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -93,6 +93,11 @@ func (f *FileMetaDataBuilder) AppendRowGroup() *RowGroupMetaDataBuilder {
 	f.rowGroups = append(f.rowGroups, rg)
 	f.currentRgBldr = NewRowGroupMetaDataBuilder(f.props, f.schema, rg)
 	return f.currentRgBldr
+}
+
+// AppendKeyValueMetadata appends a key/value pair to the existing key/value metadata
+func (f *FileMetaDataBuilder) AppendKeyValueMetadata(key string, value string) error {
+	return f.kvmeta.Append(key, value)
 }
 
 // Finish will finalize the metadata of the number of rows, row groups,

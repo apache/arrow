@@ -20,10 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 )
 
 // NewColumnSlice returns a new zero-copy slice of the column with the indicated
@@ -255,6 +256,25 @@ func (tbl *simpleTable) Release() {
 		}
 		tbl.cols = nil
 	}
+}
+
+func (tbl *simpleTable) String() string {
+	o := new(strings.Builder)
+	o.WriteString(tbl.Schema().String())
+	o.WriteString("\n")
+
+	for i := 0; i < int(tbl.NumCols()); i++ {
+		col := tbl.Column(i)
+		o.WriteString(col.Field().Name + ": [")
+		for j, chunk := range col.Data().Chunks() {
+			if j != 0 {
+				o.WriteString(", ")
+			}
+			o.WriteString(chunk.String())
+		}
+		o.WriteString("]\n")
+	}
+	return o.String()
 }
 
 // TableReader is a Record iterator over a (possibly chunked) Table

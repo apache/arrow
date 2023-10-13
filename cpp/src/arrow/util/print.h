@@ -18,6 +18,9 @@
 #pragma once
 
 #include <tuple>
+#include "arrow/util/string.h"
+
+using arrow::internal::ToChars;
 
 namespace arrow {
 namespace internal {
@@ -47,5 +50,28 @@ void PrintTuple(OStream* os, const std::tuple<Args&...>& tup) {
   detail::TuplePrinter<OStream, std::tuple<Args&...>, sizeof...(Args)>::Print(os, tup);
 }
 
+template <typename Range, typename Separator>
+struct PrintVector {
+  const Range& range_;
+  const Separator& separator_;
+
+  template <typename Os>  // template to dodge inclusion of <ostream>
+  friend Os& operator<<(Os& os, PrintVector l) {
+    bool first = true;
+    os << "[";
+    for (const auto& element : l.range_) {
+      if (first) {
+        first = false;
+      } else {
+        os << l.separator_;
+      }
+      os << ToChars(element);  // use ToChars to avoid locale dependence
+    }
+    os << "]";
+    return os;
+  }
+};
+template <typename Range, typename Separator>
+PrintVector(const Range&, const Separator&) -> PrintVector<Range, Separator>;
 }  // namespace internal
 }  // namespace arrow

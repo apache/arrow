@@ -19,6 +19,7 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
 
 import atexit
 from collections.abc import Mapping
+import pickle
 import re
 import sys
 import warnings
@@ -1557,7 +1558,7 @@ cdef class FixedShapeTensorType(BaseExtensionType):
 
     >>> import pyarrow as pa
     >>> pa.fixed_shape_tensor(pa.int32(), [2, 2])
-    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>)
 
     Create an instance of fixed shape tensor extension type with
     permutation:
@@ -1699,12 +1700,12 @@ cdef class PyExtensionType(ExtensionType):
                                   .format(type(self).__name__))
 
     def __arrow_ext_serialize__(self):
-        return builtin_pickle.dumps(self)
+        return pickle.dumps(self)
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         try:
-            ty = builtin_pickle.loads(serialized)
+            ty = pickle.loads(serialized)
         except Exception:
             # For some reason, it's impossible to deserialize the
             # ExtensionType instance.  Perhaps the serialized data is
@@ -3153,13 +3154,13 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(schemas):
+def unify_schemas(schemas, *, promote_options="default"):
     """
     Unify schemas by merging fields by name.
 
     The resulting schema will contain the union of fields from all schemas.
     Fields with the same name will be merged. Note that two fields with
-    different types will fail merging.
+    different types will fail merging by default.
 
     - The unified field will inherit the metadata from the schema where
         that field is first defined.
@@ -3173,6 +3174,10 @@ def unify_schemas(schemas):
     ----------
     schemas : list of Schema
         Schemas to merge into a single one.
+    promote_options : str, default default
+        Accepts strings "default" and "permissive".
+        Default: null and only null can be unified with another type.
+        Permissive: types are promoted to the greater common denominator.
 
     Returns
     -------
@@ -3186,12 +3191,22 @@ def unify_schemas(schemas):
     """
     cdef:
         Schema schema
+        CField.CMergeOptions c_options
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
         if not isinstance(schema, Schema):
             raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
-    return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
+
+    if promote_options == "default":
+        c_options = CField.CMergeOptions.Defaults()
+    elif promote_options == "permissive":
+        c_options = CField.CMergeOptions.Permissive()
+    else:
+        raise ValueError(f"Invalid merge mode: {promote_options}")
+
+    return pyarrow_wrap_schema(
+        GetResultValue(UnifySchemas(c_schemas, c_options)))
 
 
 cdef dict _type_cache = {}
@@ -4135,6 +4150,7 @@ def binary(int length=-1):
     FixedSizeBinaryType(fixed_size_binary[3])
 
     and use the fixed-length binary type to create an array:
+
     >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary(3))
     <pyarrow.lib.FixedSizeBinaryArray object at ...>
     [
@@ -4744,7 +4760,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     >>> import pyarrow as pa
     >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
     >>> tensor_type
-    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>)
 
     Inspect the data type:
 
@@ -4760,7 +4776,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
     >>> pa.table([tensor], names=["tensor_array"])
     pyarrow.Table
-    tensor_array: extension<arrow.fixed_shape_tensor>
+    tensor_array: extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>
     ----
     tensor_array: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
 

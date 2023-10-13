@@ -17,7 +17,6 @@
 
 import datetime
 import decimal
-import pickle
 import pytest
 import sys
 import weakref
@@ -68,7 +67,7 @@ from pyarrow.tests import util
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
-def test_basics(value, ty, klass):
+def test_basics(value, ty, klass, pickle_module):
     s = pa.scalar(value, type=ty)
     s.validate()
     s.validate(full=True)
@@ -87,7 +86,7 @@ def test_basics(value, ty, klass):
     assert s != pa.scalar(value, type=ty)
 
     # test pickle roundtrip
-    restored = pickle.loads(pickle.dumps(s))
+    restored = pickle_module.loads(pickle_module.dumps(s))
     assert s.equals(restored)
 
     # test that scalars are weak-referenceable
@@ -110,7 +109,7 @@ def test_null_singleton():
         pa.NullScalar()
 
 
-def test_nulls():
+def test_nulls(pickle_module):
     null = pa.scalar(None)
     assert null is pa.NA
     assert null.as_py() is None
@@ -126,7 +125,7 @@ def test_nulls():
         assert v.as_py() is None
 
     # test pickle roundtrip
-    restored = pickle.loads(pickle.dumps(null))
+    restored = pickle_module.loads(pickle_module.dumps(null))
     assert restored.equals(null)
 
     # test that scalars are weak-referenceable
@@ -205,7 +204,9 @@ def test_numerics():
     # float16
     s = pa.scalar(np.float16(0.5), type='float16')
     assert isinstance(s, pa.HalfFloatScalar)
-    assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
+    # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
+    # on numpy1 repr(np.float16(0.5)) == "0.5"
+    assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
 
@@ -349,6 +350,13 @@ def test_cast_int_to_float():
     assert unsafe_cast == expected_unsafe_cast
     with pytest.raises(pa.ArrowInvalid):
         int_scalar.cast(pa.float64())  # verify default is safe cast
+
+
+@pytest.mark.parametrize("typ", [pa.date32(), pa.date64()])
+def test_cast_string_to_date(typ):
+    scalar = pa.scalar('2021-01-01')
+    result = scalar.cast(typ)
+    assert result == pa.scalar(datetime.date(2021, 1, 1), type=typ)
 
 
 @pytest.mark.pandas
@@ -683,7 +691,7 @@ def test_struct_duplicate_fields():
         s.as_py()
 
 
-def test_map():
+def test_map(pickle_module):
     ty = pa.map_(pa.string(), pa.int8())
     v = [('a', 1), ('b', 2)]
     s = pa.scalar(v, type=ty)
@@ -701,6 +709,10 @@ def test_map():
     for i, j in zip(s, v):
         assert i == j
 
+    # test iteration with missing values
+    for _ in pa.scalar(None, type=ty):
+        pass
+
     assert s.as_py() == v
     assert s[1] == (
         pa.scalar('b', type=pa.string()),
@@ -713,11 +725,11 @@ def test_map():
     with pytest.raises(IndexError):
         s[2]
 
-    restored = pickle.loads(pickle.dumps(s))
+    restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
 
 
-def test_dictionary():
+def test_dictionary(pickle_module):
     indices = pa.array([2, None, 1, 2, 0, None])
     dictionary = pa.array(['foo', 'bar', 'baz'])
 
@@ -733,7 +745,7 @@ def test_dictionary():
         assert s.index.equals(i)
         assert s.dictionary.equals(dictionary)
 
-        restored = pickle.loads(pickle.dumps(s))
+        restored = pickle_module.loads(pickle_module.dumps(s))
         assert restored.equals(s)
 
 
@@ -758,7 +770,7 @@ def test_run_end_encoded():
         pa.scalar(1, pa.run_end_encoded(pa.int64(), pa.int64()))
 
 
-def test_union():
+def test_union(pickle_module):
     # sparse
     arr = pa.UnionArray.from_sparse(
         pa.array([0, 0, 1, 1], type=pa.int8()),
@@ -773,7 +785,7 @@ def test_union():
         assert s.type.equals(arr.type)
         assert s.is_valid is True
         with pytest.raises(pa.ArrowNotImplementedError):
-            pickle.loads(pickle.dumps(s))
+            pickle_module.loads(pickle_module.dumps(s))
 
     assert arr[0].type_code == 0
     assert arr[0].as_py() == "a"
@@ -799,7 +811,7 @@ def test_union():
         assert s.type.equals(arr.type)
         assert s.is_valid is True
         with pytest.raises(pa.ArrowNotImplementedError):
-            pickle.loads(pickle.dumps(s))
+            pickle_module.loads(pickle_module.dumps(s))
 
     assert arr[0].type_code == 0
     assert arr[0].as_py() == b'a'

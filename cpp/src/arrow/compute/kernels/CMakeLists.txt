@@ -23,7 +23,8 @@ if(ARROW_TESTING)
   add_library(arrow_compute_kernels_testing OBJECT test_util.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_compute_kernels_testing ${ARROW_GTEST_GTEST})
+  target_link_libraries(arrow_compute_kernels_testing ${ARROW_GTEST_GTEST}
+                        ${ARROW_GTEST_GMOCK})
 endif()
 
 add_arrow_test(scalar_cast_test

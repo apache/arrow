@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 
@@ -48,6 +49,22 @@ struct ARROW_ENGINE_EXPORT PlanInfo {
   ///
   /// If `root` was created from a simple Rel then this will be empty
   std::vector<std::string> names;
+};
+
+/// An expression whose output has a name
+struct ARROW_ENGINE_EXPORT NamedExpression {
+  /// An expression
+  compute::Expression expression;
+  // An optional name to assign to the output, may be the empty string
+  std::string name;
+};
+
+/// A collection of expressions bound to a common schema
+struct ARROW_ENGINE_EXPORT BoundExpressions {
+  /// The expressions
+  std::vector<NamedExpression> named_expressions;
+  /// The schema that all the expressions are bound to
+  std::shared_ptr<Schema> schema;
 };
 
 }  // namespace engine
