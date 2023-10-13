@@ -89,17 +89,23 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
   sliced.bit_offset_[0] = (bit_offset_[0] + offset) % 8;
 
   if (metadata_.fixed_length == 0 && !metadata_.is_null_type) {
+    ARROW_DCHECK(is_bool_type() || is_other_fixed_width_types())
+        << "Expected BOOL type or OTHER FIXED WIDTH type but got a different type.";
     sliced.buffers_[1] =
         buffers_[1] ? buffers_[1] + (bit_offset_[1] + offset) / 8 : nullptr;
     sliced.mutable_buffers_[1] = mutable_buffers_[1]
                                      ? mutable_buffers_[1] + (bit_offset_[1] + offset) / 8
                                      : nullptr;
     sliced.bit_offset_[1] = (bit_offset_[1] + offset) % 8;
-  } else {
+  } else if (metadata_.fixed_length > 0) {
+    ARROW_DCHECK(is_dictionary_type() || is_binary_type() || is_large_binary_type())
+        << "Expected DICTIONARY or (LARGE) BINARY type but got a different type.";
     sliced.buffers_[1] = buffers_[1] ? buffers_[1] + offset * fixed_size : nullptr;
     sliced.mutable_buffers_[1] =
         mutable_buffers_[1] ? mutable_buffers_[1] + offset * fixed_size : nullptr;
     sliced.bit_offset_[1] = 0;
+  } else {
+    ARROW_DCHECK(is_null_type()) << "Expected Null type but got a different type.";
   }
 
   sliced.buffers_[2] = buffers_[2];
