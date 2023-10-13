@@ -71,7 +71,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   private FieldVector vector;
   private ArrowBuf validityBuffer;
   private final int listSize;
-  private final Field field;
+  private Field field;
 
   private UnionFixedSizeListReader reader;
   private int valueCount;
@@ -123,8 +123,11 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public Field getField() {
-    return field.getChildren().isEmpty() ? new Field(field.getName(), field.getFieldType(),
-        Collections.singletonList(getDataVector().getField())) : field;
+    if(!field.getChildren().isEmpty()){
+      return field;
+    }
+    field.setChildren(Collections.singletonList(getDataVector().getField()));
+    return field;
   }
 
   @Override
@@ -152,6 +155,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
+    this.field.setChildren(children);
   }
 
   @Override

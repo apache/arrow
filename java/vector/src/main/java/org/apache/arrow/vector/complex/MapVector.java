@@ -104,6 +104,7 @@ public class MapVector extends ListVector {
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(structField.getChildren());
+    this.field.setChildren(children);
   }
 
   /**

@@ -75,7 +75,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   protected ArrowBuf validityBuffer;
   protected UnionListReader reader;
   private CallBack callBack;
-  protected final Field field;
+  protected Field field;
   protected int validityAllocationSizeInBytes;
 
   /**
@@ -126,6 +126,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
+    this.field.setChildren(children);
   }
 
   @Override
@@ -662,8 +663,11 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public Field getField() {
-    return field.getChildren().isEmpty() ? new Field(field.getName(), field.getFieldType(),
-        Collections.singletonList(getDataVector().getField())) : field;
+    if(!field.getChildren().isEmpty()){
+      return field;
+    }
+    field.setChildren(Collections.singletonList(getDataVector().getField()));
+    return field;
   }
 
   @Override

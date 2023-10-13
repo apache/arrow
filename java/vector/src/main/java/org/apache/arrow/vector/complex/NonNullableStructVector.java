@@ -474,7 +474,8 @@ public class NonNullableStructVector extends AbstractStructVector {
     for (ValueVector child : getChildren()) {
       children.add(child.getField());
     }
-    return new Field(name, field.getFieldType(), children);
+    field.setChildren(children);
+    return field;
   }
 
   @Override

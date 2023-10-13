@@ -101,7 +101,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   protected String defaultDataVectorName = DATA_VECTOR_NAME;
   protected ArrowBuf validityBuffer;
   protected UnionLargeListReader reader;
-  private final Field field;
+  private Field field;
   private int validityAllocationSizeInBytes;
 
   /**
@@ -158,6 +158,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
+    this.field.setChildren(children);
   }
 
   @Override
@@ -814,8 +815,11 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public Field getField() {
-    return field.getChildren().isEmpty() ? new Field(field.getName(), field.getFieldType(),
-        Collections.singletonList(getDataVector().getField())) : field;
+    if(!field.getChildren().isEmpty()){
+      return field;
+    }
+    field.setChildren(Collections.singletonList(getDataVector().getField()));
+    return field;
   }
 
   @Override
