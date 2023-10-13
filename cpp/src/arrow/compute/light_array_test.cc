@@ -202,6 +202,30 @@ TEST(KeyColumnArray, Slice) {
   }
 }
 
+TEST(KeyColumnArray, SliceBool) {
+  constexpr int kValuesByteLength = 2;
+  constexpr int kValidityByteLength = 2;
+  uint8_t validity_buffer[kValidityByteLength];
+  uint8_t values_buffer[kValuesByteLength];
+  int length = 16;
+  KeyColumnMetadata metadata(true, /*byte_width=*/0);
+  KeyColumnArray array(metadata, length, validity_buffer, values_buffer, nullptr);
+
+  for (int offset : {0, 4, 12}) {
+    ARROW_SCOPED_TRACE("Offset: ", offset);
+    for (int length : {0, 4}) {
+      ARROW_SCOPED_TRACE("Length: ", length);
+      KeyColumnArray sliced = array.Slice(offset, length);
+      int expected_bit_offset = (offset == 0) ? 0 : 4;
+      int expected_byte_offset = (offset == 12) ? 1 : 0;
+      ASSERT_EQ(expected_bit_offset, sliced.bit_offset(0));
+      ASSERT_EQ(expected_bit_offset, sliced.bit_offset(1));
+      ASSERT_EQ(validity_buffer + expected_byte_offset, sliced.mutable_data(0));
+      ASSERT_EQ(values_buffer + expected_byte_offset, sliced.mutable_data(1));
+    }
+  }
+}
+
 struct SliceTestCase {
   int offset;
   int length;
