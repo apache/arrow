@@ -350,4 +350,18 @@ class ARROW_EXPORT RecordBatchReader {
       Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
 
+/// \brief Concatenate record batches
+///
+/// The columns of the new batch are formed by concatenate the same columns of each input
+/// batch. Concatenate multiple batches into a new batch requires that the schema must be
+/// consistent. It supports merging batches without columns (only length, scenarios such
+/// as count(*)).
+///
+/// \param[in] batches a vector of record batches to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \return the concatenated record batch
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
+    const RecordBatchVector& batches, MemoryPool* pool = default_memory_pool());
+
 }  // namespace arrow
