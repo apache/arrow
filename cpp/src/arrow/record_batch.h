@@ -355,6 +355,7 @@ class ARROW_EXPORT RecordBatchReader {
 /// \param[in] batches a vector of record batches to be concatenated
 /// \param[in] pool memory to store the result will be allocated from this memory pool
 /// \return the concatenated record batch
+ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
     const RecordBatchVector& batches, MemoryPool* pool = default_memory_pool());
 
