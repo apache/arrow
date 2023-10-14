@@ -1380,5 +1380,33 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
 
 GENERIC_FS_TEST_FUNCTIONS(TestS3FSGeneric);
 
+////////////////////////////////////////////////////////////////////////////
+// GetS3LogLevelFromEnvOrDefault tests
+
+class GetS3LogLevelFromEnvOrDefault : public ::testing::Test {};
+
+TEST_F(GetS3LogLevelFromEnvOrDefault, GetS3LogLevelFromEnvOrDefaultBehavior) {
+  // Verify we get the default value of Fatal
+  ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::GetS3LogLevelFromEnvOrDefault());
+
+  // Verify we get the value specified by env var and not the default
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "Error");
+    ASSERT_EQ(arrow::fs::GetS3LogLevelFromEnvOrDefault(), S3LogLevel::Error);
+  }
+
+  // Verify we trim and case-insensitively compare the environment variable's value
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", " eRrOr ");
+    ASSERT_EQ(arrow::fs::GetS3LogLevelFromEnvOrDefault(), S3LogLevel::Error);
+  }
+
+  // Verify we get the default value of Fatal if our env var is invalid
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "invalid");
+    ASSERT_EQ(arrow::fs::GetS3LogLevelFromEnvOrDefault(), S3LogLevel::Fatal);
+  }
+}
+
 }  // namespace fs
 }  // namespace arrow

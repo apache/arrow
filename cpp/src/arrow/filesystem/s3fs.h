@@ -334,12 +334,21 @@ struct ARROW_EXPORT S3GlobalOptions {
   int num_event_loop_threads = 1;
 };
 
-/// \brief Initialize the S3 APIs.
+/// \brief Initialize the S3 APIs with default options.
 ///
 /// It is required to call this function at least once before using S3FileSystem.
 ///
 /// Once this function is called you MUST call FinalizeS3 before the end of the
 /// application in order to avoid a segmentation fault at shutdown.
+ARROW_EXPORT
+Status InitializeS3();
+
+/// \brief Initialize the S3 APIs with the specified set of options.
+///
+/// It is required to call this function at least once before using S3FileSystem.
+///
+/// Once this function is called you MUST call FinalizeS3 before the end of the
+/// application in order to avoid a segmentation fault at shutdown.ARROW_EXPORT
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
@@ -377,6 +386,13 @@ Status EnsureS3Finalized();
 
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
+
+/// \brief Try to extract the S3LogLevel from environment variable
+///
+/// Tries to get a valid log level name from the environment variable
+/// ARROW_S3_LOG_LEVEL and returns a matching value of S3LogLevel. If it fails
+/// returns S3LogLevel::Fatal.
+S3LogLevel GetS3LogLevelFromEnvOrDefault();
 
 }  // namespace fs
 }  // namespace arrow

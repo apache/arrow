@@ -2969,11 +2969,20 @@ AwsInstance* GetAwsInstance() {
   return instance.get();
 }
 
+Result<bool> EnsureAwsInstanceInitialized() {
+  S3LogLevel log_level = GetS3LogLevelFromEnvOrDefault();
+  auto options = S3GlobalOptions{log_level};
+
+  return GetAwsInstance()->EnsureInitialized(options);
+}
+
 Result<bool> EnsureAwsInstanceInitialized(const S3GlobalOptions& options) {
   return GetAwsInstance()->EnsureInitialized(options);
 }
 
 }  // namespace
+
+Status InitializeS3() { return InitializeS3(S3GlobalOptions{S3LogLevel::Fatal}); }
 
 Status InitializeS3(const S3GlobalOptions& options) {
   ARROW_ASSIGN_OR_RAISE(bool successfully_initialized,
@@ -2986,9 +2995,7 @@ Status InitializeS3(const S3GlobalOptions& options) {
   return Status::OK();
 }
 
-Status EnsureS3Initialized() {
-  return EnsureAwsInstanceInitialized({S3LogLevel::Fatal}).status();
-}
+Status EnsureS3Initialized() { return EnsureAwsInstanceInitialized().status(); }
 
 Status FinalizeS3() {
   GetAwsInstance()->Finalize();
@@ -3014,6 +3021,36 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
 
   ARROW_ASSIGN_OR_RAISE(auto resolver, RegionResolver::DefaultInstance());
   return resolver->ResolveRegion(bucket);
+}
+
+S3LogLevel GetS3LogLevelFromEnvOrDefault() {
+  auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
+
+  if (!result.ok()) {
+    return S3LogLevel::Fatal;
+  }
+
+  // Extract, trim, and downcase the value of the enivronment variable
+  auto value =
+      arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
+
+  if (value == "fatal") {
+    return S3LogLevel::Fatal;
+  } else if (value == "error") {
+    return S3LogLevel::Error;
+  } else if (value == "warn") {
+    return S3LogLevel::Warn;
+  } else if (value == "info") {
+    return S3LogLevel::Info;
+  } else if (value == "debug") {
+    return S3LogLevel::Debug;
+  } else if (value == "trace") {
+    return S3LogLevel::Trace;
+  } else if (value == "off") {
+    return S3LogLevel::Off;
+  }
+
+  return S3LogLevel::Fatal;
 }
 
 }  // namespace fs
