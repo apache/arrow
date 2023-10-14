@@ -57,7 +57,7 @@ public class TestVectorSchemaRoot {
   public void testResetRowCount() {
     final int size = 20;
     try (final BitVector vec1 = new BitVector("bit", allocator);
-        final IntVector vec2 = new IntVector("int", allocator)) {
+         final IntVector vec2 = new IntVector("int", allocator)) {
       VectorSchemaRoot vsr = VectorSchemaRoot.of(vec1, vec2);
 
       vsr.allocateNew();
