@@ -158,7 +158,7 @@ infer_type.Expression <- function(x, ...) x$type()
 FixedWidthType <- R6Class("FixedWidthType",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow")
   ),
   active = list(
     bit_width = function() FixedWidthType__bit_width(self)
@@ -178,45 +178,45 @@ Float32 <- R6Class("Float32", inherit = FixedWidthType)
 Float64 <- R6Class("Float64",
   inherit = FixedWidthType,
   public = list(
-    code = function(namespace = FALSE) call2("float64", .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2("float64", .ns = if (namespace) "arrow")
   )
 )
 Boolean <- R6Class("Boolean", inherit = FixedWidthType)
 Utf8 <- R6Class("Utf8",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("utf8", .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2("utf8", .ns = if (namespace) "arrow")
   )
 )
 LargeUtf8 <- R6Class("LargeUtf8",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("large_utf8", .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2("large_utf8", .ns = if (namespace) "arrow")
   )
 )
 Binary <- R6Class("Binary",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("binary", .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2("binary", .ns = if (namespace) "arrow")
   )
 )
 LargeBinary <- R6Class("LargeBinary",
   inherit = DataType, public = list(
-    code = function(namespace = FALSE) call2("large_binary", .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2("large_binary", .ns = if (namespace) "arrow")
   )
 )
 FixedSizeBinary <- R6Class("FixedSizeBinary",
   inherit = FixedWidthType,
   public = list(
     byte_width = function() FixedSizeBinary__byte_width(self),
-    code = function(namespace = FALSE) call2("fixed_size_binary", byte_width = self$byte_width(), .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2("fixed_size_binary", byte_width = self$byte_width(), .ns = if (namespace) "arrow")
   )
 )
 
 DateType <- R6Class("DateType",
   inherit = FixedWidthType,
   public = list(
-    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if(namespace) "arrow"),
+    code = function(namespace = FALSE) call2(tolower(self$name), .ns = if (namespace) "arrow"),
     unit = function() DateType__unit(self)
   )
 )
@@ -238,7 +238,7 @@ Time32 <- R6Class("Time32",
       } else {
         "s"
       }
-      call2("time32", unit = unit, .ns = if(namespace) "arrow")
+      call2("time32", unit = unit, .ns = if (namespace) "arrow")
     }
   )
 )
@@ -251,7 +251,7 @@ Time64 <- R6Class("Time64",
       } else {
         "us"
       }
-      call2("time64", unit = unit, .ns = if(namespace) "arrow")
+      call2("time64", unit = unit, .ns = if (namespace) "arrow")
     }
   )
 )
@@ -266,7 +266,7 @@ DurationType <- R6Class("DurationType",
 Null <- R6Class("Null",
   inherit = DataType,
   public = list(
-    code = function(namespace = FALSE) call2("null", .ns = if(namespace) "arrow")
+    code = function(namespace = FALSE) call2("null", .ns = if (namespace) "arrow")
   )
 )
 
@@ -277,9 +277,9 @@ Timestamp <- R6Class("Timestamp",
       unit <- c("s", "ms", "us", "ns")[self$unit() + 1L]
       tz <- self$timezone()
       if (identical(tz, "")) {
-        call2("timestamp", unit = unit, .ns = if(namespace) "arrow")
+        call2("timestamp", unit = unit, .ns = if (namespace) "arrow")
       } else {
-        call2("timestamp", unit = unit, timezone = tz, .ns = if(namespace) "arrow")
+        call2("timestamp", unit = unit, timezone = tz, .ns = if (namespace) "arrow")
       }
     },
     timezone = function() TimestampType__timezone(self),
@@ -291,7 +291,7 @@ DecimalType <- R6Class("DecimalType",
   inherit = FixedWidthType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("decimal", precision = self$precision(), scale = self$scale(), .ns = if(namespace) "arrow")
+      call2("decimal", precision = self$precision(), scale = self$scale(), .ns = if (namespace) "arrow")
     },
     precision = function() DecimalType__precision(self),
     scale = function() DecimalType__scale(self)
@@ -630,7 +630,7 @@ StructType <- R6Class("StructType",
         self$GetFieldByName(name)$type$code(namespace)
       })
       codes <- set_names(codes, field_names)
-      call2("struct", !!!codes, .ns = if(namespace) "arrow")
+      call2("struct", !!!codes, .ns = if (namespace) "arrow")
     },
     GetFieldByName = function(name) StructType__GetFieldByName(self, name),
     GetFieldIndex = function(name) StructType__GetFieldIndex(self, name)
@@ -649,7 +649,7 @@ ListType <- R6Class("ListType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("list_of", self$value_type$code(namespace), .ns = if(namespace) "arrow")
+      call2("list_of", self$value_type$code(namespace), .ns = if (namespace) "arrow")
     }
   ),
   active = list(
@@ -666,7 +666,7 @@ LargeListType <- R6Class("LargeListType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("large_list_of", self$value_type$code(namespace), .ns = if(namespace) "arrow")
+      call2("large_list_of", self$value_type$code(namespace), .ns = if (namespace) "arrow")
     }
   ),
   active = list(
@@ -685,7 +685,7 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("fixed_size_list_of", self$value_type$code(namespace), list_size = self$list_size, .ns = if(namespace) "arrow")
+      call2("fixed_size_list_of", self$value_type$code(namespace), list_size = self$list_size, .ns = if (namespace) "arrow")
     }
   ),
   active = list(

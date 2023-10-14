@@ -114,7 +114,7 @@ Schema <- R6Class("Schema",
         field$type$code(namespace)
       })
       codes <- set_names(codes, names)
-      call2("schema", !!!codes, .ns = if(namespace) "arrow")
+      call2("schema", !!!codes, .ns = if (namespace) "arrow")
     },
     WithNames = function(names) {
       if (!inherits(names, "character")) {
