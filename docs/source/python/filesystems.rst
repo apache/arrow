@@ -213,8 +213,8 @@ Troubleshooting
 When using :class:`S3FileSystem`, output is only produced for fatal errors or
 when printing return values. For troubleshooting, the log level can be set using
 the environment variable ``ARROW_S3_LOG_LEVEL``. The log level must be set prior
-to running any code that interacts with S3. Possible values include 'Fatal' (the
-default), 'Error', 'Warn', 'Info', 'Debug' (recommended), 'Trace', and 'Off'.
+to running any code that interacts with S3. Possible values include ``Fatal`` (the
+default), ``Error``, ``Warn``, ``Info``, ``Debug`` (recommended), ``Trace``, and ``Off``.
 
 .. _filesystem-gcs:
 
