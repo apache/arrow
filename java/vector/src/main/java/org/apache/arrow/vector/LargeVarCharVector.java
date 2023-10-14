@@ -17,7 +17,10 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.LargeVarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.LargeVarCharHolder;
@@ -120,12 +123,28 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @return Text object for non-null element, null otherwise
    */
   public Text getObject(int index) {
-    byte[] b = get(index);
-    if (b == null) {
+    assert index >= 0;
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
-    } else {
-      return new Text(b);
     }
+
+    final Text result = new Text();
+    read(index, result);
+    return result;
+  }
+
+  /**
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
+   *
+   * @param index position of element.
+   * @param outputBuffer the buffer to write into.
+   */
+  public void read(int index, ReusableBuffer<?> outputBuffer) {
+    final long startOffset = getStartOffset(index);
+    final long dataLength =
+        offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH) - startOffset;
+    outputBuffer.set(valueBuffer, startOffset, dataLength);
   }
 
   /**
@@ -247,7 +266,7 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param text    Text object with data
    */
   public void set(int index, Text text) {
-    set(index, text.getBytes(), 0, text.getLength());
+    set(index, text.getBytes(), 0, (int) text.getLength());
   }
 
   /**
@@ -259,7 +278,7 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param text    Text object with data
    */
   public void setSafe(int index, Text text) {
-    setSafe(index, text.getBytes(), 0, text.getLength());
+    setSafe(index, text.getBytes(), 0, (int) text.getLength());
   }
 
   @Override

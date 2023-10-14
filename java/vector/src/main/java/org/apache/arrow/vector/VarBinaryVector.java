@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.VarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
@@ -111,6 +112,20 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
     final byte[] result = new byte[dataLength];
     valueBuffer.getBytes(startOffset, result, 0, dataLength);
     return result;
+  }
+
+  /**
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
+   *
+   * @param index position of element.
+   * @param outputBuffer the buffer to write into.
+   */
+  public void read(int index, ReusableBuffer<?> outputBuffer) {
+    final int startOffset = getStartOffset(index);
+    final int dataLength =
+        offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH) - startOffset;
+    outputBuffer.set(valueBuffer, startOffset, dataLength);
   }
 
   /**
