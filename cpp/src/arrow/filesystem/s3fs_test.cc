@@ -1392,7 +1392,7 @@ TEST_F(GetS3LogLevelFromEnvOrDefault, GetS3LogLevelFromEnvOrDefaultBehavior) {
   // Verify we get the value specified by env var and not the default
   {
     EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "Error");
-    ASSERT_EQ(arrow::fs::GetS3LogLevelFromEnvOrDefault(), S3LogLevel::Error);
+    ASSERT_EQ(S3LogLevel::Error, arrow::fs::GetS3LogLevelFromEnvOrDefault());
   }
 
   // Verify we trim and case-insensitively compare the environment variable's value
