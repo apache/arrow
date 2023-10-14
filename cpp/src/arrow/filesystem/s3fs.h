@@ -392,6 +392,7 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 /// Tries to get a valid log level name from the environment variable
 /// ARROW_S3_LOG_LEVEL and returns a matching value of S3LogLevel. If it fails
 /// returns S3LogLevel::Fatal.
+ARROW_EXPORT
 S3LogLevel GetS3LogLevelFromEnvOrDefault();
 
 }  // namespace fs
