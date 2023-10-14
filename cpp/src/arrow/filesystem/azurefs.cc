@@ -439,8 +439,7 @@ Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
 
 Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
     const FileInfo& info) {
-  // return impl_->OpenInputFile(info, this);
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  return impl_->OpenInputFile(info, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
