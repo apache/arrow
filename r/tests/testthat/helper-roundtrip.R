@@ -43,6 +43,14 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
   invisible(a)
 }
 
-expect_code_roundtrip <- function(x, namespace = FALSE, ...) {
-  expect_equal(eval(x$code(namespace)), x, ...)
+expect_code_roundtrip <- function(x) {
+  code <- x$code()
+  code_with_ns <- x$code(namespace=TRUE)
+
+  pkg_prefix_pattern <- "^arrow[:][:]"
+  expect_no_match(as.character(code), pkg_prefix_pattern)
+  expect_match(as.character(code_with_ns)[1], pkg_prefix_pattern)
+
+  expect_equal(eval(code), x)
+  expect_equal(eval(code_with_ns), x)
 }

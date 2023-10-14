@@ -39,23 +39,15 @@ test_that("Schema print method", {
 })
 
 test_that("Schema$code()", {
-  schema_obj <- schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
-  expect_code_roundtrip(schema_obj)
-
-  expect_no_match(as.character(schema_obj$code()), "arrow::", fixed=TRUE)
+  expect_code_roundtrip(
+    schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
+  )
 
   skip_if(packageVersion("rlang") < "1")
   expect_error(
     eval(schema(x = int32(), y = DayTimeInterval__initialize())$code()),
     "Unsupported type"
   )
-})
-
-test_that("Schema$code(namespace=TRUE)", {
-  schema_obj <- schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
-  expect_code_roundtrip(schema_obj, namespace = TRUE)
-
-  expect_match(as.character(schema_obj$code(TRUE)), "^arrow[:][:]")
 })
 
 test_that("Schema with non-nullable fields", {
