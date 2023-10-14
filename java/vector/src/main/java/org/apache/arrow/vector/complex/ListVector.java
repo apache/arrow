@@ -92,12 +92,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
    * @param callBack A schema change callback.
    */
   public ListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    super(name, allocator, callBack);
-    this.validityBuffer = allocator.getEmpty();
-    this.field = new Field(name, fieldType, null);
-    this.callBack = callBack;
-    this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
-    this.lastSet = -1;
+    this(new Field(name, fieldType, null), allocator, callBack);
   }
 
   /**
@@ -126,7 +121,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
-    this.field.setChildren(children);
+    this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
   }
 
   @Override
@@ -666,7 +661,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     if (field.getChildren().contains(getDataVector().getField())) {
       return field;
     }
-    field.setChildren(Collections.singletonList(getDataVector().getField()));
+    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
     return field;
   }
 

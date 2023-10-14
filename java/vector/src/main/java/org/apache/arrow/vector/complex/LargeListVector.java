@@ -118,15 +118,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    * @param callBack A schema change callback.
    */
   public LargeListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    super(allocator);
-    this.field = new Field(name, fieldType, null);
-    this.validityBuffer = allocator.getEmpty();
-    this.callBack = callBack;
-    this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
-    this.lastSet = -1;
-    this.offsetBuffer = allocator.getEmpty();
-    this.vector = vector == null ? DEFAULT_DATA_VECTOR : vector;
-    this.valueCount = 0;
+    this(new Field(name, fieldType, null), allocator, callBack);
   }
 
   /**
@@ -158,7 +150,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
-    this.field.setChildren(children);
+    this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
   }
 
   @Override
@@ -818,7 +810,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     if (field.getChildren().contains(getDataVector().getField())) {
       return field;
     }
-    field.setChildren(Collections.singletonList(getDataVector().getField()));
+    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
     return field;
   }
 

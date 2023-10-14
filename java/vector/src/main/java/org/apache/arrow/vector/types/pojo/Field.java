@@ -70,7 +70,7 @@ public class Field {
 
   private final String name;
   private final FieldType fieldType;
-  private List<Field> children;
+  private final List<Field> children;
 
   private Field(
       String name,
@@ -254,10 +254,6 @@ public class Field {
 
   public List<Field> getChildren() {
     return children;
-  }
-
-  public void setChildren(List<Field> children) {
-    this.children = Collections2.toImmutableList(children);
   }
 
   @JsonIgnore

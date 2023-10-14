@@ -62,7 +62,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   }
 
   private final SingleStructReaderImpl reader = new SingleStructReaderImpl(this);
-  protected final Field field;
+  protected Field field;
   public int valueCount;
 
   /**
@@ -76,13 +76,7 @@ public class NonNullableStructVector extends AbstractStructVector {
                                  BufferAllocator allocator,
                                  FieldType fieldType,
                                  CallBack callBack) {
-    super(name,
-        allocator,
-        callBack,
-        null,
-        true);
-    this.field = new Field(name, fieldType, null);
-    this.valueCount = 0;
+    this(new Field(name, fieldType, null), allocator, callBack);
   }
 
   /**
@@ -471,7 +465,10 @@ public class NonNullableStructVector extends AbstractStructVector {
     for (ValueVector child : getChildren()) {
       children.add(child.getField());
     }
-    field.setChildren(children);
+    if (children.isEmpty() || field.getChildren().equals(children)) {
+      return field;
+    }
+    field = new Field(field.getName(), field.getFieldType(), children);
     return field;
   }
 

@@ -89,15 +89,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
                              BufferAllocator allocator,
                              FieldType fieldType,
                              CallBack unusedSchemaChangeCallback) {
-    super(allocator);
-
-    this.validityBuffer = allocator.getEmpty();
-    this.vector = ZeroVector.INSTANCE;
-    this.listSize = ((ArrowType.FixedSizeList) fieldType.getType()).getListSize();
-    Preconditions.checkArgument(listSize >= 0, "list size must be non-negative");
-    this.valueCount = 0;
-    this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
-    this.field = new Field(name, fieldType, null);
+    this(new Field(name, fieldType, null), allocator, unusedSchemaChangeCallback);
   }
 
   /**
@@ -126,7 +118,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     if (field.getChildren().contains(getDataVector().getField())) {
       return field;
     }
-    field.setChildren(Collections.singletonList(getDataVector().getField()));
+    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
     return field;
   }
 
@@ -155,7 +147,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
-    this.field.setChildren(children);
+    this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
   }
 
   @Override
