@@ -2047,7 +2047,7 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
   }
 }
 
-TEST(TestDictionaryMinMaxKernel, DecimalValue) {
+TEST(TestDictionaryMinMaxKernel, DecimalsValue) {
   ScalarAggregateOptions options;
   std::shared_ptr<arrow::DataType> dict_ty;
   std::shared_ptr<arrow::DataType> ty;
@@ -2139,13 +2139,14 @@ TEST(TestDictionaryMinMaxKernel, DecimalValue) {
 TEST(TestDictionaryMinMaxKernel, BooleanValue) {
   ScalarAggregateOptions options;
   std::shared_ptr<arrow::DataType> value_ty = boolean();
+  std::shared_ptr<arrow::DataType> dict_ty;
   std::shared_ptr<arrow::DataType> ty =
       struct_({field("min", value_ty), field("max", value_ty)});
-  std::shared_ptr<arrow::DataType> dict_ty;
 
   for (const auto& index_type : all_dictionary_index_types()) {
     ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
 
+    dict_ty = dictionary(index_type, value_ty);
     EXPECT_THAT(
         MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 1])", R"([false, true])"), options),
         ResultWith(ScalarFromJSON(ty, "[false, true]")));
@@ -2158,16 +2159,92 @@ TEST(TestDictionaryMinMaxKernel, BooleanValue) {
   }
 }
 
-TEST(TestDictionaryMinMaxKernel, NullValue) {
+TEST(TestDictionaryMinMaxKernel, FloatsValue) {
   ScalarAggregateOptions options;
-  std::shared_ptr<arrow::DataType> value_ty = null();
-  std::shared_ptr<arrow::DataType> ty =
-      struct_({field("min", value_ty), field("max", value_ty)});
   std::shared_ptr<arrow::DataType> dict_ty;
+  std::shared_ptr<arrow::DataType> ty;
 
   for (const auto& index_type : all_dictionary_index_types()) {
     ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
-    // null
+
+    for (const auto& value_ty_ : {float32(), float64()}) {
+      dict_ty = dictionary(index_type, value_ty_);
+      ty = struct_({field("min", value_ty_), field("max", value_ty_)});
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true);
+      EXPECT_THAT(
+          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])", R"([5, 1, 2, 3, 4])"),
+                 options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])",
+                                           R"([5, -Inf, 2, 3, 4])"),
+                         options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
+                                           R"([5, 1, 2, 3, 4])"),
+                         options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": 2, "max": 5})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
+                                           R"([5, -Inf, 2, 3, 4])"),
+                         options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/false);
+      EXPECT_THAT(
+          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])", R"([5, 1, 2, 3, 4])"),
+                 options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])",
+                                           R"([5, -Inf, 2, 3, 4])"),
+                         options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
+                                           R"([5, 1, 2, 3, 4])"),
+                         options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
+                                           R"([5, -Inf, 2, 3, 4])"),
+                         options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+      EXPECT_THAT(
+          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([1])"), options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 1})")));
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
+      EXPECT_THAT(
+          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 1, 0])", R"([5, 1])"),
+                 options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+      EXPECT_THAT(
+          MinMax(DictArrayFromJSON(dict_ty, R"([null, 3, 1, 1, 4, 0, 2, null, null])",
+                                   R"([5, 1, 2, 3, 4])"),
+                 options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
+      EXPECT_THAT(
+          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
+          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
+      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([1])"), options),
+                  ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 1})")));
+    }
+  }
+}
+
+TEST(TestDictionaryMinMaxKernel, NullValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> value_ty = null();
+  std::shared_ptr<arrow::DataType> dict_ty;
+  std::shared_ptr<arrow::DataType> ty =
+      struct_({field("min", value_ty), field("max", value_ty)});
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
     dict_ty = dictionary(index_type, value_ty);
     Datum result = ScalarFromJSON(ty, "[null, null]");
     EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
