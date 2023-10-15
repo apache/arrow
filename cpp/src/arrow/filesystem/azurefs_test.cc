@@ -34,24 +34,23 @@
 #include <boost/process.hpp>
 
 #include "arrow/filesystem/azurefs.h"
-#include "arrow/util/io_util.h"
-#include "arrow/util/key_value_metadata.h"
-
-#include <gmock/gmock-matchers.h>
-#include <gmock/gmock-more-matchers.h>
-#include <gtest/gtest.h>
 
 #include <random>
 #include <string>
 
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
-
+#include <gmock/gmock-matchers.h>
+#include <gmock/gmock-more-matchers.h>
+#include <gtest/gtest.h>
 #include <azure/identity/client_secret_credential.hpp>
 #include <azure/identity/default_azure_credential.hpp>
 #include <azure/identity/managed_identity_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
+
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 using internal::TemporaryDir;

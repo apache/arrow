@@ -34,8 +34,6 @@
 namespace arrow {
 namespace fs {
 
-static const char kSep = '/';
-
 // -----------------------------------------------------------------------
 // AzureOptions Implementation
 
@@ -64,13 +62,13 @@ Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_n
 }
 namespace {
 
+// An AzureFileSystem represents a single Azure storage account. AzurePath describes a
+// container and path within that storage account.
 struct AzurePath {
   std::string full_path;
   std::string container;
   std::string path_to_file;
   std::vector<std::string> path_to_file_parts;
-  // An AzureFileSystem represents a single Azure storage account. AzurePath describes the
-  // container within that storage account and path within that container.
 
   static Result<AzurePath> FromString(const std::string& s) {
     // Example expected string format: testcontainer/testdir/testfile.txt
@@ -85,7 +83,7 @@ struct AzurePath {
     auto src = internal::RemoveTrailingSlash(s);
     auto input_path = std::string(src.data());
     src = internal::RemoveLeadingSlash(src);
-    auto first_sep = src.find_first_of(kSep);
+    auto first_sep = src.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", input_path, "')");
     }
@@ -118,7 +116,7 @@ struct AzurePath {
     if (parent.path_to_file.empty()) {
       parent.full_path = parent.container;
     } else {
-      parent.full_path = parent.container + kSep + parent.path_to_file;
+      parent.full_path = parent.container + internal::kSep + parent.path_to_file;
     }
     return parent;
   }
@@ -151,8 +149,8 @@ Status ValidateFilePath(const AzurePath& path) {
   return Status::OK();
 }
 
-Status ErrorToStatus(const Azure::Storage::StorageException& exception,
-                     const std::string& prefix = "") {
+Status ErrorToStatus(const std::string& prefix,
+                     const Azure::Storage::StorageException& exception) {
   return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
 
@@ -166,16 +164,6 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 }
 
 class ObjectInputFile final : public io::RandomAccessFile {
- protected:
-  std::shared_ptr<Azure::Storage::Blobs::BlobClient> blob_client_;
-  const io::IOContext io_context_;
-  AzurePath path_;
-
-  bool closed_ = false;
-  int64_t pos_ = 0;
-  int64_t content_length_ = kNoSize;
-  std::shared_ptr<const KeyValueMetadata> metadata_;
-
  public:
   ObjectInputFile(std::shared_ptr<Azure::Storage::Blobs::BlobClient>& blob_client,
                   const io::IOContext& io_context, const AzurePath& path,
@@ -201,7 +189,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
         return PathNotFound(path_);
       }
       return ErrorToStatus(
-          exception, "When fetching properties for '" + blob_client_->GetUrl() + "': ");
+          "When fetching properties for '" + blob_client_->GetUrl() + "': ", exception);
     }
   }
 
@@ -281,9 +269,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
               .Value;
       return result.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
-      return ErrorToStatus(exception, "When reading from '" + blob_client_->GetUrl() +
-                                          "' at position " + std::to_string(position) +
-                                          " for " + std::to_string(nbytes) + " bytes: ");
+      return ErrorToStatus("When reading from '" + blob_client_->GetUrl() +
+                               "' at position " + std::to_string(position) + " for " +
+                               std::to_string(nbytes) + " bytes: ",
+                           exception);
     }
   }
 
@@ -294,14 +283,14 @@ class ObjectInputFile final : public io::RandomAccessFile {
     // No need to allocate more than the remaining number of bytes
     nbytes = std::min(nbytes, content_length_ - position);
 
-    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, io_context_.pool()));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, io_context_.pool()));
     if (nbytes > 0) {
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
-                            ReadAt(position, nbytes, buf->mutable_data()));
+                            ReadAt(position, nbytes, buffer->mutable_data()));
       DCHECK_LE(bytes_read, nbytes);
-      RETURN_NOT_OK(buf->Resize(bytes_read));
+      RETURN_NOT_OK(buffer->Resize(bytes_read));
     }
-    return std::move(buf);
+    return std::move(buffer);
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
@@ -315,6 +304,16 @@ class ObjectInputFile final : public io::RandomAccessFile {
     pos_ += buffer->size();
     return std::move(buffer);
   }
+
+ private:
+  std::shared_ptr<Azure::Storage::Blobs::BlobClient> blob_client_;
+  const io::IOContext io_context_;
+  AzurePath path_;
+
+  bool closed_ = false;
+  int64_t pos_ = 0;
+  int64_t content_length_ = kNoSize;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 }  // namespace
@@ -343,7 +342,6 @@ class AzureFileSystem::Impl {
                                                          AzureFileSystem* fs) {
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
-
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
         service_client_->GetBlobContainerClient(path.container)
             .GetBlobClient(path.path_to_file));
@@ -361,10 +359,8 @@ class AzureFileSystem::Impl {
     if (info.type() != FileType::File && info.type() != FileType::Unknown) {
       return ::arrow::fs::internal::NotAFile(info.path());
     }
-
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(info.path()));
     RETURN_NOT_OK(ValidateFilePath(path));
-
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
         service_client_->GetBlobContainerClient(path.container)
             .GetBlobClient(path.path_to_file));
