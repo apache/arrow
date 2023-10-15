@@ -153,9 +153,9 @@ use a different API to create them.
 On S3FileSystem, output is only produced for fatal errors or when printing
 return values. For troubleshooting, the log level can be set using the
 environment variable \code{ARROW_S3_LOG_LEVEL} (e.g.,
-\code{Sys.setenv("ARROW_S3_LOG_LEVEL"="Debug")}). The log level must be set prior
-to running any code that interacts with S3. Possible values include 'Fatal'
-(the default), 'Error', 'Warn', 'Info', 'Debug' (recommended), 'Trace', and
-'Off'.
+\code{Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")}). The log level must be set prior
+to running any code that interacts with S3. Possible values include 'FATAL'
+(the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
+'OFF'.
 }
 

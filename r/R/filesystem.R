@@ -242,10 +242,10 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' On S3FileSystem, output is only produced for fatal errors or when printing
 #' return values. For troubleshooting, the log level can be set using the
 #' environment variable `ARROW_S3_LOG_LEVEL` (e.g.,
-#' `Sys.setenv("ARROW_S3_LOG_LEVEL"="Debug")`). The log level must be set prior
-#' to running any code that interacts with S3. Possible values include 'Fatal'
-#' (the default), 'Error', 'Warn', 'Info', 'Debug' (recommended), 'Trace', and
-#' 'Off'.
+#' `Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")`). The log level must be set prior
+#' to running any code that interacts with S3. Possible values include 'FATAL'
+#' (the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
+#' 'OFF'.
 #'
 #' @usage NULL
 #' @format NULL
@@ -486,7 +486,7 @@ default_s3_options <- list(
 #' @examplesIf FALSE
 #' # Turn on debug logging. The following line of code should be run in a fresh
 #' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
-#' Sys.setenv("ARROW_S3_LOG_LEVEL", "Debug")
+#' Sys.setenv("ARROW_S3_LOG_LEVEL", "DEBUG")
 #' bucket <- s3_bucket("voltrondata-labs-datasets")
 #'
 #' @export

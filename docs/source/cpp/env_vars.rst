@@ -87,19 +87,19 @@ that changing their value later will have an effect.
 
 .. envvar:: ARROW_S3_LOG_LEVEL
 
-   Controls the verbosity of logging produced by S3 calls. Defaults to ``Fatal``
-   which only produces output in the case of fatal errors. ``Debug`` is recommended
+   Controls the verbosity of logging produced by S3 calls. Defaults to ``FATAL``
+   which only produces output in the case of fatal errors. ``DEBUG`` is recommended
    when you're trying to troubleshoot issues.
 
    Possible values include:
 
-   - ``Fatal`` (the default)
-   - ``Error``
-   - ``Warn``
-   - ``Info``
-   - ``Debug``
-   - ``Trace``
-   - ``Off``
+   - ``FATAL`` (the default)
+   - ``ERROR``
+   - ``WARN``
+   - ``INFO``
+   - ``DEBUG``
+   - ``TRACE``
+   - ``OFF``
 
    .. seealso::
 
