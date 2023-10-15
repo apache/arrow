@@ -2047,16 +2047,16 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
   }
 }
 
-TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
+TEST(TestDictionaryMinMaxKernel, DecimalValue) {
   ScalarAggregateOptions options;
   std::shared_ptr<arrow::DataType> dict_ty;
   std::shared_ptr<arrow::DataType> ty;
   for (const auto& index_type : all_dictionary_index_types()) {
     ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
 
-    for (const auto& item_ty_ : {decimal128(5, 2), decimal256(5, 2)}) {
-      dict_ty = dictionary(index_type, item_ty_);
-      ty = struct_({field("min", item_ty_), field("max", item_ty_)});
+    for (const auto& value_ty_ : {decimal128(5, 2), decimal256(5, 2)}) {
+      dict_ty = dictionary(index_type, value_ty_);
+      ty = struct_({field("min", value_ty_), field("max", value_ty_)});
 
       options = ScalarAggregateOptions(/*skip_nulls=*/true);
       EXPECT_THAT(
@@ -2133,19 +2133,19 @@ TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
               options),
           ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "9.20"})")));
     }
+  }
+}
 
-    std::shared_ptr<arrow::DataType> item_ty = null();
-    dict_ty = dictionary(index_type, item_ty);
-    ty = struct_({field("min", item_ty), field("max", item_ty)});
-    Datum result = ScalarFromJSON(ty, "[null, null]");
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
-                ResultWith(result));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([])", R"([])"), options),
-                ResultWith(result));
+TEST(TestDictionaryMinMaxKernel, BooleanValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> value_ty = boolean();
+  std::shared_ptr<arrow::DataType> ty =
+      struct_({field("min", value_ty), field("max", value_ty)});
+  std::shared_ptr<arrow::DataType> dict_ty;
 
-    item_ty = boolean();
-    dict_ty = dictionary(index_type, item_ty);
-    ty = struct_({field("min", item_ty), field("max", item_ty)});
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
     EXPECT_THAT(
         MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 1])", R"([false, true])"), options),
         ResultWith(ScalarFromJSON(ty, "[false, true]")));
@@ -2155,6 +2155,25 @@ TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
                 ResultWith(ScalarFromJSON(ty, "[true, true]")));
     EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
                 ResultWith(ScalarFromJSON(ty, "[null, null]")));
+  }
+}
+
+TEST(TestDictionaryMinMaxKernel, NullValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> value_ty = null();
+  std::shared_ptr<arrow::DataType> ty =
+      struct_({field("min", value_ty), field("max", value_ty)});
+  std::shared_ptr<arrow::DataType> dict_ty;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    // null
+    dict_ty = dictionary(index_type, value_ty);
+    Datum result = ScalarFromJSON(ty, "[null, null]");
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
+                ResultWith(result));
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([])", R"([])"), options),
+                ResultWith(result));
   }
 }
 

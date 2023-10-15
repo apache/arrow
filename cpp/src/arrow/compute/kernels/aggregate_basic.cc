@@ -482,8 +482,8 @@ void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-using arrow::compute::match::SameTypeId;
 using arrow::compute::match::Not;
+using arrow::compute::match::SameTypeId;
 
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
