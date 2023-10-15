@@ -166,6 +166,11 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
     std::shared_ptr<TypeMatcher> run_end_type_matcher,
     std::shared_ptr<TypeMatcher> value_type_matcher);
 
+/// \brief Match types that the base_matcher doesn't match
+///
+/// @param[in] base_matcher a matcher used to negation match
+ARROW_EXPORT std::shared_ptr<TypeMatcher> Not(std::shared_ptr<TypeMatcher> base_matcher);
+
 }  // namespace match
 
 /// \brief An object used for type-checking arguments to be passed to a kernel

@@ -935,15 +935,14 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     ARROW_ASSIGN_OR_RAISE(auto compacted_arr, dict_arr.Compact(ctx->memory_pool()));
     const DictionaryArray& compacted_dict_arr =
         checked_cast<const DictionaryArray&>(*compacted_arr);
-    this->has_nulls = compacted_dict_arr.null_count() > 0;
-    this->count += compacted_dict_arr.length() - compacted_dict_arr.null_count();
-
     const std::shared_ptr<Array>& dict = compacted_dict_arr.dictionary();
     if (dict->length() == 0) {
       return Status::OK();
     }
+    this->has_nulls = compacted_dict_arr.null_count() > 0;
+    this->count += compacted_dict_arr.length() - compacted_dict_arr.null_count();
 
-    Datum dict_values(std::move(dict));
+    Datum dict_values(dict);
     ARROW_ASSIGN_OR_RAISE(
         Datum result, MinMax(std::move(dict_values), ScalarAggregateOptions::Defaults(),
                              ctx->exec_context()));
@@ -951,14 +950,14 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
         checked_cast<const StructScalar&>(*result.scalar());
     ARROW_ASSIGN_OR_RAISE(auto dict_min, struct_result.field(FieldRef("min")));
     ARROW_ASSIGN_OR_RAISE(auto dict_max, struct_result.field(FieldRef("max")));
-    ARROW_RETURN_NOT_OK(CompareMinMax(std::move(dict_min), std::move(dict_max), ctx));
+    ARROW_RETURN_NOT_OK(UpdateMinMaxState(std::move(dict_min), std::move(dict_max), ctx));
     return Status::OK();
   }
 
   Status MergeFrom(KernelContext* ctx, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
 
-    ARROW_RETURN_NOT_OK(CompareMinMax(other.min, other.max, ctx));
+    ARROW_RETURN_NOT_OK(UpdateMinMaxState(other.min, other.max, ctx));
     this->has_nulls = this->has_nulls || other.has_nulls;
     this->count += other.count;
     return Status::OK();
@@ -969,9 +968,7 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     const auto& child_type = struct_type.field(0)->type();
 
     std::vector<std::shared_ptr<Scalar>> values;
-    // Physical type != result type
-    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count) ||
-        this->min == nullptr || this->min->type->id() == Type::NA) {
+    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
       // (null, null)
       std::shared_ptr<Scalar> null_scalar = MakeNullScalar(child_type);
       values = {null_scalar, null_scalar};
@@ -991,8 +988,8 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   std::shared_ptr<Scalar> max;
 
  private:
-  Status CompareMinMax(const std::shared_ptr<Scalar>& other_min,
-                       const std::shared_ptr<Scalar>& other_max, KernelContext* ctx) {
+  Status UpdateMinMaxState(const std::shared_ptr<Scalar>& other_min,
+                           const std::shared_ptr<Scalar>& other_max, KernelContext* ctx) {
     if (this->min == nullptr || this->min->type->id() == Type::NA) {
       this->min = other_min;
     } else if (other_min != nullptr && other_min->type->id() != Type::NA) {
