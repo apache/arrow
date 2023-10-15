@@ -133,6 +133,25 @@ struct AzurePath {
   }
 };
 
+Status PathNotFound(const AzurePath& path) {
+  return ::arrow::fs::internal::PathNotFound(path.full_path);
+}
+
+Status NotAFile(const AzurePath& path) {
+  return ::arrow::fs::internal::NotAFile(path.full_path);
+}
+
+Status ValidateFilePath(const AzurePath& path) {
+  if (path.container.empty()) {
+    return PathNotFound(path);
+  }
+
+  if (path.container.empty() || path.path_to_file.empty()) {
+    return NotAFile(path);
+  }
+  return Status::OK();
+}
+
 template <typename ObjectResult>
 std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
   auto md = std::make_shared<KeyValueMetadata>();
@@ -316,12 +335,7 @@ class AzureFileSystem::Impl {
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
                                                          AzureFileSystem* fs) {
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
-
-    // TODO: Return NotAFile if path.path_to_file is empty. Return PathNotFound if account
-    // name or container name is empty.
-    if (path.empty()) {
-      return ::arrow::fs::internal::PathNotFound(path.full_path);
-    }
+    RETURN_NOT_OK(ValidateFilePath(path));
 
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
         std::move(service_client_->GetBlobContainerClient(path.container)
@@ -342,6 +356,7 @@ class AzureFileSystem::Impl {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(info.path()));
+    RETURN_NOT_OK(ValidateFilePath(path));
 
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
         std::move(service_client_->GetBlobContainerClient(path.container)
