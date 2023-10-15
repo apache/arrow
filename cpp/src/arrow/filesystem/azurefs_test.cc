@@ -169,7 +169,7 @@ TEST(AzureFileSystem, OptionsCompare) {
 class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
-  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_client_;
+  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> service_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
@@ -179,9 +179,6 @@ class TestAzureFileSystem : public ::testing::Test {
     const std::string& account_key = GetAzuriteEnv()->account_key();
     options_.backend = AzureBackend::Azurite;
     ASSERT_OK(options_.ConfigureAccountKeyCredentials(account_name, account_key));
-    blob_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
-        options_.account_blob_url, options_.storage_credentials_provider);
-    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
   }
 
   void SetUp() override {
@@ -191,19 +188,22 @@ class TestAzureFileSystem : public ::testing::Test {
     MakeFileSystem();
     generator_ = std::mt19937_64(std::random_device()());
     container_name_ = RandomChars(32);
-    auto file_system_client = blob_client_->GetBlobContainerClient(container_name_);
-    file_system_client.CreateIfNotExists();
+    service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
+        options_.account_blob_url, options_.storage_credentials_provider);
+    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
+    auto container_client = service_client_->GetBlobContainerClient(container_name_);
+    container_client.CreateIfNotExists();
 
-    auto blob_client = file_system_client.GetBlockBlobClient(PreexistingObjectName());
+    auto blob_client = container_client.GetBlockBlobClient(PreexistingObjectName());
     blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum),
                            strlen(kLoremIpsum));
   }
 
   void TearDown() override {
-    auto containers = blob_client_->ListBlobContainers();
+    auto containers = service_client_->ListBlobContainers();
     for (auto container : containers.BlobContainers) {
-      auto file_system_client = blob_client_->GetBlobContainerClient(container.Name);
-      file_system_client.DeleteIfExists();
+      auto container_client = service_client_->GetBlobContainerClient(container.Name);
+      container_client.DeleteIfExists();
     }
   }
 
@@ -247,7 +247,7 @@ class TestAzureFileSystem : public ::testing::Test {
   void UploadLines(std::vector<std::string> lines, const char* path_to_file,
                    int total_size) {
     // TODO: Switch to using Azure filesystem to write once its implemented.
-    auto blob_client = blob_client_->GetBlobContainerClient(PreexistingContainerName())
+    auto blob_client = service_client_->GetBlobContainerClient(PreexistingContainerName())
                            .GetBlockBlobClient(path_to_file);
     std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
     blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()),
@@ -298,7 +298,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
 TEST_F(TestAzureFileSystem, OpenInputStreamEmpty) {
   const auto path_to_file = "empty-object.txt";
   const auto path = PreexistingContainerPath() + path_to_file;
-  blob_client_->GetBlobContainerClient(PreexistingContainerName())
+  service_client_->GetBlobContainerClient(PreexistingContainerName())
       .GetBlockBlobClient(path_to_file)
       .UploadFrom(nullptr, 0);
 
@@ -332,7 +332,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamUri) {
 TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
   const std::string object_name = "OpenInputStreamMetadataTest/simple.txt";
 
-  blob_client_->GetBlobContainerClient(PreexistingContainerName())
+  service_client_->GetBlobContainerClient(PreexistingContainerName())
       .GetBlobClient(PreexistingObjectName())
       .SetMetadata(Azure::Storage::Metadata{{"key0", "value0"}});
 
@@ -433,7 +433,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
   const auto path = PreexistingContainerPath() + path_to_file;
   const std::string contents = "The quick brown fox jumps over the lazy dog";
 
-  auto blob_client = blob_client_->GetBlobContainerClient(PreexistingContainerName())
+  auto blob_client = service_client_->GetBlobContainerClient(PreexistingContainerName())
                          .GetBlockBlobClient(path_to_file);
   blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(contents.data()),
                          contents.length());
