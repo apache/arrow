@@ -939,7 +939,7 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     if (dict->length() == 0) {
       return Status::OK();
     }
-    this->has_nulls = compacted_dict_arr.null_count() > 0;
+    this->has_nulls |= compacted_dict_arr.null_count() > 0;
     this->count += compacted_dict_arr.length() - compacted_dict_arr.null_count();
 
     Datum dict_values(dict);
