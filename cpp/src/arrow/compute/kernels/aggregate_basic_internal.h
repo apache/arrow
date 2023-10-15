@@ -935,6 +935,9 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     ARROW_ASSIGN_OR_RAISE(auto compacted_arr, dict_arr.Compact(ctx->memory_pool()));
     const DictionaryArray& compacted_dict_arr =
         checked_cast<const DictionaryArray&>(*compacted_arr);
+    this->has_nulls |= compacted_dict_arr.null_count() > 0;
+    this->count += compacted_dict_arr.length() - compacted_dict_arr.null_count();
+
     const std::shared_ptr<Array>& dict = compacted_dict_arr.dictionary();
     if (dict->length() == 0) {
       return Status::OK();
