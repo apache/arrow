@@ -151,6 +151,11 @@ Status ValidateFilePath(const AzurePath& path) {
   return Status::OK();
 }
 
+Status ErrorToStatus(const Azure::Storage::StorageException& exception,
+                     const std::string& prefix = "") {
+  return Status::IOError(prefix, " Azure Error: ", exception.what());
+}
+
 template <typename ObjectResult>
 std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
   auto md = std::make_shared<KeyValueMetadata>();
@@ -193,9 +198,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
     } catch (const Azure::Storage::StorageException& exception) {
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
         // Could be either container or blob not found.
-        return ::arrow::fs::internal::PathNotFound(path_.full_path);
+        return PathNotFound(path_);
       }
-      return Status::IOError(exception.RawResponse->GetReasonPhrase());
+      return ErrorToStatus(
+          exception, "When fetching properties for '" + blob_client_->GetUrl() + "': ");
     }
   }
 
@@ -275,7 +281,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
               .Value;
       return result.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
-      return Status::IOError(exception.RawResponse->GetReasonPhrase());
+      return ErrorToStatus(exception, "When reading from '" + blob_client_->GetUrl() +
+                                          "' at position " + std::to_string(position) +
+                                          " for " + std::to_string(nbytes) + " bytes: ");
     }
   }
 
