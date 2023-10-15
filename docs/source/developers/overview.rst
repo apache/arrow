@@ -184,7 +184,7 @@ implementation can support:
    same endianness).  This includes ancillary functionality such as reading
    and writing various file formats, such as Parquet.
 2. Cross endian support (implementations will do byte reordering when
-   appropriate for :ref:`IPC <format-ipc>` and :ref:`Flight <flight-rpc>`
+   appropriate for :ref:`IPC format <format-ipc>` and :ref:`Flight <flight-rpc>`
    messages).
 
 The decision on what level to support is based on maintainers' preferences for
