@@ -74,7 +74,6 @@ only version 2 files are supported
 \item "csv"/"text", aliases for the same thing (because comma is the default
 delimiter for text files
 \item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
-\item "json", for JSON files
 }
 
 Default is "parquet", unless a \code{delimiter} is also specified, in which case

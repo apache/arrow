@@ -112,7 +112,7 @@
 #' * "csv"/"text", aliases for the same thing (because comma is the default
 #'   delimiter for text files
 #' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
-#'
+#' * "json", for JSON format datasets.
 #' Default is "parquet", unless a `delimiter` is also specified, in which case
 #' it is assumed to be "text".
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
