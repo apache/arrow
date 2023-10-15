@@ -81,6 +81,10 @@ struct AzurePath {
     // Expected input here => s = synapsemlfs/testdir/testfile.txt,
     // http://127.0.0.1/accountName/pathToBlob
     auto src = internal::RemoveTrailingSlash(s);
+    if (internal::IsLikelyUri(s)) {
+      return Status::Invalid(
+          "Expected a Azure object path of the form 'container/key...', got a URI: '", s, "'");
+    }
     if (arrow::internal::StartsWith(src, "https://127.0.0.1") ||
         arrow::internal::StartsWith(src, "http://127.0.0.1")) {
       RETURN_NOT_OK(FromLocalHostString(&src));
