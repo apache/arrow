@@ -363,91 +363,20 @@ TEST_F(TestAzureFileSystem, OpenInputStreamUri) {
   ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfss://" + PreexistingObjectPath()));
 }
 
+TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
+  const std::string object_name = "OpenInputStreamMetadataTest/simple.txt";
 
-// TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
-//   const auto custom_time = std::chrono::system_clock::now() + std::chrono::hours(1);
-//   const std::string object_name = "OpenInputStreamMetadataTest/simple.txt";
-//   // const gcs::ObjectMetadata expected =
-//   //     client
-//   //         .InsertObject(PreexistingBucketName(), object_name,
-//   //                       "The quick brown fox jumps over the lazy dog",
-//   //                       gcs::WithObjectMetadata(gcs::ObjectMetadata()
-//   //                                                   .set_content_type("text/plain")
-//   //                                                   .set_custom_time(custom_time)
-//   //                                                   .set_cache_control("no-cache")
-//   //                                                   .upsert_metadata("key0",
-//   //                                                   "value0")))
-//   //         .value();
+  gen2_client_->GetFileSystemClient(PreexistingContainerName())
+      .GetFileClient(PreexistingObjectName())
+      .SetMetadata(Azure::Storage::Metadata{{"key0", "value0"}});
 
-//   const std::string blob_content = "The quick brown fox jumps over the lazy dog";
-//   auto file_client = gen2_client_->GetFileSystemClient(PreexistingContainerName())
-//                          .GetFileClient(object_name);
+  std::shared_ptr<io::InputStream> stream;
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
 
-//   const auto expected =
-//       file_client
-//           .UploadFrom(reinterpret_cast<const uint8_t*>(blob_content.data()),
-//                       blob_content.size())
-//           .Value;
-
-//   std::shared_ptr<io::InputStream> stream;
-//   ASSERT_OK_AND_ASSIGN(stream,
-//                        fs_->OpenInputStream(PreexistingContainerPath() + object_name));
-
-//   // auto format_time = [](std::chrono::system_clock::time_point tp) {
-//   //   return absl::FormatTime(absl::RFC3339_full, absl::FromChrono(tp),
-//   //                           absl::UTCTimeZone());
-//   // };
-
-//   const auto properties = file_client.GetProperties();
-
-//   std::shared_ptr<const KeyValueMetadata> actual;
-//   ASSERT_OK_AND_ASSIGN(actual, stream->ReadMetadata());
-
-//   for (int i = 0; i < actual->size(); i++) {
-//     std::cout << "key=" << actual->key(i) << ", value=" << actual->value(i) << std::endl;
-//   }
-
-//   std::string actual_last_modified;
-//   // ASSERT_OK_AND_ASSIGN(actual_last_modified, actual->Get("LastModified"));
-//   auto expected_last_modified = expected.LastModified;
-//   std::cout << "actual=" << actual_last_modified << std::endl;
-
-//   // ASSERT_OK_AND_EQ(expected.LastModified, actual->Get("LastModified"));
-
-//   // ASSERT_OK_AND_EQ(expected.self_link(), actual->Get("selfLink"));
-//   // ASSERT_OK_AND_EQ(expected.name(), actual->Get("name"));
-//   // ASSERT_OK_AND_EQ(expected.bucket(), actual->Get("bucket"));
-//   // ASSERT_OK_AND_EQ(std::to_string(expected.generation()), actual->Get("generation"));
-//   // ASSERT_OK_AND_EQ(expected.content_type(), actual->Get("Content-Type"));
-//   // ASSERT_OK_AND_EQ(format_time(expected.time_created()), actual->Get("timeCreated"));
-//   // ASSERT_OK_AND_EQ(format_time(expected.updated()), actual->Get("updated"));
-//   // ASSERT_FALSE(actual->Contains("timeDeleted"));
-//   // ASSERT_OK_AND_EQ(format_time(custom_time), actual->Get("customTime"));
-//   // ASSERT_OK_AND_EQ("false", actual->Get("temporaryHold"));
-//   // ASSERT_OK_AND_EQ("false", actual->Get("eventBasedHold"));
-//   // ASSERT_FALSE(actual->Contains("retentionExpirationTime"));
-//   // ASSERT_OK_AND_EQ(expected.storage_class(), actual->Get("storageClass"));
-//   // ASSERT_FALSE(actual->Contains("storageClassUpdated"));
-//   // ASSERT_OK_AND_EQ(std::to_string(expected.size()), actual->Get("size"));
-//   // ASSERT_OK_AND_EQ(expected.md5_hash(), actual->Get("md5Hash"));
-//   // ASSERT_OK_AND_EQ(expected.media_link(), actual->Get("mediaLink"));
-//   // ASSERT_OK_AND_EQ(expected.content_encoding(), actual->Get("Content-Encoding"));
-//   // ASSERT_OK_AND_EQ(expected.content_disposition(), actual->Get("Content-Disposition"));
-//   // ASSERT_OK_AND_EQ(expected.content_language(), actual->Get("Content-Language"));
-//   // ASSERT_OK_AND_EQ(expected.cache_control(), actual->Get("Cache-Control"));
-//   // auto p = expected.metadata().find("key0");
-//   // ASSERT_TRUE(p != expected.metadata().end());
-//   // ASSERT_OK_AND_EQ(p->second, actual->Get("metadata.key0"));
-//   // ASSERT_EQ(expected.has_owner(), actual->Contains("owner.entity"));
-//   // ASSERT_EQ(expected.has_owner(), actual->Contains("owner.entityId"));
-//   // ASSERT_OK_AND_EQ(expected.crc32c(), actual->Get("crc32c"));
-//   // ASSERT_OK_AND_EQ(std::to_string(expected.component_count()),
-//   //                  actual->Get("componentCount"));
-//   // ASSERT_OK_AND_EQ(expected.etag(), actual->Get("etag"));
-//   // ASSERT_FALSE(actual->Contains("customerEncryption.encryptionAlgorithm"));
-//   // ASSERT_FALSE(actual->Contains("customerEncryption.keySha256"));
-//   // ASSERT_FALSE(actual->Contains("kmsKeyName"));
-// }
+  std::shared_ptr<const KeyValueMetadata> actual;
+  ASSERT_OK_AND_ASSIGN(actual, stream->ReadMetadata());
+  ASSERT_OK_AND_EQ("value0", actual->Get("key0"));
+}
 
 TEST_F(TestAzureFileSystem, OpenInputStreamClosed) {
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(PreexistingObjectPath()));
