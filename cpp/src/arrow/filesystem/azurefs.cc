@@ -207,8 +207,11 @@ class ObjectInputFile final : public io::RandomAccessFile {
       metadata_ = GetObjectMetadata(properties.Value.Metadata);
       return Status::OK();
     } catch (const Azure::Storage::StorageException& exception) {
-      // TODO: Only return path not found if Azure gave us path not found.
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+        // Could be either container or blob not found. 
       return ::arrow::fs::internal::PathNotFound(path_.full_path);
+      }
+      return Status::IOError(exception.RawResponse->GetReasonPhrase());
     }
   }
 
@@ -288,8 +291,6 @@ class ObjectInputFile final : public io::RandomAccessFile {
               .Value;
       return result.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
-      // TODO: return `::arrow::fs::internal::NotAFile(blob_client.GetUrl());` if  the
-      // file does not exist.
       return Status::IOError(exception.RawResponse->GetReasonPhrase());
     }
   }
