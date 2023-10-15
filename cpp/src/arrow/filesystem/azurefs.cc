@@ -418,8 +418,8 @@ Status AzureFileSystem::CopyFile(const std::string& src, const std::string& dest
 }
 
 Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
-    const std::string& s) {
-  return impl_->OpenInputFile(s, this);
+    const std::string& path) {
+  return impl_->OpenInputFile(path, this);
 }
 
 Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
@@ -428,8 +428,8 @@ Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
-    const std::string& s) {
-  return impl_->OpenInputFile(s, this);
+    const std::string& path) {
+  return impl_->OpenInputFile(path, this);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
