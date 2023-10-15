@@ -70,34 +70,25 @@ struct AzurePath {
   std::string container;
   std::string path_to_file;
   std::vector<std::string> path_to_file_parts;
+  // An AzureFileSystem represents a single Azure storage account. AzurePath describes the
+  // container within that storage account and path within that container.
 
   static Result<AzurePath> FromString(const std::string& s) {
-    // https://synapsemladlsgen2.dfs.core.windows.net/synapsemlfs/testdir/testfile.txt
-    // container = synapsemlfs
-    // account_name = synapsemladlsgen2
+    // Example expected string format: testcontainer/testdir/testfile.txt
+    // container = testcontainer
     // path_to_file = testdir/testfile.txt
     // path_to_file_parts = [testdir, testfile.txt]
-
-    // Expected input here => s = synapsemlfs/testdir/testfile.txt,
-    // http://127.0.0.1/accountName/pathToBlob
-    auto src = internal::RemoveTrailingSlash(s);
     if (internal::IsLikelyUri(s)) {
       return Status::Invalid(
-          "Expected a Azure object path of the form 'container/key...', got a URI: '", s, "'");
+          "Expected an Azure object path of the form 'container/path...', got a URI: '",
+          s, "'");
     }
-    if (arrow::internal::StartsWith(src, "https://127.0.0.1") ||
-        arrow::internal::StartsWith(src, "http://127.0.0.1")) {
-      RETURN_NOT_OK(FromLocalHostString(&src));
-    }
+    auto src = internal::RemoveTrailingSlash(s);
     auto input_path = std::string(src.data());
-    if (internal::IsLikelyUri(input_path)) {
-      RETURN_NOT_OK(ExtractBlobPath(&input_path));
-      src = std::string_view(input_path);
-    }
     src = internal::RemoveLeadingSlash(src);
     auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
-      return Status::IOError("Path cannot start with a separator ('", input_path, "')");
+      return Status::Invalid("Path cannot start with a separator ('", input_path, "')");
     }
     if (first_sep == std::string::npos) {
       return AzurePath{std::string(src), std::string(src), "", {}};
@@ -107,39 +98,14 @@ struct AzurePath {
     path.container = std::string(src.substr(0, first_sep));
     path.path_to_file = std::string(src.substr(first_sep + 1));
     path.path_to_file_parts = internal::SplitAbstractPath(path.path_to_file);
-    RETURN_NOT_OK(Validate(&path));
+    RETURN_NOT_OK(Validate(path));
     return path;
   }
 
-  static Status FromLocalHostString(std::string_view* src) {
-    // src = http://127.0.0.1:10000/accountName/pathToBlob
-    arrow::internal::Uri uri;
-    RETURN_NOT_OK(uri.Parse(src->data()));
-    *src = internal::RemoveLeadingSlash(uri.path());
-    if (src->empty()) {
-      return Status::IOError("Missing account name in Azure Blob Storage URI");
-    }
-    auto first_sep = src->find_first_of(kSep);
-    if (first_sep != std::string::npos) {
-      *src = src->substr(first_sep + 1);
-    } else {
-      *src = "";
-    }
-    return Status::OK();
-  }
-
-  // Removes scheme, host and port from the uri
-  static Status ExtractBlobPath(std::string* src) {
-    arrow::internal::Uri uri;
-    RETURN_NOT_OK(uri.Parse(*src));
-    *src = uri.path();
-    return Status::OK();
-  }
-
-  static Status Validate(const AzurePath* path) {
-    auto status = internal::ValidateAbstractPathParts(path->path_to_file_parts);
+  static Status Validate(const AzurePath& path) {
+    auto status = internal::ValidateAbstractPathParts(path.path_to_file_parts);
     if (!status.ok()) {
-      return Status::Invalid(status.message(), " in path ", path->full_path);
+      return Status::Invalid(status.message(), " in path ", path.full_path);
     } else {
       return status;
     }
@@ -208,8 +174,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
       return Status::OK();
     } catch (const Azure::Storage::StorageException& exception) {
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
-        // Could be either container or blob not found. 
-      return ::arrow::fs::internal::PathNotFound(path_.full_path);
+        // Could be either container or blob not found.
+        return ::arrow::fs::internal::PathNotFound(path_.full_path);
       }
       return Status::IOError(exception.RawResponse->GetReasonPhrase());
     }
