@@ -345,8 +345,8 @@ class AzureFileSystem::Impl {
     RETURN_NOT_OK(ValidateFilePath(path));
 
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
-        std::move(service_client_->GetBlobContainerClient(path.container)
-                      .GetBlobClient(path.path_to_file)));
+        service_client_->GetBlobContainerClient(path.container)
+            .GetBlobClient(path.path_to_file));
 
     auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(), path);
     RETURN_NOT_OK(ptr->Init());
@@ -366,8 +366,8 @@ class AzureFileSystem::Impl {
     RETURN_NOT_OK(ValidateFilePath(path));
 
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
-        std::move(service_client_->GetBlobContainerClient(path.container)
-                      .GetBlobClient(path.path_to_file)));
+        service_client_->GetBlobContainerClient(path.container)
+            .GetBlobClient(path.path_to_file));
 
     auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(), path,
                                                  info.size());
