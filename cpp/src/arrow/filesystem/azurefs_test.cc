@@ -52,7 +52,6 @@
 #include <azure/identity/managed_identity_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
-#include <azure/storage/files/datalake.hpp>
 
 namespace arrow {
 using internal::TemporaryDir;

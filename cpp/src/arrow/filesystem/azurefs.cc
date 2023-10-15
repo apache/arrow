@@ -20,7 +20,6 @@
 #include <azure/identity/default_azure_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/blobs/blob_client.hpp>
-#include <azure/storage/files/datalake.hpp>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/path_util.h"
