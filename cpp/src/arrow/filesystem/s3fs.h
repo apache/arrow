@@ -332,6 +332,12 @@ struct ARROW_EXPORT S3GlobalOptions {
   ///
   /// For more details see Aws::Crt::Io::EventLoopGroup
   int num_event_loop_threads = 1;
+
+  /// \brief Initialize with default options
+  ///
+  /// For log_level, this method first tries to extract a suitable value from the
+  /// environment variable ARROW_S3_LOG_LEVEL.
+  static S3GlobalOptions Defaults();
 };
 
 /// \brief Initialize the S3 APIs with default options.
@@ -386,14 +392,6 @@ Status EnsureS3Finalized();
 
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
-
-/// \brief Try to extract the S3LogLevel from environment variable
-///
-/// Tries to get a valid log level name from the environment variable
-/// ARROW_S3_LOG_LEVEL and returns a matching value of S3LogLevel. If it fails
-/// returns S3LogLevel::Fatal.
-ARROW_EXPORT
-S3LogLevel GetS3LogLevelFromEnvOrDefault();
 
 }  // namespace fs
 }  // namespace arrow
