@@ -140,13 +140,13 @@ TEST(AzureFileSystem, UploadThenDownload) {
       std::string("http://127.0.0.1:10000/") + account_name, credential);
   auto container_client = service_client.GetBlobContainerClient(container_name);
   container_client.CreateIfNotExists();
-  auto blob_client = container_client.GetBlockBlobClient(blob_name);
+  auto blob_client_ = container_client.GetBlockBlobClient(blob_name);
 
   std::vector<uint8_t> buffer(blob_content.begin(), blob_content.end());
-  blob_client.UploadFrom(buffer.data(), buffer.size());
+  blob_client_.UploadFrom(buffer.data(), buffer.size());
 
   std::vector<uint8_t> downloaded_content(blob_content.size());
-  blob_client.DownloadTo(downloaded_content.data(), downloaded_content.size());
+  blob_client_.DownloadTo(downloaded_content.data(), downloaded_content.size());
 
   EXPECT_EQ(std::string(downloaded_content.begin(), downloaded_content.end()),
             blob_content);
@@ -169,7 +169,7 @@ TEST(AzureFileSystem, OptionsCompare) {
 class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> gen2_client_;
+  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
@@ -179,9 +179,8 @@ class TestAzureFileSystem : public ::testing::Test {
     const std::string& account_key = GetAzuriteEnv()->account_key();
     options_.backend = AzureBackend::Azurite;
     ASSERT_OK(options_.ConfigureAccountKeyCredentials(account_name, account_key));
-    gen2_client_ =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
-            options_.account_dfs_url, options_.storage_credentials_provider);
+    blob_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
+        options_.account_blob_url, options_.storage_credentials_provider);
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
   }
 
@@ -192,53 +191,20 @@ class TestAzureFileSystem : public ::testing::Test {
     MakeFileSystem();
     generator_ = std::mt19937_64(std::random_device()());
     container_name_ = RandomChars(32);
-    auto file_system_client = gen2_client_->GetFileSystemClient(container_name_);
+    auto file_system_client = blob_client_->GetBlobContainerClient(container_name_);
     file_system_client.CreateIfNotExists();
 
-    auto file_client = file_system_client.GetFileClient(PreexistingObjectName());
-    file_client.UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum),
+    auto blob_client = file_system_client.GetBlockBlobClient(PreexistingObjectName());
+    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum),
                            strlen(kLoremIpsum));
   }
 
   void TearDown() override {
-    auto containers = gen2_client_->ListFileSystems();
-    for (auto container : containers.FileSystems) {
-      auto file_system_client = gen2_client_->GetFileSystemClient(container.Name);
+    auto containers = blob_client_->ListBlobContainers();
+    for (auto container : containers.BlobContainers) {
+      auto file_system_client = blob_client_->GetBlobContainerClient(container.Name);
       file_system_client.DeleteIfExists();
     }
-  }
-
-  void AssertObjectContents(
-      Azure::Storage::Files::DataLake::DataLakeServiceClient* client,
-      const std::string& container, const std::string& path_to_file,
-      const std::string& expected) {
-    auto path_client =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakePathClient>(
-            client->GetUrl() + container + "/" + path_to_file,
-            options_.storage_credentials_provider);
-    auto size = path_client->GetProperties().Value.FileSize;
-    if (size == 0) {
-      ASSERT_EQ(expected, "");
-      return;
-    }
-    auto buf = AllocateBuffer(size, fs_->io_context().pool());
-    Azure::Storage::Blobs::DownloadBlobToOptions download_options;
-    Azure::Core::Http::HttpRange range;
-    range.Offset = 0;
-    range.Length = size;
-    download_options.Range = Azure::Nullable<Azure::Core::Http::HttpRange>(range);
-    auto file_client =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeFileClient>(
-            client->GetUrl() + container + "/" + path_to_file,
-            options_.storage_credentials_provider);
-    auto result = file_client
-                      ->DownloadTo(reinterpret_cast<uint8_t*>(buf->get()->mutable_data()),
-                                   size, download_options)
-                      .Value;
-    auto buf_data = std::move(buf->get());
-    auto expected_data = std::make_shared<Buffer>(
-        reinterpret_cast<const uint8_t*>(expected.data()), expected.size());
-    AssertBufferEqual(*buf_data, *expected_data);
   }
 
   std::string PreexistingContainerName() const { return container_name_; }
@@ -281,10 +247,10 @@ class TestAzureFileSystem : public ::testing::Test {
   void UploadLines(std::vector<std::string> lines, const char* path_to_file,
                    int total_size) {
     // TODO: Switch to using Azure filesystem to write once its implemented.
-    auto file_client = gen2_client_->GetFileSystemClient(PreexistingContainerName())
-                           .GetFileClient(path_to_file);
+    auto blob_client = blob_client_->GetBlobContainerClient(PreexistingContainerName())
+                           .GetBlockBlobClient(path_to_file);
     std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
-    file_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()),
+    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()),
                            total_size);
   }
 };
@@ -332,8 +298,8 @@ TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
 TEST_F(TestAzureFileSystem, OpenInputStreamEmpty) {
   const auto path_to_file = "empty-object.txt";
   const auto path = PreexistingContainerPath() + path_to_file;
-  gen2_client_->GetFileSystemClient(PreexistingContainerName())
-      .GetFileClient(path_to_file)
+  blob_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlockBlobClient(path_to_file)
       .UploadFrom(nullptr, 0);
 
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(path));
@@ -366,8 +332,8 @@ TEST_F(TestAzureFileSystem, OpenInputStreamUri) {
 TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
   const std::string object_name = "OpenInputStreamMetadataTest/simple.txt";
 
-  gen2_client_->GetFileSystemClient(PreexistingContainerName())
-      .GetFileClient(PreexistingObjectName())
+  blob_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlobClient(PreexistingObjectName())
       .SetMetadata(Azure::Storage::Metadata{{"key0", "value0"}});
 
   std::shared_ptr<io::InputStream> stream;
@@ -467,9 +433,9 @@ TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
   const auto path = PreexistingContainerPath() + path_to_file;
   const std::string contents = "The quick brown fox jumps over the lazy dog";
 
-  auto file_client = gen2_client_->GetFileSystemClient(PreexistingContainerName())
-                         .GetFileClient(path_to_file);
-  file_client.UploadFrom(reinterpret_cast<const uint8_t*>(contents.data()),
+  auto blob_client = blob_client_->GetBlobContainerClient(PreexistingContainerName())
+                         .GetBlockBlobClient(path_to_file);
+  blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(contents.data()),
                          contents.length());
 
   std::shared_ptr<io::RandomAccessFile> file;
