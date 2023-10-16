@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector.complex;
 
-import static org.apache.arrow.util.Preconditions.checkNotNull;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -89,13 +87,7 @@ public class NonNullableStructVector extends AbstractStructVector {
   public NonNullableStructVector(Field field,
                                  BufferAllocator allocator,
                                  CallBack callBack) {
-    super(field.getName(),
-        allocator,
-        callBack,
-        null,
-        true);
-    this.field = field;
-    this.valueCount = 0;
+    this(field, allocator, callBack, null, true);
   }
 
   /**
@@ -113,9 +105,7 @@ public class NonNullableStructVector extends AbstractStructVector {
                                  CallBack callBack,
                                  ConflictPolicy conflictPolicy,
                                  boolean allowConflictPolicyChanges) {
-    super(name, allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
-    this.field = new Field(name, checkNotNull(fieldType), null);
-    this.valueCount = 0;
+    this(new Field(name, fieldType, null), allocator, callBack, conflictPolicy, allowConflictPolicyChanges);
   }
 
   /**
