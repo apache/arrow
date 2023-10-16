@@ -25,14 +25,14 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v13/arrow/internal"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/arrow/scalar"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/compute/exec"
+	"github.com/apache/arrow/go/v14/arrow/internal"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow/scalar"
 )
 
 // ExecCtx holds simple contextual information for execution
@@ -1007,6 +1007,9 @@ func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	case <-ctx.Done():
 		return nil
 	case output = <-out:
+		if output == nil {
+			return nil
+		}
 		// if the inputs contained at least one chunked array
 		// then we want to return chunked output
 		if hasChunked {

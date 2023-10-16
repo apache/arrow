@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	shared_utils "github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -355,7 +355,7 @@ func (enc *deltaBitPackEncoder) flushBlock() {
 
 	enc.bitWriter.WriteZigZagVlqInt(minDelta)
 	// reserve enough bytes to write out our miniblock deltas
-	offset := enc.bitWriter.ReserveBytes(int(enc.numMiniBlocks))
+	offset, _ := enc.bitWriter.SkipBytes(int(enc.numMiniBlocks))
 
 	valuesToWrite := int64(len(enc.deltas))
 	for i := 0; i < int(enc.numMiniBlocks); i++ {

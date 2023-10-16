@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/buffer.h"
+#include "arrow/c/abi.h"
 #include "arrow/io/concurrency.h"
 #include "arrow/type_fwd.h"
 
@@ -110,7 +111,8 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
 /// \brief Device-accessible CPU memory created using cudaHostAlloc
 class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
  public:
-  using MutableBuffer::MutableBuffer;
+  CudaHostBuffer(uint8_t* data, const int64_t size);
+
   ~CudaHostBuffer();
 
   /// \brief Return a device address the GPU can read this memory from.
@@ -257,6 +259,10 @@ Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
 /// Low-level: get a CPU address through which the device data be accessed.
 ARROW_EXPORT
 Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
+
+ARROW_EXPORT
+Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id);
 
 }  // namespace cuda
 }  // namespace arrow

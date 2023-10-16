@@ -19,7 +19,8 @@ classdef Float64Traits < arrow.type.traits.TypeTraits
         ArrayConstructor = @arrow.array.Float64Array
         ArrayClassName = "arrow.array.Float64Array"
         ArrayProxyClassName = "arrow.array.proxy.Float64Array"
-        TypeConstructor = @arrow.type.Float64Type;
+        ArrayStaticConstructor = @arrow.array.Float64Array.fromMATLAB
+        TypeConstructor = @arrow.type.Float64Type
         TypeClassName = "arrow.type.Float64Type"
         TypeProxyClassName = "arrow.type.proxy.Float64Type"
         MatlabConstructor = @double

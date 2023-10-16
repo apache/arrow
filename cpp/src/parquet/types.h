@@ -577,6 +577,11 @@ struct ByteArray {
   ByteArray(::std::string_view view)  // NOLINT implicit conversion
       : ByteArray(static_cast<uint32_t>(view.size()),
                   reinterpret_cast<const uint8_t*>(view.data())) {}
+
+  explicit operator std::string_view() const {
+    return std::string_view{reinterpret_cast<const char*>(ptr), len};
+  }
+
   uint32_t len;
   const uint8_t* ptr;
 };

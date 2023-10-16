@@ -24,12 +24,12 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# https://github.com/Homebrew/homebrew-core/blob/-/Formula/apache-arrow.rb
+# https://github.com/Homebrew/homebrew-core/blob/-/Formula/a/apache-arrow.rb
 
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-13.0.0-SNAPSHOT/apache-arrow-13.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-14.0.0-SNAPSHOT/apache-arrow-14.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git", branch: "main"
@@ -57,7 +57,8 @@ class ApacheArrow < Formula
   fails_with gcc: "5"
 
   def install
-    # https://github.com/Homebrew/homebrew-core/issues/76537
+    # This isn't for https://github.com/Homebrew/homebrew-core/issues/76537 .
+    # This may improve performance.
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
     # link against system libc++ instead of llvm provided libc++
@@ -90,6 +91,11 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZSTD=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
+    # Disable runtime SIMD dispatch. It may cause "illegal opcode"
+    # error on Intel Mac because of one-definition-rule violation.
+    #
+    # https://github.com/apache/arrow/issues/36685
+    args << "-DARROW_RUNTIME_SIMD_LEVEL=NONE" if OS.mac? and Hardware::CPU.intel?
 
     system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"

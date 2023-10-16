@@ -18,15 +18,19 @@
 #include <algorithm>
 #include <cstdint>
 #include <exception>
+#include <optional>
 #include <random>
 #include <string>
 #include <vector>
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/array.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
@@ -418,6 +422,120 @@ static void ErrorSchemeExceptionNoInline(
   state.SetItemsProcessed(state.iterations() * integers.size());
 }
 
+// ----------------------------------------------------------------------
+// FieldPath::Get benchmarks
+
+static std::shared_ptr<Schema> GenerateTestSchema(int num_columns) {
+  FieldVector fields(num_columns);
+  for (int i = 0; i < num_columns; ++i) {
+    auto name = std::string("f") + std::to_string(i);
+    fields[i] = field(std::move(name), int64());
+  }
+  return schema(std::move(fields));
+}
+
+static std::shared_ptr<Array> GenerateTestArray(int num_columns) {
+  constexpr int64_t kLength = 100;
+
+  auto rand = random::RandomArrayGenerator(0xbeef);
+  auto schm = GenerateTestSchema(num_columns);
+
+  ArrayVector columns(num_columns);
+  for (auto& column : columns) {
+    column = rand.Int64(kLength, 0, std::numeric_limits<int64_t>::max());
+  }
+
+  return *StructArray::Make(columns, schm->fields());
+}
+
+static std::shared_ptr<RecordBatch> ToBatch(const std::shared_ptr<Array>& array) {
+  return *RecordBatch::FromStructArray(array);
+}
+
+static std::shared_ptr<ChunkedArray> ToChunked(const std::shared_ptr<Array>& array,
+                                               double chunk_proportion = 1.0) {
+  auto struct_array = internal::checked_pointer_cast<StructArray>(array);
+  const auto num_rows = struct_array->length();
+  const auto chunk_length = static_cast<int64_t>(std::ceil(num_rows * chunk_proportion));
+
+  ArrayVector chunks;
+  for (int64_t offset = 0; offset < num_rows;) {
+    int64_t slice_length = std::min(chunk_length, num_rows - offset);
+    chunks.push_back(*struct_array->SliceSafe(offset, slice_length));
+    offset += slice_length;
+  }
+
+  return *ChunkedArray::Make(std::move(chunks));
+}
+
+static std::shared_ptr<Table> ToTable(const std::shared_ptr<Array>& array,
+                                      double chunk_proportion = 1.0) {
+  return *Table::FromChunkedStructArray(ToChunked(array, chunk_proportion));
+}
+
+template <typename T>
+static void BenchmarkFieldPathGet(benchmark::State& state,  // NOLINT non-const reference
+                                  const T& input, int num_columns,
+                                  std::optional<int> num_chunks = {}) {
+  // Reassigning a single FieldPath var within each iteration's scope seems to be costly
+  // enough to influence the timings, so we preprocess them.
+  std::vector<FieldPath> paths(num_columns);
+  for (int i = 0; i < num_columns; ++i) {
+    paths[i] = {i};
+  }
+
+  for (auto _ : state) {
+    for (const auto& path : paths) {
+      benchmark::DoNotOptimize(path.Get(input).ValueOrDie());
+    }
+  }
+
+  state.SetItemsProcessed(state.iterations() * num_columns);
+  state.counters["num_columns"] = num_columns;
+  if (num_chunks.has_value()) {
+    state.counters["num_chunks"] = num_chunks.value();
+  }
+}
+
+static void FieldPathGetFromWideArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int kNumColumns = 10000;
+  auto array = GenerateTestArray(kNumColumns);
+  BenchmarkFieldPathGet(state, *array, kNumColumns);
+}
+
+static void FieldPathGetFromWideArrayData(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int kNumColumns = 10000;
+  auto array = GenerateTestArray(kNumColumns);
+  BenchmarkFieldPathGet(state, *array->data(), kNumColumns);
+}
+
+static void FieldPathGetFromWideBatch(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int kNumColumns = 10000;
+  auto batch = ToBatch(GenerateTestArray(kNumColumns));
+  BenchmarkFieldPathGet(state, *batch, kNumColumns);
+}
+
+static void FieldPathGetFromWideChunkedArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int kNumColumns = 10000;
+  // Percentage representing the size of each chunk relative to the total length (smaller
+  // proportion means more chunks)
+  const double chunk_proportion = state.range(0) / 100.0;
+  auto chunked_array = ToChunked(GenerateTestArray(kNumColumns), chunk_proportion);
+  BenchmarkFieldPathGet(state, *chunked_array, kNumColumns, chunked_array->num_chunks());
+}
+
+static void FieldPathGetFromWideTable(
+    benchmark::State& state) {  // NOLINT non-const reference
+  constexpr int kNumColumns = 10000;
+  const double chunk_proportion = state.range(0) / 100.0;
+  auto table = ToTable(GenerateTestArray(kNumColumns), chunk_proportion);
+  BenchmarkFieldPathGet(state, *table, kNumColumns, table->column(0)->num_chunks());
+}
+
 BENCHMARK(TypeEqualsSimple);
 BENCHMARK(TypeEqualsComplex);
 BENCHMARK(TypeEqualsWithMetadata);
@@ -435,5 +553,12 @@ BENCHMARK(ErrorSchemeBoolNoInline);
 BENCHMARK(ErrorSchemeStatusNoInline);
 BENCHMARK(ErrorSchemeResultNoInline);
 BENCHMARK(ErrorSchemeExceptionNoInline);
+
+BENCHMARK(FieldPathGetFromWideArray);
+BENCHMARK(FieldPathGetFromWideArrayData);
+BENCHMARK(FieldPathGetFromWideBatch);
+
+BENCHMARK(FieldPathGetFromWideChunkedArray)->Arg(2)->Arg(10)->Arg(25)->Arg(100);
+BENCHMARK(FieldPathGetFromWideTable)->Arg(2)->Arg(10)->Arg(25)->Arg(100);
 
 }  // namespace arrow

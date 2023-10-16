@@ -161,12 +161,28 @@ namespace Apache.Arrow.C
                         children = ProcessListChildren(cArray, ((ListType)type).ValueDataType);
                         buffers = ImportListBuffers(cArray);
                         break;
+                    case ArrowTypeId.FixedSizeList:
+                        children = ProcessListChildren(cArray, ((FixedSizeListType)type).ValueDataType);
+                        buffers = ImportFixedSizeListBuffers(cArray);
+                        break;
                     case ArrowTypeId.Struct:
                         children = ProcessStructChildren(cArray, ((StructType)type).Fields);
                         buffers = new ArrowBuffer[] { ImportValidityBuffer(cArray) };
                         break;
                     case ArrowTypeId.Union:
+                        UnionType unionType = (UnionType)type;
+                        children = ProcessStructChildren(cArray, unionType.Fields);
+                        buffers = unionType.Mode switch
+                        {
+                            UnionMode.Dense => ImportDenseUnionBuffers(cArray),
+                            UnionMode.Sparse => ImportSparseUnionBuffers(cArray),
+                            _ => throw new InvalidOperationException("unknown union mode in import")
+                        }; ;
+                        break;
                     case ArrowTypeId.Map:
+                        MapType mapType = (MapType)type;
+                        children = ProcessListChildren(cArray, mapType.Fields[0].DataType);
+                        buffers = ImportListBuffers(cArray);
                         break;
                     case ArrowTypeId.Null:
                         buffers = System.Array.Empty<ArrowBuffer>();
@@ -236,7 +252,7 @@ namespace Apache.Arrow.C
             {
                 if (cArray->n_buffers != 3)
                 {
-                    throw new InvalidOperationException("Byte arrays are expected to have exactly three child arrays");
+                    throw new InvalidOperationException("Byte arrays are expected to have exactly three buffers");
                 }
 
                 int length = checked((int)cArray->length);
@@ -256,7 +272,7 @@ namespace Apache.Arrow.C
             {
                 if (cArray->n_buffers != 2)
                 {
-                    throw new InvalidOperationException("List arrays are expected to have exactly two children");
+                    throw new InvalidOperationException("List arrays are expected to have exactly two buffers");
                 }
 
                 int length = checked((int)cArray->length);
@@ -269,11 +285,53 @@ namespace Apache.Arrow.C
                 return buffers;
             }
 
+            private ArrowBuffer[] ImportFixedSizeListBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 1)
+                {
+                    throw new InvalidOperationException("Fixed-size list arrays are expected to have exactly one buffer");
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[1];
+                buffers[0] = ImportValidityBuffer(cArray);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportDenseUnionBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 2)
+                {
+                    throw new InvalidOperationException("Dense union arrays are expected to have exactly two children");
+                }
+                int length = checked((int)cArray->length);
+                int offsetsLength = length * 4;
+
+                ArrowBuffer[] buffers = new ArrowBuffer[2];
+                buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, length));
+                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportSparseUnionBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 1)
+                {
+                    throw new InvalidOperationException("Sparse union arrays are expected to have exactly one child");
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[1];
+                buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, checked((int)cArray->length)));
+
+                return buffers;
+            }
+
             private ArrowBuffer[] ImportFixedWidthBuffers(CArrowArray* cArray, int bitWidth)
             {
                 if (cArray->n_buffers != 2)
                 {
-                    throw new InvalidOperationException("Arrays of fixed-width type are expected to have exactly two children");
+                    throw new InvalidOperationException("Arrays of fixed-width type are expected to have exactly two buffers");
                 }
 
                 // validity, data

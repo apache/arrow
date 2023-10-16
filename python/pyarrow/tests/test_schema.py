@@ -16,7 +16,6 @@
 # under the License.
 
 from collections import OrderedDict
-import pickle
 import sys
 import weakref
 
@@ -585,7 +584,7 @@ two: int32""")
     assert repr(sch) == expected
 
 
-def test_type_schema_pickling():
+def test_type_schema_pickling(pickle_module):
     cases = [
         pa.int8(),
         pa.string(),
@@ -621,7 +620,7 @@ def test_type_schema_pickling():
     ]
 
     for val in cases:
-        roundtripped = pickle.loads(pickle.dumps(val))
+        roundtripped = pickle_module.loads(pickle_module.dumps(val))
         assert val == roundtripped
 
     fields = []
@@ -632,7 +631,7 @@ def test_type_schema_pickling():
             fields.append(pa.field('_f{}'.format(i), f))
 
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
-    roundtripped = pickle.loads(pickle.dumps(schema))
+    roundtripped = pickle_module.loads(pickle_module.dumps(schema))
     assert schema == roundtripped
 
 
@@ -718,12 +717,15 @@ def test_schema_merge():
     ])
     assert result.equals(expected)
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError):
         pa.unify_schemas([b, d])
 
     # ARROW-14002: Try with tuple instead of list
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
+
+    result = pa.unify_schemas([b, d], promote_options="permissive")
+    assert result.equals(d)
 
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):

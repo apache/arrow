@@ -18,16 +18,37 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
 #include "arrow/io/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+/// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
+enum class DeviceAllocationType : char {
+  kCPU = 1,
+  kCUDA = 2,
+  kCUDA_HOST = 3,
+  kOPENCL = 4,
+  kVULKAN = 7,
+  kMETAL = 8,
+  kVPI = 9,
+  kROCM = 10,
+  kROCM_HOST = 11,
+  kEXT_DEV = 12,
+  kCUDA_MANAGED = 13,
+  kONEAPI = 14,
+  kWEBGPU = 15,
+  kHEXAGON = 16,
+};
 
 class MemoryManager;
 
@@ -58,6 +79,12 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// \brief Whether this instance points to the same device as another one.
   virtual bool Equals(const Device&) const = 0;
 
+  /// \brief A device ID to identify this device if there are multiple of this type.
+  ///
+  /// If there is no "device_id" equivalent (such as for the main CPU device on
+  /// non-numa systems) returns -1.
+  virtual int64_t device_id() const { return -1; }
+
   /// \brief Whether this device is the main CPU device.
   ///
   /// This shorthand method is very useful when deciding whether a memory address
@@ -70,6 +97,88 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// MemoryManager implementation.  Some devices also allow constructing
   /// MemoryManager instances with non-default parameters.
   virtual std::shared_ptr<MemoryManager> default_memory_manager() = 0;
+
+  /// \brief Return the DeviceAllocationType of this device
+  virtual DeviceAllocationType device_type() const = 0;
+
+  class SyncEvent;
+
+  /// \brief EXPERIMENTAL: An opaque wrapper for Device-specific streams
+  ///
+  /// In essence this is just a wrapper around a void* to represent the
+  /// standard concept of a stream/queue on a device. Derived classes
+  /// should be trivially constructible from it's device-specific counterparts.
+  class ARROW_EXPORT Stream {
+   public:
+    using release_fn_t = std::function<void(void*)>;
+
+    virtual ~Stream() = default;
+
+    virtual const void* get_raw() const { return stream_.get(); }
+
+    /// \brief Make the stream wait on the provided event.
+    ///
+    /// Tells the stream that it should wait until the synchronization
+    /// event is completed without blocking the CPU.
+    virtual Status WaitEvent(const SyncEvent&) = 0;
+
+    /// \brief Blocks the current thread until a stream's remaining tasks are completed
+    virtual Status Synchronize() const = 0;
+
+   protected:
+    explicit Stream(void* stream, release_fn_t release_stream)
+        : stream_{stream, release_stream} {}
+
+    std::unique_ptr<void, release_fn_t> stream_;
+  };
+
+  virtual Result<std::shared_ptr<Stream>> MakeStream() { return NULLPTR; }
+
+  /// \brief Create a new device stream
+  ///
+  /// This should create the appropriate stream type for the device,
+  /// derived from Device::Stream to allow for stream ordered events
+  /// and memory allocations.
+  virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
+    return NULLPTR;
+  }
+
+  /// @brief Wrap an existing device stream alongside a release function
+  ///
+  /// @param device_stream a pointer to the stream to wrap
+  /// @param release_fn a function to call during destruction, `nullptr` or
+  ///        a no-op function can be passed to indicate ownership is maintained
+  ///        externally
+  virtual Result<std::shared_ptr<Stream>> WrapStream(void* device_stream,
+                                                     Stream::release_fn_t release_fn) {
+    return NULLPTR;
+  }
+
+  /// \brief EXPERIMENTAL: An object that provides event/stream sync primitives
+  class ARROW_EXPORT SyncEvent {
+   public:
+    using release_fn_t = std::function<void(void*)>;
+
+    virtual ~SyncEvent() = default;
+
+    void* get_raw() { return sync_event_.get(); }
+
+    /// @brief Block until sync event is completed.
+    virtual Status Wait() = 0;
+
+    /// @brief Record the wrapped event on the stream so it triggers
+    /// the event when the stream gets to that point in its queue.
+    virtual Status Record(const Stream&) = 0;
+
+   protected:
+    /// If creating this with a passed in event, the caller must ensure
+    /// that the event lives until clear_event is called on this as it
+    /// won't own it.
+    explicit SyncEvent(void* sync_event, release_fn_t release_sync_event)
+        : sync_event_{sync_event, release_sync_event} {}
+
+    std::unique_ptr<void, release_fn_t> sync_event_;
+  };
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Device);
@@ -138,6 +247,22 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
 
+  /// \brief Create a new SyncEvent.
+  ///
+  /// This version should construct the appropriate event for the device and
+  /// provide the unique_ptr with the correct deleter for the event type.
+  /// If the device does not require or work with any synchronization, it is
+  /// allowed for it to return a nullptr.
+  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent();
+
+  /// \brief Wrap an event into a SyncEvent.
+  ///
+  /// @param sync_event passed in sync_event (should be a pointer to the appropriate type)
+  /// @param release_sync_event destructor to free sync_event. `nullptr` may be
+  ///        passed to indicate that no destruction/freeing is necessary
+  virtual Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
+      void* sync_event, Device::SyncEvent::release_fn_t release_sync_event);
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(MemoryManager);
 
@@ -172,6 +297,7 @@ class ARROW_EXPORT CPUDevice : public Device {
   const char* type_name() const override;
   std::string ToString() const override;
   bool Equals(const Device&) const override;
+  DeviceAllocationType device_type() const override { return DeviceAllocationType::kCPU; }
 
   std::shared_ptr<MemoryManager> default_memory_manager() override;
 

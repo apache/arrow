@@ -45,7 +45,7 @@ checklist for using ``git``:
 
   .. dropdown:: How to squash local commits?
     :animate: fade-in-slide-down
-    :class-container: sd-shadow-md
+    :class-container: sd-shadow-none
 
     Abort the rebase with:
 
@@ -78,7 +78,7 @@ checklist for using ``git``:
     
   .. dropdown:: Setting rebase to be default
     :animate: fade-in-slide-down
-    :class-container: sd-shadow-md
+    :class-container: sd-shadow-none
 
     If you set the following in your repo's ``.git/config``, the ``--rebase`` option can be
     omitted from the ``git pull`` command, as it is implied by default.
@@ -136,7 +136,7 @@ will merge the pull request. This is done with a
 
 .. dropdown:: Details on squash merge
   :animate: fade-in-slide-down
-  :class-container: sd-shadow-md
+  :class-container: sd-shadow-none
 
   A pull request is merged with a squash merge so that all of your commits will be
   registered as a single commit to the main branch; this simplifies the

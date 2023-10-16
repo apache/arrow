@@ -21,10 +21,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -593,4 +593,29 @@ func TestLargeStringStringRoundTrip(t *testing.T) {
 	defer arr1.Release()
 
 	assert.True(t, array.Equal(arr, arr1))
+}
+
+func TestStringValueLen(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := array.NewStringBuilder(mem)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*array.String)
+	defer arr.Release()
+
+	slice := array.NewSlice(arr, 2, 9).(*array.String)
+	defer slice.Release()
+
+	vs := values[2:9]
+
+	for i, v := range vs {
+		assert.Equal(t, len(v), slice.ValueLen(i))
+	}
 }

@@ -43,7 +43,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 /**
  * Utility to append two vectors together.
  */
-class VectorAppender implements VectorVisitor<ValueVector, Void> {
+public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   /**
    * The targetVector to be appended.
@@ -56,7 +56,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
    * Constructs a new targetVector appender, with the given targetVector.
    * @param targetVector the targetVector to be appended.
    */
-  VectorAppender(ValueVector targetVector) {
+  public VectorAppender(ValueVector targetVector) {
     this.targetVector = targetVector;
     typeVisitor = new TypeEqualsVisitor(targetVector, false, true);
   }
@@ -116,7 +116,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // make sure there is enough capacity
     while (targetVector.getValueCapacity() < newValueCount) {
-      targetVector.reAlloc();
+      ((BaseVariableWidthVector) targetVector).reallocValidityAndOffsetBuffers();
     }
     while (targetVector.getDataBuffer().capacity() < newValueCapacity) {
       ((BaseVariableWidthVector) targetVector).reallocDataBuffer();
@@ -170,7 +170,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // make sure there is enough capacity
     while (targetVector.getValueCapacity() < newValueCount) {
-      targetVector.reAlloc();
+      ((BaseLargeVariableWidthVector) targetVector).reallocValidityAndOffsetBuffers();
     }
     while (targetVector.getDataBuffer().capacity() < newValueCapacity) {
       ((BaseLargeVariableWidthVector) targetVector).reallocDataBuffer();

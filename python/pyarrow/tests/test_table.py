@@ -17,7 +17,6 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
-import pickle
 import sys
 import weakref
 
@@ -301,14 +300,14 @@ def test_chunked_array_equals():
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
     ]
 )
-def test_chunked_array_pickle(data, typ):
+def test_chunked_array_pickle(data, typ, pickle_module):
     arrays = []
     while data:
         arrays.append(pa.array(data[:2], type=typ))
         data = data[2:]
     array = pa.chunked_array(arrays, type=typ)
     array.validate()
-    result = pickle.loads(pickle.dumps(array))
+    result = pickle_module.loads(pickle_module.dumps(array))
     result.validate()
     assert result.equals(array)
 
@@ -511,7 +510,7 @@ def test_recordbatch_basics():
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -663,7 +662,7 @@ def test_recordbatch_empty_metadata():
     assert batch.schema.metadata is None
 
 
-def test_recordbatch_pickle():
+def test_recordbatch_pickle(pickle_module):
     data = [
         pa.array(range(5), type='int8'),
         pa.array([-10, -5, 0, 5, 10], type='float32')
@@ -675,7 +674,7 @@ def test_recordbatch_pickle():
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
     batch = pa.record_batch(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(batch))
+    result = pickle_module.loads(pickle_module.dumps(batch))
     assert result.equals(batch)
     assert result.schema == schema
 
@@ -949,7 +948,7 @@ def test_table_basics():
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     columns = []
     for col in table.itercolumns():
@@ -1022,7 +1021,7 @@ def test_table_from_lists():
     assert result.equals(expected)
 
 
-def test_table_pickle():
+def test_table_pickle(pickle_module):
     data = [
         pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
         pa.chunked_array([["some", "strings", None, ""]], type=pa.string()),
@@ -1032,7 +1031,7 @@ def test_table_pickle():
                        metadata={b'foo': b'bar'})
     table = pa.Table.from_arrays(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(table))
+    result = pickle_module.loads(pickle_module.dumps(table))
     result.validate()
     assert result.equals(table)
 
@@ -1331,6 +1330,23 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
+def test_concat_tables_permissive():
+    t1 = pa.Table.from_arrays([list(range(10))], names=('a',))
+    t2 = pa.Table.from_arrays([list(('a', 'b', 'c'))], names=('a',))
+
+    with pytest.raises(
+            pa.ArrowTypeError,
+            match="Unable to merge: Field a has incompatible types: int64 vs string"):
+        _ = pa.concat_tables([t1, t2], promote_options="permissive")
+
+
+def test_concat_tables_invalid_option():
+    t = pa.Table.from_arrays([list(range(10))], names=('a',))
+
+    with pytest.raises(ValueError, match="Invalid promote options: invalid"):
+        pa.concat_tables([t, t], promote_options="invalid")
+
+
 def test_concat_tables_none_table():
     # ARROW-11997
     with pytest.raises(AttributeError):
@@ -1360,18 +1376,50 @@ def test_concat_tables_with_different_schema_metadata():
     assert table2.schema.equals(table3.schema)
 
 
+def test_concat_tables_with_promote_option():
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["int64_field"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
+
+    with pytest.warns(FutureWarning):
+        result = pa.concat_tables([t1, t2], promote=True)
+
+    assert result.equals(pa.Table.from_arrays([
+        pa.array([1, 2, None, None], type=pa.int64()),
+        pa.array([None, None, 1.0, 2.0], type=pa.float32()),
+    ], ["int64_field", "float_field"]))
+
+    t1 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.float32())], ["f"])
+
+    with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
+        with pytest.warns(FutureWarning):
+            pa.concat_tables([t1, t2], promote=False)
+
+
 def test_concat_tables_with_promotion():
     t1 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.int64())], ["int64_field"])
     t2 = pa.Table.from_arrays(
         [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
 
-    result = pa.concat_tables([t1, t2], promote=True)
+    result = pa.concat_tables([t1, t2], promote_options="default")
 
     assert result.equals(pa.Table.from_arrays([
         pa.array([1, 2, None, None], type=pa.int64()),
         pa.array([None, None, 1.0, 2.0], type=pa.float32()),
     ], ["int64_field", "float_field"]))
+
+    t3 = pa.Table.from_arrays(
+        [pa.array([1, 2], type=pa.int32())], ["int64_field"])
+    result = pa.concat_tables(
+        [t1, t3], promote_options="permissive")
+    assert result.equals(pa.Table.from_arrays([
+        pa.array([1, 2, 1, 2], type=pa.int64()),
+    ], ["int64_field"]))
 
 
 def test_concat_tables_with_promotion_error():
@@ -1380,8 +1428,8 @@ def test_concat_tables_with_promotion_error():
     t2 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.float32())], ["f"])
 
-    with pytest.raises(pa.ArrowInvalid):
-        pa.concat_tables([t1, t2], promote=True)
+    with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
+        pa.concat_tables([t1, t2], promote_options="default")
 
 
 def test_table_negative_indexing():
@@ -2174,6 +2222,21 @@ def test_table_group_by():
         "keys": ["a", "b"],
         "values_sum": [6, 9]
     }
+
+
+@pytest.mark.acero
+def test_table_group_by_first():
+    # "first" is an ordered aggregation -> requires to specify use_threads=False
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a', 'b'] * 2})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b', 'a'] * 2})
+    table = pa.concat_tables([table1, table2])
+
+    with pytest.raises(NotImplementedError):
+        table.group_by("b").aggregate([("a", "first")])
+
+    result = table.group_by("b", use_threads=False).aggregate([("a", "first")])
+    expected = pa.table({"b": ["a", "b"], "a_first": [1, 2]})
+    assert result.equals(expected)
 
 
 def test_table_to_recordbatchreader():

@@ -73,7 +73,7 @@ jobs:
           curl -sL -o committers.yml $url
           echo "committers_path=$(pwd)/committers.yml" >> $GITHUB_OUTPUT
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: arrow
           repository: apache/arrow
