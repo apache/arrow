@@ -1241,7 +1241,8 @@ tasks:
     params:
       env:
         PYTHON: "{{ python_version }}"
-        PYTEST_ARGS: "-W error"
+        # Temporarily disable error on Warning: https://github.com/apache/arrow/issues/38239
+        # PYTEST_ARGS: "-W error -W 'ignore:Setting custom ClientSession:DeprecationWarning'"
       image: conda-python
 {% endfor %}
 
