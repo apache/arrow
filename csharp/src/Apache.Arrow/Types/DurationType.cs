@@ -13,37 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-using System;
-
 namespace Apache.Arrow.Types
 {
-    public sealed class TimestampType : TimeBasedType
+    public sealed class DurationType : TimeBasedType
     {
-        public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, "+00:00");
+        public static readonly DurationType Second = new DurationType(TimeUnit.Second);
+        public static readonly DurationType Millisecond = new DurationType(TimeUnit.Millisecond);
+        public static readonly DurationType Microsecond = new DurationType(TimeUnit.Microsecond);
+        public static readonly DurationType Nanosecond = new DurationType(TimeUnit.Nanosecond);
+        private static readonly DurationType[] _types = new DurationType[] { Second, Millisecond, Microsecond, Nanosecond };
 
-        public override ArrowTypeId TypeId => ArrowTypeId.Timestamp;
-        public override string Name => "timestamp";
-        public override int BitWidth => 64;
-
-        public string Timezone { get; }
-
-        public bool IsTimeZoneAware => !string.IsNullOrWhiteSpace(Timezone);
-
-        public TimestampType(
-            TimeUnit unit = TimeUnit.Millisecond,
-            string timezone = default)
+        private DurationType(TimeUnit unit)
             : base(unit)
         {
-            Timezone = timezone;
         }
 
-        public TimestampType(
-            TimeUnit unit = TimeUnit.Millisecond,
-            TimeZoneInfo timezone = default)
-            : base(unit)
+        public override ArrowTypeId TypeId => ArrowTypeId.Duration;
+        public override string Name => "duration";
+        public override int BitWidth => 64;
+
+        public static DurationType FromTimeUnit(TimeUnit unit)
         {
-            Timezone = timezone?.BaseUtcOffset.ToTimeZoneOffsetString();
+            return _types[(int)unit];
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
