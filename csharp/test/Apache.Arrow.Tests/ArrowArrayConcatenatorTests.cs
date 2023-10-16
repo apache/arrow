@@ -30,7 +30,7 @@ namespace Apache.Arrow.Tests
         {
             foreach ((List<IArrowArray> testTargetArrayList, IArrowArray expectedArray) in GenerateTestData())
             {
-                IArrowArray actualArray = ArrowArrayConcatenatorReflector.InvokeConcatenate(testTargetArrayList);
+                IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(testTargetArrayList);
                 ArrowReaderVerifier.CompareArrays(expectedArray, actualArray);
             }
         }
@@ -38,15 +38,15 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void TestNullOrEmpty()
         {
-            Assert.Null(ArrowArrayConcatenatorReflector.InvokeConcatenate(null));
-            Assert.Null(ArrowArrayConcatenatorReflector.InvokeConcatenate(new List<IArrowArray>()));
+            Assert.Null(ArrowArrayConcatenator.Concatenate(null));
+            Assert.Null(ArrowArrayConcatenator.Concatenate(new List<IArrowArray>()));
         }
 
         [Fact]
         public void TestSingleElement()
         {
             Int32Array array = new Int32Array.Builder().Append(1).Append(2).Build();
-            IArrowArray actualArray = ArrowArrayConcatenatorReflector.InvokeConcatenate(new[] { array });
+            IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(new[] { array });
             ArrowReaderVerifier.CompareArrays(array, actualArray);
         }
 
@@ -107,17 +107,6 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        private static class ArrowArrayConcatenatorReflector
-        {
-            private static readonly MethodInfo s_concatenateInfo = typeof(ArrayData).Assembly.GetType("Apache.Arrow.ArrowArrayConcatenator")
-                .GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
-
-            internal static IArrowArray InvokeConcatenate(IReadOnlyList<IArrowArray> arrowArrayList, MemoryAllocator allocator = default)
-            {
-                return s_concatenateInfo.Invoke(null, new object[] { arrowArrayList, allocator }) as IArrowArray;
-            }
-        }
-
         private class TestDataGenerator :
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<Int8Type>,
@@ -136,6 +125,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
@@ -263,6 +253,33 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = resultBuilder.Build();
             }
 
+            public void Visit(DurationType type)
+            {
+                DurationArray.Builder resultBuilder = new DurationArray.Builder(type).Reserve(_baseDataTotalElementCount);
+                DateTimeOffset basis = DateTimeOffset.UtcNow;
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    DurationArray.Builder builder = new DurationArray.Builder(type).Reserve(dataList.Count);
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
 
             public void Visit(BinaryType type)
             {

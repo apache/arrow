@@ -152,6 +152,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "17.0"
     "16.0"
     "15.0"
     "14.0"
@@ -960,7 +961,9 @@ endif()
 
 set(ARROW_SYSTEM_LINK_LIBS)
 
-list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+if(ARROW_ENABLE_THREADING)
+  list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+endif()
 if(CMAKE_THREAD_LIBS_INIT)
   string(APPEND ARROW_PC_LIBS_PRIVATE " ${CMAKE_THREAD_LIBS_INIT}")
 endif()

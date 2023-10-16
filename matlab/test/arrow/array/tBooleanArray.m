@@ -142,7 +142,7 @@ classdef tBooleanArray < matlab.unittest.TestCase
         function AllowNDimensionalEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
             A = tc.ArrowArrayConstructorFcn(data);
-            tc.verifyEqual(A.Length, int64(0));
+            tc.verifyEqual(A.NumElements, int64(0));
             tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn(reshape([], [0 1])));
         end
 
@@ -163,7 +163,7 @@ classdef tBooleanArray < matlab.unittest.TestCase
             % Verifies arrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. They have the same length (i.e. their Length properties are equal)
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
             %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
             %  4. All corresponding valid elements have the same values
 
@@ -202,7 +202,7 @@ classdef tBooleanArray < matlab.unittest.TestCase
             % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % Their Length properties are not equal
+            % Their NumElements properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
             % Comparing an arrow.array.Array to a MATLAB double

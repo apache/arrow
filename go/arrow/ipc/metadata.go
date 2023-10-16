@@ -386,6 +386,18 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		flatbuf.LargeListStart(fv.b)
 		fv.offset = flatbuf.LargeListEnd(fv.b)
 
+	case *arrow.ListViewType:
+		fv.dtype = flatbuf.TypeListView
+		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
+		flatbuf.ListViewStart(fv.b)
+		fv.offset = flatbuf.ListViewEnd(fv.b)
+
+	case *arrow.LargeListViewType:
+		fv.dtype = flatbuf.TypeLargeListView
+		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
+		flatbuf.LargeListViewStart(fv.b)
+		fv.offset = flatbuf.LargeListViewEnd(fv.b)
+
 	case *arrow.FixedSizeListType:
 		fv.dtype = flatbuf.TypeFixedSizeList
 		fv.kids = append(fv.kids, fieldToFB(fv.b, fv.pos.Child(0), dt.ElemField(), fv.memo))
@@ -716,6 +728,20 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 			return nil, fmt.Errorf("arrow/ipc: LargeList must have exactly 1 child field (got=%d)", len(children))
 		}
 		dt := arrow.LargeListOfField(children[0])
+		return dt, nil
+
+	case flatbuf.TypeListView:
+		if len(children) != 1 {
+			return nil, fmt.Errorf("arrow/ipc: ListView must have exactly 1 child field (got=%d)", len(children))
+		}
+		dt := arrow.ListViewOfField(children[0])
+		return dt, nil
+
+	case flatbuf.TypeLargeListView:
+		if len(children) != 1 {
+			return nil, fmt.Errorf("arrow/ipc: LargeListView must have exactly 1 child field (got=%d)", len(children))
+		}
+		dt := arrow.LargeListViewOfField(children[0])
 		return dt, nil
 
 	case flatbuf.TypeFixedSizeList:

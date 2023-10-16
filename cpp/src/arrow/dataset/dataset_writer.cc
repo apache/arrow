@@ -139,7 +139,7 @@ class DatasetWriterFileQueue {
       : options_(options), schema_(schema), writer_state_(writer_state) {}
 
   void Start(util::AsyncTaskScheduler* file_tasks, const std::string& filename) {
-    file_tasks_ = std::move(file_tasks);
+    file_tasks_ = file_tasks;
     // Because the scheduler runs one task at a time we know the writer will
     // be opened before any attempt to write
     file_tasks_->AddSimpleTask(
@@ -575,7 +575,7 @@ class DatasetWriter::DatasetWriterImpl {
   }
 
  protected:
-  Status CloseLargestFile() {
+  Status TryCloseLargestFile() {
     std::shared_ptr<DatasetWriterDirectoryQueue> largest = nullptr;
     uint64_t largest_num_rows = 0;
     for (auto& dir_queue : directory_queues_) {
@@ -584,7 +584,10 @@ class DatasetWriter::DatasetWriterImpl {
         largest = dir_queue.second;
       }
     }
-    DCHECK_NE(largest, nullptr);
+    if (largest == nullptr) {
+      // GH-38011: If all written files has written 0 rows, we should not close any file
+      return Status::OK();
+    }
     return largest->FinishCurrentFile();
   }
 
@@ -618,7 +621,7 @@ class DatasetWriter::DatasetWriterImpl {
         backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
           EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
-          RETURN_NOT_OK(CloseLargestFile());
+          RETURN_NOT_OK(TryCloseLargestFile());
           break;
         }
       }

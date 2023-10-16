@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/array/validate.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -430,6 +431,38 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::MakeFromIterator(
 
 RecordBatchReader::~RecordBatchReader() {
   ARROW_WARN_NOT_OK(this->Close(), "Implicitly called RecordBatchReader::Close failed");
+}
+
+Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
+    const RecordBatchVector& batches, MemoryPool* pool) {
+  int64_t length = 0;
+  size_t n = batches.size();
+  if (n == 0) {
+    return Status::Invalid("Must pass at least one recordbatch");
+  }
+  int cols = batches[0]->num_columns();
+  auto schema = batches[0]->schema();
+  for (size_t i = 0; i < batches.size(); ++i) {
+    length += batches[i]->num_rows();
+    if (!schema->Equals(batches[i]->schema())) {
+      return Status::Invalid(
+          "Schema of RecordBatch index ", i, " is ", batches[i]->schema()->ToString(),
+          ", which does not match index 0 recordbatch schema: ", schema->ToString());
+    }
+  }
+
+  std::vector<std::shared_ptr<Array>> concatenated_columns;
+  concatenated_columns.reserve(cols);
+  for (int col = 0; col < cols; ++col) {
+    ArrayVector column_arrays;
+    column_arrays.reserve(batches.size());
+    for (const auto& batch : batches) {
+      column_arrays.emplace_back(batch->column(col));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto concatenated_column, Concatenate(column_arrays, pool))
+    concatenated_columns.emplace_back(std::move(concatenated_column));
+  }
+  return RecordBatch::Make(std::move(schema), length, std::move(concatenated_columns));
 }
 
 }  // namespace arrow

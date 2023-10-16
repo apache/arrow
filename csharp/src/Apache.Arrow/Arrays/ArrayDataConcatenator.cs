@@ -20,9 +20,9 @@ using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    static class ArrayDataConcatenator
+    public class ArrayDataConcatenator
     {
-        internal static ArrayData Concatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
+        public static ArrayData Concatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
         {
             if (arrayDataList == null || arrayDataList.Count == 0)
             {

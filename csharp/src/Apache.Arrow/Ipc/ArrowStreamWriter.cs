@@ -49,6 +49,7 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<DurationArray>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
@@ -104,6 +105,7 @@ namespace Apache.Arrow.Ipc
             public void Visit(Date64Array array) => CreateBuffers(array);
             public void Visit(Time32Array array) => CreateBuffers(array);
             public void Visit(Time64Array array) => CreateBuffers(array);
+            public void Visit(DurationArray array) => CreateBuffers(array);
 
             public void Visit(ListArray array)
             {

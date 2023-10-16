@@ -36,7 +36,7 @@ class Array : public libmexclass::proxy::Proxy {
 
         void toString(libmexclass::proxy::method::Context& context);
 
-        void getLength(libmexclass::proxy::method::Context& context);
+        void getNumElements(libmexclass::proxy::method::Context& context);
 
         void getValid(libmexclass::proxy::method::Context& context);
 

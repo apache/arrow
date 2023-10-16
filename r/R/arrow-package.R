@@ -183,7 +183,7 @@ configure_tzdb <- function() {
   # Just to be extra safe, let's wrap this in a try();
   # we don't want a failed startup message to prevent the package from loading
   try({
-        # On MacOS only, Check if we are running in under emulation, and warn this will not work
+    # On MacOS only, Check if we are running in under emulation, and warn this will not work
     if (on_rosetta()) {
       packageStartupMessage(
         paste(
@@ -239,11 +239,6 @@ on_linux_dev <- function() {
 on_macos_10_13_or_lower <- function() {
   identical(unname(Sys.info()["sysname"]), "Darwin") &&
     package_version(unname(Sys.info()["release"])) < "18.0.0"
-}
-
-on_rosetta <- function() {
-  identical(tolower(Sys.info()[["sysname"]]), "darwin") &&
-    identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
 }
 
 option_use_threads <- function() {

@@ -73,6 +73,8 @@ namespace Apache.Arrow
                     return new Time32Array(data);
                 case ArrowTypeId.Time64:
                     return new Time64Array(data);
+                case ArrowTypeId.Duration:
+                    return new DurationArray(data);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array(data);
                 case ArrowTypeId.Decimal256:
