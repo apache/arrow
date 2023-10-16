@@ -74,8 +74,65 @@ classdef ListArray < arrow.array.Array
 
     methods (Static)
         
-        function array = fromMATLAB(~)
-            % TODO
+        function array = fromMATLAB(C)
+            arguments
+                C(:, 1) cell
+            end
+
+            % Iterate over cell array contents and compute offsets
+            % missing = NULL
+
+            numElements = numel(C);
+
+            indexOfFirstNonMissing = -1;
+            for ii = 1:numElements
+                if ~isa(C{ii}, "missing")
+                    indexOfFirstNonMissing = ii;
+                    break;
+                end
+            end
+            
+            % TODO: Add NullArray support
+            assert(indexOfFirstNonMissing ~= -1);
+
+            offsets = zeros([numElements + 1 1], "int32");
+            valid = true(numElements, 1);
+            valid(1:indexOfFirstNonMissing-1) = false;
+
+            % TODO: Verify the datatype is supported
+            expectedClass = string(class(C{indexOfFirstNonMissing}));
+
+            % Compute the offests and determine which elements are valid.
+            for ii = indexOfFirstNonMissing:numElements
+                if isa(C{ii}, "missing")
+                    valid(ii) = false;
+                    offsets(ii+1) = offsets(ii);
+                elseif isa(C{ii}, expectedClass)
+                    length = numel(C{ii});
+                    offsets(ii+1) = offsets(ii) + length;
+                else
+                    error("arrow:array:list:InvalidCell", "Invalid cell array");
+                end
+            end
+
+            % Create the Offsets Int32Array
+            offsetArray = arrow.array(offsets);
+
+            % Create the Values array by vertically concatenating the valid
+            % elements and calling the arrow.array gateway function. 
+            reshapedCells = cellfun(@(c) reshape(c, [], 1), C(valid), UniformOutput=false);
+            values = vertcat(reshapedCells{:});
+            valueArray = arrow.array(values);
+
+            args = struct(...
+                OffsetsProxyID=offsetArray.Proxy.ID, ...
+                ValuesProxyID=valueArray.Proxy.ID, ...
+                Valid=valid ...
+            );
+
+            proxyName = "arrow.array.proxy.ListArray";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            array = arrow.array.ListArray(proxy);
         end
 
         function array = fromArrays(offsets, values, opts)
