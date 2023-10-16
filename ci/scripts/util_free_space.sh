@@ -95,11 +95,5 @@ if [ "${GITHUB_ACTIONS}" = "true" ]; then
     firefox \
     google-chrome-stable \
     microsoft-edge-stable
-  echo "::group::/opt/google/*"
-  du -hsc /opt/google/*
-  echo "::endgroup::"
-  echo "::group::/opt/microsoft/*"
-  du -hsc /opt/microsoft/*
-  echo "::endgroup::"
   df -h
 fi
