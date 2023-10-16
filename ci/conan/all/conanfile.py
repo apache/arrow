@@ -406,6 +406,26 @@ class ArrowConan(ConanFile):
             self.tool_requires("cmake/[>=3.16 <4]")
 
     def source(self):
+        # START
+        # This block should be removed when we update upstream:
+        # https://github.com/conan-io/conan-center-index/tree/master/recipes/arrow/
+        if not self.version in self.conan_data.get("sources", {}):
+            import shutil
+            top_level = os.environ.get("ARROW_HOME")
+            shutil.copytree(os.path.join(top_level, "cpp"),
+                            os.path.join(self.source_folder, "cpp"), symlinks=True)
+            shutil.copytree(os.path.join(top_level, "format"),
+                            os.path.join(self.source_folder, "format"))
+            top_level_files = [
+                ".env",
+                "LICENSE.txt",
+                "NOTICE.txt",
+            ]
+            for top_level_file in top_level_files:
+                shutil.copy(os.path.join(top_level, top_level_file),
+                            self.source_folder)
+            return
+        # END
         get(self, **self.conan_data["sources"][self.version],
             filename=f"apache-arrow-{self.version}.tar.gz", strip_root=True)
 
