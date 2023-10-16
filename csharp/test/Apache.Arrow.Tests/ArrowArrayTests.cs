@@ -200,6 +200,7 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<DurationArray>,
 #if NET5_0_OR_GREATER
             IArrowArrayVisitor<HalfFloatArray>,
 #endif
@@ -243,6 +244,7 @@ namespace Apache.Arrow.Tests
             }
             public void Visit(Time32Array array) => ValidateArrays(array);
             public void Visit(Time64Array array) => ValidateArrays(array);
+            public void Visit(DurationArray array) => ValidateArrays(array);
 
 #if NET5_0_OR_GREATER
             public void Visit(HalfFloatArray array) => ValidateArrays(array);

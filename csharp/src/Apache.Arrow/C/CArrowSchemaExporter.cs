@@ -179,6 +179,9 @@ namespace Apache.Arrow.C
                 case Time64Type timeType:
                     // Same prefix as Time32, but allowed time units are different.
                     return String.Format("tt{0}", FormatTimeUnit(timeType.Unit));
+                // Duration
+                case DurationType durationType:
+                    return String.Format("tD{0}", FormatTimeUnit(durationType.Unit));
                 // Timestamp
                 case TimestampType timestampType:
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);

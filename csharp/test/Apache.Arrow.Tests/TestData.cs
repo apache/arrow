@@ -113,6 +113,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<Int8Type>,
             IArrowTypeVisitor<Int16Type>,
             IArrowTypeVisitor<Int32Type>,
@@ -224,6 +225,18 @@ namespace Apache.Arrow.Tests
             public void Visit(Time64Type type)
             {
                 var builder = new Time64Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(i);
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(DurationType type)
+            {
+                var builder = new DurationArray.Builder(type).Reserve(Length);
 
                 for (var i = 0; i < Length; i++)
                 {

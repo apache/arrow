@@ -57,6 +57,7 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
@@ -186,6 +187,13 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.Time,
                     Flatbuf.Time.CreateTime(Builder, ToFlatBuffer(type.Unit), 64));
+            }
+
+            public void Visit(DurationType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Duration,
+                    Flatbuf.Duration.CreateDuration(Builder, ToFlatBuffer(type.Unit)));
             }
 
             public void Visit(StructType type)

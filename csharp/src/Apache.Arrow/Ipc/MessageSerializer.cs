@@ -177,6 +177,9 @@ namespace Apache.Arrow.Ipc
                     Types.TimeUnit unit = timestampTypeMetadata.Unit.ToArrow();
                     string timezone = timestampTypeMetadata.Timezone;
                     return new Types.TimestampType(unit, timezone);
+                case Flatbuf.Type.Duration:
+                    Flatbuf.Duration durationMeta = field.Type<Flatbuf.Duration>().Value;
+                    return DurationType.FromTimeUnit(durationMeta.Unit.ToArrow());
                 case Flatbuf.Type.Interval:
                     Flatbuf.Interval intervalMetadata = field.Type<Flatbuf.Interval>().Value;
                     return Types.IntervalType.FromIntervalUnit(intervalMetadata.Unit.ToArrow());
