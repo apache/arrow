@@ -183,6 +183,31 @@ class ARROW_EXPORT KeyColumnArray {
   // Starting bit offset within the first byte (between 0 and 7)
   // to be used when accessing buffers that store bit vectors.
   int bit_offset_[kMaxBuffers - 1];
+
+  bool is_bool_type() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_fixed_width_types() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length != 0 &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_binary_type() const {
+    return !metadata_.is_fixed_length && metadata_.fixed_length == sizeof(uint32_t) &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_large_binary_type() const {
+    return !metadata_.is_fixed_length && metadata_.fixed_length == sizeof(uint64_t) &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_null_type() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
+           metadata_.is_null_type;
+  }
 };
 
 /// \brief Create KeyColumnMetadata from a DataType
