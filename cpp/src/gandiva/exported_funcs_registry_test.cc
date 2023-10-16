@@ -16,24 +16,13 @@
 // under the License.
 
 #include "gandiva/exported_funcs_registry.h"
-
+#include <gtest/gtest.h>
 #include "gandiva/exported_funcs.h"
 
 namespace gandiva {
-
-void ExportedFuncsRegistry::AddMappings(Engine* engine) {
-  for (const auto& entry : *registered()) {
-    entry->AddMappings(engine);
-  }
+TEST(ExportedFuncsRegistry, RegistrationOnlyOnce) {
+  gandiva::RegisterExportedFuncs();
+  auto const& registered_list = ExportedFuncsRegistry::Registered();
+  EXPECT_EQ(registered_list.size(), 6);
 }
-
-const ExportedFuncsRegistry::list_type& ExportedFuncsRegistry::Registered() {
-  return *registered();
-}
-
-ExportedFuncsRegistry::list_type* ExportedFuncsRegistry::registered() {
-  static list_type registered_list;
-  return &registered_list;
-}
-
 }  // namespace gandiva
