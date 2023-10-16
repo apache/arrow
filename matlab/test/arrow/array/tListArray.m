@@ -24,22 +24,24 @@ classdef tListArray < matlab.unittest.TestCase
     end
 
     properties (TestParameter)
-        TestArray
+        TestArrowArray
     end
 
     methods (TestParameterDefinition, Static)
 
-        function TestArray = initializeTestArray()
+        function TestArrowArray = initializeTestArrowArray()
             %% Empty list
             Type = arrow.list(arrow.float64());
             NumElements = int64(0);
             Valid = logical.empty(0, 1);
             Offsets = arrow.array(int32(0));
             Values = arrow.array([]);
-            Array = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            MatlabArray = {cell.empty(0, 1)};
 
-            TestArray.EmptyList = struct( ...
-                Array=Array, ...
+            TestArrowArray.EmptyList = struct( ...
+                ArrowArray=ArrowArray, ...
+                MatlabArray=MatlabArray, ...
                 Properties=struct(...
                     Type=Type, ...
                     NumElements=NumElements, ...
@@ -55,10 +57,12 @@ classdef tListArray < matlab.unittest.TestCase
             Valid = [true, false, true, false];
             Offsets = arrow.array(int32([0, 1, 4, 6, 7]));
             Values = arrow.array(["A", missing, "C", "D", "E", missing, "G"]);
-            Array = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            MatlabArray = {{"A"; missing; ["E"; missing]; missing}};
 
-            TestArray.NullList = struct( ...
-                Array=Array, ...
+            TestArrowArray.NullList = struct( ...
+                ArrowArray=ArrowArray, ...
+                MatlabArray=MatlabArray, ...
                 Properties=struct(...
                     Type=Type, ...
                     NumElements=NumElements, ...
@@ -74,10 +78,12 @@ classdef tListArray < matlab.unittest.TestCase
             Valid = true(1, NumElements);
             Offsets = arrow.array(int32([0, 2, 5, 9]));
             Values = arrow.array([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-            Array = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            MatlabArray = {{[1; 2]; [3; 4; 5]; [6; 7; 8; 9]}};
 
-            TestArray.SingleLevelList = struct( ...
-                Array=Array, ...
+            TestArrowArray.SingleLevelList = struct( ...
+                ArrowArray=ArrowArray, ...
+                MatlabArray=MatlabArray, ...
                 Properties=struct(...
                     Type=Type, ...
                     NumElements=NumElements, ...
@@ -92,11 +98,13 @@ classdef tListArray < matlab.unittest.TestCase
             NumElements = int64(2);
             Valid = true(1, NumElements);
             Offsets = arrow.array(int32([0, 1, 3]));
-            Values = TestArray.SingleLevelList.Array;
-            Array = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            Values = TestArrowArray.SingleLevelList.ArrowArray;
+            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            MatlabArray = {{{[1; 2]}; {[3; 4; 5]; [6; 7; 8; 9]}}};
 
-            TestArray.MultiLevelList = struct( ...
-                Array=Array, ...
+            TestArrowArray.MultiLevelList = struct( ...
+                ArrowArray=ArrowArray, ...
+                MatlabArray=MatlabArray, ...
                 Properties=struct(...
                     Type=Type, ...
                     NumElements=NumElements, ...
@@ -111,30 +119,36 @@ classdef tListArray < matlab.unittest.TestCase
 
     methods (Test)
 
-        function TestClass(testCase, TestArray)
+        function TestClass(testCase, TestArrowArray)
             % Verify that the arrow.array.Array has the expected concrete
             % subclass.
-            testCase.verifyInstanceOf(TestArray.Array, testCase.Traits.ArrayClassName);
+            testCase.verifyInstanceOf(TestArrowArray.ArrowArray, testCase.Traits.ArrayClassName);
         end
 
-        function TestProperties(testCase, TestArray)
+        function TestProperties(testCase, TestArrowArray)
             % Verify that all properties of the arrow.array.Array:
             %
             % 1. Return the expected value
             % 2. Cannot be modified (i.e. are read-only).
             %
-            properties = string(fieldnames(TestArray.Properties));
+            properties = string(fieldnames(TestArrowArray.Properties));
             for ii = numel(properties)
                 property = properties(ii);
-                expected = TestArray.Properties.(property);
-                actual = getfield(TestArray.Array, property);
+                expected = TestArrowArray.Properties.(property);
+                actual = getfield(TestArrowArray.ArrowArray, property);
                 % Verify that the property returns the expected value.
                 testCase.verifyEqual(actual, expected);
-                fcn = @() setfield(TestArray.Array, property, "NewValue");
+                fcn = @() setfield(TestArrowArray.ArrowArray, property, "NewValue");
                 % Verify that the property cannot be modified (i.e. that it
                 % is read-only).
                 testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
             end
+        end
+
+        function TestToMatlab(testCase, TestArrowArray)
+            % Verify that the toMATLAB method returns the
+            % expected MATLAB array.
+            testCase.verifyEqual(TestArrowArray.ArrowArray.toMATLAB(), TestArrowArray.MatlabArray);
         end
 
     end
