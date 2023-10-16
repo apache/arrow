@@ -17,9 +17,7 @@
 
 #include "arrow/filesystem/azurefs.h"
 
-#include <azure/identity/default_azure_credential.hpp>
 #include <azure/storage/blobs.hpp>
-#include <azure/storage/blobs/blob_client.hpp>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/path_util.h"
@@ -143,7 +141,7 @@ Status ValidateFilePath(const AzurePath& path) {
     return PathNotFound(path);
   }
 
-  if (path.container.empty() || path.path_to_file.empty()) {
+  if (path.path_to_file.empty()) {
     return NotAFile(path);
   }
   return Status::OK();
@@ -257,11 +255,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
 
     // Read the desired range of bytes
-    Azure::Storage::Blobs::DownloadBlobToOptions download_options;
-    Azure::Core::Http::HttpRange range;
-    range.Offset = position;
-    range.Length = nbytes;
-    download_options.Range = Azure::Nullable<Azure::Core::Http::HttpRange>(range);
+    Azure::Core::Http::HttpRange range{.Offset = position, .Length = nbytes};
+    Azure::Storage::Blobs::DownloadBlobToOptions download_options{.Range = range};
     try {
       auto result =
           blob_client_
@@ -283,7 +278,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
     // No need to allocate more than the remaining number of bytes
     nbytes = std::min(nbytes, content_length_ - position);
 
-    ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(nbytes, io_context_.pool()));
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          AllocateResizableBuffer(nbytes, io_context_.pool()));
     if (nbytes > 0) {
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                             ReadAt(position, nbytes, buffer->mutable_data()));
