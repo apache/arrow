@@ -15,25 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/exported_funcs_registry.h"
-
-#include "gandiva/exported_funcs.h"
+#include <gandiva/exported_funcs.h>
+#include <gandiva/exported_funcs_registry.h>
 
 namespace gandiva {
-
-void ExportedFuncsRegistry::AddMappings(Engine* engine) {
-  for (const auto& entry : *registered()) {
-    entry->AddMappings(engine);
-  }
+void RegisterExportedFuncs() {
+  REGISTER_EXPORTED_FUNCS(ExportedStubFunctions);
+  REGISTER_EXPORTED_FUNCS(ExportedContextFunctions);
+  REGISTER_EXPORTED_FUNCS(ExportedTimeFunctions);
+  REGISTER_EXPORTED_FUNCS(ExportedDecimalFunctions);
+  REGISTER_EXPORTED_FUNCS(ExportedStringFunctions);
+  REGISTER_EXPORTED_FUNCS(ExportedHashFunctions);
 }
-
-const ExportedFuncsRegistry::list_type& ExportedFuncsRegistry::Registered() {
-  return *registered();
-}
-
-ExportedFuncsRegistry::list_type* ExportedFuncsRegistry::registered() {
-  static list_type registered_list;
-  return &registered_list;
-}
-
 }  // namespace gandiva
