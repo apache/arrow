@@ -1808,11 +1808,9 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('C#'),
 
         generate_interval_case()
-        .skip_tester('C#')
         .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_month_day_nano_interval_case()
-        .skip_tester('C#')
         .skip_tester('JS'),
 
         generate_map_case(),

@@ -68,6 +68,7 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<MapType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<NullType>
         {
             private FlatBufferBuilder Builder { get; }
@@ -237,6 +238,13 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Map.CreateMap(Builder, type.KeySorted));
             }
 
+            public void Visit(IntervalType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Interval,
+                    Flatbuf.Interval.CreateInterval(Builder, ToFlatBuffer(type.Unit)));
+            }
+
             public void Visit(NullType type)
             {
                 Flatbuf.Null.StartNull(Builder);
@@ -298,6 +306,17 @@ namespace Apache.Arrow.Ipc
                 Types.UnionMode.Sparse => Flatbuf.UnionMode.Sparse,
                 _ => throw new ArgumentException($"unsupported union mode <{mode}>", nameof(mode)),
             };
+        }
+
+        private static Flatbuf.IntervalUnit ToFlatBuffer(Types.IntervalUnit unit)
+        {
+            return unit switch
+            {
+                Types.IntervalUnit.YearMonth => Flatbuf.IntervalUnit.YEAR_MONTH,
+                Types.IntervalUnit.DayTime => Flatbuf.IntervalUnit.DAY_TIME,
+                Types.IntervalUnit.MonthDayNanosecond => Flatbuf.IntervalUnit.MONTH_DAY_NANO,
+                _ => throw new ArgumentException($"unsupported interval unit <{unit}>", nameof(unit))
+            }; ;
         }
     }
 }

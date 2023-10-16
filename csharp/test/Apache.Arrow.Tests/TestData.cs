@@ -134,6 +134,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<MapType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<NullType>
         {
             private int Length { get; }
@@ -427,6 +428,21 @@ namespace Apache.Arrow.Tests
                 valueBuilder.Append(0);
 
                 Array = builder.Build();
+            }
+
+            public void Visit(IntervalType type)
+            {
+#if TODO
+                var builder = new IntervalArray.Builder(type).Reserve(Length);
+                var basis = DateTimeOffset.UtcNow.AddMilliseconds(-Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(basis.AddMilliseconds(i));
+                }
+
+                Array = builder.Build();
+#endif
             }
 
             public void Visit(NullType type)

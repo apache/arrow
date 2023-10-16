@@ -29,7 +29,8 @@ namespace Apache.Arrow
         IArrowTypeVisitor<FixedSizeListType>,
         IArrowTypeVisitor<StructType>,
         IArrowTypeVisitor<UnionType>,
-        IArrowTypeVisitor<MapType>
+        IArrowTypeVisitor<MapType>,
+        IArrowTypeVisitor<IntervalType>
     {
         private readonly IArrowType _expectedType;
         private bool _dataTypeMatch;
@@ -138,6 +139,15 @@ namespace Apache.Arrow
             if (_expectedType is MapType expectedType
                 && expectedType.KeySorted == actualType.KeySorted
                 && CompareNested(expectedType, actualType))
+            {
+                _dataTypeMatch = true;
+            }
+        }
+
+        public void Visit(IntervalType actualType)
+        {
+            if (_expectedType is IntervalType expectedType
+                && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
             }
