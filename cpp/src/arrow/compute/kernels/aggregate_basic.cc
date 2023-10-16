@@ -520,10 +520,10 @@ void AddMinOrMaxAggKernels(ScalarAggregateFunction* func,
 
   // Note SIMD level is always NONE, but the convenience kernel will
   // dispatch to an appropriate implementation
-  AddAggKernel(sig, init, finalize, func);
+  AddAggKernel(std::move(sig), init, finalize, func);
 
   sig = KernelSignature::Make({InputType(Type::DICTIONARY)}, DictionaryValueType);
-  AddAggKernel(sig, init, finalize, func);
+AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
 }
 
 // ----------------------------------------------------------------------
