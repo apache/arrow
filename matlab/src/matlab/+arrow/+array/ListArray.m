@@ -52,15 +52,22 @@ classdef ListArray < arrow.array.Array
             matlabArray = cell(numElements, 1);
 
             values = toMATLAB(obj.Values);
+            % Add one to Offsets array because MATLAB
+            % uses 1-based indexing.
             offsets = toMATLAB(obj.Offsets) + 1;
 
-            startIndex = offsets(1); 
+            startIndex = offsets(1);
             for ii = 1:numElements
+                % Subtract 1 because ending offset value is exclusive.
                 endIndex = offsets(ii + 1) - 1;
                 matlabArray{ii} = values(startIndex:endIndex, :);
+                startIndex = endIndex + 1;
             end
 
-            matlabArray{~obj.Valid} = obj.NullSubstitutionValue;
+            hasInvalid = ~all(obj.Valid);
+            if hasInvalid
+                matlabArray(~obj.Valid) = {obj.NullSubstitutionValue};
+            end
         end
 
     end
