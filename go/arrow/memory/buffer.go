@@ -33,6 +33,10 @@ type Buffer struct {
 	parent *Buffer
 }
 
+func NewBufferWithAllocator(data []byte, mem Allocator) *Buffer {
+	return &Buffer{refCount: 1, buf: data, length: len(data), mem: mem}
+}
+
 // NewBufferBytes creates a fixed-size buffer from the specified data.
 func NewBufferBytes(data []byte) *Buffer {
 	return &Buffer{refCount: 0, buf: data, length: len(data)}
