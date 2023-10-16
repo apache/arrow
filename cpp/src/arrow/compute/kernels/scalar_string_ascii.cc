@@ -2063,7 +2063,13 @@ struct RegexSubstringReplacer {
         regex_find_("(" + options_.pattern + ")", MakeRE2Options<Type>()),
         regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
-  Status ReplaceString(re2::StringPiece s, TypedBufferBuilder<uint8_t>* builder) const {
+  Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    re2::StringPiece piece(s.data(), s.length());
+    return ReplaceStringImpl(piece, builder);
+  }
+
+  Status ReplaceStringImpl(re2::StringPiece s,
+                           TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
     // If s is empty, then it's essentially global
