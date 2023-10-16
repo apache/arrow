@@ -83,8 +83,6 @@ public final class ArrowBufPointer {
    * @param length the length off set of the memory region pointed to.
    * @param hasher the hasher used to calculate the hash code.
    */
-  @SuppressWarnings({"nullness:initialization.fields.uninitialized", "nullness:method.invocation"})
-  // {"the constructor does not initialize fields: buf", "call to set not allowed on the given receiver."}
   public ArrowBufPointer(ArrowBuf buf, long offset, long length, ArrowBufHasher hasher) {
     Preconditions.checkNotNull(hasher);
     this.hasher = hasher;

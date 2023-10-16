@@ -53,15 +53,15 @@ public class StackTrace {
     for (StackTraceElement ste : stackTraceElements) {
       if (ste != null) {
         sb.append(indentation)
-                .append("at ")
-                .append(ste.getClassName())
-                .append('.')
-                .append(ste.getMethodName())
-                .append('(')
-                .append(ste.getFileName())
-                .append(':')
-                .append(Integer.toString(ste.getLineNumber()))
-                .append(")\n");
+            .append("at ")
+            .append(ste.getClassName())
+            .append('.')
+            .append(ste.getMethodName())
+            .append('(')
+            .append(ste.getFileName())
+            .append(':')
+            .append(Integer.toString(ste.getLineNumber()))
+            .append(")\n");
       }
     }
   }
