@@ -1383,9 +1383,7 @@ GENERIC_FS_TEST_FUNCTIONS(TestS3FSGeneric);
 ////////////////////////////////////////////////////////////////////////////
 // S3GlobalOptions::Defaults tests
 
-class S3GlobalOptionsDefaults : public ::testing::Test {};
-
-TEST_F(S3GlobalOptionsDefaults, S3GlobalOptionsDefaultsLogLevel) {
+TEST(S3GlobalOptions, DefaultsLogLevel) {
   // Verify we get the default value of Fatal
   ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
 
