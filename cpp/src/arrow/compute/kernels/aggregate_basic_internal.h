@@ -935,22 +935,28 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     ARROW_ASSIGN_OR_RAISE(auto compacted_arr, dict_arr.Compact(ctx->memory_pool()));
     const DictionaryArray& compacted_dict_arr =
         checked_cast<const DictionaryArray&>(*compacted_arr);
-    const std::shared_ptr<Array>& dict = compacted_dict_arr.dictionary();
-    if (dict->length() == 0) {
+    if (compacted_dict_arr.length() - compacted_dict_arr.null_count() == 0) {
       return Status::OK();
     }
     this->has_nulls |= compacted_dict_arr.null_count() > 0;
     this->count += compacted_dict_arr.length() - compacted_dict_arr.null_count();
 
-    Datum dict_values(dict);
-    ARROW_ASSIGN_OR_RAISE(
-        Datum result, MinMax(std::move(dict_values), ScalarAggregateOptions::Defaults(),
-                             ctx->exec_context()));
-    const StructScalar& struct_result =
-        checked_cast<const StructScalar&>(*result.scalar());
-    ARROW_ASSIGN_OR_RAISE(auto dict_min, struct_result.field(FieldRef("min")));
-    ARROW_ASSIGN_OR_RAISE(auto dict_max, struct_result.field(FieldRef("max")));
-    ARROW_RETURN_NOT_OK(UpdateMinMaxState(std::move(dict_min), std::move(dict_max), ctx));
+    std::shared_ptr<Scalar> dict_min;
+    std::shared_ptr<Scalar> dict_max;
+    if (compacted_dict_arr.length() - compacted_dict_arr.null_count() == 1) {
+      ARROW_ASSIGN_OR_RAISE(dict_min, compacted_dict_arr.dictionary()->GetScalar(0));
+      dict_max = dict_min;
+    } else {
+      Datum dict_values(compacted_dict_arr.dictionary());
+      ARROW_ASSIGN_OR_RAISE(
+          Datum result, MinMax(std::move(dict_values), ScalarAggregateOptions::Defaults(),
+                               ctx->exec_context()));
+      const StructScalar& struct_result =
+          checked_cast<const StructScalar&>(*result.scalar());
+      ARROW_ASSIGN_OR_RAISE(dict_min, struct_result.field(FieldRef("min")));
+      ARROW_ASSIGN_OR_RAISE(dict_max, struct_result.field(FieldRef("max")));
+    }
+    ARROW_RETURN_NOT_OK(UpdateMinMaxState(dict_min, dict_max, ctx));
     return Status::OK();
   }
 
