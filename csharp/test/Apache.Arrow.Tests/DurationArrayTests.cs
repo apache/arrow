@@ -69,7 +69,11 @@ namespace Apache.Arrow.Tests
         {
             if (timeSpan == null) { return TimeUnit.Second; }
             if ((timeSpan.Value.Ticks % TicksPerMicrosecond) > 0) { return TimeUnit.Nanosecond; }
+#if NET5_0_OR_GREATER
             if (timeSpan.Value.Microseconds > 0) { return TimeUnit.Microsecond; }
+#else
+            if ((timeSpan.Value.Ticks % (TicksPerMicrosecond * 1000)) > 0) { return TimeUnit.Microsecond; }
+#endif
             if (timeSpan.Value.Milliseconds > 0) { return TimeUnit.Millisecond; }
             return TimeUnit.Second;
         }
