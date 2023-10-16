@@ -51,6 +51,8 @@ if [ "${GITHUB_ACTIONS}" = "true" ]; then
     /usr/local/bin/sam \
     /usr/local/bin/stack \
     /usr/local/bin/terraform || :
+  # 142M
+  sudo rm -rf /usr/local/bin/oc || : \
   echo "::group::/usr/local/share/*"
   du -hsc /usr/local/share/*
   echo "::endgroup::"
@@ -58,11 +60,20 @@ if [ "${GITHUB_ACTIONS}" = "true" ]; then
   sudo rm -rf /usr/local/share/chromium || :
   # 1.3GB
   sudo rm -rf /usr/local/share/powershell || :
+  echo "::group::/usr/local/lib/*"
+  du -hsc /usr/local/lib/*
+  echo "::endgroup::"
   echo "::group::/opt/*"
   du -hsc /opt/*
   echo "::endgroup::"
   # 679MB
   sudo rm -rf /opt/az || :
+  echo "::group::/opt/google/*"
+  du -hsc /opt/google/*
+  echo "::endgroup::"
+  echo "::group::/opt/microsoft/*"
+  du -hsc /opt/microsoft/*
+  echo "::endgroup::"
   echo "::group::/opt/hostedtoolcache/*"
   du -hsc /opt/hostedtoolcache/*
   echo "::endgroup::"
