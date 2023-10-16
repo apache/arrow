@@ -23,13 +23,13 @@ namespace Apache.Arrow.Tests
         IArrowTypeVisitor<TimestampType>,
         IArrowTypeVisitor<Date32Type>,
         IArrowTypeVisitor<Date64Type>,
-        IArrowTypeVisitor<Time32Type>,
-        IArrowTypeVisitor<Time64Type>,
+        IArrowTypeVisitor<TimeBasedType>,
         IArrowTypeVisitor<FixedSizeBinaryType>,
         IArrowTypeVisitor<ListType>,
         IArrowTypeVisitor<FixedSizeListType>,
         IArrowTypeVisitor<StructType>,
-        IArrowTypeVisitor<UnionType>
+        IArrowTypeVisitor<UnionType>,
+        IArrowTypeVisitor<MapType>
     {
         private readonly IArrowType _expectedType;
 
@@ -65,18 +65,11 @@ namespace Apache.Arrow.Tests
             Assert.Equal(expectedType.Unit, actualType.Unit);
         }
 
-        public void Visit(Time32Type actualType)
+        public void Visit(TimeBasedType actualType)
         {
-            Assert.IsAssignableFrom<Time32Type>(_expectedType);
-            var expectedType = (Time32Type)_expectedType;
-
-            Assert.Equal(expectedType.Unit, actualType.Unit);
-        }
-
-        public void Visit(Time64Type actualType)
-        {
-            Assert.IsAssignableFrom<Time64Type>(_expectedType);
-            var expectedType = (Time64Type)_expectedType;
+            Assert.IsAssignableFrom<TimeBasedType>(_expectedType);
+            Assert.Equal(_expectedType.TypeId, actualType.TypeId);
+            var expectedType = (TimeBasedType)_expectedType;
 
             Assert.Equal(expectedType.Unit, actualType.Unit);
         }
@@ -127,6 +120,16 @@ namespace Apache.Arrow.Tests
             {
                 Assert.Equal(expectedType.TypeIds[i], actualType.TypeIds[i]);
             }
+
+            CompareNested(expectedType, actualType);
+        }
+
+        public void Visit(MapType actualType)
+        {
+            Assert.IsAssignableFrom<MapType>(_expectedType);
+            var expectedType = (MapType)_expectedType;
+
+            Assert.Equal(expectedType.KeySorted, actualType.KeySorted);
 
             CompareNested(expectedType, actualType);
         }

@@ -112,7 +112,6 @@ classdef tStructArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "MATLAB:notLessEqual");
 
             % Provided a logical vector with more elements than the array
-            % length
             fcn = @() StructArray.fromArrays(tc.Float64Array, tc.StringArray, Valid=false([7 1]));
             tc.verifyError(fcn, "MATLAB:incorrectNumel");
          end
@@ -126,20 +125,20 @@ classdef tStructArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
-        function Length(tc)
-            % Verify the Length property is set to the expected value.
+        function NumElements(tc)
+            % Verify the NumElements property is set to the expected value.
             import arrow.array.StructArray
 
             array = StructArray.fromArrays(tc.Float64Array, tc.StringArray);
-            tc.verifyEqual(array.Length, int64(5));
+            tc.verifyEqual(array.NumElements, int64(5));
         end
 
-        function LengthNoSetter(tc)
-            % Verify the Length property is read-only.
+        function NumElementsNoSetter(tc)
+            % Verify the NumElements property is read-only.
             import arrow.array.StructArray
 
             array = StructArray.fromArrays(tc.Float64Array, tc.StringArray);
-            fcn = @() setfield(array, "Length", 1);
+            fcn = @() setfield(array, "NumElements", 1);
             tc.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
@@ -273,5 +272,91 @@ classdef tStructArray < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array3));
         end
 
+        function FromMATLABBasic(tc)
+            % Verify StructArray.fromMATLAB returns the expected
+            % StructArray.
+            import arrow.array.StructArray
+
+            T = table([1 2]', ["A1" "A2"]', VariableNames=["Number" "String"]);
+            array = StructArray.fromMATLAB(T);
+            tc.verifyEqual(array.NumElements, int64(2));
+            tc.verifyEqual(array.NumFields, int32(2));
+            tc.verifyEqual(array.FieldNames, ["Number" "String"]);
+
+            field1 = arrow.array([1 2]');
+            field2 = arrow.array(["A1" "A2"]');
+
+            tc.verifyEqual(field1, array.field(1));
+            tc.verifyEqual(field2, array.field(2));
+        end
+
+        function FromMATLABFieldNames(tc)
+            % Verify StructArray.fromMATLAB returns the expected
+            % StructArray when the FieldNames nv-pair is supplied.
+            import arrow.array.StructArray
+
+            T = table([1 2]', ["A1" "A2"]', VariableNames=["Number" "String"]);
+            array = StructArray.fromMATLAB(T, FieldNames=["Custom" "Name"]);
+            tc.verifyEqual(array.NumElements, int64(2));
+            tc.verifyEqual(array.NumFields, int32(2));
+            tc.verifyEqual(array.FieldNames, ["Custom" "Name"]);
+            tc.verifyEqual(array.Valid, [true; true]);
+
+            field1 = arrow.array([1 2]');
+            field2 = arrow.array(["A1" "A2"]');
+
+            tc.verifyEqual(field1, array.field(1));
+            tc.verifyEqual(field2, array.field(2));
+        end
+
+        function FromMATLABValid(tc)
+            % Verify StructArray.fromMATLAB returns the expected
+            % StructArray when the Valid nv-pair is supplied.
+
+            import arrow.array.StructArray
+
+            T = table([1 2]', ["A1" "A2"]', VariableNames=["Number" "String"]);
+            array = StructArray.fromMATLAB(T, Valid=2);
+            tc.verifyEqual(array.NumElements, int64(2));
+            tc.verifyEqual(array.NumFields, int32(2));
+            tc.verifyEqual(array.FieldNames, ["Number" "String"]);
+            tc.verifyEqual(array.Valid, [false; true]);
+
+            field1 = arrow.array([1 2]');
+            field2 = arrow.array(["A1" "A2"]');
+
+            tc.verifyEqual(field1, array.field(1));
+            tc.verifyEqual(field2, array.field(2));
+        end
+
+        function FromMATLABZeroVariablesError(tc)
+            % Verify StructArray.fromMATLAB throws an error when the input
+            % table T has zero variables.
+            import arrow.array.StructArray
+
+            fcn = @() StructArray.fromMATLAB(table);
+            tc.verifyError(fcn, "arrow:struct:ZeroVariables");
+        end
+
+        function FromMATLABWrongNumberFieldNames(tc)
+            % Verify StructArray.fromMATLAB throws an error when the 
+            % FieldNames nv-pair is provided and its number of elements
+            % does not equal the number of variables in the input table T.
+
+            import arrow.array.StructArray
+
+            fcn = @() StructArray.fromMATLAB(table(1), FieldNames=["A" "B"]);
+            tc.verifyError(fcn, "arrow:tabular:WrongNumberColumnNames");
+        end
+
+        function FromMATLABValidNVPairBadIndex(tc)
+            % Verify StructArray.fromMATLAB throws an error when the 
+            % Valid nv-pair is provided and it contains an invalid index.
+
+            import arrow.array.StructArray
+
+            fcn = @() StructArray.fromMATLAB(table(1), Valid=2);
+            tc.verifyError(fcn, "MATLAB:notLessEqual");
+        end
     end
 end

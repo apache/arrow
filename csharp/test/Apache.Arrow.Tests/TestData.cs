@@ -54,6 +54,7 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
                 builder.Field(CreateField(new Decimal128Type(10, 6), i));
                 builder.Field(CreateField(new Decimal256Type(16, 8), i));
+                builder.Field(CreateField(new MapType(StringType.Default, Int32Type.Default), i));
 
                 if (createAdvancedTypeArrays)
                 {
@@ -112,6 +113,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<Int8Type>,
             IArrowTypeVisitor<Int16Type>,
             IArrowTypeVisitor<Int32Type>,
@@ -132,6 +134,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
+            IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<NullType>
         {
             private int Length { get; }
@@ -231,6 +234,18 @@ namespace Apache.Arrow.Tests
                 Array = builder.Build();
             }
 
+            public void Visit(DurationType type)
+            {
+                var builder = new DurationArray.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(i);
+                }
+
+                Array = builder.Build();
+            }
+
             public void Visit(TimestampType type)
             {
                 var builder = new TimestampArray.Builder().Reserve(Length);
@@ -261,7 +276,6 @@ namespace Apache.Arrow.Tests
             {
                 var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
 
-                //Todo : Support various types
                 var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length + 1);
 
                 for (var i = 0; i < Length; i++)
@@ -279,7 +293,6 @@ namespace Apache.Arrow.Tests
             {
                 var builder = new FixedSizeListArray.Builder(type.ValueField, type.ListSize).Reserve(Length);
 
-                //Todo : Support various types
                 var valueBuilder = (Int32Array.Builder)builder.ValueBuilder;
 
                 for (var i = 0; i < Length; i++)
@@ -408,6 +421,25 @@ namespace Apache.Arrow.Tests
 
                 ArrayData arrayData = new ArrayData(type, Length, 0, 0, new[] { validityBuffer, valueBuffer });
                 Array = new FixedSizeBinaryArray(arrayData);
+            }
+
+            public void Visit(MapType type)
+            {
+                MapArray.Builder builder = new MapArray.Builder(type).Reserve(Length);
+                var keyBuilder = builder.KeyBuilder.Reserve(Length + 1) as StringArray.Builder;
+                var valueBuilder = builder.ValueBuilder.Reserve(Length + 1) as Int32Array.Builder;
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append();
+                    keyBuilder.Append(i.ToString());
+                    valueBuilder.Append(i);
+                }
+                //Add a value to check if Values.Length can exceed MapArray.Length
+                keyBuilder.Append("0");
+                valueBuilder.Append(0);
+
+                Array = builder.Build();
             }
 
             public void Visit(NullType type)

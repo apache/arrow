@@ -1804,8 +1804,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_datetime_case(),
 
-        generate_duration_case()
-        .skip_tester('C#'),
+        generate_duration_case(),
 
         generate_interval_case()
         .skip_tester('C#')
@@ -1815,8 +1814,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('C#')
         .skip_tester('JS'),
 
-        generate_map_case()
-        .skip_tester('C#'),
+        generate_map_case(),
 
         generate_non_canonical_map_case()
         .skip_tester('C#')

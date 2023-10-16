@@ -18,6 +18,7 @@
 import contextlib
 import functools
 import os
+import sys
 import subprocess
 
 from . import cdata
@@ -41,7 +42,12 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
-_dll_suffix = ".dll" if os.name == "nt" else ".so"
+if sys.platform == "darwin":
+    _dll_suffix = ".dylib"
+elif os.name == "nt":
+    _dll_suffix = ".dll"
+else:
+    _dll_suffix = ".so"
 
 _DLL_PATH = _EXE_PATH
 _ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + _dll_suffix)
@@ -52,8 +58,10 @@ class CppTester(Tester):
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
-    C_DATA_EXPORTER = True
-    C_DATA_IMPORTER = True
+    C_DATA_SCHEMA_EXPORTER = True
+    C_DATA_ARRAY_EXPORTER = True
+    C_DATA_SCHEMA_IMPORTER = True
+    C_DATA_ARRAY_IMPORTER = True
 
     name = 'C++'
 

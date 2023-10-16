@@ -58,3 +58,4 @@
 #cmakedefine ARROW_WITH_MUSL
 #cmakedefine ARROW_WITH_OPENTELEMETRY
 #cmakedefine ARROW_WITH_UCX
+#cmakedefine PARQUET_REQUIRE_ENCRYPTION

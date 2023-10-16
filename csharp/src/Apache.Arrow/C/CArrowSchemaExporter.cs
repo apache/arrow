@@ -179,6 +179,9 @@ namespace Apache.Arrow.C
                 case Time64Type timeType:
                     // Same prefix as Time32, but allowed time units are different.
                     return String.Format("tt{0}", FormatTimeUnit(timeType.Unit));
+                // Duration
+                case DurationType durationType:
+                    return String.Format("tD{0}", FormatTimeUnit(durationType.Unit));
                 // Timestamp
                 case TimestampType timestampType:
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
@@ -188,6 +191,7 @@ namespace Apache.Arrow.C
                     return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
                 case UnionType u: return FormatUnion(u);
+                case MapType _: return "+m";
                 // Dictionary
                 case DictionaryType dictionaryType:
                     return GetFormat(dictionaryType.IndexType);
@@ -212,10 +216,9 @@ namespace Apache.Arrow.C
                 }
             }
 
-            if (datatype.TypeId == ArrowTypeId.Map)
+            if (datatype is MapType mapType && mapType.KeySorted)
             {
-                // TODO: when we implement MapType, make sure to set the KEYS_SORTED flag.
-                throw new NotSupportedException("Exporting MapTypes is not supported.");
+                flags |= CArrowSchema.ArrowFlagMapKeysSorted;
             }
 
             return flags;

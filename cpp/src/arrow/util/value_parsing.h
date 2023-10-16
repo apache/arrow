@@ -444,33 +444,6 @@ namespace detail {
 using ts_type = TimestampType::c_type;
 
 template <typename Duration>
-static inline bool ParseYYYY_MM_DD(const char* s, Duration* since_epoch) {
-  uint16_t year = 0;
-  uint8_t month = 0;
-  uint8_t day = 0;
-  if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
-    return false;
-  }
-  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 4, &year))) {
-    return false;
-  }
-  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 5, 2, &month))) {
-    return false;
-  }
-  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 8, 2, &day))) {
-    return false;
-  }
-  arrow_vendored::date::year_month_day ymd{arrow_vendored::date::year{year},
-                                           arrow_vendored::date::month{month},
-                                           arrow_vendored::date::day{day}};
-  if (ARROW_PREDICT_FALSE(!ymd.ok())) return false;
-
-  *since_epoch = std::chrono::duration_cast<Duration>(
-      arrow_vendored::date::sys_days{ymd}.time_since_epoch());
-  return true;
-}
-
-template <typename Duration>
 static inline bool ParseHH(const char* s, Duration* out) {
   uint8_t hours = 0;
   if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
@@ -641,6 +614,33 @@ static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type 
 
 }  // namespace detail
 
+template <typename Duration>
+static inline bool ParseYYYY_MM_DD(const char* s, Duration* since_epoch) {
+  uint16_t year = 0;
+  uint8_t month = 0;
+  uint8_t day = 0;
+  if (ARROW_PREDICT_FALSE(s[4] != '-') || ARROW_PREDICT_FALSE(s[7] != '-')) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 4, &year))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 5, 2, &month))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 8, 2, &day))) {
+    return false;
+  }
+  arrow_vendored::date::year_month_day ymd{arrow_vendored::date::year{year},
+                                           arrow_vendored::date::month{month},
+                                           arrow_vendored::date::day{day}};
+  if (ARROW_PREDICT_FALSE(!ymd.ok())) return false;
+
+  *since_epoch = std::chrono::duration_cast<Duration>(
+      arrow_vendored::date::sys_days{ymd}.time_since_epoch());
+  return true;
+}
+
 static inline bool ParseTimestampISO8601(const char* s, size_t length,
                                          TimeUnit::type unit, TimestampType::c_type* out,
                                          bool* out_zone_offset_present = NULLPTR) {
@@ -672,7 +672,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   if (ARROW_PREDICT_FALSE(length < 10)) return false;
 
   seconds_type seconds_since_epoch;
-  if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &seconds_since_epoch))) {
+  if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &seconds_since_epoch))) {
     return false;
   }
 
@@ -843,7 +843,7 @@ struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
     }
 
     duration_type since_epoch;
-    if (ARROW_PREDICT_FALSE(!detail::ParseYYYY_MM_DD(s, &since_epoch))) {
+    if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(s, &since_epoch))) {
       return false;
     }
 

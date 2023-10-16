@@ -12,12 +12,12 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.2" />
     <PackageReference Include="xunit" Version="2.5.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.1">
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
     <PackageReference Include="xunit.skippablefact" Version="1.4.13" />
-    <PackageReference Include="pythonnet" Version="3.0.2" />
+    <PackageReference Include="pythonnet" Version="3.0.3" />
   </ItemGroup>
 
   <ItemGroup>

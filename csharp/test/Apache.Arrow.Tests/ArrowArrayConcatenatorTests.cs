@@ -30,7 +30,7 @@ namespace Apache.Arrow.Tests
         {
             foreach ((List<IArrowArray> testTargetArrayList, IArrowArray expectedArray) in GenerateTestData())
             {
-                IArrowArray actualArray = ArrowArrayConcatenatorReflector.InvokeConcatenate(testTargetArrayList);
+                IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(testTargetArrayList);
                 ArrowReaderVerifier.CompareArrays(expectedArray, actualArray);
             }
         }
@@ -38,15 +38,15 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void TestNullOrEmpty()
         {
-            Assert.Null(ArrowArrayConcatenatorReflector.InvokeConcatenate(null));
-            Assert.Null(ArrowArrayConcatenatorReflector.InvokeConcatenate(new List<IArrowArray>()));
+            Assert.Null(ArrowArrayConcatenator.Concatenate(null));
+            Assert.Null(ArrowArrayConcatenator.Concatenate(new List<IArrowArray>()));
         }
 
         [Fact]
         public void TestSingleElement()
         {
             Int32Array array = new Int32Array.Builder().Append(1).Append(2).Build();
-            IArrowArray actualArray = ArrowArrayConcatenatorReflector.InvokeConcatenate(new[] { array });
+            IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(new[] { array });
             ArrowReaderVerifier.CompareArrays(array, actualArray);
         }
 
@@ -93,6 +93,10 @@ namespace Apache.Arrow.Tests
                         new[] { 0, 1 },
                         UnionMode.Dense
                     ),
+                    new MapType(
+                        new Field.Builder().Name("key").DataType(StringType.Default).Nullable(false).Build(),
+                        new Field.Builder().Name("value").DataType(Int32Type.Default).Nullable(true).Build(),
+                        keySorted: false),
                 };
 
             foreach (IArrowType type in targetTypes)
@@ -100,17 +104,6 @@ namespace Apache.Arrow.Tests
                 var creator = new TestDataGenerator();
                 type.Accept(creator);
                 yield return Tuple.Create(creator.TestTargetArrayList, creator.ExpectedArray);
-            }
-        }
-
-        private static class ArrowArrayConcatenatorReflector
-        {
-            private static readonly MethodInfo s_concatenateInfo = typeof(ArrayData).Assembly.GetType("Apache.Arrow.ArrowArrayConcatenator")
-                .GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
-
-            internal static IArrowArray InvokeConcatenate(IReadOnlyList<IArrowArray> arrowArrayList, MemoryAllocator allocator = default)
-            {
-                return s_concatenateInfo.Invoke(null, new object[] { arrowArrayList, allocator }) as IArrowArray;
             }
         }
 
@@ -132,11 +125,13 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
-            IArrowTypeVisitor<UnionType>
+            IArrowTypeVisitor<UnionType>,
+            IArrowTypeVisitor<MapType>
         {
 
             private List<List<int?>> _baseData;
@@ -258,6 +253,33 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = resultBuilder.Build();
             }
 
+            public void Visit(DurationType type)
+            {
+                DurationArray.Builder resultBuilder = new DurationArray.Builder(type).Reserve(_baseDataTotalElementCount);
+                DateTimeOffset basis = DateTimeOffset.UtcNow;
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    DurationArray.Builder builder = new DurationArray.Builder(type).Reserve(dataList.Count);
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
 
             public void Visit(BinaryType type)
             {
@@ -310,7 +332,6 @@ namespace Apache.Arrow.Tests
             public void Visit(ListType type)
             {
                 ListArray.Builder resultBuilder = new ListArray.Builder(type.ValueDataType).Reserve(_baseDataTotalElementCount);
-                //Todo : Support various types
                 Int64Array.Builder resultValueBuilder = (Int64Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
 
                 for (int i = 0; i < _baseDataListCount; i++)
@@ -346,7 +367,6 @@ namespace Apache.Arrow.Tests
             public void Visit(FixedSizeListType type)
             {
                 FixedSizeListArray.Builder resultBuilder = new FixedSizeListArray.Builder(type.ValueDataType, type.ListSize).Reserve(_baseDataTotalElementCount);
-                //Todo : Support various types
                 Int32Array.Builder resultValueBuilder = (Int32Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
 
                 for (int i = 0; i < _baseDataListCount; i++)
@@ -406,7 +426,7 @@ namespace Apache.Arrow.Tests
                 StringArray resultStringArray = resultStringBuilder.Build();
                 Int32Array resultInt32Array = resultInt32Builder.Build();
 
-                ExpectedArray = new StructArray(type, 3, new List<Array> { resultStringArray, resultInt32Array }, nullBitmapBuffer, 1);
+                ExpectedArray = new StructArray(type, 9, new List<Array> { resultStringArray, resultInt32Array }, nullBitmapBuffer, 3);
             }
 
             public void Visit(UnionType type)
@@ -493,6 +513,46 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = UnionArray.Create(new ArrayData(
                     type, _baseDataTotalElementCount, resultNullCount, 0, resultBuffers,
                         new[] { stringResultBuilder.Build().Data, intResultBuilder.Build().Data }));
+            }
+
+            public void Visit(MapType type)
+            {
+                MapArray.Builder resultBuilder = new MapArray.Builder(type).Reserve(_baseDataTotalElementCount);
+                StringArray.Builder resultKeyBuilder = (StringArray.Builder)resultBuilder.KeyBuilder.Reserve(_baseDataTotalElementCount);
+                Int32Array.Builder resultValueBuilder = (Int32Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
+                ArrowBuffer nullBitmapBuilder = new ArrowBuffer.BitmapBuilder().Append(true).Append(true).Append(false).Build();
+
+                for (int i = 0; i < _baseData.Count; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+
+                    MapArray.Builder builder = new MapArray.Builder(type).Reserve(dataList.Count);
+                    StringArray.Builder keyBuilder = (StringArray.Builder)builder.KeyBuilder.Reserve(dataList.Count);
+                    Int32Array.Builder valueBuilder = (Int32Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
+
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            keyBuilder.Append(value.Value.ToString());
+                            valueBuilder.Append(value.Value);
+                            resultKeyBuilder.Append(value.Value.ToString());
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
             }
 
             public void Visit(IArrowType type)

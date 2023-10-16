@@ -59,6 +59,8 @@ namespace Apache.Arrow
                     return new TimestampArray(data);
                 case ArrowTypeId.List:
                     return new ListArray(data);
+                case ArrowTypeId.Map:
+                    return new MapArray(data);
                 case ArrowTypeId.Struct:
                     return new StructArray(data);
                 case ArrowTypeId.Union:
@@ -71,6 +73,8 @@ namespace Apache.Arrow
                     return new Time32Array(data);
                 case ArrowTypeId.Time64:
                     return new Time64Array(data);
+                case ArrowTypeId.Duration:
+                    return new DurationArray(data);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array(data);
                 case ArrowTypeId.Decimal256:
@@ -86,7 +90,6 @@ namespace Apache.Arrow
                 case ArrowTypeId.FixedSizeList:
                     return new FixedSizeListArray(data);
                 case ArrowTypeId.Interval:
-                case ArrowTypeId.Map:
                 default:
                     throw new NotSupportedException($"An ArrowArray cannot be built for type {data.DataType.TypeId}.");
             }

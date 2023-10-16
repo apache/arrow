@@ -342,6 +342,12 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilderWithType(mem, typ)
+	case arrow.LIST_VIEW:
+		typ := dtype.(*arrow.ListViewType)
+		return NewListViewBuilderWithField(mem, typ.ElemField())
+	case arrow.LARGE_LIST_VIEW:
+		typ := dtype.(*arrow.LargeListViewType)
+		return NewLargeListViewBuilderWithField(mem, typ.ElemField())
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
 		bldr := NewExtensionBuilder(mem, typ)

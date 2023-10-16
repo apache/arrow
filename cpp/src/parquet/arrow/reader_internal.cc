@@ -365,7 +365,7 @@ Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum
   // Transfer boolean values to packed bitmap
   auto values = reinterpret_cast<const bool*>(reader->values());
   uint8_t* data_ptr = data->mutable_data();
-  memset(data_ptr, 0, buffer_size);
+  memset(data_ptr, 0, static_cast<size_t>(buffer_size));
 
   for (int64_t i = 0; i < length; i++) {
     if (values[i]) {

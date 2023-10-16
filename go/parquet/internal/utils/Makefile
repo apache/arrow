@@ -32,11 +32,14 @@ C_FLAGS_NEON=-O3 -fvectorize -mllvm -force-vector-width=16 -fno-asynchronous-unw
 GO_SOURCES  := $(shell find . -path ./_lib -prune -o -name '*.go' -not -name '*_test.go')
 ALL_SOURCES := $(shell find . -path ./_lib -prune -o -name '*.go' -name '*.s' -not -name '*_test.go')
 
-.PHONEY: assembly
+.PHONY: assembly
 
 INTEL_SOURCES := \
-	bit_packing_avx2.s \
-	unpack_bool_avx2.s unpack_bool_sse4.s
+	bit_packing_avx2_amd64.s \
+	unpack_bool_avx2_amd64.s unpack_bool_sse4_amd64.s
+
+ARM_SOURCES := \
+	bit_packing_neon_arm64.s unpack_bool_neon_arm64.s
 
 #
 # ARROW-15336: DO NOT add the assembly target for Arm64 (ARM_SOURCES) until c2goasm added the Arm64 support.
@@ -58,13 +61,16 @@ _lib/unpack_bool_sse4.s: _lib/unpack_bool.c
 _lib/unpack_bool_neon.s: _lib/unpack_bool.c
 	$(CC) -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
-bit_packing_avx2.s: _lib/bit_packing_avx2.s
+_lib/bit_packing_neon.s: _lib/bit_packing_neon.c
+	$(CC) -S $(C_FLAGS_NEON) $^ -o $@
+
+bit_packing_avx2_amd64.s: _lib/bit_packing_avx2.s
 	$(C2GOASM) -a -f $^ $@
 
-unpack_bool_avx2.s: _lib/unpack_bool_avx2.s
+unpack_bool_avx2_amd64.s: _lib/unpack_bool_avx2.s
 	$(C2GOASM) -a -f $^ $@
 
-unpack_bool_sse4.s: _lib/unpack_bool_sse4.s
+unpack_bool_sse4_amd64.s: _lib/unpack_bool_sse4.s
 	$(C2GOASM) -a -f $^ $@
 
 clean:

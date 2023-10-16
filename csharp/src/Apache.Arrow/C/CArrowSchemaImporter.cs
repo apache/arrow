@@ -37,7 +37,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -62,7 +62,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -87,7 +87,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -206,8 +206,14 @@ namespace Apache.Arrow.C
 
                     return new FixedSizeListType(childField, width);
                 }
+                else if (format == "+m")
+                {
+                    return new MapType(
+                        ParseChildren("map").Single(),
+                        (_cSchema->flags & CArrowSchema.ArrowFlagMapKeysSorted) != 0);
+                }
 
-                // TODO: Map type and large list type
+                // TODO: Large list type
 
                 // Decimals
                 if (format.StartsWith("d:"))
@@ -241,6 +247,10 @@ namespace Apache.Arrow.C
                     };
 
                     string timezone = format.Substring(format.IndexOf(':') + 1);
+                    if (timezone.Length == 0)
+                    {
+                        timezone = null;
+                    }
                     return new TimestampType(timeUnit, timezone);
                 }
 
@@ -303,7 +313,10 @@ namespace Apache.Arrow.C
                     "ttm" => TimeType.Millisecond,
                     "ttu" => TimeType.Microsecond,
                     "ttn" => TimeType.Nanosecond,
-                    // TODO: duration not yet implemented
+                    "tDs" => DurationType.Second,
+                    "tDm" => DurationType.Millisecond,
+                    "tDu" => DurationType.Microsecond,
+                    "tDn" => DurationType.Nanosecond,
                     "tiM" => IntervalType.YearMonth,
                     "tiD" => IntervalType.DayTime,
                     //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented

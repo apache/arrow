@@ -485,6 +485,12 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 	case *arrow.LargeListType:
 		return ctx.loadList(dt)
 
+	case *arrow.ListViewType:
+		return ctx.loadListView(dt)
+
+	case *arrow.LargeListViewType:
+		return ctx.loadListView(dt)
+
 	case *arrow.FixedSizeListType:
 		return ctx.loadFixedSizeList(dt)
 
@@ -598,6 +604,17 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 func (ctx *arrayLoaderContext) loadList(dt arrow.ListLikeType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
+	defer releaseBuffers(buffers)
+
+	sub := ctx.loadChild(dt.Elem())
+	defer sub.Release()
+
+	return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub}, int(field.NullCount()), 0)
+}
+
+func (ctx *arrayLoaderContext) loadListView(dt arrow.VarLenListLikeType) arrow.ArrayData {
+	field, buffers := ctx.loadCommon(dt.ID(), 3)
+	buffers = append(buffers, ctx.buffer(), ctx.buffer())
 	defer releaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
