@@ -1389,7 +1389,7 @@ TEST(S3GlobalOptions, DefaultsLogLevel) {
 
   // Verify we get the value specified by env var and not the default
   {
-    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "Error");
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "ERROR");
     ASSERT_EQ(S3LogLevel::Error, arrow::fs::S3GlobalOptions::Defaults().log_level);
   }
 
