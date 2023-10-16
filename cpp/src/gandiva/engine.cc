@@ -92,6 +92,7 @@
 
 #include "gandiva/configuration.h"
 #include "gandiva/decimal_ir.h"
+#include "gandiva/exported_funcs.h"
 #include "gandiva/exported_funcs_registry.h"
 
 namespace gandiva {
@@ -103,6 +104,7 @@ std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
 static llvm::StringRef cpu_name;
 static llvm::SmallVector<std::string, 10> cpu_attrs;
+std::once_flag register_exported_funcs_flag;
 
 void Engine::InitOnce() {
   DCHECK_EQ(llvm_init, false);
@@ -142,6 +144,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       cached_(cached) {}
 
 Status Engine::Init() {
+  std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
   // Add mappings for global functions that can be accessed from LLVM/IR module.
   AddGlobalMappings();
 

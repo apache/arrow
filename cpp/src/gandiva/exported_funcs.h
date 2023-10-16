@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <gandiva/exported_funcs_registry.h>
 #include <vector>
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -36,36 +36,31 @@ class ExportedFuncsBase {
 class ExportedStubFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;
 };
-REGISTER_EXPORTED_FUNCS(ExportedStubFunctions);
 
 // Class for exporting Context functions
 class ExportedContextFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;
 };
-REGISTER_EXPORTED_FUNCS(ExportedContextFunctions);
 
 // Class for exporting Time functions
 class ExportedTimeFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;
 };
-REGISTER_EXPORTED_FUNCS(ExportedTimeFunctions);
 
 // Class for exporting Decimal functions
 class ExportedDecimalFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;
 };
-REGISTER_EXPORTED_FUNCS(ExportedDecimalFunctions);
 
 // Class for exporting String functions
 class ExportedStringFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;
 };
-REGISTER_EXPORTED_FUNCS(ExportedStringFunctions);
 
 // Class for exporting Hash functions
 class ExportedHashFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;
 };
-REGISTER_EXPORTED_FUNCS(ExportedHashFunctions);
 
+GANDIVA_EXPORT void RegisterExportedFuncs();
 }  // namespace gandiva
