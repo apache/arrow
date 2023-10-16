@@ -226,6 +226,66 @@ TEST(KeyColumnArray, SliceBool) {
   }
 }
 
+struct SliceTestCase {
+  int offset;
+  int length;
+  std::vector<std::string> expected;
+};
+
+template <typename OffsetType>
+void GenericTestSlice(const std::shared_ptr<DataType>& type, const char* json_data,
+                      const std::vector<SliceTestCase>& testCases) {
+  auto array = ArrayFromJSON(type, json_data);
+  KeyColumnArray kc_array =
+      ColumnArrayFromArrayData(array->data(), 0, array->length()).ValueOrDie();
+
+  for (const auto& testCase : testCases) {
+    ARROW_SCOPED_TRACE("Offset: ", testCase.offset, " Length: ", testCase.length);
+    KeyColumnArray sliced = kc_array.Slice(testCase.offset, testCase.length);
+
+    // Extract binary data from the sliced KeyColumnArray
+    std::vector<std::string> sliced_data;
+    const auto* offset_data = reinterpret_cast<const OffsetType*>(sliced.data(1));
+    const auto* string_data = reinterpret_cast<const char*>(sliced.data(2));
+
+    for (auto i = 0; i < testCase.length; ++i) {
+      auto start = offset_data[i];
+      auto end = offset_data[i + 1];
+      sliced_data.push_back(std::string(string_data + start, string_data + end));
+    }
+
+    // Compare the sliced values to the expected string
+    ASSERT_EQ(testCase.expected, sliced_data);
+  }
+}
+
+TEST(KeyColumnArray, SliceBinaryTest) {
+  const char* json_test_strings = R"(["Hello", "World", "Slice", "Binary", "Test"])";
+  std::vector<SliceTestCase> testCases = {
+      {0, 1, {"Hello"}},
+      {1, 1, {"World"}},
+      {2, 1, {"Slice"}},
+      {3, 1, {"Binary"}},
+      {4, 1, {"Test"}},
+      {0, 2, {"Hello", "World"}},
+      {1, 2, {"World", "Slice"}},
+      {2, 2, {"Slice", "Binary"}},
+      {3, 2, {"Binary", "Test"}},
+      {0, 3, {"Hello", "World", "Slice"}},
+      {1, 3, {"World", "Slice", "Binary"}},
+      {2, 3, {"Slice", "Binary", "Test"}},
+      {0, 4, {"Hello", "World", "Slice", "Binary"}},
+      {1, 4, {"World", "Slice", "Binary", "Test"}},
+      {0, 5, {"Hello", "World", "Slice", "Binary", "Test"}},
+  };
+
+  // Run tests with binary type
+  GenericTestSlice<int32_t>(binary(), json_test_strings, testCases);
+
+  // Run tests with large binary type
+  GenericTestSlice<int64_t>(large_binary(), json_test_strings, testCases);
+}
+
 TEST(ResizableArrayData, Basic) {
   std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
   for (const auto& type : kSampleFixedDataTypes) {
