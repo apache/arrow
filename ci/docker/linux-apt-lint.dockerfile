@@ -67,11 +67,7 @@ COPY ci/scripts/install_iwyu.sh /arrow/ci/scripts/
 RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${clang_tools}
 
 # Use python3 by default in scripts
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
-
-COPY dev/archery/setup.py /arrow/dev/archery/
-RUN pip install -e arrow/dev/archery[lint]
+RUN ln -s /usr/bin/python3 /usr/local/bin/python
 
 ENV LC_ALL=C.UTF-8 \
     LANG=C.UTF-8

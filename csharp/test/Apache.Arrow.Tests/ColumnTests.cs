@@ -39,7 +39,7 @@ namespace Apache.Arrow.Tests
             Array intArrayCopy = MakeIntArray(10);
 
             Field field = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
-            Column column = new Column(field, new[] { intArray, intArrayCopy });
+            Column column = new Column(field, new IArrowArray[] { intArray, intArrayCopy });
 
             Assert.True(column.Name == field.Name);
             Assert.True(column.Field == field);

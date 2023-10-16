@@ -32,7 +32,8 @@ classdef tArray < matlab.unittest.TestCase
             {[1 2],                "arrow.array.Float64Array"}, ...
             {datetime(2022, 1, 1), "arrow.array.TimestampArray"}, ...
             {seconds([1 2]),       "arrow.array.Time64Array"}, ...
-            {["A" "B"],            "arrow.array.StringArray"}};
+            {["A" "B"],            "arrow.array.StringArray"}, ...
+            {table(["A" "B"]'),    "arrow.array.StructArray"}};
     end
 
     methods(Test)        
@@ -50,7 +51,7 @@ classdef tArray < matlab.unittest.TestCase
         % Verify arrow.array throws an error with the identifier
         % "arrow:array:UnsupportedMATLABType" if the input array is not one
         % we support converting into an Arrow array.
-            matlabArray = table;
+            matlabArray = {table};
             fcn = @() arrow.array(matlabArray);
             errID = "arrow:array:UnsupportedMATLABType";
             testCase.verifyError(fcn, errID);

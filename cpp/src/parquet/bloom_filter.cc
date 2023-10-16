@@ -143,7 +143,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   const auto bloom_filter_bytes_in_header = header_buf->size() - header_size;
   if (bloom_filter_bytes_in_header > 0) {
     std::memcpy(buffer->mutable_data(), header_buf->data() + header_size,
-                bloom_filter_bytes_in_header);
+                static_cast<size_t>(bloom_filter_bytes_in_header));
   }
 
   const auto required_read_size = bloom_filter_size - bloom_filter_bytes_in_header;

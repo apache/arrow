@@ -199,6 +199,30 @@ classdef ttraits < matlab.unittest.TestCase
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
+        function TestStruct(testCase)
+            import arrow.type.traits.*
+            import arrow.type.*
+
+            type = ID.Struct;
+            expectedTraits = StructTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestList(testCase)
+            import arrow.type.traits.*
+            import arrow.type.*
+
+            type = ID.List;
+            expectedTraits = ListTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
         function TestMatlabUInt8(testCase)
             import arrow.type.traits.*
 
@@ -347,6 +371,17 @@ classdef ttraits < matlab.unittest.TestCase
 
             type = "duration";
             expectedTraits = Time64Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabTable(testCase)
+            import arrow.type.traits.*
+
+            type = "table";
+            expectedTraits = StructTraits();
 
             actualTraits = traits(type);
 

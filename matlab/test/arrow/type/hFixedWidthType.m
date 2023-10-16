@@ -49,6 +49,31 @@ classdef hFixedWidthType < matlab.unittest.TestCase
             testCase.verifyEqual(arrowType.NumFields, int32(0));
         end
 
+        function TestFieldsProperty(testCase)
+            % Verify Fields is a 0x0 arrow.type.Field array.
+            type = testCase.ArrowType;
+            fields = type.Fields;
+            testCase.verifyEqual(fields, arrow.type.Field.empty(0, 0));
+        end
+
+        function FieldsNoSetter(testCase)
+            % Verify the Fields property is not settable.
+            type = testCase.ArrowType;
+            testCase.verifyError(@() setfield(type, "Fields", "1"), "MATLAB:class:SetProhibited");
+        end
+
+        function InvalidFieldIndex(testCase)
+            % Verify the field() method throws the expected error message
+            % when given an invalid index.
+            type = testCase.ArrowType;
+
+            testCase.verifyError(@() type.field(0), "arrow:badsubscript:NonPositive");
+            testCase.verifyError(@() type.field("A"), "arrow:badsubscript:NonNumeric");
+
+            % NOTE: For FixedWidthTypes, Fields is always empty.
+            testCase.verifyError(@() type.field(1), "arrow:index:EmptyContainer");
+        end
+
         function TestBitWidthNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the BitWidth property.
