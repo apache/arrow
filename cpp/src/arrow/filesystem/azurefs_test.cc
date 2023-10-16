@@ -300,6 +300,10 @@ TEST_F(TestAzureFileSystem, OpenInputStreamUri) {
   ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfss://" + PreexistingObjectPath()));
 }
 
+TEST_F(TestAzureFileSystem, OpenInputStreamTrailingSlash) {
+  ASSERT_RAISES(IOError, fs_->OpenInputStream(PreexistingObjectPath() + '/'));
+}
+
 TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
   const std::string object_name = "OpenInputStreamMetadataTest/simple.txt";
 

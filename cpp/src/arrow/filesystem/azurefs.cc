@@ -340,6 +340,7 @@ class AzureFileSystem::Impl {
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
                                                          AzureFileSystem* fs) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(s));
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
@@ -353,6 +354,7 @@ class AzureFileSystem::Impl {
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
                                                          AzureFileSystem* fs) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
     if (info.type() == FileType::NotFound) {
       return ::arrow::fs::internal::PathNotFound(info.path());
     }
