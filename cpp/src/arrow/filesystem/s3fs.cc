@@ -2986,7 +2986,9 @@ Status InitializeS3(const S3GlobalOptions& options) {
   return Status::OK();
 }
 
-Status EnsureS3Initialized() { return EnsureAwsInstanceInitialized(S3GlobalOptions::Defaults()).status(); }
+Status EnsureS3Initialized() {
+  return EnsureAwsInstanceInitialized(S3GlobalOptions::Defaults()).status();
+}
 
 Status FinalizeS3() {
   GetAwsInstance()->Finalize();
