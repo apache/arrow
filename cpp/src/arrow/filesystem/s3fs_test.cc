@@ -1381,7 +1381,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
 GENERIC_FS_TEST_FUNCTIONS(TestS3FSGeneric);
 
 ////////////////////////////////////////////////////////////////////////////
-// S3GlobalOptionsDefaults tests
+// S3GlobalOptions::Defaults tests
 
 class S3GlobalOptionsDefaults : public ::testing::Test {};
 
