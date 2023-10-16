@@ -324,8 +324,8 @@ test_that("Error is created when feather reads a parquet file", {
   )
 })
 
-test_that("The read_ipc_file function is an alias of read_feather", {
-  expect_identical(read_ipc_file, read_feather)
+test_that("The read_arrow_file function is an alias of read_feather", {
+  expect_identical(read_arrow_file, read_feather)
 })
 
 test_that("Can read Feather files from a URL", {

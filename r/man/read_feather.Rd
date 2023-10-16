@@ -2,12 +2,12 @@
 % Please edit documentation in R/feather.R
 \name{read_feather}
 \alias{read_feather}
-\alias{read_ipc_file}
-\title{Read a Feather file (an Arrow IPC file)}
+\alias{read_arrow_file}
+\title{Read a Arrow file (an Arrow IPC file)}
 \usage{
 read_feather(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
 
-read_ipc_file(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
+read_arrow_file(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
 }
 \arguments{
 \item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
@@ -36,7 +36,7 @@ It is designed to make reading and writing data frames efficient,
 and to make sharing data across data analysis languages easy.
 \code{\link[=read_feather]{read_feather()}} can read both the Feather Version 1 (V1), a legacy version available starting in 2016,
 and the Version 2 (V2), which is the Apache Arrow IPC file format.
-\code{\link[=read_ipc_file]{read_ipc_file()}} is an alias of \code{\link[=read_feather]{read_feather()}}.
+\code{\link[=read_arrow_file]{read_arrow_file()}} is an alias of \code{\link[=read_feather]{read_feather()}}.
 }
 \examples{
 # We recommend the ".arrow" extension for Arrow IPC files (Feather V2).

@@ -365,11 +365,11 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 
 ## Reading and writing
 
-* New functions `read_ipc_file()` and `write_ipc_file()` are added.
+* New functions `read_arrow_file()` and `write_ipc_file()` are added.
   These functions are almost the same as `read_feather()` and `write_feather()`,
   but differ in that they only target IPC files (Feather V2 files), not Feather V1 files.
 * `read_arrow()` and `write_arrow()`, deprecated since 1.0.0 (July 2020), have been removed.
-  Instead of these, use the `read_ipc_file()` and `write_ipc_file()` for IPC files, or,
+  Instead of these, use the `read_arrow_file()` and `write_ipc_file()` for IPC files, or,
   `read_ipc_stream()` and `write_ipc_stream()` for IPC streams. (#13550)
 * `write_parquet()` now defaults to writing Parquet format version 2.4 (was 1.0). Previously deprecated arguments `properties` and `arrow_properties` have been removed; if you need to deal with these lower-level properties objects directly, use `ParquetFileWriter`, which `write_parquet()` wraps. (#13555)
 * UnionDatasets can unify schemas of multiple InMemoryDatasets with varying

@@ -151,7 +151,7 @@ write_ipc_file <- function(x,
 #' and to make sharing data across data analysis languages easy.
 #' [read_feather()] can read both the Feather Version 1 (V1), a legacy version available starting in 2016,
 #' and the Version 2 (V2), which is the Apache Arrow IPC file format.
-#' [read_ipc_file()] is an alias of [read_feather()].
+#' [read_arrow_file()] is an alias of [read_feather()].
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
@@ -204,7 +204,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = T
 
 #' @rdname read_feather
 #' @export
-read_ipc_file <- read_feather
+read_arrow_file <- read_feather
 
 #' @title FeatherReader class
 #' @rdname FeatherReader
