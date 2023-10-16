@@ -523,7 +523,7 @@ void AddMinOrMaxAggKernels(ScalarAggregateFunction* func,
   AddAggKernel(std::move(sig), init, finalize, func);
 
   sig = KernelSignature::Make({InputType(Type::DICTIONARY)}, DictionaryValueType);
-AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
+  AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
 }
 
 // ----------------------------------------------------------------------
