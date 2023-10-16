@@ -60,7 +60,6 @@ class Accountant implements AutoCloseable {
    */
   private final AtomicLong locallyHeldMemory = new AtomicLong();
 
-  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference parent
   public Accountant(@Nullable Accountant parent, String name, long reservation, long maxAllocation) {
     Preconditions.checkNotNull(name, "name must not be null");
     Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be non-negative.");
@@ -75,12 +74,14 @@ class Accountant implements AutoCloseable {
     this.allocationLimit.set(maxAllocation);
 
     if (reservation != 0) {
-      // we will allocate a reservation from our parent.
-      final AllocationOutcome outcome = parent.allocateBytes(reservation);
-      if (!outcome.isOk()) {
-        throw new OutOfMemoryException(String.format(
-            "Failure trying to allocate initial reservation for Allocator. " +
-                "Attempted to allocate %d bytes.", reservation), outcome.getDetails());
+      if (parent != null) {
+        // we will allocate a reservation from our parent.
+        final AllocationOutcome outcome = parent.allocateBytes(reservation);
+        if (!outcome.isOk()) {
+          throw new OutOfMemoryException(String.format(
+                  "Failure trying to allocate initial reservation for Allocator. " +
+                          "Attempted to allocate %d bytes.", reservation), outcome.getDetails());
+        }
       }
     }
   }
@@ -288,7 +289,7 @@ class Accountant implements AutoCloseable {
    *
    * @return Currently allocate memory in bytes.
    */
-  public long getAllocatedMemory(Accountant this) {
+  public long getAllocatedMemory() {
     return locallyHeldMemory.get();
   }
 

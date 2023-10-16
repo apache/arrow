@@ -186,7 +186,7 @@ public class MemoryUtil {
         "sun.misc.Unsafe or java.nio.DirectByteBuffer.<init>(long, int) not available");
   }
 
-  @SuppressWarnings("nullness:argument") //to handle null assignment on third party dependency
+  @SuppressWarnings("nullness:argument") //to handle null assignment on third party dependency: Unsafe
   public static void copyMemory(@Nullable Object srcBase, long srcOffset,
                                 @Nullable Object destBase, long destOffset,
                                 long bytes) {

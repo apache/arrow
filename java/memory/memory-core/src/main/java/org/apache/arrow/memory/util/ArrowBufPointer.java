@@ -34,7 +34,7 @@ public final class ArrowBufPointer {
    */
   public static final int NULL_HASH_CODE = 0;
 
-  private ArrowBuf buf;
+  private @Nullable ArrowBuf buf;
 
   private long offset;
 
@@ -60,10 +60,10 @@ public final class ArrowBufPointer {
    * Constructs an arrow buffer pointer with the specified hasher.
    * @param hasher the hasher to use.
    */
-  @SuppressWarnings("nullness:initialization.fields.uninitialized") //the constructor does not initialize fields: buf
   public ArrowBufPointer(ArrowBufHasher hasher) {
     Preconditions.checkNotNull(hasher);
     this.hasher = hasher;
+    this.buf = null;
   }
 
   /**
@@ -110,7 +110,7 @@ public final class ArrowBufPointer {
    * Gets the underlying buffer, or null if the underlying data is invalid or null.
    * @return the underlying buffer, if any, or null if the underlying data is invalid or null.
    */
-  public ArrowBuf getBuf() {
+  public @Nullable ArrowBuf getBuf() {
     return buf;
   }
 

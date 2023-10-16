@@ -118,13 +118,12 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return true if the new ref count has dropped to 0, false otherwise
    */
   @Override
-  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public boolean release(int decrement) {
     Preconditions.checkState(decrement >= 1,
           "ref count decrement should be greater than or equal to 1");
     // decrement the ref count
     final int refCnt = decrement(decrement);
-    if (BaseAllocator.DEBUG) {
+    if (BaseAllocator.DEBUG && historicalLog != null) {
       historicalLog.recordEvent("release(%d). original value: %d",
           decrement, refCnt + decrement);
     }
@@ -178,10 +177,9 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @param increment amount to increase the reference count by
    */
   @Override
-  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public void retain(int increment) {
     Preconditions.checkArgument(increment > 0, "retain(%s) argument is not positive", increment);
-    if (BaseAllocator.DEBUG) {
+    if (BaseAllocator.DEBUG && historicalLog != null) {
       historicalLog.recordEvent("retain(%d)", increment);
     }
     final int originalReferenceCount = bufRefCnt.getAndAdd(increment);
@@ -311,10 +309,9 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @return A new ArrowBuf which shares the same underlying memory as the provided ArrowBuf.
    */
   @Override
-  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public ArrowBuf retain(final ArrowBuf srcBuffer, BufferAllocator target) {
 
-    if (BaseAllocator.DEBUG) {
+    if (BaseAllocator.DEBUG && historicalLog != null) {
       historicalLog.recordEvent("retain(%s)", target.getName());
     }
 
@@ -341,47 +338,48 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
    * @param targetReferenceManager The ledger to transfer ownership account to.
    * @return Whether transfer fit within target ledgers limits.
    */
-  @SuppressWarnings("nullness:dereference.of.nullable")
-  //dereference of possibly-null reference historicalLog, targetReferenceManager
   boolean transferBalance(final @Nullable ReferenceManager targetReferenceManager) {
-    Preconditions.checkArgument(targetReferenceManager != null,
-        "Expecting valid target reference manager");
-    final BufferAllocator targetAllocator = targetReferenceManager.getAllocator();
-    Preconditions.checkArgument(allocator.getRoot() == targetAllocator.getRoot(),
-        "You can only transfer between two allocators that share the same root.");
+    if (targetReferenceManager != null) {
+      final BufferAllocator targetAllocator = targetReferenceManager.getAllocator();
+      Preconditions.checkArgument(allocator.getRoot() == targetAllocator.getRoot(),
+              "You can only transfer between two allocators that share the same root.");
 
-    allocator.assertOpen();
-    targetReferenceManager.getAllocator().assertOpen();
+      allocator.assertOpen();
+      targetReferenceManager.getAllocator().assertOpen();
 
-    // if we're transferring to ourself, just return.
-    if (targetReferenceManager == this) {
-      return true;
-    }
-
-    // since two balance transfers out from the allocation manager could cause incorrect
-    // accounting, we need to ensure
-    // that this won't happen by synchronizing on the allocation manager instance.
-    synchronized (allocationManager) {
-      if (allocationManager.getOwningLedger() != this) {
-        // since the calling reference manager is not the owning
-        // reference manager for the underlying memory, transfer is
-        // a NO-OP
+      // if we're transferring to ourself, just return.
+      if (targetReferenceManager == this) {
         return true;
       }
 
-      if (BaseAllocator.DEBUG) {
-        this.historicalLog.recordEvent("transferBalance(%s)",
-            targetReferenceManager.getAllocator().getName());
-      }
+      // since two balance transfers out from the allocation manager could cause incorrect
+      // accounting, we need to ensure
+      // that this won't happen by synchronizing on the allocation manager instance.
+      synchronized (allocationManager) {
+        if (allocationManager.getOwningLedger() != this) {
+          // since the calling reference manager is not the owning
+          // reference manager for the underlying memory, transfer is
+          // a NO-OP
+          return true;
+        }
 
-      boolean overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
-      allocator.releaseBytes(allocationManager.getSize());
-      // since the transfer can only happen from the owning reference manager,
-      // we need to set the target ref manager as the new owning ref manager
-      // for the chunk of memory in allocation manager
-      allocationManager.setOwningLedger((BufferLedger) targetReferenceManager);
-      return overlimit;
+        if (BaseAllocator.DEBUG && this.historicalLog != null) {
+          this.historicalLog.recordEvent("transferBalance(%s)",
+                  targetReferenceManager.getAllocator().getName());
+        }
+
+        boolean overlimit = targetAllocator.forceAllocate(allocationManager.getSize());
+        allocator.releaseBytes(allocationManager.getSize());
+        // since the transfer can only happen from the owning reference manager,
+        // we need to set the target ref manager as the new owning ref manager
+        // for the chunk of memory in allocation manager
+        allocationManager.setOwningLedger((BufferLedger) targetReferenceManager);
+        return overlimit;
+      }
+    } else {
+      throw new IllegalArgumentException("Expecting valid target reference manager");
     }
+
   }
 
   /**

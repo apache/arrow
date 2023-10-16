@@ -83,7 +83,6 @@ public final class ArrowBuf implements AutoCloseable {
    * @param referenceManager The memory manager to track memory usage and reference count of this buffer
    * @param capacity The capacity in bytes of this buffer
    */
-  @SuppressWarnings("nullness:dereference.of.nullable") //dereference of possibly-null reference historicalLog
   public ArrowBuf(
       final ReferenceManager referenceManager,
       final @Nullable BufferManager bufferManager,
@@ -96,7 +95,9 @@ public final class ArrowBuf implements AutoCloseable {
     this.readerIndex = 0;
     this.writerIndex = 0;
     if (BaseAllocator.DEBUG) {
-      historicalLog.recordEvent("create()");
+      if (historicalLog != null) {
+        historicalLog.recordEvent("create()");
+      }
     }
   }
 
