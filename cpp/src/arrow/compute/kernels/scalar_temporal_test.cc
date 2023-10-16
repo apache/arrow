@@ -2143,7 +2143,10 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 #ifdef _WIN32
   GTEST_SKIP() << "There is a known bug in strftime for locales on Windows (ARROW-15922)";
+#elif defined(EMSCRIPTEN)
+  GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
 #else
+
   if (!LocaleExists("fr_FR.UTF-8")) {
     GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
   }
@@ -2159,6 +2162,9 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
+#ifdef EMSCRIPTEN
+  GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
+#else
   auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "non-existent");
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), seconds);
@@ -2166,6 +2172,7 @@ TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   testing::HasSubstr("Cannot find locale 'non-existent'"),
                                   Strftime(arr, options));
+#endif
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceZoned) {

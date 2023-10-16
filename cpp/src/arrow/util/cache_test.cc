@@ -255,6 +255,10 @@ TYPED_TEST(TestMemoizeLru, Basics) { this->TestBasics(); }
 class TestMemoizeLruThreadSafe : public TestMemoizeLru<MemoizeLruFactory> {};
 
 TEST_F(TestMemoizeLruThreadSafe, Threads) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   using V = IntValue;
   Callable c;
 

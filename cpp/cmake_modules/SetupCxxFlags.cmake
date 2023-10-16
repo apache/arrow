@@ -731,10 +731,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # 3) Tell it to build with support for C++ exceptions
   # 4) Skip linker flags error which happens with -soname parameter
   set(ARROW_EMSCRIPTEN_LINKER_FLAGS
-      "-sSIDE_MODULE=1 -sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
-  set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
-  set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
-  set(CMAKE_SHARED_LINKER_FLAGS ${ARROW_EMSCRIPTEN_LINKER_FLAGS})
+      "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
+  set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  set(CMAKE_SHARED_LINKER_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  if(ARROW_TESTING)
+    # flags for building test executables for use in node
+    set(CMAKE_EXE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_LINKER_FLAGS}  -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js")
+  else()
+  set(CMAKE_EXE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_LINKER_FLAGS}  -sALLOW_MEMORY_GROWTH")
+  endif()
 
   # limit debug info because building with DWARF debug info requires
   # absolutely tons of memory

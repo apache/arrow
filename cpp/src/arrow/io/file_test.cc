@@ -486,6 +486,10 @@ TEST_F(TestReadableFile, CustomMemoryPool) {
 }
 
 TEST_F(TestReadableFile, ThreadSafety) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   std::string data = "foobar";
   {
     std::ofstream stream;
@@ -1048,6 +1052,10 @@ TEST_F(TestMemoryMappedFile, CastableToFileInterface) {
 }
 
 TEST_F(TestMemoryMappedFile, ThreadSafety) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   std::string data = "foobar";
   std::string path = TempFile("ipc-multithreading-test");
   CreateFile(path, static_cast<int>(data.size()));

@@ -368,6 +368,10 @@ TestSelfPipe* TestSelfPipe::instance_;
 TEST_F(TestSelfPipe, MakeAndShutdown) {}
 
 TEST_F(TestSelfPipe, WaitAndSend) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  
   StartReading();
   SleepABit();
   AssertPayloadsEventually({});
@@ -380,6 +384,10 @@ TEST_F(TestSelfPipe, WaitAndSend) {
 }
 
 TEST_F(TestSelfPipe, SendAndWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   self_pipe_->Send(123456789123456789ULL);
   StartReading();
   SleepABit();
@@ -390,6 +398,10 @@ TEST_F(TestSelfPipe, SendAndWait) {
 }
 
 TEST_F(TestSelfPipe, WaitAndShutdown) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   StartReading();
   SleepABit();
   ASSERT_OK(self_pipe_->Shutdown());
@@ -401,6 +413,9 @@ TEST_F(TestSelfPipe, WaitAndShutdown) {
 }
 
 TEST_F(TestSelfPipe, ShutdownAndWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   self_pipe_->Send(123456789123456789ULL);
   ASSERT_OK(self_pipe_->Shutdown());
   StartReading();
@@ -413,6 +428,10 @@ TEST_F(TestSelfPipe, ShutdownAndWait) {
 }
 
 TEST_F(TestSelfPipe, WaitAndSendFromSignal) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   signal_received_.store(0);
   SignalHandlerGuard guard(SIGINT, &HandleSignal);
 
@@ -431,6 +450,10 @@ TEST_F(TestSelfPipe, WaitAndSendFromSignal) {
 }
 
 TEST_F(TestSelfPipe, SendFromSignalAndWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   signal_received_.store(0);
   SignalHandlerGuard guard(SIGINT, &HandleSignal);
 
@@ -450,6 +473,10 @@ TEST_F(TestSelfPipe, SendFromSignalAndWait) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 TEST_F(TestSelfPipe, ForkSafety) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   self_pipe_->Send(123456789123456789ULL);
 
   auto child_pid = fork();
@@ -1025,6 +1052,9 @@ TEST_F(TestSendSignal, Generic) {
 }
 
 TEST_F(TestSendSignal, ToThread) {
+  #ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "SendSignalToThread requires threading";
+  #endif
 #ifdef _WIN32
   uint64_t dummy_thread_id = 42;
   ASSERT_RAISES(NotImplemented, SendSignalToThread(SIGINT, dummy_thread_id));

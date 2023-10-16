@@ -1476,61 +1476,65 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 }
 
 Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
-  const auto page_size = static_cast<size_t>(GetPageSize());
-  DCHECK_GT(page_size, 0);
-  const size_t page_mask = ~(page_size - 1);
-  DCHECK_EQ(page_mask & page_size, page_size);
+#ifndef EMSCRIPTEN
+    const auto page_size = static_cast<size_t>(GetPageSize());
+    DCHECK_GT(page_size, 0);
+    const size_t page_mask = ~(page_size - 1);
+    DCHECK_EQ(page_mask & page_size, page_size);
 
-  auto align_region = [=](const MemoryRegion& region) -> MemoryRegion {
-    const auto addr = reinterpret_cast<uintptr_t>(region.addr);
-    const auto aligned_addr = addr & page_mask;
-    DCHECK_LT(addr - aligned_addr, page_size);
-    return {reinterpret_cast<void*>(aligned_addr),
-            region.size + static_cast<size_t>(addr - aligned_addr)};
-  };
+    auto align_region = [=](const MemoryRegion& region) -> MemoryRegion {
+      const auto addr = reinterpret_cast<uintptr_t>(region.addr);
+      const auto aligned_addr = addr & page_mask;
+      DCHECK_LT(addr - aligned_addr, page_size);
+      return {reinterpret_cast<void*>(aligned_addr),
+              region.size + static_cast<size_t>(addr - aligned_addr)};
+    };
 
-#ifdef _WIN32
-  // PrefetchVirtualMemory() is available on Windows 8 or later
-  struct PrefetchEntry {  // Like WIN32_MEMORY_RANGE_ENTRY
-    void* VirtualAddress;
-    size_t NumberOfBytes;
+  #ifdef _WIN32
+    // PrefetchVirtualMemory() is available on Windows 8 or later
+    struct PrefetchEntry {  // Like WIN32_MEMORY_RANGE_ENTRY
+      void* VirtualAddress;
+      size_t NumberOfBytes;
 
-    PrefetchEntry(const MemoryRegion& region)  // NOLINT runtime/explicit
-        : VirtualAddress(region.addr), NumberOfBytes(region.size) {}
-  };
-  using PrefetchVirtualMemoryFunc = BOOL (*)(HANDLE, ULONG_PTR, PrefetchEntry*, ULONG);
-  static const auto prefetch_virtual_memory = reinterpret_cast<PrefetchVirtualMemoryFunc>(
-      GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "PrefetchVirtualMemory"));
-  if (prefetch_virtual_memory != nullptr) {
-    std::vector<PrefetchEntry> entries;
-    entries.reserve(regions.size());
+      PrefetchEntry(const MemoryRegion& region)  // NOLINT runtime/explicit
+          : VirtualAddress(region.addr), NumberOfBytes(region.size) {}
+    };
+    using PrefetchVirtualMemoryFunc = BOOL (*)(HANDLE, ULONG_PTR, PrefetchEntry*, ULONG);
+    static const auto prefetch_virtual_memory = reinterpret_cast<PrefetchVirtualMemoryFunc>(
+        GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "PrefetchVirtualMemory"));
+    if (prefetch_virtual_memory != nullptr) {
+      std::vector<PrefetchEntry> entries;
+      entries.reserve(regions.size());
+      for (const auto& region : regions) {
+        if (region.size != 0) {
+          entries.emplace_back(align_region(region));
+        }
+      }
+      if (!entries.empty() &&
+          !prefetch_virtual_memory(GetCurrentProcess(),
+                                  static_cast<ULONG_PTR>(entries.size()), entries.data(),
+                                  0)) {
+        return IOErrorFromWinError(GetLastError(), "PrefetchVirtualMemory failed");
+      }
+    }
+    return Status::OK();
+  #elif defined(POSIX_MADV_WILLNEED)
     for (const auto& region : regions) {
       if (region.size != 0) {
-        entries.emplace_back(align_region(region));
+        const auto aligned = align_region(region);
+        int err = posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED);
+        // EBADF can be returned on Linux in the following cases:
+        // - the kernel version is older than 3.9
+        // - the kernel was compiled with CONFIG_SWAP disabled (ARROW-9577)
+        if (err != 0 && err != EBADF) {
+          return IOErrorFromErrno(err, "posix_madvise failed");
+        }
       }
     }
-    if (!entries.empty() &&
-        !prefetch_virtual_memory(GetCurrentProcess(),
-                                 static_cast<ULONG_PTR>(entries.size()), entries.data(),
-                                 0)) {
-      return IOErrorFromWinError(GetLastError(), "PrefetchVirtualMemory failed");
-    }
-  }
-  return Status::OK();
-#elif defined(POSIX_MADV_WILLNEED)
-  for (const auto& region : regions) {
-    if (region.size != 0) {
-      const auto aligned = align_region(region);
-      int err = posix_madvise(aligned.addr, aligned.size, POSIX_MADV_WILLNEED);
-      // EBADF can be returned on Linux in the following cases:
-      // - the kernel version is older than 3.9
-      // - the kernel was compiled with CONFIG_SWAP disabled (ARROW-9577)
-      if (err != 0 && err != EBADF) {
-        return IOErrorFromErrno(err, "posix_madvise failed");
-      }
-    }
-  }
-  return Status::OK();
+    return Status::OK();
+  #else
+    return Status::OK();
+  #endif
 #else
   return Status::OK();
 #endif
@@ -2058,7 +2062,9 @@ Status SendSignal(int signum) {
 }
 
 Status SendSignalToThread(int signum, uint64_t thread_id) {
-#ifdef _WIN32
+#if !ARROW_ENABLE_THREADING
+  return Status::NotImplemented("Can't send signal with no threads");
+#elif _WIN32
   return Status::NotImplemented("Cannot send signal to specific thread on Windows");
 #else
   // Have to use a C-style cast because pthread_t can be a pointer *or* integer type
