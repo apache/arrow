@@ -135,10 +135,14 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// This function does the bare minimum of validation of the offsets and
   /// input types, and will allocate a new offsets array if necessary (i.e. if
   /// the offsets contain any nulls). If the offsets do not have nulls, they
-  /// are assumed to be well-formed
+  /// are assumed to be well-formed.
   ///
-  /// Offsets of an Array's null bitmap can be present or an explicit
-  /// null_bitmap, but not both.
+  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets' or
+  /// sizes' null bitmap. Only one of these two is allowed to have a null bitmap. But if a
+  /// null_bitmap is provided, the offsets array and the sizes array can't have nulls.
+  ///
+  /// And when a null_bitmap is provided, neither the offsets or sizes array can be a
+  /// slice (i.e. an array with offset() > 0).
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int32 type
@@ -196,7 +200,14 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// This function does the bare minimum of validation of the offsets and
   /// input types, and will allocate a new offsets array if necessary (i.e. if
   /// the offsets contain any nulls). If the offsets do not have nulls, they
-  /// are assumed to be well-formed
+  /// are assumed to be well-formed.
+  ///
+  /// If a null_bitmap is not provided, the nulls will be inferred from the
+  /// offsets's null bitmap. But if a null_bitmap is provided, the offsets array
+  /// can't have nulls.
+  ///
+  /// If a null_bitmap is provided, the offsets array can't be a slice (i.e. an
+  /// array with offset() > 0).
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int64 type
@@ -276,10 +287,16 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
   /// that project views into the child values array.
   ///
   /// This function does the bare minimum of validation of the offsets/sizes and
-  /// input types.
+  /// input types. The offset and length of the offsets and sizes arrays must
+  /// match and that will be checked, but their contents will be assumed to be
+  /// well-formed.
   ///
-  /// Offsets of an Array's null bitmap can be present or an explicit
-  /// null_bitmap, but not both.
+  /// If a null_bitmap is not provided, the nulls will be inferred from the
+  /// offsets's null bitmap. But if a null_bitmap is provided, the offsets array
+  /// can't have nulls.
+  ///
+  /// If a null_bitmap is provided, the offsets array can't be a slice (i.e. an
+  /// array with offset() > 0).
   ///
   /// \param[in] offsets An array of int32 offsets into the values array. NULL values are
   /// supported if the corresponding values in sizes is NULL or 0.
@@ -349,10 +366,16 @@ class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewTy
   /// that project views into the values array.
   ///
   /// This function does the bare minimum of validation of the offsets/sizes and
-  /// input types.
+  /// input types. The offset and length of the offsets and sizes arrays must
+  /// match and that will be checked, but their contents will be assumed to be
+  /// well-formed.
   ///
-  /// Offsets of an Array's null bitmap can be present or an explicit
-  /// null_bitmap, but not both.
+  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets' or
+  /// sizes' null bitmap. Only one of these two is allowed to have a null bitmap. But if a
+  /// null_bitmap is provided, the offsets array and the sizes array can't have nulls.
+  ///
+  /// And when a null_bitmap is provided, neither the offsets or sizes array can be a
+  /// slice (i.e. an array with offset() > 0).
   ///
   /// \param[in] offsets An array of int64 offsets into the values array. NULL values are
   /// supported if the corresponding values in sizes is NULL or 0.
