@@ -63,17 +63,22 @@ if [ "${GITHUB_ACTIONS}" = "true" ]; then
   echo "::group::/usr/local/lib/*"
   du -hsc /usr/local/lib/*
   echo "::endgroup::"
+  # 15GB
+  sudo rm -rf /usr/local/lib/android || :
+  # 341MB
+  sudo rm -rf /usr/local/lib/heroku || :
+  # 1.2GB
+  sudo rm -rf /usr/local/lib/node_modules || :
   echo "::group::/opt/*"
   du -hsc /opt/*
   echo "::endgroup::"
   # 679MB
   sudo rm -rf /opt/az || :
-  echo "::group::/opt/google/*"
-  du -hsc /opt/google/*
-  echo "::endgroup::"
   echo "::group::/opt/microsoft/*"
   du -hsc /opt/microsoft/*
   echo "::endgroup::"
+  # 197MB
+  sudo rm -rf /opt/microsoft/powershell || :
   echo "::group::/opt/hostedtoolcache/*"
   du -hsc /opt/hostedtoolcache/*
   echo "::endgroup::"
@@ -90,5 +95,11 @@ if [ "${GITHUB_ACTIONS}" = "true" ]; then
     firefox \
     google-chrome-stable \
     microsoft-edge-stable
+  echo "::group::/opt/google/*"
+  du -hsc /opt/google/*
+  echo "::endgroup::"
+  echo "::group::/opt/microsoft/*"
+  du -hsc /opt/microsoft/*
+  echo "::endgroup::"
   df -h
 fi
