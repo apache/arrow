@@ -340,15 +340,6 @@ struct ARROW_EXPORT S3GlobalOptions {
   static S3GlobalOptions Defaults();
 };
 
-/// \brief Initialize the S3 APIs with default options.
-///
-/// It is required to call this function at least once before using S3FileSystem.
-///
-/// Once this function is called you MUST call FinalizeS3 before the end of the
-/// application in order to avoid a segmentation fault at shutdown.
-ARROW_EXPORT
-Status InitializeS3();
-
 /// \brief Initialize the S3 APIs with the specified set of options.
 ///
 /// It is required to call this function at least once before using S3FileSystem.

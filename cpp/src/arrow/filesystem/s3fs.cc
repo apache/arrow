@@ -2969,19 +2969,11 @@ AwsInstance* GetAwsInstance() {
   return instance.get();
 }
 
-Result<bool> EnsureAwsInstanceInitialized() {
-  auto options = S3GlobalOptions::Defaults();
-
-  return GetAwsInstance()->EnsureInitialized(options);
-}
-
 Result<bool> EnsureAwsInstanceInitialized(const S3GlobalOptions& options) {
   return GetAwsInstance()->EnsureInitialized(options);
 }
 
 }  // namespace
-
-Status InitializeS3() { return InitializeS3(S3GlobalOptions::Defaults()); }
 
 Status InitializeS3(const S3GlobalOptions& options) {
   ARROW_ASSIGN_OR_RAISE(bool successfully_initialized,
