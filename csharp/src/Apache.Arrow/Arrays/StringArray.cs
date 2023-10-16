@@ -72,11 +72,11 @@ namespace Apache.Arrow
 
         public string GetString(int index, Encoding encoding = default)
         {
-            encoding = encoding ?? DefaultEncoding;
+            encoding ??= DefaultEncoding;
 
-            ReadOnlySpan<byte> bytes = GetBytes(index);
+            ReadOnlySpan<byte> bytes = GetBytes(index, out bool isNull);
 
-            if (bytes == default)
+            if (isNull)
             {
                 return null;
             }

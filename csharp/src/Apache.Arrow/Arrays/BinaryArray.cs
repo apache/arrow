@@ -331,20 +331,33 @@ namespace Apache.Arrow
         /// <remarks>
         /// Note that this method cannot reliably identify null values, which are indistinguishable from empty byte
         /// collection values when seen in the context of this method's return type of <see cref="ReadOnlySpan{Byte}"/>.
-        /// Use the <see cref="Array.IsNull"/> method instead to reliably determine null values.
+        /// Use the <see cref="Array.IsNull"/> method or the <see cref="GetBytes(int, out bool)"/> overload instead
+        /// to reliably determine null values.
         /// </remarks>
         /// <param name="index">Index at which to get bytes.</param>
         /// <returns>Returns a <see cref="ReadOnlySpan{Byte}"/> object.</returns>
         /// <exception cref="ArgumentOutOfRangeException">If the index is negative or beyond the length of the array.
         /// </exception>
-        public ReadOnlySpan<byte> GetBytes(int index)
+        public ReadOnlySpan<byte> GetBytes(int index) => GetBytes(index, out _);
+
+        /// <summary>
+        /// Get the collection of bytes, as a read-only span, at a given index in the array.
+        /// </summary>
+        /// <param name="index">Index at which to get bytes.</param>
+        /// <param name="isNull">Set to <see langword="true"/> if the value at the given index is null.</param>
+        /// <returns>Returns a <see cref="ReadOnlySpan{Byte}"/> object.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">If the index is negative or beyond the length of the array.
+        /// </exception>
+        public ReadOnlySpan<byte> GetBytes(int index, out bool isNull)
         {
             if (index < 0 || index >= Length)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            if (IsNull(index))
+            isNull = IsNull(index);
+
+            if (isNull)
             {
                 // Note that `return null;` is valid syntax, but would be misleading as `null` in the context of a span
                 // is actually returned as an empty span.
@@ -353,6 +366,5 @@ namespace Apache.Arrow
 
             return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
         }
-
     }
 }
