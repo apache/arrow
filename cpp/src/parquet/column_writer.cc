@@ -140,23 +140,6 @@ struct ValueBufferSlicer {
   MemoryPool* pool_;
 };
 
-internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
-  internal::LevelInfo level_info;
-  level_info.def_level = descr->max_definition_level();
-  level_info.rep_level = descr->max_repetition_level();
-
-  int16_t min_spaced_def_level = descr->max_definition_level();
-  const ::parquet::schema::Node* node = descr->schema_node().get();
-  while (node != nullptr && !node->is_repeated()) {
-    if (node->is_optional()) {
-      min_spaced_def_level--;
-    }
-    node = node->parent();
-  }
-  level_info.repeated_ancestor_def_level = min_spaced_def_level;
-  return level_info;
-}
-
 template <class T>
 inline const T* AddIfNotNull(const T* base, int64_t offset) {
   if (base != nullptr) {
@@ -738,7 +721,7 @@ class ColumnWriterImpl {
                    Encoding::type encoding, const WriterProperties* properties)
       : metadata_(metadata),
         descr_(metadata->descr()),
-        level_info_(ComputeLevelInfo(metadata->descr())),
+        level_info_(internal::LevelInfo::ComputeLevelInfo(metadata->descr())),
         pager_(std::move(pager)),
         has_dictionary_(use_dictionary),
         encoding_(encoding),
