@@ -114,12 +114,18 @@ classdef ListArray < arrow.array.Array
                 % missing values are treated as NULL elements.
                 if isa(C{ii}, "missing")
                     valid(ii) = false;
-                    % NULL values are encoded as two consecutive, repeating
+                    % NULL values are encoded as two identical, consecutive
                     % offset values.
                     offsets(ii + 1) = offsets(ii);
                 elseif isa(C{ii}, valueType)
-                    listLength = numel(C{ii});
-                    offsets(ii+1) = offsets(ii) + listLength;
+                    length = numel(C{ii});
+                    offsets(ii+1) = offsets(ii) + length;
+                elseif isa(C{ii}, "cell")
+                    % Nested cell arrays are treated as nested lists.
+                    % Each element in a nested list is encoded as having
+                    % a length of 1 in the offsets array.
+                    length = 1;
+                    offsets(ii+1) = offsets(ii) + length;
                 else
                     % TODO: Improve error message for invalid cell arrays.
                     error("arrow:array:list:InvalidCell", "Invalid cell array");
