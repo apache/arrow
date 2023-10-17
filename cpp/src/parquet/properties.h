@@ -79,6 +79,10 @@ class PARQUET_EXPORT ReaderProperties {
   /// Disable buffered stream reading.
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
 
+  bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
+  void enable_read_dense_for_nullable() { read_dense_for_nullable_ = true; }
+  void disable_read_dense_for_nullable() { read_dense_for_nullable_ = false; }
+
   /// Return the size of the buffered stream buffer.
   int64_t buffer_size() const { return buffer_size_; }
   /// Set the size of the buffered stream buffer in bytes.
@@ -123,6 +127,8 @@ class PARQUET_EXPORT ReaderProperties {
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
+  // Used with a RecordReader.
+  bool read_dense_for_nullable_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
