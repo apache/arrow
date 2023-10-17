@@ -3002,7 +3002,7 @@ bool IsS3Initialized() { return GetAwsInstance()->IsInitialized(); }
 bool IsS3Finalized() { return GetAwsInstance()->IsFinalized(); }
 
 S3GlobalOptions S3GlobalOptions::Defaults() {
-  S3LogLevel log_level = S3LogLevel::Fatal;
+  auto log_level = S3LogLevel::Fatal;
 
   auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
 
