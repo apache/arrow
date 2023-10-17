@@ -420,6 +420,19 @@ func (imp *cimporter) doImportArr(src *CArrowArray) error {
 	if imp.alloc == nil {
 		imp.alloc = &importAllocator{arr: imp.arr}
 	}
+
+	// we tie the releasing of the array to when the buffers are
+	// cleaned up, so if there are no buffers that we've imported
+	// such as for a null array or a nested array with no bitmap
+	// and only null columns, then we can release the CArrowArray
+	// struct immediately after import, since we have no imported
+	// memory that we have to track the lifetime of.
+	defer func() {
+		if imp.alloc.bufCount == 0 {
+			C.ArrowArrayRelease(imp.arr)
+		}
+	}()
+
 	return imp.doImport()
 }
 
@@ -457,11 +470,7 @@ func (imp *cimporter) doImport() error {
 		if err := imp.checkNoChildren(); err != nil {
 			return err
 		}
-		// no buffers to release, no memory to hold on to, so lets
-		// just call ArrowArrayRelease now for a null with no parents
-		if imp.parent == nil {
-			defer C.ArrowArrayRelease(imp.arr)
-		}
+
 		imp.data = array.NewData(dt, int(imp.arr.length), nil, nil, int(imp.arr.null_count), int(imp.arr.offset))
 	case arrow.FixedWidthDataType:
 		return imp.importFixedSizePrimitive()
