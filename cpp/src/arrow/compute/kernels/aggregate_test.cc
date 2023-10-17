@@ -2293,7 +2293,6 @@ TEST(TestDictionaryMinMaxKernel, BooleansValue) {
     auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"([false, true])");
     ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
 
-    options = ScalarAggregateOptions(/*skip_nulls=*/true);
     EXPECT_THAT(MinMax(chunked, options),
                 ResultWith(ScalarFromJSON(ty, "[false, true]")));
     EXPECT_THAT(
@@ -2301,52 +2300,6 @@ TEST(TestDictionaryMinMaxKernel, BooleansValue) {
         ResultWith(ScalarFromJSON(ty, "[false, true]")));
     EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 0])", R"([false])"), options),
                 ResultWith(ScalarFromJSON(ty, "[false, false]")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 0])", R"([true])"), options),
-                ResultWith(ScalarFromJSON(ty, "[true, true]")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
-                ResultWith(ScalarFromJSON(ty, "[null, null]")));
-
-    options = ScalarAggregateOptions(/*skip_nulls=*/false);
-    EXPECT_THAT(MinMax(chunked, options), ResultWith(ScalarFromJSON(ty, "[null, null]")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 1])", R"([false, true])"),
-                       options),
-                ResultWith(ScalarFromJSON(ty, "[null, null]")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 0])", R"([false])"), options),
-                ResultWith(ScalarFromJSON(ty, "[false, false]")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 0])", R"([true])"), options),
-                ResultWith(ScalarFromJSON(ty, "[true, true]")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
-                ResultWith(ScalarFromJSON(ty, "[null, null]")));
-
-    options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-    EXPECT_THAT(MinMax(chunked, options),
-                ResultWith(ScalarFromJSON(ty, R"({"min": false, "max": true})")));
-    EXPECT_THAT(
-        MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-        ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([true])"), options),
-                ResultWith(ScalarFromJSON(ty, R"({"min": true, "max": true})")));
-
-    options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
-    EXPECT_THAT(MinMax(chunked, options),
-                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 1, 0])", R"([true, false])"),
-                       options),
-                ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-    EXPECT_THAT(
-        MinMax(DictArrayFromJSON(dict_ty, R"([null, 3, 1, 1, 4, 0, 2, null, null])",
-                                 R"([false, true, false, true, false])"),
-               options),
-        ResultWith(ScalarFromJSON(ty, R"({"min": false, "max": true})")));
-
-    options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
-    EXPECT_THAT(MinMax(chunked, options),
-                ResultWith(ScalarFromJSON(ty, R"({"min": false, "max": true})")));
-    EXPECT_THAT(
-        MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-        ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([false])"), options),
-                ResultWith(ScalarFromJSON(ty, R"({"min": false, "max": false})")));
   }
 }
 
@@ -2367,7 +2320,6 @@ TEST(TestDictionaryMinMaxKernel, IntegersValue) {
       auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"([3, 1])");
       ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
 
-      options = ScalarAggregateOptions(/*skip_nulls=*/true);
       EXPECT_THAT(MinMax(chunked, options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
       EXPECT_THAT(
@@ -2378,64 +2330,6 @@ TEST(TestDictionaryMinMaxKernel, IntegersValue) {
           MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])", R"([5, 9, 2, 3, 4])"),
                  options),
           ResultWith(ScalarFromJSON(ty, R"({"min": 2, "max": 9})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
-                                           R"([5, 1, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 2, "max": 5})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
-                                           R"([5, 9, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 3, "max": 9})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/false);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])", R"([5, 1, 2, 3, 4])"),
-                 options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])", R"([5, 1, 2, 3, 4])"),
-                 options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
-                                           R"([5, 1, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
-                                           R"([5, 100, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([1])"), options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 1})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 1, 0])", R"([5, 1])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, 3, 1, 1, 4, 0, 2, null, null])",
-                                   R"([5, 1, 2, 3, 4])"),
-                 options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([2])"), options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 2, "max": 2})")));
     }
   }
 }
@@ -2456,7 +2350,6 @@ TEST(TestDictionaryMinMaxKernel, FloatsValue) {
       auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"([-Inf, 1])");
       ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
 
-      options = ScalarAggregateOptions(/*skip_nulls=*/true);
       EXPECT_THAT(MinMax(chunked, options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
       EXPECT_THAT(
@@ -2467,64 +2360,6 @@ TEST(TestDictionaryMinMaxKernel, FloatsValue) {
                                            R"([5, -Inf, 2, 3, 4])"),
                          options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
-                                           R"([5, 1, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 2, "max": 5})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
-                                           R"([5, -Inf, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/false);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])", R"([5, 1, 2, 3, 4])"),
-                 options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])",
-                                           R"([5, -Inf, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
-                                           R"([5, 1, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
-                                           R"([5, -Inf, 2, 3, 4])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([1])"), options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 1})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 1, 0])", R"([5, 1])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, 3, 1, 1, 4, 0, 2, null, null])",
-                                   R"([5, 1, 2, 3, 4])"),
-                 options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 5})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": -Inf, "max": 5})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"([1])"), options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": 1, "max": 1})")));
     }
   }
 }
@@ -2545,7 +2380,6 @@ TEST(TestDictionaryMinMaxKernel, BinarysValue) {
       auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"(["aa", "bb"])");
       ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
 
-      options = ScalarAggregateOptions(/*skip_nulls=*/true);
       EXPECT_THAT(MinMax(chunked, options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": "aa", "max": "hz"})")));
       EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])",
@@ -2556,64 +2390,6 @@ TEST(TestDictionaryMinMaxKernel, BinarysValue) {
                                            R"(["hz", "aa", "bf", "cc", "fa"])"),
                          options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": "aa", "max": "hz"})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
-                                           R"(["hz", "bb", "bf", "cc", "fa"])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "bf", "max": "hz"})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
-                                           R"(["hz", "aa", "bf", "cc", "fa"])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "aa", "max": "hz"})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/false);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])",
-                                           R"(["hz", "bb", "bf", "cc", "fa"])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "bb", "max": "hz"})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 2, 3, 4])",
-                                           R"(["hz", "aa", "bf", "cc", "fa"])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "aa", "max": "hz"})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, null, 2, 3, 4])",
-                                           R"(["hz", "bb", "bf", "cc", "fa"])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, null, 3, 4])",
-                                           R"(["hz", "aa", "bf", "cc", "fa"])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "aa", "max": "hz"})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"(["bb"])"), options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "bb", "max": "bb"})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 1, 0])", R"(["hz", "bb"])"),
-                         options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, 3, 1, 1, 4, 0, 2, null, null])",
-                                   R"(["hz", "bb", "bf", "cc", "fa"])"),
-                 options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": "bb", "max": "hz"})")));
-
-      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
-      EXPECT_THAT(MinMax(chunked, options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "aa", "max": "hz"})")));
-      EXPECT_THAT(
-          MinMax(DictArrayFromJSON(dict_ty, R"([null, null, null])", R"([])"), options),
-          ResultWith(ScalarFromJSON(ty, R"({"min": null, "max": null})")));
-      EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"(["bb"])"), options),
-                  ResultWith(ScalarFromJSON(ty, R"({"min": "bb", "max": "bb"})")));
     }
   }
 }
