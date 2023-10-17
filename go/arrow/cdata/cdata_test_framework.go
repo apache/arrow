@@ -228,9 +228,13 @@ func testSchema(fmts, names []string, flags []int64) **CArrowSchema {
 	return C.test_schema((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
 }
 
-func freeTestMallocatorArr(carr *CArrowArray, alloc *mallocator.Mallocator) {
-	raw := unsafe.Slice((*byte)(unsafe.Pointer(carr)), C.sizeof_struct_ArrowArray)
+func freeAny[T any](alloc *mallocator.Mallocator, p *T, n int) {
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(p)), int(unsafe.Sizeof(*p))*n)
 	alloc.Free(raw)
+}
+
+func freeTestMallocatorArr(carr *CArrowArray, alloc *mallocator.Mallocator) {
+	freeAny(alloc, carr, 1)
 }
 
 func getTestArr(alloc *mallocator.Mallocator) *CArrowArray {
@@ -259,14 +263,12 @@ func releaseTestArr(arr *CArrowArray) {
 	}
 
 	if arr.n_buffers > 0 {
-		alloc.Free(unsafe.Slice((*byte)(unsafe.Pointer(arr.buffers)),
-			unsafe.Sizeof((*C.void)(nil))*uintptr(arr.n_buffers)))
+		freeAny(alloc, arr.buffers, int(arr.n_buffers))
 	}
 
 	if arr.dictionary != nil {
 		C.ArrowArrayRelease(arr.dictionary)
-		raw := unsafe.Slice((*byte)(unsafe.Pointer(arr.dictionary)), C.sizeof_struct_ArrowArray)
-		alloc.Free(raw)
+		freeAny(alloc, arr.dictionary, 1)
 	}
 
 	if arr.n_children > 0 {
@@ -276,8 +278,7 @@ func releaseTestArr(arr *CArrowArray) {
 			freeTestMallocatorArr(c, alloc)
 		}
 
-		raw := unsafe.Slice((*byte)(unsafe.Pointer(arr.children)), int(unsafe.Sizeof((*CArrowArray)(nil)))*int(arr.n_children))
-		alloc.Free(raw)
+		freeAny(alloc, arr.children, int(arr.n_children))
 	}
 
 	h.Delete()
@@ -336,7 +337,8 @@ func createCArr(arr arrow.Array, alloc *mallocator.Mallocator) *CArrowArray {
 	carr.null_count = C.int64_t(arr.NullN())
 	carr.offset = C.int64_t(arr.Data().Offset())
 	carr.release = (*[0]byte)(C.goReleaseTestArray)
-	h := cgo.NewHandle(&testReleaser{alloc: alloc})
+	tr := &testReleaser{alloc: alloc}
+	h := cgo.NewHandle(tr)
 	carr.private_data = createHandle(h)
 
 	buffers := arr.Data().Buffers()
@@ -351,10 +353,14 @@ func createCArr(arr arrow.Array, alloc *mallocator.Mallocator) *CArrowArray {
 		return carr
 	}
 
+	tr.bufs = make([][]byte, 0, nbuffers)
 	cbufs := allocateBufferMallocatorPtrArr(alloc, nbuffers)
 	for i, b := range buffers[bufOffset:] {
 		if b != nil {
-			cbufs[i] = (*C.void)(C.CBytes(b.Bytes()))
+			raw := alloc.Allocate(b.Len())
+			copy(raw, b.Bytes())
+			tr.bufs = append(tr.bufs, raw)
+			cbufs[i] = (*C.void)(unsafe.Pointer(&raw[0]))
 		} else {
 			cbufs[i] = nil
 		}
