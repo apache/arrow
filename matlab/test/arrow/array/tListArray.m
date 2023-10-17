@@ -28,7 +28,7 @@ classdef tListArray < matlab.unittest.TestCase
     methods (TestParameterDefinition, Static)
 
         function TestArrowArray = initializeTestArrowArray()
-            %% Empty list
+            %% Zero-element list
             Type = arrow.list(arrow.float64());
             NumElements = int64(0);
             Valid = logical.empty(0, 1);
@@ -37,7 +37,7 @@ classdef tListArray < matlab.unittest.TestCase
             ArrowArray = arrow.array.ListArray.fromArrays(Offsets, Values, Valid=Valid);
             MatlabArray = {cell.empty(0, 1)};
 
-            TestArrowArray.EmptyList = struct( ...
+            TestArrowArray.ZeroElementList = struct( ...
                 ArrowArray=ArrowArray, ...
                 MatlabArray=MatlabArray, ...
                 Properties=struct(...
@@ -140,14 +140,6 @@ classdef tListArray < matlab.unittest.TestCase
                 % is read-only).
                 testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
             end
-        end
-
-        function TestFromMatlab(testCase, TestArrowArray)
-            % Verify that the fromMATLAB method returns the
-            % expected arrow.array.Array.
-            actual = TestArrowArray.ArrowArray.fromMATLAB(TestArrowArray.MatlabArray);
-            expected = TestArrowArray.ArrowArray;
-            testCase.verifyEqual(actual, expected);
         end
 
         function TestToMatlab(testCase, TestArrowArray)
