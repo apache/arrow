@@ -264,7 +264,7 @@ set_pkg_vars () {
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
 
-  if [ "$UNAME" = "Darwin" ] && [ $(sw_vers -productVersion) = "10.13" ]; then
+  if [ "$UNAME" = "Darwin" ] && expr $(sw_vers -productVersion) : '10\.13'; then
     # avoid C++17 availability warnings on macOS < 11
     PKG_CFLAGS="$PKG_CFLAGS -D_LIBCPP_DISABLE_AVAILABILITY"
   fi
