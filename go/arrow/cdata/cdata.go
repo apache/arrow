@@ -457,6 +457,11 @@ func (imp *cimporter) doImport() error {
 		if err := imp.checkNoChildren(); err != nil {
 			return err
 		}
+		// no buffers to release, no memory to hold on to, so lets
+		// just call ArrowArrayRelease now for a null with no parents
+		if imp.parent == nil {
+			defer C.ArrowArrayRelease(imp.arr)
+		}
 		imp.data = array.NewData(dt, int(imp.arr.length), nil, nil, int(imp.arr.null_count), int(imp.arr.offset))
 	case arrow.FixedWidthDataType:
 		return imp.importFixedSizePrimitive()
