@@ -239,6 +239,14 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' and no resource tags. To have more control over how buckets are created,
 #' use a different API to create them.
 #'
+#' On S3FileSystem, output is only produced for fatal errors or when printing
+#' return values. For troubleshooting, the log level can be set using the
+#' environment variable `ARROW_S3_LOG_LEVEL` (e.g.,
+#' `Sys.setenv("ARROW_S3_LOG_LEVEL"="DEBUG")`). The log level must be set prior
+#' to running any code that interacts with S3. Possible values include 'FATAL'
+#' (the default), 'ERROR', 'WARN', 'INFO', 'DEBUG' (recommended), 'TRACE', and
+#' 'OFF'.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
@@ -462,11 +470,25 @@ default_s3_options <- list(
 #'
 #' @param bucket string S3 bucket name or path
 #' @param ... Additional connection options, passed to `S3FileSystem$create()`
+#'
+#' @details By default, \code{\link{s3_bucket}} and other
+#' \code{\link{S3FileSystem}} functions only produce output for fatal errors
+#' or when printing their return values. When troubleshooting problems, it may
+#' be useful to increase the log level. See the Notes section in
+#' \code{\link{S3FileSystem}} for more information or see Examples below.
+#'
 #' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
 #' bucket <- s3_bucket("voltrondata-labs-datasets")
+#'
+#' @examplesIf FALSE
+#' # Turn on debug logging. The following line of code should be run in a fresh
+#' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
+#' Sys.setenv("ARROW_S3_LOG_LEVEL", "DEBUG")
+#' bucket <- s3_bucket("voltrondata-labs-datasets")
+#'
 #' @export
 s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
