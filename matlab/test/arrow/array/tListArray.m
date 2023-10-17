@@ -19,8 +19,6 @@ classdef tListArray < matlab.unittest.TestCase
 
     properties (Constant)
         Traits = arrow.type.traits.traits(arrow.type.ID.List)
-        FromArraysFcn = @arrow.array.ListArray.fromArrays
-        FromMatlabFcn = @arrow.array.ListArray.fromMATLAB
     end
 
     properties (TestParameter)
@@ -36,7 +34,7 @@ classdef tListArray < matlab.unittest.TestCase
             Valid = logical.empty(0, 1);
             Offsets = arrow.array(int32(0));
             Values = arrow.array([]);
-            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            ArrowArray = arrow.array.ListArray.fromArrays(Offsets, Values, Valid=Valid);
             MatlabArray = {cell.empty(0, 1)};
 
             TestArrowArray.EmptyList = struct( ...
@@ -57,7 +55,7 @@ classdef tListArray < matlab.unittest.TestCase
             Valid = [true, false, true, false];
             Offsets = arrow.array(int32([0, 1, 4, 6, 7]));
             Values = arrow.array(["A", missing, "C", "D", "E", missing, "G"]);
-            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            ArrowArray = arrow.array.ListArray.fromArrays(Offsets, Values, Valid=Valid);
             MatlabArray = {{"A"; missing; ["E"; missing]; missing}};
 
             TestArrowArray.NullList = struct( ...
@@ -78,7 +76,7 @@ classdef tListArray < matlab.unittest.TestCase
             Valid = true(1, NumElements);
             Offsets = arrow.array(int32([0, 2, 5, 9]));
             Values = arrow.array([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            ArrowArray = arrow.array.ListArray.fromArrays(Offsets, Values, Valid=Valid);
             MatlabArray = {{[1; 2]; [3; 4; 5]; [6; 7; 8; 9]}};
 
             TestArrowArray.SingleLevelList = struct( ...
@@ -99,7 +97,7 @@ classdef tListArray < matlab.unittest.TestCase
             Valid = true(1, NumElements);
             Offsets = arrow.array(int32([0, 1, 3]));
             Values = TestArrowArray.SingleLevelList.ArrowArray;
-            ArrowArray = tListArray.FromArraysFcn(Offsets, Values, Valid=Valid);
+            ArrowArray = arrow.array.ListArray.fromArrays(Offsets, Values, Valid=Valid);
             MatlabArray = {{{[1; 2]}; {[3; 4; 5]; [6; 7; 8; 9]}}};
 
             TestArrowArray.MultiLevelList = struct( ...
@@ -120,8 +118,7 @@ classdef tListArray < matlab.unittest.TestCase
     methods (Test)
 
         function TestClass(testCase, TestArrowArray)
-            % Verify that the arrow.array.Array has the expected concrete
-            % subclass.
+            % Verify that the arrow.array.Array has the expected class.
             testCase.verifyInstanceOf(TestArrowArray.ArrowArray, testCase.Traits.ArrayClassName);
         end
 
@@ -145,10 +142,20 @@ classdef tListArray < matlab.unittest.TestCase
             end
         end
 
+        function TestFromMatlab(testCase, TestArrowArray)
+            % Verify that the fromMATLAB method returns the
+            % expected arrow.array.Array.
+            actual = TestArrowArray.ArrowArray.fromMATLAB(TestArrowArray.MatlabArray);
+            expected = TestArrowArray.ArrowArray;
+            testCase.verifyEqual(actual, expected);
+        end
+
         function TestToMatlab(testCase, TestArrowArray)
             % Verify that the toMATLAB method returns the
             % expected MATLAB array.
-            testCase.verifyEqual(TestArrowArray.ArrowArray.toMATLAB(), TestArrowArray.MatlabArray);
+            actual = TestArrowArray.ArrowArray.toMATLAB();
+            expected = TestArrowArray.MatlabArray;
+            testCase.verifyEqual(actual, expected);
         end
 
     end
