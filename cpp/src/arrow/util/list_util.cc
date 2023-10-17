@@ -219,7 +219,7 @@ Result<std::shared_ptr<ArrayData>> ListViewFromListImpl(
   ARROW_ASSIGN_OR_RAISE(auto sizes_buffer,
                         AllocateBuffer(buffer_length * sizeof(offset_type), pool));
   const auto* offsets = list_data->template GetValues<offset_type>(1, 0);
-  auto* sizes = reinterpret_cast<offset_type*>(sizes_buffer->mutable_data());
+  auto* sizes = sizes_buffer->mutable_data_as<offset_type>();
   // Zero the initial padding area to avoid leaking any data when buffers are
   // sent over IPC or throught the C Data interface.
   memset(sizes, 0, list_data->offset * sizeof(offset_type));
