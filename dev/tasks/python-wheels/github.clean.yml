@@ -31,5 +31,5 @@ jobs:
           GEMFURY_API_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_API_TOKEN }}' }}
         shell: bash
         run: |
-          gem install --user-install gemfury -v 0.12.0
+          gem install --user-install gemfury
           ruby arrow/ci/scripts/gemfury_clean.rb
