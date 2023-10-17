@@ -114,4 +114,6 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
 
 void RandBytes(unsigned char* buf, int num) { ThrowOpenSSLRequiredException(); }
 
+void EnsureBackendInitialized() {}
+
 }  // namespace parquet::encryption
