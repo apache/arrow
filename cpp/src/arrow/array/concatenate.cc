@@ -124,7 +124,7 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
   // allocate output buffer
   const int64_t out_size_in_bytes = SumBufferSizesInBytes(buffers);
   ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(sizeof(Offset) + out_size_in_bytes, pool));
-  auto* out_data = reinterpret_cast<Offset*>((*out)->mutable_data());
+  auto* out_data = (*out)->mutable_data_as<Offset>();
 
   int64_t elements_length = 0;
   Offset values_length = 0;
