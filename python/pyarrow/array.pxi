@@ -21,6 +21,8 @@ import os
 import warnings
 from cython import sizeof
 
+include "_dlpack.pxi"
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -1777,6 +1779,9 @@ cdef class Array(_PandasConvertible):
             array = GetResultValue(ImportArray(c_array, c_schema))
 
         return pyarrow_wrap_array(array)
+
+    def __dlpack__(self, stream=None):
+        return to_dlpack(self)
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
