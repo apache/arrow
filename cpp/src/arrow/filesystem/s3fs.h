@@ -332,9 +332,15 @@ struct ARROW_EXPORT S3GlobalOptions {
   ///
   /// For more details see Aws::Crt::Io::EventLoopGroup
   int num_event_loop_threads = 1;
+
+  /// \brief Initialize with default options
+  ///
+  /// For log_level, this method first tries to extract a suitable value from the
+  /// environment variable ARROW_S3_LOG_LEVEL.
+  static S3GlobalOptions Defaults();
 };
 
-/// \brief Initialize the S3 APIs.
+/// \brief Initialize the S3 APIs with the specified set of options.
 ///
 /// It is required to call this function at least once before using S3FileSystem.
 ///
