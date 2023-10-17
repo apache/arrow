@@ -264,7 +264,10 @@ set_pkg_vars () {
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
 
-  if [ "$UNAME" = "Darwin" ] && expr $(sw_vers -productVersion) : '10\.13'; then
+  # We use expr because the product version returns more than just 10.13 and we want to 
+  # match the substring. However, expr always outputs the number of matched characters
+  # to stdout, to avoid noise in the log we redirect the output to /dev/null
+  if [ "$UNAME" = "Darwin" ] && expr $(sw_vers -productVersion) : '10\.13' >/dev/null 2>&1; then
     # avoid C++17 availability warnings on macOS < 11
     PKG_CFLAGS="$PKG_CFLAGS -D_LIBCPP_DISABLE_AVAILABILITY"
   fi
