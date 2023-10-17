@@ -182,6 +182,11 @@ on:
     displayName: Clone arrow
 {% endmacro %}
 
+{%- macro azure_free_space() -%}
+  - script: arrow/ci/scripts/util_free_space.sh
+    displayName: Free up disk space
+{% endmacro %}
+
 {%- macro azure_upload_releases(pattern) -%}
   - task: UsePythonVersion@0
     inputs:
