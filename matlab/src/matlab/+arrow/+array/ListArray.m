@@ -79,54 +79,69 @@ classdef ListArray < arrow.array.Array
                 C(:, 1) cell
             end
 
-            % Iterate over cell array contents and compute offsets
-            % missing = NULL
-
+            % Determine the ValueType of the output ListArray by finding
+            % the first non-missing value in the input cell array.
             numElements = numel(C);
-
-            indexOfFirstNonMissing = -1;
+            indexOfFirstNonMissingValue = -1;
             for ii = 1:numElements
                 if ~isa(C{ii}, "missing")
-                    indexOfFirstNonMissing = ii;
+                    indexOfFirstNonMissingValue = ii;
                     break;
                 end
             end
-            
-            % TODO: Add NullArray support
-            assert(indexOfFirstNonMissing ~= -1);
 
-            offsets = zeros([numElements + 1 1], "int32");
+            % If the cell array only contains missing (NULL) values, then
+            % treat it as a NullArray, rather than a ListArray.
+            % TODO: Add NullArray support.
+            isNullArray = indexOfFirstNonMissingValue ~= -1;
+            assert(isNullArray);
+
+            % Preallocate the Offsets for the output ListArray.
+            offsetsDimensions = [numElements + 1, 1];
+            offsetsType = "int32";
+            offsets = zeros(offsetsDimensions, offsetsType);
+            % Preallocate the validity bitmap.
             valid = true(numElements, 1);
-            valid(1:indexOfFirstNonMissing-1) = false;
+            valid(1:indexOfFirstNonMissingValue-1) = false;
 
-            % TODO: Verify the datatype is supported
-            expectedClass = string(class(C{indexOfFirstNonMissing}));
+            % TODO: Verify the MATLAB type of the first non-missing value
+            % is supported for conversion to an Arrow type.
+            valueType = string(class(C{indexOfFirstNonMissingValue}));
 
-            % Compute the offests and determine which elements are valid.
-            for ii = indexOfFirstNonMissing:numElements
+            % Iterate through the rest of the cell array after the first
+            % non-missing value to compute the remaining list Offsets.
+            for ii = indexOfFirstNonMissingValue:numElements
+                % missing values are treated as NULL elements.
                 if isa(C{ii}, "missing")
                     valid(ii) = false;
-                    offsets(ii+1) = offsets(ii);
-                elseif isa(C{ii}, expectedClass)
-                    length = numel(C{ii});
-                    offsets(ii+1) = offsets(ii) + length;
+                    % NULL values are encoded as two consecutive, repeating
+                    % offset values.
+                    offsets(ii + 1) = offsets(ii);
+                elseif isa(C{ii}, valueType)
+                    listLength = numel(C{ii});
+                    offsets(ii+1) = offsets(ii) + listLength;
                 else
+                    % TODO: Improve error message for invalid cell arrays.
                     error("arrow:array:list:InvalidCell", "Invalid cell array");
                 end
             end
 
-            % Create the Offsets Int32Array
-            offsetArray = arrow.array(offsets);
+            % Create the Offsets array for the output ListArray.
+            offsetsArray = arrow.array.Int32Array.fromMATLAB(offsets);
 
-            % Create the Values array by vertically concatenating the valid
-            % elements and calling the arrow.array gateway function. 
+            % Create the Values array for the output ListArray by vertically
+            % concatenating the valid elements and calling the arrow.array
+            % gateway function to perform conversion to an Arrow array.
+
+            % To vertically conatenate the valid elements in the cell
+            % array, they must all be uniform in shape.
             reshapedCells = cellfun(@(c) reshape(c, [], 1), C(valid), UniformOutput=false);
             values = vertcat(reshapedCells{:});
-            valueArray = arrow.array(values);
+            valuesArray = arrow.array(values);
 
             args = struct(...
-                OffsetsProxyID=offsetArray.Proxy.ID, ...
-                ValuesProxyID=valueArray.Proxy.ID, ...
+                OffsetsProxyID=offsetsArray.Proxy.ID, ...
+                ValuesProxyID=valuesArray.Proxy.ID, ...
                 Valid=valid ...
             );
 
