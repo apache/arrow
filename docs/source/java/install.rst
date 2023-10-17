@@ -30,7 +30,7 @@ Java Compatibility
 ==================
 
 Java modules are compatible with JDK 8 and above.
-Currently, JDK 8, 11, 17, and 18 are tested in CI.
+Currently, JDK 8, 11, 17, and 21 are tested in CI.
 
 When using Java 9 or later, some JDK internals must be exposed by
 adding ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the ``java`` command:

@@ -1698,8 +1698,8 @@ services:
     #   docker-compose build eclipse-java
     #   docker-compose run eclipse-java
     # Parameters:
-    #   MAVEN: 3.9.3
-    #   JDK: 17, 20
+    #   MAVEN: 3.9.4
+    #   JDK: 17, 21
     image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: *java-volumes
