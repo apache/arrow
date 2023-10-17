@@ -66,8 +66,6 @@ S3 filesystem
 .. doxygenclass:: arrow::fs::S3FileSystem
    :members:
 
-.. doxygenfunction:: arrow::fs::InitializeS3()
-
 .. doxygenfunction:: arrow::fs::InitializeS3(const S3GlobalOptions& options)
 
 Hadoop filesystem
