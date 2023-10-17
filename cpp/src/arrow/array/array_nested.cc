@@ -260,10 +260,11 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
   return Concatenate(non_null_fragments, memory_pool);
 }
 
-template <typename ListViewArrayT>
+template <typename ListViewArrayT, bool HasNulls>
 Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
                                                     MemoryPool* memory_pool) {
   using offset_type = typename ListViewArrayT::offset_type;
+  const int64_t list_view_array_offset = list_view_array.offset();
   const int64_t list_view_array_length = list_view_array.length();
   std::shared_ptr<arrow::Array> value_array = list_view_array.values();
 
@@ -272,82 +273,81 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
   }
 
   // If the list array is *all* nulls, then just return an empty array.
-  if (list_view_array.null_count() == list_view_array.length()) {
-    return MakeEmptyArray(value_array->type(), memory_pool);
+  if constexpr (HasNulls) {
+    if (list_view_array.null_count() == list_view_array.length()) {
+      return MakeEmptyArray(value_array->type(), memory_pool);
+    }
   }
 
   const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0, 0);
   const auto* offsets = list_view_array.data()->template GetValues<offset_type>(1);
   const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
 
-  // If a ListViewArray:
-  //
-  //   1) does not contain nulls
-  //   2) has sorted offsets
-  //   3) has disjoint views which completely cover the values array
-  //
-  // then simply slice its value array with the first offset and end of the last list
-  // view.
-  if (list_view_array.null_count() == 0) {
-    bool sorted_and_disjoint = true;
-    for (int64_t i = 1; sorted_and_disjoint && i < list_view_array_length; ++i) {
-      sorted_and_disjoint &=
-          sizes[i - 1] == 0 || offsets[i] - offsets[i - 1] == sizes[i - 1];
-    }
-
-    if (sorted_and_disjoint) {
-      const auto begin_offset = list_view_array.value_offset(0);
-      const auto end_offset = list_view_array.value_offset(list_view_array_length - 1) +
-                              list_view_array.value_length(list_view_array_length - 1);
-      return SliceArrayWithOffsets(*value_array, begin_offset, end_offset);
-    }
-  }
-
   auto is_null_or_empty = [&](int64_t i) {
-    return (validity && !bit_util::GetBit(validity, list_view_array.offset() + i)) ||
-           sizes[i] == 0;
+    if constexpr (HasNulls) {
+      if (!bit_util::GetBit(validity, list_view_array_offset + i)) {
+        return true;
+      }
+    }
+    return sizes[i] == 0;
   };
 
-  std::vector<std::shared_ptr<Array>> non_null_fragments;
-  // Index of first valid, non-empty list-view and last offset
-  // of the current contiguous fragment in values.
-  constexpr int64_t kUninitialized = -1;
-  int64_t first_i = kUninitialized;
-  offset_type end_offset;
-  int64_t i = 0;
-  for (; i < list_view_array_length; i++) {
-    if (is_null_or_empty(i)) continue;
-
-    first_i = i;
-    end_offset = offsets[i] + sizes[i];
-    break;
-  }
-  i += 1;
-  for (; i < list_view_array_length; i++) {
-    if (is_null_or_empty(i)) continue;
-
-    if (offsets[i] == end_offset) {
-      end_offset += sizes[i];
-      continue;
+  // Index of the first valid, non-empty list-view.
+  int64_t first_i = 0;
+  for (; first_i < list_view_array_length; first_i++) {
+    if (!is_null_or_empty(first_i)) {
+      break;
     }
-    non_null_fragments.push_back(
-        SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
-    first_i = i;
-    end_offset = offsets[i] + sizes[i];
   }
-  if (first_i != kUninitialized) {
-    non_null_fragments.push_back(
-        SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
-  }
-
-  // Final attempt to avoid invoking Concatenate().
-  if (non_null_fragments.size() == 1) {
-    return non_null_fragments[0];
-  } else if (non_null_fragments.size() == 0) {
+  // If all list-views are empty, return an empty array.
+  if (first_i == list_view_array_length) {
     return MakeEmptyArray(value_array->type(), memory_pool);
   }
 
-  return Concatenate(non_null_fragments, memory_pool);
+  std::vector<std::shared_ptr<Array>> slices;
+  {
+    int64_t i = first_i;
+    auto begin_offset = offsets[i];
+    auto end_offset = offsets[i] + sizes[i];
+    i += 1;
+    // Inductive invariant: slices and the always non-empty values slice
+    // [begin_offset, end_offset) contains all the maximally contiguous slices of the
+    // values array that are covered by all the list-views before list-view i.
+    for (; i < list_view_array_length; i++) {
+      if (is_null_or_empty(i)) {
+        // The invariant is preserved by simply preserving the current set of slices.
+      } else {
+        if (offsets[i] == end_offset) {
+          end_offset += sizes[i];
+          // The invariant is preserved because since the non-empty list-view i
+          // starts at end_offset, the current range can be extended to end at
+          // offsets[i] + sizes[i] (the same as end_offset + sizes[i]).
+        } else {
+          // The current slice can't be extended because the list-view i either
+          // shares values with the current slice or starts after the position
+          // immediately after the end of the current slice.
+          slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
+          begin_offset = offsets[i];
+          end_offset = offsets[i] + sizes[i];
+          // The invariant is preserved because a maximally contiguous slice of
+          // the values array (i.e. one that can't be extended) was added to slices
+          // and [begin_offset, end_offset) is non-empty and contains the
+          // current list-view i.
+        }
+      }
+    }
+    slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
+  }
+
+  // Final attempt to avoid invoking Concatenate().
+  switch (slices.size()) {
+    case 0:
+      return MakeEmptyArray(value_array->type(), memory_pool);
+    case 1:
+      return slices[0];
+  }
+
+  return Concatenate(slices, memory_pool);
 }
 
 std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
@@ -548,7 +548,10 @@ Result<std::shared_ptr<ListViewArray>> ListViewArray::FromArrays(
 }
 
 Result<std::shared_ptr<Array>> ListViewArray::Flatten(MemoryPool* memory_pool) const {
-  return FlattenListViewArray(*this, memory_pool);
+  if (null_count() > 0) {
+    return FlattenListViewArray<ListViewArray, true>(*this, memory_pool);
+  }
+  return FlattenListViewArray<ListViewArray, false>(*this, memory_pool);
 }
 
 std::shared_ptr<Array> ListViewArray::offsets() const {
@@ -606,7 +609,10 @@ Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromArrays(
 
 Result<std::shared_ptr<Array>> LargeListViewArray::Flatten(
     MemoryPool* memory_pool) const {
-  return FlattenListViewArray(*this, memory_pool);
+  if (null_count() > 0) {
+    return FlattenListViewArray<LargeListViewArray, true>(*this, memory_pool);
+  }
+  return FlattenListViewArray<LargeListViewArray, false>(*this, memory_pool);
 }
 
 std::shared_ptr<Array> LargeListViewArray::offsets() const {

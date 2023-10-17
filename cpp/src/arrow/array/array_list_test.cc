@@ -680,8 +680,14 @@ class TestListArray : public ::testing::Test {
   void TestFlattenSimple() {
     auto type = std::make_shared<T>(int32());
     auto list_array = std::dynamic_pointer_cast<ArrayType>(
-        ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
+        ArrayFromJSON(type, "[[], null, [1, 2], [3], [4], null, [5], [], [6]]"));
     ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+
+    list_array = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[], [], [1, 2], [3], [4], [], [5], [], [6]]"));
+    ASSERT_OK_AND_ASSIGN(flattened, list_array->Flatten());
     ASSERT_OK(flattened->ValidateFull());
     EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
   }
@@ -693,6 +699,35 @@ class TestListArray : public ::testing::Test {
     ASSERT_OK(flattened->ValidateFull());
     ASSERT_EQ(0, flattened->length());
     AssertTypeEqual(*flattened->type(), *value_type_);
+  }
+
+  void TestFlattenAllEmpty() {
+    auto type = std::make_shared<T>(int32());
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[], [], [], [], [], [], []]"));
+    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[]")));
+
+    if constexpr (kTypeClassIsListView) {
+      auto list_array = std::dynamic_pointer_cast<ArrayType>(
+          ArrayFromJSON(type, "[[1, 2], [3], null, [5, 6], [7, 8], [], [9]]"));
+      auto array_data = list_array->data();
+
+      auto offsets = array_data->buffers[1]->template mutable_data_as<offset_type>();
+      auto sizes = array_data->buffers[2]->template mutable_data_as<offset_type>();
+
+      // Set all sizes to 0, except the one for the null entry
+      memset(sizes, 0, sizeof(offset_type) * array_data->length);
+      sizes[2] = 4;
+      // Make the offset of the null entry be non-zero and out of order
+      offsets[2] = 1;
+
+      ASSERT_OK(list_array->ValidateFull());
+      ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+      EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[]")))
+          << flattened->ToString();
+    }
   }
 
   void TestFlattenSliced() {
@@ -890,6 +925,7 @@ TYPED_TEST(TestListArray, BuilderPreserveFieldName) {
 
 TYPED_TEST(TestListArray, FlattenSimple) { this->TestFlattenSimple(); }
 TYPED_TEST(TestListArray, FlattenNulls) { this->TestFlattenNulls(); }
+TYPED_TEST(TestListArray, FlattenAllEmpty) { this->TestFlattenAllEmpty(); }
 TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
 TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
   this->TestFlattenNonEmptyBackingNulls();
