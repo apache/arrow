@@ -52,4 +52,17 @@
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <profile>
+            <id>pin-mockito-jdk8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <properties>
+                <mockito.core.version>4.11.0</mockito.core.version>
+                <mockito.inline.version>4.11.0</mockito.inline.version>
+            </properties>
+        </profile>
+    </profiles>
 </project>
