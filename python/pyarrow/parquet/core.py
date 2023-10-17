@@ -767,13 +767,16 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
     Other features such as compression algorithms or the new serialized
     data page format must be enabled separately (see 'compression' and
     'data_page_version').
-use_dictionary : bool or list
+use_dictionary : bool or list, default True
     Specify if we should use dictionary encoding in general or only for
     some columns.
-compression : str or dict
+    When encoding the column, if the dictionary size is too large, the
+    column will fallback to ``PLAIN`` encoding. Specially, ``BOOLEAN`` type
+    doesn't support dictionary encoding.
+compression : str or dict, default 'snappy'
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
-write_statistics : bool or list
+write_statistics : bool or list, default True
     Specify if we should write statistics in general (default is True) or only
     for some columns.
 use_deprecated_int96_timestamps : bool, default None
@@ -821,7 +824,10 @@ use_byte_stream_split : bool or list, default False
     and should be combined with a compression codec.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
-    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT'}.
+    Can only be used when when ``use_dictionary`` is set to False, and
+    cannot be used in combination with ``use_byte_stream_split``.
+    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT',
+    'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'}.
     Certain encodings are only compatible with certain data types.
     Please refer to the encodings section of `Reading and writing Parquet
     files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
