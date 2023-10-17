@@ -33,8 +33,12 @@ client.list.each do |artifact|
   versions.each do |version|
     time = DateTime.parse(version['created_at'])
     if time < cutoff
-      client.yank_version(artifact["name"], version["version"])
-      puts "Yanked #{artifact['name']} #{version['version']} (created #{version['created_at']})"
+      begin
+        client.yank_version(artifact["name"], version["version"])
+        puts "Yanked #{artifact['name']} #{version['version']} (created #{version['created_at']})"
+      rescue Gemfury::NotFound => e
+        puts "Failed to yank #{artifact['name']} #{version['version']} (created #{version['created_at']} with #{e.message}"
+      end
     else
       puts "Kept #{artifact['name']} #{version['version']} (created #{version['created_at']})"
     end
