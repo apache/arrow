@@ -2,11 +2,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net7.0</TargetFrameworks>
-    <!-- TODO: CI can't run with net472 on non-Windows platforms
-    <TargetFrameworks>net7.0;net472</TargetFrameworks>
-    -->
+    <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsWindows)'=='true'">
+    <TargetFrameworks>net7.0;net472</TargetFrameworks>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IsWindows)'!='true'">
+    <TargetFrameworks>net7.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup>
