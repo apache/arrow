@@ -209,7 +209,9 @@ FixedSizeBinary <- R6Class("FixedSizeBinary",
   inherit = FixedWidthType,
   public = list(
     byte_width = function() FixedSizeBinary__byte_width(self),
-    code = function(namespace = FALSE) call2("fixed_size_binary", byte_width = self$byte_width(), .ns = if (namespace) "arrow")
+    code = function(namespace = FALSE) {
+      call2("fixed_size_binary", byte_width = self$byte_width(), .ns = if (namespace) "arrow")
+    }
   )
 )
 
@@ -685,7 +687,9 @@ FixedSizeListType <- R6Class("FixedSizeListType",
   inherit = NestedType,
   public = list(
     code = function(namespace = FALSE) {
-      call2("fixed_size_list_of", self$value_type$code(namespace), list_size = self$list_size, .ns = if (namespace) "arrow")
+      call2("fixed_size_list_of", self$value_type$code(namespace),
+        list_size = self$list_size, .ns = if (namespace) "arrow"
+      )
     }
   ),
   active = list(

@@ -46,7 +46,7 @@ DictionaryType <- R6Class("DictionaryType",
       if (isTRUE(self$ordered)) {
         details$ordered <- TRUE
       }
-      call2("dictionary", !!!details, .ns = if(namespace) "arrow")
+      call2("dictionary", !!!details, .ns = if (namespace) "arrow")
     }
   ),
   active = list(
