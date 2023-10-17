@@ -2987,7 +2987,7 @@ Status InitializeS3(const S3GlobalOptions& options) {
 }
 
 Status EnsureS3Initialized() {
-  return EnsureAwsInstanceInitialized({S3LogLevel::Fatal}).status();
+  return EnsureAwsInstanceInitialized(S3GlobalOptions::Defaults()).status();
 }
 
 Status FinalizeS3() {
@@ -3000,6 +3000,36 @@ Status EnsureS3Finalized() { return FinalizeS3(); }
 bool IsS3Initialized() { return GetAwsInstance()->IsInitialized(); }
 
 bool IsS3Finalized() { return GetAwsInstance()->IsFinalized(); }
+
+S3GlobalOptions S3GlobalOptions::Defaults() {
+  auto log_level = S3LogLevel::Fatal;
+
+  auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
+
+  if (result.ok()) {
+    // Extract, trim, and downcase the value of the enivronment variable
+    auto value =
+        arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
+
+    if (value == "fatal") {
+      log_level = S3LogLevel::Fatal;
+    } else if (value == "error") {
+      log_level = S3LogLevel::Error;
+    } else if (value == "warn") {
+      log_level = S3LogLevel::Warn;
+    } else if (value == "info") {
+      log_level = S3LogLevel::Info;
+    } else if (value == "debug") {
+      log_level = S3LogLevel::Debug;
+    } else if (value == "trace") {
+      log_level = S3LogLevel::Trace;
+    } else if (value == "off") {
+      log_level = S3LogLevel::Off;
+    }
+  }
+
+  return S3GlobalOptions{log_level};
+}
 
 // -----------------------------------------------------------------------
 // Top-level utility functions
