@@ -18,6 +18,7 @@
 from collections.abc import Iterable
 import datetime
 import decimal
+import ctypes
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
@@ -3546,3 +3547,18 @@ def test_run_end_encoded_from_buffers():
     with pytest.raises(ValueError):
         pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
                                            1, offset, children)
+
+
+def PyCapsule_IsValid(capsule, name):
+    return ctypes.pythonapi.PyCapsule_IsValid(ctypes.py_object(capsule), name) == 1
+
+
+def PyCapsule_GetPointer(capsule, name):
+    return ctypes.pythonapi.PyCapsule_GetPointer(ctypes.py_object(capsule), name)
+
+
+def test_dlpack_spec():
+    arr = pa.array([1, 2, 3])
+
+    DLTensor = arr.__dlpack__()
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") == True
