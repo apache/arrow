@@ -61,7 +61,8 @@ class DatasetEncryptionTest : public ::testing::Test {
   static void SetUpTestSuite() {
 #ifdef ARROW_VALGRIND
     // Not necessary otherwise, but prevents a Valgrind leak by making sure
-    // OpenSSL initialization is done from the main thread.
+    // OpenSSL initialization is done from the main thread
+    // (see GH-38304 for analysis).
     ::parquet::encryption::EnsureBackendInitialized();
 #endif
 
