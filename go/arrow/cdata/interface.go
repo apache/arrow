@@ -116,6 +116,7 @@ func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (arrow.Rec
 	if err != nil {
 		return nil, err
 	}
+	defer imp.data.Release()
 
 	st := array.NewStructData(imp.data)
 	defer st.Release()

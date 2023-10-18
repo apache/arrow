@@ -33,6 +33,18 @@ type Buffer struct {
 	parent *Buffer
 }
 
+// NewBufferWithAllocator returns a buffer with the mutable flag set
+// as false. The intention here is to allow wrapping a byte slice along
+// with an allocator as a buffer to track the lifetime via refcounts
+// in order to call Free when the refcount goes to zero.
+//
+// The primary example this is used for, is currently importing data
+// through the c data interface and tracking the lifetime of the
+// imported buffers.
+func NewBufferWithAllocator(data []byte, mem Allocator) *Buffer {
+	return &Buffer{refCount: 1, buf: data, length: len(data), mem: mem}
+}
+
 // NewBufferBytes creates a fixed-size buffer from the specified data.
 func NewBufferBytes(data []byte) *Buffer {
 	return &Buffer{refCount: 0, buf: data, length: len(data)}
