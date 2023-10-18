@@ -78,9 +78,7 @@ struct AzurePath {
           "Expected an Azure object path of the form 'container/path...', got a URI: '",
           s, "'");
     }
-    auto src = internal::RemoveTrailingSlash(s);
-    auto input_path = std::string(src.data());
-    src = internal::RemoveLeadingSlash(src);
+    const auto src = internal::RemoveTrailingSlash(s);
     auto first_sep = src.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
