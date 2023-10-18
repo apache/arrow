@@ -241,8 +241,9 @@ def download_tzdata_on_windows():
     tzdata_compressed = os.path.join(tzdata_path, "tzdata.tar.gz")
     os.makedirs(tzdata_path, exist_ok=True)
 
-    response = requests.get('https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz',
-                            stream=True)
+    response = requests.get(
+        'https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz',
+        stream=True)
 
     if response.status_code == 200:
         with open(tzdata_compressed, 'wb') as f:
