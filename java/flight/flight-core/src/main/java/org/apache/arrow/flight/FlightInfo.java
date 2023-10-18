@@ -95,7 +95,7 @@ public class FlightInfo {
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
                     long records, boolean ordered, IpcOption option) {
-    this(schema, descriptor, endpoints, bytes, records, ordered, option, null);
+    this(schema, descriptor, endpoints, bytes, records, ordered, option, "");
   }
 
   /**

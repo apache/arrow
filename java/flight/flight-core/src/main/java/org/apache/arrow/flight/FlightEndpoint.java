@@ -17,7 +17,6 @@
 
 package org.apache.arrow.flight;
 
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -31,6 +30,7 @@ import java.util.Optional;
 
 import org.apache.arrow.flight.impl.Flight;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 
 /**
@@ -60,7 +60,7 @@ public class FlightEndpoint {
    * @param locations  The possible locations the stream can be retrieved from.
    */
   public FlightEndpoint(Ticket ticket, Instant expirationTime, Location... locations) {
-    this(ticket, expirationTime, null, locations);
+    this(ticket, expirationTime, "", locations);
   }
 
   /**
