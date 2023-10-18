@@ -91,9 +91,22 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
 
   /// \brief Start a new variable-length list slot
   ///
-  /// This function should be called before beginning to append elements to the
-  /// value builder. Elements appended to the value builder before this function is
-  /// called, will not be members of any list value.
+  /// This function should be called before appending elements to the
+  /// value builder. Elements appended to the value builder before this function
+  /// is called for the first time, will not be members of any list value.
+  ///
+  /// After this function is called, list_length elements SHOULD be appended to
+  /// the values builder. If this contract is violated, the behavior is defined by
+  /// the concrete builder implementation and SHOULD NOT be relied upon unless
+  /// the caller is specifically building a [Large]List or [Large]ListView array.
+  ///
+  /// For [Large]List arrays, the list slot length will be the number of elements
+  /// appended to the values builder before the next call to Append* or Finish. For
+  /// [Large]ListView arrays, the list slot length will be exactly list_length, but if
+  /// Append* is called before at least list_length elements are appended to the values
+  /// builder, the current list slot will share elements with the next list
+  /// slots or an invalid [Large]ListView array will be generated because there
+  /// aren't enough elements in the values builder to fill the list slots.
   ///
   /// \pre if is_valid is false, list_length MUST be 0
   /// \param is_valid Whether the new list slot is valid
@@ -106,7 +119,17 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendNull() final { return Append(false, 0); }
+  Status AppendNull() final {
+    // Append() a null list slot with list_length=0.
+    //
+    // When building [Large]List arrays, elements being appended to the values builder
+    // before the next call to Append* or Finish will extend the list slot length, but
+    // that is totally fine because list arrays admit non-empty null list slots.
+    //
+    // In the case of [Large]ListViews that's not a problem either because the
+    // list slot length remains zero.
+    return Append(false, 0);
+  }
 
   Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -115,8 +138,16 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  /// \brief Append an empty list slot
+  ///
+  /// \post Another call to Append* or Finish should be made before appending to
+  /// the values builder to ensure list slot remains empty
   Status AppendEmptyValue() final { return Append(true, 0); }
 
+  /// \brief Append an empty list slot
+  ///
+  /// \post Another call to Append* or Finish should be made before appending to
+  /// the values builder to ensure the last list slot remains empty
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(length, true);
