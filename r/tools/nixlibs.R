@@ -46,10 +46,10 @@ find_latest_nightly <- function(description_version) {
       urls <- readLines(url_file)
       versions <- grep("arrow_.*\\.tar\\.gz", urls, value = TRUE)
       versions <- sub(".*arrow_(.*)\\.tar\\.gz.*", "\\1", x = versions)
-      versions <- sapply(versions, package_version)
-      versions <- data.frame(do.call(rbind, versions))
-      matching_major <- versions[versions$X1 == description_version[1, 1], ]
-      latest <- matching_major[which.max(matching_major$X4), ]
+      versions <- lapply(versions, package_version)
+      versions <- as.data.frame(do.call(rbind, versions))
+      matching_major <- versions[versions$X1 == description_version[1, 1], , drop = FALSE]
+      latest <- matching_major[which.max(matching_major$X4)[1], , drop = TRUE]
       package_version(paste0(latest, collapse = "."))
     },
     silent = quietly
@@ -171,7 +171,7 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
     # See if we can find a suitable binary
     lib <- select_binary()
   }
-  return(lib)
+  lib
 }
 
 check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt") {
