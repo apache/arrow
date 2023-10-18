@@ -233,7 +233,7 @@ def _break_traceback_cycle_from_frame(frame):
 def download_tzdata_on_windows():
     """
     Download and extract 2021e IANA timezone database into
-    the expected location %USERPROFILE%\Downloads\tzdata.
+    the expected location in the Downloads directory.
     """
     if sys.platform != 'win32':
         raise TypeError(f"Timezone database is already provided by {sys.platform}")
