@@ -601,7 +601,7 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
                                 uncompressed_len - levels_byte_len,
                                 decompression_buffer_->mutable_data() + levels_byte_len));
   if (decompressed_len != uncompressed_len - levels_byte_len) {
-    throw ParquetException("Page didn't decompress to expected size, expect: " +
+    throw ParquetException("Page didn't decompress to expected size, expected: " +
                            std::to_string(uncompressed_len - levels_byte_len) +
                            ", but got:" + std::to_string(decompressed_len));
   }
