@@ -164,11 +164,10 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
   ObjectInputFile(std::shared_ptr<Azure::Storage::Blobs::BlobClient> blob_client,
-                  const io::IOContext& io_context, const AzurePath& path,
-                  int64_t size = kNoSize)
+                  const io::IOContext& io_context, AzurePath path, int64_t size = kNoSize)
       : blob_client_(std::move(blob_client)),
         io_context_(io_context),
-        path_(path),
+        path_(std::move(path)),
         content_length_(size) {}
 
   Status Init() {
@@ -342,7 +341,8 @@ class AzureFileSystem::Impl {
         service_client_->GetBlobContainerClient(path.container)
             .GetBlobClient(path.path_to_file));
 
-    auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(), path);
+    auto ptr =
+        std::make_shared<ObjectInputFile>(blob_client, fs->io_context(), std::move(path));
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -362,8 +362,8 @@ class AzureFileSystem::Impl {
         service_client_->GetBlobContainerClient(path.container)
             .GetBlobClient(path.path_to_file));
 
-    auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(), path,
-                                                 info.size());
+    auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(),
+                                                 std::move(path), info.size());
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
