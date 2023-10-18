@@ -254,11 +254,8 @@ TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(info));
 
-  std::array<char, 1024> buffer{};
-  std::int64_t size;
-  ASSERT_OK_AND_ASSIGN(size, stream->Read(buffer.size(), buffer.data()));
-
-  EXPECT_EQ(std::string(buffer.data(), size), kLoremIpsum);
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
+  EXPECT_EQ(buffer->ToString(), kLoremIpsum);
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamEmpty) {
