@@ -3336,6 +3336,24 @@ def test_array_protocol():
     assert result.equals(expected)
 
 
+def test_c_array_protocol():
+    class ArrayWrapper:
+        def __init__(self, data):
+            self.data = data
+
+        def __arrow_c_array__(self, requested_type=None):
+            return self.data.__arrow_c_array__(requested_type)
+
+    # Can roundtrip through the C array protocol
+    arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))
+    result = pa.array(arr)
+    assert result == arr.data
+
+    # Will case to requested type
+    result = pa.array(arr, type=pa.int32())
+    assert result == pa.array([1, 2, 3], type=pa.int32())
+
+
 def test_concat_array():
     concatenated = pa.concat_arrays(
         [pa.array([1, 2]), pa.array([3, 4])])
