@@ -186,6 +186,9 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   /// \brief Return a reference to the storage type
   virtual const DataType& storage_type_ref() const { return *this; }
 
+  /// \brief Return the storage type
+  virtual std::shared_ptr<DataType> storage_type() const { return GetSharedPtr(); }
+
   /// \brief Returns the type's fixed byte width, if any. Returns -1
   /// for non-fixed-width types, and should only be used for
   /// subclasses of FixedWidthType
