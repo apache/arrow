@@ -234,7 +234,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc
+                   encryption/openssl_internal.cc)
   # Encryption key management
   set(PARQUET_SRCS
       ${PARQUET_SRCS}
