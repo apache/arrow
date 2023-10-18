@@ -879,6 +879,38 @@ TEST_F(TestPageSerde, DataPageV2CrcCheckNonExistent) {
                          /* write_data_page_v2 */ true);
 }
 
+TEST_F(TestPageSerde, BadCompressedPageSize) {
+  auto codec_types = GetSupportedCodecTypes();
+  const int32_t num_rows = 32;  // dummy value
+  data_page_header_.num_values = num_rows;
+  std::vector<uint8_t> faux_data;
+  test::random_bytes(1024, 0, &faux_data);
+  for (auto codec_type : codec_types) {
+    auto codec = GetCodec(codec_type);
+    std::vector<uint8_t> buffer;
+    const uint8_t* data = faux_data.data();
+    int data_size = static_cast<int>(faux_data.size());
+
+    int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
+    buffer.resize(max_compressed_size);
+
+    int64_t actual_size;
+    ASSERT_OK_AND_ASSIGN(
+        actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
+
+    actual_size += 1;  // corrupt the compressed data
+    if (buffer.size() < static_cast<size_t>(actual_size)) {
+      buffer.resize(actual_size);
+    }
+    ASSERT_NO_FATAL_FAILURE(
+        WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size)));
+    ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
+    InitSerializedPageReader(num_rows, codec_type);
+    EXPECT_THROW(page_reader_->NextPage(), ParquetException) << codec_type;
+    ResetStream();
+  }
+}
+
 // ----------------------------------------------------------------------
 // File structure tests
 
