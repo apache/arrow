@@ -141,27 +141,29 @@ class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
   std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> service_client_;
-  AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
 
-  void MakeFileSystem() {
+  TestAzureFileSystem() : generator_(std::random_device()()) {}
+
+  AzureOptions MakeOptions() {
     const std::string& account_name = GetAzuriteEnv()->account_name();
     const std::string& account_key = GetAzuriteEnv()->account_key();
-    options_.backend = AzureBackend::Azurite;
-    ASSERT_OK(options_.ConfigureAccountKeyCredentials(account_name, account_key));
+    AzureOptions options;
+    options.backend = AzureBackend::Azurite;
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
+    return options;
   }
 
   void SetUp() override {
     ASSERT_THAT(GetAzuriteEnv(), NotNull());
     ASSERT_OK(GetAzuriteEnv()->status());
 
-    MakeFileSystem();
-    generator_ = std::mt19937_64(std::random_device()());
     container_name_ = RandomChars(32);
+    auto options = MakeOptions();
     service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
-        options_.account_blob_url, options_.storage_credentials_provider);
-    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
+        options.account_blob_url, options.storage_credentials_provider);
+    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options));
     auto container_client = service_client_->GetBlobContainerClient(container_name_);
     container_client.CreateIfNotExists();
 
@@ -199,10 +201,6 @@ class TestAzureFileSystem : public ::testing::Test {
     return line;
   }
 
-  uint8_t RandomInteger() {
-    return std::uniform_int_distribution<std::uint8_t>()(generator_);
-  }
-
   std::size_t RandomIndex(std::size_t end) {
     return std::uniform_int_distribution<std::size_t>(0, end - 1)(generator_);
   }
@@ -215,7 +213,7 @@ class TestAzureFileSystem : public ::testing::Test {
     return s;
   }
 
-  void UploadLines(std::vector<std::string> lines, const char* path_to_file,
+  void UploadLines(const std::vector<std::string>& lines, const char* path_to_file,
                    int total_size) {
     // TODO: Switch to using Azure filesystem to write once its implemented.
     auto blob_client = service_client_->GetBlobContainerClient(PreexistingContainerName())

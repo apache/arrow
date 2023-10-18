@@ -163,7 +163,7 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
-  ObjectInputFile(std::shared_ptr<Azure::Storage::Blobs::BlobClient>& blob_client,
+  ObjectInputFile(std::shared_ptr<Azure::Storage::Blobs::BlobClient> blob_client,
                   const io::IOContext& io_context, const AzurePath& path,
                   int64_t size = kNoSize)
       : blob_client_(std::move(blob_client)),
@@ -191,14 +191,15 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
   }
 
-  Status CheckClosed() const {
+  Status CheckClosed(const char* action) const {
     if (closed_) {
-      return Status::Invalid("Operation on closed stream");
+      return Status::Invalid("Cannot ", action, " on closed file.");
     }
     return Status::OK();
   }
 
   Status CheckPosition(int64_t position, const char* action) const {
+    DCHECK_GE(content_length_, 0);
     if (position < 0) {
       return Status::Invalid("Cannot ", action, " from negative position");
     }
@@ -228,17 +229,17 @@ class ObjectInputFile final : public io::RandomAccessFile {
   bool closed() const override { return closed_; }
 
   Result<int64_t> Tell() const override {
-    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckClosed("tell"));
     return pos_;
   }
 
   Result<int64_t> GetSize() override {
-    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckClosed("size"));
     return content_length_;
   }
 
   Status Seek(int64_t position) override {
-    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckClosed("seek"));
     RETURN_NOT_OK(CheckPosition(position, "seek"));
 
     pos_ = position;
@@ -246,7 +247,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
-    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckClosed("read"));
     RETURN_NOT_OK(CheckPosition(position, "read"));
 
     nbytes = std::min(nbytes, content_length_ - position);
@@ -258,11 +259,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
     Azure::Core::Http::HttpRange range{.Offset = position, .Length = nbytes};
     Azure::Storage::Blobs::DownloadBlobToOptions download_options{.Range = range};
     try {
-      auto result =
-          blob_client_
-              ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
-              .Value;
-      return result.ContentRange.Length.Value();
+      return blob_client_
+          ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
+          .Value.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
       return ErrorToStatus("When reading from '" + blob_client_->GetUrl() +
                                "' at position " + std::to_string(position) + " for " +
@@ -272,7 +271,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
-    RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckClosed("read"));
     RETURN_NOT_OK(CheckPosition(position, "read"));
 
     // No need to allocate more than the remaining number of bytes
