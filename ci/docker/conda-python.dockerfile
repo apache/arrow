@@ -25,7 +25,6 @@ COPY ci/conda_env_python.txt \
      /arrow/ci/
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
-        gdb \
         python=${python} \
         nomkl && \
     mamba clean --all
