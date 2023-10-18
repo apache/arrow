@@ -83,7 +83,7 @@ struct AzurePath {
     src = internal::RemoveLeadingSlash(src);
     auto first_sep = src.find_first_of(internal::kSep);
     if (first_sep == 0) {
-      return Status::Invalid("Path cannot start with a separator ('", input_path, "')");
+      return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
       return AzurePath{std::string(src), std::string(src), "", {}};
