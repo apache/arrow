@@ -107,10 +107,15 @@ static inline std::shared_ptr<Configuration> TestConfiguration() {
 #define GANDIVA_EXTENSION_TEST_DIR "."
 #endif
 
-static inline Status LoadTestLLVMIR() {
+static inline std::filesystem::path GetTestFunctionLLVMIRPath() {
+  std::filesystem::path base(GANDIVA_EXTENSION_TEST_DIR);
+  std::filesystem::path ir_file = base / "multiply_by_two.bc";
+  return ir_file;
+}
+
+static inline Status LoadTestFunctionLLVMIR() {
   if (LLVMExternalIRStore::GetIRBuffers().empty()) {
-    std::filesystem::path base(GANDIVA_EXTENSION_TEST_DIR);
-    std::filesystem::path ir_file = base / "multiply_by_two.bc";
+    auto ir_file = GetTestFunctionLLVMIRPath();
     return LLVMExternalIRStore::Add(ir_file.string());
   }
   return arrow::Status::OK();

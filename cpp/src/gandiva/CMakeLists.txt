@@ -61,6 +61,7 @@ set(SRC_FILES
     exported_funcs.cc
     filter.cc
     function_ir_builder.cc
+    function_registrar.cc
     function_registry.cc
     function_registry_arithmetic.cc
     function_registry_datetime.cc

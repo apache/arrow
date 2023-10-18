@@ -118,7 +118,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 }
 
 TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
-  ARROW_EXPECT_OK(LoadTestLLVMIR());
+  ARROW_EXPECT_OK(LoadTestFunctionLLVMIR());
   std::unique_ptr<LLVMGenerator> generator;
   ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
 

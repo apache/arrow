@@ -26,6 +26,7 @@
 #include <cmath>
 
 #include "arrow/memory_pool.h"
+#include "gandiva/function_registrar.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
@@ -3583,16 +3584,16 @@ TEST_F(TestProjector, TestSqrtFloat64) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-Status RegisterTestExternalFunction() {
+NativeFunction GetTestExternalFunction() {
   NativeFunction multiply_by_two_func(
       "multiply_by_two", {}, {arrow::int32()}, arrow::int64(),
       ResultNullableType::kResultNullIfNull, "multiply_by_two_int32");
-  return FunctionRegistry::Add(multiply_by_two_func);
+  return multiply_by_two_func;
 }
 
 TEST_F(TestProjector, TestExtendedFunctions) {
-  ARROW_EXPECT_OK(RegisterTestExternalFunction());
-  ARROW_EXPECT_OK(LoadTestLLVMIR());
+  ARROW_EXPECT_OK(FunctionRegistrar::Register({GetTestExternalFunction()},
+                                              GetTestFunctionLLVMIRPath()));
 
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
