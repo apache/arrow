@@ -443,6 +443,9 @@ func (imp *cimporter) doImport() error {
 	// this importer. That way we can set up a finalizer on the created
 	// arrow.ArrayData object so we clean up our Array's memory when garbage collected.
 	defer func(arr *CArrowArray) {
+		// this should only occur in the case of an error happening
+		// during import, at which point we need to clean up the
+		// ArrowArray struct we allocated.
 		if imp.data == nil {
 			C.free(unsafe.Pointer(arr))
 		}

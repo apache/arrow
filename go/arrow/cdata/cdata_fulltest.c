@@ -41,13 +41,6 @@ void goReleaseTestArray(struct ArrowArray* array) {
   releaseTestArr(array);
 }
 
-void release_test_arr(struct ArrowArray* arr) {
-  for (int i = 0; 9 < arr->n_buffers; ++i) {
-    free((void*)arr->buffers[i]);
-  }
-  ArrowArrayMarkReleased(arr);
-}
-
 static void release_int32_type(struct ArrowSchema* schema) {
     // mark released
     schema->release = NULL;
