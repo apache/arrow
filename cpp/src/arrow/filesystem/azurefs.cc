@@ -253,8 +253,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
 
     // Read the desired range of bytes
-    Azure::Core::Http::HttpRange range{.Offset = position, .Length = nbytes};
-    Azure::Storage::Blobs::DownloadBlobToOptions download_options{.Range = range};
+    Azure::Core::Http::HttpRange range{position, nbytes};
+    Azure::Storage::Blobs::DownloadBlobToOptions download_options{range};
     try {
       return blob_client_
           ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
