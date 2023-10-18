@@ -39,11 +39,8 @@ find_latest_nightly <- function(description_version) {
 
   res <- try(
     {
-      url_file <- tempfile()
-      on.exit(unlink(url_file))
       # Binaries are only uploaded if all jobs pass so can just look at the source versions.
-      download.file("https://nightlies.apache.org/arrow/r/src/contrib", url_file, quiet = TRUE)
-      urls <- readLines(url_file)
+      urls <- readLines("https://nightlies.apache.org/arrow/r/src/contrib")
       versions <- grep("arrow_.*\\.tar\\.gz", urls, value = TRUE)
       versions <- sub(".*arrow_(.*)\\.tar\\.gz.*", "\\1", x = versions)
       versions <- lapply(versions, package_version)
