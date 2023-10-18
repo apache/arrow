@@ -105,7 +105,7 @@ Summary		[Component] Title
 Assignee	Name
 Components	Python
 Status		closed
-URL		https://github.com/apache/arrow/issues/Y```
+URL		https://github.com/apache/arrow/issues/Y
 ```
 
 ## Verifying Release Candidates
