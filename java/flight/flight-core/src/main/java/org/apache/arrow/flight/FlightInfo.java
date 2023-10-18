@@ -51,6 +51,7 @@ public class FlightInfo {
   private final long records;
   private final boolean ordered;
   private final IpcOption option;
+  private final String appMetadata;
 
   /**
    * Constructs a new instance.
@@ -94,6 +95,23 @@ public class FlightInfo {
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
                     long records, boolean ordered, IpcOption option) {
+    this(schema, descriptor, endpoints, bytes, records, ordered, option, null);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema of the Flight
+   * @param descriptor An identifier for the Flight.
+   * @param endpoints A list of endpoints that have the flight available.
+   * @param bytes The number of bytes in the flight
+   * @param records The number of records in the flight.
+   * @param ordered Whether the endpoints in this flight are ordered.
+   * @param option IPC write options.
+   * @param appMetadata App metadata for this flight.
+   */
+  public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
+                    long records, boolean ordered, IpcOption option, String appMetadata) {
     Objects.requireNonNull(descriptor);
     Objects.requireNonNull(endpoints);
     if (schema != null) {
@@ -106,6 +124,7 @@ public class FlightInfo {
     this.records = records;
     this.ordered = ordered;
     this.option = option;
+    this.appMetadata = appMetadata;
   }
 
   /**
@@ -131,6 +150,8 @@ public class FlightInfo {
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
     ordered = pbFlightInfo.getOrdered();
+    appMetadata = pbFlightInfo.getAppMetadata().toStringUtf8();
+
     option = IpcOption.DEFAULT;
   }
 
@@ -167,6 +188,10 @@ public class FlightInfo {
     return ordered;
   }
 
+  public String getAppMetadata() {
+    return appMetadata;
+  }
+
   /**
    * Converts to the protocol buffer representation.
    */
@@ -176,6 +201,7 @@ public class FlightInfo {
             .setFlightDescriptor(descriptor.toProtocol())
             .setTotalBytes(FlightInfo.this.bytes)
             .setTotalRecords(records)
+            .setAppMetadata(ByteString.copyFromUtf8(appMetadata))
             .setOrdered(ordered);
     if (schema != null) {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -229,12 +255,13 @@ public class FlightInfo {
         schema.equals(that.schema) &&
         descriptor.equals(that.descriptor) &&
         endpoints.equals(that.endpoints) &&
-        ordered == that.ordered;
+        ordered == that.ordered &&
+        appMetadata.equals(that.appMetadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(schema, descriptor, endpoints, bytes, records, ordered);
+    return Objects.hash(schema, descriptor, endpoints, bytes, records, ordered, appMetadata);
   }
 
   @Override
@@ -246,6 +273,7 @@ public class FlightInfo {
         ", bytes=" + bytes +
         ", records=" + records +
         ", ordered=" + ordered +
+        ", appMetadata=" + appMetadata +
         '}';
   }
 }
