@@ -19,6 +19,7 @@
 
 #include <string>
 #include <vector>
+
 #include "gandiva/native_function.h"
 #include "gandiva/visibility.h"
 

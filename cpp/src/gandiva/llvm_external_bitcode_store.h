@@ -17,16 +17,18 @@
 
 #pragma once
 
-#include <arrow/status.h>
-#include <gandiva/visibility.h>
-#include <llvm/Support/MemoryBuffer.h>
 #include <memory>
 #include <vector>
+
+#include <llvm/Support/MemoryBuffer.h>
+
+#include <arrow/status.h>
+#include <gandiva/visibility.h>
 
 namespace gandiva {
 using arrow::Status;
 
-class GANDIVA_EXPORT LLVMExternalIRStore {
+class GANDIVA_EXPORT LLVMExternalBitcodeStore {
  public:
   /// \brief add an LLVM IR to the store from a given bitcode file path
   static Status Add(const std::string& bitcode_file_path);
@@ -35,6 +37,6 @@ class GANDIVA_EXPORT LLVMExternalIRStore {
   static Status Add(std::unique_ptr<llvm::MemoryBuffer> buffer);
 
   /// \brief get a list of LLVM memory buffers saved in the store
-  static const std::vector<std::unique_ptr<llvm::MemoryBuffer>>& GetIRBuffers();
+  static const std::vector<std::unique_ptr<llvm::MemoryBuffer>>& GetBitcodeBuffers();
 };
 }  // namespace gandiva

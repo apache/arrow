@@ -17,12 +17,12 @@
 
 #include "gandiva/function_registrar.h"
 #include "gandiva/function_registry.h"
-#include "gandiva/llvm_external_ir_store.h"
+#include "gandiva/llvm_external_bitcode_store.h"
 
 namespace gandiva {
 Status FunctionRegistrar::Register(const std::vector<NativeFunction>& funcs,
                                    const std::string& bitcode_path) {
-  ARROW_RETURN_NOT_OK(LLVMExternalIRStore::Add(bitcode_path));
+  ARROW_RETURN_NOT_OK(LLVMExternalBitcodeStore::Add(bitcode_path));
   for (const auto& func : funcs) {
     ARROW_RETURN_NOT_OK(FunctionRegistry::Add(func));
   }

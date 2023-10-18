@@ -25,7 +25,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
-#include "gandiva/llvm_external_ir_store.h"
+#include "gandiva/llvm_external_bitcode_store.h"
 
 #pragma once
 
@@ -107,16 +107,16 @@ static inline std::shared_ptr<Configuration> TestConfiguration() {
 #define GANDIVA_EXTENSION_TEST_DIR "."
 #endif
 
-static inline std::filesystem::path GetTestFunctionLLVMIRPath() {
+static inline std::string GetTestFunctionLLVMIRPath() {
   std::filesystem::path base(GANDIVA_EXTENSION_TEST_DIR);
   std::filesystem::path ir_file = base / "multiply_by_two.bc";
-  return ir_file;
+  return ir_file.string();
 }
 
 static inline Status LoadTestFunctionLLVMIR() {
-  if (LLVMExternalIRStore::GetIRBuffers().empty()) {
+  if (LLVMExternalBitcodeStore::GetBitcodeBuffers().empty()) {
     auto ir_file = GetTestFunctionLLVMIRPath();
-    return LLVMExternalIRStore::Add(ir_file.string());
+    return LLVMExternalBitcodeStore::Add(ir_file);
   }
   return arrow::Status::OK();
 }

@@ -22,7 +22,7 @@
 #endif
 
 #include "gandiva/engine.h"
-#include "gandiva/llvm_external_ir_store.h"
+#include "gandiva/llvm_external_bitcode_store.h"
 
 #include <iostream>
 #include <memory>
@@ -240,6 +240,37 @@ static void SetDataLayout(llvm::Module* module) {
 }
 // end of the mofified method from MLIR
 
+static arrow::Result<std::unique_ptr<llvm::Module>> GetModule(
+    llvm::Expected<std::unique_ptr<llvm::Module>>& module_or_error) {
+  if (!module_or_error) {
+    std::string str;
+    llvm::raw_string_ostream stream(str);
+    stream << module_or_error.takeError();
+    return Status::CodeGenError(stream.str());
+  }
+  return std::move(module_or_error.get());
+}
+
+static arrow::Status VerifyAndLinkModule(
+    llvm::Module* dest_module,
+    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
+  ARROW_ASSIGN_OR_RAISE(auto src_ir_module, GetModule(src_module_or_error));
+
+  // set dataLayout
+  SetDataLayout(src_ir_module.get());
+
+  std::string error_info;
+  llvm::raw_string_ostream error_stream(error_info);
+  ARROW_RETURN_IF(
+      llvm::verifyModule(*src_ir_module, &error_stream),
+      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
+
+  ARROW_RETURN_IF(llvm::Linker::linkModules(*dest_module, std::move(src_ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
+
+  return Status::OK();
+}
+
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
   auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
@@ -253,49 +284,22 @@ Status Engine::LoadPreCompiledIR() {
                   Status::CodeGenError("Could not load module from IR: ",
                                        buffer_or_error.getError().message()));
 
-  auto buffer = std::move(buffer_or_error.get());
+  std::unique_ptr<llvm::MemoryBuffer> buffer = std::move(buffer_or_error.get());
 
   /// Parse the IR module.
-  auto module_or_error = llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
-
-  if (!module_or_error) {
-    // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
-    // (ARROW-5148)
-    std::string str;
-    llvm::raw_string_ostream stream(str);
-    stream << module_or_error.takeError();
-    return Status::CodeGenError(stream.str());
-  }
-
-  auto ir_module = std::move(module_or_error.get());
-
-  // set dataLayout
-  SetDataLayout(ir_module.get());
-
-  ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
-                  Status::CodeGenError("verify of IR Module failed"));
-  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
-                  Status::CodeGenError("failed to link IR Modules"));
-
+  llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
+      llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
+  // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
+  // (ARROW-5148)
+  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
   return Status::OK();
 }
 
 Status Engine::LoadExternalPreCompiledIR() {
-  auto const& buffers = LLVMExternalIRStore::GetIRBuffers();
+  auto const& buffers = LLVMExternalBitcodeStore::GetBitcodeBuffers();
   for (auto const& buffer : buffers) {
     auto module_or_error = llvm::parseBitcodeFile(buffer->getMemBufferRef(), *context());
-    if (!module_or_error) {
-      std::string str;
-      llvm::raw_string_ostream stream(str);
-      stream << module_or_error.takeError();
-      return Status::CodeGenError("Failed to parse bitcode file, error: " + stream.str());
-    }
-    auto ir_module = std::move(module_or_error.get());
-
-    ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
-                    Status::CodeGenError("verify of IR Module failed"));
-    ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
-                    Status::CodeGenError("failed to link IR Modules"));
+    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
   }
 
   return Status::OK();

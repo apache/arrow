@@ -77,7 +77,7 @@ set(SRC_FILES
     hash_utils.cc
     interval_holder.cc
     llvm_generator.cc
-    llvm_external_ir_store.cc
+    llvm_external_bitcode_store.cc
     llvm_types.cc
     literal_holder.cc
     projector.cc

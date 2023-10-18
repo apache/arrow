@@ -17,7 +17,6 @@
 
 #include "gandiva/llvm_generator.h"
 
-#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -28,7 +27,7 @@
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
-#include "gandiva/llvm_external_ir_store.h"
+#include "gandiva/llvm_external_bitcode_store.h"
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
