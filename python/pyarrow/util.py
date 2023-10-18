@@ -239,10 +239,10 @@ def download_tzdata_on_windows():
 
     tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
     tzdata_compressed = os.path.join(tzdata_path, "tzdata.tar.gz")
-    os.makedirs(tzdata_path)
+    os.makedirs(tzdata_path, exist_ok=True)
 
-    response = requests.get(
-        'https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz')
+    response = requests.get('https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz',
+                            stream=True)
 
     if response.status_code == 200:
         with open(tzdata_compressed, 'wb') as f:
@@ -254,8 +254,8 @@ def download_tzdata_on_windows():
 
     tarfile.open(tzdata_compressed).extractall(tzdata_path)
 
-    response_zones = requests.get(
-        'https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml')   # noqa
+    response_zones = requests.get('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml',   # noqa
+                                  stream=True)
 
     if response_zones.status_code == 200:
         with open(os.path.join(tzdata_path, "windowsZones.xml"), "wb") as f:
