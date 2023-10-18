@@ -106,6 +106,7 @@ struct BoundsChecker {
 struct ValidateArrayImpl {
   const ArrayData& data;
   const bool full_validation;
+  int64_t null_count = kUnknownNullCount;
 
   Status Validate() {
     if (data.type == nullptr) {
@@ -395,7 +396,7 @@ struct ValidateArrayImpl {
       return Status::Invalid("Dictionary values must be non-null");
     }
     // Validate dictionary
-    RETURN_NOT_OK(RecurseInto(*data.dictionary, "Dictionary array"));
+    RETURN_NOT_OK(RecurseInto(*data.dictionary, /*nullable=*/true, "Dictionary array"));
     // Validate indices
     RETURN_NOT_OK(ValidateWithType(*type.index_type()));
 
@@ -440,21 +441,29 @@ struct ValidateArrayImpl {
   Status RecurseIntoField(int field_index, const FieldDescription&... description) {
     const auto& related_data = *data.child_data[field_index];
 
-    if (!data.type->storage_type()->field(field_index)->nullable()) {
-      if (related_data.null_count != 0 && related_data.null_count != kUnknownNullCount) {
-        return Status::Invalid(description...,
-                               " invalid: was non-nullable but had null count ",
-                               related_data.null_count);
-      }
-    }
-    return RecurseInto(related_data, description...);
+    return RecurseInto(related_data,
+                       data.type->storage_type()->field(field_index)->nullable(),
+                       description...);
   }
 
   template <typename... FieldDescription>
-  Status RecurseInto(const ArrayData& related_data,
+  Status RecurseInto(const ArrayData& related_data, bool nullable,
                      const FieldDescription&... description) {
-    Status st = ValidateArrayImpl{related_data, full_validation}.Validate();
-    if (!st.ok()) {
+    ValidateArrayImpl related_validator{related_data, full_validation};
+
+    if (!nullable) {
+      int64_t related_null_count = related_data.null_count;
+      if (full_validation && related_null_count == kUnknownNullCount) {
+        related_null_count = related_validator.GetNullCount();
+      }
+
+      if (related_null_count != 0 && related_null_count != kUnknownNullCount) {
+        return Status::Invalid(description..., " invalid: was non-nullable but had ",
+                               related_null_count, " nulls");
+      }
+    }
+
+    if (Status st = related_validator.Validate(); !st.ok()) {
       return st.WithMessage(description..., " invalid: ", st.ToString());
     }
     return Status::OK();
@@ -557,24 +566,30 @@ struct ValidateArrayImpl {
 
     if (full_validation) {
       if (data.null_count != kUnknownNullCount) {
-        int64_t actual_null_count;
-        if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
-          // Do not call GetNullCount() as it would also set the `null_count` member
-          actual_null_count = data.length - CountSetBits(data.buffers[0]->data(),
-                                                         data.offset, data.length);
-        } else if (data.type->storage_id() == Type::NA) {
-          actual_null_count = data.length;
-        } else {
-          actual_null_count = 0;
-        }
-        if (actual_null_count != data.null_count) {
+        if (GetNullCount() != data.null_count) {
           return Status::Invalid("null_count value (", data.null_count,
                                  ") doesn't match actual number of nulls in array (",
-                                 actual_null_count, ")");
+                                 null_count, ")");
         }
       }
     }
     return Status::OK();
+  }
+
+  int64_t GetNullCount() {
+    if (null_count != kUnknownNullCount) return null_count;
+
+    if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
+      // Do not call GetNullCount() as it would also set the `null_count` member
+      return null_count = data.length -
+                          CountSetBits(data.buffers[0]->data(), data.offset, data.length);
+    }
+
+    if (data.type->storage_id() == Type::NA) {
+      return null_count = data.length;
+    }
+
+    return null_count = 0;
   }
 
   Status ValidateFixedWidthBuffers() {
