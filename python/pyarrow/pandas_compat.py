@@ -718,9 +718,8 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
-        block = _int.make_block(
-            np.atleast_2d(block_arr), placement=placement, dtype=dtype
-        )
+        pd_ext_arr = _pandas_api.pd.arrays.DatetimeArray(block_arr, dtype=dtype)
+        block = _int.make_block(pd_ext_arr, placement=placement)
     elif 'object' in item:
         block = _int.make_block(pickle.loads(block_arr),
                                 placement=placement)
