@@ -544,6 +544,9 @@ class TestPipeIO : public ::testing::Test {
 };
 
 TEST_F(TestPipeIO, TestWrite) {
+  #ifdef __EMSCRIPTEN__
+    GTEST_SKIP() << "Pipes not supported on Emscripten";
+  #endif
   std::string data1 = "test", data2 = "data!";
   std::shared_ptr<FileOutputStream> file;
   uint8_t buffer[10];
@@ -574,6 +577,9 @@ TEST_F(TestPipeIO, TestWrite) {
 }
 
 TEST_F(TestPipeIO, ReadableFileFails) {
+  #ifdef __EMSCRIPTEN__
+    GTEST_SKIP() << "Pipes not supported on Emscripten";
+  #endif
   // ReadableFile fails on non-seekable fd
   ASSERT_RAISES(IOError, ReadableFile::Open(pipe_.rfd.fd()));
 }
@@ -995,6 +1001,8 @@ TEST_F(TestMemoryMappedFile, LARGE_MEMORY_TEST(ReadWriteOver4GbFile)) {
 }
 
 TEST_F(TestMemoryMappedFile, RetainMemoryMapReference) {
+
+
   // ARROW-494
 
   const int64_t buffer_size = 1024;

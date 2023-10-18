@@ -22,6 +22,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <gtest/gtest-spi.h>
 
 #ifdef ARROW_WITH_UTF8PROC
 #include <utf8proc.h>
@@ -1878,17 +1879,29 @@ TYPED_TEST(TestStringKernels, Strptime) {
   this->CheckUnary("strptime", input4, unit, output4, &options);
 
   options.format = "%m/%d/%Y %%z";
-  this->CheckUnary("strptime", input5, unit, output1, &options);
+  #ifndef EMSCRIPTEN
+    // emscripten bug https://github.com/emscripten-core/emscripten/issues/20466
+    this->CheckUnary("strptime", input5, unit, output1, &options);
 
-  options.error_is_null = false;
-  this->CheckUnary("strptime", input5, unit, output1, &options);
+    options.error_is_null = false;
+    this->CheckUnary("strptime", input5, unit, output1, &options);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Invalid: Failed to parse string: '5/1/2020'"),
       Strptime(ArrayFromJSON(this->type(), input1), options));
+
+  #else
+    GTEST_SKIP()<< "Skipping some strptime tests due to emscripten bug https://github.com/emscripten-core/emscripten/issues/20466";
+  #endif
+
+
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
+#ifdef EMSCRIPTEN
+  GTEST_SKIP() << "Emscripten bug https://github.com/emscripten-core/emscripten/issues/20467 ";
+#else
+
   if (!arrow::internal::kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
@@ -1906,6 +1919,7 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   StrptimeOptions options2("%Y-%m-%dT%H:%M%z", TimeUnit::MICRO, /*error_is_null=*/true);
   this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO, "UTC"), output,
                    &options2);
+#endif                   
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {

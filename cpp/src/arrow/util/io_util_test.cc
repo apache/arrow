@@ -146,8 +146,8 @@ TEST(MemoryAdviseWillNeed, Basics) {
   ASSERT_OK(MemoryAdviseWillNeed({{addr1, 0}, {addr2 + 1, 0}}));
 
   // Should probably fail
-  // (but on Windows, MemoryAdviseWillNeed can be a no-op)
-#ifndef _WIN32
+  // (but on Windows or Emscripten, MemoryAdviseWillNeed can be a no-op)
+#if !defined(_WIN32) && !defined(EMSCRIPTEN)
   ASSERT_RAISES(IOError,
                 MemoryAdviseWillNeed({{nullptr, std::numeric_limits<size_t>::max()}}));
 #endif
