@@ -15,40 +15,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from libc.stdlib cimport malloc
+from libc.stdlib cimport malloc, free
 
 cimport cpython
 from cpython.pycapsule cimport PyCapsule_New
+from cython import sizeof
 
 
 ctypedef enum DLDeviceType:
-    kDLCPU = 1
-    kDLCUDA = 2
-    kDLCUDAHost = 3
-    kDLOpenCL = 4
-    kDLVulkan = 7
-    kDLMetal = 8
-    kDLVPI = 9
-    kDLROCM = 10
-    kDLROCMHost = 11
-    kDLExtDev = 12
-    kDLCUDAManaged = 13
-    kDLOneAPI = 14
-    kDLWebGPU = 15
-    kDLHexagon = 16
+    kDLCPU
+    kDLCUDA
+    kDLCUDAHost
+    kDLOpenCL
+    kDLVulkan
+    kDLMetal
+    kDLVPI
+    kDLROCM
+    kDLROCMHost
+    kDLExtDev
+    kDLCUDAManaged
+    kDLOneAPI
+    kDLWebGPU
+    kDLHexagon
 
 ctypedef struct DLDevice:
     DLDeviceType device_type
     int32_t device_id
 
 ctypedef enum DLDataTypeCode:
-    kDLInt = 0
-    kDLUInt = 1
-    kDLFloat = 2
-    kDLOpaqueHandle = 3
-    kDLBfloat = 4
-    kDLComplex = 5
-    kDLBool = 6
+    kDLInt
+    kDLUInt
+    kDLFloat
+    kDLOpaqueHandle
+    kDLBfloat
+    kDLComplex
+    kDLBool
 
 ctypedef struct DLDataType:
     uint8_t code
@@ -90,13 +91,12 @@ cdef void deleter(DLManagedTensor* tensor) with gil:
 cpdef object to_dlpack(Array arr) except +:
     cdef DLManagedTensor* dlm_tensor = <DLManagedTensor*> malloc(sizeof(DLManagedTensor))
 
-    cdef size_t ndim = 0
     cdef DLTensor* dl_tensor = &dlm_tensor.dl_tensor
-    dl_tensor.data = <void*> arr.ap
-    dl_tensor.ndim = ndim
-    dl_tensor.shape = NULL
-    dl_tensor.strides = NULL
-    dl_tensor.byte_offset = 0
+    #dl_tensor.data = <void*> arr.ap
+    #dl_tensor.ndim = 0
+    #dl_tensor.shape = NULL
+    #dl_tensor.strides = NULL
+    #dl_tensor.byte_offset = 0
 
     cdef DLDevice* device = &dl_tensor.device
     device.device_type = kDLCPU
