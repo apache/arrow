@@ -538,7 +538,7 @@ class NullArrayFactory {
     // For sparse unions, we create children with the same length as the parent.
     //
     // For dense unions, we create children with length 1 and have offsets which always
-    // refer to the first first slot from one child.
+    // refer to the first slot from one child.
     int64_t child_length = type.mode() == UnionMode::SPARSE ? length_ : 1;
 
     if (presizing_zero_buffer_) {
@@ -582,8 +582,9 @@ class NullArrayFactory {
   }
 
   Status Visit(const DictionaryType& type) {
-    // The dictionary's indices are non-nullable; we can still create an array
-    // by creating a dictionary which contains a single null.
+    // If the dictionary's indices are non-nullable, we can still create an array
+    // by creating a dictionary which contains a single null. In this case all
+    // indices will be zero to refer to that null.
     int64_t dictionary_length = nullable_ ? 0 : 1;
 
     if (presizing_zero_buffer_) {
@@ -633,9 +634,7 @@ class NullArrayFactory {
       return Status::OK();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto out,
-                          CreateRelated(type.storage_type(), nullable_, length_));
-    *out_ = std::move(*out);
+    ARROW_ASSIGN_OR_RAISE(out_, CreateRelated(type.storage_type(), nullable_, length_));
     out_->type = type_;
     return Status::OK();
   }
@@ -646,22 +645,21 @@ class NullArrayFactory {
 
   Result<std::shared_ptr<ArrayData>> Create() && {
     DCHECK(!presizing_zero_buffer_);
-    auto out = std::make_shared<ArrayData>();
-    out_ = out.get();
+    out_ = std::make_shared<ArrayData>();
     out_->type = type_;
     out_->length = length_;
     out_->null_count = MayHaveDirectNulls() ? length_ : 0;
     out_->offset = 0;
     out_->buffers = {};
-    out_->child_data.resize(type_->storage_type_ref().num_fields());
+    out_->child_data.resize(type_->storage_type()->num_fields());
     out_->dictionary = nullptr;
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
-    return out;
+    return std::move(out_);
   }
 
   Status CreateChild(int i, int64_t length) {
     DCHECK(!presizing_zero_buffer_);
-    const auto& field = type_->storage_type_ref().field(i);
+    const auto& field = type_->storage_type()->field(i);
     ARROW_ASSIGN_OR_RAISE(out_->child_data[i],
                           CreateRelated(field->type(), field->nullable(), length));
     return Status::OK();
@@ -682,7 +680,7 @@ class NullArrayFactory {
   const std::shared_ptr<Buffer>* zero_buffer_;
   MemoryPool* pool_;
 
-  ArrayData* out_;
+  std::shared_ptr<ArrayData> out_;
 };
 
 class RepeatedArrayFactory {

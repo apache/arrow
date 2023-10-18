@@ -458,6 +458,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       list_view(utf8()),
       large_list_view(utf8()),
       dictionary(int32(), utf8()),
+      struct_({}),
       struct_({field("a", utf8()), field("b", int32())}),
       sparse_union(union_fields1, union_type_codes),
       sparse_union(union_fields2, union_type_codes),
@@ -501,17 +502,23 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
     }
   }
 
-  auto req = [](auto type) { return field("", std::move(type), /*nullable=*/false); };
+  for (int64_t length : {0, 16}) {
+    ARROW_SCOPED_TRACE("length = ", length, " (required fields)");
 
-  // union with no nullable fields cannot represent a null
-  ASSERT_RAISES(Invalid, MakeArrayOfNull(dense_union({req(int8())}), 1));
+    auto req = [](auto type) { return field("", std::move(type), /*nullable=*/false); };
 
-  // struct with no nullable fields has a top level bitmap and can mask them
-  ASSERT_OK_AND_ASSIGN(auto s, MakeArrayOfNull(struct_({req(int8())}), 1));
-  ASSERT_OK(s->ValidateFull());
+    // union with no nullable fields cannot represent a null
+    ASSERT_RAISES(Invalid, MakeArrayOfNull(dense_union({req(int8())}), length));
 
-  ASSERT_OK_AND_ASSIGN(s, MakeArrayOfNull(struct_({req(dictionary(int8(), int8()))}), 1));
-  ASSERT_OK(s->ValidateFull());
+    // struct with no nullable fields has a top level bitmap and can mask them
+    ASSERT_OK_AND_ASSIGN(auto s, MakeArrayOfNull(struct_({req(int8())}), length));
+    ASSERT_OK(s->ValidateFull());
+
+    // dictionary with non-nullable indices can use a 1-long dict of null
+    ASSERT_OK_AND_ASSIGN(
+        s, MakeArrayOfNull(struct_({req(dictionary(int8(), int8()))}), length));
+    ASSERT_OK(s->ValidateFull());
+  }
 }
 
 TEST_F(TestArray, TestMakeArrayOfNullUnion) {

@@ -293,7 +293,7 @@ struct ValidateArrayImpl {
   Status Visit(const StructType& type) {
     for (int i = 0; i < type.num_fields(); ++i) {
       // Validate child first, to catch nonsensical length / offset etc.
-      RETURN_NOT_OK(RecurseIntoField(0, "Struct child array #", i));
+      RETURN_NOT_OK(RecurseIntoField(i, "Struct child array #", i));
 
       const auto& field_data = *data.child_data[i];
       if (field_data.length < data.length + data.offset) {
@@ -440,7 +440,7 @@ struct ValidateArrayImpl {
   Status RecurseIntoField(int field_index, const FieldDescription&... description) {
     const auto& related_data = *data.child_data[field_index];
 
-    if (!data.type->storage_type_ref().field(field_index)->nullable()) {
+    if (!data.type->storage_type()->field(field_index)->nullable()) {
       if (related_data.null_count != 0 && related_data.null_count != kUnknownNullCount) {
         return Status::Invalid(description...,
                                " invalid: was non-nullable but had null count ",
