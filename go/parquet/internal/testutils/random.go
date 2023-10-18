@@ -374,10 +374,9 @@ func randFloat64(r *rand.Rand) float64 {
 // to better spread the values out and ensure we do not return any NaN or Inf values.
 func randFloat16(r *rand.Rand) float16.Num {
 	for {
-		f16 := float16.FromBits(uint16(r.Uint64n(math.MaxUint16 + 1)))
-		f64 := float64(f16.Float32())
-		if !math.IsNaN(f64) && !math.IsInf(f64, 0) {
-			return f16
+		f := float16.FromBits(uint16(r.Uint64n(math.MaxUint16 + 1)))
+		if !f.IsNaN() {
+			return f
 		}
 	}
 }
