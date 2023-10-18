@@ -23,6 +23,10 @@ lg <- function(..., .indent = "***") {
   cat(.indent, " ", sprintf(...), "\n", sep = "")
 }
 
+del <- function(path) {
+  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), path))
+}
+
 # Exit the script after logging with .status=1 instead of throwing an error
 exit <- function(..., .status = 1) {
   lg(...)
@@ -486,7 +490,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     # But normally we'll just build in a tmp dir
     build_dir <- tempfile()
   }
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
+  del(build_dir)
 
   env_var_list <- c(
     SOURCE_DIR = src_dir,
@@ -604,7 +608,7 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
     }
     untar(cmake_tar, exdir = cmake_dir)
     unlink(cmake_tar)
-    options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
+    del(cmake_dir)
     cmake <- paste0(
       cmake_dir,
       "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
@@ -784,7 +788,7 @@ with_cloud_support <- function(env_var_list) {
 cmake_find_package <- function(pkg, version = NULL, env_var_list) {
   td <- tempfile()
   dir.create(td)
-  options(.arrow.cleanup = c(getOption(".arrow.cleanup"), td))
+  del(td)
   find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   env_vars <- env_vars_as_string(env_var_list)
@@ -833,8 +837,10 @@ if (is_release) {
   VERSION <- find_latest_nightly(VERSION)
 }
 
-options(.arrow.cleanup = character()) # To collect dirs to rm on exit
-on.exit(unlink(getOption(".arrow.cleanup")))
+# To collect dirs to rm on exit, use del() to add dirs
+# we reset it to avoid errors on reruns in the same session.
+options(.arrow.cleanup = character())
+on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
 
 # enable full featured builds for macOS in case of CRAN source builds.
 if (not_cran || on_macos) {
