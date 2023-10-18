@@ -881,10 +881,12 @@ TEST_F(TestPageSerde, DataPageV2CrcCheckNonExistent) {
 
 TEST_F(TestPageSerde, BadCompressedPageSize) {
   auto codec_types = GetSupportedCodecTypes();
+  const int data_page_bytes = 8192;
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
   std::vector<uint8_t> faux_data;
-  test::random_bytes(1024, 0, &faux_data);
+  // Resize and make all to 1 to make it well-compressed.
+  faux_data.resize(data_page_bytes, 1);
   for (auto codec_type : codec_types) {
     auto codec = GetCodec(codec_type);
     std::vector<uint8_t> buffer;
@@ -897,16 +899,21 @@ TEST_F(TestPageSerde, BadCompressedPageSize) {
     int64_t actual_size;
     ASSERT_OK_AND_ASSIGN(
         actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
-
-    actual_size += 1;  // corrupt the compressed data
-    if (buffer.size() < static_cast<size_t>(actual_size)) {
-      buffer.resize(actual_size);
-    }
-    ASSERT_NO_FATAL_FAILURE(
-        WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size)));
+    ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(data_page_bytes, data_size + 1,
+                                                static_cast<int32_t>(actual_size)));
     ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
     InitSerializedPageReader(num_rows, codec_type);
-    EXPECT_THROW(page_reader_->NextPage(), ParquetException) << codec_type;
+
+    EXPECT_THROW_THAT(
+        [&]() { page_reader_->NextPage(); }, ParquetException,
+        ::testing::AnyOf(
+            ::testing::Property(
+                &ParquetException::what,
+                ::testing::HasSubstr("Page didn't decompress to expected size")),
+            // Some decompressor, like zstd, might be able to detect the error
+            // before checking the page size.
+            ::testing::Property(&ParquetException::what,
+                                ::testing::HasSubstr("IOError"))));
     ResetStream();
   }
 }
