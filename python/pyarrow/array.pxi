@@ -4220,22 +4220,33 @@ cdef class StructArray(Array):
 
         c_mask = c_mask_inverted_from_obj(mask, memory_pool)
 
-        arrays = [asarray(x) for x in arrays]
-        for arr in arrays:
-            c_array = pyarrow_unwrap_array(arr)
-            if c_array == nullptr:
-                raise TypeError(f"Expected Array, got {arr.__class__}")
-            c_arrays.push_back(c_array)
         if names is not None:
             for name in names:
                 c_names.push_back(tobytes(name))
+            arrays = [asarray(x) for x in arrays]
         else:
+            py_fields = []
             for item in fields:
                 if isinstance(item, tuple):
                     py_field = field(*item)
                 else:
                     py_field = item
+                py_fields.append(py_field)
                 c_fields.push_back(py_field.sp_field)
+
+            # This needs to be enumerate, not zip, in order to make
+            # sure that there is a field provided for every array.
+            try:
+                arrays = [asarray(ary, py_fields[i].type)
+                          for i, ary in enumerate(arrays)]
+            except IndexError:
+                raise ValueError("Must pass same number of arrays as fields")
+
+        for arr in arrays:
+            c_array = pyarrow_unwrap_array(arr)
+            if c_array == nullptr:
+                raise TypeError(f"Expected Array, got {arr.__class__}")
+            c_arrays.push_back(c_array)
 
         if (c_arrays.size() == 0 and c_names.size() == 0 and
                 c_fields.size() == 0):
