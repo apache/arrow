@@ -150,6 +150,13 @@ classdef tListArray < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
+        function ErrorIfEmptyOffsets(testCase)
+            % Verify that an error is thrown if an empty array if an empty
+            % Offsets array is provided to arrow.array.ListArray.fromArrays.
+            fcn = @() arrow.array.ListArray.fromArrays(arrow.array(int32.empty(0, 0)), arrow.array([1, 2, 3]));
+            testCase.verifyError(fcn, "arrow:array:ListArrayFromArraysFailed");
+        end
+
     end
 
 end
