@@ -172,7 +172,7 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
     # See if we can find a suitable binary
     lib <- select_binary()
   }
-  return(lib)
+  lib
 }
 
 check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt") {
