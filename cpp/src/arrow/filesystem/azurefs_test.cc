@@ -215,7 +215,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void UploadLines(const std::vector<std::string>& lines, const char* path_to_file,
                    int total_size) {
-    // TODO: Switch to using Azure filesystem to write once its implemented.
+    // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
     auto blob_client = service_client_->GetBlobContainerClient(PreexistingContainerName())
                            .GetBlockBlobClient(path_to_file);
     std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
@@ -247,7 +247,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamStringBuffers) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
-  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
   // fs->GetFileInfo(PreexistingObjectPath()));
   arrow::fs::FileInfo info(PreexistingObjectPath(), FileType::File);
 
@@ -277,12 +277,12 @@ TEST_F(TestAzureFileSystem, OpenInputStreamNotFound) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamInfoInvalid) {
-  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
   // fs->GetFileInfo(PreexistingBucketPath()));
   arrow::fs::FileInfo info(PreexistingContainerPath(), FileType::Directory);
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info));
 
-  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
   // fs->GetFileInfo(NotFoundObjectPath()));
   arrow::fs::FileInfo info2(PreexistingContainerPath(), FileType::NotFound);
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info2));
@@ -308,8 +308,8 @@ TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
 
   std::shared_ptr<const KeyValueMetadata> actual;
   ASSERT_OK_AND_ASSIGN(actual, stream->ReadMetadata());
-  // TODO(GH-38330): This is asserting that the user defined metadata is returned but this is 
-  // probably not the correct behaviour.
+  // TODO(GH-38330): This is asserting that the user defined metadata is returned but this
+  // is probably not the correct behaviour.
   ASSERT_OK_AND_EQ("value0", actual->Get("key0"));
 }
 
@@ -413,7 +413,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputFileInfo) {
-  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
   // fs->GetFileInfo(PreexistingObjectPath()));
   arrow::fs::FileInfo info(PreexistingObjectPath(), FileType::File);
 
@@ -434,12 +434,12 @@ TEST_F(TestAzureFileSystem, OpenInputFileNotFound) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputFileInfoInvalid) {
-  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
   // fs->GetFileInfo(PreexistingContainerPath()));
   arrow::fs::FileInfo info(PreexistingContainerPath(), FileType::File);
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info));
 
-  // TODO: When implemented use ASSERT_OK_AND_ASSIGN(info,
+  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
   // fs->GetFileInfo(NotFoundObjectPath()));
   arrow::fs::FileInfo info2(NotFoundObjectPath(), FileType::NotFound);
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info2));
