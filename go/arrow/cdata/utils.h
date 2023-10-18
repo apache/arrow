@@ -17,17 +17,6 @@
 // +build cgo
 // +build test
 
-/* 
-   Function check_for_endianness() returns 1, if architecture 
-   is little endian, 0 in case of big endian.
-*/
-inline int is_little_endian()
-{
-  unsigned int x = 1;
-  char *c = (char*) &x;
-  return (int)*c;
-}
-
 // metadata keys 1: {"key1", "key2"}
 // metadata values 1: {"", "bar"}
 static const char kEncodedMeta1LE[] = {

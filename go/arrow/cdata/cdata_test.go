@@ -40,6 +40,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/decimal128"
 	"github.com/apache/arrow/go/v14/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow/memory/mallocator"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -488,8 +489,11 @@ func TestPrimitiveArrs(t *testing.T) {
 			arr := tt.fn()
 			defer arr.Release()
 
-			carr := createCArr(arr)
-			defer freeTestArr(carr)
+			mem := mallocator.NewMallocator()
+			defer mem.AssertSize(t, 0)
+
+			carr := createCArr(arr, mem)
+			defer freeTestMallocatorArr(carr, mem)
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
@@ -508,8 +512,11 @@ func TestPrimitiveSliced(t *testing.T) {
 	sl := array.NewSlice(arr, 1, 2)
 	defer sl.Release()
 
-	carr := createCArr(sl)
-	defer freeTestArr(carr)
+	mem := mallocator.NewMallocator()
+	defer mem.AssertSize(t, 0)
+
+	carr := createCArr(sl, mem)
+	defer freeTestMallocatorArr(carr, mem)
 
 	imported, err := ImportCArrayWithType(carr, arr.DataType())
 	assert.NoError(t, err)
@@ -687,8 +694,11 @@ func TestNestedArrays(t *testing.T) {
 			arr := tt.fn()
 			defer arr.Release()
 
-			carr := createCArr(arr)
-			defer freeTestArr(carr)
+			mem := mallocator.NewMallocator()
+			defer mem.AssertSize(t, 0)
+
+			carr := createCArr(arr, mem)
+			defer freeTestMallocatorArr(carr, mem)
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
@@ -701,11 +711,14 @@ func TestNestedArrays(t *testing.T) {
 }
 
 func TestRecordBatch(t *testing.T) {
+	mem := mallocator.NewMallocator()
+	defer mem.AssertSize(t, 0)
+
 	arr := createTestStructArr()
 	defer arr.Release()
 
-	carr := createCArr(arr)
-	defer freeTestArr(carr)
+	carr := createCArr(arr, mem)
+	defer freeTestMallocatorArr(carr, mem)
 
 	sc := testStruct([]string{"+s", "c", "u"}, []string{"", "a", "b"}, []int64{0, flagIsNullable, flagIsNullable})
 	defer freeMallocedSchemas(sc)
