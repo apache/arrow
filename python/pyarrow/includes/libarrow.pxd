@@ -2743,13 +2743,13 @@ cdef extern from "arrow/array/concatenate.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/c/abi.h":
     cdef struct ArrowSchema:
-        pass
+        void (*release)(ArrowSchema*) noexcept nogil
 
     cdef struct ArrowArray:
-        pass
+        void (*release)(ArrowArray*) noexcept nogil
 
     cdef struct ArrowArrayStream:
-        pass
+        void (*release)(ArrowArrayStream*) noexcept nogil
 
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)

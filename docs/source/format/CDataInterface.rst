@@ -990,3 +990,14 @@ adaptation cost.
 
 
 .. _Python buffer protocol: https://www.python.org/dev/peps/pep-3118/
+
+Language-specific protocols
+===========================
+
+Some languages may define additional protocols on top of the Arrow C data
+interface.
+
+.. toctree::
+   :maxdepth: 1
+
+   CDataInterface/PyCapsuleInterface
