@@ -28,7 +28,7 @@ classdef tListArray < matlab.unittest.TestCase
     methods (TestParameterDefinition, Static)
 
         function TestArrowArray = initializeTestArrowArray()
-            %% Zero-element list
+            %% Empty (zero-element) list
             Type = arrow.list(arrow.float64());
             NumElements = int64(0);
             Valid = logical.empty(0, 1);
@@ -37,7 +37,7 @@ classdef tListArray < matlab.unittest.TestCase
             ArrowArray = arrow.array.ListArray.fromArrays(Offsets, Values, Valid=Valid);
             MatlabArray = {cell.empty(0, 1)};
 
-            TestArrowArray.ZeroElementList = struct( ...
+            TestArrowArray.EmptyList = struct( ...
                 ArrowArray=ArrowArray, ...
                 MatlabArray=MatlabArray, ...
                 Properties=struct(...
