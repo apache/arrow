@@ -82,7 +82,8 @@ tzdata on Windows
 While Arrow uses the OS-provided timezone database on Linux and macOS, it requires a
 user-provided database on Windows. To download and extract the text version of
 the IANA timezone database follow the instructions in the C++
-:ref:`download-timezone-database`.
+:ref:`download-timezone-database` or use pyarrow utility function
+`pyarrow.util.download_tzdata_on_windows()` that does the same.
 
 By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``.
 If the database has been downloaded in a different location, you will need to set
