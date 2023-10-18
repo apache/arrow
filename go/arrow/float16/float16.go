@@ -163,21 +163,26 @@ func (n Num) Abs() Num {
 }
 
 func (n Num) Sign() int {
-	f := n.Float32()
-	if f > 0 {
-		return 1
-	} else if f == 0 {
+	if n.IsZero() {
 		return 0
+	} else if n.Signbit() {
+		return -1
 	}
-	return -1
+	return 1
 }
 
 func (n Num) Signbit() bool { return (n.bits & 0x8000) != 0 }
 
 func (n Num) IsNaN() bool { return (n.bits & 0x7fff) > 0x7c00 }
 
+func (n Num) IsZero() bool { return (n.bits & 0x7fff) == 0 }
+
 func (f Num) Uint16() uint16 { return f.bits }
 func (f Num) String() string { return strconv.FormatFloat(float64(f.Float32()), 'g', -1, 32) }
+
+func Inf() Num { return Num{bits: 0x7c00} }
+
+func NaN() Num { return Num{bits: 0x7fff} }
 
 func FromBits(src uint16) Num { return Num{bits: src} }
 

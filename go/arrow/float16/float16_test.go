@@ -238,6 +238,7 @@ func TestSign(t *testing.T) {
 	}{
 		{Num{bits: 0x4580}, 1},  // 5.5
 		{Num{bits: 0x0000}, 0},  // 0
+		{Num{bits: 0x8000}, 0},  // -0
 		{Num{bits: 0xC580}, -1}, // -5.5
 	} {
 		t.Run("sign", func(t *testing.T) {
@@ -273,12 +274,14 @@ func TestIsNaN(t *testing.T) {
 		n    Num
 		want bool
 	}{
-		{Num{bits: 0x7c00}, false}, // inf
-		{Num{bits: 0xfc00}, false}, // -inf
-		{Num{bits: 0x7c01}, true},  // nan
-		{Num{bits: 0xfc01}, true},  // -nan
-		{Num{bits: 0x7e00}, true},  // nan
-		{Num{bits: 0xfe00}, true},  // -nan
+		{NaN(), true},
+		{NaN().Negate(), true},
+		{Inf(), false},
+		{Inf().Negate(), false},
+		{Num{bits: 0x7c01}, true}, // nan
+		{Num{bits: 0xfc01}, true}, // -nan
+		{Num{bits: 0x7e00}, true}, // nan
+		{Num{bits: 0xfe00}, true}, // -nan
 	} {
 		t.Run("isnan", func(t *testing.T) {
 			n := tc.n.IsNaN()
