@@ -203,11 +203,10 @@ func (w *{{.Name}}ColumnChunkWriter) writeValues(values []{{.name}}, numNulls in
 {{- if ne .Name "FixedLenByteArray"}}
     w.pageStatistics.(*metadata.{{.Name}}Statistics).Update(values, numNulls)
 {{- else}}
-    s, ok := w.pageStatistics.(*metadata.{{.Name}}Statistics)
-    if ok {
-      s.Update(values, numNulls)
-    } else {
+    if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
       w.pageStatistics.(*metadata.Float16Statistics).Update(values, numNulls)
+    } else {
+      w.pageStatistics.(*metadata.{{.Name}}Statistics).Update(values, numNulls)
     }
 {{- end}}
   }
@@ -224,11 +223,10 @@ func (w *{{.Name}}ColumnChunkWriter) writeValuesSpaced(spacedValues []{{.name}},
 {{- if ne .Name "FixedLenByteArray"}}
     w.pageStatistics.(*metadata.{{.Name}}Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
 {{- else}}
-    s, ok := w.pageStatistics.(*metadata.{{.Name}}Statistics)
-    if ok {
-      s.UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
-    } else {
+    if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
       w.pageStatistics.(*metadata.Float16Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+    } else {
+      w.pageStatistics.(*metadata.{{.Name}}Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
     }
 {{- end}}
   }
