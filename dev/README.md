@@ -91,15 +91,6 @@ Author 1: Name
 Pull request #X merged!
 Merge hash: #hash
 
-Would you like to update the associated JIRA? (y/n): y
-Enter comma-separated fix version(s) [11.0.0]:
-```
-
-```text
-Author 1: Name
-Pull request #X merged!
-Merge hash: #hash
-
 Would you like to update the associated issue? (y/n): y
 Enter fix version [11.0.0]:
 ```
