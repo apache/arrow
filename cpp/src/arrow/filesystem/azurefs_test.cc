@@ -314,6 +314,8 @@ TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
 
   std::shared_ptr<const KeyValueMetadata> actual;
   ASSERT_OK_AND_ASSIGN(actual, stream->ReadMetadata());
+  // TODO(GH-38330): This is asserting that the user defined metadata is returned but this is 
+  // probably not the correct behaviour.
   ASSERT_OK_AND_EQ("value0", actual->Get("key0"));
 }
 
