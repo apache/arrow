@@ -28,11 +28,12 @@ if (test_mode && is.na(VERSION)) {
 }
 
 dev_version <- package_version(VERSION)[1, 4]
+is_release <- is.na(dev_version) || dev_version < "100"
 on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
-
+checksum_path <- Sys.getenv("ARROW_R_CHECKSUM_PATH", "tools/checksums")
 
 # Small dev versions are added for R-only changes during CRAN submission.
-if (is.na(dev_version) || dev_version < "100") {
+if (is_release) {
   VERSION <- package_version(VERSION)[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {
@@ -56,7 +57,8 @@ try_download <- function(from_url, to_file, hush = quietly) {
 }
 
 not_cran <- env_is("NOT_CRAN", "true")
-if (not_cran) {
+# enable full featured builds and binaries for macOS (or if the NOT_CRAN variable has been set)
+if (not_cran || on_macos) {
   # Set more eager defaults
   if (env_is("LIBARROW_BINARY", "")) {
     Sys.setenv(LIBARROW_BINARY = "true")
@@ -88,7 +90,7 @@ thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tool
 
 
 download_binary <- function(lib) {
-  libfile <- tempfile()
+  libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
     if (!quietly) {
@@ -103,6 +105,42 @@ download_binary <- function(lib) {
     }
     libfile <- NULL
   }
+  # Explicitly setting the env var to "false" will skip checksum validation
+  # e.g. in case the included checksums are stale.
+  skip_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "false")
+  enforce_checksum <- env_is("ARROW_R_ENFORCE_CHECKSUM", "true")
+  # validate binary checksum for CRAN release only
+  if (!skip_checksum && dir.exists(checksum_path) && is_release ||
+    enforce_checksum) {
+    checksum_file <- sub(".+/bin/(.+\\.zip)", "\\1\\.sha512", binary_url)
+    checksum_file <- file.path(checksum_path, checksum_file)
+    checksum_cmd <- "shasum"
+    checksum_args <- c("--status", "-a", "512", "-c", checksum_file)
+
+    # shasum is not available on all linux versions
+    status_shasum <- try(
+      suppressWarnings(
+        system2("shasum", args = c("--help"), stdout = FALSE, stderr = FALSE)
+      ),
+      silent = TRUE
+    )
+
+    if (inherits(status_shasum, "try-error") || is.integer(status_shasum) && status_shasum != 0) {
+      checksum_cmd <- "sha512sum"
+      checksum_args <- c("--status", "-c", checksum_file)
+    }
+
+    checksum_ok <- system2(checksum_cmd, args = checksum_args)
+
+    if (checksum_ok != 0) {
+      cat("*** Checksum validation failed for libarrow binary: ", libfile, "\n")
+      unlink(libfile)
+      libfile <- NULL
+    } else {
+      cat("*** Checksum validated successfully for libarrow binary: ", libfile, "\n")
+    }
+  }
+
   libfile
 }
 
@@ -722,6 +760,7 @@ is_feature_requested <- function(env_varname, default = env_is("LIBARROW_MINIMAL
 with_cloud_support <- function(env_var_list) {
   arrow_s3 <- is_feature_requested("ARROW_S3")
   arrow_gcs <- is_feature_requested("ARROW_GCS")
+
   if (arrow_s3 || arrow_gcs) {
     # User wants S3 or GCS support.
     # Make sure that we have curl and openssl system libs
@@ -736,11 +775,6 @@ with_cloud_support <- function(env_var_list) {
       cat("**** ", start_msg, " support ", msg, "; building with ", off_flags, "\n")
     }
 
-    # Check the features
-    # This duplicates what we do with the test program above when we check
-    # capabilities for using binaries. We could consider consolidating this
-    # logic, though these use cmake in order to match exactly what we do in the
-    # libarrow build, and maybe that increases the fidelity.
     if (!cmake_find_package("CURL", NULL, env_var_list)) {
       # curl on macos should be installed, so no need to alter this for macos
       # TODO: check for apt/yum/etc. and message the right thing?

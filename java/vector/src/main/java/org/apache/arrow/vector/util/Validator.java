@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -77,6 +78,31 @@ public class Validator {
           "dictionary with id: " + id + "\n" + dict1 + "\n" + dict2);
       }
 
+      try {
+        compareFieldVectors(dict1.getVector(), dict2.getVector());
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException("Different dictionaries:\n" + dict1 + "\n" + dict2, e);
+      }
+    }
+  }
+
+  /**
+   * Validate two dictionary providers are equal in structure and contents.
+   */
+  public static void compareDictionaryProviders(
+          DictionaryProvider provider1,
+          DictionaryProvider provider2) {
+    List<Long> ids1 = new ArrayList(provider1.getDictionaryIds());
+    List<Long> ids2 = new ArrayList(provider2.getDictionaryIds());
+    java.util.Collections.sort(ids1);
+    java.util.Collections.sort(ids2);
+    if (!ids1.equals(ids2)) {
+      throw new IllegalArgumentException("Different ids in dictionary providers:\n" +
+              ids1 + "\n" + ids2);
+    }
+    for (long id : ids1) {
+      Dictionary dict1 = provider1.lookup(id);
+      Dictionary dict2 = provider2.lookup(id);
       try {
         compareFieldVectors(dict1.getVector(), dict2.getVector());
       } catch (IllegalArgumentException e) {

@@ -79,6 +79,7 @@ RUN apt-get update -y -q && \
         libc-ares-dev \
         libcurl4-openssl-dev \
         libgflags-dev \
+        libgmock-dev \
         libgoogle-glog-dev \
         libgrpc++-dev \
         libidn2-dev \
@@ -166,7 +167,6 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # provided by the distribution:
 # - Abseil is old
 # - libc-ares-dev does not install CMake config files
-# - libgtest-dev only provide sources
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
     ARROW_AZURE=ON \
@@ -200,7 +200,6 @@ ENV absl_SOURCE=BUNDLED \
     AWSSDK_SOURCE=BUNDLED \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \

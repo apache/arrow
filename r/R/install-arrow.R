@@ -79,7 +79,8 @@ install_arrow <- function(nightly = FALSE,
     # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
     apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
     # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
-    if (on_rosetta()) {
+    rosetta <- on_rosetta()
+    if (rosetta) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
     }
     if (apple_m1 || rosetta) {
@@ -266,4 +267,10 @@ wslify_path <- function(path) {
   wslified_drive <- paste0("/mnt/", tolower(drive_letter))
   end_path <- strsplit(path, drive_expr)[[1]][-1]
   file.path(wslified_drive, end_path)
+}
+
+on_rosetta <- function() {
+  # make sure to suppress warnings and ignore the stderr so that this is silent where proc_translated doesn't exist
+  identical(tolower(Sys.info()[["sysname"]]), "darwin") &&
+    identical(suppressWarnings(system("sysctl -n sysctl.proc_translated", intern = TRUE, ignore.stderr = TRUE)), "1")
 }

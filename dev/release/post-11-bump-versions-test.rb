@@ -128,13 +128,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
         ],
       },
-      {
-        path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
-        hunks: [
-          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
-           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
-        ],
-      },
     ]
     unless release_type == :patch
       expected_changes += [
