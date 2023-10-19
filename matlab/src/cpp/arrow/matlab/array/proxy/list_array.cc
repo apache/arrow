@@ -31,9 +31,9 @@ namespace arrow::matlab::array::proxy {
     libmexclass::proxy::MakeResult ListArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
         using libmexclass::proxy::ProxyManager;
-        using Int32ArrayProxy = ::arrow::matlab::array::proxy::NumericArray<arrow::Int32Type>;
-        using ListArrayProxy = ::arrow::matlab::array::proxy::ListArray;
-        using ArrayProxy = ::arrow::matlab::array::proxy::Array;
+        using Int32ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Int32Type>;
+        using ListArrayProxy = arrow::matlab::array::proxy::ListArray;
+        using ArrayProxy = arrow::matlab::array::proxy::Array;
 
         mda::StructArray opts = constructor_arguments[0];
         const mda::TypedArray<uint64_t> offsets_proxy_id_mda = opts[0]["OffsetsProxyID"];
@@ -91,7 +91,7 @@ namespace arrow::matlab::array::proxy {
     void ListArray::getOffsets(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         using libmexclass::proxy::ProxyManager;
-        using Int32ArrayProxy = ::arrow::matlab::array::proxy::NumericArray<arrow::Int32Type>;
+        using Int32ArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::Int32Type>;
         auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
         auto offsets_array = list_array->offsets();
         auto offsets_int32_array = std::static_pointer_cast<arrow::Int32Array>(offsets_array);
