@@ -1859,9 +1859,10 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {
-  #ifdef EMSCRIPTEN
-    GTEST_SKIP()<< "Skipping some strptime tests due to emscripten bug https://github.com/emscripten-core/emscripten/issues/20466";
-  #endif
+#ifdef EMSCRIPTEN
+  GTEST_SKIP() << "Skipping some strptime tests due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20466";
+#endif
 
   std::string input1 = R"(["5/1/2020", null, null, "12/13/1900", null])";
   std::string input2 = R"(["5-1-2020", "12/13/1900"])";
@@ -1892,7 +1893,6 @@ TYPED_TEST(TestStringKernels, Strptime) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("Invalid: Failed to parse string: '5/1/2020'"),
       Strptime(ArrayFromJSON(this->type(), input1), options));
-
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
