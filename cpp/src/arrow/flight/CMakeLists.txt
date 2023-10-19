@@ -163,7 +163,8 @@ if(MSVC)
                            "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h")
     # Suppress missing dll-interface warning
     set_source_files_properties("${GENERATED_SOURCE}"
-                                PROPERTIES COMPILE_OPTIONS "/wd4251" GENERATED TRUE
+                                PROPERTIES COMPILE_OPTIONS "/wd4251"
+                                           GENERATED TRUE
                                            SKIP_UNITY_BUILD_INCLUSION TRUE)
   endforeach()
 endif()
