@@ -28,7 +28,7 @@ classdef tListArray < matlab.unittest.TestCase
     methods (TestParameterDefinition, Static)
 
         function TestArrowArray = initializeTestArrowArray()
-            %% Empty (zero-element) list
+            %% Empty (zero-element) list (List<Float64>)
             Type = arrow.list(arrow.float64());
             NumElements = int64(0);
             Valid = logical.empty(0, 1);
@@ -49,7 +49,7 @@ classdef tListArray < matlab.unittest.TestCase
                 ) ...
             );
 
-            %% List with NULLs
+            %% List with NULLs (List<String>)
             Type = arrow.list(arrow.string());
             NumElements = int64(4);
             Valid = [true, false, true, false];
