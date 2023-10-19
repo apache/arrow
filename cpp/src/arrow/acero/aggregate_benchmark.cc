@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/exec.h"
 #include "benchmark/benchmark.h"
 
 #include <vector>
@@ -37,7 +39,9 @@ using compute::Count;
 using compute::MinMax;
 using compute::Mode;
 using compute::QuantileOptions;
+using compute::ScalarAggregateOptions;
 using compute::Sum;
+using compute::SumChecked;
 using compute::TDigest;
 using compute::TDigestOptions;
 using compute::VarianceOptions;
@@ -566,8 +570,8 @@ GROUP_BY_BENCHMARK(MinMaxLongStringsGroupedByMediumInt, [&] {
 // Sum
 //
 
-template <typename ArrowType>
-static void SumKernel(benchmark::State& state) {
+template <typename ArrowType, typename Func>
+static void SumKernel(benchmark::State& state, Func&& sum_func) {
   using CType = typename TypeTraits<ArrowType>::CType;
 
   RegressionArgs args(state);
@@ -576,7 +580,7 @@ static void SumKernel(benchmark::State& state) {
   auto array = rand.Numeric<ArrowType>(array_size, -100, 100, args.null_proportion);
 
   for (auto _ : state) {
-    ABORT_NOT_OK(Sum(array).status());
+    ABORT_NOT_OK(sum_func(array, ScalarAggregateOptions::Defaults(), nullptr).status());
   }
 }
 
@@ -584,16 +588,22 @@ static void SumKernelArgs(benchmark::internal::Benchmark* bench) {
   BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});  // 1M
 }
 
-#define SUM_KERNEL_BENCHMARK(FuncName, Type)                                \
-  static void FuncName(benchmark::State& state) { SumKernel<Type>(state); } \
+#define SUM_KERNEL_BENCHMARK(FuncName, Type, SumFunc)                                \
+  static void FuncName(benchmark::State& state) { SumKernel<Type>(state, SumFunc); } \
   BENCHMARK(FuncName)->Apply(SumKernelArgs)
 
-SUM_KERNEL_BENCHMARK(SumKernelFloat, FloatType);
-SUM_KERNEL_BENCHMARK(SumKernelDouble, DoubleType);
-SUM_KERNEL_BENCHMARK(SumKernelInt8, Int8Type);
-SUM_KERNEL_BENCHMARK(SumKernelInt16, Int16Type);
-SUM_KERNEL_BENCHMARK(SumKernelInt32, Int32Type);
-SUM_KERNEL_BENCHMARK(SumKernelInt64, Int64Type);
+SUM_KERNEL_BENCHMARK(SumKernelFloat, FloatType, Sum);
+SUM_KERNEL_BENCHMARK(SumKernelDouble, DoubleType, Sum);
+SUM_KERNEL_BENCHMARK(SumKernelInt8, Int8Type, Sum);
+SUM_KERNEL_BENCHMARK(SumKernelInt16, Int16Type, Sum);
+SUM_KERNEL_BENCHMARK(SumKernelInt32, Int32Type, Sum);
+SUM_KERNEL_BENCHMARK(SumKernelInt64, Int64Type, Sum);
+SUM_KERNEL_BENCHMARK(SumCheckedKernelFloat, FloatType, SumChecked);
+SUM_KERNEL_BENCHMARK(SumCheckedKernelDouble, DoubleType, SumChecked);
+SUM_KERNEL_BENCHMARK(SumCheckedKernelInt8, Int8Type, SumChecked);
+SUM_KERNEL_BENCHMARK(SumCheckedKernelInt16, Int16Type, SumChecked);
+SUM_KERNEL_BENCHMARK(SumCheckedKernelInt32, Int32Type, SumChecked);
+SUM_KERNEL_BENCHMARK(SumCheckedKernelInt64, Int64Type, SumChecked);
 
 //
 // Mode
