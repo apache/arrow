@@ -1781,6 +1781,7 @@ def test_dictionary_decode():
 
     assert array == dictionary_array_decode
     assert array == pc.dictionary_decode(array)
+    assert pc.dictionary_encode(dictionary_array) == dictionary_array
 
 
 def test_cast():
