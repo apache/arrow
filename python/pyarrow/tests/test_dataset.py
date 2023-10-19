@@ -788,12 +788,15 @@ def test_parquet_scan_options():
     opts5 = ds.ParquetFragmentScanOptions(
         thrift_string_size_limit=123456,
         thrift_container_size_limit=987654,)
+    opts6 = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=True)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
+    assert opts1.page_checksum_verification is False
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
@@ -810,11 +813,14 @@ def test_parquet_scan_options():
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
 
+    assert opts6.page_checksum_verification is True
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
     assert opts5 != opts1
+    assert opts6 != opts1
 
 
 def test_file_format_pickling(pickle_module):
