@@ -744,11 +744,12 @@ function(ADD_TEST_CASE REL_TEST_NAME)
     add_test(${TEST_NAME} ${TEST_PATH} ${ARG_TEST_ARGUMENTS})
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     add_test(${TEST_NAME}
-    ${BUILD_SUPPORT_DIR}/run-test.sh
-    ${CMAKE_BINARY_DIR}
-    test
-    ${CMAKE_CROSSCOMPILING_EMULATOR} ${TEST_PATH}
-    ${ARG_TEST_ARGUMENTS})
+             ${BUILD_SUPPORT_DIR}/run-test.sh
+             ${CMAKE_BINARY_DIR}
+             test
+             ${CMAKE_CROSSCOMPILING_EMULATOR}
+             ${TEST_PATH}
+             ${ARG_TEST_ARGUMENTS})
   else()
     add_test(${TEST_NAME}
              ${BUILD_SUPPORT_DIR}/run-test.sh

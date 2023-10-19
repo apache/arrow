@@ -33,7 +33,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding.h"
 
-#include<stdio.h>
+#include <stdio.h>
 
 namespace arrow {
 namespace util {
@@ -216,12 +216,12 @@ TEST(BitUtil, RoundTripIntValues) {
 void ValidateRle(const std::vector<int>& values, int bit_width,
                  uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
-  #ifdef EMSCRIPTEN
-    // on Emscripten, this buffer won't fit in the stack
-    static uint8_t buffer[len];
-  #else
-    uint8_t buffer[len];
-  #endif
+#ifdef EMSCRIPTEN
+  // on Emscripten, this buffer won't fit in the stack
+  static uint8_t buffer[len];
+#else
+  uint8_t buffer[len];
+#endif
   EXPECT_LE(expected_len, len);
 
   RleEncoder encoder(buffer, len, bit_width);
@@ -234,7 +234,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
   if (expected_len != -1) {
     EXPECT_EQ(encoded_len, expected_len);
   }
-  if (expected_encoding != NULL && encoded_len==expected_len) {
+  if (expected_encoding != NULL && encoded_len == expected_len) {
     EXPECT_EQ(memcmp(buffer, expected_encoding, encoded_len), 0);
   }
   // Verify read
@@ -262,13 +262,13 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 // the returned values are not all the same
 bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   const int len = 64 * 1024;
-  #ifdef EMSCRIPTEN
-    // on Emscripten, this buffer won't fit in the stack
-    static uint8_t buffer[len];
-  #else
-    uint8_t buffer[len];
-  #endif
-    RleEncoder encoder(buffer, len, bit_width);
+#ifdef EMSCRIPTEN
+  // on Emscripten, this buffer won't fit in the stack
+  static uint8_t buffer[len];
+#else
+  uint8_t buffer[len];
+#endif
+  RleEncoder encoder(buffer, len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);
     if (!result) {
@@ -311,7 +311,7 @@ TEST(Rle, SpecificSequences) {
   std::vector<int> values;
 
   // Test 50 0' followed by 50 1's
-  
+
   values.resize(100);
   for (int i = 0; i < 50; ++i) {
     values[i] = 0;
@@ -319,7 +319,7 @@ TEST(Rle, SpecificSequences) {
   for (int i = 50; i < 100; ++i) {
     values[i] = 1;
   }
-  
+
   // expected_buffer valid for bit width <= 1 byte
   expected_buffer[0] = (50 << 1);
   expected_buffer[1] = 0;
@@ -333,7 +333,7 @@ TEST(Rle, SpecificSequences) {
     ValidateRle(values, width, nullptr,
                 2 * (1 + static_cast<int>(bit_util::CeilDiv(width, 8))));
   }
-  
+
   // Test 100 0's and 1's alternating
   for (int i = 0; i < 100; ++i) {
     values[i] = i % 2;
@@ -343,7 +343,7 @@ TEST(Rle, SpecificSequences) {
   for (int i = 1; i <= 100 / 8; ++i) {
     expected_buffer[i] = 0xAA /* 0b10101010 */;
   }
-  
+
   // Values for the last 4 0 and 1's. The upper 4 bits should be padded to 0.
   expected_buffer[100 / 8 + 1] = 0x0A /* 0b00001010 */;
 
@@ -354,7 +354,6 @@ TEST(Rle, SpecificSequences) {
     ValidateRle(values, width, nullptr,
                 1 + static_cast<int>(bit_util::CeilDiv(width * num_values, 8)));
   }
-  
 
   // Test 16-bit values to confirm encoded values are stored in little endian
   values.resize(28);
@@ -372,7 +371,6 @@ TEST(Rle, SpecificSequences) {
   expected_buffer[5] = 0xaa;
 
   ValidateRle(values, 16, expected_buffer, 6);
-  
 
   // Test 32-bit values to confirm encoded values are stored in little endian
   values.resize(28);
@@ -382,7 +380,7 @@ TEST(Rle, SpecificSequences) {
   for (int i = 16; i < 28; ++i) {
     values[i] = 0x5aaaa555;
   }
-  
+
   expected_buffer[0] = (16 << 1);
   expected_buffer[1] = 0xa5;
   expected_buffer[2] = 0xaa;
