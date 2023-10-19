@@ -1722,7 +1722,6 @@ def generate_dictionary_unsigned_case():
 
     # TODO: JavaScript does not support uint64 dictionary indices, so disabled
     # for now
-
     # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
     fields = [
         DictionaryField('f0', get_field('', 'uint8'), dict0),
