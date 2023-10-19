@@ -128,6 +128,8 @@ add_arrow_compute_test(aggregate_test
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing)
 
+add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
+
 # ----------------------------------------------------------------------
 # Utilities
 
