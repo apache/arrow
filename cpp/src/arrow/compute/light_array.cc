@@ -80,8 +80,7 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
   KeyColumnArray sliced;
   sliced.metadata_ = metadata_;
   sliced.length_ = length;
-  uint32_t fixed_size =
-      !metadata_.is_fixed_length ? sizeof(uint32_t) : metadata_.fixed_length;
+  uint32_t fixed_size = metadata_.fixed_length;
 
   sliced.buffers_[0] =
       buffers_[0] ? buffers_[0] + (bit_offset_[0] + offset) / 8 : nullptr;
@@ -89,18 +88,23 @@ KeyColumnArray KeyColumnArray::Slice(int64_t offset, int64_t length) const {
       mutable_buffers_[0] ? mutable_buffers_[0] + (bit_offset_[0] + offset) / 8 : nullptr;
   sliced.bit_offset_[0] = (bit_offset_[0] + offset) % 8;
 
-  if (fixed_size == 0 && !metadata_.is_null_type) {
+  if (metadata_.fixed_length == 0 && !metadata_.is_null_type) {
+    ARROW_DCHECK(is_bool_type()) << "Expected BOOL type type but got a different type.";
     sliced.buffers_[1] =
         buffers_[1] ? buffers_[1] + (bit_offset_[1] + offset) / 8 : nullptr;
     sliced.mutable_buffers_[1] = mutable_buffers_[1]
                                      ? mutable_buffers_[1] + (bit_offset_[1] + offset) / 8
                                      : nullptr;
     sliced.bit_offset_[1] = (bit_offset_[1] + offset) % 8;
-  } else {
+  } else if (metadata_.fixed_length > 0) {
+    ARROW_DCHECK(is_binary_type() || is_large_binary_type() || is_fixed_width_types())
+        << "Expected (LARGE) BINARY or FIXED WIDTH type but got a different type.";
     sliced.buffers_[1] = buffers_[1] ? buffers_[1] + offset * fixed_size : nullptr;
     sliced.mutable_buffers_[1] =
         mutable_buffers_[1] ? mutable_buffers_[1] + offset * fixed_size : nullptr;
     sliced.bit_offset_[1] = 0;
+  } else {
+    ARROW_DCHECK(is_null_type()) << "Expected Null type but got a different type.";
   }
 
   sliced.buffers_[2] = buffers_[2];

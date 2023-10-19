@@ -192,6 +192,7 @@ public class NullVector implements FieldVector {
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     Preconditions.checkArgument(ownBuffers.isEmpty(), "Null vector has no buffers");
+    valueCount = fieldNode.getLength();
   }
 
   @Override
