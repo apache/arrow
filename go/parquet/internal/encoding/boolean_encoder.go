@@ -17,6 +17,8 @@
 package encoding
 
 import (
+	"encoding/binary"
+
 	"github.com/apache/arrow/go/v14/arrow/bitutil"
 	"github.com/apache/arrow/go/v14/parquet"
 	"github.com/apache/arrow/go/v14/parquet/internal/utils"
@@ -86,4 +88,54 @@ func (enc *PlainBooleanEncoder) FlushValues() (Buffer, error) {
 	enc.wr.Reset(0, boolsInBuf)
 
 	return enc.sink.Finish(), nil
+}
+
+type RleBooleanEncoder struct {
+	encoder
+
+	bufferedValues []bool
+}
+
+func (RleBooleanEncoder) Type() parquet.Type {
+	return parquet.Types.Boolean
+}
+
+func (enc *RleBooleanEncoder) Put(in []bool) {
+	enc.bufferedValues = append(enc.bufferedValues, in...)
+}
+
+func (enc *RleBooleanEncoder) PutSpaced(in []bool, validBits []byte, validBitsOffset int64) {
+	bufferOut := make([]bool, len(in))
+	nvalid := spacedCompress(in, bufferOut, validBits, validBitsOffset)
+	enc.Put(bufferOut[:nvalid])
+}
+
+func (enc *RleBooleanEncoder) EstimatedDataEncodedSize() int64 {
+	const rleLengthInBytes = 4
+	return rleLengthInBytes + int64(enc.maxRleBufferSize())
+}
+
+func (enc *RleBooleanEncoder) maxRleBufferSize() int {
+	return utils.MaxBufferSize(1, len(enc.bufferedValues))
+}
+
+func (enc *RleBooleanEncoder) FlushValues() (Buffer, error) {
+	const rleLengthInBytes = 4
+	rleBufferSizeMax := enc.maxRleBufferSize()
+	enc.sink.SetOffset(rleLengthInBytes)
+	enc.sink.Reserve(rleBufferSizeMax)
+
+	encoder := utils.NewRleEncoder(enc.sink, 1)
+	for _, v := range enc.bufferedValues {
+		if v {
+			encoder.Put(1)
+		} else {
+			encoder.Put(0)
+		}
+	}
+	n := encoder.Flush()
+	buf := enc.sink.Finish()
+	binary.LittleEndian.PutUint32(buf.Bytes(), uint32(n))
+
+	return buf, nil
 }
