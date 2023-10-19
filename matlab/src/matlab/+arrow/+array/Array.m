@@ -62,8 +62,26 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     end
 
     methods (Access=protected)
+        function header = getHeader(obj)
+            name = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            numElements = obj.NumElements;
+            % TODO: Add NumValid and NumNull as properties to Array to
+            % avoid materializing the Valid property. This will improve
+            % performance for large arrays.
+            numNulls = nnz(~obj.Valid);
+
+            elementString = pluralizeStringIfNeeded(numElements, "element");
+            nullString = pluralizeStringIfNeeded(numNulls, "null value");
+
+            fmtspec = "  %s with %d %s and %d %s:" + newline;
+            header = compose(fmtspec, name, numElements, elementString, ...
+                numNulls, nullString);
+            header = char(header);
+        end
+
         function displayScalarObject(obj)
-            disp(obj.toString());
+            disp(getHeader(obj));
+            disp("    " + toString(obj) + newline);
         end
     end
 
@@ -87,3 +105,8 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     end
 end
 
+function str = pluralizeStringIfNeeded(num, str)
+    if num ~= 1
+        str = str + "s";
+    end
+end
