@@ -794,9 +794,10 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   if (!kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
-  #ifdef EMSCRIPTEN  
-  GTEST_SKIP() << "Test temporarily disabled due to emscripten bug https://github.com/emscripten-core/emscripten/issues/20467 ";
-  #endif
+#ifdef EMSCRIPTEN
+  GTEST_SKIP() << "Test temporarily disabled due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20467 ";
+#endif
 
   std::string format = "%Y-%d-%m %H:%M:%S%z";
   auto parser = TimestampParser::MakeStrptime(format);

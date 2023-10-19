@@ -37,9 +37,10 @@ Mutex::Guard::Guard(Mutex* locked)
     : locked_(locked, [](Mutex* locked) {
 #if !EMSCRIPTEN || ARROW_ENABLE_THREADING
         DCHECK(!locked->impl_->mutex_.try_lock());
-#endif        
+#endif
         locked->impl_->mutex_.unlock();
-      }) {}
+      }) {
+}
 
 Mutex::Guard Mutex::TryLock() {
   DCHECK_NE(impl_, nullptr);

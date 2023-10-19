@@ -261,7 +261,6 @@ TEST_F(TestAtFork, NestedChild) {
   GTEST_SKIP() << "Test requires threading support";
 #endif
 
-
   auto handlers1 = std::make_shared<AtForkHandler>(PushBefore(1), PushParentAfter(11),
                                                    PushChildAfter(21));
   auto handlers2 = std::make_shared<AtForkHandler>(PushBefore(2), PushParentAfter(12),

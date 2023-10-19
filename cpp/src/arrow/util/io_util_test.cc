@@ -371,7 +371,7 @@ TEST_F(TestSelfPipe, WaitAndSend) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
 #endif
-  
+
   StartReading();
   SleepABit();
   AssertPayloadsEventually({});
@@ -1052,9 +1052,9 @@ TEST_F(TestSendSignal, Generic) {
 }
 
 TEST_F(TestSendSignal, ToThread) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "SendSignalToThread requires threading";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "SendSignalToThread requires threading";
+#endif
 #ifdef _WIN32
   uint64_t dummy_thread_id = 42;
   ASSERT_RAISES(NotImplemented, SendSignalToThread(SIGINT, dummy_thread_id));
