@@ -956,8 +956,8 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
                                ctx->exec_context()));
       const StructScalar& struct_result =
           checked_cast<const StructScalar&>(*result.scalar());
-      ARROW_ASSIGN_OR_RAISE(dict_min, struct_result.field(FieldRef("min")));
-      ARROW_ASSIGN_OR_RAISE(dict_max, struct_result.field(FieldRef("max")));
+      dict_min = struct_result.value[MinOrMax::Min];
+      dict_max = struct_result.value[MinOrMax::Max];
     }
     ARROW_RETURN_NOT_OK(UpdateMinMaxState(dict_min, dict_max, ctx));
     return Status::OK();
