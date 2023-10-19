@@ -70,22 +70,20 @@ class ARROW_EXPORT Float16 {
     return FromBits(::arrow::bit_util::FromBigEndian(SafeLoadAs<uint16_t>(src)));
   }
 
-  /// \brief Return the value's integer representation
-  constexpr uint16_t bits() const { return value_; }
+  /// \brief Return the value's binary representation as a `uint16_t`
+  constexpr uint16_t bits() const { return bits_; }
 
   /// \brief Return true if the value is negative (sign bit is set)
-  constexpr bool signbit() const { return (value_ & 0x8000) != 0; }
+  constexpr bool signbit() const { return (bits_ & 0x8000) != 0; }
 
   /// \brief Return true if the value is NaN
-  constexpr bool is_nan() const {
-    return (value_ & 0x7c00) == 0x7c00 && (value_ & 0x03ff) != 0;
-  }
+  constexpr bool is_nan() const { return (bits_ & 0x7fff) > 0x7c00; }
   /// \brief Return true if the value is positive/negative infinity
-  constexpr bool is_infinity() const { return (value_ & 0x7fff) == 0x7c00; }
+  constexpr bool is_infinity() const { return (bits_ & 0x7fff) == 0x7c00; }
   /// \brief Return true if the value is finite and not NaN
-  constexpr bool is_finite() const { return (value_ & 0x7c00) != 0x7c00; }
+  constexpr bool is_finite() const { return (bits_ & 0x7c00) != 0x7c00; }
   /// \brief Return true if the value is positive/negative zero
-  constexpr bool is_zero() const { return (value_ & 0x7fff) == 0; }
+  constexpr bool is_zero() const { return (bits_ & 0x7fff) == 0; }
 
   /// \brief Convert to a 32-bit float
   float ToFloat() const;
@@ -96,7 +94,7 @@ class ARROW_EXPORT Float16 {
   explicit operator double() const { return ToDouble(); }
 
   /// \brief Copy the value's bytes in native-endian byte order
-  void ToBytes(uint8_t* dest) const { std::memcpy(dest, &value_, sizeof(value_)); }
+  void ToBytes(uint8_t* dest) const { std::memcpy(dest, &bits_, sizeof(bits_)); }
   /// \brief Return the value's bytes in native-endian byte order
   constexpr std::array<uint8_t, 2> ToBytes() const {
 #if ARROW_LITTLE_ENDIAN
@@ -108,32 +106,32 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Copy the value's bytes in little-endian byte order
   void ToLittleEndian(uint8_t* dest) const {
-    FromBits(::arrow::bit_util::ToLittleEndian(value_)).ToBytes(dest);
+    FromBits(::arrow::bit_util::ToLittleEndian(bits_)).ToBytes(dest);
   }
   /// \brief Return the value's bytes in little-endian byte order
   constexpr std::array<uint8_t, 2> ToLittleEndian() const {
 #if ARROW_LITTLE_ENDIAN
-    return {uint8_t(value_ & 0xff), uint8_t(value_ >> 8)};
+    return {uint8_t(bits_ & 0xff), uint8_t(bits_ >> 8)};
 #else
-    return {uint8_t(value_ >> 8), uint8_t(value_ & 0xff)};
+    return {uint8_t(bits_ >> 8), uint8_t(bits_ & 0xff)};
 #endif
   }
 
   /// \brief Copy the value's bytes in big-endian byte order
   void ToBigEndian(uint8_t* dest) const {
-    FromBits(::arrow::bit_util::ToBigEndian(value_)).ToBytes(dest);
+    FromBits(::arrow::bit_util::ToBigEndian(bits_)).ToBytes(dest);
   }
   /// \brief Return the value's bytes in big-endian byte order
   constexpr std::array<uint8_t, 2> ToBigEndian() const {
 #if ARROW_LITTLE_ENDIAN
-    return {uint8_t(value_ >> 8), uint8_t(value_ & 0xff)};
+    return {uint8_t(bits_ >> 8), uint8_t(bits_ & 0xff)};
 #else
-    return {uint8_t(value_ & 0xff), uint8_t(value_ >> 8)};
+    return {uint8_t(bits_ & 0xff), uint8_t(bits_ >> 8)};
 #endif
   }
 
-  constexpr Float16 operator-() const { return FromBits(value_ ^ 0x8000); }
-  constexpr Float16 operator+() const { return FromBits(value_); }
+  constexpr Float16 operator-() const { return FromBits(bits_ ^ 0x8000); }
+  constexpr Float16 operator+() const { return FromBits(bits_); }
 
   friend constexpr bool operator==(Float16 lhs, Float16 rhs) {
     if (lhs.is_nan() || rhs.is_nan()) return false;
@@ -156,10 +154,10 @@ class ARROW_EXPORT Float16 {
   ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os, Float16 arg);
 
  protected:
-  uint16_t value_;
+  uint16_t bits_;
 
  private:
-  constexpr Float16(uint16_t value, bool) : value_(value) {}
+  constexpr Float16(uint16_t bits, bool) : bits_(bits) {}
 
   // Comparison helpers that assume neither operand is NaN
   static constexpr bool CompareEq(Float16 lhs, Float16 rhs) {

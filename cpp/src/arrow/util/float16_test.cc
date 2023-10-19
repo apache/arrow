@@ -210,6 +210,31 @@ TYPED_TEST(Float16ConversionTest, RoundTrip) { this->TestRoundTrip(); }
 TYPED_TEST(Float16ConversionTest, RoundTripFromNaN) { this->TestRoundTripFromNaN(); }
 TYPED_TEST(Float16ConversionTest, RoundTripFromInf) { this->TestRoundTripFromInf(); }
 
+TEST(Float16Test, ConstexprFunctions) {
+  constexpr auto a = Float16::FromBits(0xbc00);  // -1.0
+  constexpr auto b = Float16::FromBits(0x3c00);  // +1.0
+
+  static_assert(a.bits() == 0xbc00);
+  static_assert(a.signbit() == true);
+  static_assert(a.is_nan() == false);
+  static_assert(a.is_infinity() == false);
+  static_assert(a.is_finite() == true);
+  static_assert(a.is_zero() == false);
+
+  static_assert((a == b) == false);
+  static_assert((a != b) == true);
+  static_assert((a < b) == true);
+  static_assert((a > b) == false);
+  static_assert((a <= b) == true);
+  static_assert((a >= b) == false);
+  static_assert(-a == +b);
+
+  constexpr auto v = Float16::FromBits(0xffff);
+  static_assert(v.ToBytes()[0] == 0xff);
+  static_assert(v.ToLittleEndian()[0] == 0xff);
+  static_assert(v.ToBigEndian()[0] == 0xff);
+}
+
 TEST(Float16Test, Constructors) {
   // Construction from exact bits
   ASSERT_EQ(1, Float16::FromBits(1).bits());

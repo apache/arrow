@@ -201,7 +201,7 @@ T BinaryConverter<T>::FromBinary16(uint16_t h_bits) {
 }  // namespace
 
 float Float16::ToFloat() const {
-  const uint32_t f_bits = BinaryConverter<uint32_t>::FromBinary16(value_);
+  const uint32_t f_bits = BinaryConverter<uint32_t>::FromBinary16(bits_);
   return SafeCopy<float>(f_bits);
 }
 
@@ -211,7 +211,7 @@ Float16 Float16::FromFloat(float f) {
 }
 
 double Float16::ToDouble() const {
-  const uint64_t d_bits = BinaryConverter<uint64_t>::FromBinary16(value_);
+  const uint64_t d_bits = BinaryConverter<uint64_t>::FromBinary16(bits_);
   return SafeCopy<double>(d_bits);
 }
 
