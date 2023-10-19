@@ -79,6 +79,9 @@ struct ARROW_EXPORT AzureOptions {
 
   AzureOptions();
 
+  Status ConfigureAccountKeyCredentials(const std::string& account_name,
+                                        const std::string& account_key);
+
   bool Equals(const AzureOptions& other) const;
 };
 
