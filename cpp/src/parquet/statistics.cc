@@ -68,8 +68,8 @@ struct Float16Constants {
   static constexpr Bytes lowest_ =
       std::numeric_limits<Float16>::lowest().ToLittleEndian();
   static constexpr Bytes max_ = std::numeric_limits<Float16>::max().ToLittleEndian();
-  static constexpr Bytes positive_zero_ = (+Float16(0)).ToLittleEndian();
-  static constexpr Bytes negative_zero_ = (-Float16(0)).ToLittleEndian();
+  static constexpr Bytes positive_zero_ = (+Float16::FromBits(0)).ToLittleEndian();
+  static constexpr Bytes negative_zero_ = (-Float16::FromBits(0)).ToLittleEndian();
 };
 
 template <typename DType, bool is_signed>
@@ -384,10 +384,10 @@ optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_
     return ::std::nullopt;
   }
 
-  if (min == Float16(0)) {
+  if (min.is_zero() && !min.signbit()) {
     min_flba = FLBA{Float16Constants::negative_zero()};
   }
-  if (max == -Float16(0)) {
+  if (max.is_zero() && max.signbit()) {
     max_flba = FLBA{Float16Constants::positive_zero()};
   }
 

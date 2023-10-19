@@ -211,20 +211,14 @@ TYPED_TEST(Float16ConversionTest, RoundTripFromNaN) { this->TestRoundTripFromNaN
 TYPED_TEST(Float16ConversionTest, RoundTripFromInf) { this->TestRoundTripFromInf(); }
 
 TEST(Float16Test, Constructors) {
-  constexpr auto from_int_0 = Float16(0);
-  constexpr auto from_int_1 = Float16(1);
-  const auto from_f32_0 = Float16(0.0f);
-  const auto from_f32_1 = Float16(1.0f);
-  const auto from_f64_0 = Float16(0.0);
-  const auto from_f64_1 = Float16(1.0);
-
-  ASSERT_EQ(0, from_int_0.bits());
-  ASSERT_EQ(0, from_f32_0.bits());
-  ASSERT_EQ(0, from_f64_0.bits());
-
-  ASSERT_EQ(1, from_int_1.bits());
-  ASSERT_EQ(0x3c00, from_f32_1.bits());
-  ASSERT_EQ(0x3c00, from_f64_1.bits());
+  // Construction from exact bits
+  ASSERT_EQ(1, Float16::FromBits(1).bits());
+  // Construction from floating point (including implicit conversions)
+  int i = 0;
+  for (auto f16 : {Float16(1.0f), Float16(1.0), Float16(1)}) {
+    ARROW_SCOPED_TRACE("i=", i++);
+    ASSERT_EQ(0x3c00, f16.bits());
+  }
 }
 
 TEST(Float16Test, Compare) {
@@ -241,30 +235,30 @@ TEST(Float16Test, Compare) {
       {+Limits<Float16>::infinity(), +f32_inf},
       {-Limits<Float16>::infinity(), -f32_inf},
       // Multiple (semantically equivalent) NaN representations
-      {Float16(0x7e00), f32_nan},
-      {Float16(0xfe00), f32_nan},
-      {Float16(0x7fff), f32_nan},
-      {Float16(0xffff), f32_nan},
+      {Float16::FromBits(0x7e00), f32_nan},
+      {Float16::FromBits(0xfe00), f32_nan},
+      {Float16::FromBits(0x7fff), f32_nan},
+      {Float16::FromBits(0xffff), f32_nan},
       // Positive/negative zeros
-      {Float16(0x0000), +0.0f},
-      {Float16(0x8000), -0.0f},
+      {Float16::FromBits(0x0000), +0.0f},
+      {Float16::FromBits(0x8000), -0.0f},
       // Miscellaneous values. In general, they're chosen to test the sign/exponent and
       // exponent/mantissa boundaries
-      {Float16(0x101c), +0.00050163269043f},
-      {Float16(0x901c), -0.00050163269043f},
-      {Float16(0x101d), +0.000502109527588f},
-      {Float16(0x901d), -0.000502109527588f},
-      {Float16(0x121c), +0.00074577331543f},
-      {Float16(0x921c), -0.00074577331543f},
-      {Float16(0x141c), +0.00100326538086f},
-      {Float16(0x941c), -0.00100326538086f},
-      {Float16(0x501c), +32.875f},
-      {Float16(0xd01c), -32.875f},
+      {Float16::FromBits(0x101c), +0.00050163269043f},
+      {Float16::FromBits(0x901c), -0.00050163269043f},
+      {Float16::FromBits(0x101d), +0.000502109527588f},
+      {Float16::FromBits(0x901d), -0.000502109527588f},
+      {Float16::FromBits(0x121c), +0.00074577331543f},
+      {Float16::FromBits(0x921c), -0.00074577331543f},
+      {Float16::FromBits(0x141c), +0.00100326538086f},
+      {Float16::FromBits(0x941c), -0.00100326538086f},
+      {Float16::FromBits(0x501c), +32.875f},
+      {Float16::FromBits(0xd01c), -32.875f},
       // A few subnormals for good measure
-      {Float16(0x001c), +1.66893005371e-06f},
-      {Float16(0x801c), -1.66893005371e-06f},
-      {Float16(0x021c), +3.21865081787e-05f},
-      {Float16(0x821c), -3.21865081787e-05f},
+      {Float16::FromBits(0x001c), +1.66893005371e-06f},
+      {Float16::FromBits(0x801c), -1.66893005371e-06f},
+      {Float16::FromBits(0x021c), +3.21865081787e-05f},
+      {Float16::FromBits(0x821c), -3.21865081787e-05f},
   };
 
   auto expect_op = [&](std::string op_name, auto op) {
@@ -302,7 +296,7 @@ TEST(Float16Test, Compare) {
 }
 
 TEST(Float16Test, ToBytes) {
-  constexpr auto f16 = Float16(0xd01c);
+  constexpr auto f16 = Float16::FromBits(0xd01c);
   std::array<uint8_t, 2> bytes;
   auto load = [&bytes]() { return SafeLoadAs<uint16_t>(bytes.data()); };
 
@@ -334,10 +328,10 @@ TEST(Float16Test, ToBytes) {
 TEST(Float16Test, FromBytes) {
   constexpr uint16_t u16 = 0xd01c;
   const auto* data = reinterpret_cast<const uint8_t*>(&u16);
-  ASSERT_EQ(Float16::FromBytes(data), Float16(0xd01c));
+  ASSERT_EQ(Float16::FromBytes(data), Float16::FromBits(0xd01c));
 #if ARROW_LITTLE_ENDIAN
-  ASSERT_EQ(Float16::FromLittleEndian(data), Float16(0xd01c));
-  ASSERT_EQ(Float16::FromBigEndian(data), Float16(0x1cd0));
+  ASSERT_EQ(Float16::FromLittleEndian(data), Float16::FromBits(0xd01c));
+  ASSERT_EQ(Float16::FromBigEndian(data), Float16::FromBits(0x1cd0));
 #else
   ASSERT_EQ(Float16::FromLittleEndian(data), Float16(0x1cd0));
   ASSERT_EQ(Float16::FromBigEndian(data), Float16(0xd01c));

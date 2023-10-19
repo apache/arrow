@@ -42,32 +42,32 @@ namespace util {
 class ARROW_EXPORT Float16 {
  public:
   Float16() = default;
-  constexpr explicit Float16(uint16_t value) : value_(value) {}
+  explicit Float16(float f) : Float16(FromFloat(f)) {}
+  explicit Float16(double d) : Float16(FromDouble(d)) {}
+  template <typename T,
+            typename std::enable_if_t<std::is_convertible_v<T, double>>* = NULLPTR>
+  explicit Float16(T v) : Float16(static_cast<double>(v)) {}
 
-  template <typename T, typename std::enable_if_t<std::is_floating_point_v<T>>* = NULLPTR>
-  explicit Float16(T f) : Float16(FromNative(f)) {}
-
+  /// \brief Create a `Float16` from its exact binary representation
+  constexpr static Float16 FromBits(uint16_t bits) { return Float16{bits, bool{}}; }
   /// \brief Create a `Float16` from a 32-bit float (may lose precision)
   static Float16 FromFloat(float f);
   /// \brief Create a `Float16` from a 64-bit float (may lose precision)
   static Float16 FromDouble(double d);
-  /// \brief Create a `Float16` from a native floating-point value (may lose precision)
-  static Float16 FromNative(float f) { return FromFloat(f); }
-  static Float16 FromNative(double d) { return FromDouble(d); }
 
   /// \brief Read a `Float16` from memory in native-endian byte order
   static Float16 FromBytes(const uint8_t* src) {
-    return Float16(SafeLoadAs<uint16_t>(src));
+    return FromBits(SafeLoadAs<uint16_t>(src));
   }
 
   /// \brief Read a `Float16` from memory in little-endian byte order
   static Float16 FromLittleEndian(const uint8_t* src) {
-    return Float16(::arrow::bit_util::FromLittleEndian(SafeLoadAs<uint16_t>(src)));
+    return FromBits(::arrow::bit_util::FromLittleEndian(SafeLoadAs<uint16_t>(src)));
   }
 
   /// \brief Read a `Float16` from memory in big-endian byte order
   static Float16 FromBigEndian(const uint8_t* src) {
-    return Float16(::arrow::bit_util::FromBigEndian(SafeLoadAs<uint16_t>(src)));
+    return FromBits(::arrow::bit_util::FromBigEndian(SafeLoadAs<uint16_t>(src)));
   }
 
   /// \brief Return the value's integer representation
@@ -108,7 +108,7 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Copy the value's bytes in little-endian byte order
   void ToLittleEndian(uint8_t* dest) const {
-    Float16{::arrow::bit_util::ToLittleEndian(value_)}.ToBytes(dest);
+    FromBits(::arrow::bit_util::ToLittleEndian(value_)).ToBytes(dest);
   }
   /// \brief Return the value's bytes in little-endian byte order
   constexpr std::array<uint8_t, 2> ToLittleEndian() const {
@@ -121,7 +121,7 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Copy the value's bytes in big-endian byte order
   void ToBigEndian(uint8_t* dest) const {
-    Float16{::arrow::bit_util::ToBigEndian(value_)}.ToBytes(dest);
+    FromBits(::arrow::bit_util::ToBigEndian(value_)).ToBytes(dest);
   }
   /// \brief Return the value's bytes in big-endian byte order
   constexpr std::array<uint8_t, 2> ToBigEndian() const {
@@ -132,8 +132,8 @@ class ARROW_EXPORT Float16 {
 #endif
   }
 
-  constexpr Float16 operator-() const { return Float16(value_ ^ 0x8000); }
-  constexpr Float16 operator+() const { return Float16(value_); }
+  constexpr Float16 operator-() const { return FromBits(value_ ^ 0x8000); }
+  constexpr Float16 operator+() const { return FromBits(value_); }
 
   friend constexpr bool operator==(Float16 lhs, Float16 rhs) {
     if (lhs.is_nan() || rhs.is_nan()) return false;
@@ -159,6 +159,8 @@ class ARROW_EXPORT Float16 {
   uint16_t value_;
 
  private:
+  constexpr Float16(uint16_t value, bool) : value_(value) {}
+
   // Comparison helpers that assume neither operand is NaN
   static constexpr bool CompareEq(Float16 lhs, Float16 rhs) {
     return (lhs.bits() == rhs.bits()) || (lhs.is_zero() && rhs.is_zero());
@@ -197,11 +199,11 @@ class std::numeric_limits<arrow::util::Float16> {
   static constexpr bool has_infinity = true;
   static constexpr bool has_quiet_NaN = true;
 
-  static constexpr T min() { return T(0b0000010000000000); }
-  static constexpr T max() { return T(0b0111101111111111); }
+  static constexpr T min() { return T::FromBits(0b0000010000000000); }
+  static constexpr T max() { return T::FromBits(0b0111101111111111); }
   static constexpr T lowest() { return -max(); }
 
-  static constexpr T infinity() { return T(0b0111110000000000); }
+  static constexpr T infinity() { return T::FromBits(0b0111110000000000); }
 
-  static constexpr T quiet_NaN() { return T(0b0111111111111111); }
+  static constexpr T quiet_NaN() { return T::FromBits(0b0111111111111111); }
 };

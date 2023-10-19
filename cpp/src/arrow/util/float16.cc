@@ -207,7 +207,7 @@ float Float16::ToFloat() const {
 
 Float16 Float16::FromFloat(float f) {
   const uint32_t f_bits = SafeCopy<uint32_t>(f);
-  return Float16{BinaryConverter<uint32_t>::ToBinary16(f_bits)};
+  return FromBits(BinaryConverter<uint32_t>::ToBinary16(f_bits));
 }
 
 double Float16::ToDouble() const {
@@ -217,7 +217,7 @@ double Float16::ToDouble() const {
 
 Float16 Float16::FromDouble(double d) {
   const uint64_t d_bits = SafeCopy<uint64_t>(d);
-  return Float16{BinaryConverter<uint64_t>::ToBinary16(d_bits)};
+  return FromBits(BinaryConverter<uint64_t>::ToBinary16(d_bits));
 }
 
 std::ostream& operator<<(std::ostream& os, Float16 arg) { return (os << arg.ToFloat()); }
