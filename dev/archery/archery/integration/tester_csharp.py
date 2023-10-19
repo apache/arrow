@@ -16,7 +16,6 @@
 # under the License.
 
 from contextlib import contextmanager
-import gc
 import os
 
 from . import cdata
@@ -82,6 +81,10 @@ class _CDataBase:
         schema = jf.Schema.ToArrow()
         return schema, jf.Batches[num_batch].ToArrow(schema)
 
+    def _run_gc(self):
+        from Apache.Arrow.IntegrationTest import CDataInterface
+        CDataInterface.RunGC()
+
 
 class CSharpCDataExporter(CDataExporter, _CDataBase):
 
@@ -104,6 +107,9 @@ class CSharpCDataExporter(CDataExporter, _CDataBase):
     def supports_releasing_memory(self):
         # XXX the C# GC doesn't give reliable allocation measurements
         return False
+
+    def run_gc(self):
+        self._run_gc()
 
 
 class CSharpCDataImporter(CDataImporter, _CDataBase):
@@ -134,15 +140,8 @@ class CSharpCDataImporter(CDataImporter, _CDataBase):
     def supports_releasing_memory(self):
         return True
 
-    def gc_until(self, predicate):
-        from Apache.Arrow.IntegrationTest import CDataInterface
-        for i in range(3):
-            if predicate():
-                return True
-            # Collect any C# objects hanging around through Python
-            gc.collect()
-            CDataInterface.RunGC()
-        return predicate()
+    def run_gc(self):
+        self._run_gc()
 
 
 class CSharpTester(Tester):

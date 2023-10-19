@@ -223,13 +223,6 @@ class CppCDataExporter(CDataExporter, _CDataBase):
     def record_allocation_state(self):
         return self.dll.ArrowCpp_BytesAllocated()
 
-    def compare_allocation_state(self, recorded, gc_until):
-        def pred():
-            # No GC on our side, so just compare allocation state
-            return self.record_allocation_state() == recorded
-
-        return gc_until(pred)
-
 
 class CppCDataImporter(CDataImporter, _CDataBase):
 
@@ -247,7 +240,3 @@ class CppCDataImporter(CDataImporter, _CDataBase):
     @property
     def supports_releasing_memory(self):
         return True
-
-    def gc_until(self, predicate):
-        # No GC on our side, so can evaluate predicate immediately
-        return predicate()

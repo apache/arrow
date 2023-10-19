@@ -100,7 +100,7 @@ public class DictionaryTest {
     dictVector.setSafe(2, "cc".getBytes());
     dictVector.setValueCount(3);
 
-    Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(1L, false, /* indexType= */null));
+    Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
     provider.put(dictionary);
 
     // create vector and encode it
@@ -169,7 +169,7 @@ public class DictionaryTest {
       dictVector.setSafe(3, "dd".getBytes());
       dictVector.setSafe(4, "ee".getBytes());
       dictVector.setValueCount(5);
-      Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(1L, false, /* indexType= */null));
+      Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
       provider.put(dictionary);
 
       Schema schema = new Schema(Collections.singletonList(vector.getField()));
