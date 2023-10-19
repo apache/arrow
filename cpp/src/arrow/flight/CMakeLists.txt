@@ -67,7 +67,6 @@ list(APPEND
      Boost::headers
      Boost::filesystem
      Boost::system
-     ${ARROW_GTEST_GTEST}
      ${ARROW_GTEST_GMOCK})
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 

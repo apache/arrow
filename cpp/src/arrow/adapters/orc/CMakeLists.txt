@@ -26,20 +26,11 @@ install(FILES adapter.h options.h
 # pkg-config support
 arrow_add_pkg_config("arrow-orc")
 
-if(ARROW_BUILD_STATIC)
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
-else()
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
-endif()
-
-set(ORC_STATIC_TEST_LINK_LIBS orc::orc ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
-                              ${ARROW_GTEST_GTEST_MAIN} ${ARROW_GTEST_GTEST})
-
 add_arrow_test(adapter_test
                PREFIX
                "arrow-orc"
-               STATIC_LINK_LIBS
-               ${ORC_STATIC_TEST_LINK_LIBS})
+               EXTRA_LINK_LIBS
+               orc::orc)
 
 set_source_files_properties(adapter_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                        SKIP_UNITY_BUILD_INCLUSION ON)

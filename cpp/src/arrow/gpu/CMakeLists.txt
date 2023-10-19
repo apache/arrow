@@ -100,9 +100,10 @@ if(ARROW_BUILD_TESTS)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  add_arrow_benchmark(cuda_benchmark PREFIX "arrow-gpu")
-  target_link_libraries(arrow-gpu-cuda-benchmark
-                        PUBLIC ${ARROW_CUDA_LIBRARY} ${ARROW_GTEST_GTEST}
-                               ${ARROW_BENCHMARK_LINK_LIBS})
+  add_arrow_benchmark(cuda_benchmark
+                      PREFIX
+                      "arrow-gpu"
+                      EXTRA_LINK_LIBS
+                      ${ARROW_CUDA_LIBRARY})
   add_dependencies(arrow_cuda-benchmarks arrow-gpu-cuda-benchmark)
 endif()

@@ -125,8 +125,7 @@ else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST}
-                          ${ARROW_GTEST_GTEST_MAIN} Boost::headers)
+set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN} Boost::headers)
 
 if(APPLE)
   list(APPEND PARQUET_MIN_TEST_LIBS ${CMAKE_DL_LIBS})
@@ -134,11 +133,11 @@ elseif(NOT MSVC)
   list(APPEND PARQUET_MIN_TEST_LIBS pthread ${CMAKE_DL_LIBS})
 endif()
 
-set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
-                                  parquet_shared thrift::thrift)
+set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared parquet_shared thrift::thrift
+                                  ${PARQUET_MIN_TEST_LIBS})
 
-set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift::thrift
-                                  ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
+set(PARQUET_STATIC_TEST_LINK_LIBS ${ARROW_LIBRARIES_FOR_STATIC_TESTS} parquet_static
+                                  thrift::thrift ${PARQUET_MIN_TEST_LIBS})
 
 #
 # Generated Thrift sources

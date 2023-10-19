@@ -123,8 +123,7 @@ if(ARROW_TESTING)
   add_library(arrow_acero_testing OBJECT test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_acero_testing ${ARROW_ACERO_TEST_LINK_LIBS})
-  target_link_libraries(arrow_acero_testing ${ARROW_GTEST_GTEST})
+  target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_ACERO_TEST_LINK_LIBS})
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
 endif()
 
