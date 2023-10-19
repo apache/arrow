@@ -921,8 +921,8 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
         out_type(std::move(out_type)),
         has_nulls(false),
         count(0),
-        min(nullptr),
-        max(nullptr) {
+        min(MakeNullScalar(this->out_type)),
+        max(this->min) {
     this->options.min_count = std::max<uint32_t>(1, this->options.min_count);
   }
 
