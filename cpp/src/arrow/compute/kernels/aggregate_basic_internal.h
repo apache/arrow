@@ -941,7 +941,9 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     }
     this->has_nulls |= compacted_dict_arr.null_count() > 0;
     this->count += compacted_dict_arr.length() - compacted_dict_arr.null_count();
-
+    if (this->has_nulls && !options.skip_nulls) {
+      return Status::OK();
+    }
     std::shared_ptr<Scalar> dict_min;
     std::shared_ptr<Scalar> dict_max;
     if (compacted_dict_arr.length() - compacted_dict_arr.null_count() == 1) {
