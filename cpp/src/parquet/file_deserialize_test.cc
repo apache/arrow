@@ -880,12 +880,14 @@ TEST_F(TestPageSerde, DataPageV2CrcCheckNonExistent) {
 }
 
 TEST_F(TestPageSerde, BadCompressedPageSize) {
+  // GH-38326: an exception should be raised if a compressed data page
+  // decompresses to a smaller size than declared in the data page header.
   auto codec_types = GetSupportedCodecTypes();
   const int data_page_bytes = 8192;
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
   std::vector<uint8_t> faux_data;
-  // Resize and make all to 1 to make it well-compressed.
+  // A well-compressible piece of data
   faux_data.resize(data_page_bytes, 1);
   for (auto codec_type : codec_types) {
     auto codec = GetCodec(codec_type);
@@ -899,6 +901,7 @@ TEST_F(TestPageSerde, BadCompressedPageSize) {
     int64_t actual_size;
     ASSERT_OK_AND_ASSIGN(
         actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
+    // Write a data page header declaring a larger decompressed size than actual
     ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(data_page_bytes, data_size + 1,
                                                 static_cast<int32_t>(actual_size)));
     ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
