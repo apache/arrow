@@ -45,7 +45,7 @@ expect_array_roundtrip <- function(x, type, as = NULL) {
 
 expect_code_roundtrip <- function(x) {
   code <- x$code()
-  code_with_ns <- x$code(namespace=TRUE)
+  code_with_ns <- x$code(namespace = TRUE)
 
   pkg_prefix_pattern <- "^arrow[:][:]"
   expect_no_match(as.character(code), pkg_prefix_pattern)
