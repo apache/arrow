@@ -113,8 +113,8 @@ public class TestBasicOperation {
         Field.nullable("a", new ArrowType.Int(32, true)),
         Field.nullable("b", new ArrowType.FixedSizeBinary(32))
     ), metadata);
-    final FlightInfo info1 = new FlightInfo(schema, FlightDescriptor.path(),
-                                            Collections.emptyList(), -1, -1, false, IpcOption.DEFAULT, "foo");
+    final FlightInfo info1 = FlightInfo.builder(schema, FlightDescriptor.path(), Collections.emptyList())
+            .setAppMetadata("foo").build();
     final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
         Collections.singletonList(new FlightEndpoint(
             new Ticket(new byte[10]), null, "bar", Location.forGrpcDomainSocket("/tmp/test.sock"))), 200, 500);

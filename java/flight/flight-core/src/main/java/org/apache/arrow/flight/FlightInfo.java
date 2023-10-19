@@ -108,7 +108,7 @@ public class FlightInfo {
    * @param records The number of records in the flight.
    * @param ordered Whether the endpoints in this flight are ordered.
    * @param option IPC write options.
-   * @param appMetadata App metadata for this flight.
+   * @param appMetadata Metadata to send along with the flight
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
                     long records, boolean ordered, IpcOption option, String appMetadata) {
@@ -275,5 +275,93 @@ public class FlightInfo {
         ", ordered=" + ordered +
         ", appMetadata=" + appMetadata +
         '}';
+  }
+
+  /**
+   * Create a builder for FlightInfo.
+   *
+   * @param schema     The schema of the Flight
+   * @param descriptor An identifier for the Flight.
+   * @param endpoints  A list of endpoints that have the flight available.
+   */
+  public static Builder builder(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints) {
+    return new Builder(schema, descriptor, endpoints);
+  }
+
+  /**
+   * Builder for FlightInfo.
+   */
+  public static final class Builder {
+    private final Schema schema;
+    private final FlightDescriptor descriptor;
+    private final List<FlightEndpoint> endpoints;
+    private long bytes = -1;
+    private long records = -1;
+    private boolean ordered = false;
+    private IpcOption option = IpcOption.DEFAULT;
+    private String appMetadata = "";
+
+    private Builder(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints) {
+      this.schema = schema;
+      this.descriptor = descriptor;
+      this.endpoints = endpoints;
+    }
+
+    /**
+     * Set the number of bytes for the flight. Default to -1 for unknown.
+     *
+     * @param bytes The number of bytes in the flight
+     */
+    public Builder setBytes(long bytes) {
+      this.bytes = bytes;
+      return this;
+    }
+
+    /**
+     * Set the number of records for the flight. Default to -1 for unknown.
+     *
+     * @param records The number of records in the flight.
+     */
+    public Builder setRecords(long records) {
+      this.records = records;
+      return this;
+    }
+
+    /**
+     * Set whether the flight endpoints are ordered. Default is false.
+     *
+     * @param ordered Whether the endpoints in this flight are ordered.
+     */
+    public Builder setOrdered(boolean ordered) {
+      this.ordered = ordered;
+      return this;
+    }
+
+    /**
+     * Set IPC write options. Default is IpcOption.DEFAULT
+     *
+     * @param option IPC write options.
+     */
+    public Builder setOption(IpcOption option) {
+      this.option = option;
+      return this;
+    }
+
+    /**
+     * Set the app metadata to send along with the flight. Default is an empty string.
+     *
+     * @param appMetadata Metadata to send along with the flight
+     */
+    public Builder setAppMetadata(String appMetadata) {
+      this.appMetadata = appMetadata;
+      return this;
+    }
+
+    /**
+     * Build FlightInfo object.
+     */
+    public FlightInfo build() {
+      return new FlightInfo(schema, descriptor, endpoints, bytes, records, ordered, option, appMetadata);
+    }
   }
 }
