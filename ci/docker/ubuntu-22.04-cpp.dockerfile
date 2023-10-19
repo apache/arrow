@@ -69,7 +69,7 @@ RUN apt-get update -y -q && \
         ca-certificates \
         ccache \
         cmake \
-        curl \        
+        curl \
         gdb \
         git \
         libbenchmark-dev \
@@ -116,7 +116,7 @@ RUN apt-get update -y -q && \
         rsync \
         tzdata \
         wget \
-        xz-utils  && \
+        xz-utils && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
