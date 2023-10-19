@@ -73,12 +73,6 @@ jobs:
           fi
           echo $PREFIX
           archery crossbow download-artifacts -f java-jars -t binaries  $PREFIX
-      - name: Cache Repo
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
-        with:
-          path: repo
-          key: java-nightly-${{ github.run_id }}
-          restore-keys: java-nightly
       - name: Sync from Remote
         uses: ./arrow/.github/actions/sync-nightlies
         with:

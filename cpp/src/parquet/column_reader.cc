@@ -363,10 +363,8 @@ void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& de
                                             int8_t module_type, std::string* page_aad) {
   ARROW_DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
-    std::string aad = encryption::CreateModuleAad(
-        decryptor->file_aad(), module_type, crypto_ctx_.row_group_ordinal,
-        crypto_ctx_.column_ordinal, kNonPageOrdinal);
-    decryptor->UpdateAad(aad);
+    UpdateDecryptor(decryptor, crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal,
+                    module_type);
   } else {
     encryption::QuickUpdatePageAad(page_ordinal_, page_aad);
     decryptor->UpdateAad(*page_aad);
@@ -449,7 +447,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
         current_page_header_ = format::PageHeader();
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
                                         &header_size, &current_page_header_,
-                                        crypto_ctx_.meta_decryptor);
+                                        crypto_ctx_.meta_decryptor.get());
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -596,10 +594,17 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   }
 
   // Decompress the values
-  PARQUET_THROW_NOT_OK(decompressor_->Decompress(
-      compressed_len - levels_byte_len, page_buffer->data() + levels_byte_len,
-      uncompressed_len - levels_byte_len,
-      decompression_buffer_->mutable_data() + levels_byte_len));
+  PARQUET_ASSIGN_OR_THROW(
+      auto decompressed_len,
+      decompressor_->Decompress(compressed_len - levels_byte_len,
+                                page_buffer->data() + levels_byte_len,
+                                uncompressed_len - levels_byte_len,
+                                decompression_buffer_->mutable_data() + levels_byte_len));
+  if (decompressed_len != uncompressed_len - levels_byte_len) {
+    throw ParquetException("Page didn't decompress to expected size, expected: " +
+                           std::to_string(uncompressed_len - levels_byte_len) +
+                           ", but got:" + std::to_string(decompressed_len));
+  }
 
   return decompression_buffer_;
 }
@@ -1794,7 +1799,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
         // Avoid valgrind warnings
         memset(valid_bits_->mutable_data() + valid_bytes_old, 0,
-               valid_bytes_new - valid_bytes_old);
+               static_cast<size_t>(valid_bytes_new - valid_bytes_old));
       }
     }
   }
@@ -1937,7 +1942,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Conservative upper bound
     const int64_t possible_num_values =
         std::max<int64_t>(num_records, levels_written_ - levels_position_);
-    ReserveValues(possible_num_values);
+    ReserveValues(static_cast<size_t>(possible_num_values));
 
     const int64_t start_levels_position = levels_position_;
 

@@ -37,6 +37,10 @@ class BloomFilterReader;
 class PageReader;
 class RowGroupMetaData;
 
+namespace internal {
+class RecordReader;
+}
+
 class PARQUET_EXPORT RowGroupReader {
  public:
   // Forward declare a virtual class 'Contents' to aid dependency injection and more
@@ -57,6 +61,10 @@ class PARQUET_EXPORT RowGroupReader {
   // Construct a ColumnReader for the indicated row group-relative
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
+
+  // EXPERIMENTAL: Construct a RecordReader for the indicated column of the row group.
+  // Ownership is shared with the RowGroupReader.
+  std::shared_ptr<internal::RecordReader> RecordReader(int i);
 
   // Construct a ColumnReader, trying to enable exposed encoding.
   //

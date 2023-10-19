@@ -35,6 +35,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DecimalUtility;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
  * DecimalVector implements a fixed width vector (16 bytes) of
@@ -153,8 +154,18 @@ public final class DecimalVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale, TYPE_WIDTH);
+      return getObjectNotNull(index);
     }
+  }
+
+  /**
+   * Same as {@link #getObect(int)} but does not check for null.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public BigDecimal getObjectNotNull(int index) {
+    return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale, TYPE_WIDTH);
   }
 
   /**
@@ -514,6 +525,18 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public void setSafe(int index, int isSet, long start, ArrowBuf buffer) {
     handleSafe(index);
     set(index, isSet, start, buffer);
+  }
+
+  @Override
+  public void validateScalars() {
+    for (int i = 0; i < getValueCount(); ++i) {
+      BigDecimal value = getObject(i);
+      if (value != null) {
+        ValidateUtil.validateOrThrow(DecimalUtility.checkPrecisionAndScaleNoThrow(value, getPrecision(), getScale()),
+            "Invalid value for DecimalVector at position " + i + ". Value does not fit in precision " +
+                getPrecision() + " and scale " + getScale() + ".");
+      }
+    }
   }
 
   /*----------------------------------------------------------------*
