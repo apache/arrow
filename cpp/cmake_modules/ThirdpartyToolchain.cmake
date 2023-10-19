@@ -1420,9 +1420,18 @@ macro(build_brotli)
   )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}")
 
+  set(BROTLI_EP_OPTIONS)
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # cmake install is disabled for brotli on emscripten, so we have
-    # to manually copy the libraries to our install directory
+    # "cmake install" is disabled for Brotli on Emscripten, so the
+    # default INSTALL_COMMAND fails. We need to disable the default
+    # INSTALL_COMMAND.
+    list(APPEND
+         BROTLI_EP_OPTIONS
+         INSTALL_COMMAND
+         ${CMAKE_COMMAND}
+         -E
+         true)
+
     set(BROTLI_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep-build)
     set(BROTLI_BUILD_LIBS
         "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -1430,20 +1439,23 @@ macro(build_brotli)
         "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
 
+  endif()
+
+  externalproject_add(brotli_ep
+                      ${EP_COMMON_OPTIONS}
+                      URL ${BROTLI_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
+                      BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
+                                       "${BROTLI_STATIC_LIBRARY_DEC}"
+                                       "${BROTLI_STATIC_LIBRARY_COMMON}"
+                                       ${BROTLI_BUILD_BYPRODUCTS}
+                      CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
+                      STEP_TARGETS headers_copy ${BROTLI_EP_OPTIONS})
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Copy the libraries to our install directory manually.
     set(BROTLI_BUILD_INCLUDE_DIR
         ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep/c/include/brotli)
-
-    externalproject_add(brotli_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${BROTLI_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
-                        BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
-                                         "${BROTLI_STATIC_LIBRARY_DEC}"
-                                         "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                         ${BROTLI_BUILD_BYPRODUCTS}
-                        CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-                        STEP_TARGETS headers_copy
-                        INSTALL_COMMAND "")
     add_custom_command(TARGET brotli_ep
                        POST_BUILD
                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -1451,17 +1463,6 @@ macro(build_brotli)
                                ${BROTLI_LIB_DIR}
                        COMMAND ${CMAKE_COMMAND} -E copy_directory
                                ${BROTLI_BUILD_INCLUDE_DIR} ${BROTLI_INCLUDE_DIR}/brotli)
-  else() # not emscripten - just behave as normal
-    externalproject_add(brotli_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${BROTLI_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BROTLI_BUILD_SHA256_CHECKSUM}"
-                        BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
-                                         "${BROTLI_STATIC_LIBRARY_DEC}"
-                                         "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                         ${BROTLI_BUILD_BYPRODUCTS}
-                        CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-                        STEP_TARGETS headers_copy)
   endif()
 
   add_dependencies(toolchain brotli_ep)
@@ -2239,12 +2240,12 @@ function(build_gtest)
   endif()
   # If we're building static libs for Emscripten, we need to build *everything* as
   # static libs.
-  if(NOT (CMAKE_SYSTEM_NAME STREQUAL "Emscripten") OR ARROW_BUILD_SHARED)
-    set(BUILD_SHARED_LIBS ON)
-    set(BUILD_STATIC_LIBS OFF)
-  else()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(BUILD_SHARED_LIBS OFF)
     set(BUILD_STATIC_LIBS ON)
+  else()
+    set(BUILD_SHARED_LIBS ON)
+    set(BUILD_STATIC_LIBS OFF)
   endif()
   # We need to use "cache" variable to override the default
   # INSTALL_GTEST option by this value. See also:

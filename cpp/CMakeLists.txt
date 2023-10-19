@@ -587,8 +587,8 @@ include_directories(src/generated)
 if(PARQUET_BUILD_SHARED)
   set_target_properties(arrow_shared
                         PROPERTIES C_VISIBILITY_PRESET hidden
-                                   CXX_VISIBILITY_PRESET hidden
-                                   VISIBILITY_INLINES_HIDDEN 1)
+                                   CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN
+                                                                1)
 endif()
 
 #

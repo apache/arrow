@@ -319,7 +319,12 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wshorten-64-to-32")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+      # size_t is 32 bit in Emscripten wasm32 - ignore conversion errors
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-shorten-64-to-32")
+    else()
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wshorten-64-to-32")
+    endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-missing-braces")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-constant-logical-operand")
@@ -674,7 +679,12 @@ if(NOT MSVC)
     if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
       string(APPEND CXX_DEBUG_FLAGS " -O0")
     endif()
-    if(ARROW_GGDB_DEBUG)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+      string(APPEND C_DEBUG_FLAGS " -g2")
+      string(APPEND CXX_DEBUG_FLAGS " -g2")
+      string(APPEND C_RELWITHDEBINFO_FLAGS " -g2")
+      string(APPEND CXX_RELWITHDEBINFO_FLAGS " -g2")
+    elseif(ARROW_GGDB_DEBUG)
       string(APPEND C_DEBUG_FLAGS " -ggdb")
       string(APPEND CXX_DEBUG_FLAGS " -ggdb")
       string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
@@ -730,8 +740,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # 2) Tell it to use javascript / webassembly 64 bit number support.
   # 3) Tell it to build with support for C++ exceptions
   # 4) Skip linker flags error which happens with -soname parameter
-  set(ARROW_EMSCRIPTEN_LINKER_FLAGS
-      "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
+  set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
   set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS
       "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
   set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS
@@ -740,7 +749,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   if(ARROW_TESTING)
     # flags for building test executables for use in node
     set(CMAKE_EXE_LINKER_FLAGS
-        "${ARROW_EMSCRIPTEN_LINKER_FLAGS}  -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
+        "${ARROW_EMSCRIPTEN_LINKER_FLAGS}  -sERROR_ON_WASM_CHANGES_AFTER_LINK=1 -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
     )
   else()
     set(CMAKE_EXE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_LINKER_FLAGS}  -sALLOW_MEMORY_GROWTH")
