@@ -22,9 +22,6 @@ cpp/build-support/cpplint.py
 cpp/build-support/lint_exclusions.txt
 cpp/build-support/iwyu/*
 cpp/cmake_modules/FindPythonLibsNew.cmake
-cpp/cmake_modules/SnappyCMakeLists.txt
-cpp/cmake_modules/SnappyConfig.h
-cpp/cmake_modules/snappy.diff
 cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
 cpp/src/generated/parquet_constants.cpp
@@ -89,8 +86,6 @@ js/yarn.lock
 js/.eslintignore
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
-python/cmake_modules/SnappyCMakeLists.txt
-python/cmake_modules/SnappyConfig.h
 python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
