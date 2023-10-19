@@ -1823,6 +1823,9 @@ message CommandStatementIngest {
   optional bool temporary = 5;
   // Perform the ingestion as part of this transaction (if unset, the query is auto-committed).
   optional bool transaction_id = 6;
+
+  // Future extensions to the parameters of CommandStatementIngest should be added here, at a lower index than the generic 'options' parameter.
+
   // Backend-specific options.
   map<string, string> options = 1000;
 }
