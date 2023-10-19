@@ -53,6 +53,9 @@ bool HashJoinSchema::IsTypeSupported(const DataType& type) {
   if (id == Type::EXTENSION) {
     return IsTypeSupported(*checked_cast<const ExtensionType&>(type).storage_type());
   }
+  if (id == Type::NA) {
+    return true;
+  }
   return is_fixed_width(id) || is_binary_like(id) || is_large_binary_like(id);
 }
 

@@ -502,7 +502,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
   KeyColumnMetadata column_metadata =
       ColumnMetadataFromDataType(source->type).ValueOrDie();
 
-  if (column_metadata.is_fixed_length) {
+  if (column_metadata.is_fixed_length && column_metadata.fixed_length > 0) {
     // Fixed length column
     //
     uint32_t fixed_length = column_metadata.fixed_length;
@@ -571,7 +571,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
         }
       }
     }
-  } else {
+  } else if (column_metadata.fixed_length > 0) {
     // Varying length column
     //
 
