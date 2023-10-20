@@ -57,10 +57,6 @@ try:
         finalize_s3, initialize_s3, resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
-else:
-    ensure_s3_initialized()
-    import atexit
-    atexit.register(finalize_s3)
 
 
 def __getattr__(name):

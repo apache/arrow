@@ -37,6 +37,9 @@ cpdef enum S3LogLevel:
     Debug = <int8_t> CS3LogLevel_Debug
     Trace = <int8_t> CS3LogLevel_Trace
 
+# Prevent registration of multiple `atexit` handlers
+_initialized = False
+
 
 def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal, int num_event_loop_threads=1):
     """
@@ -63,7 +66,13 @@ def ensure_s3_initialized():
     """
     Initialize S3 (with default options) if not already initialized
     """
-    check_status(CEnsureS3Initialized())
+    global _initialized
+
+    if not _initialized:
+        check_status(CEnsureS3Initialized())
+        import atexit
+        atexit.register(finalize_s3)
+        _initialized = True
 
 
 def finalize_s3():
@@ -92,6 +101,8 @@ def resolve_s3_region(bucket):
     cdef:
         c_string c_bucket
         c_string c_region
+
+    ensure_s3_initialized()
 
     c_bucket = tobytes(bucket)
     with nogil:
@@ -260,6 +271,26 @@ cdef class S3FileSystem(FileSystem):
                  load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
+        ensure_s3_initialized()
+
+        self._initialize_s3(access_key=access_key, secret_key=secret_key, session_token=session_token,
+                            anonymous=anonymous, region=region, request_timeout=request_timeout,
+                            connect_timeout=connect_timeout, scheme=scheme, endpoint_override=endpoint_override,
+                            background_writes=background_writes, default_metadata=default_metadata,
+                            role_arn=role_arn, session_name=session_name, external_id=external_id,
+                            load_frequency=load_frequency, proxy_options=proxy_options,
+                            allow_bucket_creation=allow_bucket_creation, allow_bucket_deletion=allow_bucket_deletion,
+                            retry_strategy=retry_strategy)
+
+    def _initialize_s3(self, *, access_key=None, secret_key=None, session_token=None,
+                       bint anonymous=False, region=None, request_timeout=None,
+                       connect_timeout=None, scheme=None, endpoint_override=None,
+                       bint background_writes=True, default_metadata=None,
+                       role_arn=None, session_name=None, external_id=None,
+                       load_frequency=900, proxy_options=None,
+                       allow_bucket_creation=False, allow_bucket_deletion=False,
+                       retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
+
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
