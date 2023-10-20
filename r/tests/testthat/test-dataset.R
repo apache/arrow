@@ -334,7 +334,7 @@ test_that("dim method returns the correct number of rows and columns", {
   expect_identical(dim(ds), c(20L, 7L))
 })
 
-test_that("dimnames, colnames", {
+test_that("dimnames, colnames on Dataset objects", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   col_names <- c("int", "dbl", "lgl", "chr", "fct", "ts", "part")
   expect_identical(dimnames(ds), list(NULL, col_names))
