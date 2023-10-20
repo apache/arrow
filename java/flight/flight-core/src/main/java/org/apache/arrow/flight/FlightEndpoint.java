@@ -61,20 +61,15 @@ public class FlightEndpoint {
    * @param locations  The possible locations the stream can be retrieved from.
    */
   public FlightEndpoint(Ticket ticket, Instant expirationTime, Location... locations) {
-    this(ticket, expirationTime, null, locations);
+    this(ticket, expirationTime, null, Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations))));
   }
 
   /**
-   * Constructs a new endpoint with an expiration time.
-   *
-   * @param ticket A ticket that describe the key of a data stream.
-   * @param expirationTime (optional) When this endpoint expires.
-   * @param appMetadata (optional) Application metadata associated with this endpoint.
-   * @param locations  The possible locations the stream can be retrieved from.
+   * Private constructor with all parameters. Should only be called by Builder.
    */
-  public FlightEndpoint(Ticket ticket, Instant expirationTime, byte[] appMetadata, Location... locations) {
+  private FlightEndpoint(Ticket ticket, Instant expirationTime, byte[] appMetadata, List<Location> locations) {
     Objects.requireNonNull(ticket);
-    this.locations = Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations)));
+    this.locations = locations;
     this.expirationTime = expirationTime;
     this.ticket = ticket;
     this.appMetadata = appMetadata;
@@ -191,5 +186,57 @@ public class FlightEndpoint {
         ", expirationTime=" + (expirationTime == null ? "(none)" : expirationTime.toString()) +
         ", appMetadata=" + (appMetadata == null ? "(none)" : Base64.getEncoder().encodeToString(appMetadata)) +
         '}';
+  }
+
+  /**
+   * Create a builder for FlightEndpoint.
+   *
+   * @param ticket A ticket that describe the key of a data stream.
+   * @param locations  The possible locations the stream can be retrieved from.
+   */
+  public static Builder builder(Ticket ticket, Location... locations) {
+    return new Builder(ticket, locations);
+  }
+
+  /**
+   * Builder for FlightEndpoint.
+   */
+  public static final class Builder {
+    private final Ticket ticket;
+    private final List<Location> locations;
+    private Instant expirationTime = null;
+    private byte[] appMetadata = null;
+
+    private Builder(Ticket ticket, Location... locations) {
+      this.ticket = ticket;
+      this.locations = Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations)));
+    }
+
+    /**
+     * Set expiration time for the endpoint. Default is null, which means don't expire.
+     *
+     * @param expirationTime (optional) When this endpoint expires.
+     */
+    public Builder setExpirationTime(Instant expirationTime) {
+      this.expirationTime = expirationTime;
+      return this;
+    }
+
+    /**
+     * Set the app metadata to send along with the flight. Default is null;
+     *
+     * @param appMetadata Metadata to send along with the flight
+     */
+    public Builder setAppMetadata(byte[] appMetadata) {
+      this.appMetadata = appMetadata;
+      return this;
+    }
+
+    /**
+     * Build FlightEndpoint object.
+     */
+    public FlightEndpoint build() {
+      return new FlightEndpoint(ticket, expirationTime, appMetadata, locations);
+    }
   }
 }

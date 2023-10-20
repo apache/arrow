@@ -116,8 +116,9 @@ public class TestBasicOperation {
     final FlightInfo info1 = FlightInfo.builder(schema, FlightDescriptor.path(), Collections.emptyList())
             .setAppMetadata("foo".getBytes()).build();
     final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
-        Collections.singletonList(new FlightEndpoint(
-            new Ticket(new byte[10]), null, "bar".getBytes(), Location.forGrpcDomainSocket("/tmp/test.sock"))
+        Collections.singletonList(
+                FlightEndpoint.builder(new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"))
+                        .setAppMetadata("bar".getBytes()).build()
         ), 200, 500);
     final FlightInfo info3 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
         Arrays.asList(new FlightEndpoint(

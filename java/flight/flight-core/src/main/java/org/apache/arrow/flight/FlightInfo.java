@@ -351,7 +351,7 @@ public class FlightInfo {
     }
 
     /**
-     * Set the app metadata to send along with the flight. Default is an empty string.
+     * Set the app metadata to send along with the flight. Default is null.
      *
      * @param appMetadata Metadata to send along with the flight
      */
