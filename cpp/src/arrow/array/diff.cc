@@ -204,14 +204,6 @@ class CreateValueComparator {
     RETURN_NOT_OK(VisitTypeInline(type, this, base, target));
     return std::move(comparator_);
   }
-
-  static std::unique_ptr<ValueComparator> Unsafe(const DataType& type, const Array& base,
-                                                 const Array& target) {
-    CreateValueComparator create_value_compator;
-    auto result = create_value_compator(type, base, target);
-    ARROW_CHECK_OK(result.status());
-    return std::move(result).ValueOrDie();
-  }
 };
 
 // represents an intermediate state in the comparison of two arrays
@@ -243,21 +235,15 @@ class QuadraticSpaceMyersDiff {
       : base_(base),
         target_(target),
         pool_(pool),
-        value_comparator_(CreateValueComparator::Unsafe(*base.type(), base, target)),
-        base_begin_(0),
         base_end_(base.length()),
-        target_begin_(0),
         target_end_(target.length()),
-        endpoint_base_({ExtendFrom({base_begin_, target_begin_}).base}),
         insert_({true}) {
-    if ((base_end_ - base_begin_ == target_end_ - target_begin_) &&
-        endpoint_base_[0] == base_end_) {
-      // trivial case: base == target
-      finish_index_ = 0;
-    }
+    // endpoint_base_ is initialized when Diff() is called to start the algorithm.
   }
 
-  bool ValuesEqual(int64_t base_index, int64_t target_index) const {
+ private:
+  bool ValuesEqual(ValueComparator& comparator, int64_t base_index,
+                   int64_t target_index) const {
     // TODO(felipecrv): move the null checking to the type-specific comparators
     // as random-access null checks to some types (unions, rees) can be a bit
     // expensive.
@@ -270,32 +256,32 @@ class QuadraticSpaceMyersDiff {
       // If only one is null, then this is false, otherwise true
       return base_null && target_null;
     }
-    return value_comparator_->Equals(base_index, target_index);
+    return comparator.Equals(base_index, target_index);
   }
 
   // increment the position within base (the element pointed to was deleted)
   // then extend maximally
-  EditPoint DeleteOne(EditPoint p) const {
+  EditPoint DeleteOne(ValueComparator& comparator, EditPoint p) const {
     if (p.base != base_end_) {
       ++p.base;
     }
-    return ExtendFrom(p);
+    return ExtendFrom(comparator, p);
   }
 
   // increment the position within target (the element pointed to was inserted)
   // then extend maximally
-  EditPoint InsertOne(EditPoint p) const {
+  EditPoint InsertOne(ValueComparator& comparator, EditPoint p) const {
     if (p.target != target_end_) {
       ++p.target;
     }
-    return ExtendFrom(p);
+    return ExtendFrom(comparator, p);
   }
 
   // increment the position within base and target (the elements skipped in this way were
   // present in both sequences)
-  EditPoint ExtendFrom(EditPoint p) const {
+  EditPoint ExtendFrom(ValueComparator& comparator, EditPoint p) const {
     for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
-      if (!ValuesEqual(p.base, p.target)) {
+      if (!ValuesEqual(comparator, p.base, p.target)) {
         break;
       }
     }
@@ -321,7 +307,7 @@ class QuadraticSpaceMyersDiff {
     return {maximal_base, maximal_target};
   }
 
-  void Next() {
+  void Next(ValueComparator& comparator) {
     ++edit_count_;
     // base_begin_ is used as a dummy value here since Iterator may not be default
     // constructible. The newly allocated range is completely overwritten below.
@@ -334,7 +320,8 @@ class QuadraticSpaceMyersDiff {
     // try deleting from base first
     for (int64_t i = 0, i_out = 0; i < edit_count_; ++i, ++i_out) {
       auto previous_endpoint = GetEditPoint(edit_count_ - 1, i + previous_offset);
-      endpoint_base_[i_out + current_offset] = DeleteOne(previous_endpoint).base;
+      endpoint_base_[i_out + current_offset] =
+          DeleteOne(comparator, previous_endpoint).base;
     }
 
     // check if inserting from target could do better
@@ -344,7 +331,7 @@ class QuadraticSpaceMyersDiff {
       auto endpoint_after_deletion = GetEditPoint(edit_count_, i_out + current_offset);
 
       auto previous_endpoint = GetEditPoint(edit_count_ - 1, i + previous_offset);
-      auto endpoint_after_insertion = InsertOne(previous_endpoint);
+      auto endpoint_after_insertion = InsertOne(comparator, previous_endpoint);
 
       if (endpoint_after_insertion.base - endpoint_after_deletion.base >= 0) {
         // insertion was more efficient; keep it and mark the insertion in insert_
@@ -406,9 +393,20 @@ class QuadraticSpaceMyersDiff {
         {field("insert", boolean()), field("run_length", int64())});
   }
 
+ public:
   Result<std::shared_ptr<StructArray>> Diff() {
+    ARROW_ASSIGN_OR_RAISE(auto comparator,
+                          CreateValueComparator{}(*base_.type(), base_, target_));
+    DCHECK_GE(base_end_, 0);
+    DCHECK_GE(target_end_, 0);
+    endpoint_base_ = {ExtendFrom(*comparator, {base_begin_, target_begin_}).base};
+    if ((base_end_ - base_begin_ == target_end_ - target_begin_) &&
+        endpoint_base_[0] == base_end_) {
+      // trivial case: base == target
+      finish_index_ = 0;
+    }
     while (!Done()) {
-      Next();
+      Next(*comparator);
     }
     return GetEdits(pool_);
   }
@@ -417,11 +415,10 @@ class QuadraticSpaceMyersDiff {
   const Array& base_;
   const Array& target_;
   MemoryPool* pool_;
-  std::unique_ptr<ValueComparator> value_comparator_;
   int64_t finish_index_ = -1;
   int64_t edit_count_ = 0;
-  int64_t base_begin_, base_end_;
-  int64_t target_begin_, target_end_;
+  int64_t base_begin_ = 0, base_end_ = -1;
+  int64_t target_begin_ = 0, target_end_ = -1;
   // each element of endpoint_base_ is the furthest position in base reachable given an
   // edit_count and (# insertions) - (# deletions). Each bit of insert_ records whether
   // the corresponding furthest position was reached via an insertion or a deletion
