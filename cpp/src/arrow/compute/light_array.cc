@@ -34,9 +34,19 @@ KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length
       "This class was intended to be a POD type");
   metadata_ = metadata;
   length_ = length;
-  buffers_[kValidityBuffer] = validity_buffer;
-  buffers_[kFixedLengthBuffer] = fixed_length_buffer;
-  buffers_[kVariableLengthBuffer] = var_length_buffer;
+
+  // Check if the column is of Null Type
+  if (metadata.is_null_type) {
+    // For Null type columns, only the validity buffer is relevant.
+    buffers_[kValidityBuffer] = validity_buffer;
+    buffers_[kFixedLengthBuffer] = nullptr;
+    buffers_[kVariableLengthBuffer] = nullptr;
+  } else {
+    buffers_[kValidityBuffer] = validity_buffer;
+    buffers_[kFixedLengthBuffer] = fixed_length_buffer;
+    buffers_[kVariableLengthBuffer] = var_length_buffer;
+  }
+
   mutable_buffers_[kValidityBuffer] = mutable_buffers_[kFixedLengthBuffer] =
       mutable_buffers_[kVariableLengthBuffer] = nullptr;
   bit_offset_[kValidityBuffer] = bit_offset_validity;
@@ -158,13 +168,22 @@ Result<KeyColumnArray> ColumnArrayFromArrayData(
 KeyColumnArray ColumnArrayFromArrayDataAndMetadata(
     const std::shared_ptr<ArrayData>& array_data, const KeyColumnMetadata& metadata,
     int64_t start_row, int64_t num_rows) {
+  const uint8_t* fixed_length_buffer = nullptr;
+  const uint8_t* var_length_buffer = nullptr;
+
+  // Check if the column is of Null Type
+  if (!metadata.is_null_type) {
+    fixed_length_buffer = array_data->buffers[1]->data();
+    if (array_data->buffers.size() > 2 && array_data->buffers[2] != NULLPTR) {
+      var_length_buffer = array_data->buffers[2]->data();
+    }
+  }
+
   KeyColumnArray column_array = KeyColumnArray(
       metadata, array_data->offset + start_row + num_rows,
       array_data->buffers[0] != NULLPTR ? array_data->buffers[0]->data() : nullptr,
-      array_data->buffers[1]->data(),
-      (array_data->buffers.size() > 2 && array_data->buffers[2] != NULLPTR)
-          ? array_data->buffers[2]->data()
-          : nullptr);
+      fixed_length_buffer, var_length_buffer);
+
   return column_array.Slice(array_data->offset + start_row, num_rows);
 }
 
@@ -502,7 +521,10 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
   KeyColumnMetadata column_metadata =
       ColumnMetadataFromDataType(source->type).ValueOrDie();
 
-  if (column_metadata.is_fixed_length && column_metadata.fixed_length > 0) {
+  if (column_metadata.fixed_length == 0 && column_metadata.is_fixed_length &&
+      column_metadata.is_null_type) {
+    // Null column
+  } else if (column_metadata.is_fixed_length) {
     // Fixed length column
     //
     uint32_t fixed_length = column_metadata.fixed_length;
@@ -571,7 +593,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
         }
       }
     }
-  } else if (column_metadata.fixed_length > 0) {
+  } else {
     // Varying length column
     //
 

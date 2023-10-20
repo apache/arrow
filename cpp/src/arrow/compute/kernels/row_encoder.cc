@@ -272,6 +272,12 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
       extension_types_[i] = arrow::internal::checked_pointer_cast<ExtensionType>(
           column_types[i].GetSharedPtr());
     }
+
+    if (type.id() == Type::NA) {
+        encoders_[i] = std::make_shared<NullKeyEncoder>();
+        continue;
+    }
+
     if (type.id() == Type::BOOL) {
       encoders_[i] = std::make_shared<BooleanKeyEncoder>();
       continue;

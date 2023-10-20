@@ -254,7 +254,7 @@ struct RandomDataTypeConstraints {
 
   void Default() {
     data_type_enabled_mask =
-        kInt1 | kInt2 | kInt4 | kInt8 | kBool | kBinary | kString | kLargeString;
+        kInt1 | kInt2 | kInt4 | kInt8 | kBool | kBinary | kString | kLargeString | kNull;
     min_null_probability = 0.0;
     max_null_probability = 0.2;
     min_binary_length = 1;
@@ -291,6 +291,7 @@ struct RandomDataTypeConstraints {
   static constexpr int64_t kBinary = 32;
   static constexpr int64_t kString = 64;
   static constexpr int64_t kLargeString = 128;
+  static constexpr int64_t kNull = 256;
 };
 
 struct RandomDataType {
@@ -300,10 +301,18 @@ struct RandomDataType {
   int min_string_length;
   int max_string_length;
   bool is_large_string;
+  bool is_null_type;
 
   static RandomDataType Random(Random64Bit& rng,
                                const RandomDataTypeConstraints& constraints) {
     RandomDataType result;
+    if (constraints.data_type_enabled_mask & constraints.kNull) {
+      // 5% chance of null type column
+      result.is_null_type = ((rng.next() % 100) < 5);
+    } else {
+      result.is_null_type = false;
+    }
+
     if ((constraints.data_type_enabled_mask & constraints.kString) != 0) {
       if (constraints.data_type_enabled_mask != constraints.kString) {
         // Both string and fixed length types enabled
@@ -386,7 +395,9 @@ std::vector<std::shared_ptr<Array>> GenRandomRecords(
   std::vector<std::shared_ptr<Array>> result;
   random::RandomArrayGenerator rag(static_cast<random::SeedType>(rng.next()));
   for (size_t i = 0; i < data_types.size(); ++i) {
-    if (data_types[i].is_fixed_length) {
+    if (data_types[i].is_null_type) {
+      result.push_back(std::make_shared<arrow::NullArray>(num_rows));
+    } else if (data_types[i].is_fixed_length) {
       switch (data_types[i].fixed_length) {
         case 0:
           result.push_back(rag.Boolean(num_rows, 0.5, data_types[i].null_probability));
@@ -465,15 +476,20 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
                              AllocateBitmap(indices.size(), ctx->memory_pool()));
         uint8_t* non_nulls = null_buf->mutable_data();
         memset(non_nulls, 0xFF, bit_util::BytesForBits(indices.size()));
-        if ((*result)[i]->data()->buffers.size() == 2) {
-          (*result)[i] = MakeArray(
-              ArrayData::Make((*result)[i]->type(), indices.size(),
-                              {std::move(null_buf), (*result)[i]->data()->buffers[1]}));
+        if ((*result)[i]->type()->id() == Type::NA) {
+          (*result)[i] = MakeArray(ArrayData::Make((*result)[i]->type(), indices.size(),
+                                                   {std::move(null_buf)}));
         } else {
-          (*result)[i] = MakeArray(
-              ArrayData::Make((*result)[i]->type(), indices.size(),
-                              {std::move(null_buf), (*result)[i]->data()->buffers[1],
-                               (*result)[i]->data()->buffers[2]}));
+          if ((*result)[i]->data()->buffers.size() == 2) {
+            (*result)[i] = MakeArray(
+                ArrayData::Make((*result)[i]->type(), indices.size(),
+                                {std::move(null_buf), (*result)[i]->data()->buffers[1]}));
+          } else {
+            (*result)[i] = MakeArray(
+                ArrayData::Make((*result)[i]->type(), indices.size(),
+                                {std::move(null_buf), (*result)[i]->data()->buffers[1],
+                                 (*result)[i]->data()->buffers[2]}));
+          }
         }
       }
       (*result)[i]->data()->SetNullCount(kUnknownNullCount);
@@ -481,6 +497,9 @@ void TakeUsingVector(ExecContext* ctx, const std::vector<std::shared_ptr<Array>>
     for (size_t i = 0; i < indices.size(); ++i) {
       if (indices[i] < 0) {
         for (size_t col = 0; col < result->size(); ++col) {
+          if ((*result)[col]->data()->buffers[0] == NULLPTR) {
+            continue;
+          }
           uint8_t* non_nulls = (*result)[col]->data()->buffers[0]->mutable_data();
           bit_util::ClearBit(non_nulls, i);
         }
