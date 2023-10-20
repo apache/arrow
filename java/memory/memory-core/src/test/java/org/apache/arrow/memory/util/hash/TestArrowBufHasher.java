@@ -18,8 +18,10 @@
 package org.apache.arrow.memory.util.hash;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -108,6 +110,26 @@ public class TestArrowBufHasher {
         hasher.hashCode(buf, 500, 1000);
       });
     }
+  }
+
+  @Test
+  public void testHasherLessThanInt() {
+    try (ArrowBuf buf1 = allocator.buffer(4);
+         ArrowBuf buf2 = allocator.buffer(4)) {
+      buf1.writeBytes("foo1".getBytes(StandardCharsets.UTF_8));
+      buf2.writeBytes("bar2".getBytes(StandardCharsets.UTF_8));
+
+      for (int i = 1; i <= 4; i ++) {
+        verifyHashCodeNotEqual(buf1, 0, i, buf2, 0, i);
+      }
+    }
+  }
+
+  private void verifyHashCodeNotEqual(ArrowBuf buf1, int offset1, int length1,
+                                      ArrowBuf buf2, int offset2, int length2) {
+    int hashCode1 = hasher.hashCode(buf1, 0, length1);
+    int hashCode2 = hasher.hashCode(buf2, 0, length2);
+    assertNotEquals(hashCode1, hashCode2);
   }
 
   @Parameterized.Parameters(name = "hasher = {0}")
