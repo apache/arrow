@@ -126,6 +126,16 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return underlyingVector.getTransferPair(field, allocator);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return underlyingVector.getTransferPair(field, allocator, callBack);
+  }
+
+  @Override
   public TransferPair makeTransferPair(ValueVector target) {
     return underlyingVector.makeTransferPair(target);
   }
