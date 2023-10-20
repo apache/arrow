@@ -29,8 +29,8 @@ arrow_add_pkg_config("arrow-orc")
 add_arrow_test(adapter_test
                PREFIX
                "arrow-orc"
-               EXTRA_LINK_LIBS
-               orc::orc)
+               STATIC_LINK_LIBS
+               ${ARROW_TEST_STATIC_LINK_LIBS})
 
 set_source_files_properties(adapter_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                        SKIP_UNITY_BUILD_INCLUSION ON)
