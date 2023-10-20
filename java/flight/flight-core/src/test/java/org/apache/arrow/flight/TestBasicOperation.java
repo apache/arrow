@@ -430,7 +430,7 @@ public class TestBasicOperation {
             .build();
         Assertions.assertEquals(0, protobufData.getDataBody().size());
         final ArrowMessage parsedMessage = marshaller.parse(new ByteArrayInputStream(protobufData.toByteArray()));
-        // Should have no body buffers5
+        // Should have no body buffers
         Assertions.assertFalse(parsedMessage.getBufs().iterator().hasNext());
         // Should not throw
         parsedMessage.asSchema();
