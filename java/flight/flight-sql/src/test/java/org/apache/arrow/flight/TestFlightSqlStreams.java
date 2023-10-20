@@ -46,6 +46,7 @@ import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -211,6 +212,7 @@ public class TestFlightSqlStreams {
     close(sqlClient, server, allocator);
   }
 
+  @Disabled("Memory leak GH-38268")
   @Test
   public void testGetTablesResultNoSchema() throws Exception {
     try (final FlightStream stream =
@@ -230,6 +232,7 @@ public class TestFlightSqlStreams {
     }
   }
 
+  @Disabled("Memory leak GH-38268")
   @Test
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
@@ -248,6 +251,7 @@ public class TestFlightSqlStreams {
     }
   }
 
+  @Disabled("Memory leak GH-38268")
   @Test
   public void testGetSqlInfoResults() throws Exception {
     final FlightInfo info = sqlClient.getSqlInfo();
@@ -259,6 +263,7 @@ public class TestFlightSqlStreams {
     }
   }
 
+  @Disabled("Memory leak GH-38268")
   @Test
   public void testGetTypeInfo() throws Exception {
     FlightInfo flightInfo = sqlClient.getXdbcTypeInfo();
@@ -275,6 +280,7 @@ public class TestFlightSqlStreams {
     }
   }
 
+  @Disabled("Memory leak GH-38268")
   @Test
   public void testExecuteQuery() throws Exception {
     try (final FlightStream stream = sqlClient
