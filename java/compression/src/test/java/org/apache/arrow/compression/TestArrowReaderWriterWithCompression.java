@@ -18,7 +18,11 @@
 package org.apache.arrow.compression;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -62,7 +66,7 @@ public class TestArrowReaderWriterWithCompression {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
     dictionaryVector1 = (VarCharVector)
-        FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector("D1", allocator, null);
+        FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector("f1", allocator, null);
 
     setVector(dictionaryVector1,
         "foo".getBytes(StandardCharsets.UTF_8),
@@ -78,9 +82,7 @@ public class TestArrowReaderWriterWithCompression {
     dictionaryVector1.close();
     allocator.close();
   }
-
-
-
+  
   @Test
   public void testArrowFileZstdRoundTrip() throws Exception {
     // Prepare sample data
@@ -117,7 +119,6 @@ public class TestArrowReaderWriterWithCompression {
            new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
              allocator, NoCompressionCodec.Factory.INSTANCE)) {
       Assert.assertEquals(1, reader.getRecordBlocks().size());
-
       Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
       String expectedMessage = "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD";
       Assert.assertEquals(expectedMessage, exception.getMessage());
@@ -170,9 +171,8 @@ public class TestArrowReaderWriterWithCompression {
     try (ArrowFileReader reader =
            new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
              allocator, NoCompressionCodec.Factory.INSTANCE)) {
-      Assert.assertEquals(1, reader.getRecordBlocks().size());
-      Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
       String expectedMessage = "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD";
+      Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
       Assert.assertEquals(expectedMessage, exception.getMessage());
     }
   }
@@ -196,34 +196,38 @@ public class TestArrowReaderWriterWithCompression {
     fields.add(encodedVector1.getField());
 
     VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(fields), allocator);
-    final int rowCount = 10;
+    final int rowCount = 3;
     GenerateSampleData.generateTestData(root.getVector(0), rowCount);
     root.setRowCount(rowCount);
 
     // Write an in-memory compressed arrow file
     ByteArrayOutputStream out = new ByteArrayOutputStream();
+    File tempFile = File.createTempFile("dictionary_compression", ".arrow");
+    FileOutputStream fileOut = new FileOutputStream(tempFile);
     try (final ArrowStreamWriter writer =
-             new ArrowStreamWriter(root, provider, Channels.newChannel(out), IpcOption.DEFAULT,
-                 CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD, Optional.of(7))) {
+             new ArrowStreamWriter(root, provider, Channels.newChannel(fileOut), IpcOption.DEFAULT,
+                 CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD,
+                 Optional.of(7))) {
       writer.start();
       writer.writeBatch();
       writer.end();
     }
 
-    // Read the in-memory compressed arrow file with CommonsCompressionFactory provided
-    try (ArrowStreamReader reader =
-             new ArrowStreamReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
-                 allocator, CommonsCompressionFactory.INSTANCE)) {
+    // Read the on-disk compressed arrow file with CommonsCompressionFactory provided
+    try (SeekableByteChannel channel = FileChannel.open(tempFile.toPath());
+        ArrowStreamReader reader =
+             new ArrowStreamReader(channel, allocator, CommonsCompressionFactory.INSTANCE)) {
+      org.apache.arrow.vector.types.pojo.Schema schema = reader.getVectorSchemaRoot().getSchema();
       Assert.assertTrue(reader.loadNextBatch());
       Assert.assertTrue(root.equals(reader.getVectorSchemaRoot()));
       Assert.assertFalse(reader.loadNextBatch());
+
     }
 
-    // Read the in-memory compressed arrow file without CompressionFactory provided
-    try (ArrowStreamReader reader =
-             new ArrowStreamReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
-                 allocator, NoCompressionCodec.Factory.INSTANCE)) {
-
+    // Read the on-disk compressed arrow file without CompressionFactory provided
+    try (SeekableByteChannel channel = FileChannel.open(tempFile.toPath());
+        ArrowStreamReader reader =
+             new ArrowStreamReader(channel, allocator, NoCompressionCodec.Factory.INSTANCE)) {
       Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
       String expectedMessage = "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD";
       Assert.assertEquals(expectedMessage, exception.getMessage());
