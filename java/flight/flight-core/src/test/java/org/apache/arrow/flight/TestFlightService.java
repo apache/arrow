@@ -149,7 +149,7 @@ public class TestFlightService {
       FlightInfo flightInfo = client.getInfo(FlightDescriptor.path("test"));
       Assertions.assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
       Assertions.assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
-      Assertions.assertEquals(flightInfo.getAppMetadata(), "foo".getBytes());
+      Assertions.assertArrayEquals(flightInfo.getAppMetadata(), "foo".getBytes());
 
       Exception e = Assertions.assertThrows(
           FlightRuntimeException.class,

@@ -152,8 +152,7 @@ public class FlightInfo {
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
     ordered = pbFlightInfo.getOrdered();
-    appMetadata = pbFlightInfo.getAppMetadata().toByteArray();
-
+    appMetadata = (pbFlightInfo.getAppMetadata().size() == 0 ? null : pbFlightInfo.getAppMetadata().toByteArray());
     option = IpcOption.DEFAULT;
   }
 

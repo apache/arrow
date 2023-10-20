@@ -94,7 +94,7 @@ public class FlightEndpoint {
     } else {
       this.expirationTime = null;
     }
-    this.appMetadata = flt.getAppMetadata().toByteArray();
+    this.appMetadata = (flt.getAppMetadata().size() == 0 ? null : flt.getAppMetadata().toByteArray());
     this.ticket = new Ticket(flt.getTicket());
   }
 
