@@ -959,12 +959,26 @@ ensure_source_directory() {
     fi
   fi
 
-  # Ensure that the testing repositories are cloned
-  if [ ! -d "${ARROW_SOURCE_DIR}/testing/data" ]; then
-    git clone https://github.com/apache/arrow-testing.git ${ARROW_SOURCE_DIR}/testing
+  # Ensure that the testing repositories are prepared
+  if [ ! -d ${ARROW_SOURCE_DIR}/testing/data ]; then
+    if [ -d ${SOURCE_DIR}/../../testing/data ]; then
+      cp -a ${SOURCE_DIR}/../../testing/ ${ARROW_SOURCE_DIR}/
+    else
+      git clone \
+        https://github.com/apache/arrow-testing.git \
+        ${ARROW_SOURCE_DIR}/testing
+    fi
   fi
-  if [ ! -d "${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data" ]; then
-    git clone https://github.com/apache/parquet-testing.git ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing
+  if [ ! -d ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data ]; then
+    if [ -d ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/data ]; then
+      cp -a \
+         ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/ \
+         ${ARROW_SOURCE_DIR}/cpp/submodules/
+    else
+      git clone \
+        https://github.com/apache/parquet-testing.git \
+        ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing
+    fi
   fi
 
   export ARROW_TEST_DATA=$ARROW_SOURCE_DIR/testing/data
