@@ -140,6 +140,11 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
     return ConcurrentQueue<T>::TryPopUnlocked();
   }
 
+<<<<<<< HEAD
+=======
+  Status ForceShutdown() { return handler_.ForceShutdown(); }
+
+>>>>>>> b34c999b6 (Create sorted merge node)
  private:
   BackpressureHandler handler_;
 };

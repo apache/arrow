@@ -566,6 +566,7 @@ class InputState {
     return queue_.UnsyncFront();
   }
 
+// TODO(jeraguilon): consolidate
 #define LATEST_VAL_CASE(id, val)                     \
   case Type::id: {                                   \
     using T = typename TypeIdTraits<Type::id>::Type; \
