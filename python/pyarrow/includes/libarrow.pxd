@@ -409,11 +409,15 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         const shared_ptr[CDataType]& value_type()
 
     cdef cppclass CField" arrow::Field":
-        cppclass CMergeOptions "arrow::Field::MergeOptions":
+        cppclass CMergeOptions "MergeOptions":
+            CMergeOptions()
             c_bool promote_nullability
 
             @staticmethod
             CMergeOptions Defaults()
+
+            @staticmethod
+            CMergeOptions Permissive()
 
         const c_string& name()
         shared_ptr[CDataType] type()
@@ -514,7 +518,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CSchema] RemoveMetadata()
 
     CResult[shared_ptr[CSchema]] UnifySchemas(
-        const vector[shared_ptr[CSchema]]& schemas)
+        const vector[shared_ptr[CSchema]]& schemas,
+        CField.CMergeOptions field_merge_options)
 
     cdef cppclass PrettyPrintOptions:
         PrettyPrintOptions()
@@ -2738,13 +2743,13 @@ cdef extern from "arrow/array/concatenate.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/c/abi.h":
     cdef struct ArrowSchema:
-        pass
+        void (*release)(ArrowSchema*) noexcept nogil
 
     cdef struct ArrowArray:
-        pass
+        void (*release)(ArrowArray*) noexcept nogil
 
     cdef struct ArrowArrayStream:
-        pass
+        void (*release)(ArrowArrayStream*) noexcept nogil
 
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)

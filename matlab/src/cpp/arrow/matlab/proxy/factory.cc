@@ -35,11 +35,13 @@
 #include "arrow/matlab/type/proxy/time32_type.h"
 #include "arrow/matlab/type/proxy/time64_type.h"
 #include "arrow/matlab/type/proxy/struct_type.h"
+#include "arrow/matlab/type/proxy/list_type.h"
 #include "arrow/matlab/type/proxy/field.h"
 #include "arrow/matlab/io/feather/proxy/writer.h"
 #include "arrow/matlab/io/feather/proxy/reader.h"
 #include "arrow/matlab/io/csv/proxy/table_writer.h"
 #include "arrow/matlab/io/csv/proxy/table_reader.h"
+#include "arrow/matlab/buffer/proxy/buffer.h"
 
 #include "factory.h"
 
@@ -65,6 +67,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.Date32Array   , arrow::matlab::array::proxy::NumericArray<arrow::Date32Type>);
     REGISTER_PROXY(arrow.array.proxy.Date64Array   , arrow::matlab::array::proxy::NumericArray<arrow::Date64Type>);
     REGISTER_PROXY(arrow.array.proxy.ChunkedArray  , arrow::matlab::array::proxy::ChunkedArray);
+    REGISTER_PROXY(arrow.buffer.proxy.Buffer       , arrow::matlab::buffer::proxy::Buffer);
     REGISTER_PROXY(arrow.tabular.proxy.RecordBatch , arrow::matlab::tabular::proxy::RecordBatch);
     REGISTER_PROXY(arrow.tabular.proxy.Table       , arrow::matlab::tabular::proxy::Table);
     REGISTER_PROXY(arrow.tabular.proxy.Schema      , arrow::matlab::tabular::proxy::Schema);
@@ -87,6 +90,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.Date32Type     , arrow::matlab::type::proxy::Date32Type);
     REGISTER_PROXY(arrow.type.proxy.Date64Type     , arrow::matlab::type::proxy::Date64Type);
     REGISTER_PROXY(arrow.type.proxy.StructType     , arrow::matlab::type::proxy::StructType);
+    REGISTER_PROXY(arrow.type.proxy.ListType       , arrow::matlab::type::proxy::ListType);
     REGISTER_PROXY(arrow.io.feather.proxy.Writer   , arrow::matlab::io::feather::proxy::Writer);
     REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::matlab::io::feather::proxy::Reader);
     REGISTER_PROXY(arrow.io.csv.proxy.TableWriter  , arrow::matlab::io::csv::proxy::TableWriter);

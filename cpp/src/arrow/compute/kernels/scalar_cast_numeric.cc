@@ -286,7 +286,8 @@ struct ParseString {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I, enable_if_base_binary<I>> {
+struct CastFunctor<
+    O, I, enable_if_t<(is_number_type<O>::value && is_base_binary_type<I>::value)>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }

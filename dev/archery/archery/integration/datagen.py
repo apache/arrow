@@ -1722,7 +1722,6 @@ def generate_dictionary_unsigned_case():
 
     # TODO: JavaScript does not support uint64 dictionary indices, so disabled
     # for now
-
     # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
     fields = [
         DictionaryField('f0', get_field('', 'uint8'), dict0),
@@ -1804,8 +1803,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_datetime_case(),
 
-        generate_duration_case()
-        .skip_tester('C#'),
+        generate_duration_case(),
 
         generate_interval_case()
         .skip_tester('C#')

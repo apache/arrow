@@ -21,10 +21,10 @@
 from datetime import timedelta
 
 from cython.operator cimport dereference as deref
+from libcpp.memory cimport shared_ptr
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
-
 from pyarrow.lib import tobytes, frombytes
 
 
@@ -48,9 +48,6 @@ cdef cipher_to_name(ParquetCipher cipher):
 
 cdef class EncryptionConfiguration(_Weakrefable):
     """Configuration of the encryption, such as which columns to encrypt"""
-    cdef:
-        shared_ptr[CEncryptionConfiguration] configuration
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -180,9 +177,6 @@ cdef class EncryptionConfiguration(_Weakrefable):
 
 cdef class DecryptionConfiguration(_Weakrefable):
     """Configuration of the decryption, such as cache timeout."""
-    cdef:
-        shared_ptr[CDecryptionConfiguration] configuration
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -206,9 +200,6 @@ cdef class DecryptionConfiguration(_Weakrefable):
 
 cdef class KmsConnectionConfig(_Weakrefable):
     """Configuration of the connection to the Key Management Service (KMS)"""
-    cdef:
-        shared_ptr[CKmsConnectionConfig] configuration
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -358,9 +349,6 @@ cdef void _cb_create_kms_client(
 cdef class CryptoFactory(_Weakrefable):
     """ A factory that produces the low-level FileEncryptionProperties and
     FileDecryptionProperties objects, from the high-level parameters."""
-    cdef:
-        unique_ptr[CPyCryptoFactory] factory
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -466,3 +454,31 @@ cdef class CryptoFactory(_Weakrefable):
 
     def remove_cache_entries_for_all_tokens(self):
         self.factory.get().RemoveCacheEntriesForAllTokens()
+
+    cdef inline shared_ptr[CPyCryptoFactory] unwrap(self):
+        return self.factory
+
+
+cdef shared_ptr[CCryptoFactory] pyarrow_unwrap_cryptofactory(object crypto_factory) except *:
+    if isinstance(crypto_factory, CryptoFactory):
+        pycf = (<CryptoFactory> crypto_factory).unwrap()
+        return static_pointer_cast[CCryptoFactory, CPyCryptoFactory](pycf)
+    raise TypeError("Expected CryptoFactory, got %s" % type(crypto_factory))
+
+
+cdef shared_ptr[CKmsConnectionConfig] pyarrow_unwrap_kmsconnectionconfig(object kmsconnectionconfig) except *:
+    if isinstance(kmsconnectionconfig, KmsConnectionConfig):
+        return (<KmsConnectionConfig> kmsconnectionconfig).unwrap()
+    raise TypeError("Expected KmsConnectionConfig, got %s" % type(kmsconnectionconfig))
+
+
+cdef shared_ptr[CEncryptionConfiguration] pyarrow_unwrap_encryptionconfig(object encryptionconfig) except *:
+    if isinstance(encryptionconfig, EncryptionConfiguration):
+        return (<EncryptionConfiguration> encryptionconfig).unwrap()
+    raise TypeError("Expected EncryptionConfiguration, got %s" % type(encryptionconfig))
+
+
+cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object decryptionconfig) except *:
+    if isinstance(decryptionconfig, DecryptionConfiguration):
+        return (<DecryptionConfiguration> decryptionconfig).unwrap()
+    raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))

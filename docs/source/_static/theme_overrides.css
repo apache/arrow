@@ -21,10 +21,16 @@
 /* Customizing with theme CSS variables */
 
 :root {
-  /* Change header hight to make the logo a bit larger */
-  --pst-header-height: 6rem;
   /* Make headings more bold */
   --pst-font-weight-heading: 600;
+}
+
+/* Change header hight to make the logo a bit larger */
+/* only on wider screens */
+@media only screen and (min-width: 1170px){
+  :root {
+    --pst-header-height: 6rem;
+  }
 }
 
 /* Contibuting landing page overview cards */
