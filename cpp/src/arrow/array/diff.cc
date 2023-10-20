@@ -98,68 +98,118 @@ static UnitSlice GetView(const UnionArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
-using ValueComparator = std::function<bool(const Array&, int64_t, const Array&, int64_t)>;
+/// \brief A simple virtual comparator interface for two arrays.
+///
+/// The base and target array ara bound at construction time. Then
+/// Equals(base_index, target_index) should return true if the values
+/// at the given indices are equal.
+struct ValueComparator {
+  virtual ~ValueComparator() = default;
 
-struct ValueComparatorVisitor {
+  /// \brief Compare the values at the given indices in the base and target arrays.
+  ///
+  /// \param base_index The index in the base array.
+  /// \param target_index The index in the target array.
+  /// \return true if the values at the given indices are equal, false otherwise.
+  /// \pre base_index and target_index are valid indices in their respective arrays.
+  virtual bool Equals(int64_t base_index, int64_t target_index) = 0;
+};
+
+template <typename ArrayType>
+struct DefaultValueComparator : public ValueComparator {
+  const ArrayType& base;
+  const ArrayType& target;
+
+  DefaultValueComparator(const ArrayType& base, const ArrayType& target)
+      : base(base), target(target) {}
+
+  ~DefaultValueComparator() override = default;
+
+  bool Equals(int64_t base_index, int64_t target_index) override {
+    return GetView(base, base_index) == GetView(target, target_index);
+  }
+};
+
+class REEValueComparator : public ValueComparator {
+ private:
+  const RunEndEncodedArray& base_;
+  const RunEndEncodedArray& target_;
+  std::unique_ptr<ValueComparator> inner_value_comparator_;
+
+ public:
+  REEValueComparator(const RunEndEncodedArray& base, const RunEndEncodedArray& target,
+                     std::unique_ptr<ValueComparator>&& inner_value_comparator)
+      : base_(base),
+        target_(target),
+        inner_value_comparator_(std::move(inner_value_comparator)) {
+    DCHECK_EQ(*base_.type(), *target_.type());
+  }
+
+  ~REEValueComparator() override = default;
+
+  bool Equals(int64_t base_index, int64_t target_index) override {
+    const int64_t physical_base_index =
+        ree_util::FindPhysicalIndex(ArraySpan(*base_.data()), base_index, base_.offset());
+    const int64_t physical_target_index = ree_util::FindPhysicalIndex(
+        ArraySpan(*target_.data()), target_index, target_.offset());
+    // TODO(felipecrv): cache these values so that the next binary search for
+    // the physical index can probe from the last found position.
+    return inner_value_comparator_->Equals(physical_base_index, physical_target_index);
+  }
+};
+
+class CreateValueComparator {
+ private:
+  std::unique_ptr<ValueComparator> comparator_;
+
+ public:
   template <typename T>
-  Status Visit(const T&) {
+  Status Visit(const T&, const Array& base, const Array& target) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
-    out = [](const Array& base, int64_t base_index, const Array& target,
-             int64_t target_index) {
-      return (GetView(checked_cast<const ArrayType&>(base), base_index) ==
-              GetView(checked_cast<const ArrayType&>(target), target_index));
-    };
+    comparator_ = std::make_unique<DefaultValueComparator<ArrayType>>(
+        checked_cast<const ArrayType&>(base), checked_cast<const ArrayType&>(target));
     return Status::OK();
   }
 
-  Status Visit(const NullType&) { return Status::NotImplemented("null type"); }
+  Status Visit(const NullType&, const Array&, const Array&) {
+    return Status::NotImplemented("null type");
+  }
 
-  Status Visit(const ExtensionType&) { return Status::NotImplemented("extension type"); }
+  Status Visit(const ExtensionType&, const Array&, const Array&) {
+    return Status::NotImplemented("extension type");
+  }
 
-  Status Visit(const DictionaryType&) {
+  Status Visit(const DictionaryType&, const Array& base, const Array& target) {
     return Status::NotImplemented("dictionary type");
   }
 
-  Status Visit(const RunEndEncodedType&) {
-    struct REEComparatorCache {
-      ValueComparator values_comparator;
-    };
-    REEComparatorCache cache;
-    out = [cache = std::move(cache)](const Array& base, int64_t base_index,
-                                     const Array& target, int64_t target_index) mutable {
-      const int64_t physical_base_index =
-          ree_util::FindPhysicalIndex(ArraySpan(*base.data()), base_index, base.offset());
-      const int64_t physical_target_index = ree_util::FindPhysicalIndex(
-          ArraySpan(*target.data()), target_index, target.offset());
-      // TODO(felipecrv): cache these values so that the next binary search for
-      // the physical index can probe from the last found position.
-
-      const auto& ree_type = checked_cast<const RunEndEncodedType&>(*base.type());
-      const auto& base_ree = checked_cast<const RunEndEncodedArray&>(base);
-      const auto& target_ree = checked_cast<const RunEndEncodedArray&>(target);
-
-      if (!cache.values_comparator) {
-        ValueComparatorVisitor values_visitor;
-        cache.values_comparator = values_visitor.Create(*ree_type.value_type());
-      }
-      return cache.values_comparator(*base_ree.values(), physical_base_index,
-                                     *target_ree.values(), physical_target_index);
-    };
+  Status Visit(const RunEndEncodedType& ree_type, const Array& base,
+               const Array& target) {
+    const auto& base_ree = checked_cast<const RunEndEncodedArray&>(base);
+    const auto& target_ree = checked_cast<const RunEndEncodedArray&>(target);
+    ARROW_ASSIGN_OR_RAISE(
+        auto inner_values_comparator,
+        (*this)(*ree_type.value_type(), *base_ree.values(), *target_ree.values()));
+    comparator_ = std::make_unique<REEValueComparator>(
+        base_ree, target_ree, std::move(inner_values_comparator));
     return Status::OK();
   }
 
-  ValueComparator Create(const DataType& type) {
-    DCHECK_OK(VisitTypeInline(type, this));
-    return out;
+  Result<std::unique_ptr<ValueComparator>> operator()(const DataType& type,
+                                                      const Array& base,
+                                                      const Array& target) {
+    RETURN_NOT_OK(VisitTypeInline(type, this, base, target));
+    return std::move(comparator_);
   }
 
-  ValueComparator out;
+  static std::unique_ptr<ValueComparator> Unsafe(const DataType& type, const Array& base,
+                                                 const Array& target) {
+    CreateValueComparator create_value_compator;
+    auto result = create_value_compator(type, base, target);
+    ARROW_CHECK_OK(result.status());
+    return std::move(result).ValueOrDie();
+  }
 };
-
-ValueComparator GetValueComparator(const DataType& type) {
-  ValueComparatorVisitor type_visitor;
-  return type_visitor.Create(type);
-}
 
 // represents an intermediate state in the comparison of two arrays
 struct EditPoint {
@@ -190,7 +240,7 @@ class QuadraticSpaceMyersDiff {
       : base_(base),
         target_(target),
         pool_(pool),
-        value_comparator_(GetValueComparator(*base.type())),
+        value_comparator_(CreateValueComparator::Unsafe(*base.type(), base, target)),
         base_begin_(0),
         base_end_(base.length()),
         target_begin_(0),
@@ -211,7 +261,7 @@ class QuadraticSpaceMyersDiff {
       // If only one is null, then this is false, otherwise true
       return base_null && target_null;
     }
-    return value_comparator_(base_, base_index, target_, target_index);
+    return value_comparator_->Equals(base_index, target_index);
   }
 
   // increment the position within base (the element pointed to was deleted)
@@ -358,7 +408,7 @@ class QuadraticSpaceMyersDiff {
   const Array& base_;
   const Array& target_;
   MemoryPool* pool_;
-  ValueComparator value_comparator_;
+  std::unique_ptr<ValueComparator> value_comparator_;
   int64_t finish_index_ = -1;
   int64_t edit_count_ = 0;
   int64_t base_begin_, base_end_;
