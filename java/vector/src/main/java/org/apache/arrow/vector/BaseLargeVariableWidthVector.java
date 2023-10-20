@@ -664,6 +664,18 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
 
   /**
    * Construct a transfer pair of this vector and another vector of same type.
+   * @param field The field materialized by this vector
+   * @param allocator allocator for the target vector
+   * @param callBack not used
+   * @return TransferPair
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(field, allocator);
+  }
+
+  /**
+   * Construct a transfer pair of this vector and another vector of same type.
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
@@ -672,6 +684,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
     return getTransferPair(getName(), allocator);
   }
 
+
   /**
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
@@ -679,6 +692,14 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @return TransferPair
    */
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
+
+  /**
+   * Construct a transfer pair of this vector and another vector of same type.
+   * @param field The field materialized by this vector
+   * @param allocator allocator for the target vector
+   * @return TransferPair
+   */
+  public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
 
   /**
    * Transfer this vector'data to another vector. The memory associated
