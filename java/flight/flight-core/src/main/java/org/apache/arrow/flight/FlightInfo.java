@@ -23,6 +23,8 @@ import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -51,7 +53,7 @@ public class FlightInfo {
   private final long records;
   private final boolean ordered;
   private final IpcOption option;
-  private final String appMetadata;
+  private final byte[] appMetadata;
 
   /**
    * Constructs a new instance.
@@ -95,7 +97,7 @@ public class FlightInfo {
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
                     long records, boolean ordered, IpcOption option) {
-    this(schema, descriptor, endpoints, bytes, records, ordered, option, "");
+    this(schema, descriptor, endpoints, bytes, records, ordered, option, null);
   }
 
   /**
@@ -111,7 +113,7 @@ public class FlightInfo {
    * @param appMetadata Metadata to send along with the flight
    */
   public FlightInfo(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints, long bytes,
-                    long records, boolean ordered, IpcOption option, String appMetadata) {
+                    long records, boolean ordered, IpcOption option, byte[] appMetadata) {
     Objects.requireNonNull(descriptor);
     Objects.requireNonNull(endpoints);
     if (schema != null) {
@@ -150,7 +152,7 @@ public class FlightInfo {
     bytes = pbFlightInfo.getTotalBytes();
     records = pbFlightInfo.getTotalRecords();
     ordered = pbFlightInfo.getOrdered();
-    appMetadata = pbFlightInfo.getAppMetadata().toStringUtf8();
+    appMetadata = pbFlightInfo.getAppMetadata().toByteArray();
 
     option = IpcOption.DEFAULT;
   }
@@ -188,7 +190,7 @@ public class FlightInfo {
     return ordered;
   }
 
-  public String getAppMetadata() {
+  public byte[] getAppMetadata() {
     return appMetadata;
   }
 
@@ -201,7 +203,6 @@ public class FlightInfo {
             .setFlightDescriptor(descriptor.toProtocol())
             .setTotalBytes(FlightInfo.this.bytes)
             .setTotalRecords(records)
-            .setAppMetadata(ByteString.copyFromUtf8(appMetadata))
             .setOrdered(ordered);
     if (schema != null) {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -214,6 +215,9 @@ public class FlightInfo {
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
+    }
+    if (appMetadata != null) {
+      builder.setAppMetadata(ByteString.copyFrom(appMetadata));
     }
     return builder.build();
   }
@@ -256,12 +260,12 @@ public class FlightInfo {
         descriptor.equals(that.descriptor) &&
         endpoints.equals(that.endpoints) &&
         ordered == that.ordered &&
-        appMetadata.equals(that.appMetadata);
+        Arrays.equals(appMetadata, that.appMetadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(schema, descriptor, endpoints, bytes, records, ordered, appMetadata);
+    return Objects.hash(schema, descriptor, endpoints, bytes, records, ordered, Arrays.hashCode(appMetadata));
   }
 
   @Override
@@ -273,7 +277,7 @@ public class FlightInfo {
         ", bytes=" + bytes +
         ", records=" + records +
         ", ordered=" + ordered +
-        ", appMetadata=" + appMetadata +
+        ", appMetadata=" + (appMetadata == null ? "(none)" : Base64.getEncoder().encodeToString(appMetadata)) +
         '}';
   }
 
@@ -299,7 +303,7 @@ public class FlightInfo {
     private long records = -1;
     private boolean ordered = false;
     private IpcOption option = IpcOption.DEFAULT;
-    private String appMetadata = "";
+    private byte[] appMetadata = null;
 
     private Builder(Schema schema, FlightDescriptor descriptor, List<FlightEndpoint> endpoints) {
       this.schema = schema;
@@ -352,7 +356,7 @@ public class FlightInfo {
      *
      * @param appMetadata Metadata to send along with the flight
      */
-    public Builder setAppMetadata(String appMetadata) {
+    public Builder setAppMetadata(byte[] appMetadata) {
       this.appMetadata = appMetadata;
       return this;
     }

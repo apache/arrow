@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -40,7 +41,7 @@ public class FlightEndpoint {
   private final List<Location> locations;
   private final Ticket ticket;
   private final Instant expirationTime;
-  private final String appMetadata;
+  private final byte[] appMetadata;
 
   /**
    * Constructs a new endpoint with no expiration time.
@@ -60,7 +61,7 @@ public class FlightEndpoint {
    * @param locations  The possible locations the stream can be retrieved from.
    */
   public FlightEndpoint(Ticket ticket, Instant expirationTime, Location... locations) {
-    this(ticket, expirationTime, "", locations);
+    this(ticket, expirationTime, null, locations);
   }
 
   /**
@@ -71,7 +72,7 @@ public class FlightEndpoint {
    * @param appMetadata (optional) Application metadata associated with this endpoint.
    * @param locations  The possible locations the stream can be retrieved from.
    */
-  public FlightEndpoint(Ticket ticket, Instant expirationTime, String appMetadata, Location... locations) {
+  public FlightEndpoint(Ticket ticket, Instant expirationTime, byte[] appMetadata, Location... locations) {
     Objects.requireNonNull(ticket);
     this.locations = Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations)));
     this.expirationTime = expirationTime;
@@ -93,7 +94,7 @@ public class FlightEndpoint {
     } else {
       this.expirationTime = null;
     }
-    this.appMetadata = flt.getAppMetadata().toStringUtf8();
+    this.appMetadata = flt.getAppMetadata().toByteArray();
     this.ticket = new Ticket(flt.getTicket());
   }
 
@@ -109,7 +110,7 @@ public class FlightEndpoint {
     return Optional.ofNullable(expirationTime);
   }
 
-  public String getAppMetadata() {
+  public byte[] getAppMetadata() {
     return appMetadata;
   }
 
@@ -118,8 +119,7 @@ public class FlightEndpoint {
    */
   Flight.FlightEndpoint toProtocol() {
     Flight.FlightEndpoint.Builder b = Flight.FlightEndpoint.newBuilder()
-        .setTicket(ticket.toProtocol())
-        .setAppMetadata(ByteString.copyFromUtf8(appMetadata));
+        .setTicket(ticket.toProtocol());
 
     for (Location l : locations) {
       b.addLocation(l.toProtocol());
@@ -131,6 +131,10 @@ public class FlightEndpoint {
               .setSeconds(expirationTime.getEpochSecond())
               .setNanos(expirationTime.getNano())
               .build());
+    }
+
+    if (appMetadata != null) {
+      b.setAppMetadata(ByteString.copyFrom(appMetadata));
     }
 
     return b.build();
@@ -171,12 +175,12 @@ public class FlightEndpoint {
     return locations.equals(that.locations) &&
         ticket.equals(that.ticket) &&
         Objects.equals(expirationTime, that.expirationTime) &&
-        Objects.equals(appMetadata, that.appMetadata);
+        Arrays.equals(appMetadata, that.appMetadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(locations, ticket, expirationTime, appMetadata);
+    return Objects.hash(locations, ticket, expirationTime, Arrays.hashCode(appMetadata));
   }
 
   @Override
@@ -185,7 +189,7 @@ public class FlightEndpoint {
         "locations=" + locations +
         ", ticket=" + ticket +
         ", expirationTime=" + (expirationTime == null ? "(none)" : expirationTime.toString()) +
-        ", appMetadata=" + appMetadata +
+        ", appMetadata=" + (appMetadata == null ? "(none)" : Base64.getEncoder().encodeToString(appMetadata)) +
         '}';
   }
 }

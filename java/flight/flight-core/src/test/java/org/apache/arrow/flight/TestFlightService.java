@@ -138,7 +138,8 @@ public class TestFlightService {
       @Override
       public FlightInfo getFlightInfo(CallContext context,
               FlightDescriptor descriptor) {
-        return new FlightInfo(null, descriptor, Collections.emptyList(), 0, 0, false, IpcOption.DEFAULT, "foo");
+        return new FlightInfo(null, descriptor, Collections.emptyList(),
+                0, 0, false, IpcOption.DEFAULT, "foo".getBytes());
       }
     };
 
@@ -148,7 +149,7 @@ public class TestFlightService {
       FlightInfo flightInfo = client.getInfo(FlightDescriptor.path("test"));
       Assertions.assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
       Assertions.assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
-      Assertions.assertEquals(flightInfo.getAppMetadata(), "foo");
+      Assertions.assertEquals(flightInfo.getAppMetadata(), "foo".getBytes());
 
       Exception e = Assertions.assertThrows(
           FlightRuntimeException.class,

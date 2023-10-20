@@ -114,10 +114,11 @@ public class TestBasicOperation {
         Field.nullable("b", new ArrowType.FixedSizeBinary(32))
     ), metadata);
     final FlightInfo info1 = FlightInfo.builder(schema, FlightDescriptor.path(), Collections.emptyList())
-            .setAppMetadata("foo").build();
+            .setAppMetadata("foo".getBytes()).build();
     final FlightInfo info2 = new FlightInfo(schema, FlightDescriptor.command(new byte[2]),
         Collections.singletonList(new FlightEndpoint(
-            new Ticket(new byte[10]), null, "bar", Location.forGrpcDomainSocket("/tmp/test.sock"))), 200, 500);
+            new Ticket(new byte[10]), null, "bar".getBytes(), Location.forGrpcDomainSocket("/tmp/test.sock"))
+        ), 200, 500);
     final FlightInfo info3 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
         Arrays.asList(new FlightEndpoint(
                 new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock")),
@@ -428,7 +429,7 @@ public class TestBasicOperation {
             .build();
         Assertions.assertEquals(0, protobufData.getDataBody().size());
         final ArrowMessage parsedMessage = marshaller.parse(new ByteArrayInputStream(protobufData.toByteArray()));
-        // Should have no body buffers
+        // Should have no body buffers5
         Assertions.assertFalse(parsedMessage.getBufs().iterator().hasNext());
         // Should not throw
         parsedMessage.asSchema();
