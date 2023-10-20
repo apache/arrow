@@ -458,14 +458,17 @@ class DictionaryHashKernel : public HashKernel {
       // A better approach may be to run the kernel over each individual chunk,
       // and then hash-aggregate all results (for example sum-group-by for
       // the "value_counts" kernel).
+      if (dictionary_unifier_ == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(dictionary_unifier_,
+                              DictionaryUnifier::Make(dictionary_->type()));
+        RETURN_NOT_OK(dictionary_unifier_->Unify(*dictionary_));
+      }
       auto out_dict_type = dictionary_->type();
       std::shared_ptr<Buffer> transpose_map;
       std::shared_ptr<Array> out_dict;
-      ARROW_ASSIGN_OR_RAISE(auto unifier, DictionaryUnifier::Make(out_dict_type));
 
-      ARROW_CHECK_OK(unifier->Unify(*dictionary_));
-      ARROW_CHECK_OK(unifier->Unify(*arr_dict, &transpose_map));
-      ARROW_CHECK_OK(unifier->GetResult(&out_dict_type, &out_dict));
+      RETURN_NOT_OK(dictionary_unifier_->Unify(*arr_dict, &transpose_map));
+      RETURN_NOT_OK(dictionary_unifier_->GetResult(&out_dict_type, &out_dict));
 
       dictionary_ = out_dict;
       auto transpose = reinterpret_cast<const int32_t*>(transpose_map->data());
@@ -501,6 +504,7 @@ class DictionaryHashKernel : public HashKernel {
   std::unique_ptr<HashKernel> indices_kernel_;
   std::shared_ptr<Array> dictionary_;
   std::shared_ptr<DataType> dictionary_value_type_;
+  std::unique_ptr<DictionaryUnifier> dictionary_unifier_;
 };
 
 // ----------------------------------------------------------------------
