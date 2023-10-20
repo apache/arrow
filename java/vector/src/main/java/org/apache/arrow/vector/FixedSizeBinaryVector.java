@@ -122,11 +122,11 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * The caller is responsible for checking for nullity first.
    *
    * @param index position of element.
-   * @param outputBuffer the buffer to write into.
+   * @param buffer the buffer to write into.
    */
-  public void read(int index, ReusableBuffer<?> outputBuffer) {
+  public void read(int index, ReusableBuffer<?> buffer) {
     final int startOffset = index * byteWidth;
-    outputBuffer.set(valueBuffer, startOffset, byteWidth);
+    buffer.set(valueBuffer, startOffset, byteWidth);
   }
 
   /**

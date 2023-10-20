@@ -37,6 +37,11 @@ public class ReusableByteArray implements ReusableBuffer<byte[]> {
     bytes = EMPTY_BYTES;
   }
 
+  public ReusableByteArray(byte[] data) {
+    bytes = Arrays.copyOfRange(data, 0, data.length);
+    length = data.length;
+  }
+
   /**
    * Get the number of bytes in the byte array.
    *
@@ -75,7 +80,6 @@ public class ReusableByteArray implements ReusableBuffer<byte[]> {
       return false;
     }
 
-    // copied from Arrays.equals so we don'thave to copy the byte arrays
     for (int i = 0; i < length; i++) {
       if (bytes[i] != that.bytes[i]) {
         return false;
@@ -85,11 +89,6 @@ public class ReusableByteArray implements ReusableBuffer<byte[]> {
     return true;
   }
 
-  /**
-   * Copied from Arrays.hashCode so we don't have to copy the byte array.
-   *
-   * @return hashCode
-   */
   @Override
   public int hashCode() {
     if (bytes == null) {

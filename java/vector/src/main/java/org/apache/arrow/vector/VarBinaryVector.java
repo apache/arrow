@@ -107,8 +107,7 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
       return null;
     }
     final int startOffset = getStartOffset(index);
-    final int dataLength =
-            offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH) - startOffset;
+    final int dataLength = getEndOffset(index) - startOffset;
     final byte[] result = new byte[dataLength];
     valueBuffer.getBytes(startOffset, result, 0, dataLength);
     return result;
@@ -119,13 +118,12 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
    * The caller is responsible for checking for nullity first.
    *
    * @param index position of element.
-   * @param outputBuffer the buffer to write into.
+   * @param buffer the buffer to write into.
    */
-  public void read(int index, ReusableBuffer<?> outputBuffer) {
+  public void read(int index, ReusableBuffer<?> buffer) {
     final int startOffset = getStartOffset(index);
-    final int dataLength =
-        offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH) - startOffset;
-    outputBuffer.set(valueBuffer, startOffset, dataLength);
+    final int dataLength = getEndOffset(index) - startOffset;
+    buffer.set(valueBuffer, startOffset, dataLength);
   }
 
   /**
@@ -153,7 +151,7 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
     }
     holder.isSet = 1;
     holder.start = getStartOffset(index);
-    holder.end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+    holder.end = getEndOffset(index);
     holder.buffer = valueBuffer;
   }
 

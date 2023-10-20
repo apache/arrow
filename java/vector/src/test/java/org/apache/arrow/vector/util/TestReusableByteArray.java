@@ -24,6 +24,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.Base64;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -57,6 +58,9 @@ public class TestReusableByteArray {
       byteArray.set(workingBuf, 0, str.getBytes().length);
       assertEquals(str.getBytes().length, byteArray.getLength());
       assertArrayEquals(str.getBytes(), Arrays.copyOfRange(byteArray.getBuffer(), 0, (int) byteArray.getLength()));
+      assertEquals(Base64.getEncoder().encodeToString(str.getBytes()), byteArray.toString());
+      assertEquals(new ReusableByteArray(str.getBytes()), byteArray);
+      assertEquals(new ReusableByteArray(str.getBytes()).hashCode(), byteArray.hashCode());
 
       // Test a longer string. Should require reallocation.
       final String str2 = "test_longer";
@@ -66,6 +70,9 @@ public class TestReusableByteArray {
       byteArray.set(workingBuf, 0, str2.getBytes().length);
       assertEquals(str2.getBytes().length, byteArray.getLength());
       assertArrayEquals(str2.getBytes(), Arrays.copyOfRange(byteArray.getBuffer(), 0, (int) byteArray.getLength()));
+      assertEquals(Base64.getEncoder().encodeToString(str2.getBytes()), byteArray.toString());
+      assertEquals(new ReusableByteArray(str2.getBytes()), byteArray);
+      assertEquals(new ReusableByteArray(str2.getBytes()).hashCode(), byteArray.hashCode());
 
       // Verify reallocation needed.
       assertNotSame(oldBuffer, byteArray.getBuffer());
@@ -79,6 +86,9 @@ public class TestReusableByteArray {
       byteArray.set(workingBuf, 0, str3.getBytes().length);
       assertEquals(str3.getBytes().length, byteArray.getLength());
       assertArrayEquals(str3.getBytes(), Arrays.copyOfRange(byteArray.getBuffer(), 0, (int) byteArray.getLength()));
+      assertEquals(Base64.getEncoder().encodeToString(str3.getBytes()), byteArray.toString());
+      assertEquals(new ReusableByteArray(str3.getBytes()), byteArray);
+      assertEquals(new ReusableByteArray(str3.getBytes()).hashCode(), byteArray.hashCode());
 
       // Verify reallocation was not needed.
       assertSame(oldBuffer, byteArray.getBuffer());

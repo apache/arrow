@@ -109,10 +109,9 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
       return null;
     }
     final long startOffset = getStartOffset(index);
-    final int dataLength =
-        (int) (offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH) - startOffset);
-    final byte[] result = new byte[dataLength];
-    valueBuffer.getBytes(startOffset, result, 0, dataLength);
+    final long dataLength = getEndOffset(index) - startOffset;
+    final byte[] result = new byte[(int) dataLength];
+    valueBuffer.getBytes(startOffset, result, 0, (int) dataLength);
     return result;
   }
 
@@ -138,13 +137,12 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * The caller is responsible for checking for nullity first.
    *
    * @param index position of element.
-   * @param outputBuffer the buffer to write into.
+   * @param buffer the buffer to write into.
    */
-  public void read(int index, ReusableBuffer<?> outputBuffer) {
+  public void read(int index, ReusableBuffer<?> buffer) {
     final long startOffset = getStartOffset(index);
-    final long dataLength =
-        offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH) - startOffset;
-    outputBuffer.set(valueBuffer, startOffset, dataLength);
+    final long dataLength = getEndOffset(index) - startOffset;
+    buffer.set(valueBuffer, startOffset, dataLength);
   }
 
   /**
@@ -162,7 +160,7 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
     }
     holder.isSet = 1;
     holder.start = getStartOffset(index);
-    holder.end = offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH);
+    holder.end = getEndOffset(index);
     holder.buffer = valueBuffer;
   }
 
