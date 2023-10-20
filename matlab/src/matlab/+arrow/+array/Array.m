@@ -72,16 +72,17 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
             elementString = pluralizeStringIfNeeded(numElements, "element");
             nullString = pluralizeStringIfNeeded(numNulls, "null value");
-
-            fmtspec = "  %s with %d %s and %d %s:" + newline;
-            header = compose(fmtspec, name, numElements, elementString, ...
+            formatSpec = getFormatSpec(numElements);
+            header = compose(formatSpec, name, numElements, elementString, ...
                 numNulls, nullString);
             header = char(header);
         end
 
         function displayScalarObject(obj)
             disp(getHeader(obj));
-            disp("    " + toString(obj) + newline);
+            if obj.NumElements > 0
+                disp("    " + toString(obj) + newline);
+            end
         end
     end
 
@@ -110,3 +111,12 @@ function str = pluralizeStringIfNeeded(num, str)
         str = str + "s";
     end
 end
+
+function formatSpec = getFormatSpec(numElems)
+    if numElems > 0
+        formatSpec = "  %s with %d %s and %d %s:" + newline;
+    else
+        formatSpec = "  %s with %d %s and %d %s" + newline;
+    end
+end
+
