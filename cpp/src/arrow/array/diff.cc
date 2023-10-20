@@ -98,6 +98,8 @@ static UnitSlice GetView(const UnionArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
 
+int num_bsearches = 0;
+
 /// \brief A simple virtual comparator interface for two arrays.
 ///
 /// The base and target array ara bound at construction time. Then
@@ -145,9 +147,10 @@ class REEValueComparator : public ValueComparator {
     DCHECK_EQ(*base_.type(), *target_.type());
   }
 
-  ~REEValueComparator() override = default;
+  ~REEValueComparator() override { printf("num_bsearches: %d\n", num_bsearches); }
 
   bool Equals(int64_t base_index, int64_t target_index) override {
+    num_bsearches += 2;
     const int64_t physical_base_index =
         ree_util::FindPhysicalIndex(ArraySpan(*base_.data()), base_index, base_.offset());
     const int64_t physical_target_index = ree_util::FindPhysicalIndex(
@@ -255,6 +258,12 @@ class QuadraticSpaceMyersDiff {
   }
 
   bool ValuesEqual(int64_t base_index, int64_t target_index) const {
+    // TODO(felipecrv): move the null checking to the type-specific comparators
+    // as random-access null checks to some types (unions, rees) can be a bit
+    // expensive.
+    if (base_.type_id() == Type::RUN_END_ENCODED) {
+      num_bsearches += 2;
+    }
     bool base_null = base_.IsNull(base_index);
     bool target_null = target_.IsNull(target_index);
     if (base_null || target_null) {
