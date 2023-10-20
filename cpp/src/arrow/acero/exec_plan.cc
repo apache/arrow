@@ -18,6 +18,7 @@
 #include "arrow/acero/exec_plan.h"
 
 #include <atomic>
+#include <iostream>
 #include <optional>
 #include <sstream>
 #include <unordered_map>
@@ -1114,6 +1115,7 @@ void RegisterAggregateNode(ExecFactoryRegistry*);
 void RegisterSinkNode(ExecFactoryRegistry*);
 void RegisterHashJoinNode(ExecFactoryRegistry*);
 void RegisterAsofJoinNode(ExecFactoryRegistry*);
+void RegisterSortedMergeNode(ExecFactoryRegistry*);
 
 }  // namespace internal
 
@@ -1132,6 +1134,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterSinkNode(this);
       internal::RegisterHashJoinNode(this);
       internal::RegisterAsofJoinNode(this);
+      internal::RegisterSortedMergeNode(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {

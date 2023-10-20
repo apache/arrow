@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/acero/asof_join_node.h"
+#include "arrow/acero/backpressure_handler.h"
+#include "arrow/acero/concurrent_queue.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -41,6 +43,7 @@
 #ifndef NDEBUG
 #include "arrow/compute/function_internal.h"
 #endif
+#include "arrow/acero/time_series_util.h"
 #include "arrow/compute/key_hash.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/record_batch.h"
@@ -122,91 +125,11 @@ struct TolType {
 typedef uint64_t row_index_t;
 typedef int col_index_t;
 
-// normalize the value to 64-bits while preserving ordering of values
-template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
-static inline uint64_t time_value(T t) {
-  uint64_t bias = std::is_signed<T>::value ? (uint64_t)1 << (8 * sizeof(T) - 1) : 0;
-  return t < 0 ? static_cast<uint64_t>(t + bias) : static_cast<uint64_t>(t);
-}
-
 // indicates normalization of a key value
 template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
 static inline uint64_t key_value(T t) {
   return static_cast<uint64_t>(t);
 }
-
-/**
- * Simple implementation for an unbound concurrent queue
- */
-template <class T>
-class ConcurrentQueue {
- public:
-  T Pop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    cond_.wait(lock, [&] { return !queue_.empty(); });
-    return PopUnlocked();
-  }
-
-  T PopUnlocked() {
-    auto item = queue_.front();
-    queue_.pop();
-    return item;
-  }
-
-  void Push(const T& item) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return PushUnlocked(item);
-  }
-
-  void PushUnlocked(const T& item) {
-    queue_.push(item);
-    cond_.notify_one();
-  }
-
-  void Clear() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ClearUnlocked();
-  }
-
-  void ClearUnlocked() { queue_ = std::queue<T>(); }
-
-  std::optional<T> TryPop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return TryPopUnlocked();
-  }
-
-  std::optional<T> TryPopUnlocked() {
-    // Try to pop the oldest value from the queue (or return nullopt if none)
-    if (queue_.empty()) {
-      return std::nullopt;
-    } else {
-      auto item = queue_.front();
-      queue_.pop();
-      return item;
-    }
-  }
-
-  bool Empty() const {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return queue_.empty();
-  }
-
-  // Un-synchronized access to front
-  // For this to be "safe":
-  // 1) the caller logically guarantees that queue is not empty
-  // 2) pop/try_pop cannot be called concurrently with this
-  const T& UnsyncFront() const { return queue_.front(); }
-
-  size_t UnsyncSize() const { return queue_.size(); }
-
- protected:
-  std::mutex& GetMutex() { return mutex_; }
-
- private:
-  std::queue<T> queue_;
-  mutable std::mutex mutex_;
-  std::condition_variable cond_;
-};
 
 class AsofJoinNode;
 
@@ -547,104 +470,6 @@ class BackpressureController : public BackpressureControl {
   std::atomic<int32_t>& backpressure_counter_;
 };
 
-class BackpressureHandler {
- private:
-  BackpressureHandler(ExecNode* input, size_t low_threshold, size_t high_threshold,
-                      std::unique_ptr<BackpressureControl> backpressure_control)
-      : input_(input),
-        low_threshold_(low_threshold),
-        high_threshold_(high_threshold),
-        backpressure_control_(std::move(backpressure_control)) {}
-
- public:
-  static Result<BackpressureHandler> Make(
-      ExecNode* input, size_t low_threshold, size_t high_threshold,
-      std::unique_ptr<BackpressureControl> backpressure_control) {
-    if (low_threshold >= high_threshold) {
-      return Status::Invalid("low threshold (", low_threshold,
-                             ") must be less than high threshold (", high_threshold, ")");
-    }
-    if (backpressure_control == NULLPTR) {
-      return Status::Invalid("null backpressure control parameter");
-    }
-    BackpressureHandler backpressure_handler(input, low_threshold, high_threshold,
-                                             std::move(backpressure_control));
-    return std::move(backpressure_handler);
-  }
-
-  void Handle(size_t start_level, size_t end_level) {
-    if (start_level < high_threshold_ && end_level >= high_threshold_) {
-      backpressure_control_->Pause();
-    } else if (start_level > low_threshold_ && end_level <= low_threshold_) {
-      backpressure_control_->Resume();
-    }
-  }
-
-  Status ForceShutdown() {
-    // It may be unintuitive to call Resume() here, but this is to avoid a deadlock.
-    // Since acero's executor won't terminate if any one node is paused, we need to
-    // force resume the node before stopping production.
-    backpressure_control_->Resume();
-    return input_->StopProducing();
-  }
-
- private:
-  ExecNode* input_;
-  size_t low_threshold_;
-  size_t high_threshold_;
-  std::unique_ptr<BackpressureControl> backpressure_control_;
-};
-
-template <typename T>
-class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
- private:
-  struct DoHandle {
-    explicit DoHandle(BackpressureConcurrentQueue& queue)
-        : queue_(queue), start_size_(queue_.UnsyncSize()) {}
-
-    ~DoHandle() {
-      size_t end_size = queue_.UnsyncSize();
-      queue_.handler_.Handle(start_size_, end_size);
-    }
-
-    BackpressureConcurrentQueue& queue_;
-    size_t start_size_;
-  };
-
- public:
-  explicit BackpressureConcurrentQueue(BackpressureHandler handler)
-      : handler_(std::move(handler)) {}
-
-  T Pop() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::PopUnlocked();
-  }
-
-  void Push(const T& item) {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    ConcurrentQueue<T>::PushUnlocked(item);
-  }
-
-  void Clear() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    ConcurrentQueue<T>::ClearUnlocked();
-  }
-
-  std::optional<T> TryPop() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::TryPopUnlocked();
-  }
-
-  Status ForceShutdown() { return handler_.ForceShutdown(); }
-
- private:
-  BackpressureHandler handler_;
-};
-
 class InputState {
   // InputState correponds to an input
   // Input record batches are queued up in InputState until processed and
@@ -740,6 +565,7 @@ class InputState {
     return queue_.UnsyncFront();
   }
 
+// TODO(jeraguilon): consolidate
 #define LATEST_VAL_CASE(id, val)                     \
   case Type::id: {                                   \
     using T = typename TypeIdTraits<Type::id>::Type; \
@@ -787,25 +613,7 @@ class InputState {
   }
 
   inline ByType GetTime(const RecordBatch* batch, row_index_t row) const {
-    auto data = batch->column_data(time_col_index_);
-    switch (time_type_id_) {
-      LATEST_VAL_CASE(INT8, time_value)
-      LATEST_VAL_CASE(INT16, time_value)
-      LATEST_VAL_CASE(INT32, time_value)
-      LATEST_VAL_CASE(INT64, time_value)
-      LATEST_VAL_CASE(UINT8, time_value)
-      LATEST_VAL_CASE(UINT16, time_value)
-      LATEST_VAL_CASE(UINT32, time_value)
-      LATEST_VAL_CASE(UINT64, time_value)
-      LATEST_VAL_CASE(DATE32, time_value)
-      LATEST_VAL_CASE(DATE64, time_value)
-      LATEST_VAL_CASE(TIME32, time_value)
-      LATEST_VAL_CASE(TIME64, time_value)
-      LATEST_VAL_CASE(TIMESTAMP, time_value)
-      default:
-        DCHECK(false);
-        return 0;  // cannot happen
-    }
+    return get_time(batch, time_type_id_, time_col_index_, row);
   }
 
 #undef LATEST_VAL_CASE
