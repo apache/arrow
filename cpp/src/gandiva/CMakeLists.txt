@@ -25,11 +25,14 @@ add_custom_target(gandiva-benchmarks)
 
 add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
+include(GandivaAddBitcode)
+
 find_package(LLVMAlt REQUIRED)
 provide_find_module(LLVMAlt "Gandiva")
 if(ARROW_WITH_ZSTD AND "${zstd_SOURCE}" STREQUAL "SYSTEM")
   provide_find_module(zstdAlt "Gandiva")
 endif()
+provide_cmake_module(GandivaAddBitcode "Gandiva")
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")

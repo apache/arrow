@@ -24,10 +24,15 @@ add_custom_target(extension-tests-data
                   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}
                           ${CMAKE_CURRENT_BINARY_DIR})
 
-include(../../cmake/GenerateBitcode.cmake)
-set(TEST_PRECOMPILED_SRCS multiply_by_two.cc)
-generate_bitcode("${TEST_PRECOMPILED_SRCS}" TEST_BC_FILES)
-add_custom_target(extension-tests ALL DEPENDS extension-tests-data ${TEST_BC_FILES})
+set(TEST_PRECOMPILED_SOURCES multiply_by_two.cc)
+set(TEST_PRECOMPILED_BC_FILES)
+foreach(SOURCE ${TEST_PRECOMPILED_SOURCES})
+  gandiva_add_bitcode(${SOURCE})
+  get_filename_component(SOURCE_BASE ${SOURCE} NAME_WE)
+  list(APPEND TEST_PRECOMPILED_BC_FILES ${CMAKE_CURRENT_BINARY_DIR}/${SOURCE_BASE}.bc)
+endforeach()
+add_custom_target(extension-tests ALL DEPENDS extension-tests-data
+                                              ${TEST_PRECOMPILED_BC_FILES})
 #
 ## set the GANDIVA_EXTENSION_TEST_DIR macro so that the tests can pass regardless where they are run from
 ## corresponding extension test data files and bitcode will be copied/generated

@@ -222,17 +222,21 @@ macro(build_dependency DEPENDENCY_NAME)
   endif()
 endmacro()
 
-# Find modules are needed by the consumer in case of a static build, or if the
-# linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
-  set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
+macro(provide_cmake_module MODULE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/{MODULE_NAME}.cmake")
   if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+    message(STATUS "Providing CMake module for ${MODULE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
     )
     install(FILES "${module_}"
             DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
   unset(module_)
+endmacro()
+
+# Find modules are needed by the consumer in case of a static build, or if the
+# linkage is PUBLIC or INTERFACE.
+macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  provide_cmake_module("Find${PACKAGE_NAME}.cmake" ${ARROW_CMAKE_PACKAGE_NAME})
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)

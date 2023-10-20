@@ -15,10 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project(gandiva)
-
-include(../cmake/GenerateBitcode.cmake)
-
 set(PRECOMPILED_SRCS
     arithmetic_ops.cc
     bitmap.cc
@@ -31,14 +27,18 @@ set(PRECOMPILED_SRCS
     time.cc
     timestamp_arithmetic.cc
     ../../arrow/util/basic_decimal.cc)
-
-generate_bitcode("${PRECOMPILED_SRCS}" BC_FILES)
+set(GANDIVA_PRECOMPILED_BC_FILES)
+foreach(SOURCE ${PRECOMPILED_SRCS})
+  gandiva_add_bitcode(${SOURCE})
+  get_filename_component(SOURCE_BASE ${SOURCE} NAME_WE)
+  list(APPEND GANDIVA_PRECOMPILED_BC_FILES ${CMAKE_CURRENT_BINARY_DIR}/${SOURCE_BASE}.bc)
+endforeach()
 
 # link all of the bitcode files into a single bitcode file.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
                    COMMAND ${LLVM_LINK_EXECUTABLE} -o ${GANDIVA_PRECOMPILED_BC_PATH}
-                           ${BC_FILES}
-                   DEPENDS ${BC_FILES})
+                           ${GANDIVA_PRECOMPILED_BC_FILES}
+                   DEPENDS ${GANDIVA_PRECOMPILED_BC_FILES})
 
 # turn the bitcode file into a C++ static data variable.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
