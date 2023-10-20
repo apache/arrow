@@ -296,7 +296,7 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
-  list(PREPEND PARQUET_SHARED_TEST_LINK_LIBS parquet_test_support)
+  list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
   list(APPEND PARQUET_LIBRARIES parquet_test_support)
 endif()
 
