@@ -235,7 +235,7 @@ endfunction()
 # Find modules are needed by the consumer in case of a static build, or if the
 # linkage is PUBLIC or INTERFACE.
 function(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
-  provide_cmake_module("Find${PACKAGE_NAME}.cmake" ${ARROW_CMAKE_PACKAGE_NAME})
+  provide_cmake_module("Find${PACKAGE_NAME}" ${ARROW_CMAKE_PACKAGE_NAME})
 endfunction()
 
 macro(resolve_dependency DEPENDENCY_NAME)
