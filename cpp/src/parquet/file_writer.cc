@@ -635,11 +635,19 @@ void ParquetFileWriter::Close() {
 }
 
 RowGroupWriter* ParquetFileWriter::AppendRowGroup() {
-  return contents_->AppendRowGroup();
+  if (contents_) {
+    return contents_->AppendRowGroup();
+  } else {
+    throw ParquetException("Cannot append row group to closed file");
+  }
 }
 
 RowGroupWriter* ParquetFileWriter::AppendBufferedRowGroup() {
-  return contents_->AppendBufferedRowGroup();
+  if (contents_) {
+    return contents_->AppendBufferedRowGroup();
+  } else {
+    throw ParquetException("Cannot append buffered row group to closed file");
+  }
 }
 
 RowGroupWriter* ParquetFileWriter::AppendRowGroup(int64_t num_rows) {
@@ -656,7 +664,11 @@ void ParquetFileWriter::AddKeyValueMetadata(
 }
 
 const std::shared_ptr<WriterProperties>& ParquetFileWriter::properties() const {
-  return contents_->properties();
+  if (contents_) {
+    return contents_->properties();
+  } else {
+    throw ParquetException("Cannot get properties for closed file");
+  }
 }
 
 }  // namespace parquet
