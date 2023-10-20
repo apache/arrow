@@ -18,12 +18,14 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.holders.NullableLargeVarBinaryHolder;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -99,6 +101,22 @@ public class TestLargeVarBinaryVector {
       assertTrue(vector.isNull(1));
 
       buf.close();
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
+        LargeVarBinaryVector v1 = new LargeVarBinaryVector("v1", childAllocator1)) {
+      v1.allocateNew();
+      v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+      v1.setValueCount(4001);
+
+      TransferPair tp = v1.getTransferPair(v1.getField(), allocator);
+      tp.transfer();
+      LargeVarBinaryVector v2 = (LargeVarBinaryVector) tp.getTo();
+      assertSame(v1.getField(), v2.getField());
+      v2.clear();
     }
   }
 }
