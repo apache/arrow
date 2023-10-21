@@ -182,6 +182,10 @@ class REEValueComparator : public ValueComparator {
   const RunEndCType* base_run_ends_;
   const RunEndCType* target_run_ends_;
 
+  // Cached values, so repetitive binary searches can be avoided
+  int64_t last_physical_index_on_base_ = 0;
+  int64_t last_physical_index_on_target_ = 0;
+
  public:
   REEValueComparator(const RunEndEncodedArray& base, const RunEndEncodedArray& target,
                      std::unique_ptr<ValueComparator>&& inner_value_comparator)
@@ -198,20 +202,87 @@ class REEValueComparator : public ValueComparator {
   ~REEValueComparator() override { printf("num_bsearches: %d\n", num_bsearches); }
 
  private:
-  /// \pre i < base_.length()
-  int64_t FindPhysicalIndexOnBase(int64_t i) const {
+  /// \pre 0 <= i < base_.length()
+  int64_t FindPhysicalIndexOnBase(int64_t i) {
+    DCHECK_LT(i, base_.length());
+    const int64_t run_ends_size = ree_util::RunEndsArray(*base_.data()).length;
+    DCHECK_LT(last_physical_index_on_base_, run_ends_size);
+    // This access to base_run_ends_[last_physical_index_on_base_] is always safe because:
+    // 1. 0 <= i < base_.length() implies there is at least one run and the initial
+    //    value 0 will be safe to index with.
+    // 2. last_physical_index_on_base_ > 0 is always the result of a valid call to
+    //    FindPhysicalIndex.
+    if (ARROW_PREDICT_TRUE(base_.offset() + i <
+                           base_run_ends_[last_physical_index_on_base_])) {
+      // The cached value is an upper-bound, but is it the least upper-bound?
+      if (last_physical_index_on_base_ == 0 ||
+          base_.offset() + i >= base_run_ends_[last_physical_index_on_base_ - 1]) {
+        return last_physical_index_on_base_;
+      }
+      // last_physical_index_on_base_ - 1 is a candidate for the least upper-bound,
+      // so search for the least upper-bound in the range that includes it.
+      num_bsearches += 1;
+      const int64_t j = ree_util::internal::FindPhysicalIndex<RunEndCType>(
+          base_run_ends_, /*run_ends_size=*/last_physical_index_on_base_, i,
+          base_.offset());
+      DCHECK_LT(j, last_physical_index_on_base_);
+      return last_physical_index_on_base_ = j;
+    }
+
+    // last_physical_index_on_base_ is not an upper-bound, and the logical index i MUST be
+    // in the runs that follow it. Since i is a valid logical index, we know that at least
+    // one extra run is present.
+    DCHECK_LT(last_physical_index_on_base_ + 1, run_ends_size);
+    const int64_t lower_physical_index = last_physical_index_on_base_ + 1;
+
     num_bsearches += 1;
-    return ree_util::internal::FindPhysicalIndex<RunEndCType>(ArraySpan(*base_.data()), i,
-                                                              base_.offset());
-    // TODO(felipecrv): cache these values so that the next binary search for
-    // the physical index can probe from the last found position.
+    const int64_t j = ree_util::internal::FindPhysicalIndex<RunEndCType>(
+        /*run_ends=*/base_run_ends_ + lower_physical_index,
+        /*run_ends_size=*/run_ends_size - lower_physical_index, i, base_.offset());
+    DCHECK_LT(lower_physical_index + j, run_ends_size);
+    return last_physical_index_on_base_ = lower_physical_index + j;
   }
 
-  /// \pre i < target_.length()
-  int64_t FindPhysicalIndexOnTarget(int64_t i) const {
+  /// \pre 0 <= i < target_.length()
+  int64_t FindPhysicalIndexOnTarget(int64_t i) {
+    DCHECK_LT(i, target_.length());
+    const int64_t run_ends_size = ree_util::RunEndsArray(*target_.data()).length;
+    DCHECK_LT(last_physical_index_on_target_, run_ends_size);
+    // This access to target_run_ends_[last_physical_index_on_target_] is always safe
+    // because:
+    // 1. 0 <= i < target_.length() implies there is at least one run and the initial
+    //    value 0 will be safe to index with.
+    // 2. last_physical_index_on_target_ > 0 is always the result of a valid call to
+    //    FindPhysicalIndex.
+    if (ARROW_PREDICT_TRUE(target_.offset() + i <
+                           target_run_ends_[last_physical_index_on_target_])) {
+      // The cached value is an upper-bound, but is it the least upper-bound?
+      if (last_physical_index_on_target_ == 0 ||
+          target_.offset() + i >= target_run_ends_[last_physical_index_on_target_ - 1]) {
+        return last_physical_index_on_target_;
+      }
+      // last_physical_index_on_target_ - 1 is a candidate for the least upper-bound,
+      // so search for the least upper-bound in the range that includes it.
+      num_bsearches += 1;
+      const int64_t j = ree_util::internal::FindPhysicalIndex<RunEndCType>(
+          target_run_ends_, /*run_ends_size=*/last_physical_index_on_target_, i,
+          target_.offset());
+      DCHECK_LT(j, last_physical_index_on_target_);
+      return last_physical_index_on_target_ = j;
+    }
+
+    // last_physical_index_on_target_ is not an upper-bound, and the logical index i MUST
+    // be in the runs that follow it. Since i is a valid logical index, we know that at
+    // least one extra run is present.
+    DCHECK_LT(last_physical_index_on_target_ + 1, run_ends_size);
+    const int64_t lower_physical_index = last_physical_index_on_target_ + 1;
+
     num_bsearches += 1;
-    return ree_util::internal::FindPhysicalIndex<RunEndCType>(ArraySpan(*target_.data()),
-                                                              i, target_.offset());
+    const int64_t j = ree_util::internal::FindPhysicalIndex<RunEndCType>(
+        /*run_ends=*/target_run_ends_ + lower_physical_index,
+        /*run_ends_size=*/run_ends_size - lower_physical_index, i, target_.offset());
+    DCHECK_LT(lower_physical_index + j, run_ends_size);
+    return last_physical_index_on_target_ = lower_physical_index + j;
   }
 
  public:
