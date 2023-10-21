@@ -93,7 +93,7 @@ Status ExprValidator::Visit(const FunctionNode& node) {
   const auto& desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
 
-  const NativeFunction* native_function = registry_.LookupSignature(signature);
+  const NativeFunction* native_function = registry_->LookupSignature(signature);
   ARROW_RETURN_IF(native_function == nullptr,
                   Status::ExpressionValidationError("Function ", signature.ToString(),
                                                     " not supported yet. "));

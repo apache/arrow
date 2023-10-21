@@ -22,7 +22,6 @@
 #endif
 
 #include "gandiva/engine.h"
-#include "gandiva/llvm_external_bitcode_store.h"
 
 #include <iostream>
 #include <memory>
@@ -142,7 +141,8 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       module_(module),
       types_(*context_),
       optimize_(conf->optimize()),
-      cached_(cached) {}
+      cached_(cached),
+      function_registry_(conf->function_registry()) {}
 
 Status Engine::Init() {
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
@@ -238,7 +238,7 @@ static void SetDataLayout(llvm::Module* module) {
 
   module->setDataLayout(machine->createDataLayout());
 }
-// end of the mofified method from MLIR
+// end of the modified method from MLIR
 
 static arrow::Result<std::unique_ptr<llvm::Module>> GetModule(
     llvm::Expected<std::unique_ptr<llvm::Module>>& module_or_error) {
@@ -296,7 +296,7 @@ Status Engine::LoadPreCompiledIR() {
 }
 
 Status Engine::LoadExternalPreCompiledIR() {
-  auto const& buffers = LLVMExternalBitcodeStore::GetBitcodeBuffers();
+  auto const& buffers = function_registry_->GetBitcodeBuffers();
   for (auto const& buffer : buffers) {
     auto module_or_error = llvm::parseBitcodeFile(buffer->getMemBufferRef(), *context());
     ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));

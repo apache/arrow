@@ -26,7 +26,6 @@
 #include <cmath>
 
 #include "arrow/memory_pool.h"
-#include "gandiva/function_registrar.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
@@ -3584,17 +3583,7 @@ TEST_F(TestProjector, TestSqrtFloat64) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-NativeFunction GetTestExternalFunction() {
-  NativeFunction multiply_by_two_func(
-      "multiply_by_two", {}, {arrow::int32()}, arrow::int64(),
-      ResultNullableType::kResultNullIfNull, "multiply_by_two_int32");
-  return multiply_by_two_func;
-}
-
 TEST_F(TestProjector, TestExtendedFunctions) {
-  ARROW_EXPECT_OK(FunctionRegistrar::Register({GetTestExternalFunction()},
-                                              GetTestFunctionLLVMIRPath()));
-
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::int64());
@@ -3603,7 +3592,11 @@ TEST_F(TestProjector, TestExtendedFunctions) {
       TreeExprBuilder::MakeExpression("multiply_by_two", {in_field}, out_field);
 
   std::shared_ptr<Projector> projector;
-  ARROW_EXPECT_OK(Projector::Make(schema, {multiply}, TestConfiguration(), &projector));
+  FunctionRegistry external_registry;
+  auto config_with_func_registry =
+      TestConfigurationWithFunctionRegistry(&external_registry);
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
 
   int num_records = 4;
   auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});

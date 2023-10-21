@@ -32,7 +32,7 @@ using arrow::int32;
 
 class TestExprDecomposer : public ::testing::Test {
  protected:
-  FunctionRegistry registry_;
+  FunctionRegistry& registry_ = *default_function_registry();
 };
 
 TEST_F(TestExprDecomposer, TestStackSimple) {

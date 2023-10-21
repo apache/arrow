@@ -21,6 +21,7 @@
 #include <string>
 
 #include "arrow/status.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -34,8 +35,13 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
-  Configuration() : optimize_(true), target_host_cpu_(true) {}
-  explicit Configuration(bool optimize) : optimize_(optimize), target_host_cpu_(true) {}
+  explicit Configuration(bool optimize, FunctionRegistry* function_registry =
+                                            gandiva::default_function_registry())
+      : optimize_(optimize),
+        target_host_cpu_(true),
+        function_registry_(function_registry) {}
+
+  Configuration() : Configuration(true) {}
 
   std::size_t Hash() const;
   bool operator==(const Configuration& other) const;
@@ -43,13 +49,19 @@ class GANDIVA_EXPORT Configuration {
 
   bool optimize() const { return optimize_; }
   bool target_host_cpu() const { return target_host_cpu_; }
+  FunctionRegistry* function_registry() const { return function_registry_; }
 
   void set_optimize(bool optimize) { optimize_ = optimize; }
   void target_host_cpu(bool target_host_cpu) { target_host_cpu_ = target_host_cpu; }
+  void set_function_registry(FunctionRegistry* function_registry) {
+    function_registry_ = function_registry;
+  }
 
  private:
   bool optimize_;        /* optimise the generated llvm IR */
   bool target_host_cpu_; /* set the mcpu flag to host cpu while compiling llvm ir */
+  FunctionRegistry*
+      function_registry_; /* function registry that may contain external functions */
 };
 
 /// \brief configuration builder for gandiva

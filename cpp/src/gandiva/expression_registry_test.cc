@@ -31,7 +31,7 @@ typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 
 class TestExpressionRegistry : public ::testing::Test {
  protected:
-  FunctionRegistry registry_;
+  FunctionRegistry& registry_ = *default_function_registry();
 };
 
 // Verify all functions in registry are exported.

@@ -17,7 +17,13 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
 #include <vector>
+
+#include <llvm/Support/MemoryBuffer.h>
+
+#include <arrow/status.h>
 #include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
@@ -30,21 +36,39 @@ class GANDIVA_EXPORT FunctionRegistry {
  public:
   using iterator = const NativeFunction*;
 
+  FunctionRegistry();
+
   /// Lookup a pre-compiled function by its signature.
   const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
 
-  /// \brief register a new function into the function registry
-  static Status Add(NativeFunction func);
+  /// \brief register a set of functions into the function registry from a given bitcode
+  /// file
+  arrow::Status Register(const std::vector<NativeFunction>& funcs,
+                         const std::string& bitcode_path);
+
+  /// \brief register a set of functions into the function registry from a given bitcode
+  /// buffer
+  arrow::Status Register(const std::vector<NativeFunction>& funcs,
+                         std::unique_ptr<llvm::MemoryBuffer> bitcode_buffer);
+
+  /// \brief get a list of LLVM bitcode memory buffers saved in the registry
+  const std::vector<std::unique_ptr<llvm::MemoryBuffer>>& GetBitcodeBuffers() const;
 
   iterator begin() const;
   iterator end() const;
   iterator back() const;
 
- private:
-  static SignatureMap InitPCMap();
+  friend arrow::Result<std::unique_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry();
 
-  static std::vector<NativeFunction> pc_registry_;
-  static SignatureMap pc_registry_map_;
+ private:
+  std::vector<NativeFunction> pc_registry_;
+  SignatureMap pc_registry_map_;
+  std::vector<std::unique_ptr<llvm::MemoryBuffer>> bitcode_memory_buffers_;
+
+  Status Add(NativeFunction func);
 };
+
+/// \brief get the default function registry
+GANDIVA_EXPORT FunctionRegistry* default_function_registry();
 
 }  // namespace gandiva

@@ -64,7 +64,6 @@ set(SRC_FILES
     exported_funcs.cc
     filter.cc
     function_ir_builder.cc
-    function_registrar.cc
     function_registry.cc
     function_registry_arithmetic.cc
     function_registry_datetime.cc
@@ -80,7 +79,6 @@ set(SRC_FILES
     hash_utils.cc
     interval_holder.cc
     llvm_generator.cc
-    llvm_external_bitcode_store.cc
     llvm_types.cc
     literal_holder.cc
     projector.cc

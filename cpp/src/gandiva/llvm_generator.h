@@ -47,7 +47,7 @@ class FunctionHolder;
 class GANDIVA_EXPORT LLVMGenerator {
  public:
   /// \brief Factory method to initialize the generator.
-  static Status Make(std::shared_ptr<Configuration> config, bool cached,
+  static Status Make(const std::shared_ptr<Configuration>& config, bool cached,
                      std::unique_ptr<LLVMGenerator>* llvm_generator);
 
   /// \brief Get the cache to be used for LLVM ObjectCache.
@@ -82,7 +82,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   std::string DumpIR() { return engine_->DumpIR(); }
 
  private:
-  explicit LLVMGenerator(bool cached);
+  explicit LLVMGenerator(bool cached, FunctionRegistry* function_registry);
 
   FRIEND_TEST(TestLLVMGenerator, VerifyPCFunctions);
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
@@ -251,7 +251,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   std::unique_ptr<Engine> engine_;
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
   bool cached_;
-  FunctionRegistry function_registry_;
+  FunctionRegistry* function_registry_;
   Annotator annotator_;
   SelectionVector::Mode selection_vector_mode_;
 

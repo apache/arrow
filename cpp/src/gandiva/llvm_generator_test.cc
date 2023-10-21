@@ -27,7 +27,6 @@
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
-#include "gandiva/llvm_external_bitcode_store.h"
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
@@ -36,7 +35,7 @@ typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 
 class TestLLVMGenerator : public ::testing::Test {
  protected:
-  FunctionRegistry registry_;
+  FunctionRegistry& registry_ = *default_function_registry();
 };
 
 // Verify that a valid pc function exists for every function in the registry.
@@ -74,7 +73,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   FunctionSignature signature(func_desc->name(), func_desc->params(),
                               func_desc->return_type());
   const NativeFunction* native_func =
-      generator->function_registry_.LookupSignature(signature);
+      generator->function_registry_->LookupSignature(signature);
 
   std::vector<ValueValidityPairPtr> pairs{pair0, pair1};
   auto func_dex = std::make_shared<NonNullableFuncDex>(
@@ -117,9 +116,12 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 }
 
 TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
-  ARROW_EXPECT_OK(LoadTestFunctionLLVMIR());
+  FunctionRegistry external_registry;
+  auto config_with_func_registry =
+      TestConfigurationWithFunctionRegistry(&external_registry);
+
   std::unique_ptr<LLVMGenerator> generator;
-  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
+  ASSERT_OK(LLVMGenerator::Make(config_with_func_registry, false, &generator));
 
   auto module = generator->module();
   ASSERT_OK(generator->engine_->LoadFunctionIRs());

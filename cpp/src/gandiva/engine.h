@@ -114,6 +114,7 @@ class GANDIVA_EXPORT Engine {
   bool module_finalized_ = false;
   bool cached_;
   bool functions_loaded_ = false;
+  FunctionRegistry* function_registry_;
 };
 
 }  // namespace gandiva

@@ -25,7 +25,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
-#include "gandiva/llvm_external_bitcode_store.h"
 
 #pragma once
 
@@ -113,11 +112,20 @@ static inline std::string GetTestFunctionLLVMIRPath() {
   return ir_file.string();
 }
 
-static inline Status LoadTestFunctionLLVMIR() {
-  if (LLVMExternalBitcodeStore::GetBitcodeBuffers().empty()) {
-    auto ir_file = GetTestFunctionLLVMIRPath();
-    return LLVMExternalBitcodeStore::Add(ir_file);
-  }
-  return arrow::Status::OK();
+static inline NativeFunction GetTestExternalFunction() {
+  NativeFunction multiply_by_two_func(
+      "multiply_by_two", {}, {arrow::int32()}, arrow::int64(),
+      ResultNullableType::kResultNullIfNull, "multiply_by_two_int32");
+  return multiply_by_two_func;
 }
+
+static inline std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
+    FunctionRegistry* registry) {
+  ARROW_EXPECT_OK(
+      registry->Register({GetTestExternalFunction()}, GetTestFunctionLLVMIRPath()));
+  auto external_func_config = TestConfiguration();
+  external_func_config->set_function_registry(registry);
+  return external_func_config;
+}
+
 }  // namespace gandiva

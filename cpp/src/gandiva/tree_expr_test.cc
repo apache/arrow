@@ -45,7 +45,7 @@ class TestExprTree : public ::testing::Test {
   FieldPtr i1_;  // int32
 
   FieldPtr b0_;  // bool
-  FunctionRegistry registry_;
+  FunctionRegistry& registry_ = *gandiva::default_function_registry();
 };
 
 TEST_F(TestExprTree, TestField) {
