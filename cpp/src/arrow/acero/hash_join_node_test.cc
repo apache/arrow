@@ -282,9 +282,7 @@ struct RandomDataTypeConstraints {
     }
   }
 
-  void withoutNullColumn() {
-    data_type_enabled_mask = ~kNull;
-  }
+  void withoutNullColumn() { data_type_enabled_mask = ~kNull; }
 
   // Data type mask constants
   static constexpr int64_t kInt1 = 1;

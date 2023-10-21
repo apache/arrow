@@ -274,8 +274,8 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
     }
 
     if (type.id() == Type::NA) {
-        encoders_[i] = std::make_shared<NullKeyEncoder>();
-        continue;
+      encoders_[i] = std::make_shared<NullKeyEncoder>();
+      continue;
     }
 
     if (type.id() == Type::BOOL) {
