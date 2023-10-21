@@ -21,6 +21,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -108,7 +109,8 @@ int num_bsearches = 0;
 struct ValueComparator {
   virtual ~ValueComparator() = default;
 
-  /// \brief Compare the values at the given indices in the base and target arrays.
+  /// \brief Compare the validity and values at the given indices in the base and target
+  /// arrays.
   ///
   /// \param base_index The index in the base array.
   /// \param target_index The index in the target array.
@@ -127,8 +129,24 @@ struct DefaultValueComparator : public ValueComparator {
 
   ~DefaultValueComparator() override = default;
 
+  /// \brief Compare validity bits of base[base_index] and target[target_index]
+  ///
+  /// \return std::nullopt if the validity bits differ, otherwise a bool
+  /// containing the validity bit found in both arrays.
+  static std::optional<bool> ValidityIfEquals(const ArrayType& base, int64_t base_index,
+                                              const ArrayType& target,
+                                              int64_t target_index) {
+    const bool base_valid = base.IsValid(base_index);
+    const bool target_valid = target.IsValid(target_index);
+    return base_valid ^ target_valid ? std::nullopt : std::optional<bool>{base_valid};
+  }
+
   bool Equals(int64_t base_index, int64_t target_index) override {
-    return GetView(base, base_index) == GetView(target, target_index);
+    const auto valid = ValidityIfEquals(base, base_index, target, target_index);
+    if (valid.has_value()) {
+      return *valid ? GetView(base, base_index) == GetView(target, target_index) : true;
+    }
+    return false;
   }
 };
 
@@ -242,23 +260,6 @@ class QuadraticSpaceMyersDiff {
   }
 
  private:
-  bool ValuesEqual(ValueComparator& comparator, int64_t base_index,
-                   int64_t target_index) const {
-    // TODO(felipecrv): move the null checking to the type-specific comparators
-    // as random-access null checks to some types (unions, rees) can be a bit
-    // expensive.
-    if (base_.type_id() == Type::RUN_END_ENCODED) {
-      num_bsearches += 2;
-    }
-    bool base_null = base_.IsNull(base_index);
-    bool target_null = target_.IsNull(target_index);
-    if (base_null || target_null) {
-      // If only one is null, then this is false, otherwise true
-      return base_null && target_null;
-    }
-    return comparator.Equals(base_index, target_index);
-  }
-
   // increment the position within base (the element pointed to was deleted)
   // then extend maximally
   EditPoint DeleteOne(ValueComparator& comparator, EditPoint p) const {
@@ -281,7 +282,7 @@ class QuadraticSpaceMyersDiff {
   // present in both sequences)
   EditPoint ExtendFrom(ValueComparator& comparator, EditPoint p) const {
     for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
-      if (!ValuesEqual(comparator, p.base, p.target)) {
+      if (!comparator.Equals(p.base, p.target)) {
         break;
       }
     }
