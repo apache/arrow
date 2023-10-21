@@ -200,6 +200,7 @@ class REEValueComparator : public ValueComparator {
  private:
   /// \pre i < base_.length()
   int64_t FindPhysicalIndexOnBase(int64_t i) const {
+    num_bsearches += 1;
     return ree_util::internal::FindPhysicalIndex<RunEndCType>(ArraySpan(*base_.data()), i,
                                                               base_.offset());
     // TODO(felipecrv): cache these values so that the next binary search for
@@ -208,11 +209,87 @@ class REEValueComparator : public ValueComparator {
 
   /// \pre i < target_.length()
   int64_t FindPhysicalIndexOnTarget(int64_t i) const {
+    num_bsearches += 1;
     return ree_util::internal::FindPhysicalIndex<RunEndCType>(ArraySpan(*target_.data()),
                                                               i, target_.offset());
   }
 
  public:
+  int64_t RunLengthOfEqualsFrom(int64_t base_index, int64_t base_length,
+                                int64_t target_index, int64_t target_length) override {
+    // Ensure the first search for physical index on the values arrays is safe.
+    if (base_index >= base_length || target_index >= target_length) {
+      // Without values on either side, there is no run of equal values.
+      return 0;
+    }
+
+    // Translate the two logical indices into physical indices.
+    int64_t physical_base_index = FindPhysicalIndexOnBase(base_index);
+    int64_t physical_target_index = FindPhysicalIndexOnTarget(target_index);
+
+    int64_t run_length_of_equals = 0;
+    // The loop invariant (base_index < base_length && target_index < target_length)
+    // is valid when the loop starts because of the check above.
+    for (;;) {
+      const auto base_run_end =
+          static_cast<int64_t>(base_run_ends_[physical_base_index]) - base_.offset();
+      const auto target_run_end =
+          static_cast<int64_t>(target_run_ends_[physical_target_index]) -
+          target_.offset();
+      // The end of the runs containing the logical indices, by definition, ends
+      // after the logical indices.
+      DCHECK_LT(base_index, base_run_end);
+      DCHECK_LT(target_index, target_run_end);
+
+      // Compare the physical values that make up the runs containing base_index
+      // and target_index.
+      if (!inner_value_comparator_->Equals(physical_base_index, physical_target_index)) {
+        // First difference found, stop because the run of equal values cannot
+        // be extended further.
+        break;
+      }
+
+      const int64_t base_run = std::min(base_run_end, base_length) - base_index;
+      const int64_t target_run = std::min(target_run_end, target_length) - target_index;
+      // Due to the loop-invariant (base_index < base_length && target_index <
+      // target_length) and properties of the run-ends asserted above, both base_run and
+      // target_run are strictly greater than zero.
+      DCHECK_GT(base_run, 0);
+      DCHECK_GT(target_run, 0);
+
+      int64_t increment = 0;
+      if (base_run < target_run) {
+        increment = base_run;
+        physical_base_index += 1;  // skip to next run on base
+      } else if (base_run > target_run) {
+        increment = target_run;
+        physical_target_index += 1;  // skip to next run on target
+      } else {
+        increment = base_run;
+        // skip to next run on both base and target
+        physical_base_index += 1;
+        physical_target_index += 1;
+      }
+      // Since both base_run and target_run are greater than zero,
+      // increment is also greater than zero...
+      DCHECK_GT(increment, 0);
+      // ...which implies that the loop will make progress and eventually terminate
+      // because base_index or target_index will equal base_length or target_length,
+      // respectively.
+      base_index += increment;
+      target_index += increment;
+      // The value representing the two runs are equal, so we can assume that at
+      // least `increment` (size of smallest run) values are equal.
+      run_length_of_equals += increment;
+
+      if (base_index >= base_length || target_index >= target_length) {
+        break;
+      }
+    }
+
+    return run_length_of_equals;
+  }
+
   bool Equals(int64_t base_index, int64_t target_index) override {
     num_bsearches += 2;
     const int64_t physical_base_index = FindPhysicalIndexOnBase(base_index);

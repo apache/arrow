@@ -213,6 +213,13 @@ class DiffTest : public ::testing::Test {
     AssertInsertIs("[false]");
     AssertRunLengthIs("[120]");
 
+    // slice so last run-end goes beyond length
+    base_ = base_->Slice(5, 105);
+    target_ = target_->Slice(5, 105);
+    DoDiff();
+    AssertInsertIs("[false]");
+    AssertRunLengthIs("[105]");
+
     // insert one
     base_ = RunEndEncodedArrayFromJSON(12, ree_type, R"([2, 12])", R"(["a", "b"])");
     target_ = RunEndEncodedArrayFromJSON(13, ree_type, R"([3, 13])", R"(["a", "b"])");
