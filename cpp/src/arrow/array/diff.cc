@@ -117,6 +117,29 @@ struct ValueComparator {
   /// \return true if the values at the given indices are equal, false otherwise.
   /// \pre base_index and target_index are valid indices in their respective arrays.
   virtual bool Equals(int64_t base_index, int64_t target_index) = 0;
+
+  /// \brief Return the run length of equal values starting at the given indices in the
+  /// base and target arrays.
+  ///
+  /// \param base_index The starting index in the base array.
+  /// \param base_length The length of the base array.
+  /// \param target_index The starting index in the target array.
+  /// \param target_length The length of the target array.
+  /// \return The run length of equal values starting at the given indices in the base
+  /// and target arrays.
+  virtual int64_t RunLengthOfEqualsFrom(int64_t base_index, int64_t base_length,
+                                        int64_t target_index, int64_t target_length) {
+    int64_t run_length_of_equals = 0;
+    while (base_index < base_length && target_index < target_length) {
+      if (!Equals(base_index, target_index)) {
+        break;
+      }
+      base_index += 1;
+      target_index += 1;
+      run_length_of_equals += 1;
+    }
+    return run_length_of_equals;
+  }
 };
 
 template <typename ArrayType>
@@ -281,11 +304,10 @@ class QuadraticSpaceMyersDiff {
   // increment the position within base and target (the elements skipped in this way were
   // present in both sequences)
   EditPoint ExtendFrom(ValueComparator& comparator, EditPoint p) const {
-    for (; p.base != base_end_ && p.target != target_end_; ++p.base, ++p.target) {
-      if (!comparator.Equals(p.base, p.target)) {
-        break;
-      }
-    }
+    const int64_t run_length_of_equals =
+        comparator.RunLengthOfEqualsFrom(p.base, base_end_, p.target, target_end_);
+    p.base += run_length_of_equals;
+    p.target += run_length_of_equals;
     return p;
   }
 
