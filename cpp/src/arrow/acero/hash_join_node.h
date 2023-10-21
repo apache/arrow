@@ -75,7 +75,7 @@ class ARROW_ACERO_EXPORT HashJoinSchema {
   SchemaProjectionMaps<HashJoinProjection> proj_maps[2];
 
  private:
-  static bool IsTypeSupported(const DataType& type);
+  static bool IsTypeSupported(const DataType& type, bool is_key);
 
   Status CollectFilterColumns(std::vector<FieldRef>& left_filter,
                               std::vector<FieldRef>& right_filter,

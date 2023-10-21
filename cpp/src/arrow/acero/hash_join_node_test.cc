@@ -282,6 +282,10 @@ struct RandomDataTypeConstraints {
     }
   }
 
+  void withoutNullColumn() {
+    data_type_enabled_mask = ~kNull;
+  }
+
   // Data type mask constants
   static constexpr int64_t kInt1 = 1;
   static constexpr int64_t kInt2 = 2;
@@ -307,8 +311,8 @@ struct RandomDataType {
                                const RandomDataTypeConstraints& constraints) {
     RandomDataType result;
     if (constraints.data_type_enabled_mask & constraints.kNull) {
-      // 5% chance of null type column
-      result.is_null_type = ((rng.next() % 100) < 5);
+      // 10% chance of null type column
+      result.is_null_type = ((rng.next() % 100) < 10);
     } else {
       result.is_null_type = false;
     }
@@ -1008,8 +1012,11 @@ TEST(HashJoin, Random) {
         default_memory_pool(), parallel ? arrow::internal::GetCpuThreadPool() : nullptr);
 
     // Constraints
-    RandomDataTypeConstraints type_constraints;
-    type_constraints.Default();
+    RandomDataTypeConstraints key_type_constraints;
+    key_type_constraints.Default();
+    key_type_constraints.withoutNullColumn();
+    RandomDataTypeConstraints non_key_type_constraints;
+    non_key_type_constraints.Default();
     // type_constraints.OnlyInt(1, true);
     constexpr int max_num_key_fields = 3;
     constexpr int max_num_payload_fields = 3;
@@ -1036,7 +1043,7 @@ TEST(HashJoin, Random) {
     int num_key_fields = rng.from_range(1, max_num_key_fields);
     RandomDataTypeVector key_types;
     for (int i = 0; i < num_key_fields; ++i) {
-      key_types.AddRandom(rng, type_constraints);
+      key_types.AddRandom(rng, key_type_constraints);
     }
 
     // Generate lists of payload data types
@@ -1045,7 +1052,7 @@ TEST(HashJoin, Random) {
     for (int i = 0; i < 2; ++i) {
       num_payload_fields[i] = rng.from_range(0, max_num_payload_fields);
       for (int j = 0; j < num_payload_fields[i]; ++j) {
-        payload_types[i].AddRandom(rng, type_constraints);
+        payload_types[i].AddRandom(rng, non_key_type_constraints);
       }
     }
 

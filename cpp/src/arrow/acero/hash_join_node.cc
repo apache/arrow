@@ -45,15 +45,18 @@ using compute::KeyColumnArray;
 namespace acero {
 
 // Check if a type is supported in a join (as either a key or non-key column)
-bool HashJoinSchema::IsTypeSupported(const DataType& type) {
+bool HashJoinSchema::IsTypeSupported(const DataType& type, bool is_key) {
   const Type::type id = type.id();
   if (id == Type::DICTIONARY) {
-    return IsTypeSupported(*checked_cast<const DictionaryType&>(type).value_type());
+    return IsTypeSupported(*checked_cast<const DictionaryType&>(type).value_type(),
+                           is_key);
   }
   if (id == Type::EXTENSION) {
-    return IsTypeSupported(*checked_cast<const ExtensionType&>(type).storage_type());
+    return IsTypeSupported(*checked_cast<const ExtensionType&>(type).storage_type(),
+                           is_key);
   }
-  if (id == Type::NA) {
+  // If it's a key column, do not support NULL (Type::NA)
+  if (id == Type::NA && !is_key) {
     return true;
   }
   return is_fixed_width(id) || is_binary_like(id) || is_large_binary_like(id);
@@ -217,7 +220,7 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     const FieldPath& match = result.ValueUnsafe();
     const std::shared_ptr<DataType>& type =
         (left_side ? left_schema.fields() : right_schema.fields())[match[0]]->type();
-    if (!IsTypeSupported(*type)) {
+    if (!IsTypeSupported(*type, true)) {
       return Status::Invalid("Data type ", *type, " is not supported in join key field");
     }
   }
@@ -237,14 +240,14 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
   }
   for (const auto& field : left_schema.fields()) {
     const auto& type = *field->type();
-    if (!IsTypeSupported(type)) {
+    if (!IsTypeSupported(type, false)) {
       return Status::Invalid("Data type ", type,
                              " is not supported in join non-key field ", field->name());
     }
   }
   for (const auto& field : right_schema.fields()) {
     const auto& type = *field->type();
-    if (!IsTypeSupported(type)) {
+    if (!IsTypeSupported(type, false)) {
       return Status::Invalid("Data type ", type,
                              " is not supported in join non-key field ", field->name());
     }
