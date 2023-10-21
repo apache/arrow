@@ -173,31 +173,50 @@ struct DefaultValueComparator : public ValueComparator {
   }
 };
 
+template <typename RunEndCType>
 class REEValueComparator : public ValueComparator {
  private:
   const RunEndEncodedArray& base_;
   const RunEndEncodedArray& target_;
   std::unique_ptr<ValueComparator> inner_value_comparator_;
+  const RunEndCType* base_run_ends_;
+  const RunEndCType* target_run_ends_;
 
  public:
   REEValueComparator(const RunEndEncodedArray& base, const RunEndEncodedArray& target,
                      std::unique_ptr<ValueComparator>&& inner_value_comparator)
       : base_(base),
         target_(target),
-        inner_value_comparator_(std::move(inner_value_comparator)) {
+        inner_value_comparator_(std::move(inner_value_comparator)),
+        base_run_ends_(
+            ree_util::RunEndsArray(*base_.data()).template GetValues<RunEndCType>(1)),
+        target_run_ends_(
+            ree_util::RunEndsArray(*target_.data()).template GetValues<RunEndCType>(1)) {
     DCHECK_EQ(*base_.type(), *target_.type());
   }
 
   ~REEValueComparator() override { printf("num_bsearches: %d\n", num_bsearches); }
 
-  bool Equals(int64_t base_index, int64_t target_index) override {
-    num_bsearches += 2;
-    const int64_t physical_base_index =
-        ree_util::FindPhysicalIndex(ArraySpan(*base_.data()), base_index, base_.offset());
-    const int64_t physical_target_index = ree_util::FindPhysicalIndex(
-        ArraySpan(*target_.data()), target_index, target_.offset());
+ private:
+  /// \pre i < base_.length()
+  int64_t FindPhysicalIndexOnBase(int64_t i) const {
+    return ree_util::internal::FindPhysicalIndex<RunEndCType>(ArraySpan(*base_.data()), i,
+                                                              base_.offset());
     // TODO(felipecrv): cache these values so that the next binary search for
     // the physical index can probe from the last found position.
+  }
+
+  /// \pre i < target_.length()
+  int64_t FindPhysicalIndexOnTarget(int64_t i) const {
+    return ree_util::internal::FindPhysicalIndex<RunEndCType>(ArraySpan(*target_.data()),
+                                                              i, target_.offset());
+  }
+
+ public:
+  bool Equals(int64_t base_index, int64_t target_index) override {
+    num_bsearches += 2;
+    const int64_t physical_base_index = FindPhysicalIndexOnBase(base_index);
+    const int64_t physical_target_index = FindPhysicalIndexOnTarget(target_index);
     return inner_value_comparator_->Equals(physical_base_index, physical_target_index);
   }
 };
@@ -234,8 +253,25 @@ class CreateValueComparator {
     ARROW_ASSIGN_OR_RAISE(
         auto inner_values_comparator,
         (*this)(*ree_type.value_type(), *base_ree.values(), *target_ree.values()));
-    comparator_ = std::make_unique<REEValueComparator>(
-        base_ree, target_ree, std::move(inner_values_comparator));
+    auto* ree_value_comparator =
+        ([&ree_type, &base_ree, &target_ree,
+          inner_values_comparator =
+              std::move(inner_values_comparator)]() mutable -> ValueComparator* {
+          const auto run_end_type_id = ree_type.run_end_type()->id();
+          switch (run_end_type_id) {
+            case Type::INT16:
+              return new REEValueComparator<int16_t>(base_ree, target_ree,
+                                                     std::move(inner_values_comparator));
+            case Type::INT32:
+              return new REEValueComparator<int32_t>(base_ree, target_ree,
+                                                     std::move(inner_values_comparator));
+            default:
+              DCHECK_EQ(run_end_type_id, Type::INT64);
+              return new REEValueComparator<int64_t>(base_ree, target_ree,
+                                                     std::move(inner_values_comparator));
+          }
+        }());
+    comparator_ = std::unique_ptr<ValueComparator>{ree_value_comparator};
     return Status::OK();
   }
 
