@@ -297,8 +297,7 @@ class build_ext(_build_ext):
                 mac_ver = platform.mac_ver()[0]
                 if not mac_ver >= '13.0':
                     raise RuntimeError('Not supported on macOS older than 13.0')
-                cmake_options.append(
-                    f'-DMACOSX_DEPLOYMENT_TARGET={mac_ver}')
+                os.environ['MACOSX_DEPLOYMENT_TARGET'] = mac_ver
 
             extra_cmake_args = shlex.split(self.extra_cmake_args)
 
