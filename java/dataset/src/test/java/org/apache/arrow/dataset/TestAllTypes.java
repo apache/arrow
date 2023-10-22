@@ -24,6 +24,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -97,7 +98,7 @@ public class TestAllTypes extends TestDataset {
         new FieldType(false, new ArrowType.Int(32, true), null, null), null));
     Field structField = new Field("struct",
         new FieldType(true, ArrowType.Struct.INSTANCE, null, null), childFields);
-    List<Field> fields = List.of(
+    Field[] fields = new Field[] {
         Field.nullablePrimitive("null", ArrowType.Null.INSTANCE),
         Field.nullablePrimitive("bool", ArrowType.Bool.INSTANCE),
         Field.nullablePrimitive("int8", new ArrowType.Int(8, true)),
@@ -132,8 +133,8 @@ public class TestAllTypes extends TestDataset {
         new Field("fixedsizelist", FieldType.nullable(new ArrowType.FixedSizeList(2)),
             Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
         structField
-    );
-    VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(fields), allocator);
+    };
+    VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Arrays.asList(fields)), allocator);
     root.allocateNew();
     root.setRowCount(2);
 
