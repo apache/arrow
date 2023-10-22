@@ -226,27 +226,6 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCreatePreparedStatementResult {
   std::string prepared_statement_handle;
 };
 
-/// \brief A request to close the open client session.
-struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionRequest {};
-
-/// \brief A request to set a set of session options by key/value.
-struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsRequest {
-  std::map<std::string, SessionOptionValue> session_options;
-};
-
-/// \brief The result(s) of setting session option(s).
-struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsResult {
-  std::map<std::string, SetSessionOptionResult> results;
-};
-
-/// \brief A request to get current session options.
-struct ARROW_FLIGHT_SQL_EXPORT ActionGetSessionOptionsRequest {};
-
-/// \brief The current session options.
-struct ARROW_FLIGHT_SQL_EXPORT ActionGetSessionOptionsResult {
-  std::map<std::string, SessionOptionValue> session_options;
-};
-
 /// @}
 
 /// \brief A utility function to create a ticket (a opaque binary
@@ -626,23 +605,23 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \brief Set server session option(s).
   /// \param[in] context  The call context.
   /// \param[in] request  The session options to set.
-  virtual arrow::Result<ActionSetSessionOptionsResult> SetSessionOptions(
+  virtual arrow::Result<SetSessionOptionsResult> SetSessionOptions(
       const ServerCallContext& context,
-      const ActionSetSessionOptionsRequest& request);
+      const SetSessionOptionsRequest& request);
 
   /// \brief Get server session option(s).
   /// \param[in] context  The call context.
   /// \param[in] request  Request object.
-  virtual arrow::Result<ActionGetSessionOptionsResult> GetSessionOptions(
+  virtual arrow::Result<GetSessionOptionsResult> GetSessionOptions(
       const ServerCallContext& context,
-      const ActionGetSessionOptionsRequest& request);
+      const GetSessionOptionsRequest& request);
 
   /// \brief Close/invalidate the session.
   /// \param[in] context  The call context.
   /// \param[in] request  Request object.
   virtual arrow::Result<CloseSessionResult> CloseSession(
       const ServerCallContext& context,
-      const ActionCloseSessionRequest& request);
+      const CloseSessionRequest& request);
 
   /// \brief Attempt to explicitly cancel a query.
   ///
@@ -728,7 +707,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   const ActionType kCloseSessionActionType =
       ActionType{"CloseSession",
                  "Explicitly close an open session.\n"
-                 "Request Message: ActionCloseSessionRequest\n"
+                 "Request Message: CloseSessionRequest\n"
                  "Response Message: ActionCloseSessionResult"};
   const ActionType kEndSavepointActionType =
       ActionType{"EndSavepoint",
@@ -743,8 +722,8 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   const ActionType kSetSessionOptionsActionType =
       ActionType{"SetSessionOptions",
                  "Set a series of session options.\n"
-                 "Request Message: ActionSetSessionOptionsRequest\n"
-                 "Response Message: ActionSetSessionOptionsResult"};
+                 "Request Message: SetSessionOptionsRequest\n"
+                 "Response Message: SetSessionOptionsResult"};
   const ActionType kGetSessionOptionsActionType =
       ActionType{"GetSessionOption",
                  "Get a series of session options.\n"

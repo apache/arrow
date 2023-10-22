@@ -350,25 +350,31 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
       "may need to use CancelQuery() and/or CancelFlightInfo()")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
-   
+
   /// \brief Sets session options.
   ///
   /// \param[in] options            RPC-layer hints for this call.
   /// \param[in] session_options    The session options to set.
-  ::arrow::Result<std::map<std::string, SetSessionOptionResult>> SetSessionOptions(
+  ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
       const FlightCallOptions& options,
-      const std::map<std::string, SessionOptionValue>& session_options);
+      const std::map<std::string, SessionOptionValue>& session_options) {
+    return impl_->SetSessionOptions(options, session_options);
+  }
 
   /// \brief Gets current session options.
   ///
   /// \param[in] options            RPC-layer hints for this call.
-  ::arrow::Result<std::map<std::string, SessionOptionValue>> GetSessionOptions(
-      const FlightCallOptions& options);
+  ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const FlightCallOptions& options) {
+    return impl_->GetSessionOptions(options);
+  }
 
   /// \brief Explicitly closes the session if applicable.
   ///
   /// \param[in] options      RPC-layer hints for this call.
-  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options);
+  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options) {
+    return impl_->CloseSession(options);
+  }
 
   /// \brief Extends the expiration of a FlightEndpoint.
   ///

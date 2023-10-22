@@ -184,6 +184,9 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   static const ActionType kCancelFlightInfo;
   static const ActionType kRenewFlightEndpoint;
+  static const ActionType kSetSessionOptions;
+  static const ActionType kGetSessionOptions;
+  static const ActionType kCloseSession;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
@@ -760,6 +763,175 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
 };
+
+
+
+
+/// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
+using SessionOptionValue =
+    std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
+
+/// \brief The result of setting a session option.
+enum class SetSessionOptionResult : int8_t {
+  kUnspecified,
+  kOk,
+  kOkMapped,  // PHOXME add remapped key/value status(es) to Proto too
+  kInvalidResult,
+  kError
+};
+
+/// \brief The result of closing a session.
+enum class CloseSessionResult : int8_t {
+  kUnspecified,
+  kClosed,
+  kClosing,
+  kNotClosable
+};
+
+/// \brief A request to set a set of session options by key/value.
+struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionsRequest {
+  std::map<std::string, SessionOptionValue> session_options;
+
+  std::string ToString() const;
+  bool Equals(const SetSessionOptionsRequest& other) const;
+
+  friend bool operator==(const SetSessionOptionsRequest& left,
+                         const SetSessionOptionsRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SetSessionOptionsRequest& left,
+                         const SetSessionOptionsRequest& right)){
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<SetSessionOptionsRequest>
+  Deserialize(std::string_view serialized);
+};
+
+/// \brief The result(s) of setting session option(s).
+struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionsResult {
+  std::map<std::string, SetSessionOptionResult> results;
+
+  std::string ToString() const;
+  bool Equals(const SetSessionOptionsResult& other) const;
+
+  friend bool operator==(const SetSessionOptionsResult& left,
+                         const SetSessionOptionsResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SetSessionOptionsResult& left,
+                         const SetSessionOptionsResult& right)){
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<SetSessionOptionsResult>
+  Deserialize(std::string_view serialized);
+};
+
+/// \brief A request to get current session options.
+struct ARROW_FLIGHT_SQL_EXPORT GetSessionOptionsRequest {
+  std::string ToString() const;
+  bool Equals(const GetSessionOptionsRequest& other) const;
+
+  friend bool operator==(const GetSessionOptionsRequest& left,
+                         const GetSessionOptionsRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const GetSessionOptionsRequest& left,
+                         const GetSessionOptionsRequest& right)){
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<GetSessionOptionsRequest>
+  Deserialize(std::string_view serialized);
+};
+
+/// \brief The current session options.
+struct ARROW_FLIGHT_SQL_EXPORT GetSessionOptionsResult {
+  std::map<std::string, SessionOptionValue> session_options;
+
+  std::string ToString() const;
+  bool Equals(const GetSessionOptionsResult& other) const;
+
+  friend bool operator==(const GetSessionOptionsResult& left,
+                         const GetSessionOptionsResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const GetSessionOptionsResult& left,
+                         const GetSessionOptionsResult& right)){
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<GetSessionOptionsResult>
+  Deserialize(std::string_view serialized);
+};
+
+// PHOXME struct CloseSessionResult (already below??)
+
+/// \brief A request to close the open client session.
+struct ARROW_FLIGHT_SQL_EXPORT CloseSessionRequest {  std::string ToString() const;
+  bool Equals(const CloseSessionRequest& other) const;
+
+  friend bool operator==(const CloseSessionRequest& left,
+                         const CloseSessionRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CloseSessionRequest& left,
+                         const CloseSessionRequest& right)){
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CloseSessionRequest>
+  Deserialize(std::string_view serialized);
+};
+
+/// \brief The result of attempting to close the client session.
+struct ARROW_FLIGHT_SQL_EXPORT CloseSessionResult {
+  CloseSessionResult result;
+
+  std::string ToString() const;
+  bool Equals(const CloseSessionResult& other) const;
+
+  friend bool operator==(const CloseSessionResult& left,
+                         const CloseSessionResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CloseSessionResult& left,
+                         const CloseSessionResult& right)){
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CloseSessionResult>
+  Deserialize(std::string_view serialized);
+}
+
+
+
+
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {

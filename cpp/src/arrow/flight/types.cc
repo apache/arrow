@@ -473,6 +473,154 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
   return out;
 }
 
+
+
+
+// PHOXME impl...
+std::string SetSessionOptionsRequest::ToString() const {
+  std::stringstream ss;
+
+  ss << "<SetSessionOptionsRequest session_options={";
+  std::string sep = "";
+  for (const auto& [k, v] : session_options) {
+    std::cout << sep << '[' << k << "]: '" << v.ToString() << "', ";  // PHOXME v.ToString() not implemented yet
+    sep = ", ";
+  }
+  ss << "}>";
+
+  return ss.str();
+}
+bool SetSessionOptionsRequest::Equals(const SetSessionOptionsRequest& other) const {
+  // compare map equality including variant types not just value equality
+  // PHOXME
+}
+arrow::Result<std::string>
+SetSessionOptionsRequest::SerializeToString() const {
+  pb::SetSessionOptionsRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized SetSessionOptionsRequest exceeded 2GiB limit");
+  }
+  return out;
+}
+static arrow::Result<SetSessionOptionsRequest>
+SetSessionOptionsRequest::Deserialize(std::string_view serialized) {}
+
+
+
+std::string SetSessionOptionsResult::ToString() const {}
+bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const {
+  // Simple comparison with fixed types
+  if (results != other.results) {
+    return false;
+  }
+  return true;
+}
+arrow::Result<std::string>
+SetSessionOptionsResult::SerializeToString() const {
+  pb::SetSessionOptionsResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized SetSessionOptionsResult exceeded 2GiB limit");
+  }
+  return out;
+}
+static arrow::Result<SetSessionOptionsResult>
+SetSessionOptionsResult::Deserialize(std::string_view serialized) {}
+
+
+
+std::string GetSessionOptionsRequest::ToString() const {
+  return true;
+}
+bool GetSessionOptionsRequest::Equals(const GetSessionOptionsRequest& other) const {}
+arrow::Result<std::string>
+GetSessionOptionsRequest::SerializeToString() const {
+  pb::GetSessionOptionsRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized GetSessionOptionsRequest exceeded 2GiB limit");
+  }
+  return out;
+}
+static arrow::Result<GetSessionOptionsRequest>
+GetSessionOptionsRequest::Deserialize(std::string_view serialized) {}
+
+
+
+std::string GetSessionOptionsResult::ToString() const {
+  // compare map equality including variant types not just value equality
+}
+bool GetSessionOptionsResult::Equals(const GetSessionOptionsResult& other) const {
+  // compare map equality including variant types not just value equality
+  // PHOXME
+}
+arrow::Result<std::string>
+GetSessionOptionsResult::SerializeToString() const {
+  pb::GetSessionOptionsResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized GetSessionOptionsResult exceeded 2GiB limit");
+  }
+  return out;
+}
+static arrow::Result<GetSessionOptionsResult>
+GetSessionOptionsResult::Deserialize(std::string_view serialized) {}
+
+
+
+std::string CloseSessionRequest::ToString() const {}
+bool CloseSessionRequest::Equals(const CloseSessionRequest& other) const {
+  return true;
+}
+arrow::Result<std::string>
+CloseSessionRequest::SerializeToString() const {
+  pb::CloseSessionRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized CloseSessionRequest exceeded 2GiB limit");
+  }
+  return out;
+}
+static arrow::Result<CloseSessionRequest>
+CloseSessionRequest::Deserialize(std::string_view serialized) {}
+
+
+
+std::string CloseSessionResult::ToString() const {}
+bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
+  if (result != other.result)    {
+    return false;
+  }
+}
+arrow::Result<std::string>
+CloseSessionResult::SerializeToString() const {
+  pb::CloseSessionResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized CloseSessionResult exceeded 2GiB limit");
+  }
+  return out;
+}
+static arrow::Result<CloseSessionResult>
+CloseSessionResult::Deserialize(std::string_view serialized) {}
+
+
+
+
+
 Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
 
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
@@ -648,6 +796,27 @@ const ActionType ActionType::kRenewFlightEndpoint =
                "Extend expiration time of the given FlightEndpoint.\n"
                "Request Message: RenewFlightEndpointRequest\n"
                "Response Message: Renewed FlightEndpoint"};
+const ActionType ActionType::kSetSessionOptions =
+    ActionType{
+      "SetSessionOptions",
+      "Set client session options by key/value pairs.\n"
+      "Request Message: SetSessionOptionsRequest\n"
+      "Response Message: SetSessionOptionsResult\n"
+    };
+const ActionType ActionType::kGetSessionOptions =
+    ActionType{
+      "GetSessionOptions",
+      "Get current client session options\n"
+      "Request Message: GetSessionOptionsRequest\n"
+      "Response Message: GetSessionOptionsResult\n"
+    };
+const ActionType ActionType::kCloseSession =
+    ActionType{
+      "CloseSession",
+      "Explicitly close/invalidate the cookie-specified client session.\n"
+      "Request Message: CloseSessionRequest\n"
+      "Response Message: CloseSessionResult\n"
+    };
 
 bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;

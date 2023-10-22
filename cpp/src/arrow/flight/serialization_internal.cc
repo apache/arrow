@@ -379,6 +379,34 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
   *out = Buffer::FromString(std::move(str_descr));
   return Status::OK();
 }
+// ================================================================================================== //
+// PHOXME I think most of the enum types will just get static_cast<>() as in (I think?) the CancelFlightInfo code...??
+// SessionOptionValue
+
+// SetSessionOptionsRequest
+// FIXME I still need to move the underlying types into types.{h,cc} to be referenced from here
+// FIXME as above I still need to write code to convert SessionOptionValues; debatable if a corresponding map is something to break out (probably??)
+
+Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
+                 pb::SetSessionOptionsRequest* request) {
+
+}
+
+Status ToProto(const SetSessionOptionsRequest request,
+               pb::SetSessionOptionsRequest* pb_request) {
+
+}
+
+// SetSessionOptionsResult
+
+// GetSessionOptionsRequest
+
+// GetSessionOptionsResult
+
+// CloseSessionResult
+
+
+// ================================================================================================== //
 
 }  // namespace internal
 }  // namespace flight

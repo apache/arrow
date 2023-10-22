@@ -276,14 +276,14 @@ arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
   return result;
 }
 
-arrow::Result<ActionCloseSessionRequest> ParseActionCloseSessionRequest(
+arrow::Result<CloseSessionRequest> ParseActionCloseSessionRequest(
     const google::protobuf::Any& any) {
-  pb::ActionCloseSessionRequest command;
+  pb::CloseSessionRequest command;
   if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionCloseSessionRequest");
+    return Status::Invalid("Unable to unpack CloseSessionRequest");
   }
 
-  ActionCloseSessionRequest result;
+  CloseSessionRequest result;
   return result;
 }
 
@@ -377,14 +377,14 @@ arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
   return result;
 }
 
-arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsRequest(
+arrow::Result<SetSessionOptionsRequest> ParseActionSetSessionOptionsRequest(
     const google::protobuf::Any& any) {
-  pb::ActionSetSessionOptionsRequest command;
+  pb::SetSessionOptionsRequest command;
   if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionSetSessionOptionsRequest");
+    return Status::Invalid("Unable to unpack SetSessionOptionsRequest");
   }
 
-  ActionSetSessionOptionsRequest result;
+  SetSessionOptionsRequest result;
   if (command.session_options_size() > 0) {
     for (const auto & [name, pb_val] : command.session_options()) {
       SessionOptionValue val;
@@ -424,14 +424,14 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
   return result;
 }
 
-arrow::Result<ActionGetSessionOptionsRequest> ParseActionGetSessionOptionsRequest(
+arrow::Result<GetSessionOptionsRequest> ParseActionGetSessionOptionsRequest(
     const google::protobuf::Any& any) {
-  pb::ActionGetSessionOptionsRequest command;
+  pb::GetSessionOptionsRequest command;
   if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack ActionGetSessionOptionsRequest");
+    return Status::Invalid("Unable to unpack GetSessionOptionsRequest");
   }
 
-  ActionGetSessionOptionsRequest result;
+  GetSessionOptionsRequest result;
   return result;
 }
 
@@ -517,23 +517,23 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
   return PackActionResult(pb_result);
 }
 
-arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
-  pb::ActionSetSessionOptionsResult pb_result;
+arrow::Result<Result> PackActionResult(SetSessionOptionsResult result) {
+  pb::SetSessionOptionsResult pb_result;
   auto* pb_results_map = pb_result.mutable_results();
   for (const auto& [opt_name, res] : result.results) {
     pb::ActionSetSessionOptionsResult_SetSessionOptionResult val;
     switch (res) {
       case SetSessionOptionResult::kUnspecified:
-        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED;
+        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED;
         break;
       case SetSessionOptionResult::kOk:
-        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK;
+        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK;
         break;
       case SetSessionOptionResult::kInvalidResult:
-        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE;
+        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE;
         break;
       case SetSessionOptionResult::kError:
-        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR;
+        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR;
         break;
     }
     (*pb_results_map)[opt_name] = val;
@@ -541,8 +541,8 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   return PackActionResult(pb_result);
 }
 
-arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
-  pb::ActionGetSessionOptionsResult pb_result;
+arrow::Result<Result> PackActionResult(GetSessionOptionsResult result) {
+  pb::GetSessionOptionsResult pb_result;
   auto* pb_results = pb_result.mutable_session_options();
   for (const auto& [name, opt_value] : result.session_options) {
     pb::SessionOptionValue pb_opt_value;
@@ -942,27 +942,25 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(renewed_endpoint));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kCloseSessionActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionCloseSessionRequest internal_command,
-                          ParseActionCloseSessionRequest(any));
-    ARROW_ASSIGN_OR_RAISE(CloseSessionResult result, CloseSession(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+  } else if (action.type == ActionType::kSetSessionOptions.type) {
+    std::string_view body(*action.body);
+    ARROW_ASSIGN_OR_RAISE(auto request, SetSessionOptionsRequest::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto result, SetSessionOptions(context, request));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kSetSessionOptionsActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsRequest internal_command,
-                          ParseActionSetSessionOptionsRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionSetSessionOptionsResult result,
-                          SetSessionOptions(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+  } else if (action.type == ActionType::kGetSessionOptions.type) {
+    std::string_view body(*action.body);
+    ARROW_ASSIGN_OR_RAISE(auto request, GetSessionOptionsRequest::Deserialize(body));)
+    ARROW_ASSIGN_OR_RAISE(auto result, GetSessionOptions(context, request));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kGetSessionOptionsActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionGetSessionOptionsRequest internal_command,
-                          ParseActionGetSessionOptionsRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionGetSessionOptionsResult result,
-                          GetSessionOptions(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+  } else if (action.type == ActionType::kCloseSession.type) {
+    std::string_view body(*action.body);
+    ARROW_ASSIGN_OR_RAISE(auto request, CloseSessionRequest::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto result, CloseSession(context, request));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
   } else {
@@ -1273,7 +1271,7 @@ arrow::Result<FlightEndpoint> FlightSqlServerBase::RenewFlightEndpoint(
 
 arrow::Result<CloseSessionResult> FlightSqlServerBase::CloseSession(
     const ServerCallContext& context,
-    const ActionCloseSessionRequest& request) {
+    const CloseSessionRequest& request) {
   return Status::NotImplemented("CloseSession not implemented");
 }
 
@@ -1307,15 +1305,15 @@ Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
   return Status::NotImplemented("EndTransaction not implemented");
 }
 
-arrow::Result<ActionSetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions (
+arrow::Result<SetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions (
     const ServerCallContext& context,
-    const ActionSetSessionOptionsRequest& request) {
+    const SetSessionOptionsRequest& request) {
   return Status::NotImplemented("SetSessionOptions not implemented");
 }
 
-arrow::Result<ActionGetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions (
+arrow::Result<GetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions (
     const ServerCallContext& context,
-    const ActionGetSessionOptionsRequest& request) {
+    const GetSessionOptionsRequest& request) {
   return Status::NotImplemented("GetSessionOptions not implemented");
 }
 
