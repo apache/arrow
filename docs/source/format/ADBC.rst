@@ -19,7 +19,7 @@
 ADBC: Arrow Database Connectivity
 =================================
 
-Full Documentation on ADBC can be found at `https://arrow.apache.org/adbc/`_.
+Full Documentation on ADBC can be found at https://arrow.apache.org/adbc/.
 
 Rationale
 =========

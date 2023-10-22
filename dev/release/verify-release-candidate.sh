@@ -565,11 +565,7 @@ maybe_setup_nodejs() {
 test_package_java() {
   show_header "Build and test Java libraries"
 
-  # Build and test Java (Requires newer Maven -- I used 3.3.9)
-  # Pin OpenJDK 17 since OpenJDK 20 is incompatible with our versions
-  # of things like Mockito, and we also can't update Mockito due to
-  # not supporting Java 8 anymore
-  maybe_setup_conda maven openjdk=17.0.3 || exit 1
+  maybe_setup_conda maven openjdk || exit 1
 
   pushd java
   if [ ${TEST_JAVA} -gt 0 ]; then
@@ -963,12 +959,26 @@ ensure_source_directory() {
     fi
   fi
 
-  # Ensure that the testing repositories are cloned
-  if [ ! -d "${ARROW_SOURCE_DIR}/testing/data" ]; then
-    git clone https://github.com/apache/arrow-testing.git ${ARROW_SOURCE_DIR}/testing
+  # Ensure that the testing repositories are prepared
+  if [ ! -d ${ARROW_SOURCE_DIR}/testing/data ]; then
+    if [ -d ${SOURCE_DIR}/../../testing/data ]; then
+      cp -a ${SOURCE_DIR}/../../testing/ ${ARROW_SOURCE_DIR}/
+    else
+      git clone \
+        https://github.com/apache/arrow-testing.git \
+        ${ARROW_SOURCE_DIR}/testing
+    fi
   fi
-  if [ ! -d "${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data" ]; then
-    git clone https://github.com/apache/parquet-testing.git ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing
+  if [ ! -d ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data ]; then
+    if [ -d ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/data ]; then
+      cp -a \
+         ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/ \
+         ${ARROW_SOURCE_DIR}/cpp/submodules/
+    else
+      git clone \
+        https://github.com/apache/parquet-testing.git \
+        ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing
+    fi
   fi
 
   export ARROW_TEST_DATA=$ARROW_SOURCE_DIR/testing/data

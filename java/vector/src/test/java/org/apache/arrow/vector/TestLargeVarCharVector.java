@@ -21,6 +21,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -791,6 +792,22 @@ public class TestLargeVarCharVector {
 
       vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
       assertEquals("foo", new String(vector.get(initialCapacity), StandardCharsets.UTF_8));
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
+        LargeVarCharVector v1 = new LargeVarCharVector("v1", childAllocator1)) {
+      v1.allocateNew();
+      v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+      v1.setValueCount(4001);
+
+      TransferPair tp = v1.getTransferPair(v1.getField(), allocator);
+      tp.transfer();
+      LargeVarCharVector v2 = (LargeVarCharVector) tp.getTo();
+      assertSame(v1.getField(), v2.getField());
+      v2.clear();
     }
   }
 

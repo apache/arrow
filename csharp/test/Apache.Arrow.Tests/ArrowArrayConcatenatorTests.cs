@@ -125,6 +125,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
@@ -252,6 +253,33 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = resultBuilder.Build();
             }
 
+            public void Visit(DurationType type)
+            {
+                DurationArray.Builder resultBuilder = new DurationArray.Builder(type).Reserve(_baseDataTotalElementCount);
+                DateTimeOffset basis = DateTimeOffset.UtcNow;
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    DurationArray.Builder builder = new DurationArray.Builder(type).Reserve(dataList.Count);
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
 
             public void Visit(BinaryType type)
             {

@@ -177,11 +177,6 @@ if(WIN32)
   add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 
   if(MSVC)
-    if(MSVC_VERSION VERSION_LESS 19)
-      message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
-      by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
-    endif()
-
     # ARROW-1931 See https://github.com/google/googletest/issues/1318
     #
     # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the

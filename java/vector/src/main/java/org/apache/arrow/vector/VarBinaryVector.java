@@ -254,6 +254,11 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
     return new TransferImpl(ref, allocator);
   }
 
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
   /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
@@ -270,6 +275,10 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new VarBinaryVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new VarBinaryVector(field, allocator);
     }
 
     public TransferImpl(VarBinaryVector to) {

@@ -4086,6 +4086,7 @@ macro(build_crc32c_once)
                                                     ${_CRC32C_STATIC_LIBRARY})
     target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS Crc32c::crc32c)
   endif()
 endmacro()
 
@@ -4316,8 +4317,7 @@ macro(build_google_cloud_cpp_storage)
          absl::synchronization
          absl::throw_delegate
          absl::time
-         absl::time_zone
-         Crc32c::crc32c)
+         absl::time_zone)
   endif()
 endmacro()
 

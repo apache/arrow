@@ -34,6 +34,7 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption.h"
+#include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
@@ -58,6 +59,13 @@ class DatasetEncryptionTest : public ::testing::Test {
   // partitioning scheme. The function also checks if the written files exist in the file
   // system.
   static void SetUpTestSuite() {
+#ifdef ARROW_VALGRIND
+    // Not necessary otherwise, but prevents a Valgrind leak by making sure
+    // OpenSSL initialization is done from the main thread
+    // (see GH-38304 for analysis).
+    ::parquet::encryption::EnsureBackendInitialized();
+#endif
+
     // Creates a mock file system using the current time point.
     EXPECT_OK_AND_ASSIGN(file_system_, fs::internal::MockFileSystem::Make(
                                            std::chrono::system_clock::now(), {}));
