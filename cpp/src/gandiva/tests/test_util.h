@@ -97,35 +97,12 @@ static inline ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>
   EXPECT_TRUE((a)->Equals(b)) << "expected type: " << (a)->ToString() \
                               << " actual type: " << (b)->ToString()
 
-static inline std::shared_ptr<Configuration> TestConfiguration() {
-  auto builder = ConfigurationBuilder();
-  return builder.DefaultConfiguration();
-}
+std::shared_ptr<Configuration> TestConfiguration();
 
-#ifndef GANDIVA_EXTENSION_TEST_DIR
-#define GANDIVA_EXTENSION_TEST_DIR "."
-#endif
+std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
+    FunctionRegistry* registry);
 
-static inline std::string GetTestFunctionLLVMIRPath() {
-  std::filesystem::path base(GANDIVA_EXTENSION_TEST_DIR);
-  std::filesystem::path ir_file = base / "multiply_by_two.bc";
-  return ir_file.string();
-}
-
-static inline NativeFunction GetTestExternalFunction() {
-  NativeFunction multiply_by_two_func(
-      "multiply_by_two", {}, {arrow::int32()}, arrow::int64(),
-      ResultNullableType::kResultNullIfNull, "multiply_by_two_int32");
-  return multiply_by_two_func;
-}
-
-static inline std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
-    FunctionRegistry* registry) {
-  ARROW_EXPECT_OK(
-      registry->Register({GetTestExternalFunction()}, GetTestFunctionLLVMIRPath()));
-  auto external_func_config = TestConfiguration();
-  external_func_config->set_function_registry(registry);
-  return external_func_config;
-}
+std::string GetTestFunctionLLVMIRPath();
+NativeFunction GetTestExternalFunction();
 
 }  // namespace gandiva

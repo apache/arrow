@@ -252,7 +252,8 @@ add_gandiva_test(internals-test
                  random_generator_holder_test.cc
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
-                 interval_holder_test.cc)
+                 interval_holder_test.cc
+                 tests/test_util.cc)
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)
