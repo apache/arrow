@@ -31,8 +31,6 @@ if(ARROW_WITH_ZSTD AND "${zstd_SOURCE}" STREQUAL "SYSTEM")
   provide_find_module(zstdAlt "Gandiva")
 endif()
 
-add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
-
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
 set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
@@ -60,6 +58,7 @@ set(SRC_FILES
     expression.cc
     expression_registry.cc
     exported_funcs_registry.cc
+    exported_funcs.cc
     filter.cc
     function_ir_builder.cc
     function_registry.cc
@@ -175,14 +174,14 @@ add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 arrow_install_all_headers("gandiva")
 
 set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static ${ARROW_TEST_LINK_LIBS})
-set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${ARROW_TEST_LINK_LIBS})
+set(GANDIVA_SHARED_TEST_LINK_LIBS gandiva_shared ${ARROW_TEST_LINK_LIBS} LLVM::LLVM_LIBS)
 if(ARROW_WITH_UTF8PROC)
   list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS utf8proc::utf8proc)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS utf8proc::utf8proc)
 endif()
 if(WIN32)
   list(APPEND GANDIVA_STATIC_TEST_LINK_LIBS ${GANDIVA_OPENSSL_TARGETS})
-  list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS LLVM::LLVM_LIBS ${GANDIVA_OPENSSL_TARGETS})
+  list(APPEND GANDIVA_SHARED_TEST_LINK_LIBS ${GANDIVA_OPENSSL_TARGETS})
 endif()
 
 function(ADD_GANDIVA_TEST REL_TEST_NAME)
@@ -239,6 +238,7 @@ add_gandiva_test(internals-test
                  tree_expr_test.cc
                  encrypt_utils_test.cc
                  expr_decomposer_test.cc
+                 exported_funcs_registry_test.cc
                  expression_registry_test.cc
                  selection_vector_test.cc
                  lru_cache_test.cc

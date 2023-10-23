@@ -49,13 +49,16 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
   if(MSVC)
     set(ARROW_SSE4_2_FLAG "")
     set(ARROW_AVX2_FLAG "/arch:AVX2")
+    # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
+    set(ARROW_BMI2_FLAG "/arch:AVX2")
     set(ARROW_AVX512_FLAG "/arch:AVX512")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
     set(ARROW_AVX2_FLAG "-march=haswell")
+    set(ARROW_BMI2_FLAG "-mbmi2")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
-    set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
+    set(ARROW_AVX512_FLAG "-march=skylake-avx512")
     # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
     set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
     set(ARROW_AVX512_FLAG
@@ -95,13 +98,16 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
+  # Note: for now we assume that AVX2 support should also enable BMI2 support,
+  # at least at compile-time (more care may be required for runtime dispatch).
   if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX2 ON)
+    set(ARROW_HAVE_RUNTIME_BMI2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX2 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
   if(CXX_SUPPORTS_AVX512 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX512 ON)
-    add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
+    add_definitions(-DARROW_HAVE_RUNTIME_AVX512)
   endif()
   if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
     set(ARROW_SIMD_LEVEL "SSE4_2")
@@ -171,11 +177,6 @@ if(WIN32)
   add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 
   if(MSVC)
-    if(MSVC_VERSION VERSION_LESS 19)
-      message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
-      by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
-    endif()
-
     # ARROW-1931 See https://github.com/google/googletest/issues/1318
     #
     # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
@@ -323,7 +324,8 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wno-deprecated")
@@ -354,7 +356,8 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     else()
@@ -377,7 +380,8 @@ else()
          OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
          OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     else()
@@ -447,11 +451,18 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
   # Don't complain about optimization passes that were not possible
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
 
-  # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
-  # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
-  # for details.
   if(APPLE)
-    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -fno-aligned-new")
+    # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
+    # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
+    # for details.
+    string(APPEND CXX_ONLY_FLAGS " -fno-aligned-new")
+
+    if(CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
+      # Avoid C++17 std::get 'not available' issue on macOS 10.13
+      # This will be required until atleast R 4.4 is released and
+      # CRAN (hopefully) stops checking on 10.13
+      string(APPEND CXX_ONLY_FLAGS " -D_LIBCPP_DISABLE_AVAILABILITY")
+    endif()
   endif()
 endif()
 

@@ -590,6 +590,21 @@ class TestS3FS : public S3TestMixin {
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
   }
 
+  void TestOpenOutputStreamCloseAsyncDestructor() {
+    std::shared_ptr<io::OutputStream> stream;
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/somefile"));
+    ASSERT_OK(stream->Write("new data"));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    // GH-37670: Testing it doesn't matter whether flush is triggered asynchronously
+    // after CloseAsync or synchronously after stream.reset() since we're just
+    // checking that `closeAsyncFut` keeps the stream alive until completion
+    // rather than segfaulting on a dangling stream
+    auto closeAsyncFut = stream->CloseAsync();
+    stream.reset();
+    ASSERT_OK(closeAsyncFut.MoveResult());
+    AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
+  }
+
  protected:
   S3Options options_;
   std::shared_ptr<S3FileSystem> fs_;
@@ -1177,6 +1192,16 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
   TestOpenOutputStreamDestructor();
 }
 
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorBackgroundWrites) {
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorSyncWrite) {
+  options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {
   std::shared_ptr<io::OutputStream> stream;
 
@@ -1354,6 +1379,32 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
 };
 
 GENERIC_FS_TEST_FUNCTIONS(TestS3FSGeneric);
+
+////////////////////////////////////////////////////////////////////////////
+// S3GlobalOptions::Defaults tests
+
+TEST(S3GlobalOptions, DefaultsLogLevel) {
+  // Verify we get the default value of Fatal
+  ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
+
+  // Verify we get the value specified by env var and not the default
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "ERROR");
+    ASSERT_EQ(S3LogLevel::Error, arrow::fs::S3GlobalOptions::Defaults().log_level);
+  }
+
+  // Verify we trim and case-insensitively compare the environment variable's value
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", " eRrOr ");
+    ASSERT_EQ(S3LogLevel::Error, arrow::fs::S3GlobalOptions::Defaults().log_level);
+  }
+
+  // Verify we get the default value of Fatal if our env var is invalid
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "invalid");
+    ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
+  }
+}
 
 }  // namespace fs
 }  // namespace arrow

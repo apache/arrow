@@ -24,7 +24,7 @@ namespace Apache.Arrow
     /// </summary>
     public class ChunkedArray
     {
-        private IList<Array> Arrays { get; }
+        private IList<IArrowArray> Arrays { get; }
         public IArrowType DataType { get; }
         public long Length { get; }
         public long NullCount { get; }
@@ -34,9 +34,16 @@ namespace Apache.Arrow
             get => Arrays.Count;
         }
 
-        public Array Array(int index) => Arrays[index];
+        public Array Array(int index) => Arrays[index] as Array;
+
+        public IArrowArray ArrowArray(int index) => Arrays[index];
 
         public ChunkedArray(IList<Array> arrays)
+            : this(Cast(arrays))
+        {
+        }
+
+        public ChunkedArray(IList<IArrowArray> arrays)
         {
             Arrays = arrays ?? throw new ArgumentNullException(nameof(arrays));
             if (arrays.Count < 1)
@@ -44,14 +51,14 @@ namespace Apache.Arrow
                 throw new ArgumentException($"Count must be at least 1. Got {arrays.Count} instead");
             }
             DataType = arrays[0].Data.DataType;
-            foreach (Array array in arrays)
+            foreach (IArrowArray array in arrays)
             {
                 Length += array.Length;
                 NullCount += array.NullCount;
             }
         }
 
-        public ChunkedArray(Array array) : this(new[] { array }) { }
+        public ChunkedArray(Array array) : this(new IArrowArray[] { array }) { }
 
         public ChunkedArray Slice(long offset, long length)
         {
@@ -68,10 +75,10 @@ namespace Apache.Arrow
                 curArrayIndex++;
             }
 
-            IList<Array> newArrays = new List<Array>();
+            IList<IArrowArray> newArrays = new List<IArrowArray>();
             while (curArrayIndex < numArrays && length > 0)
             {
-                newArrays.Add(Arrays[curArrayIndex].Slice((int)offset,
+                newArrays.Add(ArrowArrayFactory.Slice(Arrays[curArrayIndex], (int)offset,
                               length > Arrays[curArrayIndex].Length ? Arrays[curArrayIndex].Length : (int)length));
                 length -= Arrays[curArrayIndex].Length - offset;
                 offset = 0;
@@ -86,6 +93,16 @@ namespace Apache.Arrow
         }
 
         public override string ToString() => $"{nameof(ChunkedArray)}: Length={Length}, DataType={DataType.Name}";
+      
+        private static IArrowArray[] Cast(IList<Array> arrays)
+        {
+            IArrowArray[] arrowArrays = new IArrowArray[arrays.Count];
+            for (int i = 0; i < arrays.Count; i++)
+            {
+                arrowArrays[i] = arrays[i];
+            }
+            return arrowArrays;
+        }
 
         // TODO: Flatten for Structs
     }

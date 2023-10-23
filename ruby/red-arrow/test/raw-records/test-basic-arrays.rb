@@ -157,7 +157,7 @@ module RawRecordsBasicArraysTests
     assert_equal(records, target.raw_records)
   end
 
-  def test_tring
+  def test_string
     records = [
       ["Ruby"],
       [nil],

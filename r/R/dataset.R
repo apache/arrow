@@ -112,7 +112,8 @@
 #' * "csv"/"text", aliases for the same thing (because comma is the default
 #'   delimiter for text files
 #' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
-#'
+#' * "json", for JSON format datasets Note: only newline-delimited JSON (aka ND-JSON) datasets
+#'   are currently supported
 #' Default is "parquet", unless a `delimiter` is also specified, in which case
 #' it is assumed to be "text".
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
@@ -240,7 +241,6 @@ open_dataset <- function(sources,
 #' @section Options currently supported by [read_delim_arrow()] which are not supported here:
 #' * `file` (instead, please specify files in `sources`)
 #' * `col_select` (instead, subset columns after dataset creation)
-#' * `quoted_na`
 #' * `as_data_frame` (instead, convert to data frame after dataset creation)
 #' * `parse_options`
 #'
@@ -276,7 +276,9 @@ open_delim_dataset <- function(sources,
                                skip = 0L,
                                convert_options = NULL,
                                read_options = NULL,
-                               timestamp_parsers = NULL) {
+                               timestamp_parsers = NULL,
+                               quoted_na = TRUE,
+                               parse_options = NULL) {
   open_dataset(
     sources = sources,
     schema = schema,
@@ -296,7 +298,9 @@ open_delim_dataset <- function(sources,
     skip = skip,
     convert_options = convert_options,
     read_options = read_options,
-    timestamp_parsers = timestamp_parsers
+    timestamp_parsers = timestamp_parsers,
+    quoted_na = quoted_na,
+    parse_options = parse_options
   )
 }
 
@@ -318,7 +322,9 @@ open_csv_dataset <- function(sources,
                              skip = 0L,
                              convert_options = NULL,
                              read_options = NULL,
-                             timestamp_parsers = NULL) {
+                             timestamp_parsers = NULL,
+                             quoted_na = TRUE,
+                             parse_options = NULL) {
   mc <- match.call()
   mc$delim <- ","
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
@@ -343,7 +349,9 @@ open_tsv_dataset <- function(sources,
                              skip = 0L,
                              convert_options = NULL,
                              read_options = NULL,
-                             timestamp_parsers = NULL) {
+                             timestamp_parsers = NULL,
+                             quoted_na = TRUE,
+                             parse_options = NULL) {
   mc <- match.call()
   mc$delim <- "\t"
   mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
@@ -518,6 +526,9 @@ names.Dataset <- function(x) names(x$schema)
 
 #' @export
 dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
+
+#' @export
+dimnames.Dataset <- function(x) list(NULL, names(x))
 
 #' @export
 c.Dataset <- function(...) Dataset$create(list(...))

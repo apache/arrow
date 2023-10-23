@@ -82,6 +82,26 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
       const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
+std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(int i) {
+  if (i >= metadata()->num_columns()) {
+    std::stringstream ss;
+    ss << "Trying to read column index " << i << " but row group metadata has only "
+       << metadata()->num_columns() << " columns";
+    throw ParquetException(ss.str());
+  }
+  const ColumnDescriptor* descr = metadata()->schema()->Column(i);
+
+  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i);
+
+  internal::LevelInfo level_info = internal::LevelInfo::ComputeLevelInfo(descr);
+
+  auto reader = internal::RecordReader::Make(
+      descr, level_info, contents_->properties()->memory_pool(),
+      /* read_dictionary = */ false, contents_->properties()->read_dense_for_nullable());
+  reader->SetPageReader(std::move(page_reader));
+  return reader;
+}
+
 std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
     int i, ExposedEncoding encoding_to_expose) {
   std::shared_ptr<ColumnReader> reader = Column(i);
@@ -139,8 +159,10 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 ::arrow::io::ReadRange ComputeColumnChunkRange(FileMetaData* file_metadata,
                                                int64_t source_size, int row_group_index,
                                                int column_index) {
-  auto row_group_metadata = file_metadata->RowGroup(row_group_index);
-  auto column_metadata = row_group_metadata->ColumnChunk(column_index);
+  std::unique_ptr<RowGroupMetaData> row_group_metadata =
+      file_metadata->RowGroup(row_group_index);
+  std::unique_ptr<ColumnChunkMetaData> column_metadata =
+      row_group_metadata->ColumnChunk(column_index);
 
   int64_t col_start = column_metadata->data_page_offset();
   if (column_metadata->has_dictionary_page() &&
@@ -227,36 +249,18 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                               always_compressed);
     }
 
-    if (file_decryptor_ == nullptr) {
-      throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
-    }
+    // The column is encrypted
+    std::shared_ptr<Decryptor> meta_decryptor =
+        GetColumnMetaDecryptor(crypto_metadata.get(), file_decryptor_.get());
+    std::shared_ptr<Decryptor> data_decryptor =
+        GetColumnDataDecryptor(crypto_metadata.get(), file_decryptor_.get());
+    ARROW_DCHECK_NE(meta_decryptor, nullptr);
+    ARROW_DCHECK_NE(data_decryptor, nullptr);
 
     constexpr auto kEncryptedRowGroupsLimit = 32767;
     if (i > kEncryptedRowGroupsLimit) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
     }
-
-    // The column is encrypted
-    std::shared_ptr<Decryptor> meta_decryptor;
-    std::shared_ptr<Decryptor> data_decryptor;
-    // The column is encrypted with footer key
-    if (crypto_metadata->encrypted_with_footer_key()) {
-      meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
-      data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
-      CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
-                        static_cast<int16_t>(i), meta_decryptor, data_decryptor);
-      return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
-                              always_compressed, &ctx);
-    }
-
-    // The column is encrypted with its own key
-    std::string column_key_metadata = crypto_metadata->key_metadata();
-    const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
-
-    meta_decryptor =
-        file_decryptor_->GetColumnMetaDecryptor(column_path, column_key_metadata);
-    data_decryptor =
-        file_decryptor_->GetColumnDataDecryptor(column_path, column_key_metadata);
 
     CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
@@ -330,7 +334,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
     if (!page_index_reader_) {
       page_index_reader_ = PageIndexReader::Make(source_.get(), file_metadata_,
-                                                 properties_, file_decryptor_);
+                                                 properties_, file_decryptor_.get());
     }
     return page_index_reader_;
   }
@@ -936,7 +940,7 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
             ScanAllValues(column_batch_size, def_levels.data(), rep_levels.data(),
                           values.data(), &values_read, col_reader.get());
         if (col_reader->descr()->max_repetition_level() > 0) {
-          for (int64_t i = 0; i < levels_read; i++) {
+          for (size_t i = 0; i < static_cast<size_t>(levels_read); i++) {
             if (rep_levels[i] == 0) {
               total_rows[col]++;
             }

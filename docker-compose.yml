@@ -119,6 +119,7 @@ x-hierarchy:
       - conda-python:
         - conda-python-pandas:
           - conda-python-docs
+        - conda-python-cython2
         - conda-python-dask
         - conda-python-hdfs
         - conda-python-java-integration
@@ -289,7 +290,6 @@ services:
       ARROW_EXTRA_ERROR_CONTEXT: "ON"
       ARROW_MIMALLOC: "ON"
       ARROW_USE_LD_GOLD: "ON"
-      ARROW_USE_PRECOMPILED_HEADERS: "ON"
       BUILD_DOCS_PYTHON: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
@@ -497,6 +497,8 @@ services:
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_UTILITIES: "OFF"
+      ARROW_ACERO: "OFF"
+      ARROW_AZURE: "OFF"
       ARROW_COMPUTE: "OFF"
       ARROW_CSV: "OFF"
       ARROW_DATASET: "OFF"
@@ -1031,7 +1033,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2022-10-25-fbea779
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2023-10-03-72cdc42
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2014
@@ -1054,7 +1056,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-01-14-103cb93
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-10-03-72cdc42
         vcpkg: ${VCPKG}
         python: ${PYTHON}
         manylinux: 2_28
@@ -1326,8 +1328,10 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
+      ARROW_ACERO: "OFF"
       ARROW_DATASET: "OFF"
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JAVA_CDATA: "ON"
       ARROW_ORC: "OFF"
@@ -1345,6 +1349,30 @@ services:
           /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/$$(arch) &&
           /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
           /arrow/ci/scripts/java_cdata_integration.sh /arrow /tmp/dist/java" ]
+
+  conda-python-cython2:
+    # Usage:
+    #   docker-compose build conda
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-cython2
+    #   docker-compose run --rm conda-python-cython2
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-cython2.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache]
+      PYTEST_ARGS:  # inherit
+    volumes: *conda-volumes
+    command: *python-conda-command
 
   ################################## R ########################################
 
@@ -1670,8 +1698,8 @@ services:
     #   docker-compose build eclipse-java
     #   docker-compose run eclipse-java
     # Parameters:
-    #   MAVEN: 3.9.3
-    #   JDK: 17, 20
+    #   MAVEN: 3.9.4
+    #   JDK: 17, 21
     image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: *java-volumes
@@ -1702,15 +1730,21 @@ services:
     volumes: *conda-volumes
     environment:
       <<: [*common, *ccache]
-      # tell archery where the arrow binaries are located
-      ARROW_CPP_EXE_PATH: /build/cpp/debug
       ARCHERY_INTEGRATION_WITH_RUST: 0
+      # Tell Archery where the arrow C++ binaries are located
+      ARROW_CPP_EXE_PATH: /build/cpp/debug
+      ARROW_GO_INTEGRATION: 1
+      ARROW_JAVA_CDATA: "ON"
+      JAVA_JNI_CMAKE_ARGS: >-
+        -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
+        -DARROW_JAVA_JNI_ENABLE_C=ON
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/csharp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/$$(arch) &&
+        /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 
@@ -1778,7 +1812,8 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
+        pip install arrow/dev/archery[lint] &&
+        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
 
   ######################### Integration Tests #################################
 
@@ -1847,7 +1882,6 @@ services:
       ARROW_HDFS_TEST_PORT: 8020
       ARROW_HDFS_TEST_USER: hdfs
       ARROW_S3: "OFF"
-      CMAKE_UNITY_BUILD: "ON"
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated

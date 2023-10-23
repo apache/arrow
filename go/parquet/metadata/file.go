@@ -95,6 +95,11 @@ func (f *FileMetaDataBuilder) AppendRowGroup() *RowGroupMetaDataBuilder {
 	return f.currentRgBldr
 }
 
+// AppendKeyValueMetadata appends a key/value pair to the existing key/value metadata
+func (f *FileMetaDataBuilder) AppendKeyValueMetadata(key string, value string) error {
+	return f.kvmeta.Append(key, value)
+}
+
 // Finish will finalize the metadata of the number of rows, row groups,
 // version etc. This will clear out this filemetadatabuilder so it can
 // be re-used

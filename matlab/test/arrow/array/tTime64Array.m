@@ -73,20 +73,20 @@ classdef tTime64Array < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:validate:temporal:UnsupportedTime64TimeUnit");
         end
 
-        function TestLength(testCase)
-            % Verify the Length property.
+        function TestNumElements(testCase)
+            % Verify the NumElements property.
 
             times = duration.empty(0, 1);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
 
             times = duration(1, 2, 3);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(1));
+            testCase.verifyEqual(array.NumElements, int64(1));
 
             times = duration(1, 2, 3) + hours(0:4);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(5));
+            testCase.verifyEqual(array.NumElements, int64(5));
         end
 
         function TestToMATLAB(testCase, Unit)
@@ -170,14 +170,14 @@ classdef tTime64Array < matlab.unittest.TestCase
 
             times = duration.empty(0, 0);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
             testCase.verifyEqual(array.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(array), duration.empty(0, 1));
 
             % Test with an N-Dimensional empty array
             times = duration.empty(0, 1, 0);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
             testCase.verifyEqual(array.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(array), duration.empty(0, 1));
         end
@@ -223,6 +223,72 @@ classdef tTime64Array < matlab.unittest.TestCase
             array = testCase.ArrowArrayConstructorFcn(original, TimeUnit="Nanosecond");
             expected = milliseconds(1.0030030);
             testCase.verifyEqual(duration(array), expected);
+        end
+
+        function TestIsEqualTrue(tc, Unit)
+            % Verifies arrays are considered equal if:
+            %
+            %  1. Their Type properties are equal
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
+            %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
+            %  4. All corresponding valid elements have the same values
+            
+            times1 = seconds([1 2 3 4]);
+            times2 = seconds([1 2 10 4]);
+
+            array1 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 2 4]);
+            array3 = tc.ArrowArrayConstructorFcn(times2, TimeUnit=Unit, Valid=[1 2 4]);
+
+            tc.verifyTrue(isequal(array1, array2));
+            tc.verifyTrue(isequal(array1, array3));
+
+            % Test supplying more than two arrays to isequal
+            tc.verifyTrue(isequal(array1, array2, array3)); 
+        end
+
+        function TestIsEqualFalse(tc, Unit)
+            % Verify isequal returns false when expected.
+
+            times1 = seconds([1 2 3 4]);
+            times2 = seconds([1 1 2 3]);
+            times3 = seconds([1 2 3 4 5]);
+
+            array1 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 4]);
+            array3 = tc.ArrowArrayConstructorFcn(times2,  TimeUnit=Unit, Valid=[1 2 4]);
+            array4 = arrow.array([true false true false]);
+            array5 = tc.ArrowArrayConstructorFcn(times3, Valid=[1 2 4]);
+
+            % Their validity bitmaps are not equal
+            tc.verifyFalse(isequal(array1, array2));
+
+            % Not all corresponding valid elements are equal
+            tc.verifyFalse(isequal(array1, array3));
+
+            % Their Type properties are not equal
+            tc.verifyFalse(isequal(array1, array4));
+
+            % Their NumElements properties are not equal
+            tc.verifyFalse(isequal(array1, array5));
+
+            % Comparing an arrow.array.Array to a MATLAB double
+            tc.verifyFalse(isequal(array1, 1));
+
+            % Test supplying more than two arrays to isequal
+            tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
+        end
+
+        function TestIsEqualFalseTimeUnitMistmatch(tc)
+            % Verify two Time64Arrays are not considered equal if they have
+            % different TimeUnit values.
+            times1 = seconds([1 2 3 4]);
+
+            array1 = tc.ArrowArrayConstructorFcn(times1, TimeUnit="Nanosecond");
+            array2 = tc.ArrowArrayConstructorFcn(times1, TimeUnit="Microsecond");
+
+            % arrays are not equal
+            tc.verifyFalse(isequal(array1, array2));
         end
     end
 

@@ -29,7 +29,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.MalformedInputException;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
-import java.util.Arrays;
+import java.util.Optional;
 
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -42,7 +42,7 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
  * Lifted from Hadoop 2.7.1
  */
 @JsonSerialize(using = Text.TextSerializer.class)
-public class Text {
+public class Text extends ReusableByteArray {
 
   private static ThreadLocal<CharsetEncoder> ENCODER_FACTORY =
       new ThreadLocal<CharsetEncoder>() {
@@ -64,13 +64,9 @@ public class Text {
         }
       };
 
-  private static final byte[] EMPTY_BYTES = new byte[0];
-
-  private byte[] bytes;
-  private int length;
 
   public Text() {
-    bytes = EMPTY_BYTES;
+    super();
   }
 
   /**
@@ -120,15 +116,6 @@ public class Text {
    */
   public byte[] getBytes() {
     return bytes;
-  }
-
-  /**
-   * Get the number of bytes in the byte array.
-   *
-   * @return the number of bytes in the byte array
-   */
-  public int getLength() {
-    return length;
   }
 
   /**
@@ -237,7 +224,7 @@ public class Text {
    * @param other the text to initialize from
    */
   public void set(Text other) {
-    set(other.getBytes(), 0, other.getLength());
+    set(other.getBytes(), 0, (int) other.getLength());
   }
 
   /**
@@ -277,25 +264,6 @@ public class Text {
     length = 0;
   }
 
-  /**
-   * Sets the capacity of this Text object to <em>at least</em> <code>len</code> bytes. If the
-   * current buffer is longer, then the capacity and existing content of the buffer are unchanged.
-   * If <code>len</code> is larger than the current capacity, the Text object's capacity is
-   * increased to match.
-   *
-   * @param len      the number of bytes we need
-   * @param keepData should the old data be kept
-   */
-  private void setCapacity(int len, boolean keepData) {
-    if (bytes == null || bytes.length < len) {
-      if (bytes != null && keepData) {
-        bytes = Arrays.copyOf(bytes, Math.max(len, length << 1));
-      } else {
-        bytes = new byte[len];
-      }
-    }
-  }
-
   @Override
   public String toString() {
     try {
@@ -321,47 +289,10 @@ public class Text {
 
   @Override
   public boolean equals(Object o) {
-    if (o == this) {
-      return true;
-    } else if (o == null) {
-      return false;
-    }
     if (!(o instanceof Text)) {
       return false;
     }
-
-    final Text that = (Text) o;
-    if (this.getLength() != that.getLength()) {
-      return false;
-    }
-
-    // copied from Arrays.equals so we don'thave to copy the byte arrays
-    for (int i = 0; i < length; i++) {
-      if (bytes[i] != that.bytes[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  /**
-   * Copied from Arrays.hashCode so we don't have to copy the byte array.
-   *
-   * @return hashCode
-   */
-  @Override
-  public int hashCode() {
-    if (bytes == null) {
-      return 0;
-    }
-
-    int result = 1;
-    for (int i = 0; i < length; i++) {
-      result = 31 * result + bytes[i];
-    }
-
-    return result;
+    return super.equals(o);
   }
 
   // / STATIC UTILITIES FROM HERE DOWN
@@ -470,6 +401,16 @@ public class Text {
    * Check if a byte array contains valid utf-8.
    *
    * @param utf8 byte array
+   * @return true if the input is valid UTF-8. False otherwise.
+   */
+  public static boolean validateUTF8NoThrow(byte[] utf8) {
+    return !validateUTF8Internal(utf8, 0, utf8.length).isPresent();
+  }
+
+  /**
+   * Check if a byte array contains valid utf-8.
+   *
+   * @param utf8 byte array
    * @throws MalformedInputException if the byte array contains invalid utf-8
    */
   public static void validateUTF8(byte[] utf8) throws MalformedInputException {
@@ -484,8 +425,22 @@ public class Text {
    * @param len   the length of the byte sequence
    * @throws MalformedInputException if the byte array contains invalid bytes
    */
-  public static void validateUTF8(byte[] utf8, int start, int len)
-      throws MalformedInputException {
+  public static void validateUTF8(byte[] utf8, int start, int len) throws MalformedInputException {
+    Optional<Integer> result = validateUTF8Internal(utf8, start, len);
+    if (result.isPresent()) {
+      throw new MalformedInputException(result.get());
+    }
+  }
+
+  /**
+   * Check to see if a byte array is valid utf-8.
+   *
+   * @param utf8  the array of bytes
+   * @param start the offset of the first byte in the array
+   * @param len   the length of the byte sequence
+   * @return the position where a malformed byte occurred or Optional.empty() if the byte array was valid UTF-8.
+   */
+  private static Optional<Integer> validateUTF8Internal(byte[] utf8, int start, int len) {
     int count = start;
     int leadByte = 0;
     int length = 0;
@@ -501,51 +456,51 @@ public class Text {
           switch (length) {
             case 0: // check for ASCII
               if (leadByte > 0x7F) {
-                throw new MalformedInputException(count);
+                return Optional.of(count);
               }
               break;
             case 1:
               if (leadByte < 0xC2 || leadByte > 0xDF) {
-                throw new MalformedInputException(count);
+                return Optional.of(count);
               }
               state = TRAIL_BYTE_1;
               break;
             case 2:
               if (leadByte < 0xE0 || leadByte > 0xEF) {
-                throw new MalformedInputException(count);
+                return Optional.of(count);
               }
               state = TRAIL_BYTE_1;
               break;
             case 3:
               if (leadByte < 0xF0 || leadByte > 0xF4) {
-                throw new MalformedInputException(count);
+                return Optional.of(count);
               }
               state = TRAIL_BYTE_1;
               break;
             default:
               // too long! Longest valid UTF-8 is 4 bytes (lead + three)
               // or if < 0 we got a trail byte in the lead byte position
-              throw new MalformedInputException(count);
+              return Optional.of(count);
           } // switch (length)
           break;
 
         case TRAIL_BYTE_1:
           if (leadByte == 0xF0 && aByte < 0x90) {
-            throw new MalformedInputException(count);
+            return Optional.of(count);
           }
           if (leadByte == 0xF4 && aByte > 0x8F) {
-            throw new MalformedInputException(count);
+            return Optional.of(count);
           }
           if (leadByte == 0xE0 && aByte < 0xA0) {
-            throw new MalformedInputException(count);
+            return Optional.of(count);
           }
           if (leadByte == 0xED && aByte > 0x9F) {
-            throw new MalformedInputException(count);
+            return Optional.of(count);
           }
           // falls through to regular trail-byte test!!
         case TRAIL_BYTE:
           if (aByte < 0x80 || aByte > 0xBF) {
-            throw new MalformedInputException(count);
+            return Optional.of(count);
           }
           if (--length == 0) {
             state = LEAD_BYTE;
@@ -558,6 +513,7 @@ public class Text {
       } // switch (state)
       count++;
     }
+    return Optional.empty();
   }
 
   /**

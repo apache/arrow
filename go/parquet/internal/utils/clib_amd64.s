@@ -44,6 +44,15 @@ MEMCPY_BYTE_DONE:
 	POPQ R8
 	RET
 
+// func _ClibMemcpy(dst, src unsafe.Pointer, n uint) unsafe.Pointer
+TEXT ·_ClibMemcpy(SB), NOSPLIT|NOFRAME, $16-24
+	MOVQ arg1+0(FP), DI
+	MOVQ arg2+8(FP), SI
+	MOVQ arg3+16(FP), DX
+	CALL clib·_memcpy(SB)
+	MOVQ AX, ret+24(FP)
+	RET
+
 // void *memset(void *str, int c, size_t n)
 // DI = str, SI = c, DX = size
 TEXT clib·_memset(SB), $16-0
@@ -84,4 +93,13 @@ MEMSET_WORD_DONE:
 MEMSET_BYTE_DONE:
 	MOVQ DI, AX // set return value
 	POPQ CX
+	RET
+
+// func _ClibMemset(dst unsafe.Pointer, c int, n uint) unsafe.Pointer
+TEXT ·_ClibMemset(SB), NOSPLIT|NOFRAME, $16-24
+	MOVQ arg1+0(FP), DI
+	MOVQ arg2+8(FP), SI
+	MOVQ arg3+16(FP), DX
+	CALL clib·_memset(SB)
+	MOVQ AX, ret+24(FP)
 	RET

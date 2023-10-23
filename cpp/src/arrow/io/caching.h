@@ -113,11 +113,11 @@ class ARROW_EXPORT ReadRangeCache {
   /// Construct a read cache with given options
   explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
                           CacheOptions options)
-      : ReadRangeCache(file, file.get(), ctx, options) {}
+      : ReadRangeCache(file, file.get(), std::move(ctx), options) {}
 
   /// Construct a read cache with an unowned file
   ReadRangeCache(RandomAccessFile* file, IOContext ctx, CacheOptions options)
-      : ReadRangeCache(NULLPTR, file, ctx, options) {}
+      : ReadRangeCache(NULLPTR, file, std::move(ctx), options) {}
 
   ~ReadRangeCache();
 

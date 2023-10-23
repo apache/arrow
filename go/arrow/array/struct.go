@@ -259,7 +259,15 @@ func (b *StructBuilder) Release() {
 }
 
 func (b *StructBuilder) Append(v bool) {
-	b.Reserve(1)
+	// Intentionally not calling `Reserve` as it will recursively call
+	// `Reserve` on the child builders, which during profiling has shown to be
+	// very expensive due to iterating over children, dynamic dispatch and all
+	// other code that gets executed even if previously `Reserve` was called to
+	// preallocate. Not calling `Reserve` has no downsides as when appending to
+	// the underlying children they already ensure they have enough space
+	// reserved. The only thing we must do is ensure we have enough space in
+	// the validity bitmap of the struct builder itself.
+	b.builder.reserve(1, b.resizeHelper)
 	b.unsafeAppendBoolToBitmap(v)
 	if !v {
 		for _, f := range b.fields {
