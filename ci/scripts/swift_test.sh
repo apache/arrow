@@ -19,9 +19,6 @@
 
 set -ex
 
-cp ${1}/swift/swiftlint/.swiftlint.yml ${1}/swift/Arrow
-cp ${1}/swift/swiftlint/.swiftlint.yml ${1}/swift/ArrowFlight
-
 data_gen_dir=${1}/swift/data-generator/swift-datagen
 export GOPATH=/
 pushd ${data_gen_dir}
@@ -30,16 +27,9 @@ go run .
 cp *.arrow ../../Arrow
 popd
 
-source_dir=${1}/swift/Arrow
+source_dir=${1}/swift
 pushd ${source_dir}
-swiftlint --strict ${1}/Sources/Arrow/*.swift
-swiftlint --strict ${1}/Tests/ArrowTests/*.swift
-popd
-
-source_dir=${1}/swift/ArrowFlight
-pushd ${source_dir}
-swiftlint --strict ${1}/Sources/ArrowFlight/*.swift
-swiftlint --strict ${1}/Tests/ArrowFlightTests/*.swift
+swiftlint --strict
 popd
 
 source_dir=${1}/swift/Arrow
