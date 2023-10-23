@@ -38,6 +38,7 @@ import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
@@ -792,6 +793,26 @@ public class TestLargeVarCharVector {
 
       vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
       assertEquals("foo", new String(vector.get(initialCapacity), StandardCharsets.UTF_8));
+    }
+  }
+
+  @Test
+  public void testGetTextRepeatedly() {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("myvector", allocator)) {
+
+      ValueVectorDataPopulator.setVector(vector, STR1, STR2);
+      vector.setValueCount(2);
+
+      /* check the vector output */
+      Text text = new Text();
+      vector.read(0, text);
+      byte[] result = new byte[(int) text.getLength()];
+      System.arraycopy(text.getBytes(), 0, result, 0, (int) text.getLength());
+      assertArrayEquals(STR1, result);
+      vector.read(1, text);
+      result = new byte[(int) text.getLength()];
+      System.arraycopy(text.getBytes(), 0, result, 0, (int) text.getLength());
+      assertArrayEquals(STR2, text.getBytes());
     }
   }
 
