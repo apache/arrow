@@ -122,6 +122,6 @@ function formatSpec = getFormatSpec(numElems)
     if numElems > 0
         formatSpec = "  %s with " + numString + " %s and " + numString + " %s:" + newline;
     else
-        formatSpec = "  %s with "+ numString + " %s and " + numString + " %s" + newline;
+        formatSpec = "  %s with " + numString + " %s and " + numString + " %s" + newline;
     end
 end
