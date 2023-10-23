@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:35
+FROM ${arch}/fedora:38
 ARG arch
 
 # install dependencies
@@ -48,11 +48,11 @@ RUN dnf update -y && \
         json-devel \
         libzstd-devel \
         llvm-devel \
-        llvm-static \
         lz4-devel \
         make \
         ninja-build \
         openssl-devel \
+        orc-devel \
         protobuf-devel \
         python \
         python-devel \
@@ -64,6 +64,7 @@ RUN dnf update -y && \
         utf8proc-devel \
         wget \
         which \
+        xsimd-devel \
         zlib-devel
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
@@ -100,8 +101,6 @@ ENV absl_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
-    xsimd_SOURCE=BUNDLED
+    PATH=/usr/lib/ccache/:$PATH
