@@ -23,11 +23,20 @@
 #include <string>
 #include <unordered_set>
 
+#include "gandiva/tests/test_util.h"
+
 namespace gandiva {
 
 class TestFunctionRegistry : public ::testing::Test {
  protected:
   FunctionRegistry* registry_ = gandiva::default_function_registry();
+
+  static std::unique_ptr<FunctionRegistry> MakeFunctionRegistryWithExternalFunction() {
+    auto registry = std::make_unique<FunctionRegistry>();
+    ARROW_EXPECT_OK(
+        registry->Register({GetTestExternalFunction()}, GetTestFunctionLLVMIRPath()));
+    return registry;
+  }
 };
 
 TEST_F(TestFunctionRegistry, TestFound) {
@@ -47,6 +56,27 @@ TEST_F(TestFunctionRegistry, TestNotFound) {
   FunctionSignature add_i32_i32_ret64("add", {arrow::int32(), arrow::int32()},
                                       arrow::int64());
   EXPECT_EQ(registry_->LookupSignature(add_i32_i32_ret64), nullptr);
+}
+
+TEST_F(TestFunctionRegistry, TestCustomFunctionRegistry) {
+  auto registry = MakeFunctionRegistryWithExternalFunction();
+
+  auto multiply_by_two_func = GetTestExternalFunction();
+  auto multiply_by_two_int32_ret64 = multiply_by_two_func.signatures().front();
+  EXPECT_NE(registry->LookupSignature(multiply_by_two_int32_ret64), nullptr);
+
+  FunctionSignature add_i32_i32_ret64("add", {arrow::int32(), arrow::int32()},
+                                      arrow::int64());
+  EXPECT_EQ(registry->LookupSignature(add_i32_i32_ret64), nullptr);
+}
+
+TEST_F(TestFunctionRegistry, TestGetBitcodeMemoryBuffersDefaultFunctionRegistry) {
+  EXPECT_EQ(registry_->GetBitcodeBuffers().size(), 0);
+}
+
+TEST_F(TestFunctionRegistry, TestGetBitcodeMemoryBuffersCustomFunctionRegistry) {
+  auto registry = MakeFunctionRegistryWithExternalFunction();
+  EXPECT_EQ(registry->GetBitcodeBuffers().size(), 1);
 }
 
 // one nativefunction object per precompiled function

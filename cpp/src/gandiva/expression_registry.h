@@ -38,7 +38,7 @@ class GANDIVA_EXPORT ExpressionRegistry {
  public:
   using native_func_iterator_type = const NativeFunction*;
   using func_sig_iterator_type = const FunctionSignature*;
-  ExpressionRegistry(
+  explicit ExpressionRegistry(
       FunctionRegistry* function_registry = gandiva::default_function_registry());
   ~ExpressionRegistry();
   static DataTypeVector supported_types() { return supported_types_; }

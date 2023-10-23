@@ -80,6 +80,12 @@ class GANDIVA_EXPORT ConfigurationBuilder {
     return configuration;
   }
 
+  std::shared_ptr<Configuration> build(FunctionRegistry* function_registry) {
+    std::shared_ptr<Configuration> configuration(
+        new Configuration(true, function_registry));
+    return configuration;
+  }
+
   static std::shared_ptr<Configuration> DefaultConfiguration() {
     return default_configuration_;
   }

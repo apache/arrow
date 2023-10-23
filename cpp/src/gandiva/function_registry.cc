@@ -102,7 +102,7 @@ Status FunctionRegistry::Register(const std::vector<NativeFunction>& funcs,
 }
 
 arrow::Status FunctionRegistry::Register(const std::vector<NativeFunction>& funcs,
-                                         std::unique_ptr<arrow::Buffer> bitcode_buffer) {
+                                         std::shared_ptr<arrow::Buffer> bitcode_buffer) {
   bitcode_memory_buffers_.emplace_back(std::move(bitcode_buffer));
   for (const auto& func : funcs) {
     ARROW_RETURN_NOT_OK(FunctionRegistry::Add(func));
@@ -110,7 +110,7 @@ arrow::Status FunctionRegistry::Register(const std::vector<NativeFunction>& func
   return Status::OK();
 }
 
-const std::vector<std::unique_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeBuffers()
+const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeBuffers()
     const {
   return bitcode_memory_buffers_;
 }

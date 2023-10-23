@@ -35,7 +35,7 @@ typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 
 class TestLLVMGenerator : public ::testing::Test {
  protected:
-  FunctionRegistry& registry_ = *default_function_registry();
+  FunctionRegistry* registry_ = default_function_registry();
 };
 
 // Verify that a valid pc function exists for every function in the registry.
@@ -45,7 +45,7 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 
   llvm::Module* module = generator->module();
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
-  for (auto& iter : registry_) {
+  for (auto& iter : *registry_) {
     EXPECT_NE(module->getFunction(iter.pc_name()), nullptr);
   }
 }

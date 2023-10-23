@@ -240,21 +240,21 @@ static void SetDataLayout(llvm::Module* module) {
 }
 // end of the modified method from MLIR
 
-static arrow::Result<std::unique_ptr<llvm::Module>> GetModule(
-    llvm::Expected<std::unique_ptr<llvm::Module>>& module_or_error) {
-  if (!module_or_error) {
+template <typename T>
+static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected) {
+  if (!expected) {
     std::string str;
     llvm::raw_string_ostream stream(str);
-    stream << module_or_error.takeError();
+    stream << expected.takeError();
     return Status::CodeGenError(stream.str());
   }
-  return std::move(module_or_error.get());
+  return std::move(expected.get());
 }
 
 static arrow::Status VerifyAndLinkModule(
     llvm::Module* dest_module,
     llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
-  ARROW_ASSIGN_OR_RAISE(auto src_ir_module, GetModule(src_module_or_error));
+  ARROW_ASSIGN_OR_RAISE(auto src_ir_module, AsArrowResult(src_module_or_error));
 
   // set dataLayout
   SetDataLayout(src_ir_module.get());
@@ -295,17 +295,16 @@ Status Engine::LoadPreCompiledIR() {
   return Status::OK();
 }
 
-llvm::MemoryBufferRef AsLLVMMemoryBuffer(
-    const std::unique_ptr<arrow::Buffer>& arrow_buffer) {
-  auto data = reinterpret_cast<const char*>(arrow_buffer->data());
-  auto size = arrow_buffer->size();
+static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
+  auto data = reinterpret_cast<const char*>(arrow_buffer.data());
+  auto size = arrow_buffer.size();
   return llvm::MemoryBufferRef(llvm::StringRef(data, size), "external_bitcode");
 }
 
 Status Engine::LoadExternalPreCompiledIR() {
   auto const& buffers = function_registry_->GetBitcodeBuffers();
   for (auto const& buffer : buffers) {
-    auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(buffer);
+    auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
     auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
     ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
   }

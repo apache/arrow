@@ -17,6 +17,8 @@
 
 #include "gandiva/tests/test_util.h"
 
+#include <filesystem>
+
 namespace gandiva {
 std::shared_ptr<Configuration> TestConfiguration() {
   auto builder = ConfigurationBuilder();
@@ -44,8 +46,7 @@ std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
     FunctionRegistry* registry) {
   ARROW_EXPECT_OK(
       registry->Register({GetTestExternalFunction()}, GetTestFunctionLLVMIRPath()));
-  auto external_func_config = TestConfiguration();
-  external_func_config->set_function_registry(registry);
+  auto external_func_config = ConfigurationBuilder().build(registry);
   return external_func_config;
 }
 }  // namespace gandiva
