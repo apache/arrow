@@ -215,6 +215,22 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
+        function DisplayWindowSizeThree(testCase)
+            import arrow.internal.test.display.makeLinkString
+            array = arrow.array(1:8);
+            fullClassName = string(class(array)); 
+            displayName = extractAfter(fullClassName, "arrow.array.");
+            classNameLink = makeLinkString(FullClassName=fullClassName, ...
+                                           ClassName=displayName, ...
+                                           BoldFont=true);
+            header = compose("  %s with 8 elements and 0 null values:" + newline, classNameLink);
+            body = "    1 | 2 | 3 | ... | 6 | 7 | 8" + newline + newline;
+            expectedDisplay = char(strjoin([header body], newline));
+            actualDisplay = evalc('disp(array)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+
+        end
+
         function DisplayStructArray(testCase)
             import arrow.internal.test.display.makeLinkString
 
