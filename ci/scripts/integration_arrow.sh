@@ -23,8 +23,8 @@ arrow_dir=${1}
 gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 pip install -e $arrow_dir/dev/archery[integration]
-# For C# C Data Interface testing
-pip install pythonnet
+# For C Data Interface testing
+pip install jpype1 pythonnet
 
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
