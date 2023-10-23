@@ -29,7 +29,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -385,7 +385,7 @@ public abstract class BaseTable implements AutoCloseable {
    * @return  A ValueVector
    */
   public ValueVector decode(String vectorName, long dictionaryId) {
-    Dictionary dictionary = getDictionary(dictionaryId);
+    BaseDictionary dictionary = getDictionary(dictionaryId);
 
     FieldVector vector = getVector(vectorName);
     if (vector == null) {
@@ -405,7 +405,7 @@ public abstract class BaseTable implements AutoCloseable {
    * @return  A ValueVector
    */
   public ValueVector encode(String vectorName, long dictionaryId) {
-    Dictionary dictionary = getDictionary(dictionaryId);
+    BaseDictionary dictionary = getDictionary(dictionaryId);
     FieldVector vector = getVector(vectorName);
     if (vector == null) {
       throw new IllegalArgumentException(
@@ -419,12 +419,12 @@ public abstract class BaseTable implements AutoCloseable {
    * Returns the dictionary with given id.
    * @param dictionaryId  A long integer that is the id returned by the dictionary's getId() method
    */
-  private Dictionary getDictionary(long dictionaryId) {
+  private BaseDictionary getDictionary(long dictionaryId) {
     if (dictionaryProvider == null) {
       throw new IllegalStateException("No dictionary provider is present in table.");
     }
 
-    Dictionary dictionary = dictionaryProvider.lookup(dictionaryId);
+    BaseDictionary dictionary = dictionaryProvider.lookup(dictionaryId);
     if (dictionary == null) {
       throw new IllegalArgumentException("No dictionary with id '%n' exists in the table");
     }

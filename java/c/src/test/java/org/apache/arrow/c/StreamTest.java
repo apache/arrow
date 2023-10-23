@@ -42,6 +42,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowReader;
@@ -244,7 +245,7 @@ final class StreamTest {
         }
         assertThat(reader.loadNextBatch()).isFalse();
         assertThat(reader.getDictionaryIds()).isEqualTo(provider.getDictionaryIds());
-        for (Map.Entry<Long, Dictionary> entry : reader.getDictionaryVectors().entrySet()) {
+        for (Map.Entry<Long, BaseDictionary> entry : reader.getDictionaryVectors().entrySet()) {
           final FieldVector expected = provider.lookup(entry.getKey()).getVector();
           final FieldVector actual = entry.getValue().getVector();
           assertVectorsEqual(expected, actual);
@@ -286,7 +287,7 @@ final class StreamTest {
     }
 
     @Override
-    public Dictionary lookup(long id) {
+    public BaseDictionary lookup(long id) {
       return provider.lookup(id);
     }
 
@@ -296,7 +297,7 @@ final class StreamTest {
     }
 
     @Override
-    public Map<Long, Dictionary> getDictionaryVectors() {
+    public Map<Long, BaseDictionary> getDictionaryVectors() {
       return getDictionaryIds().stream().collect(Collectors.toMap(Function.identity(), this::lookup));
     }
 

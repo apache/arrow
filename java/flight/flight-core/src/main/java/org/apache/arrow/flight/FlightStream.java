@@ -37,7 +37,7 @@ import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -268,7 +268,7 @@ public class FlightStream implements AutoCloseable {
               if (dictionaries == null) {
                 throw new IllegalStateException("Dictionary ownership was claimed by the application.");
               }
-              final Dictionary dictionary = dictionaries.lookup(id);
+              final BaseDictionary dictionary = dictionaries.lookup(id);
               if (dictionary == null) {
                 throw new IllegalArgumentException("Dictionary not defined in schema: ID " + id);
               }
@@ -410,12 +410,12 @@ public class FlightStream implements AutoCloseable {
           }
 
           final List<Field> fields = new ArrayList<>();
-          final Map<Long, Dictionary> dictionaryMap = new HashMap<>();
+          final Map<Long, BaseDictionary> dictionaryMap = new HashMap<>();
           for (final Field originalField : schema.getFields()) {
             final Field updatedField = DictionaryUtility.toMemoryFormat(originalField, allocator, dictionaryMap);
             fields.add(updatedField);
           }
-          for (final Map.Entry<Long, Dictionary> entry : dictionaryMap.entrySet()) {
+          for (final Map.Entry<Long, BaseDictionary> entry : dictionaryMap.entrySet()) {
             dictionaries.put(entry.getValue());
           }
           schema = new Schema(fields, schema.getCustomMetadata());

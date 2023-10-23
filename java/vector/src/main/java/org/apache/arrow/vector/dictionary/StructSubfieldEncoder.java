@@ -109,7 +109,7 @@ public class StructSubfieldEncoder {
       if (dictionaryId == null) {
         childrenFields.add(childVector.getField());
       } else {
-        Dictionary dictionary = provider.lookup(dictionaryId);
+        BaseDictionary dictionary = provider.lookup(dictionaryId);
         Preconditions.checkNotNull(dictionary, "Dictionary not found with id:" + dictionaryId);
         FieldType indexFieldType = new FieldType(childVector.getField().isNullable(),
             dictionary.getEncoding().getIndexType(), dictionary.getEncoding());
@@ -177,7 +177,7 @@ public class StructSubfieldEncoder {
       List<Field> childFields = new ArrayList<>();
       for (int i = 0; i < childCount; i++) {
         FieldVector childVector = getChildVector(vector, i);
-        Dictionary dictionary = getChildVectorDictionary(childVector, provider);
+        BaseDictionary dictionary = getChildVectorDictionary(childVector, provider);
         // childVector is not encoded.
         if (dictionary == null) {
           childFields.add(childVector.getField());
@@ -192,7 +192,7 @@ public class StructSubfieldEncoder {
         // get child vector
         FieldVector childVector = getChildVector(vector, index);
         FieldVector decodedChildVector = getChildVector(decoded, index);
-        Dictionary dictionary = getChildVectorDictionary(childVector, provider);
+        BaseDictionary dictionary = getChildVectorDictionary(childVector, provider);
         if (dictionary == null) {
           childVector.makeTransferPair(decodedChildVector).splitAndTransfer(0, valueCount);
         } else {
@@ -213,11 +213,11 @@ public class StructSubfieldEncoder {
   /**
    * Get the child vector dictionary, return null if not dictionary encoded.
    */
-  private static Dictionary getChildVectorDictionary(FieldVector childVector,
+  private static BaseDictionary getChildVectorDictionary(FieldVector childVector,
                                                      DictionaryProvider.MapDictionaryProvider provider) {
     DictionaryEncoding dictionaryEncoding = childVector.getField().getDictionary();
     if (dictionaryEncoding != null) {
-      Dictionary dictionary = provider.lookup(dictionaryEncoding.getId());
+      BaseDictionary dictionary = provider.lookup(dictionaryEncoding.getId());
       Preconditions.checkNotNull(dictionary, "Dictionary not found with id:" + dictionary);
       return dictionary;
     }

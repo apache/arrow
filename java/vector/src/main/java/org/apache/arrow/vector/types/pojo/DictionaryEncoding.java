@@ -33,6 +33,7 @@ public class DictionaryEncoding {
   private final long id;
   private final boolean ordered;
   private final Int indexType;
+  private final boolean isDelta;
 
   /**
    * Constructs a new instance.
@@ -42,14 +43,29 @@ public class DictionaryEncoding {
    * @param indexType (nullable). The integer type to use for indexing in the dictionary. Defaults to a signed
    *     32 bit integer.
    */
+  public DictionaryEncoding(long id, boolean ordered, Int indexType) {
+    this(id, ordered, indexType, false);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param id The ID of the dictionary to use for encoding.
+   * @param ordered Whether the keys in values in the dictionary are ordered.
+   * @param indexType (nullable). The integer type to use for indexing in the dictionary. Defaults to a signed
+   *     32 bit integer.
+   * @param isDelta Whether the dictionary is a delta dictionary.
+   */
   @JsonCreator
   public DictionaryEncoding(
       @JsonProperty("id") long id,
       @JsonProperty("isOrdered") boolean ordered,
-      @JsonProperty("indexType") Int indexType) {
+      @JsonProperty("indexType") Int indexType,
+      @JsonProperty("isDelta") Boolean isDelta) {
     this.id = id;
     this.ordered = ordered;
     this.indexType = indexType == null ? new Int(32, true) : indexType;
+    this.isDelta = isDelta == null ? false : isDelta;
   }
 
   public long getId() {
@@ -63,6 +79,11 @@ public class DictionaryEncoding {
 
   public Int getIndexType() {
     return indexType;
+  }
+
+  @JsonGetter("isDelta")
+  public boolean isDelta() {
+    return isDelta;
   }
 
   @Override

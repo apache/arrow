@@ -40,6 +40,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
@@ -207,7 +208,7 @@ public class EchoServerTest {
         Assert.assertEquals(1, readVector.getObject(4));
         Assert.assertEquals(2, readVector.getObject(5));
 
-        Dictionary dictionary = reader.lookup(1L);
+        BaseDictionary dictionary = reader.lookup(1L);
         Assert.assertNotNull(dictionary);
         VarCharVector dictionaryVector = ((VarCharVector) dictionary.getVector());
         Assert.assertEquals(3, dictionaryVector.getValueCount());
@@ -289,7 +290,7 @@ public class EchoServerTest {
         Assert.assertEquals(Arrays.asList(0), readVector.getObject(1));
         Assert.assertEquals(Arrays.asList(1), readVector.getObject(2));
 
-        Dictionary readDictionary = reader.lookup(2L);
+        BaseDictionary readDictionary = reader.lookup(2L);
         Assert.assertNotNull(readDictionary);
         VarCharVector dictionaryVector = ((VarCharVector) readDictionary.getVector());
         Assert.assertEquals(2, dictionaryVector.getValueCount());

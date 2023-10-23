@@ -42,6 +42,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -129,9 +130,9 @@ public class TestUIntDictionaryRoundTrip {
       }
 
       // verify dictionary
-      Map<Long, Dictionary> dictVectors = reader.getDictionaryVectors();
+      Map<Long, BaseDictionary> dictVectors = reader.getDictionaryVectors();
       assertEquals(1, dictVectors.size());
-      Dictionary dictionary = dictVectors.get(dictionaryID);
+      BaseDictionary dictionary = dictVectors.get(dictionaryID);
       assertNotNull(dictionary);
 
       assertTrue(dictionary.getVector() instanceof VarCharVector);

@@ -29,7 +29,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
@@ -103,7 +103,7 @@ final class ArrayImporter {
       DictionaryEncoding encoding = vector.getField().getDictionary();
       checkNotNull(encoding, "Missing encoding on import of ArrowArray with dictionary");
 
-      Dictionary dictionary = dictionaryProvider.lookup(encoding.getId());
+      BaseDictionary dictionary = dictionaryProvider.lookup(encoding.getId());
       checkNotNull(dictionary, "Dictionary lookup failed on import of ArrowArray with dictionary");
 
       // reset the dictionary vector to the initial state

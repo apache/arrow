@@ -30,7 +30,7 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
@@ -66,7 +66,7 @@ final class DictionaryUtils {
     }
     // Create and write dictionary batches
     for (Long id : dictionaryIds) {
-      final Dictionary dictionary = provider.lookup(id);
+      final BaseDictionary dictionary = provider.lookup(id);
       final FieldVector vector = dictionary.getVector();
       final int count = vector.getValueCount();
       // Do NOT close this root, as it does not actually own the vector.

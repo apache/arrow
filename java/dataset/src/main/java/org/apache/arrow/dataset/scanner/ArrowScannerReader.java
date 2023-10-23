@@ -62,7 +62,7 @@ public class ArrowScannerReader extends ArrowReader {
   }
 
   @Override
-  protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch) {
+  protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch, boolean validateReplacements) {
     throw new UnsupportedOperationException();
   }
 

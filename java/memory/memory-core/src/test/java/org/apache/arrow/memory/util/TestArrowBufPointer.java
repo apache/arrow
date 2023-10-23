@@ -206,7 +206,7 @@ public class TestArrowBufPointer {
 
     @Override
     public int hashCode(byte[] buf, int offset, int length) {
-      return 0;
+      throw new UnsupportedOperationException("Not used in UT.");
     }
 
     @Override

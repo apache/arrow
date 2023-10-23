@@ -32,7 +32,7 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.compression.NoCompressionCodec;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -123,9 +123,13 @@ public abstract class ArrowWriter implements AutoCloseable {
     try (ArrowRecordBatch batch = unloader.getRecordBatch()) {
       writeRecordBatch(batch);
     }
+    if (dictionaryProvider != null) {
+      dictionaryProvider.resetDictionaries();
+    }
   }
 
-  protected void writeDictionaryBatch(Dictionary dictionary) throws IOException {
+  protected void writeDictionaryBatch(BaseDictionary dictionary, boolean isInitial) throws IOException {
+    dictionary.mark();
     FieldVector vector = dictionary.getVector();
     long id = dictionary.getEncoding().getId();
     int count = vector.getValueCount();
@@ -135,7 +139,8 @@ public abstract class ArrowWriter implements AutoCloseable {
         count);
     VectorUnloader unloader = new VectorUnloader(dictRoot);
     ArrowRecordBatch batch = unloader.getRecordBatch();
-    ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
+    boolean isDelta = isInitial ? false : dictionary.getEncoding().isDelta();
+    ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, isDelta);
     try {
       writeDictionaryBatch(dictionaryBatch);
     } finally {

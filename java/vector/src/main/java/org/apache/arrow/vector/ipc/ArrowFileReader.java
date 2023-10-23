@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -50,6 +51,7 @@ public class ArrowFileReader extends ArrowReader {
 
   private SeekableReadChannel in;
   private ArrowFooter footer;
+  private int estimatedDictionaryRecordBatch = 0;
   private int currentDictionaryBatch = 0;
   private int currentRecordBatch = 0;
 
@@ -123,11 +125,6 @@ public class ArrowFileReader extends ArrowReader {
     if (footer.getRecordBatches().size() == 0) {
       return;
     }
-    // Read and load all dictionaries from schema
-    for (int i = 0; i < dictionaries.size(); i++) {
-      ArrowDictionaryBatch dictionaryBatch = readDictionary();
-      loadDictionary(dictionaryBatch);
-    }
   }
 
   /**
@@ -140,21 +137,6 @@ public class ArrowFileReader extends ArrowReader {
     return new HashMap<>();
   }
 
-  /**
-   * Read a dictionary batch from the source, will be invoked after the schema has been read and
-   * called N times, where N is the number of dictionaries indicated by the schema Fields.
-   *
-   * @return the read ArrowDictionaryBatch
-   * @throws IOException on error
-   */
-  public ArrowDictionaryBatch readDictionary() throws IOException {
-    if (currentDictionaryBatch >= footer.getDictionaries().size()) {
-      throw new IOException("Requested more dictionaries than defined in footer: " + currentDictionaryBatch);
-    }
-    ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
-    return readDictionaryBatch(in, block, allocator);
-  }
-
   /** Returns true if a batch was read, false if no more batches. */
   @Override
   public boolean loadNextBatch() throws IOException {
@@ -164,12 +146,59 @@ public class ArrowFileReader extends ArrowReader {
       ArrowBlock block = footer.getRecordBatches().get(currentRecordBatch++);
       ArrowRecordBatch batch = readRecordBatch(in, block, allocator);
       loadRecordBatch(batch);
+      try {
+        loadDictionaries();
+      } catch (IOException e) {
+        batch.close();
+        throw e;
+      }
       return true;
     } else {
       return false;
     }
   }
 
+  /**
+   * Loads any dictionaries that may be needed by the given record batch. It attempts
+   * to read as little as possible but may read in more deltas than are necessary for blocks
+   * toward the end of the file.
+   */
+  private void loadDictionaries() throws IOException {
+    // initial load
+    if (currentDictionaryBatch == 0) {
+      for (int i = 0; i < dictionaries.size(); i++) {
+        ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
+        ArrowDictionaryBatch dictionaryBatch = readDictionaryBatch(in, block, allocator);
+        loadDictionary(dictionaryBatch, false);
+      }
+      estimatedDictionaryRecordBatch++;
+    } else {
+      // we need to look for delta dictionaries. It involves a look-ahead, unfortunately.
+      HashSet<Long> visited = new HashSet<Long>();
+      while (estimatedDictionaryRecordBatch < currentRecordBatch &&
+             currentDictionaryBatch < footer.getDictionaries().size()) {
+        ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
+        ArrowDictionaryBatch dictionaryBatch = readDictionaryBatch(in, block, allocator);
+        long dictionaryId = dictionaryBatch.getDictionaryId();
+        if (visited.contains(dictionaryId)) {
+          // done
+          currentDictionaryBatch--;
+          estimatedDictionaryRecordBatch++;
+        } else if (!dictionaries.containsKey(dictionaryId)) {
+          throw new IOException("Dictionary ID " + dictionaryId + " was written " +
+              "after the initial batch. The file does not follow the IPC file protocol.");
+        } else if (!dictionaryBatch.isDelta()) {
+          throw new IOException("Dictionary ID " + dictionaryId + " was written as a replacement  " +
+              "after the initial batch. Replacement dictionaries are not currently allowed in the IPC file protocol.");
+        } else {
+          loadDictionary(dictionaryBatch, true);
+        }
+      }
+      if (currentDictionaryBatch >= footer.getDictionaries().size()) {
+        estimatedDictionaryRecordBatch++;
+      }
+    }
+  }
 
   public List<ArrowBlock> getDictionaryBlocks() throws IOException {
     ensureInitialized();
@@ -194,6 +223,7 @@ public class ArrowFileReader extends ArrowReader {
       throw new IllegalArgumentException("Arrow block does not exist in record batches: " + block);
     }
     currentRecordBatch = blockIndex;
+    loadDictionaries();
     return loadNextBatch();
   }
 

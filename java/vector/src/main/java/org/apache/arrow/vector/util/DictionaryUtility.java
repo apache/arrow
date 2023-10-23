@@ -24,6 +24,7 @@ import java.util.Set;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -58,7 +59,7 @@ public class DictionaryUtility {
       children = field.getChildren();
     } else {
       long id = encoding.getId();
-      Dictionary dictionary = provider.lookup(id);
+      BaseDictionary dictionary = provider.lookup(id);
       if (dictionary == null) {
         throw new IllegalArgumentException("Could not find dictionary with ID " + id);
       }
@@ -104,7 +105,7 @@ public class DictionaryUtility {
    * Convert field and child fields that have a dictionary encoding to memory format, so fields
    * have the index type.
    */
-  public static Field toMemoryFormat(Field field, BufferAllocator allocator, Map<Long, Dictionary> dictionaries) {
+  public static Field toMemoryFormat(Field field, BufferAllocator allocator, Map<Long, BaseDictionary> dictionaries) {
     DictionaryEncoding encoding = field.getDictionary();
     List<Field> children = field.getChildren();
 

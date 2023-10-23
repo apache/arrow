@@ -21,7 +21,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
+import org.apache.arrow.vector.dictionary.BatchedDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
 /**
@@ -39,14 +40,14 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
  */
 public class CDataDictionaryProvider implements DictionaryProvider, AutoCloseable {
 
-  private final Map<Long, Dictionary> map;
+  private final Map<Long, BaseDictionary> map;
 
   public CDataDictionaryProvider() {
     this.map = new HashMap<>();
   }
 
-  void put(Dictionary dictionary) {
-    Dictionary previous = map.put(dictionary.getEncoding().getId(), dictionary);
+  void put(BaseDictionary dictionary) {
+    BaseDictionary previous = map.put(dictionary.getEncoding().getId(), dictionary);
     if (previous != null) {
       previous.getVector().close();
     }
@@ -58,16 +59,25 @@ public class CDataDictionaryProvider implements DictionaryProvider, AutoCloseabl
   }
 
   @Override
-  public Dictionary lookup(long id) {
+  public BaseDictionary lookup(long id) {
     return map.get(id);
   }
 
   @Override
   public void close() {
-    for (Dictionary dictionary : map.values()) {
+    for (BaseDictionary dictionary : map.values()) {
       dictionary.getVector().close();
     }
     map.clear();
+  }
+
+  @Override
+  public void resetDictionaries() {
+    map.values().forEach( dictionary -> {
+      if (dictionary instanceof BatchedDictionary) {
+        ((BatchedDictionary) dictionary).reset();
+      }
+    });
   }
 
 }

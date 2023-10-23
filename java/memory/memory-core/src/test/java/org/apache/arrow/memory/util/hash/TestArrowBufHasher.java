@@ -150,11 +150,11 @@ public class TestArrowBufHasher {
   @Parameterized.Parameters(name = "hasher = {0}")
   public static Collection<Object[]> getHasher() {
     return Arrays.asList(
-        new Object[] {SimpleHasher.class.getSimpleName(),
-            SimpleHasher.INSTANCE},
-        new Object[] {MurmurHasher.class.getSimpleName(),
-            new MurmurHasher()
-        }
+      new Object[] {SimpleHasher.class.getSimpleName(),
+        SimpleHasher.INSTANCE},
+      new Object[] {MurmurHasher.class.getSimpleName(),
+        new MurmurHasher()
+      }
     );
   }
 }

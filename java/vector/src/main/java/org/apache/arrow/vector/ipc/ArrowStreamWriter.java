@@ -26,13 +26,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -41,7 +39,7 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
  * Writer for the Arrow stream format to send ArrowRecordBatches over a WriteChannel.
  */
 public class ArrowStreamWriter extends ArrowWriter {
-  private final Map<Long, FieldVector> previousDictionaries = new HashMap<>();
+  private final Map<Long, Boolean> previousDictionaries = new HashMap<>();
 
   /**
    * Construct an ArrowStreamWriter with an optional DictionaryProvider for the OutputStream.
@@ -135,30 +133,16 @@ public class ArrowStreamWriter extends ArrowWriter {
       throws IOException {
     // write out any dictionaries that have changes
     for (long id : dictionaryIdsUsed) {
-      Dictionary dictionary = provider.lookup(id);
-      FieldVector vector = dictionary.getVector();
-      if (previousDictionaries.containsKey(id) &&
-          VectorEqualsVisitor.vectorEquals(vector, previousDictionaries.get(id))) {
-        // Dictionary was previously written and hasn't changed
-        continue;
-      }
-      writeDictionaryBatch(dictionary);
-      // Store a copy of the vector in case it is later mutated
-      if (previousDictionaries.containsKey(id)) {
-        previousDictionaries.get(id).close();
-      }
-      previousDictionaries.put(id, copyVector(vector));
+      BaseDictionary dictionary = provider.lookup(id);
+      boolean isInitial = previousDictionaries.containsKey(id) ? false : true;
+      writeDictionaryBatch(dictionary, isInitial);
+      previousDictionaries.put(id, true);
     }
   }
 
   @Override
   public void close() {
     super.close();
-    try {
-      AutoCloseables.close(previousDictionaries.values());
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
   }
 
   private static FieldVector copyVector(FieldVector source) {
