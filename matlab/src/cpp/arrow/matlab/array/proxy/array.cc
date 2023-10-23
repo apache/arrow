@@ -60,7 +60,7 @@ namespace arrow::matlab::array::proxy {
              * opening and opening delimiters. Use " | " as the delimiter
              * between elments. Below is an example Int32Array display:
              *
-             *    1 | 2 | 3 | ... | 6 7 8
+             *    1 | 2 | 3 | ... | 6 | 7 | 8
              */
             opts.skip_new_lines = true;
             opts.array_delimiters.open = "";
