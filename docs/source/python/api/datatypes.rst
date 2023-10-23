@@ -167,4 +167,3 @@ represents a given data type (such as ``int32``) or general category
    is_map
    is_dictionary
    is_primitive
-   is_run_end_encoded
