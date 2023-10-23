@@ -56,7 +56,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   }
 
   /**
-   * Construct a signature with only the SQL query. Column metadata and parameters must be filled out elsewhere.
+   * Construct a signature.
    */
   static Signature newSignature(final String sql, Schema resultSetSchema, Schema parameterSchema) {
     List<ColumnMetaData> columnMetaData = resultSetSchema == null ?
