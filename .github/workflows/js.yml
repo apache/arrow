@@ -97,7 +97,7 @@ jobs:
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
           restore-keys: js-jest-cache-${{ runner.os }}-
       - name: Install NodeJS
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
       - name: Build
@@ -127,7 +127,7 @@ jobs:
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
           restore-keys: js-jest-cache-${{ runner.os }}-
       - name: Install NodeJS
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
       - name: Build
