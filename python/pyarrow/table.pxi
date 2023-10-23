@@ -4778,7 +4778,8 @@ cdef class Table(_Tabular):
             Currently, the “on” key must be an integer, date, or timestamp type.
         by : str or list[str]
             The columns from current table that should be used as the keys
-            of the join operation left side.
+            of the join operation left side. The join operation is then done
+            only for the matches in these columns.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
             a match with the left row ``right.on - left.on <= tolerance``. The
