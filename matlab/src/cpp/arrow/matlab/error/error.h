@@ -197,6 +197,7 @@ namespace arrow::matlab::error {
     static const char* CHUNKED_ARRAY_NUMERIC_INDEX_WITH_EMPTY_CHUNKED_ARRAY = "arrow:chunkedarray:NumericIndexWithEmptyChunkedArray";
     static const char* CHUNKED_ARRAY_INVALID_NUMERIC_CHUNK_INDEX = "arrow:chunkedarray:InvalidNumericChunkIndex";
     static const char* STRUCT_ARRAY_MAKE_FAILED = "arrow:array:StructArrayMakeFailed";
+    static const char* LIST_ARRAY_FROM_ARRAYS_FAILED = "arrow:array:ListArrayFromArraysFailed";
     static const char* INDEX_EMPTY_CONTAINER = "arrow:index:EmptyContainer";
     static const char* INDEX_OUT_OF_RANGE = "arrow:index:OutOfRange";
     static const char* BUFFER_VIEW_OR_COPY_FAILED = "arrow:buffer:ViewOrCopyFailed";
