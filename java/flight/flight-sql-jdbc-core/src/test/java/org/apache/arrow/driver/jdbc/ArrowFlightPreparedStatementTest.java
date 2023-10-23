@@ -39,7 +39,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
