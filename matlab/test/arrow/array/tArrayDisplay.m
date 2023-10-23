@@ -144,7 +144,9 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             classNameLink = makeLinkString(FullClassName=fullClassName, ...
                                            ClassName=displayName, ...
                                            BoldFont=true);
-            header = compose("  %s with 0 elements and 0 null values" + newline, classNameLink);
+            zeroString = getNumString(0);
+            header = compose("  %s with %s elements and %s null values" + newline, ...
+                classNameLink, zeroString, zeroString);
 
             expectedDisplay = char(header + newline);
             actualDisplay = evalc('disp(EmptyArray)');
@@ -160,7 +162,12 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             classNameLink = makeLinkString(FullClassName=fullClassName, ...
                                            ClassName=displayName, ...
                                            BoldFont=true);
-            header = compose("  %s with 1 element and 0 null values:" + newline, classNameLink);
+
+            numElementString = getNumString(1);
+            numNullString = getNumString(0);
+            header = compose("  %s with %s element and %s null values:" + newline, ...
+                classNameLink, numElementString, numNullString);
+
             body = "    " + ArrayWithOneElement.String + newline + newline;
             expectedDisplay = char(strjoin([header body], newline));
             actualDisplay = evalc('disp(array)');
@@ -176,7 +183,12 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             classNameLink = makeLinkString(FullClassName=fullClassName, ...
                                            ClassName=displayName, ...
                                            BoldFont=true);
-            header = compose("  %s with 3 elements and 0 null values:" + newline, classNameLink);
+
+            numElementString = getNumString(3);
+            numNullString = getNumString(0);
+            header = compose("  %s with %s elements and %s null values:" + newline, ...
+                classNameLink, numElementString, numNullString);
+
             body = "    " + ArrayWithMultipleElements.String + newline + newline;
             expectedDisplay = char(strjoin([header body], newline));
             actualDisplay = evalc('disp(array)');
@@ -192,7 +204,12 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             classNameLink = makeLinkString(FullClassName=fullClassName, ...
                                            ClassName=displayName, ...
                                            BoldFont=true);
-            header = compose("  %s with 3 elements and 1 null value:" + newline, classNameLink);
+
+            numElementString = getNumString(3);
+            numNullString = getNumString(1);
+            header = compose("  %s with %s elements and %s null value:" + newline, ...
+                classNameLink, numElementString, numNullString);
+
             body = "    " + ArrayWithOneNull.String + newline + newline;
             expectedDisplay = char(strjoin([header body], newline));
             actualDisplay = evalc('disp(array)');
@@ -208,7 +225,13 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             classNameLink = makeLinkString(FullClassName=fullClassName, ...
                                            ClassName=displayName, ...
                                            BoldFont=true);
-            header = compose("  %s with 3 elements and 2 null values:" + newline, classNameLink);
+
+            numElementString = getNumString(3);
+            numNullString = getNumString(2);
+            header = compose("  %s with %s elements and %s null values:" + newline, ...
+                classNameLink, numElementString, numNullString);
+
+
             body = "    " + ArrayWithMultipleNulls.String + newline + newline;
             expectedDisplay = char(strjoin([header body], newline));
             actualDisplay = evalc('disp(array)');
@@ -223,7 +246,12 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             classNameLink = makeLinkString(FullClassName=fullClassName, ...
                                            ClassName=displayName, ...
                                            BoldFont=true);
-            header = compose("  %s with 8 elements and 0 null values:" + newline, classNameLink);
+
+            numElementString = getNumString(8);
+            numNullString = getNumString(0);
+            header = compose("  %s with %s elements and %s null values:" + newline, ...
+                classNameLink, numElementString, numNullString);
+
             body = "    1 | 2 | 3 | ... | 6 | 7 | 8" + newline + newline;
             expectedDisplay = char(strjoin([header body], newline));
             actualDisplay = evalc('disp(array)');
@@ -235,12 +263,17 @@ classdef tArrayDisplay < matlab.unittest.TestCase
             import arrow.internal.test.display.makeLinkString
 
             t = table((1:2)', ["A"; "B"], VariableNames=["Number", "Text"]);
-            structArray = arrow.array(t);
+            structArray = arrow.array(t); %#ok<NASGU>
 
             classNameLink = makeLinkString(FullClassName="arrow.array.StructArray", ...
                                            ClassName="StructArray", ...
                                            BoldFont=true);
-            header = compose("  %s with 2 elements and 0 null values:" + newline, classNameLink);
+
+            numElementString = getNumString(2);
+            numNullString = getNumString(0);
+            header = compose("  %s with %s elements and %s null values:" + newline, ...
+                classNameLink, numElementString, numNullString);
+
             body =  "        -- is_valid: all not null" + newline + ...
                     "    -- child 0 type: double" + newline + ...
                     "        [" + newline + ...
@@ -260,3 +293,11 @@ classdef tArrayDisplay < matlab.unittest.TestCase
     end
 
 end
+
+function numString = getNumString(num)
+    if usejava("desktop")
+        numString = compose("<strong>%d</strong>", num);
+    else
+        numString = compose("%d", num);
+    end
+ end

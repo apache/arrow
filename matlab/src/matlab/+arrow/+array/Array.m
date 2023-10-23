@@ -113,10 +113,15 @@ function str = pluralizeStringIfNeeded(num, str)
 end
 
 function formatSpec = getFormatSpec(numElems)
-    if numElems > 0
-        formatSpec = "  %s with %d %s and %d %s:" + newline;
+    if usejava("desktop")
+        % Bold the number of elements and nulls if the desktop is enabled
+        numString = "<strong>%d</strong>";
     else
-        formatSpec = "  %s with %d %s and %d %s" + newline;
+        numString = "%d";
+    end
+    if numElems > 0
+        formatSpec = "  %s with " + numString + " %s and " + numString + " %s:" + newline;
+    else
+        formatSpec = "  %s with "+ numString + " %s and " + numString + " %s" + newline;
     end
 end
-
