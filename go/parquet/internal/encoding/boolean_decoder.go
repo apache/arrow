@@ -19,6 +19,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -26,7 +27,6 @@ import (
 	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
 	"github.com/apache/arrow/go/v14/parquet"
 	"github.com/apache/arrow/go/v14/parquet/internal/utils"
-	"golang.org/x/xerrors"
 )
 
 // PlainBooleanDecoder is for the Plain Encoding type, there is no
@@ -108,7 +108,7 @@ func (dec *PlainBooleanDecoder) DecodeSpaced(out []bool, nullCount int, validBit
 			return 0, err
 		}
 		if valuesRead != toRead {
-			return valuesRead, xerrors.New("parquet: boolean decoder: number of values / definition levels read did not match")
+			return valuesRead, errors.New("parquet: boolean decoder: number of values / definition levels read did not match")
 		}
 		return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 	}
@@ -181,7 +181,7 @@ func (dec *RleBooleanDecoder) DecodeSpaced(out []bool, nullCount int, validBits 
 			return 0, err
 		}
 		if valuesRead != toRead {
-			return valuesRead, xerrors.New("parquet: rle boolean decoder: number of values / definition levels read did not match")
+			return valuesRead, errors.New("parquet: rle boolean decoder: number of values / definition levels read did not match")
 		}
 		return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 	}
