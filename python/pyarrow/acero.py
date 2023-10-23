@@ -330,8 +330,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
         "asofjoin", options=join_opts, inputs=[left_source, right_source]
     )
 
-    # Last time I checked the asof join node does not support using threads.
-    result_table = decl.to_table(use_threads=False)
+    result_table = decl.to_table(use_threads=use_threads)
 
     if output_type == Table:
         return result_table

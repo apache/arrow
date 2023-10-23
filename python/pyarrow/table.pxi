@@ -4937,6 +4937,7 @@ cdef class Table(_Tabular):
         return _pac()._perform_join_asof(self, on, by,
                                          right_table, right_on, right_by,
                                          tolerance, output_type=Table)
+
     def __arrow_c_stream__(self, requested_schema=None):
         """
         Export the table as an Arrow C stream PyCapsule.
