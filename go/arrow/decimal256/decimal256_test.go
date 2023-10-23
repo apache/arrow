@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v14/arrow/decimal256"
@@ -573,5 +574,36 @@ func TestFromString(t *testing.T) {
 			ex := decimal256.FromI64(tt.expected)
 			assert.Equal(t, ex, n)
 		})
+	}
+}
+
+// Test issues from GH-38395
+func TestToString(t *testing.T) {
+	const decStr = "3379334159166193114608287418738414931564221155305735605033949613740461239999"
+
+	integer, _ := (&big.Int{}).SetString(decStr, 10)
+	dec := decimal256.FromBigInt(integer)
+
+	expected := "0." + decStr
+	actual := dec.ToString(76)
+
+	if expected != actual {
+		t.Errorf("expected: %s, actual: %s\n", expected, actual)
+	}
+}
+
+// Test issues from GH-38395
+func TestHexFromString(t *testing.T) {
+	const decStr = "11111111111111111111111111111111111111.00000000000000000000000000000000000000"
+
+	num, err := decimal256.FromString(decStr, 76, 38)
+	if err != nil {
+		t.Error(err)
+	} else if decStr != num.ToString(38) {
+		t.Errorf("expected: %s, actual: %s\n", decStr, num.ToString(38))
+
+		actualCoeff := num.BigInt()
+		expectedCoeff, _ := (&big.Int{}).SetString(strings.Replace(decStr, ".", "", -1), 10)
+		t.Errorf("expected(hex): %X, actual(hex): %X\n", expectedCoeff.Bytes(), actualCoeff.Bytes())
 	}
 }

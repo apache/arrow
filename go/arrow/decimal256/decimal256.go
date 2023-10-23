@@ -154,7 +154,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		return
 	}
 
-	out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits)
+	out.Mul(out, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt())).SetPrec(precInBits)
 	// Since we're going to truncate this to get an integer, we need to round
 	// the value instead because of edge cases so that we match how other implementations
 	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
@@ -506,7 +506,7 @@ func (n Num) FitsInPrecision(prec int32) bool {
 
 func (n Num) ToString(scale int32) string {
 	f := (&big.Float{}).SetInt(n.BigInt())
-	f.Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	f.SetPrec(256).Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
 	return f.Text('f', int(scale))
 }
 
