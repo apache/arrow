@@ -200,7 +200,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
     // Already in UTF-8
     final Text textValue = new Text(value);
-    return new ByteArrayInputStream(textValue.getBytes(), 0, textValue.getLength());
+    return new ByteArrayInputStream(textValue.getBytes(), 0, (int) textValue.getLength());
   }
 
   @Override

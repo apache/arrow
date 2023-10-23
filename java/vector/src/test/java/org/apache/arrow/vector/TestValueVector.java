@@ -25,6 +25,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.ByteBuffer;
@@ -56,6 +57,7 @@ import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -63,6 +65,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
@@ -1107,6 +1110,22 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testGetTextRepeatedly() {
+    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
+
+      ValueVectorDataPopulator.setVector(vector, STR1, STR2);
+      vector.setValueCount(2);
+
+      /* check the vector output */
+      Text text = new Text();
+      vector.read(0, text);
+      assertArrayEquals(STR1, text.getBytes());
+      vector.read(1, text);
+      assertArrayEquals(STR2, text.getBytes());
+    }
+  }
+
   @Test /* VarBinaryVector */
   public void testNullableVarType2() {
 
@@ -1156,6 +1175,31 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testGetBytesRepeatedly() {
+    try (VarBinaryVector vector = new VarBinaryVector("", allocator)) {
+      vector.allocateNew(5, 1);
+
+      final String str = "hello world";
+      final String str2 = "foo";
+      vector.setSafe(0, str.getBytes());
+      vector.setSafe(1, str2.getBytes());
+
+      // verify results
+      ReusableByteArray reusableByteArray = new ReusableByteArray();
+      vector.read(0, reusableByteArray);
+      assertArrayEquals(str.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+          0, (int) reusableByteArray.getLength()));
+      byte[] oldBuffer = reusableByteArray.getBuffer();
+
+      vector.read(1, reusableByteArray);
+      assertArrayEquals(str2.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+          0, (int) reusableByteArray.getLength()));
+
+      // There should not have been any reallocation since the newer value is smaller in length.
+      assertSame(oldBuffer, reusableByteArray.getBuffer());
+    }
+  }
 
   /*
    * generic tests

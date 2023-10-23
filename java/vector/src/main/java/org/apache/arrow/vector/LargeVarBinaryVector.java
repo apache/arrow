@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.LargeVarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.LargeVarBinaryHolder;
@@ -105,11 +106,23 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
       return null;
     }
     final long startOffset = getStartOffset(index);
-    final int dataLength =
-        (int) (offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH) - startOffset);
-    final byte[] result = new byte[dataLength];
-    valueBuffer.getBytes(startOffset, result, 0, dataLength);
+    final long dataLength = getEndOffset(index) - startOffset;
+    final byte[] result = new byte[(int) dataLength];
+    valueBuffer.getBytes(startOffset, result, 0, (int) dataLength);
     return result;
+  }
+
+  /**
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
+   *
+   * @param index position of element.
+   * @param buffer the buffer to write into.
+   */
+  public void read(int index, ReusableBuffer<?> buffer) {
+    final long startOffset = getStartOffset(index);
+    final long dataLength = getEndOffset(index) - startOffset;
+    buffer.set(valueBuffer, startOffset, dataLength);
   }
 
   /**
@@ -137,7 +150,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
     }
     holder.isSet = 1;
     holder.start = getStartOffset(index);
-    holder.end = offsetBuffer.getLong((long) (index + 1) * OFFSET_WIDTH);
+    holder.end = getEndOffset(index);
     holder.buffer = valueBuffer;
   }
 

@@ -29,7 +29,6 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.MalformedInputException;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
-import java.util.Arrays;
 import java.util.Optional;
 
 import com.fasterxml.jackson.core.JsonGenerationException;
@@ -43,7 +42,7 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
  * Lifted from Hadoop 2.7.1
  */
 @JsonSerialize(using = Text.TextSerializer.class)
-public class Text {
+public class Text extends ReusableByteArray {
 
   private static ThreadLocal<CharsetEncoder> ENCODER_FACTORY =
       new ThreadLocal<CharsetEncoder>() {
@@ -65,13 +64,9 @@ public class Text {
         }
       };
 
-  private static final byte[] EMPTY_BYTES = new byte[0];
-
-  private byte[] bytes;
-  private int length;
 
   public Text() {
-    bytes = EMPTY_BYTES;
+    super();
   }
 
   /**
@@ -121,15 +116,6 @@ public class Text {
    */
   public byte[] getBytes() {
     return bytes;
-  }
-
-  /**
-   * Get the number of bytes in the byte array.
-   *
-   * @return the number of bytes in the byte array
-   */
-  public int getLength() {
-    return length;
   }
 
   /**
@@ -238,7 +224,7 @@ public class Text {
    * @param other the text to initialize from
    */
   public void set(Text other) {
-    set(other.getBytes(), 0, other.getLength());
+    set(other.getBytes(), 0, (int) other.getLength());
   }
 
   /**
@@ -278,25 +264,6 @@ public class Text {
     length = 0;
   }
 
-  /**
-   * Sets the capacity of this Text object to <em>at least</em> <code>len</code> bytes. If the
-   * current buffer is longer, then the capacity and existing content of the buffer are unchanged.
-   * If <code>len</code> is larger than the current capacity, the Text object's capacity is
-   * increased to match.
-   *
-   * @param len      the number of bytes we need
-   * @param keepData should the old data be kept
-   */
-  private void setCapacity(int len, boolean keepData) {
-    if (bytes == null || bytes.length < len) {
-      if (bytes != null && keepData) {
-        bytes = Arrays.copyOf(bytes, Math.max(len, length << 1));
-      } else {
-        bytes = new byte[len];
-      }
-    }
-  }
-
   @Override
   public String toString() {
     try {
@@ -322,47 +289,10 @@ public class Text {
 
   @Override
   public boolean equals(Object o) {
-    if (o == this) {
-      return true;
-    } else if (o == null) {
-      return false;
-    }
     if (!(o instanceof Text)) {
       return false;
     }
-
-    final Text that = (Text) o;
-    if (this.getLength() != that.getLength()) {
-      return false;
-    }
-
-    // copied from Arrays.equals so we don'thave to copy the byte arrays
-    for (int i = 0; i < length; i++) {
-      if (bytes[i] != that.bytes[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  /**
-   * Copied from Arrays.hashCode so we don't have to copy the byte array.
-   *
-   * @return hashCode
-   */
-  @Override
-  public int hashCode() {
-    if (bytes == null) {
-      return 0;
-    }
-
-    int result = 1;
-    for (int i = 0; i < length; i++) {
-      result = 31 * result + bytes[i];
-    }
-
-    return result;
+    return super.equals(o);
   }
 
   // / STATIC UTILITIES FROM HERE DOWN
