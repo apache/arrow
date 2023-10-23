@@ -205,6 +205,11 @@ public class TestArrowBufPointer {
     }
 
     @Override
+    public int hashCode(byte[] buf, int offset, int length) {
+      return 0;
+    }
+
+    @Override
     public int hashCode() {
       return super.hashCode();
     }

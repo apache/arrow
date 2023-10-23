@@ -64,29 +64,38 @@ public class TestArrowBufHasher {
   public void testHasher() {
     try (ArrowBuf buf1 = allocator.buffer(BUFFER_LENGTH);
          ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
+      byte[] ba1 = new byte[BUFFER_LENGTH];
+      byte[] ba2 = new byte[BUFFER_LENGTH];
+
       // prepare data
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
         buf1.setFloat(i * 4, i / 10.0f);
         buf2.setFloat(i * 4, i / 10.0f);
       }
+      buf1.getBytes(0, ba1);
+      buf2.getBytes(0, ba2);
 
-      verifyHashCodesEqual(buf1, 0, 100, buf2, 0, 100);
-      verifyHashCodesEqual(buf1, 1, 5, buf2, 1, 5);
-      verifyHashCodesEqual(buf1, 10, 17, buf2, 10, 17);
-      verifyHashCodesEqual(buf1, 33, 25, buf2, 33, 25);
-      verifyHashCodesEqual(buf1, 22, 22, buf2, 22, 22);
-      verifyHashCodesEqual(buf1, 123, 333, buf2, 123, 333);
-      verifyHashCodesEqual(buf1, 374, 1, buf2, 374, 1);
-      verifyHashCodesEqual(buf1, 11, 0, buf2, 11, 0);
-      verifyHashCodesEqual(buf1, 75, 25, buf2, 75, 25);
-      verifyHashCodesEqual(buf1, 0, 1024, buf2, 0, 1024);
+      verifyHashCodesEqual(buf1, ba1, 0, 100, buf2, ba2, 0, 100);
+      verifyHashCodesEqual(buf1, ba1, 1, 5, buf2, ba2, 1, 5);
+      verifyHashCodesEqual(buf1, ba1, 10, 17, buf2, ba2, 10, 17);
+      verifyHashCodesEqual(buf1, ba1, 33, 25, buf2, ba2, 33, 25);
+      verifyHashCodesEqual(buf1, ba1, 22, 22, buf2, ba2, 22, 22);
+      verifyHashCodesEqual(buf1, ba1, 123, 333, buf2, ba2, 123, 333);
+      verifyHashCodesEqual(buf1, ba1, 374, 1, buf2, ba2, 374, 1);
+      verifyHashCodesEqual(buf1, ba1, 11, 0, buf2, ba2, 11, 0);
+      verifyHashCodesEqual(buf1, ba1, 75, 25, buf2, ba2, 75, 25);
+      verifyHashCodesEqual(buf1, ba1, 0, 1024, buf2, ba2, 0, 1024);
     }
   }
 
-  private void verifyHashCodesEqual(ArrowBuf buf1, int offset1, int length1,
-                                    ArrowBuf buf2, int offset2, int length2) {
+  private void verifyHashCodesEqual(ArrowBuf buf1, byte[] ba1, int offset1, int length1,
+                                    ArrowBuf buf2, byte[] ba2, int offset2, int length2) {
     int hashCode1 = hasher.hashCode(buf1, offset1, length1);
     int hashCode2 = hasher.hashCode(buf2, offset2, length2);
+    assertEquals(hashCode1, hashCode2);
+
+    hashCode1 = hasher.hashCode(ba1, offset1, length1);
+    hashCode2 = hasher.hashCode(ba2, offset2, length2);
     assertEquals(hashCode1, hashCode2);
   }
 
@@ -116,30 +125,36 @@ public class TestArrowBufHasher {
   public void testHasherLessThanInt() {
     try (ArrowBuf buf1 = allocator.buffer(4);
          ArrowBuf buf2 = allocator.buffer(4)) {
-      buf1.writeBytes("foo1".getBytes(StandardCharsets.UTF_8));
-      buf2.writeBytes("bar2".getBytes(StandardCharsets.UTF_8));
+      byte[] ba1 = "foo1".getBytes(StandardCharsets.UTF_8);
+      byte[] ba2 = "bar2".getBytes(StandardCharsets.UTF_8);
+      buf1.writeBytes(ba1);
+      buf2.writeBytes(ba2);
 
       for (int i = 1; i <= 4; i ++) {
-        verifyHashCodeNotEqual(buf1, 0, i, buf2, 0, i);
+        verifyHashCodeNotEqual(buf1, ba1, 0, i, buf2, ba2, 0, i);
       }
     }
   }
 
-  private void verifyHashCodeNotEqual(ArrowBuf buf1, int offset1, int length1,
-                                      ArrowBuf buf2, int offset2, int length2) {
+  private void verifyHashCodeNotEqual(ArrowBuf buf1, byte[] ba1, int offset1, int length1,
+                                      ArrowBuf buf2, byte[] ba2, int offset2, int length2) {
     int hashCode1 = hasher.hashCode(buf1, 0, length1);
     int hashCode2 = hasher.hashCode(buf2, 0, length2);
+    assertNotEquals(hashCode1, hashCode2);
+
+    hashCode1 = hasher.hashCode(ba1, 0, length1);
+    hashCode2 = hasher.hashCode(ba2, 0, length2);
     assertNotEquals(hashCode1, hashCode2);
   }
 
   @Parameterized.Parameters(name = "hasher = {0}")
   public static Collection<Object[]> getHasher() {
     return Arrays.asList(
-      new Object[] {SimpleHasher.class.getSimpleName(),
-        SimpleHasher.INSTANCE},
-      new Object[] {MurmurHasher.class.getSimpleName(),
-        new MurmurHasher()
-      }
+        new Object[] {SimpleHasher.class.getSimpleName(),
+            SimpleHasher.INSTANCE},
+        new Object[] {MurmurHasher.class.getSimpleName(),
+            new MurmurHasher()
+        }
     );
   }
 }
