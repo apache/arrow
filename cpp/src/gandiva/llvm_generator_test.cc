@@ -35,7 +35,7 @@ typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 
 class TestLLVMGenerator : public ::testing::Test {
  protected:
-  FunctionRegistry* registry_ = default_function_registry();
+  std::shared_ptr<FunctionRegistry> registry_ = default_function_registry();
 };
 
 // Verify that a valid pc function exists for every function in the registry.
@@ -116,9 +116,9 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 }
 
 TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
-  FunctionRegistry external_registry;
+  auto external_registry = std::make_shared<FunctionRegistry>();
   auto config_with_func_registry =
-      TestConfigurationWithFunctionRegistry(&external_registry);
+      TestConfigurationWithFunctionRegistry(std::move(external_registry));
 
   std::unique_ptr<LLVMGenerator> generator;
   ASSERT_OK(LLVMGenerator::Make(config_with_func_registry, false, &generator));

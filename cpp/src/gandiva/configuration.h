@@ -35,8 +35,9 @@ class GANDIVA_EXPORT Configuration {
  public:
   friend class ConfigurationBuilder;
 
-  explicit Configuration(bool optimize, FunctionRegistry* function_registry =
-                                            gandiva::default_function_registry())
+  explicit Configuration(bool optimize,
+                         std::shared_ptr<FunctionRegistry> function_registry =
+                             gandiva::default_function_registry())
       : optimize_(optimize),
         target_host_cpu_(true),
         function_registry_(function_registry) {}
@@ -49,18 +50,20 @@ class GANDIVA_EXPORT Configuration {
 
   bool optimize() const { return optimize_; }
   bool target_host_cpu() const { return target_host_cpu_; }
-  FunctionRegistry* function_registry() const { return function_registry_; }
+  std::shared_ptr<FunctionRegistry> function_registry() const {
+    return function_registry_;
+  }
 
   void set_optimize(bool optimize) { optimize_ = optimize; }
   void target_host_cpu(bool target_host_cpu) { target_host_cpu_ = target_host_cpu; }
-  void set_function_registry(FunctionRegistry* function_registry) {
-    function_registry_ = function_registry;
+  void set_function_registry(std::shared_ptr<FunctionRegistry> function_registry) {
+    function_registry_ = std::move(function_registry);
   }
 
  private:
   bool optimize_;        /* optimise the generated llvm IR */
   bool target_host_cpu_; /* set the mcpu flag to host cpu while compiling llvm ir */
-  FunctionRegistry*
+  std::shared_ptr<FunctionRegistry>
       function_registry_; /* function registry that may contain external functions */
 };
 
@@ -80,9 +83,10 @@ class GANDIVA_EXPORT ConfigurationBuilder {
     return configuration;
   }
 
-  std::shared_ptr<Configuration> build(FunctionRegistry* function_registry) {
+  std::shared_ptr<Configuration> build(
+      std::shared_ptr<FunctionRegistry> function_registry) {
     std::shared_ptr<Configuration> configuration(
-        new Configuration(true, function_registry));
+        new Configuration(true, std::move(function_registry)));
     return configuration;
   }
 

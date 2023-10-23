@@ -82,7 +82,8 @@ class GANDIVA_EXPORT LLVMGenerator {
   std::string DumpIR() { return engine_->DumpIR(); }
 
  private:
-  explicit LLVMGenerator(bool cached, FunctionRegistry* function_registry);
+  explicit LLVMGenerator(bool cached,
+                         std::shared_ptr<FunctionRegistry> function_registry);
 
   FRIEND_TEST(TestLLVMGenerator, VerifyPCFunctions);
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
@@ -251,7 +252,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   std::unique_ptr<Engine> engine_;
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
   bool cached_;
-  FunctionRegistry* function_registry_;
+  std::shared_ptr<FunctionRegistry> function_registry_;
   Annotator annotator_;
   SelectionVector::Mode selection_vector_mode_;
 

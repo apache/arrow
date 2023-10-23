@@ -3592,9 +3592,9 @@ TEST_F(TestProjector, TestExtendedFunctions) {
       TreeExprBuilder::MakeExpression("multiply_by_two", {in_field}, out_field);
 
   std::shared_ptr<Projector> projector;
-  FunctionRegistry external_registry;
+  auto external_registry = std::make_shared<FunctionRegistry>();
   auto config_with_func_registry =
-      TestConfigurationWithFunctionRegistry(&external_registry);
+      TestConfigurationWithFunctionRegistry(std::move(external_registry));
   ARROW_EXPECT_OK(
       Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
 

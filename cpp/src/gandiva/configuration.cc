@@ -29,8 +29,8 @@ std::size_t Configuration::Hash() const {
   size_t result = kHashSeed;
   arrow::internal::hash_combine(result, static_cast<size_t>(optimize_));
   arrow::internal::hash_combine(result, static_cast<size_t>(target_host_cpu_));
-  arrow::internal::hash_combine(result,
-                                reinterpret_cast<std::uintptr_t>(function_registry_));
+  arrow::internal::hash_combine(
+      result, reinterpret_cast<std::uintptr_t>(function_registry_.get()));
 
   return result;
 }

@@ -59,7 +59,7 @@ class GANDIVA_EXPORT FunctionRegistry {
   iterator end() const;
   iterator back() const;
 
-  friend arrow::Result<std::unique_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry();
+  friend arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry();
 
  private:
   std::vector<NativeFunction> pc_registry_;
@@ -70,6 +70,6 @@ class GANDIVA_EXPORT FunctionRegistry {
 };
 
 /// \brief get the default function registry
-GANDIVA_EXPORT FunctionRegistry* default_function_registry();
+GANDIVA_EXPORT std::shared_ptr<FunctionRegistry> default_function_registry();
 
 }  // namespace gandiva

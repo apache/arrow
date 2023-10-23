@@ -43,10 +43,10 @@ NativeFunction GetTestExternalFunction() {
 }
 
 std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
-    FunctionRegistry* registry) {
+    std::shared_ptr<FunctionRegistry> registry) {
   ARROW_EXPECT_OK(
       registry->Register({GetTestExternalFunction()}, GetTestFunctionLLVMIRPath()));
-  auto external_func_config = ConfigurationBuilder().build(registry);
+  auto external_func_config = ConfigurationBuilder().build(std::move(registry));
   return external_func_config;
 }
 }  // namespace gandiva

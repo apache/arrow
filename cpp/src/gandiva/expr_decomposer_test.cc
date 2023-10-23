@@ -31,7 +31,7 @@ using arrow::int32;
 
 class TestExprDecomposer : public ::testing::Test {
  protected:
-  FunctionRegistry* registry_ = default_function_registry();
+  std::shared_ptr<FunctionRegistry> registry_ = default_function_registry();
 };
 
 TEST_F(TestExprDecomposer, TestStackSimple) {

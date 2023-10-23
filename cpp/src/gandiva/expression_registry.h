@@ -38,8 +38,8 @@ class GANDIVA_EXPORT ExpressionRegistry {
  public:
   using native_func_iterator_type = const NativeFunction*;
   using func_sig_iterator_type = const FunctionSignature*;
-  explicit ExpressionRegistry(
-      FunctionRegistry* function_registry = gandiva::default_function_registry());
+  explicit ExpressionRegistry(std::shared_ptr<FunctionRegistry> function_registry =
+                                  gandiva::default_function_registry());
   ~ExpressionRegistry();
   static DataTypeVector supported_types() { return supported_types_; }
   class GANDIVA_EXPORT FunctionSignatureIterator {
@@ -64,7 +64,7 @@ class GANDIVA_EXPORT ExpressionRegistry {
 
  private:
   static DataTypeVector supported_types_;
-  FunctionRegistry* function_registry_;
+  std::shared_ptr<FunctionRegistry> function_registry_;
 };
 
 /// \brief Get the list of all function signatures.

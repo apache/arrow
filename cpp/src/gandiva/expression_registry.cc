@@ -22,7 +22,8 @@
 
 namespace gandiva {
 
-ExpressionRegistry::ExpressionRegistry(FunctionRegistry* function_registry)
+ExpressionRegistry::ExpressionRegistry(
+    std::shared_ptr<FunctionRegistry> function_registry)
     : function_registry_{function_registry} {}
 
 ExpressionRegistry::~ExpressionRegistry() {}

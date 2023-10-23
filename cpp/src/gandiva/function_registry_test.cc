@@ -29,7 +29,7 @@ namespace gandiva {
 
 class TestFunctionRegistry : public ::testing::Test {
  protected:
-  FunctionRegistry* registry_ = gandiva::default_function_registry();
+  std::shared_ptr<FunctionRegistry> registry_ = gandiva::default_function_registry();
 
   static std::unique_ptr<FunctionRegistry> MakeFunctionRegistryWithExternalFunction() {
     auto registry = std::make_unique<FunctionRegistry>();

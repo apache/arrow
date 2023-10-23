@@ -115,8 +115,8 @@ const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeB
   return bitcode_memory_buffers_;
 }
 
-arrow::Result<std::unique_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
-  auto registry = std::make_unique<FunctionRegistry>();
+arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
+  auto registry = std::make_shared<FunctionRegistry>();
   for (auto const& funcs :
        {GetArithmeticFunctionRegistry(), GetDateTimeFunctionRegistry(),
         GetHashFunctionRegistry(), GetMathOpsFunctionRegistry(),
@@ -128,14 +128,14 @@ arrow::Result<std::unique_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
   return std::move(registry);
 }
 
-FunctionRegistry* default_function_registry() {
+std::shared_ptr<FunctionRegistry> default_function_registry() {
   static auto maybe_default_registry = MakeDefaultFunctionRegistry();
   if (!maybe_default_registry.ok()) {
     ARROW_LOG(FATAL) << "Failed to initialize default function registry: "
                      << maybe_default_registry.status().message();
     return nullptr;
   }
-  return (*maybe_default_registry).get();
+  return *maybe_default_registry;
 }
 
 }  // namespace gandiva

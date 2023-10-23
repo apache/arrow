@@ -99,7 +99,7 @@ static inline ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>
 std::shared_ptr<Configuration> TestConfiguration();
 
 std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
-    FunctionRegistry* registry);
+    std::shared_ptr<FunctionRegistry> registry);
 
 std::string GetTestFunctionLLVMIRPath();
 NativeFunction GetTestExternalFunction();
