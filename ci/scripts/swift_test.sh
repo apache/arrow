@@ -21,11 +21,6 @@ set -ex
 
 cp ${1}/swift/swiftlint/.swiftlint.yml ${1}/swift/Arrow
 cp ${1}/swift/swiftlint/.swiftlint.yml ${1}/swift/ArrowFlight
-cd ${1}/swift/swiftlint && tar -xzvf SwiftLint-0.53.0.tar.gz
-cd ${1}/swift/swiftlint && unzip -o SwiftLintBinary-macos.artifactbundle.zip
-cp ${1}/swift/swiftlint/SwiftLint-Package.swift ${1}/swift/swiftlint/SwiftLint-0.53.0/Package.swift 
-cd ${1}/swift/swiftlint/SwiftLint-0.53.0 && swift build
-cp ${1}/swift/swiftlint/SwiftLint-0.53.0/.build/debug/swiftlint /usr/bin
 
 data_gen_dir=${1}/swift/data-generator/swift-datagen
 export GOPATH=/
