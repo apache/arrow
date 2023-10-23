@@ -16,15 +16,17 @@
 classdef ListTraits < arrow.type.traits.TypeTraits
 
     properties (Constant)
-        ArrayConstructor = missing
-        ArrayClassName = missing
-        ArrayProxyClassName = missing
+        ArrayConstructor = @arrow.array.ListArray
+        ArrayClassName = "arrow.array.ListArray"
+        ArrayProxyClassName = "arrow.array.proxy.ListArray"
         ArrayStaticConstructor = missing
         TypeConstructor = @arrow.type.ListType
         TypeClassName = "arrow.type.ListType"
         TypeProxyClassName = "arrow.type.proxy.ListType"
+        % The cell function works differently than other
+        % "type construction functions" in MATLAB.
         MatlabConstructor = missing
-        MatlabClassName = missing
+        MatlabClassName = "cell"
     end
 
 end

@@ -22,6 +22,7 @@
 #include "arrow/matlab/array/proxy/time32_array.h"
 #include "arrow/matlab/array/proxy/time64_array.h"
 #include "arrow/matlab/array/proxy/struct_array.h"
+#include "arrow/matlab/array/proxy/list_array.h"
 #include "arrow/matlab/array/proxy/chunked_array.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/table.h"
@@ -61,6 +62,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.BooleanArray  , arrow::matlab::array::proxy::BooleanArray);
     REGISTER_PROXY(arrow.array.proxy.StringArray   , arrow::matlab::array::proxy::StringArray);
     REGISTER_PROXY(arrow.array.proxy.StructArray   , arrow::matlab::array::proxy::StructArray);
+    REGISTER_PROXY(arrow.array.proxy.ListArray     , arrow::matlab::array::proxy::ListArray);
     REGISTER_PROXY(arrow.array.proxy.TimestampArray, arrow::matlab::array::proxy::NumericArray<arrow::TimestampType>);
     REGISTER_PROXY(arrow.array.proxy.Time32Array   , arrow::matlab::array::proxy::NumericArray<arrow::Time32Type>);
     REGISTER_PROXY(arrow.array.proxy.Time64Array   , arrow::matlab::array::proxy::NumericArray<arrow::Time64Type>);
