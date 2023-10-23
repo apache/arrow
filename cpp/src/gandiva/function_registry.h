@@ -21,8 +21,7 @@
 #include <string>
 #include <vector>
 
-#include <llvm/Support/MemoryBuffer.h>
-
+#include <arrow/buffer.h>
 #include <arrow/status.h>
 #include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
@@ -49,10 +48,10 @@ class GANDIVA_EXPORT FunctionRegistry {
   /// \brief register a set of functions into the function registry from a given bitcode
   /// buffer
   arrow::Status Register(const std::vector<NativeFunction>& funcs,
-                         std::unique_ptr<llvm::MemoryBuffer> bitcode_buffer);
+                         std::unique_ptr<arrow::Buffer> bitcode_buffer);
 
-  /// \brief get a list of LLVM bitcode memory buffers saved in the registry
-  const std::vector<std::unique_ptr<llvm::MemoryBuffer>>& GetBitcodeBuffers() const;
+  /// \brief get a list of bitcode memory buffers saved in the registry
+  const std::vector<std::unique_ptr<arrow::Buffer>>& GetBitcodeBuffers() const;
 
   iterator begin() const;
   iterator end() const;
@@ -63,7 +62,7 @@ class GANDIVA_EXPORT FunctionRegistry {
  private:
   std::vector<NativeFunction> pc_registry_;
   SignatureMap pc_registry_map_;
-  std::vector<std::unique_ptr<llvm::MemoryBuffer>> bitcode_memory_buffers_;
+  std::vector<std::unique_ptr<arrow::Buffer>> bitcode_memory_buffers_;
 
   Status Add(NativeFunction func);
 };

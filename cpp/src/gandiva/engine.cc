@@ -295,10 +295,18 @@ Status Engine::LoadPreCompiledIR() {
   return Status::OK();
 }
 
+llvm::MemoryBufferRef AsLLVMMemoryBuffer(
+    const std::unique_ptr<arrow::Buffer>& arrow_buffer) {
+  auto data = reinterpret_cast<const char*>(arrow_buffer->data());
+  auto size = arrow_buffer->size();
+  return llvm::MemoryBufferRef(llvm::StringRef(data, size), "external_bitcode");
+}
+
 Status Engine::LoadExternalPreCompiledIR() {
   auto const& buffers = function_registry_->GetBitcodeBuffers();
   for (auto const& buffer : buffers) {
-    auto module_or_error = llvm::parseBitcodeFile(buffer->getMemBufferRef(), *context());
+    auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(buffer);
+    auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
     ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
   }
 

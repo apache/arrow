@@ -17,9 +17,10 @@
 
 #include "gandiva/function_registry.h"
 
-#include <iterator>
 #include <utility>
 #include <vector>
+
+#include <llvm/Support/MemoryBuffer.h>
 
 #include "arrow/util/logging.h"
 #include "gandiva/function_registry_arithmetic.h"
@@ -30,7 +31,22 @@
 #include "gandiva/function_registry_timestamp_arithmetic.h"
 
 namespace gandiva {
-constexpr uint32_t kMaxFunctionSignatures = 2048;
+
+static constexpr uint32_t kMaxFunctionSignatures = 2048;
+
+// encapsulates an llvm memory buffer in an arrow buffer
+// this is needed because we don't expose the llvm memory buffer to the outside world in
+// the header file
+class LLVMMemoryArrowBuffer : public arrow::Buffer {
+ public:
+  explicit LLVMMemoryArrowBuffer(std::unique_ptr<llvm::MemoryBuffer> llvm_buffer)
+      : arrow::Buffer(reinterpret_cast<const uint8_t*>(llvm_buffer->getBufferStart()),
+                      static_cast<int64_t>(llvm_buffer->getBufferSize())),
+        llvm_buffer_(std::move(llvm_buffer)) {}
+
+ private:
+  std::unique_ptr<llvm::MemoryBuffer> llvm_buffer_;
+};
 
 FunctionRegistry::FunctionRegistry() { pc_registry_.reserve(kMaxFunctionSignatures); }
 
@@ -80,13 +96,13 @@ arrow::Result<std::unique_ptr<llvm::MemoryBuffer>> GetBufferFromFile(
 
 Status FunctionRegistry::Register(const std::vector<NativeFunction>& funcs,
                                   const std::string& bitcode_path) {
-  ARROW_ASSIGN_OR_RAISE(auto buffer, GetBufferFromFile(bitcode_path));
+  ARROW_ASSIGN_OR_RAISE(auto llvm_buffer, GetBufferFromFile(bitcode_path));
+  auto buffer = std::make_unique<LLVMMemoryArrowBuffer>(std::move(llvm_buffer));
   return Register(funcs, std::move(buffer));
 }
 
-arrow::Status FunctionRegistry::Register(
-    const std::vector<NativeFunction>& funcs,
-    std::unique_ptr<llvm::MemoryBuffer> bitcode_buffer) {
+arrow::Status FunctionRegistry::Register(const std::vector<NativeFunction>& funcs,
+                                         std::unique_ptr<arrow::Buffer> bitcode_buffer) {
   bitcode_memory_buffers_.emplace_back(std::move(bitcode_buffer));
   for (const auto& func : funcs) {
     ARROW_RETURN_NOT_OK(FunctionRegistry::Add(func));
@@ -94,8 +110,8 @@ arrow::Status FunctionRegistry::Register(
   return Status::OK();
 }
 
-const std::vector<std::unique_ptr<llvm::MemoryBuffer>>&
-FunctionRegistry::GetBitcodeBuffers() const {
+const std::vector<std::unique_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeBuffers()
+    const {
   return bitcode_memory_buffers_;
 }
 
