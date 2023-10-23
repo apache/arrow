@@ -347,16 +347,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
     };
   }
 
-  @Override
-  public Runnable acceptPutPreparedStatementUpdate(
-      final CommandPreparedStatementUpdate commandPreparedStatementUpdate,
-      final CallContext callContext, final FlightStream flightStream,
-      final StreamListener<PutResult> streamListener) {
-    final ByteString handle = commandPreparedStatementUpdate.getPreparedStatementHandle();
-    final String query = Preconditions.checkNotNull(
-        preparedStatements.get(handle),
-        format("No query registered under handle: <%s>.", handle));
-
+  private boolean validateParameters(String query,
+                                     FlightStream flightStream,
+                                     StreamListener<PutResult> streamListener) {
     final List<List<Object>> expectedValues = expectedParameterValues.get(query);
     if (expectedValues != null) {
       int index = 0;
@@ -367,14 +360,14 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             streamListener.onError(CallStatus.INVALID_ARGUMENT
                 .withDescription("More parameter rows provided than expected")
                 .toRuntimeException());
-            return () -> { };
+            return true;
           }
           List<Object> expectedRow = expectedValues.get(index++);
           if (root.getFieldVectors().size() != expectedRow.size()) {
             streamListener.onError(CallStatus.INVALID_ARGUMENT
                 .withDescription("Parameter count mismatch")
                 .toRuntimeException());
-            return () -> { };
+            return true;
           }
 
           for (int paramIndex = 0; paramIndex < expectedRow.size(); paramIndex++) {
@@ -384,7 +377,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
               streamListener.onError(CallStatus.INVALID_ARGUMENT
                   .withDescription(String.format("Parameter mismatch. Expected: %s Actual: %s", expected, actual))
                   .toRuntimeException());
-              return () -> { };
+              return true;
             }
           }
         }
@@ -393,8 +386,24 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
         streamListener.onError(CallStatus.INVALID_ARGUMENT
             .withDescription("Fewer parameter rows provided than expected")
             .toRuntimeException());
-        return () -> { };
+        return true;
       }
+    }
+    return false;
+  }
+
+  @Override
+  public Runnable acceptPutPreparedStatementUpdate(
+      final CommandPreparedStatementUpdate commandPreparedStatementUpdate,
+      final CallContext callContext, final FlightStream flightStream,
+      final StreamListener<PutResult> streamListener) {
+    final ByteString handle = commandPreparedStatementUpdate.getPreparedStatementHandle();
+    final String query = Preconditions.checkNotNull(
+        preparedStatements.get(handle),
+        format("No query registered under handle: <%s>.", handle));
+
+    if (validateParameters(query, flightStream, streamListener)) {
+      return () -> { };
     }
 
     return acceptPutStatement(
@@ -407,8 +416,16 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
       final CommandPreparedStatementQuery commandPreparedStatementQuery,
       final CallContext callContext, final FlightStream flightStream,
       final StreamListener<PutResult> streamListener) {
-    // TODO Implement this method.
-    throw CallStatus.UNIMPLEMENTED.toRuntimeException();
+    final ByteString handle = commandPreparedStatementQuery.getPreparedStatementHandle();
+    final String query = Preconditions.checkNotNull(
+        preparedStatements.get(handle),
+        format("No query registered under handle: <%s>.", handle));
+
+    if (validateParameters(query, flightStream, streamListener)) {
+      return () -> { };
+    }
+
+    return streamListener::onCompleted;
   }
 
   @Override

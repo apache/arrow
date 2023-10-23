@@ -80,6 +80,21 @@ public class ArrowFlightPreparedStatementTest {
   }
 
   @Test
+  public void testQueryWithParameterBinding() throws SQLException {
+    final String query = CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD;
+    PRODUCER.addExpectedParameters(query,
+            new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
+            Collections.singletonList(Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8)))));
+    try (final PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+      preparedStatement.setString(1, "foo");
+      try (final ResultSet resultSet = preparedStatement.executeQuery()) {
+        CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
+      }
+    }
+  }
+
+
+  @Test
   @Ignore("https://github.com/apache/arrow/issues/34741: flaky test")
   public void testPreparedStatementExecutionOnce() throws SQLException {
     final PreparedStatement statement = connection.prepareStatement(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
