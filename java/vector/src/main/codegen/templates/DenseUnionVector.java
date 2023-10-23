@@ -730,8 +730,24 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
     if (count == 0) {
       return 0;
     }
-    return (int) (count * TYPE_WIDTH + (long) count * OFFSET_WIDTH
-        + DataSizeRoundingUtil.divideBy8Ceil(count) + internalStruct.getBufferSizeFor(count));
+
+    int[] counts = new int[Byte.MAX_VALUE + 1];
+    for (int i = 0; i < count; i++) {
+      byte typeId = getTypeId(i);
+      if (typeId != -1) {
+        counts[typeId] += 1;
+      }
+    }
+
+    long childBytes = 0;
+    for (int typeId = 0; typeId < childVectors.length; typeId++) {
+      ValueVector childVector = childVectors[typeId];
+      if (childVector != null) {
+        childBytes += childVector.getBufferSizeFor(counts[typeId]);
+      }
+    }
+
+    return (int) (count * TYPE_WIDTH + (long) count * OFFSET_WIDTH + childBytes);
   }
 
   @Override
