@@ -25,12 +25,13 @@ import java.util.stream.Stream;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.proto.Common;
 import org.apache.calcite.avatica.proto.Common.ColumnMetaData.Builder;
 
 /**
- * Convert Fields To Column MetaData List functions.
+ * Convert objects between Arrow and Avatica.
  */
 public final class ConvertUtils {
 
@@ -112,5 +113,24 @@ public final class ConvertUtils {
     if (searchable != null) {
       builder.setSearchable(searchable);
     }
+  }
+
+  /**
+   * Convert Fields To Avatica Parameters.
+   *
+   * @param fields list of {@link Field}.
+   * @return list of {@link AvaticaParameter}.
+   */
+  public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(final List<Field> fields) {
+    return fields.stream().map(field -> {
+      final boolean signed = ArrowToJdbcUtils.isSigned(field.getType().getTypeID());
+      final int precision = 0; // Would have to know about the actual number
+      final int scale = 0; // According to https://www.postgresql.org/docs/current/datatype-numeric.html
+      final int type = ArrowToJdbcUtils.toJdbcType(field.getType());
+      final String typeName = field.getType().toString();
+      final String clazz = ArrowToJdbcUtils.getClassName(field.getType());
+      final String name = field.getName();
+      return new AvaticaParameter(signed, precision, scale, type, typeName, clazz, name);
+    }).collect(Collectors.toList());
   }
 }

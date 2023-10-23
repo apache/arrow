@@ -17,15 +17,12 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
-import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaPreparedStatement;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.Meta.StatementHandle;
@@ -48,36 +45,6 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
       throws SQLException {
     super(connection, handle, signature, resultSetType, resultSetConcurrency, resultSetHoldability);
     this.preparedStatement = Preconditions.checkNotNull(preparedStatement);
-  }
-
-  /**
-   * Creates a new {@link ArrowFlightPreparedStatement} from the provided information.
-   *
-   * @param connection           the {@link Connection} to use.
-   * @param statementHandle      the {@link StatementHandle} to use.
-   * @param signature            the {@link Signature} to use.
-   * @param resultSetType        the ResultSet type.
-   * @param resultSetConcurrency the ResultSet concurrency.
-   * @param resultSetHoldability the ResultSet holdability.
-   * @return a new {@link PreparedStatement}.
-   * @throws SQLException on error.
-   */
-  static ArrowFlightPreparedStatement createNewPreparedStatement(
-      final ArrowFlightConnection connection,
-      final StatementHandle statementHandle,
-      final Signature signature,
-      final int resultSetType,
-      final int resultSetConcurrency,
-      final int resultSetHoldability) throws SQLException {
-
-    final ArrowFlightSqlClientHandler.PreparedStatement prepare = connection.getClientHandler().prepare(signature.sql);
-    final Schema resultSetSchema = prepare.getDataSetSchema();
-
-    signature.columns.addAll(ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
-
-    return new ArrowFlightPreparedStatement(
-        connection, prepare, statementHandle,
-        signature, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 
   static ArrowFlightPreparedStatement newPreparedStatement(final ArrowFlightConnection connection,
