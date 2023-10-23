@@ -43,8 +43,10 @@ import org.joda.time.format.DateTimeFormat;
 
 /**
  * Bind {@link TypedValue}s to a {@link VectorSchemaRoot}.
+ *
+ * NOTE: Make sure to close the parameters VectorSchemaRoot once we're done with them.
  */
-public class TypedValueBinder implements AutoCloseable {
+public class TypedValueBinder {
   private final PreparedStatement preparedStatement;
   private final VectorSchemaRoot parameters;
 
@@ -120,10 +122,5 @@ public class TypedValueBinder implements AutoCloseable {
       throw new RuntimeException(String.format("Value of type %s is not compatible with Arrow type %s",
               param.type, vector.getField().getType()));
     }
-  }
-
-  @Override
-  public void close() {
-    parameters.close();
   }
 }

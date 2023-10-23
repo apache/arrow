@@ -101,10 +101,9 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       throw new IllegalStateException("Prepared statement not found: " + statementHandle);
     }
 
-    try (final TypedValueBinder binder =
-                 new TypedValueBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator())) {
-      binder.bind(typedValues);
-    }
+    final TypedValueBinder binder =
+                 new TypedValueBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator());
+    binder.bind(typedValues);
 
     if (statementHandle.signature == null) {
       // Update query

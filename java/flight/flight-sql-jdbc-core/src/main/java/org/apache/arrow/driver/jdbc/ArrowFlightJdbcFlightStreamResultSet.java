@@ -153,11 +153,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
       currentVectorSchemaRoot = originalRoot;
     }
 
-    if (schema != null) {
-      execute(currentVectorSchemaRoot, schema);
-    } else {
-      execute(currentVectorSchemaRoot);
-    }
+    execute(currentVectorSchemaRoot, schema);
   }
 
   @Override
