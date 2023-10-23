@@ -69,7 +69,7 @@ namespace arrow::matlab::array::proxy {
         }
 
         std::stringstream ss;
-        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(arrow::PrettyPrint(*array, opts, &ss), context, "arrow:print:InternalError");
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(arrow::PrettyPrint(*array, opts, &ss), context, error::ARRAY_PRETTY_PRINT_FAILED);
         
         const auto str_utf8 = ss.str();
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
