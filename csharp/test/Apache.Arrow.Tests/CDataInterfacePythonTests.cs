@@ -99,8 +99,8 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("time64_us").DataType(new Time64Type(TimeUnit.Microsecond)).Nullable(false))
                     .Field(f => f.Name("time64_ns").DataType(new Time64Type(TimeUnit.Nanosecond)).Nullable(false))
 
-                    .Field(f => f.Name("timestamp_ns").DataType(new TimestampType(TimeUnit.Nanosecond, "")).Nullable(false))
-                    .Field(f => f.Name("timestamp_us").DataType(new TimestampType(TimeUnit.Microsecond, "")).Nullable(false))
+                    .Field(f => f.Name("timestamp_ns").DataType(new TimestampType(TimeUnit.Nanosecond, (string) null)).Nullable(false))
+                    .Field(f => f.Name("timestamp_us").DataType(new TimestampType(TimeUnit.Microsecond, (string) null)).Nullable(false))
                     .Field(f => f.Name("timestamp_us_paris").DataType(new TimestampType(TimeUnit.Microsecond, "Europe/Paris")).Nullable(true))
 
                     .Field(f => f.Name("list_string").DataType(new ListType(StringType.Default)).Nullable(false))
@@ -111,6 +111,16 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("dict_string").DataType(new DictionaryType(Int32Type.Default, StringType.Default, false)).Nullable(false))
                     .Field(f => f.Name("dict_string_ordered").DataType(new DictionaryType(Int32Type.Default, StringType.Default, true)).Nullable(false))
                     .Field(f => f.Name("list_dict_string").DataType(new ListType(new DictionaryType(Int32Type.Default, StringType.Default, false))).Nullable(false))
+
+                    .Field(f => f.Name("dense_union").DataType(new UnionType(new[] { new Field("i64", Int64Type.Default, false), new Field("f32", FloatType.Default, true), }, new[] { 0, 1 }, UnionMode.Dense)))
+                    .Field(f => f.Name("sparse_union").DataType(new UnionType(new[] { new Field("i32", Int32Type.Default, true), new Field("f64", DoubleType.Default, false), }, new[] { 0, 1 }, UnionMode.Sparse)))
+
+                    .Field(f => f.Name("map").DataType(new MapType(StringType.Default, Int32Type.Default)).Nullable(false))
+
+                    .Field(f => f.Name("duration_s").DataType(DurationType.Second).Nullable(false))
+                    .Field(f => f.Name("duration_ms").DataType(DurationType.Millisecond).Nullable(true))
+                    .Field(f => f.Name("duration_us").DataType(DurationType.Microsecond).Nullable(false))
+                    .Field(f => f.Name("duration_ns").DataType(DurationType.Nanosecond).Nullable(true))
 
                     // Checking wider characters.
                     .Field(f => f.Name("hello 你好 😄").DataType(BooleanType.Default).Nullable(true))
@@ -171,6 +181,16 @@ namespace Apache.Arrow.Tests
                 yield return pa.field("dict_string", pa.dictionary(pa.int32(), pa.utf8(), false), false);
                 yield return pa.field("dict_string_ordered", pa.dictionary(pa.int32(), pa.utf8(), true), false);
                 yield return pa.field("list_dict_string", pa.list_(pa.dictionary(pa.int32(), pa.utf8(), false)), false);
+
+                yield return pa.field("dense_union", pa.dense_union(List(pa.field("i64", pa.int64(), false), pa.field("f32", pa.float32(), true))));
+                yield return pa.field("sparse_union", pa.sparse_union(List(pa.field("i32", pa.int32(), true), pa.field("f64", pa.float64(), false))));
+
+                yield return pa.field("map", pa.map_(pa.@string(), pa.int32()), false);
+
+                yield return pa.field("duration_s", pa.duration("s"), false);
+                yield return pa.field("duration_ms", pa.duration("ms"), true);
+                yield return pa.field("duration_us", pa.duration("us"), false);
+                yield return pa.field("duration_ns", pa.duration("ns"), true);
 
                 yield return pa.field("hello 你好 😄", pa.bool_(), true);
             }
@@ -485,22 +505,34 @@ namespace Apache.Arrow.Tests
                         pa.array(List(0.0, 1.4, 2.5, 3.6, 4.7)),
                         pa.array(new PyObject[] { List(1, 2), List(3, 4), PyObject.None, PyObject.None, List(5, 4, 3) }),
                         pa.StructArray.from_arrays(
-                            new PyList(new PyObject[]
-                            {
+                            List(
                                 List(10, 9, null, null, null),
                                 List("banana", "apple", "orange", "cherry", "grape"),
-                                List(null, 4.3, -9, 123.456, 0),
-                            }),
+                                List(null, 4.3, -9, 123.456, 0)
+                            ),
                             new[] { "fld1", "fld2", "fld3" }),
                         pa.DictionaryArray.from_arrays(
                             pa.array(List(1, 0, 1, 1, null)),
-                            pa.array(List("foo", "bar"))
-                            ),
+                            pa.array(List("foo", "bar"))),
                         pa.FixedSizeListArray.from_arrays(
                             pa.array(List(1, 2, 3, 4, null, 6, 7, null, null, null)),
                             2),
+                        pa.UnionArray.from_dense(
+                            pa.array(List(0, 1, 1, 0, 0), type: "int8"),
+                            pa.array(List(0, 0, 1, 1, 2), type: "int32"),
+                            List(
+                                pa.array(List(1, 4, null)),
+                                pa.array(List("two", "three"))
+                            ),
+                            /* field name */ List("i32", "s"),
+                            /* type codes */ List(3, 2)),
+                        pa.MapArray.from_arrays(
+                            List(0, 0, 1, 2, 4, 10),
+                            pa.array(List("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")),
+                            pa.array(List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))),
+                        pa.array(List(1234, 2345, 3456, null, 6789), pa.duration("ms")),
                     }),
-                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8" });
+                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9", "col10", "col11" });
 
                 dynamic batch = table.to_batches()[0];
 
@@ -568,6 +600,18 @@ namespace Apache.Arrow.Tests
             Assert.Equal(new long[] { 1, 2, 3, 4, 0, 6, 7, 0, 0, 0 }, col8a.Values.ToArray());
             Assert.True(col8a.IsValid(3));
             Assert.False(col8a.IsValid(9));
+
+            UnionArray col9 = (UnionArray)recordBatch.Column("col9");
+            Assert.Equal(5, col9.Length);
+            Assert.True(col9 is DenseUnionArray);
+
+            MapArray col10 = (MapArray)recordBatch.Column("col10");
+            Assert.Equal(5, col10.Length);
+            Assert.Equal(new int[] { 0, 0, 1, 2, 4, 10}, col10.ValueOffsets.ToArray());
+            Assert.Equal(new long?[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }, ((Int64Array)col10.Values).ToList().ToArray());
+
+            DurationArray col11 = (DurationArray)recordBatch.Column("col11");
+            Assert.Equal(5, col11.Length);
         }
 
         [SkippableFact]
@@ -787,6 +831,11 @@ namespace Apache.Arrow.Tests
         private static PyObject List(params string[] values)
         {
             return new PyList(values.Select(i => i == null ? PyObject.None : new PyString(i)).ToArray());
+        }
+
+        private static PyObject List(params PyObject[] values)
+        {
+            return new PyList(values);
         }
 
         sealed class TestArrayStream : IArrowArrayStream

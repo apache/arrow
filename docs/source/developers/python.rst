@@ -717,6 +717,9 @@ Install the development version of PyArrow from `arrow-nightlies
 
     conda install -c arrow-nightlies pyarrow
 
+Note that this requires to use the ``conda-forge`` channel for all other
+packages (``conda config --add channels conda-forge``).
+
 Install the development version from an `alternative PyPI
 <https://gemfury.com/arrow-nightlies>`_ index:
 

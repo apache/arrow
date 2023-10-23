@@ -24,6 +24,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -65,11 +66,15 @@ class ParquetFormatHelper {
  public:
   using FormatType = ParquetFileFormat;
 
-  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
+  static Result<std::shared_ptr<Buffer>> Write(
+      RecordBatchReader* reader,
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+          default_arrow_writer_properties()) {
     auto pool = ::arrow::default_memory_pool();
     std::shared_ptr<Buffer> out;
     auto sink = CreateOutputStream(pool);
-    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink, default_writer_properties(),
+                                         arrow_properties));
     return sink->Finish();
   }
   static std::shared_ptr<ParquetFileFormat> MakeFormat() {
@@ -420,6 +425,32 @@ TEST_F(TestParquetFileSystemDataset, WriteWithEmptyPartitioningSchema) {
   TestWriteWithEmptyPartitioningSchema();
 }
 
+TEST_F(TestParquetFileSystemDataset, WriteWithEncryptionConfigNotSupported) {
+#ifndef PARQUET_REQUIRE_ENCRYPTION
+  // Create a dummy ParquetEncryptionConfig
+  std::shared_ptr<ParquetEncryptionConfig> encryption_config =
+      std::make_shared<ParquetEncryptionConfig>();
+
+  auto options =
+      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
+
+  // Set the encryption config in the options
+  options->parquet_encryption_config = encryption_config;
+
+  // Setup mock filesystem and test data
+  auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  std::shared_ptr<Schema> test_schema = schema({field("x", int32())});
+  std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(test_schema, "[[0]]");
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::OutputStream> out_stream,
+                       mock_fs->OpenOutputStream("/foo.parquet"));
+  // Try to create a writer with the encryption config
+  auto result =
+      format_->MakeWriter(out_stream, test_schema, options, {mock_fs, "/foo.parquet"});
+  // Expect an error if encryption is not supported in the build
+  EXPECT_TRUE(result.status().IsNotImplemented());
+#endif
+}
+
 class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper> {
  public:
   std::shared_ptr<RecordBatch> SingleBatch(std::shared_ptr<Fragment> fragment) {
@@ -701,6 +732,54 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDurationColumn) {
+  // GH-37111: Parquet arrow stores writer schema and possible field_id in
+  // key_value_metadata when store_schema enabled. When storing `arrow::duration`, it will
+  // be stored as int64. This test ensures that dataset can parse the writer schema
+  // correctly.
+  auto table = TableFromJSON(schema({field("t", duration(TimeUnit::NANO))}),
+                             {
+                                 R"([{"t": 1}])",
+                                 R"([{"t": 2}, {"t": 3}])",
+                             });
+  TableBatchReader table_reader(*table);
+  ASSERT_OK_AND_ASSIGN(
+      auto buffer,
+      ParquetFormatHelper::Write(
+          &table_reader, ArrowWriterProperties::Builder().store_schema()->build()));
+  auto source = std::make_shared<FileSource>(buffer);
+  SetSchema({field("t", duration(TimeUnit::NANO))});
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  auto expr = equal(field_ref("t"), literal(::arrow::DurationScalar(1, TimeUnit::NANO)));
+  CountRowGroupsInFragment(fragment, {0}, expr);
+}
+
+TEST_P(TestParquetFileFormatScan,
+       PredicatePushdownRowGroupFragmentsUsingTimestampColumn) {
+  // GH-37799: Parquet arrow will change TimeUnit::SECOND to TimeUnit::MILLI
+  // because parquet LogicalType doesn't support SECOND.
+  for (auto time_unit : {TimeUnit::MILLI, TimeUnit::SECOND}) {
+    auto table = TableFromJSON(schema({field("t", time32(time_unit))}),
+                               {
+                                   R"([{"t": 1}])",
+                                   R"([{"t": 2}, {"t": 3}])",
+                               });
+    TableBatchReader table_reader(*table);
+    ARROW_SCOPED_TRACE("time_unit=", time_unit);
+    ASSERT_OK_AND_ASSIGN(
+        auto source,
+        ParquetFormatHelper::Write(
+            &table_reader, ArrowWriterProperties::Builder().store_schema()->build())
+            .As<FileSource>());
+    SetSchema({field("t", time32(time_unit))});
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(source));
+
+    auto expr = equal(field_ref("t"), literal(::arrow::Time32Scalar(1, time_unit)));
+    CountRowGroupsInFragment(fragment, {0}, expr);
+  }
 }
 
 // Tests projection with nested/indexed FieldRefs.

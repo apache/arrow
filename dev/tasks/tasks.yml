@@ -82,8 +82,6 @@ groups:
 
   r:
     - test*-r-*
-    - homebrew-r-autobrew
-    - homebrew-r-brew
     # r-conda tasks
     - conda-linux-x64-cpu-r*
     - conda-linux-aarch64-cpu-r*
@@ -149,10 +147,7 @@ groups:
     - conan-*
     - conda-*
     - java-jars
-    # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
-    - homebrew-r-autobrew
-    - homebrew-r-brew
     - nuget
     - test-*
     - example-*
@@ -172,10 +167,7 @@ groups:
     - conda-*
     - conan-*
     - java-jars
-    # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
-    - homebrew-r-autobrew
-    - homebrew-r-brew
     - nuget
     - wheel-*
     - python-sdist
@@ -246,15 +238,15 @@ tasks:
   #   generated and to be synced regularly from the feedstock. We have no way
   #   yet to generate them inside the arrow repository automatically.
 
-  conda-linux-x64-cpu-r41:
+  conda-linux-x64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_64_cuda_compiler_versionNone
-      r_config: linux_64_r_base4.1
+      r_config: linux_64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-linux-x64-cpu-r42:
     ci: azure
@@ -292,15 +284,15 @@ tasks:
 
   ########################### Conda Linux (aarch64) ###########################
 
-  conda-linux-aarch64-cpu-r41:
+  conda-linux-aarch64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
       config: linux_aarch64_cuda_compiler_versionNone
-      r_config: linux_aarch64_r_base4.1
+      r_config: linux_aarch64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-linux-aarch64-cpu-r42:
     ci: azure
@@ -364,15 +356,15 @@ tasks:
 
   ############################## Conda OSX (x64) ##############################
 
-  conda-osx-x64-cpu-r41:
+  conda-osx-x64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_64_
-      r_config: osx_64_r_base4.1
+      r_config: osx_64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-osx-x64-cpu-r42:
     ci: azure
@@ -398,15 +390,15 @@ tasks:
 
   ############################# Conda OSX (arm64) #############################
 
-  conda-osx-arm64-cpu-r41:
+  conda-osx-arm64-cpu-r43:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
       config: osx_arm64_
-      r_config: osx_arm64_r_base4.1
+      r_config: osx_arm64_r_base4.3
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
-      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+      - r-arrow-{no_rc_version}-r43(h[a-z0-9]+)_0.conda
 
   conda-osx-arm64-cpu-r42:
     ci: azure
@@ -475,7 +467,8 @@ tasks:
 {% for python_version, python_tag, abi_tag in [("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
-                                               ("3.11", "cp311", "cp311")] %}
+                                               ("3.11", "cp311", "cp311"),
+                                               ("3.12", "cp312", "cp312")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -541,7 +534,7 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-macosx_11_0_arm64.whl
 
-{% for python_version, python_tag in [("3.9", "cp39"), ("3.10", "cp310"), ("3.11", "cp311")] %}
+{% for python_version, python_tag in [("3.9", "cp39"), ("3.10", "cp310"), ("3.11", "cp311"), ("3.12", "cp312")] %}
   wheel-macos-big-sur-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.arm64.yml
@@ -779,24 +772,6 @@ tasks:
     params:
       formula: apache-arrow.rb
 
-  homebrew-cpp-autobrew:
-    ci: github
-    template: homebrew-formulae/github.macos.yml
-    params:
-      formula: autobrew/apache-arrow.rb
-
-  homebrew-r-autobrew:
-    # This tests that the autobrew formula + script work in practice
-    ci: github
-    template: r/github.macos.autobrew.yml
-
-  homebrew-r-brew:
-    # This tests that the autobrew formula + script work in practice
-    ci: github
-    template: r/github.macos.brew.yml
-    params:
-      formula: apache-arrow.rb
-
   ############################## Arrow JAR's ##################################
 
   java-jars:
@@ -994,6 +969,10 @@ tasks:
       - r-lib__libarrow__bin__linux-openssl-1.0__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__linux-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__linux-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-arm64-openssl-1.1__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
+      - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.1__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__contrib__4.1__arrow_{no_rc_r_version}\.tgz
@@ -1255,14 +1234,15 @@ tasks:
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
 
-{% for python_version in ["3.8", "3.9", "3.10", "3.11"] %}
+{% for python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: "{{ python_version }}"
-        PYTEST_ARGS: "-W error"
+        # Temporarily disable error on Warning: https://github.com/apache/arrow/issues/38239
+        # PYTEST_ARGS: "-W error -W 'ignore:Setting custom ClientSession:DeprecationWarning'"
       image: conda-python
 {% endfor %}
 
@@ -1285,6 +1265,14 @@ tasks:
       env:
         PYTHON: "3.10"
       image: conda-python-substrait
+
+  test-conda-python-3.10-cython2:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: "3.10"
+      image: conda-python-cython2
 
   test-debian-11-python-3:
     ci: azure
@@ -1496,7 +1484,7 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: fedora-r-clang-sanitizer
 
-  {% for go_version, staticcheck in [("1.17", "v0.2.2"), ("1.20", "latest")] %}
+  {% for go_version, staticcheck in [("1.19", "v0.4.5"), ("1.21", "latest")] %}
   test-debian-11-go-{{ go_version }}:
     ci: azure
     template: docker-tests/azure.linux.yml
@@ -1599,9 +1587,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.8", "v3.4.1", "false", "latest"),
-                                                                           ("3.10", "v3.4.1", "false", "1.23"),
-                                                                           ("3.11", "master", "false", "latest")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version, jdk_version in [("3.8", "v3.5.0", "false", "latest", "8"),
+                                                                                        ("3.10", "v3.5.0", "false", "1.23", "8"),
+                                                                                        ("3.11", "master", "false", "latest", "17")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1611,6 +1599,7 @@ tasks:
         SPARK: "{{ spark_version }}"
         TEST_PYARROW_ONLY: "{{ test_pyarrow_only }}"
         NUMPY: "{{ numpy_version }}"
+        JDK: "{{ jdk_version }}"
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark

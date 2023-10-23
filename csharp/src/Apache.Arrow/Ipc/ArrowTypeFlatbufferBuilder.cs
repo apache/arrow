@@ -57,6 +57,7 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
@@ -67,6 +68,7 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
+            IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<NullType>
         {
             private FlatBufferBuilder Builder { get; }
@@ -120,7 +122,9 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(UnionType type)
             {
-                throw new NotImplementedException();
+                Result = FieldType.Build(
+                    Flatbuf.Type.Union,
+                    Flatbuf.Union.CreateUnion(Builder, ToFlatBuffer(type.Mode), Flatbuf.Union.CreateTypeIdsVector(Builder, type.TypeIds)));
             }
 
             public void Visit(StringType type)
@@ -185,6 +189,13 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Time.CreateTime(Builder, ToFlatBuffer(type.Unit), 64));
             }
 
+            public void Visit(DurationType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Duration,
+                    Flatbuf.Duration.CreateDuration(Builder, ToFlatBuffer(type.Unit)));
+            }
+
             public void Visit(StructType type)
             {
                 Flatbuf.Struct_.StartStruct_(Builder);
@@ -227,6 +238,13 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.FixedSizeBinary.CreateFixedSizeBinary(Builder, type.ByteWidth));
             }
 
+            public void Visit(MapType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Map,
+                    Flatbuf.Map.CreateMap(Builder, type.KeySorted));
+            }
+
             public void Visit(NullType type)
             {
                 Flatbuf.Null.StartNull(Builder);
@@ -237,7 +255,7 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(IArrowType type)
             {
-                throw new NotImplementedException();
+                throw new NotImplementedException($"Cannot visit type {type}");
             }
         }
 
@@ -278,6 +296,16 @@ namespace Apache.Arrow.Ipc
             }
 
             return result;
+        }
+
+        private static Flatbuf.UnionMode ToFlatBuffer(Types.UnionMode mode)
+        {
+            return mode switch
+            {
+                Types.UnionMode.Dense => Flatbuf.UnionMode.Dense,
+                Types.UnionMode.Sparse => Flatbuf.UnionMode.Sparse,
+                _ => throw new ArgumentException($"unsupported union mode <{mode}>", nameof(mode)),
+            };
         }
     }
 }

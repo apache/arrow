@@ -784,28 +784,28 @@ def test_parquet_scan_options():
     opts2 = ds.ParquetFragmentScanOptions(buffer_size=4096)
     opts3 = ds.ParquetFragmentScanOptions(
         buffer_size=2**13, use_buffered_stream=True)
-    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
+    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=False)
     opts5 = ds.ParquetFragmentScanOptions(
         thrift_string_size_limit=123456,
         thrift_container_size_limit=987654,)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
-    assert opts1.pre_buffer is False
+    assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
-    assert opts2.pre_buffer is False
+    assert opts2.pre_buffer is True
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
-    assert opts3.pre_buffer is False
+    assert opts3.pre_buffer is True
 
     assert opts4.use_buffered_stream is False
     assert opts4.buffer_size == 2**13
-    assert opts4.pre_buffer is True
+    assert opts4.pre_buffer is False
 
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
@@ -1615,9 +1615,13 @@ def test_fragments_repr(tempdir, dataset):
     # partitioned parquet dataset
     fragment = list(dataset.get_fragments())[0]
     assert (
+        # Ordering of partition items is non-deterministic
         repr(fragment) ==
         "<pyarrow.dataset.ParquetFileFragment path=subdir/1/xxx/file0.parquet "
-        "partition=[key=xxx, group=1]>"
+        "partition=[key=xxx, group=1]>" or
+        repr(fragment) ==
+        "<pyarrow.dataset.ParquetFileFragment path=subdir/1/xxx/file0.parquet "
+        "partition=[group=1, key=xxx]>"
     )
 
     # single-file parquet dataset (no partition information in repr)
@@ -2917,7 +2921,7 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
     _, path = _create_single_file(tempdir, table=table)
     child4 = ds.dataset(path)
 
-    with pytest.raises(pa.ArrowInvalid, match='Unable to merge'):
+    with pytest.raises(pa.ArrowTypeError, match='Unable to merge'):
         ds.dataset([child1, child4])
 
 
@@ -5403,6 +5407,38 @@ def test_write_dataset_preserve_field_metadata(tempdir):
                      schema=schema_metadata)
     dataset = ds.dataset(tempdir / "test3", format="parquet")
     assert dataset.to_table().schema.equals(schema_metadata, check_metadata=True)
+
+
+def test_write_dataset_write_page_index(tempdir):
+    for write_statistics in [True, False]:
+        for write_page_index in [True, False]:
+            schema = pa.schema([
+                pa.field("x", pa.int64()),
+                pa.field("y", pa.int64())])
+
+            arrays = [[1, 2, 3], [None, 5, None]]
+            table = pa.Table.from_arrays(arrays, schema=schema)
+
+            file_format = ds.ParquetFileFormat()
+            base_dir = tempdir / f"write_page_index_{write_page_index}"
+            ds.write_dataset(
+                table,
+                base_dir,
+                format="parquet",
+                file_options=file_format.make_write_options(
+                    write_statistics=write_statistics,
+                    write_page_index=write_page_index,
+                ),
+                existing_data_behavior='overwrite_or_ignore',
+            )
+            ds1 = ds.dataset(base_dir, format="parquet")
+
+            for file in ds1.files:
+                # Can retrieve sorting columns from metadata
+                metadata = pq.read_metadata(file)
+                cc = metadata.row_group(0).column(0)
+                assert cc.has_offset_index is write_page_index
+                assert cc.has_column_index is write_page_index & write_statistics
 
 
 @pytest.mark.parametrize('dstype', [

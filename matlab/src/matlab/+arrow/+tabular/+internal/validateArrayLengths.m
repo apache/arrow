@@ -24,14 +24,14 @@ function validateArrayLengths(arrowArrays)
         return;
     end
 
-    expectedLength = arrowArrays{1}.Length;
+    expectedNumElements = arrowArrays{1}.NumElements;
 
     for ii = 2:numel(arrowArrays)
-        if arrowArrays{ii}.Length ~= expectedLength
+        if arrowArrays{ii}.NumElements ~= expectedNumElements
             errid = "arrow:tabular:UnequalArrayLengths";
-            msg = compose("Expected all arrays to have a length of %d," + ...
-                " but the array at position %d has a length of %d.", ...
-                expectedLength, ii, arrowArrays{ii}.Length);
+            msg = compose("Expected all arrays to have %d elements," + ...
+                " but the array at position %d has %d elements.", ...
+                    expectedNumElements, ii, arrowArrays{ii}.NumElements);
             error(errid, msg);
         end
     end

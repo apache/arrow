@@ -48,6 +48,7 @@ Classes
    ParquetFileFormat
    ParquetReadOptions
    ParquetFragmentScanOptions
+   ParquetFileFragment
    OrcFileFormat
    Partitioning
    PartitioningFactory

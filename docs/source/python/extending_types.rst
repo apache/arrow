@@ -21,6 +21,8 @@
 Extending pyarrow
 =================
 
+.. _arrow_array_protocol:
+
 Controlling conversion to pyarrow.Array with the ``__arrow_array__`` protocol
 -----------------------------------------------------------------------------
 
@@ -45,6 +47,13 @@ define the ``__arrow_array__`` method to return an Arrow array::
 The ``__arrow_array__`` method takes an optional `type` keyword which is passed
 through from :func:`pyarrow.array`. The method is allowed to return either
 a :class:`~pyarrow.Array` or a :class:`~pyarrow.ChunkedArray`.
+
+.. note::
+
+    For a more general way to control the conversion of Python objects to Arrow
+    data consider the :doc:`/format/CDataInterface/PyCapsuleInterface`. It is
+    not specific to PyArrow and supports converting other objects such as tables
+    and schemas.
 
 
 Defining extension types ("user-defined types")
@@ -419,8 +428,8 @@ Extension arrays can be used as columns in  ``pyarrow.Table`` or
    f0: int8
    f1: string
    f2: bool
-   tensors_int: extension<arrow.fixed_size_tensor>
-   tensors_float: extension<arrow.fixed_size_tensor>
+   tensors_int: extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>
+   tensors_float: extension<arrow.fixed_shape_tensor[value_type=float, shape=[2,2]]>
    ----
    f0: [[1,2,3]]
    f1: [["foo","bar",null]]

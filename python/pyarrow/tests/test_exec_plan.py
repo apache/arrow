@@ -398,3 +398,17 @@ def test_table_join_asof_collisions():
     )
     with pytest.raises(ValueError, match=msg):
         _perform_join_asof(t1, "on", ["colA", "colB"], t2, "on", ["colA", "colB"], 1)
+
+
+def test_group_by_ordering():
+    # GH-36709 - preserve ordering in groupby by setting use_threads=False
+    table1 = pa.table({'a': [1, 2, 3, 4], 'b': ['a'] * 4})
+    table2 = pa.table({'a': [1, 2, 3, 4], 'b': ['b'] * 4})
+    table = pa.concat_tables([table1, table2])
+
+    for _ in range(50):
+        # 50 seems to consistently cause errors when order is not preserved.
+        # If the order problem is reintroduced this test will become flaky
+        # which is still a signal that the order is not preserved.
+        result = table.group_by("b", use_threads=False).aggregate([])
+        assert result["b"] == pa.chunked_array([["a"], ["b"]])

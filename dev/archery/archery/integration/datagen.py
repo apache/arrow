@@ -665,6 +665,26 @@ class LargeStringField(StringField):
         return OrderedDict([('name', 'largeutf8')])
 
 
+class BinaryViewField(BinaryField):
+
+    @property
+    def column_class(self):
+        return BinaryViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'binaryview')])
+
+
+class StringViewField(StringField):
+
+    @property
+    def column_class(self):
+        return StringViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'utf8view')])
+
+
 class Schema(object):
 
     def __init__(self, fields, metadata=None):
@@ -742,6 +762,74 @@ class LargeBinaryColumn(_BaseBinaryColumn, _LargeOffsetsMixin):
 
 class LargeStringColumn(_BaseStringColumn, _LargeOffsetsMixin):
     pass
+
+
+class BinaryViewColumn(PrimitiveColumn):
+
+    def _encode_value(self, x):
+        return frombytes(binascii.hexlify(x).upper())
+
+    def _get_buffers(self):
+        views = []
+        data_buffers = []
+        # a small default data buffer size is used so we can exercise
+        # arrays with multiple data buffers with small data sets
+        DEFAULT_BUFFER_SIZE = 32
+        INLINE_SIZE = 12
+
+        for i, v in enumerate(self.values):
+            if not self.is_valid[i]:
+                v = b''
+            assert isinstance(v, bytes)
+
+            if len(v) <= INLINE_SIZE:
+                # Append an inline view, skip data buffer management.
+                views.append(OrderedDict([
+                    ('SIZE', len(v)),
+                    ('INLINED', self._encode_value(v)),
+                ]))
+                continue
+
+            if len(data_buffers) == 0:
+                # No data buffers have been added yet;
+                # add this string whole (we may append to it later).
+                offset = 0
+                data_buffers.append(v)
+            elif len(data_buffers[-1]) + len(v) > DEFAULT_BUFFER_SIZE:
+                # Appending this string to the current active data buffer
+                # would overflow the default buffer size; add it whole.
+                offset = 0
+                data_buffers.append(v)
+            else:
+                # Append this string to the current active data buffer.
+                offset = len(data_buffers[-1])
+                data_buffers[-1] += v
+
+            # the prefix is always 4 bytes so it may not be utf-8
+            # even if the whole string view is
+            prefix = frombytes(binascii.hexlify(v[:4]).upper())
+
+            views.append(OrderedDict([
+                ('SIZE', len(v)),
+                ('PREFIX_HEX', prefix),
+                ('BUFFER_INDEX', len(data_buffers) - 1),
+                ('OFFSET', offset),
+            ]))
+
+        return [
+            ('VALIDITY', [int(x) for x in self.is_valid]),
+            ('VIEWS', views),
+            ('VARIADIC_DATA_BUFFERS', [
+                frombytes(binascii.hexlify(b).upper())
+                for b in data_buffers
+            ]),
+        ]
+
+
+class StringViewColumn(BinaryViewColumn):
+
+    def _encode_value(self, x):
+        return frombytes(x)
 
 
 class FixedSizeBinaryColumn(PrimitiveColumn):
@@ -1568,6 +1656,15 @@ def generate_run_end_encoded_case():
     return _generate_file("run_end_encoded", fields, batch_sizes)
 
 
+def generate_binary_view_case():
+    fields = [
+        BinaryViewField('bv'),
+        StringViewField('sv'),
+    ]
+    batch_sizes = [0, 7, 256]
+    return _generate_file("binary_view", fields, batch_sizes)
+
+
 def generate_nested_large_offsets_case():
     fields = [
         LargeListField('large_list_nullable', get_field('item', 'int32')),
@@ -1625,7 +1722,6 @@ def generate_dictionary_unsigned_case():
 
     # TODO: JavaScript does not support uint64 dictionary indices, so disabled
     # for now
-
     # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
     fields = [
         DictionaryField('f0', get_field('', 'uint8'), dict0),
@@ -1707,9 +1803,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_datetime_case(),
 
-        generate_duration_case()
-        .skip_tester('C#')
-        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
+        generate_duration_case(),
 
         generate_interval_case()
         .skip_tester('C#')
@@ -1719,8 +1813,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('C#')
         .skip_tester('JS'),
 
-        generate_map_case()
-        .skip_tester('C#'),
+        generate_map_case(),
 
         generate_non_canonical_map_case()
         .skip_tester('C#')
@@ -1736,8 +1829,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('C#')
         .skip_tester('JS'),
 
-        generate_unions_case()
-        .skip_tester('C#'),
+        generate_unions_case(),
 
         generate_custom_metadata_case()
         .skip_tester('C#'),
@@ -1759,6 +1851,14 @@ def get_generated_json_files(tempdir=None):
 
         generate_run_end_encoded_case()
         .skip_tester('C#')
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('Rust'),
+
+        generate_binary_view_case()
+        .skip_tester('C++')
+        .skip_tester('C#')
+        .skip_tester('Go')
         .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('Rust'),

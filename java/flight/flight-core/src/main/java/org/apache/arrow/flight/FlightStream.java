@@ -207,6 +207,8 @@ public class FlightStream implements AutoCloseable {
         } else {
           AutoCloseables.close(closeables);
         }
+        // Remove any metadata after closing to prevent negative refcnt
+        applicationMetadata = null;
       } finally {
         // The value of this CompletableFuture is meaningless, only whether it's completed (or has an exception)
         // No-op if already complete

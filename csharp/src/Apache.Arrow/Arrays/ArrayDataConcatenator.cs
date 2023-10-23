@@ -20,9 +20,9 @@ using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    static class ArrayDataConcatenator
+    public class ArrayDataConcatenator
     {
-        internal static ArrayData Concatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
+        public static ArrayData Concatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
         {
             if (arrayDataList == null || arrayDataList.Count == 0)
             {
@@ -49,7 +49,9 @@ namespace Apache.Arrow
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>,
+            IArrowTypeVisitor<MapType>
         {
             public ArrayData Result { get; private set; }
             private readonly IReadOnlyList<ArrayData> _arrayDataList;
@@ -91,15 +93,7 @@ namespace Apache.Arrow
 
             public void Visit(StringType type) => ConcatenateVariableBinaryArrayData(type);
 
-            public void Visit(ListType type)
-            {
-                CheckData(type, 2);
-                ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
-                ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
-                ArrayData child = Concatenate(SelectChildren(0), _allocator);
-
-                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { child });
-            }
+            public void Visit(ListType type) => ConcatenateLists(type);
 
             public void Visit(FixedSizeListType type)
             {
@@ -113,6 +107,7 @@ namespace Apache.Arrow
             public void Visit(StructType type)
             {
                 CheckData(type, 1);
+                ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
                 List<ArrayData> children = new List<ArrayData>(type.Fields.Count);
 
                 for (int i = 0; i < type.Fields.Count; i++)
@@ -120,8 +115,37 @@ namespace Apache.Arrow
                     children.Add(Concatenate(SelectChildren(i), _allocator));
                 }
 
-                Result = new ArrayData(type, _arrayDataList[0].Length, _arrayDataList[0].NullCount, 0, _arrayDataList[0].Buffers, children);
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, children);
             }
+
+            public void Visit(UnionType type)
+            {
+                int bufferCount = type.Mode switch
+                {
+                    UnionMode.Sparse => 1,
+                    UnionMode.Dense => 2,
+                    _ => throw new InvalidOperationException("TODO"),
+                };
+
+                CheckData(type, bufferCount);
+                List<ArrayData> children = new List<ArrayData>(type.Fields.Count);
+
+                for (int i = 0; i < type.Fields.Count; i++)
+                {
+                    children.Add(Concatenate(SelectChildren(i), _allocator));
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[bufferCount];
+                buffers[0] = ConcatenateUnionTypeBuffer();
+                if (bufferCount > 1)
+                {
+                    buffers[1] = ConcatenateUnionOffsetBuffer();
+                }
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, buffers, children);
+            }
+
+            public void Visit(MapType type) => ConcatenateLists(type.UnsortedKey()); /* Can't tell if the output is still sorted */
 
             public void Visit(IArrowType type)
             {
@@ -145,6 +169,16 @@ namespace Apache.Arrow
                 ArrowBuffer valueBuffer = ConcatenateVariableBinaryValueBuffer();
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer, valueBuffer });
+            }
+
+            private void ConcatenateLists(NestedType type)
+            {
+                CheckData(type, 2);
+                ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
+                ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
+                ArrayData child = Concatenate(SelectChildren(0), _allocator);
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { child });
             }
 
             private ArrowBuffer ConcatenateValidityBuffer()
@@ -226,6 +260,38 @@ namespace Apache.Arrow
 
                     // The next offset must start from the current last offset.
                     baseOffset += span[arrayData.Length - 1];
+                }
+
+                return builder.Build(_allocator);
+            }
+
+            private ArrowBuffer ConcatenateUnionTypeBuffer()
+            {
+                var builder = new ArrowBuffer.Builder<byte>(_totalLength);
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    builder.Append(arrayData.Buffers[0]);
+                }
+
+                return builder.Build(_allocator);
+            }
+
+            private ArrowBuffer ConcatenateUnionOffsetBuffer()
+            {
+                var builder = new ArrowBuffer.Builder<int>(_totalLength);
+                int baseOffset = 0;
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>();
+                    foreach (int offset in span)
+                    {
+                        builder.Append(baseOffset + offset);
+                    }
+
+                    // The next offset must start from the current last offset.
+                    baseOffset += span[arrayData.Length];
                 }
 
                 return builder.Build(_allocator);

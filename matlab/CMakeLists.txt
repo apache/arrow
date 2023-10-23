@@ -34,8 +34,9 @@ function(build_arrow)
 
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
   set(ARROW_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-build")
-  set(ARROW_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}"
-                       "-DCMAKE_INSTALL_LIBDIR=lib" "-DARROW_BUILD_STATIC=OFF")
+  set(ARROW_CMAKE_ARGS
+      "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=lib"
+      "-DARROW_BUILD_STATIC=OFF" "-DARROW_CSV=ON")
 
   add_library(arrow_shared SHARED IMPORTED)
   set(ARROW_LIBRARY_TARGET arrow_shared)

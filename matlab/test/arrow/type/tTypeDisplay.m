@@ -50,6 +50,10 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %
             %    ID
 
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+            import arrow.internal.test.display.makeDimensionString
+
             type = arrow.type.Type.empty(0, 1);
             typeLink = makeLinkString(FullClassName="arrow.type.Type", ClassName="Type", BoldFont=true);
             dimensionString = makeDimensionString(size(type));
@@ -59,7 +63,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
-            testCase.verifyDisplay(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
         end
 
         function NonScalarArrayDifferentTypes(testCase)
@@ -70,6 +74,10 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %  1×2 heterogeneous FixedWidthType (Float32Type, TimestampType) array with properties:
             %
             %    ID
+
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+            import arrow.internal.test.display.makeDimensionString
 
             float32Type = arrow.float32();
             timestampType = arrow.timestamp();
@@ -88,7 +96,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(typeArray)');
-            testCase.verifyDisplay(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
         end
 
         function NonScalarArraySameTypes(testCase)
@@ -102,6 +110,10 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %    TimeUnit
             %    TimeZone 
 
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+            import arrow.internal.test.display.makeDimensionString
+
             timestampType1 = arrow.timestamp(TimeZone="Pacific/Fiji");
             timestampType2 = arrow.timestamp(TimeUnit="Second");
             typeArray = [timestampType1 timestampType2];
@@ -114,7 +126,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(typeArray)');
-            testCase.verifyDisplay(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
         end
 
         function TestTypeDisplaysOnlyID(testCase, TypeDisplaysOnlyID)
@@ -127,6 +139,9 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %
             %          ID: Boolean
 
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+
             type = TypeDisplaysOnlyID;
             fullClassName = string(class(type));
             className = reverse(extractBefore(reverse(fullClassName), "."));
@@ -136,7 +151,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
-            testCase.verifyDisplay(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
         end
 
         function TestTimeType(testCase, TimeType)
@@ -148,6 +163,9 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %
             %          ID: Time32
             %    TimeUnit: Second
+
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
 
             type = TimeType;
             fullClassName = string(class(type));
@@ -161,7 +179,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
         end
 
         function TestDateType(testCase, DateType)
@@ -173,6 +191,9 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %
             %          ID: Date32
             %    DateUnit: Day
+
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
 
             type = DateType;
             fullClassName = string(class(type));
@@ -186,7 +207,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
         end
 
         function TimestampTypeDisplay(testCase)
@@ -200,6 +221,9 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %    TimeUnit: Second
             %    TimeZone: "America/Anchorage"
 
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+
             type = arrow.timestamp(TimeUnit="Second", TimeZone="America/Anchorage"); %#ok<NASGU>
             classnameLink = makeLinkString(FullClassName="arrow.type.TimestampType", ClassName="TimestampType", BoldFont=true);
             header = "  " + classnameLink + " with properties:" + newline;
@@ -209,7 +233,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
         end
 
         function StructTypeDisplay(testCase)
@@ -221,6 +245,10 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             %
             %          ID: Struct
             %      Fields: [1x2 arrow.type.Field]
+
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+            import arrow.internal.test.display.makeDimensionString
 
             fieldA = arrow.field("A", arrow.int32());
             fieldB = arrow.field("B", arrow.timestamp(TimeZone="America/Anchorage"));
@@ -235,48 +263,36 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
-            testCase.verifyDisplay(actualDisplay, expectedDisplay);
+            verify(testCase, actualDisplay, expectedDisplay);
+        end
+
+        function ListTypeDisplay(testCase)
+            % Verify the display of ListType objects.
+            %
+            % Example:
+            %
+            %  ListType with properties:
+            %
+            %          ID: Struct
+            %   ValueType: [1x1 arrow.type.StringType]
+
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+            import arrow.internal.test.display.makeDimensionString
+
+            valueType = arrow.string();
+            type = arrow.list(valueType); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.type.ListType", ClassName="ListType", BoldFont=true);
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad(["ID:"; "ValueType:"]));
+            dimensionString = makeDimensionString([1 1]);
+            typeString = compose("[%s %s]", dimensionString, string(class(valueType)));
+            body = body + " " + ["List"; typeString];
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            verify(testCase, actualDisplay, expectedDisplay);
         end
     end
-
-    methods
-        function verifyDisplay(testCase, actualDisplay, expectedDisplay)
-            % When the MATLAB GUI is running, '×' (char(215)) is used as
-            % the delimiter between dimension values. However, when the 
-            % GUI is not running, 'x' (char(120)) is used as the delimiter.
-            % To account for this discrepancy, check if actualDisplay 
-            % contains char(215). If not, replace all instances of
-            % char(215) in expectedDisplay with char(120).
-
-            tf = contains(actualDisplay, char(215));
-            if ~tf
-                idx = strfind(expectedDisplay, char(215));
-                expectedDisplay(idx) = char(120);
-            end
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
-    end
-end
-
-function link = makeLinkString(opts)
-    arguments
-        opts.FullClassName(1, 1) string
-        opts.ClassName(1, 1) string
-        % When displaying heterogeneous arrays, only the name of the 
-        % closest shared anscestor class is displayed in bold. All other
-        % class names are not bolded.
-        opts.BoldFont(1, 1) logical
-    end
-
-    if opts.BoldFont
-        link = compose("<a href=""matlab:helpPopup %s"" style=""font-weight:bold"">%s</a>", ...
-            opts.FullClassName, opts.ClassName);
-    else
-        link = compose("<a href=""matlab:helpPopup %s"">%s</a>", opts.FullClassName, opts.ClassName);
-    end
-end
-
-function dimensionString = makeDimensionString(arraySize)
-    dimensionString = string(arraySize);
-    dimensionString = join(dimensionString, char(215));
 end

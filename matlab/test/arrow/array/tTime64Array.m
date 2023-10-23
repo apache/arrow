@@ -73,20 +73,20 @@ classdef tTime64Array < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:validate:temporal:UnsupportedTime64TimeUnit");
         end
 
-        function TestLength(testCase)
-            % Verify the Length property.
+        function TestNumElements(testCase)
+            % Verify the NumElements property.
 
             times = duration.empty(0, 1);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
 
             times = duration(1, 2, 3);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(1));
+            testCase.verifyEqual(array.NumElements, int64(1));
 
             times = duration(1, 2, 3) + hours(0:4);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(5));
+            testCase.verifyEqual(array.NumElements, int64(5));
         end
 
         function TestToMATLAB(testCase, Unit)
@@ -170,14 +170,14 @@ classdef tTime64Array < matlab.unittest.TestCase
 
             times = duration.empty(0, 0);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
             testCase.verifyEqual(array.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(array), duration.empty(0, 1));
 
             % Test with an N-Dimensional empty array
             times = duration.empty(0, 1, 0);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
             testCase.verifyEqual(array.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(array), duration.empty(0, 1));
         end
@@ -229,7 +229,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             % Verifies arrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. They have the same length (i.e. their Length properties are equal)
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
             %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
             %  4. All corresponding valid elements have the same values
             
@@ -269,7 +269,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % Their Length properties are not equal
+            % Their NumElements properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
             % Comparing an arrow.array.Array to a MATLAB double
