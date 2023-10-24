@@ -151,24 +151,13 @@ struct DefaultValueComparator : public ValueComparator {
 
   ~DefaultValueComparator() override = default;
 
-  /// \brief Compare validity bits of base[base_index] and target[target_index]
-  ///
-  /// \return std::nullopt if the validity bits differ, otherwise a bool
-  /// containing the validity bit found in both arrays.
-  static std::optional<bool> ValidityIfEquals(const ArrayType& base, int64_t base_index,
-                                              const ArrayType& target,
-                                              int64_t target_index) {
+  bool Equals(int64_t base_index, int64_t target_index) override {
     const bool base_valid = base.IsValid(base_index);
     const bool target_valid = target.IsValid(target_index);
-    return base_valid ^ target_valid ? std::nullopt : std::optional<bool>{base_valid};
-  }
-
-  bool Equals(int64_t base_index, int64_t target_index) override {
-    const auto valid = ValidityIfEquals(base, base_index, target, target_index);
-    if (valid.has_value()) {
-      return *valid ? GetView(base, base_index) == GetView(target, target_index) : true;
+    if (base_valid && target_valid) {
+      return GetView(base, base_index) == GetView(target, target_index);
     }
-    return false;
+    return base_valid == target_valid;
   }
 };
 
