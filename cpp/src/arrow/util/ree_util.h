@@ -188,7 +188,7 @@ struct PhysicalIndexFinder {
 
   /// \brief Find the physical index into the values array of the REE array.
   ///
-  /// \pre 0 <= i < array_span_.length()
+  /// \pre 0 <= i < array_span.length()
   /// \param i the logical index into the REE array
   /// \return the physical index into the values array
   int64_t FindPhysicalIndex(int64_t i) {
