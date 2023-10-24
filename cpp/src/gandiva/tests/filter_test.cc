@@ -42,8 +42,8 @@ class TestFilter : public ::testing::Test {
 
 TEST_F(TestFilter, TestFilterCache) {
   // schema for input fields
-  auto field0 = field("f0", int32());
-  auto field1 = field("f1", int32());
+  auto field0 = field("f0_filter_cache", int32());
+  auto field1 = field("f1_filter_cache", int32());
   auto schema = arrow::schema({field0, field1});
 
   // Build condition f0 + f1 < 10
@@ -69,7 +69,7 @@ TEST_F(TestFilter, TestFilterCache) {
   EXPECT_TRUE(cached_filter->GetBuiltFromCache());
 
   // schema is different should return a new filter.
-  auto field2 = field("f2", int32());
+  auto field2 = field("f2_filter_cache", int32());
   auto different_schema = arrow::schema({field0, field1, field2});
   std::shared_ptr<Filter> should_be_new_filter;
   status =
