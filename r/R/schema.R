@@ -294,6 +294,22 @@ names.Schema <- function(x) x$names
 #' @export
 length.Schema <- function(x) x$num_fields
 
+#' Extract code required to specify a schema
+#'
+#' This can be useful when creating a custom schema using the inferred schema as a starting point.
+#'
+#' @param schema An Arrow Schema
+#' @param namespace Prefix type function calls with the arrow namespace?
+#'
+#' @export
+#'
+#' @examples
+#' my_schema <- schema(x = int8(), y = string())
+#' extract_schema_code(my_schema)
+extract_schema_code <- function(schema, namespace = FALSE){
+  schema$code(namespace)
+}
+
 #' @export
 `[[.Schema` <- function(x, i, ...) {
   if (is.character(i)) {
