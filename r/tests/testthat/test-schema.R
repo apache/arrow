@@ -39,8 +39,14 @@ test_that("Schema print method", {
 })
 
 test_that("Schema$code()", {
-  expect_code_roundtrip(
-    schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
+
+  test_schema <- schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
+
+  expect_code_roundtrip(test_schema)
+
+  expect_equal(
+    eval(extract_schema_code(test_schema)),
+    test_schema
   )
 
   skip_if(packageVersion("rlang") < "1")

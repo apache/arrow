@@ -2,7 +2,7 @@
 % Please edit documentation in R/schema.R
 \name{extract_schema_code}
 \alias{extract_schema_code}
-\title{Extract code required to specify a schema}
+\title{Extract code required to generate a schema}
 \usage{
 extract_schema_code(schema, namespace = FALSE)
 }

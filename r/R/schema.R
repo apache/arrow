@@ -294,7 +294,7 @@ names.Schema <- function(x) x$names
 #' @export
 length.Schema <- function(x) x$num_fields
 
-#' Extract code required to specify a schema
+#' Extract code required to generate a schema
 #'
 #' This can be useful when creating a custom schema using the inferred schema as a starting point.
 #'
