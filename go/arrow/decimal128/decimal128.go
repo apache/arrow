@@ -275,12 +275,11 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		n = FromBigInt(val)
 		n, _ = n.Div(scaleMultipliers[-scale])
 	} else {
-
 		// Since we're going to truncate this to get an integer, we need to round
 		// the value instead because of edge cases so that we match how other implementations
 		// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
 		// we're positive we'll add 0.5.
-		p := (&big.Float{}).SetFloat64(float64PowersOfTen[scale+38])
+		p := (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt())
 		out.Mul(out, p).SetPrec(precInBits)
 		if out.Signbit() {
 			out.Sub(out, pt5)

@@ -164,7 +164,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 
 		n, _ = n.Div(scaleMultipliers[-scale])
 	} else {
-		out.Mul(out, (&big.Float{}).SetFloat64(float64PowersOfTen[scale+76])).SetPrec(precInBits)
+		out.Mul(out, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt())).SetPrec(precInBits)
 		// Since we're going to truncate this to get an integer, we need to round
 		// the value instead because of edge cases so that we match how other implementations
 		// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
