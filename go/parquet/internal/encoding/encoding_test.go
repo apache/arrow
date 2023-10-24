@@ -594,6 +594,28 @@ func TestWriteDeltaBitPackedInt32(t *testing.T) {
 			assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
 		}
 	})
+
+	t.Run("test decoding multiple pages", func(t *testing.T) {
+		values := make([]int32, 1000)
+		testutils.FillRandomInt32(0, values)
+
+		enc := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
+		enc.(encoding.Int32Encoder).Put(values)
+		buf, _ := enc.FlushValues()
+		defer buf.Release()
+
+		// Using same Decoder to decode the data.
+		dec := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
+		for i := 0; i < 5; i += 1 {
+			dec.(encoding.Int32Decoder).SetData(len(values), buf.Bytes())
+
+			valueBuf := make([]int32, 100)
+			for i, j := 0, len(valueBuf); j <= len(values); i, j = i+len(valueBuf), j+len(valueBuf) {
+				dec.(encoding.Int32Decoder).Decode(valueBuf)
+				assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
+			}
+		}
+	})
 }
 
 func TestWriteDeltaBitPackedInt64(t *testing.T) {
@@ -669,6 +691,28 @@ func TestWriteDeltaBitPackedInt64(t *testing.T) {
 		decoded, _ := dec.(encoding.Int64Decoder).Decode(valueBuf)
 		assert.Equal(t, len(valueBuf), decoded)
 		assert.Equal(t, values, valueBuf)
+	})
+
+	t.Run("test decoding multiple pages", func(t *testing.T) {
+		values := make([]int64, 1000)
+		testutils.FillRandomInt64(0, values)
+
+		enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
+		enc.(encoding.Int64Encoder).Put(values)
+		buf, _ := enc.FlushValues()
+		defer buf.Release()
+
+		// Using same Decoder to decode the data.
+		dec := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
+		for i := 0; i < 5; i += 1 {
+			dec.(encoding.Int64Decoder).SetData(len(values), buf.Bytes())
+
+			valueBuf := make([]int64, 100)
+			for i, j := 0, len(valueBuf); j <= len(values); i, j = i+len(valueBuf), j+len(valueBuf) {
+				dec.(encoding.Int64Decoder).Decode(valueBuf)
+				assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
+			}
+		}
 	})
 }
 
