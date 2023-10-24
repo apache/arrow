@@ -70,6 +70,13 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+def ensure_s3_finalized():
+    """
+    Finalize S3 if already initialized
+    """
+    check_status(CEnsureS3Finalized())
+
+
 def resolve_s3_region(bucket):
     """
     Resolve the S3 region of a bucket.
@@ -92,6 +99,8 @@ def resolve_s3_region(bucket):
     cdef:
         c_string c_bucket
         c_string c_region
+
+    ensure_s3_initialized()
 
     c_bucket = tobytes(bucket)
     with nogil:
@@ -260,6 +269,8 @@ cdef class S3FileSystem(FileSystem):
                  load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
+        ensure_s3_initialized()
+
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
