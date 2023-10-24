@@ -541,6 +541,14 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- Utilize the bill of materials in sub-modules -->
+      <dependency>
+        <groupId>org.apache.arrow</groupId>
+        <artifactId>arrow-bom</artifactId>
+        <version>${project.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>com.google.flatbuffers</groupId>
         <artifactId>flatbuffers-java</artifactId>
@@ -716,6 +724,7 @@
   </reporting>
 
   <modules>
+    <module>bom</module>
     <module>format</module>
     <module>memory</module>
     <module>vector</module>
