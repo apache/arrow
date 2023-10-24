@@ -132,14 +132,13 @@ static void ReferenceStreamingCompression(
   StreamingCompression(COMPRESSION, data, state);
 }
 
-int64_t NonStreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
-                             std::vector<uint8_t>* compressed_data) {
+int64_t Compress(Codec* codec, const std::vector<uint8_t>& data,
+                 std::vector<uint8_t>* compressed_data) {
   const uint8_t* input = data.data();
   int64_t input_len = data.size();
   int64_t compressed_size = 0;
-  int64_t max_compress_len =
-      codec->MaxCompressedLen(static_cast<int64_t>(data.size()), data.data());
-  compressed_data->resize(max_compress_len);
+  int64_t max_compressed_len = codec->MaxCompressedLen(input_len, input);
+  compressed_data->resize(max_compressed_len);
 
   if (input_len > 0) {
     compressed_size = *codec->Compress(input_len, input, compressed_data->size(),
@@ -157,9 +156,9 @@ static void ReferenceCompression(benchmark::State& state) {  // NOLINT non-const
 
   while (state.KeepRunning()) {
     std::vector<uint8_t> compressed_data;
-    ARROW_UNUSED(NonStreamingCompress(codec.get(), data, &compressed_data));
+    auto compressed_size = Compress(codec.get(), data, &compressed_data);
     state.counters["ratio"] =
-        static_cast<double>(data.size()) / static_cast<double>(compressed_data.size());
+        static_cast<double>(data.size()) / static_cast<double>(compressed_size);
   }
   state.SetBytesProcessed(state.iterations() * data.size());
 }
@@ -214,7 +213,7 @@ static void ReferenceDecompression(
   auto codec = *Codec::Create(COMPRESSION);
 
   std::vector<uint8_t> compressed_data;
-  ARROW_UNUSED(NonStreamingCompress(codec.get(), data, &compressed_data));
+  ARROW_UNUSED(Compress(codec.get(), data, &compressed_data));
   state.counters["ratio"] =
       static_cast<double>(data.size()) / static_cast<double>(compressed_data.size());
 
