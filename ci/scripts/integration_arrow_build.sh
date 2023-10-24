@@ -28,28 +28,28 @@ build_dir=${2}
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
-${arrow_dir}/ci/scripts/rust_build.sh /arrow /build
+${arrow_dir}/ci/scripts/rust_build.sh ${arrow_dir} ${build_dir}
 
 if [ "${ARROW_INTEGRATION_CPP}" == "ON" ]; then
-    ${arrow_dir}/ci/scripts/cpp_build.sh /arrow /build
+    ${arrow_dir}/ci/scripts/cpp_build.sh ${arrow_dir} ${build_dir}
 fi
 
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
-    ${arrow_dir}/ci/scripts/csharp_build.sh /arrow /build
+    ${arrow_dir}/ci/scripts/csharp_build.sh ${arrow_dir} ${build_dir}
 fi
 
 if [ "${ARROW_INTEGRATION_GO}" == "ON" ]; then
-    ${arrow_dir}/ci/scripts/go_build.sh /arrow /build
+    ${arrow_dir}/ci/scripts/go_build.sh ${arrow_dir} ${build_dir}
 fi
 
 if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     export ARROW_JAVA_CDATA="ON"
     export JAVA_JNI_CMAKE_ARGS="-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF -DARROW_JAVA_JNI_ENABLE_C=ON"
 
-    ${arrow_dir}/ci/scripts/java_jni_build.sh /arrow ${ARROW_HOME} /build /tmp/dist/java/$(arch)
-    ${arrow_dir}/ci/scripts/java_build.sh /arrow /build /tmp/dist/java
+    ${arrow_dir}/ci/scripts/java_jni_build.sh ${arrow_dir} ${ARROW_HOME} ${build_dir} /tmp/dist/java/$(arch)
+    ${arrow_dir}/ci/scripts/java_build.sh ${arrow_dir} ${build_dir} /tmp/dist/java
 fi
 
 if [ "${ARROW_INTEGRATION_JS}" == "ON" ]; then
-    ${arrow_dir}/ci/scripts/js_build.sh /arrow /build
+    ${arrow_dir}/ci/scripts/js_build.sh ${arrow_dir} ${build_dir}
 fi
