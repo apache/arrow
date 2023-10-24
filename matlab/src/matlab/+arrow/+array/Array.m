@@ -75,7 +75,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         function displayScalarObject(obj)
             disp(getHeader(obj));
             if obj.NumElements > 0
-                disp("    " + toString(obj) + newline);
+                disp(toString(obj) + newline);
             end
         end
     end
