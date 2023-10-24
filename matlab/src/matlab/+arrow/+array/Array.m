@@ -69,13 +69,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             % avoid materializing the Valid property. This will improve
             % performance for large arrays.
             numNulls = nnz(~obj.Valid);
-
-            elementString = pluralizeStringIfNeeded(numElements, "element");
-            nullString = pluralizeStringIfNeeded(numNulls, "null value");
-            formatSpec = getFormatSpec(numElements);
-            header = compose(formatSpec, name, numElements, elementString, ...
-                numNulls, nullString);
-            header = char(header);
+            header = arrow.array.internal.display.getHeader(name, numElements, numNulls);
         end
 
         function displayScalarObject(obj)
@@ -103,25 +97,5 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             % Invoke isEqual proxy object method
             tf = obj.Proxy.isEqual(proxyIDs);
         end
-    end
-end
-
-function str = pluralizeStringIfNeeded(num, str)
-    if num ~= 1
-        str = str + "s";
-    end
-end
-
-function formatSpec = getFormatSpec(numElems)
-    if usejava("desktop")
-        % Bold the number of elements and nulls if the desktop is enabled
-        numString = "<strong>%d</strong>";
-    else
-        numString = "%d";
-    end
-    if numElems > 0
-        formatSpec = "  %s with " + numString + " %s and " + numString + " %s:" + newline;
-    else
-        formatSpec = "  %s with " + numString + " %s and " + numString + " %s" + newline;
     end
 end

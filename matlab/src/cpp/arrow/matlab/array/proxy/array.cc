@@ -57,7 +57,7 @@ namespace arrow::matlab::array::proxy {
         if (arrow::is_primitive(type_id) || arrow::is_string(type_id)) {
             /* 
              * Display primitive and string types horizontally without 
-             * opening and opening delimiters. Use " | " as the delimiter
+             * opening and closing delimiters. Use " | " as the delimiter
              * between elments. Below is an example Int32Array display:
              *
              *    1 | 2 | 3 | ... | 6 | 7 | 8

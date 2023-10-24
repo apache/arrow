@@ -134,7 +134,6 @@ classdef tArrayDisplay < matlab.unittest.TestCase
     end
 
     methods (Test)
-        % Test methods
 
         function DisplayEmptyArray(testCase, EmptyArray)
             import arrow.internal.test.display.makeLinkString
