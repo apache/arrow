@@ -659,6 +659,7 @@ func TestFromString(t *testing.T) {
 		{"1e-37", 1, 37},
 		{"2112.33", 211233, 2},
 		{"-2112.33", -211233, 2},
+		{"12E2", 12, -2},
 	}
 
 	for _, tt := range tests {

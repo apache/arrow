@@ -266,23 +266,36 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		return
 	}
 
-	// Since we're going to truncate this to get an integer, we need to round
-	// the value instead because of edge cases so that we match how other implementations
-	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
-	// we're positive we'll add 0.5.
-	out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits)
-	if out.Signbit() {
-		out.Sub(out, pt5)
+	if scale < 0 {
+		var tmp big.Int
+		val, _ := out.Int(&tmp)
+		if val.BitLen() > 127 {
+			return Num{}, errors.New("bitlen too large for decimal128")
+		}
+		n = FromBigInt(val)
+		n, _ = n.Div(scaleMultipliers[-scale])
 	} else {
-		out.Add(out, pt5)
+
+		// Since we're going to truncate this to get an integer, we need to round
+		// the value instead because of edge cases so that we match how other implementations
+		// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
+		// we're positive we'll add 0.5.
+		p := (&big.Float{}).SetFloat64(float64PowersOfTen[scale+38])
+		out.Mul(out, p).SetPrec(precInBits)
+		if out.Signbit() {
+			out.Sub(out, pt5)
+		} else {
+			out.Add(out, pt5)
+		}
+
+		var tmp big.Int
+		val, _ := out.Int(&tmp)
+		if val.BitLen() > 127 {
+			return Num{}, errors.New("bitlen too large for decimal128")
+		}
+		n = FromBigInt(val)
 	}
 
-	var tmp big.Int
-	val, _ := out.Int(&tmp)
-	if val.BitLen() > 127 {
-		return Num{}, errors.New("bitlen too large for decimal128")
-	}
-	n = FromBigInt(val)
 	if !n.FitsInPrecision(prec) {
 		err = fmt.Errorf("val %v doesn't fit in precision %d", n, prec)
 	}
