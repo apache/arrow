@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.util.Random;
 
 /**
  * Helper class to generate test data for Nullable fixed and variable
@@ -91,6 +92,13 @@ public class GenerateSampleData {
       writeUInt4Data((UInt4Vector) vector, valueCount);
     } else if (vector instanceof UInt8Vector) {
       writeUInt8Data((UInt8Vector) vector, valueCount);
+    }
+  }
+
+  /** Populates <code>vector</code> with <code>valueCount</code> random values. */
+  public static void generateRandomTestData(final ValueVector vector, final int valueCount) {
+    if (vector instanceof IntVector) {
+      writeRandomIntData((IntVector) vector, valueCount);
     }
   }
 
@@ -390,6 +398,14 @@ public class GenerateSampleData {
       } else {
         vector.setSafe(i, odd);
       }
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  private static void writeRandomIntData(IntVector vector, int valueCount) {
+    Random random = new Random();
+    for (int i = 0; i < valueCount; i++) {
+      vector.setSafe(i, random.nextInt());
     }
     vector.setValueCount(valueCount);
   }

@@ -86,4 +86,47 @@ public class TestArrowReaderWriterWithCompression {
     }
   }
 
+  @Test
+  public void testArrowFileZstdOverflowRoundTrip() throws Exception {
+    // Prepare sample data
+    final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+    List<Field> fields = new ArrayList<>();
+    fields.add(new Field("col", FieldType.notNullable(new ArrowType.Utf8()), new ArrayList<>()));
+    VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(fields), allocator);
+    final int rowCount = 1;
+    GenerateSampleData.generateRandomTestData(root.getVector(0), rowCount);
+    root.setRowCount(rowCount);
+
+    // Write an in-memory compressed arrow file
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (final ArrowFileWriter writer =
+        new ArrowFileWriter(root, null, Channels.newChannel(out), new HashMap<>(),
+            IpcOption.DEFAULT, CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD, Optional.of(7))) {
+      writer.start();
+      writer.writeBatch();
+      writer.end();
+    }
+
+    // Read the in-memory compressed arrow file with CommonsCompressionFactory provided
+    try (ArrowFileReader reader =
+        new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
+            allocator, CommonsCompressionFactory.INSTANCE)) {
+      Assert.assertEquals(1, reader.getRecordBlocks().size());
+      Assert.assertTrue(reader.loadNextBatch());
+      Assert.assertTrue(root.equals(reader.getVectorSchemaRoot()));
+      Assert.assertFalse(reader.loadNextBatch());
+    }
+
+    // Read the in-memory compressed arrow file without CompressionFactory provided
+    try (ArrowFileReader reader =
+        new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
+            allocator, NoCompressionCodec.Factory.INSTANCE)) {
+      Assert.assertEquals(1, reader.getRecordBlocks().size());
+
+      Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
+      String expectedMessage = "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD";
+      Assert.assertEquals(expectedMessage, exception.getMessage());
+    }
+  }
+
 }

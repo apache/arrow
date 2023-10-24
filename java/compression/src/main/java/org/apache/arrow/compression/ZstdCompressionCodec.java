@@ -47,7 +47,7 @@ public class ZstdCompressionCodec extends AbstractCompressionCodec {
     long dstSize = CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + maxSize;
     ArrowBuf compressedBuffer = allocator.buffer(dstSize);
     long bytesWritten = Zstd.compressUnsafe(
-                          compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, maxSize,
+                          compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, dstSize,
                           /*src*/uncompressedBuffer.memoryAddress(), /*srcSize=*/uncompressedBuffer.writerIndex(),
                           /*level=*/this.compressionLevel);
     if (Zstd.isError(bytesWritten)) {
