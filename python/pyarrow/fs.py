@@ -58,6 +58,10 @@ try:
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
+    # GH-38364: we don't initialize S3 eagerly as that could lead
+    # to crashes at shutdown even when S3 isn't used.
+    # Instead, S3 is initialized lazily using `ensure_s3_initialized`
+    # in assorted places.
     import atexit
     atexit.register(ensure_s3_finalized)
 
