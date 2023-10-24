@@ -494,12 +494,22 @@ classdef tRecordBatch < matlab.unittest.TestCase
             % Call isequal with more than two arguments
             testCase.verifyFalse(isequal(rb1, rb2, rb3, rb4));
         end
-        % Verify that passing in no arguments to arrow.recordBatch returns an empty RecordBatch
-        function testArrowRecordBatchNoArgs()
-            expected = arrow.tabular.RecordBatch.empty();
-            actual = arrow.recordBatch();
-            assertEqual(expected, actual);
-        end
+       function testArrowRecordBatchNoArgs()
+    % Call arrow.recordBatch with no arguments
+    actual = arrow.recordBatch();
+    
+    % Create an empty expected RecordBatch
+    schema = arrow.schema();
+    expected = arrow.tabular.RecordBatch(schema, {});
+    
+    % Use isequal to check if the actual and expected are equal
+    if isequal(expected, actual)
+        disp('Test passed: arrow.recordBatch() with no arguments returns an empty RecordBatch.');
+    else
+        error('Test failed: arrow.recordBatch() did not return an empty RecordBatch.');
+    end
+end
+
 end
 
     methods
