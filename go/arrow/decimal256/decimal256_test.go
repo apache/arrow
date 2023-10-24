@@ -586,7 +586,7 @@ func TestToString(t *testing.T) {
 	dec := decimal256.FromBigInt(integer)
 
 	expected := "0." + decStr
-	assert.Equal(t, expected, dec.ToString(76))
+	assert.Equal(t, expected, dec.ToString(int32(len(decStr))))
 	assert.Equal(t, decStr+"0000", dec.ToString(-4))
 }
 
@@ -604,4 +604,20 @@ func TestHexFromString(t *testing.T) {
 		expectedCoeff, _ := (&big.Int{}).SetString(strings.Replace(decStr, ".", "", -1), 10)
 		t.Errorf("expected(hex): %X, actual(hex): %X\n", expectedCoeff.Bytes(), actualCoeff.Bytes())
 	}
+}
+
+func TestBitLen(t *testing.T) {
+	n := decimal256.GetScaleMultiplier(76)
+	b := n.BigInt()
+	b.Mul(b, big.NewInt(25))
+	assert.Greater(t, b.BitLen(), 255)
+
+	assert.Panics(t, func() {
+		decimal256.FromBigInt(b)
+	})
+
+	_, err := decimal256.FromString(b.String(), decimal256.MaxPrecision, 0)
+	assert.ErrorContains(t, err, "bitlen too large for decimal256")
+	_, err = decimal256.FromString(b.String(), decimal256.MaxPrecision, -1)
+	assert.ErrorContains(t, err, "bitlen too large for decimal256")
 }

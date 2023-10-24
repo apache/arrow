@@ -682,3 +682,19 @@ func TestInvalidNonNegScaleFromString(t *testing.T) {
 		})
 	}
 }
+
+func TestBitLen(t *testing.T) {
+	n := decimal128.GetScaleMultiplier(38)
+	b := n.BigInt()
+	b.Mul(b, big.NewInt(25))
+	assert.Greater(t, b.BitLen(), 128)
+
+	assert.Panics(t, func() {
+		decimal128.FromBigInt(b)
+	})
+
+	_, err := decimal128.FromString(b.String(), decimal128.MaxPrecision, 0)
+	assert.ErrorContains(t, err, "bitlen too large for decimal128")
+	_, err = decimal128.FromString(b.String(), decimal128.MaxPrecision, -1)
+	assert.ErrorContains(t, err, "bitlen too large for decimal128")
+}
