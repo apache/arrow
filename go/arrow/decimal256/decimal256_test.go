@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v14/arrow/decimal256"
@@ -563,6 +564,7 @@ func TestFromString(t *testing.T) {
 		{"1e-37", 1, 37},
 		{"2112.33", 211233, 2},
 		{"-2112.33", -211233, 2},
+		{"12E2", 12, -2},
 	}
 
 	for _, tt := range tests {
@@ -574,4 +576,48 @@ func TestFromString(t *testing.T) {
 			assert.Equal(t, ex, n)
 		})
 	}
+}
+
+// Test issues from GH-38395
+func TestToString(t *testing.T) {
+	const decStr = "3379334159166193114608287418738414931564221155305735605033949613740461239999"
+
+	integer, _ := (&big.Int{}).SetString(decStr, 10)
+	dec := decimal256.FromBigInt(integer)
+
+	expected := "0." + decStr
+	assert.Equal(t, expected, dec.ToString(int32(len(decStr))))
+	assert.Equal(t, decStr+"0000", dec.ToString(-4))
+}
+
+// Test issues from GH-38395
+func TestHexFromString(t *testing.T) {
+	const decStr = "11111111111111111111111111111111111111.00000000000000000000000000000000000000"
+
+	num, err := decimal256.FromString(decStr, 76, 38)
+	if err != nil {
+		t.Error(err)
+	} else if decStr != num.ToString(38) {
+		t.Errorf("expected: %s, actual: %s\n", decStr, num.ToString(38))
+
+		actualCoeff := num.BigInt()
+		expectedCoeff, _ := (&big.Int{}).SetString(strings.Replace(decStr, ".", "", -1), 10)
+		t.Errorf("expected(hex): %X, actual(hex): %X\n", expectedCoeff.Bytes(), actualCoeff.Bytes())
+	}
+}
+
+func TestBitLen(t *testing.T) {
+	n := decimal256.GetScaleMultiplier(76)
+	b := n.BigInt()
+	b.Mul(b, big.NewInt(25))
+	assert.Greater(t, b.BitLen(), 255)
+
+	assert.Panics(t, func() {
+		decimal256.FromBigInt(b)
+	})
+
+	_, err := decimal256.FromString(b.String(), decimal256.MaxPrecision, 0)
+	assert.ErrorContains(t, err, "bitlen too large for decimal256")
+	_, err = decimal256.FromString(b.String(), decimal256.MaxPrecision, -1)
+	assert.ErrorContains(t, err, "bitlen too large for decimal256")
 }

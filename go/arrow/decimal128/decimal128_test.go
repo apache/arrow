@@ -659,6 +659,7 @@ func TestFromString(t *testing.T) {
 		{"1e-37", 1, 37},
 		{"2112.33", 211233, 2},
 		{"-2112.33", -211233, 2},
+		{"12E2", 12, -2},
 	}
 
 	for _, tt := range tests {
@@ -680,4 +681,20 @@ func TestInvalidNonNegScaleFromString(t *testing.T) {
 			assert.Error(t, err)
 		})
 	}
+}
+
+func TestBitLen(t *testing.T) {
+	n := decimal128.GetScaleMultiplier(38)
+	b := n.BigInt()
+	b.Mul(b, big.NewInt(25))
+	assert.Greater(t, b.BitLen(), 128)
+
+	assert.Panics(t, func() {
+		decimal128.FromBigInt(b)
+	})
+
+	_, err := decimal128.FromString(b.String(), decimal128.MaxPrecision, 0)
+	assert.ErrorContains(t, err, "bitlen too large for decimal128")
+	_, err = decimal128.FromString(b.String(), decimal128.MaxPrecision, -1)
+	assert.ErrorContains(t, err, "bitlen too large for decimal128")
 }
