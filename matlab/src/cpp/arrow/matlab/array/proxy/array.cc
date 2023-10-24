@@ -21,9 +21,12 @@
 #include "arrow/matlab/bit/unpack.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/type/proxy/wrap.h"
+#include "arrow/pretty_print.h"
 #include "arrow/type_traits.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
+
+#include <sstream>
 
 namespace arrow::matlab::array::proxy {
 
@@ -44,7 +47,32 @@ namespace arrow::matlab::array::proxy {
 
     void Array::toString(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
-        const auto str_utf8 = array->ToString();
+        
+        auto opts = arrow::PrettyPrintOptions::Defaults();
+        opts.window = 3;
+        opts.indent = 4;
+        opts.indent_size = 4;
+
+        const auto type_id = array->type()->id();
+        if (arrow::is_primitive(type_id) || arrow::is_string(type_id)) {
+            /* 
+             * Display primitive and string types horizontally without 
+             * opening and closing delimiters. Use " | " as the delimiter
+             * between elments. Below is an example Int32Array display:
+             *
+             *    1 | 2 | 3 | ... | 6 | 7 | 8
+             */
+            opts.skip_new_lines = true;
+            opts.array_delimiters.open = "";
+            opts.array_delimiters.close = "";
+            opts.array_delimiters.element = " | ";
+        }
+
+        std::stringstream ss;
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(arrow::PrettyPrint(*array, opts, &ss), context, error::ARRAY_PRETTY_PRINT_FAILED);
+        
+        const auto str_utf8 = opts.skip_new_lines ? "    " + ss.str() : ss.str();
+
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
         auto str_mda = factory.createScalar(str_utf16);
         context.outputs[0] = str_mda;
