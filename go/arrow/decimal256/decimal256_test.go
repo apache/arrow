@@ -586,11 +586,8 @@ func TestToString(t *testing.T) {
 	dec := decimal256.FromBigInt(integer)
 
 	expected := "0." + decStr
-	actual := dec.ToString(76)
-
-	if expected != actual {
-		t.Errorf("expected: %s, actual: %s\n", expected, actual)
-	}
+	assert.Equal(t, expected, dec.ToString(76))
+	assert.Equal(t, decStr+"0000", dec.ToString(-4))
 }
 
 // Test issues from GH-38395

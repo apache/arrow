@@ -517,7 +517,11 @@ func (n Num) FitsInPrecision(prec int32) bool {
 
 func (n Num) ToString(scale int32) string {
 	f := (&big.Float{}).SetInt(n.BigInt())
-	f.SetPrec(256).Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	if scale < 0 {
+		f.SetPrec(256).Mul(f, (&big.Float{}).SetInt(scaleMultipliers[-scale].BigInt()))
+	} else {
+		f.SetPrec(256).Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	}
 	return f.Text('f', int(scale))
 }
 
