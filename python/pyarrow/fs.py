@@ -54,9 +54,12 @@ try:
     from pyarrow._s3fs import (  # noqa
         AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
         S3FileSystem, S3LogLevel, S3RetryStrategy, ensure_s3_initialized,
-        finalize_s3, initialize_s3, resolve_s3_region)
+        finalize_s3, ensure_s3_finalized, initialize_s3, resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
+else:
+    import atexit
+    atexit.register(ensure_s3_finalized)
 
 
 def __getattr__(name):

@@ -37,9 +37,6 @@ cpdef enum S3LogLevel:
     Debug = <int8_t> CS3LogLevel_Debug
     Trace = <int8_t> CS3LogLevel_Trace
 
-# Prevent registration of multiple `atexit` handlers
-_initialized = False
-
 
 def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal, int num_event_loop_threads=1):
     """
@@ -66,17 +63,18 @@ def ensure_s3_initialized():
     """
     Initialize S3 (with default options) if not already initialized
     """
-    global _initialized
-
-    if not _initialized:
-        check_status(CEnsureS3Initialized())
-        import atexit
-        atexit.register(finalize_s3)
-        _initialized = True
+    check_status(CEnsureS3Initialized())
 
 
 def finalize_s3():
     check_status(CFinalizeS3())
+
+
+def ensure_s3_finalized():
+    """
+    Finalize S3 if already initialized
+    """
+    check_status(CEnsureS3Finalized())
 
 
 def resolve_s3_region(bucket):
