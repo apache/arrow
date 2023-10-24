@@ -271,24 +271,6 @@ cdef class S3FileSystem(FileSystem):
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
         ensure_s3_initialized()
 
-        self._initialize_s3(access_key=access_key, secret_key=secret_key, session_token=session_token,
-                            anonymous=anonymous, region=region, request_timeout=request_timeout,
-                            connect_timeout=connect_timeout, scheme=scheme, endpoint_override=endpoint_override,
-                            background_writes=background_writes, default_metadata=default_metadata,
-                            role_arn=role_arn, session_name=session_name, external_id=external_id,
-                            load_frequency=load_frequency, proxy_options=proxy_options,
-                            allow_bucket_creation=allow_bucket_creation, allow_bucket_deletion=allow_bucket_deletion,
-                            retry_strategy=retry_strategy)
-
-    def _initialize_s3(self, *, access_key=None, secret_key=None, session_token=None,
-                       bint anonymous=False, region=None, request_timeout=None,
-                       connect_timeout=None, scheme=None, endpoint_override=None,
-                       bint background_writes=True, default_metadata=None,
-                       role_arn=None, session_name=None, external_id=None,
-                       load_frequency=900, proxy_options=None,
-                       allow_bucket_creation=False, allow_bucket_deletion=False,
-                       retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
-
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
