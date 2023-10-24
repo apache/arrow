@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -989,6 +990,28 @@ public class TestLargeListVector {
       // Note: allocator rounds up and can be greater than the requested allocation.
       assertTrue(vector.getValueCapacity() >= 10);
       assertTrue(vector.getDataVector().getValueCapacity() >= 100);
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() throws Exception {
+    try (final LargeListVector fromVector = LargeListVector.empty("list", allocator)) {
+
+      UnionLargeListWriter writer = fromVector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writer.startList();
+      writer.integer().writeInt(1);
+      writer.integer().writeInt(2);
+      writer.endList();
+      fromVector.setValueCount(2);
+
+      final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(),
+          allocator);
+      final LargeListVector toVector = (LargeListVector) transferPair.getTo();
+      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      assertSame(toVector.getField(), fromVector.getField());
     }
   }
 

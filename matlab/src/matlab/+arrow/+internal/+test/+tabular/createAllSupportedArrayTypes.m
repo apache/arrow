@@ -70,6 +70,13 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
             stringArray = arrow.array(strings);
             arrowArrays{ii} = StructArray.fromArrays(timestampArray, stringArray);
             matlabData{ii} = table(dates, strings, VariableNames=["Field1", "Field2"]);
+        elseif name == "arrow.array.ListArray"
+            offsets = arrow.array(int32(0:opts.NumRows));
+            numbers = randomNumbers("double", opts.NumRows);
+            matlabData{ii} = num2cell(numbers);
+            values = arrow.array(numbers);
+            listArray = ListArray.fromArrays(offsets, values);
+            arrowArrays{ii} = listArray;
         else
             error("arrow:test:SupportedArrayCase", ...
                 "Missing if-branch for array class " + name); 
