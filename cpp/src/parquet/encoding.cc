@@ -1205,16 +1205,22 @@ struct ArrowBinaryHelper<ByteArrayType> {
     return Status::OK();
   }
 
-  Status PrepareNextInput(int64_t next_value_length,
-                          std::optional<int64_t> estimated_remaining_data_length = {}) {
+  Status PrepareNextInput(int64_t next_value_length) {
+    if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
+      // This element would exceed the capacity of a chunk
+      return PushChunk();
+    }
+    return Status::OK();
+  }
+
+  Status PrepareNextInputWithEstimatedLength(int64_t next_value_length,
+                                             int64_t estimated_remaining_data_length) {
     if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
       // This element would exceed the capacity of a chunk
       RETURN_NOT_OK(PushChunk());
       RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
-      if (estimated_remaining_data_length.has_value()) {
-        RETURN_NOT_OK(acc_->builder->ReserveData(
-            std::min<int64_t>(*estimated_remaining_data_length, chunk_space_remaining_)));
-      }
+      RETURN_NOT_OK(acc_->builder->ReserveData(
+          std::min<int64_t>(estimated_remaining_data_length, chunk_space_remaining_)));
     }
     return Status::OK();
   }
@@ -1271,8 +1277,10 @@ struct ArrowBinaryHelper<FLBAType> {
     return acc_->Reserve(entries_remaining_);
   }
 
-  Status PrepareNextInput(int64_t next_value_length,
-                          std::optional<int64_t> estimated_remaining_data_length = {}) {
+  Status PrepareNextInput(int64_t next_value_length) { return Status::OK(); }
+
+  Status PrepareNextInputWithEstimatedLength(int64_t next_value_length,
+                                             int64_t estimated_remaining_data_length) {
     return Status::OK();
   }
 
@@ -1421,7 +1429,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
           if (ARROW_PREDICT_FALSE(len_ < increment)) {
             ParquetException::EofException();
           }
-          RETURN_NOT_OK(helper.PrepareNextInput(value_len, len_));
+          RETURN_NOT_OK(helper.PrepareNextInputWithEstimatedLength(value_len, len_));
           helper.UnsafeAppend(data_ + 4, value_len);
           data_ += increment;
           len_ -= increment;
@@ -1915,7 +1923,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int32_t indices[kBufferSize];
 
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
-    RETURN_NOT_OK(helper.Prepare());
+    // RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
     int values_decoded = 0;
@@ -1983,7 +1991,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int values_decoded = 0;
 
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
-    RETURN_NOT_OK(helper.Prepare(len_));
+    // RETURN_NOT_OK(helper.Prepare(len_));
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
