@@ -528,6 +528,9 @@ names.Dataset <- function(x) names(x$schema)
 dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
 
 #' @export
+dimnames.Dataset <- function(x) list(NULL, names(x))
+
+#' @export
 c.Dataset <- function(...) Dataset$create(list(...))
 
 #' @export
