@@ -524,8 +524,9 @@ class QuadraticSpaceMyersDiff {
 
  public:
   Result<std::shared_ptr<StructArray>> Diff() {
+    CreateValueComparator create_value_comparator;
     ARROW_ASSIGN_OR_RAISE(auto comparator,
-                          CreateValueComparator{}(*base_.type(), base_, target_));
+                          create_value_comparator(*base_.type(), base_, target_));
     DCHECK_GE(base_end_, 0);
     DCHECK_GE(target_end_, 0);
     endpoint_base_ = {ExtendFrom(*comparator, {base_begin_, target_begin_}).base};
