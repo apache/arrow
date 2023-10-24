@@ -101,6 +101,7 @@ function classes = getArrayClassNames()
 
     % Return the class names as a string array
     classes = string({metaClass.Name});
+    classes = sort(classes);
 end
 
 function dict = getNumericArrayToMatlabDictionary()
