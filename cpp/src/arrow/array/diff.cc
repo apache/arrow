@@ -47,6 +47,7 @@
 #include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/util/string.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visit_type_inline.h"
 
@@ -291,7 +292,7 @@ class REEValueComparator : public ValueComparator {
   }
 };
 
-class CreateValueComparator {
+class ValueComparatorFactory {
  private:
   std::unique_ptr<ValueComparator> comparator_;
 
@@ -320,36 +321,42 @@ class CreateValueComparator {
                const Array& target) {
     const auto& base_ree = checked_cast<const RunEndEncodedArray&>(base);
     const auto& target_ree = checked_cast<const RunEndEncodedArray&>(target);
+
     ARROW_ASSIGN_OR_RAISE(
         auto inner_values_comparator,
-        (*this)(*ree_type.value_type(), *base_ree.values(), *target_ree.values()));
-    auto* ree_value_comparator =
-        ([&ree_type, &base_ree, &target_ree,
-          inner_values_comparator =
-              std::move(inner_values_comparator)]() mutable -> ValueComparator* {
-          const auto run_end_type_id = ree_type.run_end_type()->id();
-          switch (run_end_type_id) {
-            case Type::INT16:
-              return new REEValueComparator<int16_t>(base_ree, target_ree,
-                                                     std::move(inner_values_comparator));
-            case Type::INT32:
-              return new REEValueComparator<int32_t>(base_ree, target_ree,
-                                                     std::move(inner_values_comparator));
-            default:
-              DCHECK_EQ(run_end_type_id, Type::INT64);
-              return new REEValueComparator<int64_t>(base_ree, target_ree,
-                                                     std::move(inner_values_comparator));
-          }
-        }());
-    comparator_ = std::unique_ptr<ValueComparator>{ree_value_comparator};
+        Create(*ree_type.value_type(), *base_ree.values(), *target_ree.values()));
+
+    // Instantiate the specialized comparator types with operator new instead of
+    // make_unique<T>() to avoid binary bloat. unique_ptr<T>'s constructor is templated
+    // on the type of the deleter and we're fine with destructor calls being virtually
+    // dispatched via ValueComparator.
+    ValueComparator* ree_value_comparator = nullptr;
+    switch (ree_type.run_end_type()->id()) {
+      case Type::INT16:
+        ree_value_comparator = new REEValueComparator<int16_t>(
+            base_ree, target_ree, std::move(inner_values_comparator));
+        break;
+      case Type::INT32:
+        ree_value_comparator = new REEValueComparator<int32_t>(
+            base_ree, target_ree, std::move(inner_values_comparator));
+        break;
+      case Type::INT64:
+        ree_value_comparator = new REEValueComparator<int64_t>(
+            base_ree, target_ree, std::move(inner_values_comparator));
+        break;
+      default:
+        Unreachable();
+    }
+    comparator_.reset(ree_value_comparator);
     return Status::OK();
   }
 
-  Result<std::unique_ptr<ValueComparator>> operator()(const DataType& type,
-                                                      const Array& base,
-                                                      const Array& target) {
-    RETURN_NOT_OK(VisitTypeInline(type, this, base, target));
-    return std::move(comparator_);
+  static Result<std::unique_ptr<ValueComparator>> Create(const DataType& type,
+                                                         const Array& base,
+                                                         const Array& target) {
+    ValueComparatorFactory self;
+    RETURN_NOT_OK(VisitTypeInline(type, &self, base, target));
+    return std::move(self.comparator_);
   }
 };
 
@@ -524,9 +531,8 @@ class QuadraticSpaceMyersDiff {
 
  public:
   Result<std::shared_ptr<StructArray>> Diff() {
-    CreateValueComparator create_value_comparator;
     ARROW_ASSIGN_OR_RAISE(auto comparator,
-                          create_value_comparator(*base_.type(), base_, target_));
+                          ValueComparatorFactory::Create(*base_.type(), base_, target_));
     DCHECK_GE(base_end_, 0);
     DCHECK_GE(target_end_, 0);
     endpoint_base_ = {ExtendFrom(*comparator, {base_begin_, target_begin_}).base};
