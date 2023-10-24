@@ -28,15 +28,26 @@ classdef tTabularInternal < matlab.unittest.TestCase
     methods (TestParameterDefinition, Static)
         function TabularObjectWithAllTypes = initializeTabularObjectWithAllTypes()
             arrays = arrow.internal.test.tabular.createAllSupportedArrayTypes(NumRows=1);
-            TabularObjectWithAllTypes = {arrow.tabular.Table.fromArrays(arrays{:})};
+            arrowTable = arrow.tabular.Table.fromArrays(arrays{:});
+            arrowRecordBatch = arrow.tabular.Table.fromArrays(arrays{:});
+            TabularObjectWithAllTypes = struct(Table=arrowTable, ...
+                RecordBatch=arrowRecordBatch);
         end
 
         function TabularObjectWithOneColumn = initializeTabularObjectWithOneColumn()
-            TabularObjectWithOneColumn = {arrow.table(table((1:3)'))};
+            t = table((1:3)');
+            arrowTable = arrow.table(t);
+            arrowRecordBatch = arrow.recordBatch(t);
+            TabularObjectWithOneColumn = struct(Table=arrowTable, ...
+                RecordBatch=arrowRecordBatch);
         end
 
         function TabularObjectWithThreeRows = initializeTabularObjectWithThreeRows()
-            TabularObjectWithThreeRows = {arrow.table(table((1:3)', ["A"; "B"; "C"]))};
+            t = table((1:3)', ["A"; "B"; "C"]);
+            arrowTable = arrow.table(t);
+            arrowRecordBatch = arrow.recordBatch(t);
+            TabularObjectWithThreeRows = struct(Table=arrowTable, ...
+                RecordBatch=arrowRecordBatch);
         end
     end
 
