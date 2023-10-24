@@ -2063,54 +2063,6 @@ cdef _name_to_index_map(Schema arrow_schema):
     return out
 
 
-def _sort_keys_to_sorting_columns(sort_keys, null_placement, Schema schema):
-    """Convert SortOptions to a list of SortingColumn objects"""
-
-    if null_placement is None or null_placement == "at_end":
-        nulls_first = False
-    elif null_placement == "at_start":
-        nulls_first = True
-    else:
-        raise ValueError("Invalid value for null_placement: {0}"
-                         .format(null_placement))
-
-    name_to_index_map = _name_to_index_map(schema)
-
-    sorting_columns = []
-
-    for sort_key in sort_keys:
-        if isinstance(sort_key, str):
-            name = sort_key
-            descending = False
-        elif (isinstance(sort_key, tuple) and len(sort_key) == 2 and
-                isinstance(sort_key[0], str) and
-                isinstance(sort_key[1], str)):
-            name, descending = sort_key
-            if descending == "descending":
-                descending = True
-            elif descending == "ascending":
-                descending = False
-            else:
-                raise ValueError("Invalid sort key direction: {0}"
-                                 .format(descending))
-        else:
-            raise ValueError("Invalid sort key: {0}".format(sort_key))
-
-        try:
-            column_index = name_to_index_map[name]
-        except KeyError:
-            raise ValueError("Sort key name '{0}' not found in schema:\n{1}"
-                             .format(name, schema))
-
-        sorting_column = SortingColumn(
-            column_index,
-            descending,
-            nulls_first)
-        sorting_columns.append(sorting_column)
-
-    return sorting_columns
-
-
 cdef class ParquetWriter(_Weakrefable):
     cdef:
         unique_ptr[FileWriter] writer
