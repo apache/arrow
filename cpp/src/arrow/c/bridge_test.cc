@@ -43,6 +43,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 
 // TODO(GH-37221): Remove these ifdef checks when compute dependency is removed
 #ifdef ARROW_COMPUTE
@@ -58,6 +59,7 @@ using internal::ArrayStreamExportTraits;
 using internal::checked_cast;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
+using internal::Zip;
 
 template <typename T>
 struct ExportTraits {};
@@ -354,6 +356,8 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(large_binary(), "Z");
   TestPrimitive(utf8(), "u");
   TestPrimitive(large_utf8(), "U");
+  TestPrimitive(binary_view(), "vz");
+  TestPrimitive(utf8_view(), "vu");
 
   TestPrimitive(decimal(16, 4), "d:16,4");
   TestPrimitive(decimal256(16, 4), "d:16,4,256");
@@ -565,11 +569,23 @@ struct ArrayExportChecker {
       --expected_n_buffers;
       ++expected_buffers;
     }
-    ASSERT_EQ(c_export->n_buffers, expected_n_buffers);
+    bool has_variadic_buffer_sizes = expected_data.type->id() == Type::STRING_VIEW ||
+                                     expected_data.type->id() == Type::BINARY_VIEW;
+    ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
-    for (int64_t i = 0; i < c_export->n_buffers; ++i) {
+
+    for (int64_t i = 0; i < expected_n_buffers; ++i) {
       auto expected_ptr = expected_buffers[i] ? expected_buffers[i]->data() : nullptr;
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
+    }
+    if (has_variadic_buffer_sizes) {
+      auto variadic_buffers = util::span(expected_data.buffers).subspan(2);
+      auto variadic_buffer_sizes = util::span(
+          static_cast<const int64_t*>(c_export->buffers[c_export->n_buffers - 1]),
+          variadic_buffers.size());
+      for (auto [buf, size] : Zip(variadic_buffers, variadic_buffer_sizes)) {
+        ASSERT_EQ(buf->size(), size);
+      }
     }
 
     if (expected_data.dictionary != nullptr) {
@@ -883,6 +899,8 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(large_binary(), R"(["foo", "bar", null])");
   TestPrimitive(utf8(), R"(["foo", "bar", null])");
   TestPrimitive(large_utf8(), R"(["foo", "bar", null])");
+  TestPrimitive(binary_view(), R"(["foo", "bar", null])");
+  TestPrimitive(utf8_view(), R"(["foo", "bar", null])");
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
@@ -1966,6 +1984,10 @@ TEST_F(TestSchemaImport, String) {
   CheckImport(large_utf8());
   FillPrimitive("Z");
   CheckImport(large_binary());
+  FillPrimitive("vu");
+  CheckImport(utf8_view());
+  FillPrimitive("vz");
+  CheckImport(binary_view());
 
   FillPrimitive("w:3");
   CheckImport(fixed_size_binary(3));
