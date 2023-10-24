@@ -47,7 +47,7 @@ Classes
    IpcFileFormat
    ParquetFileFormat
    ParquetReadOptions
-   ParquetWriteOptions
+   ParquetFileWriteOptions
    ParquetFragmentScanOptions
    ParquetFileFragment
    OrcFileFormat

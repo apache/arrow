@@ -560,6 +560,72 @@ cdef class ParquetReadOptions(_Weakrefable):
 
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
+     """
+    Parquet format specific options for writing.
+
+    Parameters
+    ----------
+    use_dictionary: bool, default True
+        Whether to use dictionary encoding for string and binary columns.
+    compression: str, default "snappy"
+        The compression codec to use. Valid options include "snappy", "gzip",
+        "brotli", and "lz4".
+    version: str, default "2.6"
+        The Parquet file version to write.
+    write_statistics: bool, default None
+        Whether to write column statistics to the file.
+    data_page_size: int, default None
+        The size (in bytes) of data pages.
+    compression_level: int, default None
+        The compression level to use. Valid values range from 0 (no
+        compression) to 9 (highest compression).
+    use_byte_stream_split: bool, default False
+        Whether to split byte stream columns (e.g. UTF-8 strings) into
+        multiple Parquet columns.
+    column_encoding: dict, default None
+        A dictionary mapping column names to encoding types. Valid encoding
+        types include "plain", "plain_dictionary", "rle", and
+        "bit_packed".
+    data_page_version: str, default "1.0"
+        The Parquet data page version to write.
+    use_deprecated_int96_timestamps: bool, default False
+        Whether to use the deprecated INT96 format for timestamps.
+    coerce_timestamps: bool, default None
+        Whether to coerce timestamps to a particular time zone. If None,
+        timestamps will be written in their original time zone.
+    allow_truncated_timestamps: bool, default False
+        Whether to allow timestamps to be truncated if they are outside of the
+        representable range of the Parquet format.
+    use_compliant_nested_type: bool, default True
+        Whether to use the compliant nested type representation for nested
+        types.
+    encryption_config: ParquetEncryptionConfiguration, default None
+        The encryption configuration to use.
+
+    Examples
+    --------
+
+    To write a Parquet file with dictionary encoding and Snappy compression,
+    use the following options:
+
+    ```python
+    options = ParquetFileWriteOptions(use_dictionary=True, compression="snappy")
+    ```
+
+    To write a Parquet file with column statistics and a data page size of
+    1 MB, use the following options:
+
+    ```python
+    options = ParquetFileWriteOptions(write_statistics=True, data_page_size=1024 * 1024)
+    ```
+
+    To write a Parquet file with a custom compression level, use the
+    `compression_level` option:
+
+    ```python
+    options = ParquetFileWriteOptions(compression_level=5)
+    ```
+    """
 
     def update(self, **kwargs):
         """
