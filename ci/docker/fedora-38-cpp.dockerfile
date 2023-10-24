@@ -46,13 +46,13 @@ RUN dnf update -y && \
         java-latest-openjdk-devel \
         java-latest-openjdk-headless \
         json-devel \
+        liborc-devel \
         libzstd-devel \
         llvm-devel \
         lz4-devel \
         make \
         ninja-build \
         openssl-devel \
-        orc-devel \
         protobuf-devel \
         python \
         python-devel \

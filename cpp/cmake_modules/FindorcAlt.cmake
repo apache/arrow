@@ -15,13 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# - Find Apache ORC C++ (orc/orc-config.h, liborc.a)
-# This module defines
-#  ORC_INCLUDE_DIR, directory containing headers
-#  ORC_STATIC_LIB, path to liborc.a
-#  ORC_FOUND, whether orc has been found
+if(orcAlt_FOUND)
+  return()
+endif()
 
-if(ORC_FOUND)
+set(find_package_args)
+if(orcAlt_FIND_VERSION)
+  list(APPEND find_package_args ${orcAlt_FIND_VERSION})
+endif()
+if(orcAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(orc ${find_package_args})
+if(orc_FOUND)
+  set(orcAlt_FOUND TRUE)
   return()
 endif()
 
@@ -45,15 +52,13 @@ else()
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
 
-if(ORC_STATIC_LIB AND ORC_INCLUDE_DIR)
-  set(ORC_FOUND TRUE)
-  add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(orc::liborc
-                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
-else()
-  if(ORC_FIND_REQUIRED)
-    message(FATAL_ERROR "ORC library was required in toolchain and unable to locate")
+find_package_handle_standard_args(orcAlt REQUIRED_VARS ORC_STATIC_LIB ORC_INCLUDE_DIR)
+
+if(orcAlt_FOUND)
+  if(NOT TARGET orc::orc)
+    add_library(orc::orc STATIC IMPORTED)
+    set_target_properties(orc::orc
+                          PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
   endif()
-  set(ORC_FOUND FALSE)
 endif()
