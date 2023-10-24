@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/scalar.h"
@@ -26,14 +28,16 @@
 
 namespace arrow::matlab::tabular {
 
-    arrow::PrettyPrintOptions make_pretty_print_options() {
-        auto opts = arrow::PrettyPrintOptions::Defaults();
-        opts.skip_new_lines = true;
-        opts.array_delimiters.open = "";
-        opts.array_delimiters.close = "";
-        opts.chunked_array_delimiters.open = "";
-        opts.chunked_array_delimiters.close = "";
-        return opts;
+    namespace {
+        arrow::PrettyPrintOptions make_pretty_print_options() {
+            auto opts = arrow::PrettyPrintOptions::Defaults();
+            opts.skip_new_lines = true;
+            opts.array_delimiters.open = "";
+            opts.array_delimiters.close = "";
+            opts.chunked_array_delimiters.open = "";
+            opts.chunked_array_delimiters.close = "";
+            return opts;
+        }
     }
 
     template <typename TabularType>
