@@ -789,6 +789,7 @@ tasks:
       - arrow-avro-{no_rc_snapshot_version}-tests.jar
       - arrow-avro-{no_rc_snapshot_version}.jar
       - arrow-avro-{no_rc_snapshot_version}.pom
+      - arrow-bom-{no_rc_snapshot_version}.pom
       - arrow-c-data-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-c-data-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-c-data-{no_rc_snapshot_version}-javadoc.jar
