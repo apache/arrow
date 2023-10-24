@@ -52,6 +52,16 @@ public class FlightSqlTestCertificates {
   }
 
   /**
+   * Create File object with the CA certificate.
+   *
+   * @return A File containing the Root CA certificate.
+   */
+  public static File exampleCACert() {
+    final Path root = getFlightTestDataRoot();
+    return root.resolve("root-ca.pem").toFile();
+  }
+
+  /**
    * Create CertKeyPair object with the certificates and keys.
    *
    * @return A list with CertKeyPair.
