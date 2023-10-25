@@ -59,7 +59,7 @@ namespace arrow::matlab::tabular {
             } else if (type_id == arrow::Type::type::LIST) {
                 ss << "<List>";
             } else {
-                return arrow::Status::NotImplemented("Invalid Datatype: " + column->type()->ToString());
+                return arrow::Status::NotImplemented("Datatype " + column->type()->ToString() + "is not currently supported for display.");
             }
 
             if (i + 1 < num_columns) {
