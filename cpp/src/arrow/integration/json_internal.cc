@@ -109,7 +109,7 @@ std::string GetTimeUnitName(TimeUnit::type unit) {
 
 Result<std::string_view> GetStringView(const rj::Value& str) {
   if (!str.IsString()) {
-    return Status::Invalid("field was not a string line ", __LINE__);
+    return Status::Invalid("field was not a string");
   }
   return std::string_view{str.GetString(), str.GetStringLength()};
 }
@@ -1364,10 +1364,7 @@ class ArrayReader {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-
-      DCHECK(json_val.IsString());
-      std::string_view val{
-          json_val.GetString()};  // XXX can we use json_val.GetStringLength()?
+      ARROW_ASSIGN_OR_RAISE(auto val, GetStringView(json_val));
 
       int64_t offset_start = ParseOffset(json_offsets[i]);
       int64_t offset_end = ParseOffset(json_offsets[i + 1]);

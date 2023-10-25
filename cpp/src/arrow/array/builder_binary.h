@@ -583,8 +583,16 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
         data_builder_(pool, alignment),
         data_heap_builder_(pool, alignment) {}
 
+  /// Set the size for future preallocated data buffers.
+  ///
+  /// The default size is 32KB, so after each 32KB of string data appended to the builder
+  /// a new data buffer will be allocated. Adjust this to a larger value to decrease the
+  /// frequency of allocation, or to a smaller value to lower the overhead of each
+  /// allocation.
   void SetBlockSize(int64_t blocksize) { data_heap_builder_.SetBlockSize(blocksize); }
 
+  /// The number of bytes which can be appended to this builder without allocating another
+  /// data buffer.
   int64_t current_block_bytes_remaining() const {
     return data_heap_builder_.current_remaining_bytes();
   }

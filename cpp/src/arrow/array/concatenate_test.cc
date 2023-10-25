@@ -163,7 +163,8 @@ TEST_F(ConcatenateTest, StringType) {
 
 TEST_F(ConcatenateTest, StringViewType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/40, null_probability);
+    *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/40, null_probability,
+                           /*max_buffer_length=*/200);
     ASSERT_OK((**out).ValidateFull());
   });
 }

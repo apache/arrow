@@ -659,8 +659,7 @@ using enable_if_string_view = enable_if_t<is_string_view_type<T>::value, R>;
 
 template <typename T>
 using is_string_like_type =
-    std::integral_constant<bool, (is_base_binary_type<T>::value && T::is_utf8) ||
-                                     is_string_view_type<T>::value>;
+    std::integral_constant<bool, is_base_binary_type<T>::value && T::is_utf8>;
 
 template <typename T, typename R = void>
 using enable_if_string_like = enable_if_t<is_string_like_type<T>::value, R>;
@@ -683,9 +682,10 @@ template <typename T, typename R = void>
 using enable_if_fixed_width_type = enable_if_t<is_fixed_width_type<T>::value, R>;
 
 template <typename T>
-using is_binary_like_type = std::integral_constant<
-    bool, (is_base_binary_type<T>::value && !is_string_like_type<T>::value) ||
-              is_binary_view_type<T>::value || is_fixed_size_binary_type<T>::value>;
+using is_binary_like_type =
+    std::integral_constant<bool, (is_base_binary_type<T>::value &&
+                                  !is_string_like_type<T>::value) ||
+                                     is_fixed_size_binary_type<T>::value>;
 
 template <typename T, typename R = void>
 using enable_if_binary_like = enable_if_t<is_binary_like_type<T>::value, R>;

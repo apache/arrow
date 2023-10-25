@@ -476,30 +476,31 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
-  // format Binary, LargeBinary and FixedSizeBinary in hexadecimal
   template <typename T>
-  enable_if_binary_like<T, Status> Visit(const T&) {
+  enable_if_has_string_view<T, Status> Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << HexEncode(checked_cast<const ArrayType&>(array).GetView(index));
+      std::string_view view = checked_cast<const ArrayType&>(array).GetView(index);
+      if constexpr (T::is_utf8) {
+        // format String and StringView with \"\n\r\t\\ escaped
+        *os << '"' << Escape(view) << '"';
+      } else {
+        // format Binary, LargeBinary, BinaryView, and FixedSizeBinary in hexadecimal
+        *os << HexEncode(view);
+      }
     };
     return Status::OK();
   }
 
-  // format Strings with \"\n\r\t\\ escaped
+  // format Decimals with Decimal___Array::FormatValue
   template <typename T>
-  enable_if_string_like<T, Status> Visit(const T&) {
-    using ArrayType = typename TypeTraits<T>::ArrayType;
+  enable_if_decimal<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << "\"" << Escape(checked_cast<const ArrayType&>(array).GetView(index)) << "\"";
-    };
-    return Status::OK();
-  }
-
-  // format Decimals with Decimal128Array::FormatValue
-  Status Visit(const Decimal128Type&) {
-    impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
+      if constexpr (T::type_id == Type::DECIMAL128) {
+        *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
+      } else {
+        *os << checked_cast<const Decimal256Array&>(array).FormatValue(index);
+      }
     };
     return Status::OK();
   }

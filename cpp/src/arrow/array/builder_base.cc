@@ -123,8 +123,7 @@ struct AppendScalarImpl {
   Status Visit(const Decimal256Type& t) { return HandleFixedWidth(t); }
 
   template <typename T>
-  enable_if_t<is_binary_like_type<T>::value || is_string_like_type<T>::value, Status>
-  Visit(const T&) {
+  enable_if_has_string_view<T, Status> Visit(const T&) {
     int64_t data_size = 0;
     for (auto it = scalars_begin_; it != scalars_end_; ++it) {
       const auto& scalar = checked_cast<const typename TypeTraits<T>::ScalarType&>(*it);

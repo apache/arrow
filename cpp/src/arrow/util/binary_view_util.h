@@ -75,8 +75,8 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
   if (l_size_and_prefix != r_size_and_prefix) return false;
 
   if (l.is_inline()) {
-    // The inline part is zeroed at construction, so we can compare
-    // a word at a time if data extends past 'prefix_'.
+    // The columnar spec mandates that the inlined part be zero-padded, so we can compare
+    // a word at a time regardless of the exact size.
     int64_t l_inlined, r_inlined;
     memcpy(&l_inlined, l.inline_data() + BinaryViewType::kPrefixSize, sizeof(l_inlined));
     memcpy(&r_inlined, r.inline_data() + BinaryViewType::kPrefixSize, sizeof(r_inlined));
