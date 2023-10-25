@@ -497,8 +497,8 @@ class SortedMergeNode : public ExecNode {
       return nullptr;
     }
 
-    auto result = output.Materialize();
-    return result;
+    ARROW_ASSIGN_OR_RAISE(auto maybe_rb, output.Materialize());
+    return maybe_rb.value_or(nullptr);
   }
   /// Gets a batch. Returns true if there is more data to process, false if we
   /// are done or an error occurred

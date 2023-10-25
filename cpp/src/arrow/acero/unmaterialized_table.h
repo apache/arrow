@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <optional>
 #include <vector>
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
@@ -91,10 +92,10 @@ class UnmaterializedCompositeTable {
     num_rows += slice.Size();
   }
 
-  Result<std::shared_ptr<RecordBatch>> Materialize() {
+  Result<std::optional<std::shared_ptr<RecordBatch>>> Materialize() {
     // Don't build empty batches
     if (Empty()) {
-      return std::make_shared<arrow::RecordBatch>(NULL);
+      return std::nullopt;
     }
     DCHECK_LE(Size(), (uint64_t)std::numeric_limits<int64_t>::max());
     std::vector<std::shared_ptr<arrow::Array>> arrays(schema->num_fields());

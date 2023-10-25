@@ -881,7 +881,7 @@ class CompositeTableBuilder {
   }
 
   // Materializes the current reference table into a target record batch
-  Result<std::shared_ptr<RecordBatch>> Materialize() {
+  Result<std::optional<std::shared_ptr<RecordBatch>>> Materialize() {
     return unmaterialized_table.Materialize();
   }
 
@@ -999,7 +999,8 @@ class AsofJoinNode : public ExecNode {
     if (dst.empty()) {
       return NULLPTR;
     } else {
-      return dst.Materialize();
+      ARROW_ASSIGN_OR_RAISE(auto out, dst.Materialize());
+      return out.has_value() ? out.value() : NULLPTR;
     }
   }
 
