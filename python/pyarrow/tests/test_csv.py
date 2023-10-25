@@ -1936,7 +1936,7 @@ def test_write_quoting_style():
             except Exception as e:
                 # This will trigger when we try to write a comma (,)
                 # without quotes, which is invalid
-                assert type(e) == res
+                assert type(e) is res
                 break
         assert buf.getvalue() == res
         buf.seek(0)
@@ -1986,7 +1986,6 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
 
     write_options = WriteOptions(include_header=True, batch_size=2048,
                                  delimiter='|')
-
     write_csv(fixed_table, file_name, write_options=write_options)
 
     assert os.path.exists(file_name)
