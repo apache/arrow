@@ -23,7 +23,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
-#include "arrow/matlab/tabular/print_row.h"
+#include "arrow/matlab/tabular/get_row_as_string.h"
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
 
@@ -229,7 +229,7 @@ namespace arrow::matlab::tabular::proxy {
         const mda::TypedArray<int64_t> index_mda = args[0]["Index"];
         const auto matlab_row_index = int64_t(index_mda[0]);
 
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf8, arrow::matlab::tabular::print_row(record_batch, matlab_row_index), 
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf8, arrow::matlab::tabular::get_row_as_string(record_batch, matlab_row_index), 
                                             context, error::TABULAR_PRINT_ROW_FAILED);
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf16, arrow::util::UTF8StringToUTF16(row_str_utf8),
                                             context, error::UNICODE_CONVERSION_ERROR_ID);

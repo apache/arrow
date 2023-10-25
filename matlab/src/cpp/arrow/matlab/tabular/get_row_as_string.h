@@ -36,7 +36,7 @@ namespace arrow::matlab::tabular {
     }
 
     template <typename TabularType>
-    arrow::Result<std::string> print_row(const std::shared_ptr<TabularType>& tabular_object, const int64_t matlab_row_index) {
+    arrow::Result<std::string> get_row_as_string(const std::shared_ptr<TabularType>& tabular_object, const int64_t matlab_row_index) {
         std::stringstream ss;
         const int64_t row_index = matlab_row_index - 1;
         if (row_index >= tabular_object->num_rows() || row_index < 0) {
