@@ -68,6 +68,8 @@ namespace arrow::matlab::tabular {
             }
 
             if (i + 1 < num_columns) {
+                // Only add the delimiter if there is at least 
+                // one more element to print. 
                 ss << " | ";
             }
         }
