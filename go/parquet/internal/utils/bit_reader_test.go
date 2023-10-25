@@ -494,7 +494,7 @@ func (r *RLERandomSuite) checkRoundTrip(vals []uint64, width int) bool {
 
 func (r *RLERandomSuite) checkRoundTripSpaced(vals arrow.Array, width int) {
 	nvalues := vals.Len()
-	bufsize := utils.MaxBufferSize(width, nvalues)
+	bufsize := utils.MaxRLEBufferSize(width, nvalues)
 
 	buffer := make([]byte, bufsize)
 	encoder := utils.NewRleEncoder(utils.NewWriterAtBuffer(buffer), width)

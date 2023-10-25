@@ -118,8 +118,8 @@ func (enc *RleBooleanEncoder) EstimatedDataEncodedSize() int64 {
 }
 
 func (enc *RleBooleanEncoder) maxRleBufferSize() int {
-	return utils.MaxBufferSize(1, len(enc.bufferedValues)) +
-		utils.MinBufferSize(1)
+	return utils.MaxRLEBufferSize(1, len(enc.bufferedValues)) +
+		utils.MinRLEBufferSize(1)
 }
 
 func (enc *RleBooleanEncoder) FlushValues() (Buffer, error) {
