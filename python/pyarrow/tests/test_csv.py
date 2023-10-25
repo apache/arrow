@@ -1993,6 +1993,10 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
     parse_options = ParseOptions(delimiter="|")
     convert_options = ConvertOptions(column_types={"fixedsize": pa.binary(4)})
     read_options = ReadOptions(block_size=2048)
-    res_table = read_csv(file_name, parse_options=parse_options, convert_options=convert_options, read_options=read_options)
+
+    res_table = read_csv(file_name, parse_options=parse_options,
+                         convert_options=convert_options,
+                         read_options=read_options)
     res_table = res_table.combine_chunks()
-    res_c = res_table.column(0).chunks[0]
+
+    assert res_table.column(0).chunks[0] == fixed_table.column(0).chunks[0]
