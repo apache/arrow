@@ -123,7 +123,7 @@ public final class ConvertUtils {
    */
   public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(final List<Field> fields) {
     return fields.stream().map(field -> {
-      final boolean signed = ArrowToJdbcUtils.isSigned(field.getType().getTypeID());
+      final boolean signed = ArrowToJdbcUtils.isSigned(field.getType());
       final int precision = 0; // Would have to know about the actual number
       final int scale = 0; // According to https://www.postgresql.org/docs/current/datatype-numeric.html
       final int type = ArrowToJdbcUtils.toJdbcType(field.getType());

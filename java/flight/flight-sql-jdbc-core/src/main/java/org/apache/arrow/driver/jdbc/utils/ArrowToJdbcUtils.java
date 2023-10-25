@@ -31,8 +31,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
  * Helper class to convert Arrow types to JDBC required values.
  */
 class ArrowToJdbcUtils {
-  static boolean isSigned(ArrowType.ArrowTypeID type) {
-    switch (type) {
+  static boolean isSigned(ArrowType type) {
+    switch (type.getTypeID()) {
       case Int:
       case FloatingPoint:
       case Decimal:
