@@ -63,6 +63,8 @@ namespace arrow::matlab::tabular {
                 ss << "<Struct>";
             } else if (type_id == arrow::Type::type::LIST) {
                 ss << "<List>";
+            } else {
+                return arrow::Status::NotImplemented("Invalid Datatype: " + column->type()->ToString());
             }
 
             if (i + 1 < num_columns) {
