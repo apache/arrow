@@ -25,6 +25,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
@@ -34,6 +35,7 @@ class ArrowToJdbcUtils {
   static boolean isSigned(ArrowType type) {
     switch (type.getTypeID()) {
       case Int:
+        return ((ArrowType.Int) type).getIsSigned();
       case FloatingPoint:
       case Decimal:
       case Interval:
@@ -55,9 +57,32 @@ class ArrowToJdbcUtils {
       case FixedSizeList:
         return Types.ARRAY;
       case Int:
-        return ((ArrowType.Int) type).getBitWidth() == 64 ? Types.BIGINT : Types.INTEGER;
+        switch(((ArrowType.Int) type).getBitWidth()) {
+          case 64:
+            return Types.BIGINT;
+          case 32:
+            return Types.INTEGER;
+          case 16:
+            return Types.SMALLINT;
+          case 8:
+            return Types.TINYINT;
+        }
       case FloatingPoint:
-        return Types.FLOAT;
+        /*
+         * These are a bit confusing. The following are equivalent:
+         *
+         * Highest precision:
+         * - JDBC REAL
+         * - Arrow DOUBLE
+         *
+         * Lower precision:
+         * - JDBC FLOAT
+         * - JDBC DOUBLE
+         * - Arrow SINGLE
+         * - Arrow HALF
+         */
+        return ((ArrowType.FloatingPoint) type).getPrecision() == FloatingPointPrecision.DOUBLE ?
+                Types.REAL : Types.DOUBLE;
       case Utf8:
       case LargeUtf8:
         return Types.VARCHAR;
@@ -75,9 +100,9 @@ class ArrowToJdbcUtils {
       case Time:
         return Types.TIME;
       case Timestamp:
+        return Types.TIMESTAMP;
       case Interval:
       case Duration:
-        return Types.TIMESTAMP;
       default:
         return Types.OTHER;
     }
@@ -96,7 +121,8 @@ class ArrowToJdbcUtils {
         return ((ArrowType.Int) type).getBitWidth() == 64 ?
                 long.class.getCanonicalName() : int.class.getCanonicalName();
       case FloatingPoint:
-        return float.class.getCanonicalName();
+        return ((ArrowType.FloatingPoint) type).getPrecision() == FloatingPointPrecision.DOUBLE ?
+                double.class.getCanonicalName() : float.class.getCanonicalName();
       case Utf8:
       case LargeUtf8:
         return String.class.getCanonicalName();
