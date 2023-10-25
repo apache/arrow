@@ -23,7 +23,7 @@ lg <- function(..., .indent = "***") {
   cat(.indent, " ", sprintf(...), "\n", sep = "")
 }
 
-del <- function(path) {
+cleanup <- function(path) {
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), path))
 }
 
@@ -490,7 +490,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     # But normally we'll just build in a tmp dir
     build_dir <- tempfile()
   }
-  del(build_dir)
+  cleanup(build_dir)
 
   env_var_list <- c(
     SOURCE_DIR = src_dir,
@@ -608,7 +608,7 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
     }
     untar(cmake_tar, exdir = cmake_dir)
     unlink(cmake_tar)
-    del(cmake_dir)
+    cleanup(cmake_dir)
     cmake <- paste0(
       cmake_dir,
       "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
@@ -788,7 +788,7 @@ with_cloud_support <- function(env_var_list) {
 cmake_find_package <- function(pkg, version = NULL, env_var_list) {
   td <- tempfile()
   dir.create(td)
-  del(td)
+  cleanup(td)
   find_package <- paste0("find_package(", pkg, " ", version, " REQUIRED)")
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   env_vars <- env_vars_as_string(env_var_list)
