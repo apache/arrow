@@ -38,8 +38,7 @@ GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
 function configure_release() {
   VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
   # Try to find/download a C++ Arrow binary,
-  # including possibly a local .zip file if RWINLIB_LOCAL is set
-  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/winlibs.R" $VERSION $RWINLIB_LOCAL
+  "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" "tools/nixlibs.R" $VERSION 
   # If binary not found, script exits nonzero
   if [ $? -ne 0 ]; then
     echo "Arrow C++ library was not found"
