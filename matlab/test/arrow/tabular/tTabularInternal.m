@@ -53,7 +53,7 @@ classdef tTabularInternal < matlab.unittest.TestCase
 
     methods (Test)
         function RowWithAllTypes(testCase, TabularObjectWithAllTypes)
-            % Verify getRowString successfully returns the expected string
+            % Verify getRowAsString successfully returns the expected string
             % when called on a Table/RecordBatch that contains all
             % supported array types.
             proxy = TabularObjectWithAllTypes.Proxy;
@@ -62,46 +62,46 @@ classdef tTabularInternal < matlab.unittest.TestCase
                           "00:03:44", "00:00:07.000000", "2024-02-10 00:00:00.000000", ...
                           "107", "143", "36", "51"];
             expectedString = strjoin(columnStrs, " | ");
-            actualString = proxy.getRowString(struct(Index=int64(1)));
+            actualString = proxy.getRowAsString(struct(Index=int64(1)));
             testCase.verifyEqual(actualString, expectedString);
         end
 
         function RowWithOneColumn(testCase, TabularObjectWithOneColumn)
-            % Verify getRowString successfully returns the expected string
+            % Verify getRowAsString successfully returns the expected string
             % when called on a Table/RecordBatch with one column.
             proxy = TabularObjectWithOneColumn.Proxy;
             expectedString = "1";
-            actualString = proxy.getRowString(struct(Index=int64(1)));
+            actualString = proxy.getRowAsString(struct(Index=int64(1)));
             testCase.verifyEqual(actualString, expectedString);
         end
 
         function RowIndex(testCase, TabularObjectWithThreeRows)
-            % Verify getRowString returns the expected string when provided
+            % Verify getRowAsString returns the expected string when provided
             % for each row index value supplied.
             proxy = TabularObjectWithThreeRows.Proxy;
 
-            actualString = proxy.getRowString(struct(Index=int64(1)));
+            actualString = proxy.getRowAsString(struct(Index=int64(1)));
             expectedString = "1 | ""A""";
             testCase.verifyEqual(actualString, expectedString);
 
-            actualString = proxy.getRowString(struct(Index=int64(2)));
+            actualString = proxy.getRowAsString(struct(Index=int64(2)));
             expectedString = "2 | ""B""";
             testCase.verifyEqual(actualString, expectedString);
 
-            actualString = proxy.getRowString(struct(Index=int64(3)));
+            actualString = proxy.getRowAsString(struct(Index=int64(3)));
             expectedString = "3 | ""C""";
             testCase.verifyEqual(actualString, expectedString);
         end
 
         function PrintRowFailed(testCase, TabularObjectWithThreeRows)
-            % Verify getRowString throws an error with the ID
+            % Verify getRowAsString throws an error with the ID
             % arrow:tabular:PrintRowFailed if provided invalid index
             % values.
             proxy = TabularObjectWithThreeRows.Proxy;
-            fcn = @() proxy.getRowString(struct(Index=int64(0)));
+            fcn = @() proxy.getRowAsString(struct(Index=int64(0)));
             testCase.verifyError(fcn, "arrow:tabular:PrintRowFailed");
 
-            fcn = @() proxy.getRowString(struct(Index=int64(4)));
+            fcn = @() proxy.getRowAsString(struct(Index=int64(4)));
             testCase.verifyError(fcn, "arrow:tabular:PrintRowFailed");
         end
 
