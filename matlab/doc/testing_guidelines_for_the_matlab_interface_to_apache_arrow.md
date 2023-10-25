@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# Guideline for Writing Tests for MATLAB Interface for Apache Arrow
+# Testing Guidelines for the MATLAB Interface to Apache Arrow  
 
 ## Overview  
 
