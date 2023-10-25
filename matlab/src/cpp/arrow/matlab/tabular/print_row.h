@@ -17,11 +17,6 @@
 
 #pragma once
 
-#include "arrow/result.h"
-#include "arrow/type_fwd.h"
-#include "arrow/scalar.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/formatting.h"
 #include "arrow/pretty_print.h"
 
 #include <sstream>
