@@ -76,8 +76,8 @@ classdef tTabularInternal < matlab.unittest.TestCase
         end
 
         function RowIndex(testCase, TabularObjectWithThreeRows)
-            % Verify getRowAsString returns the expected string when provided
-            % for each row index value supplied.
+            % Verify getRowAsString returns the expected string for 
+            % the provided row index.
             proxy = TabularObjectWithThreeRows.Proxy;
 
             actualString = proxy.getRowAsString(struct(Index=int64(1)));
