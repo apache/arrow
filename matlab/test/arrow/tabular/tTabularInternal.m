@@ -1,4 +1,4 @@
-%TTABULARINTERNAL Unit tests for internal tabular functionality.
+%TTABULARINTERNAL Unit tests for internal functionality of tabular types.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -53,6 +53,9 @@ classdef tTabularInternal < matlab.unittest.TestCase
 
     methods (Test)
         function RowWithAllTypes(testCase, TabularObjectWithAllTypes)
+            % Verify getRowString successfully returns the expected string
+            % when called on a Table/RecordBatch that contains all
+            % supported array types.
             proxy = TabularObjectWithAllTypes.Proxy;
             columnStrs = ["false", "2024-02-23", "2023-08-24", "78", "38", ...
                           "24", "48", "89", "102", "<List>", """107""", "<Struct>", ...
@@ -63,7 +66,9 @@ classdef tTabularInternal < matlab.unittest.TestCase
             testCase.verifyEqual(actualString, expectedString);
         end
 
-        function RowWithOneField(testCase, TabularObjectWithOneColumn)
+        function RowWithOneColumn(testCase, TabularObjectWithOneColumn)
+            % Verify getRowString successfully returns the expected string
+            % when called on a Table/RecordBatch with one column.
             proxy = TabularObjectWithOneColumn.Proxy;
             expectedString = "1";
             actualString = proxy.getRowString(struct(Index=int64(1)));
@@ -71,6 +76,8 @@ classdef tTabularInternal < matlab.unittest.TestCase
         end
 
         function RowIndex(testCase, TabularObjectWithThreeRows)
+            % Verify getRowString returns the expected string when provided
+            % for each row index value supplied.
             proxy = TabularObjectWithThreeRows.Proxy;
 
             actualString = proxy.getRowString(struct(Index=int64(1)));
@@ -86,7 +93,10 @@ classdef tTabularInternal < matlab.unittest.TestCase
             testCase.verifyEqual(actualString, expectedString);
         end
 
-        function TabularPrettyPrintRowFailed(testCase, TabularObjectWithThreeRows)
+        function PrintRowFailed(testCase, TabularObjectWithThreeRows)
+            % Verify getRowString throws an error with the ID
+            % arrow:tabular:PrintRowFailed if provided invalid index
+            % values.
             proxy = TabularObjectWithThreeRows.Proxy;
             fcn = @() proxy.getRowString(struct(Index=int64(0)));
             testCase.verifyError(fcn, "arrow:tabular:PrintRowFailed");
