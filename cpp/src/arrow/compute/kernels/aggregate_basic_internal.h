@@ -1054,7 +1054,7 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
         has_nulls(false),
         count(0),
         value_type(checked_cast<const DictionaryType&>(in_type).value_type()),
-        valueState(nullptr) {
+        value_state(nullptr) {
     this->options.min_count = std::max<uint32_t>(1, this->options.min_count);
   }
 
@@ -1076,14 +1076,14 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
 
     this->has_nulls |= compacted_dict_arr.null_count() > 0;
     this->count += non_null_count;
-    if (this->has_nulls && !options.skip_nulls) {
+    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
       return Status::OK();
     }
 
     const ArrayData& dict_data =
         checked_cast<const ArrayData&>(*compacted_dict_arr.dictionary()->data());
     RETURN_NOT_OK(
-        checked_cast<ScalarAggregator*>(this->valueState.get())
+        checked_cast<ScalarAggregator*>(this->value_state.get())
             ->Consume(nullptr, ExecSpan(std::vector({ExecValue(dict_data)}), 1)));
     return Status::OK();
   }
@@ -1094,18 +1094,18 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     const auto& other = checked_cast<const ThisType&>(src);
     this->has_nulls |= other.has_nulls;
     this->count += other.count;
-    if (this->has_nulls && !options.skip_nulls) {
+    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
       return Status::OK();
     }
 
-    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->valueState.get())
-                      ->MergeFrom(nullptr, std::move(*other.valueState)));
+    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->value_state.get())
+                      ->MergeFrom(nullptr, std::move(*other.value_state)));
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
     if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count) ||
-        this->valueState.get() == nullptr) {
+        this->value_state.get() == nullptr) {
       const auto& struct_type = checked_cast<const StructType&>(*out_type);
       const auto& child_type = struct_type.field(0)->type();
 
@@ -1114,13 +1114,12 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
       out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
     } else {
       Datum temp;
-      RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->valueState.get())
+      RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->value_state.get())
                         ->Finalize(nullptr, &temp));
       const auto& result = temp.scalar_as<StructScalar>();
       DCHECK(result.is_valid);
       out->value = result.GetSharedPtr();
     }
-
     return Status::OK();
   }
 
@@ -1129,15 +1128,15 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   bool has_nulls;
   int64_t count;
   std::shared_ptr<DataType> value_type;
-  std::unique_ptr<KernelState> valueState;
+  std::unique_ptr<KernelState> value_state;
 
  private:
   inline Status InitValueState() {
-    if (this->valueState == nullptr) {
+    if (this->value_state == nullptr) {
       const DataType& value_type_ref = checked_cast<const DataType&>(*this->value_type);
       MinMaxInitState<SimdLevel::NONE> valueMinMaxInitState(
           nullptr, value_type_ref, out_type, ScalarAggregateOptions::Defaults());
-      ARROW_ASSIGN_OR_RAISE(this->valueState, valueMinMaxInitState.Create());
+      ARROW_ASSIGN_OR_RAISE(this->value_state, valueMinMaxInitState.Create());
     }
     return Status::OK();
   }
