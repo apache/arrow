@@ -364,7 +364,7 @@ public class FlightServer implements AutoCloseable {
      * Enable mTLS on the server.
      * @param mTlsCACert The CA certificate to use for verifying clients.
      */
-    public Builder useMTls(final InputStream mTlsCACert) throws IOException {
+    public Builder useMTlsClientVerification(final InputStream mTlsCACert) throws IOException {
       this.mTlsCACert = mTlsCACert;
       return this;
     }
