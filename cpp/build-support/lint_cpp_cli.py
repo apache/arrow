@@ -77,6 +77,7 @@ def lint_file(path):
 
 
 EXCLUSIONS = _paths('''\
+    arrow/acero/concurrent_queue.h
     arrow/arrow-config.cmake
     arrow/python/iterators.h
     arrow/util/hashing.h

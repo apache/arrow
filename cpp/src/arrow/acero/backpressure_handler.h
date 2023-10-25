@@ -65,7 +65,6 @@ class BackpressureHandler {
   }
 
  private:
- private:
   ExecNode* input_;
   size_t low_threshold_;
   size_t high_threshold_;

@@ -94,7 +94,7 @@ class UnmaterializedCompositeTable {
   Result<std::shared_ptr<RecordBatch>> Materialize() {
     // Don't build empty batches
     if (Empty()) {
-      return nullptr;
+      return std::make_shared<arrow::RecordBatch>(NULL);
     }
     DCHECK_LE(Size(), (uint64_t)std::numeric_limits<int64_t>::max());
     std::vector<std::shared_ptr<arrow::Array>> arrays(schema->num_fields());

@@ -17,6 +17,7 @@
 
 #include <arrow/api.h>
 #include <atomic>
+#include <mutex>
 #include <sstream>
 #include <thread>
 #include <tuple>
