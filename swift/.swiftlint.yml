@@ -15,20 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM swift:5.7.3
-
-# Go is needed for generating test data
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        golang-go \
-        unzip \
-        wget && \
-    apt-get clean
-
-ARG swift_lint=0.53.0
-RUN wget https://github.com/realm/SwiftLint/releases/download/${swift_lint}/swiftlint_linux.zip && \
-    unzip swiftlint_linux.zip && \
-    mv swiftlint /usr/local/bin/ && \
-    mkdir -p /usr/local/share/doc/swiftlint/ && \
-    mv LICENSE /usr/local/share/doc/swiftlint/ && \
-    rm -rf swiftlint_linux.zip
+included:
+  - Arrow/Sources
+  - Arrow/Tests
+  - ArrowFlight/Sources
+  - ArrowFlight/Tests
+excluded:
+  - Arrow/Sources/Arrow/File_generated.swift
+  - Arrow/Sources/Arrow/Message_generated.swift
+  - Arrow/Sources/Arrow/Schema_generated.swift
+  - Arrow/Sources/Arrow/SparseTensor_generated.swift
+  - Arrow/Sources/Arrow/Tensor_generated.swift
+  - ArrowFlight/Sources/ArrowFlight/Flight.grpc.swift
+  - ArrowFlight/Sources/ArrowFlight/Flight.pb.swift
+identifier_name:
+  min_length: 2 # only warning
+allow_zero_lintable_files: false

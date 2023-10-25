@@ -67,54 +67,58 @@ func makeRecordBatch() throws -> RecordBatch {
     }
 }
 
-final class MyFlightServer : ArrowFlightServer {
-    func doExchange(_ reader: ArrowFlight.RecordBatchStreamReader, writer: ArrowFlight.RecordBatchStreamWriter) async throws {
+final class MyFlightServer: ArrowFlightServer {
+    func doExchange(
+        _ reader: ArrowFlight.RecordBatchStreamReader,
+        writer: ArrowFlight.RecordBatchStreamWriter) async throws {
         do {
             for try await rb in reader {
                 XCTAssertEqual(rb.schema.fields.count, 3)
                 XCTAssertEqual(rb.length, 4)
             }
-            
+
             let rb = try makeRecordBatch()
             try await writer.write(rb)
         } catch {
             print("Unknown error: \(error)")
         }
     }
-    
-    func doPut(_ reader: ArrowFlight.RecordBatchStreamReader, writer: ArrowFlight.PutResultDataStreamWriter) async throws {
+
+    func doPut(
+        _ reader: ArrowFlight.RecordBatchStreamReader,
+        writer: ArrowFlight.PutResultDataStreamWriter) async throws {
         for try await rb in reader {
             XCTAssertEqual(rb.schema.fields.count, 3)
             XCTAssertEqual(rb.length, 4)
             try await writer.write(FlightPutResult())
         }
     }
-    
+
     func doGet(_ ticket: ArrowFlight.FlightTicket, writer: ArrowFlight.RecordBatchStreamWriter) async throws {
         try await writer.write(try makeRecordBatch())
     }
-    
+
     func getSchema(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightSchemaResult {
         XCTAssertEqual(String(bytes: request.cmd, encoding: .utf8)!, "schema info")
         XCTAssertEqual(request.type, .cmd)
         return try ArrowFlight.FlightSchemaResult(schemaToArrowStream(makeSchema()))
     }
-    
+
     func getFlightInfo(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightInfo {
         return ArrowFlight.FlightInfo(Data())
     }
-    
+
     func listFlights(_ criteria: ArrowFlight.FlightCriteria, writer: ArrowFlight.FlightInfoStreamWriter) async throws {
         XCTAssertEqual(String(bytes: criteria.expression, encoding: .utf8), "flight criteria expression")
-        let flight_info = try ArrowFlight.FlightInfo(schemaToArrowStream(makeSchema()))
-        try await writer.write(flight_info)
+        let flightInfo = try ArrowFlight.FlightInfo(schemaToArrowStream(makeSchema()))
+        try await writer.write(flightInfo)
     }
-    
+
     func listActions(_ writer: ArrowFlight.ActionTypeStreamWriter) async throws {
         try await writer.write(FlightActionType("type1", description: "desc1"))
         try await writer.write(FlightActionType("type2", description: "desc2"))
     }
-    
+
     func doAction(_ action: FlightAction, writer: ResultStreamWriter) async throws {
         XCTAssertEqual(action.type, "test_action")
         XCTAssertEqual(String(bytes: action.body, encoding: .utf8)!, "test_action body")
@@ -131,16 +135,15 @@ struct FlightServerImpl {
             // Create an event loop group for the server to run on.
             let group = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
             // Create a provider using the features we read.
-            let provider = ArrowFlight.MakeFlightServer(MyFlightServer())
-            
+            let provider = ArrowFlight.makeFlightServer(MyFlightServer())
+
             // Start the server and print its address once it has started.
             FlightServerImpl.server = try await Server.insecure(group: group)
                 .withServiceProviders([provider])
                 .bind(host: "localhost", port: 8088)
                 .get()
-            
-            print("server started on port \(server!.channel.localAddress!.port!)")
 
+            print("server started on port \(server!.channel.localAddress!.port!)")
             // Wait on the server's `onClose` future to stop the program from exiting.
         } catch {
             print("Unknown server error: \(error)")
@@ -152,7 +155,7 @@ public class FlightClientTester {
     var client: FlightClient?
     var group: MultiThreadedEventLoopGroup?
     var channel: GRPCChannel?
-    
+
     init() async throws {
         // Load the features.
         let group = PlatformSupport.makeEventLoopGroup(loopCount: 1)
@@ -164,132 +167,135 @@ public class FlightClientTester {
 
         client = FlightClient(channel: channel)
     }
-    
+
     deinit {
         try? group?.syncShutdownGracefully()
         try? channel?.close().wait()
     }
-    
+
     func listActionTest() async throws {
         var actionTypes = [FlightActionType]()
-        try await client?.listActions( { action in
+        try await client?.listActions({ action in
             actionTypes.append(action)
         })
-        
+
         XCTAssertEqual(actionTypes.count, 2)
         XCTAssertEqual(actionTypes[0].type, "type1")
         XCTAssertEqual(actionTypes[0].description, "desc1")
         XCTAssertEqual(actionTypes[1].type, "type2")
         XCTAssertEqual(actionTypes[1].description, "desc2")
     }
-    
+
     func listFlightsTest() async throws {
         let flightCriteria = FlightCriteria("flight criteria expression".data(using: .utf8)!)
-        var num_calls = 0
+        var numCalls = 0
         try await client?.listFlights(flightCriteria, closure: { data in
-            num_calls += 1
+            numCalls += 1
             let schema = try streamToArrowSchema(data.schema)
             XCTAssertEqual(schema.fields.count, 3)
         })
-        
-        XCTAssertEqual(num_calls, 1)
+
+        XCTAssertEqual(numCalls, 1)
     }
-    
+
     func doActionTest() async throws {
         let action = FlightAction("test_action", body: "test_action body".data(using: .utf8)!)
         var actionResults = [FlightResult]()
         try await client?.doAction(action, closure: { result in
             actionResults.append(result)
         })
-        
+
         XCTAssertEqual(actionResults.count, 1)
-        XCTAssertEqual(String(bytes:actionResults[0].body, encoding: .utf8), "test_action result")
+        XCTAssertEqual(String(bytes: actionResults[0].body, encoding: .utf8), "test_action result")
     }
-    
+
     func getSchemaTest() async throws {
         let descriptor = FlightDescriptor(cmd: "schema info".data(using: .utf8)!)
         let schemaResult = try await client?.getSchema(descriptor)
         let schema = try streamToArrowSchema(schemaResult!.schema)
         XCTAssertEqual(schema.fields.count, 3)
     }
-    
+
     func doGetTest() async throws {
         let ticket = FlightTicket("flight_ticket test".data(using: .utf8)!)
-        var num_call = 0
+        var numCall = 0
         try await client?.doGet(ticket, readerResultClosure: { rb in
-            num_call += 1
+            numCall += 1
             XCTAssertEqual(rb.schema!.fields.count, 3)
             XCTAssertEqual(rb.batches[0].length, 4)
         })
-        
-        XCTAssertEqual(num_call, 1)
+
+        XCTAssertEqual(numCall, 1)
     }
-    
+
     func doGetTestFlightData() async throws {
         let ticket = FlightTicket("flight_ticket test".data(using: .utf8)!)
-        var num_call = 0
+        var numCall = 0
         try await client?.doGet(ticket, flightDataClosure: { flightData in
-            let reader = ArrowReader();
+            let reader = ArrowReader()
             let result = reader.fromStream(flightData.dataBody)
             switch result {
             case .success(let rb):
                 XCTAssertEqual(rb.schema?.fields.count, 3)
                 XCTAssertEqual(rb.batches[0].length, 4)
-                num_call += 1
+                numCall += 1
             case .failure(let error):
                 throw error
             }
         })
-        
-        XCTAssertEqual(num_call, 1)
+
+        XCTAssertEqual(numCall, 1)
     }
-    
+
     func doPutTest() async throws {
         let rb = try makeRecordBatch()
-        var num_call = 0
-        try await client?.doPut([rb], closure: { result in
-            num_call += 1
+        var numCall = 0
+        try await client?.doPut([rb], closure: { _ in
+            numCall += 1
         })
-        
-        XCTAssertEqual(num_call, 1)
+
+        XCTAssertEqual(numCall, 1)
     }
 
     func doExchangeTest() async throws {
         let rb = try makeRecordBatch()
-        var num_call = 0
+        var numCall = 0
         try await client?.doExchange([rb], closure: { result in
-            num_call += 1
+            numCall += 1
             XCTAssertEqual(result.schema?.fields.count, 3)
             XCTAssertEqual(result.batches[0].length, 4)
         })
-        
-        XCTAssertEqual(num_call, 1)
+
+        XCTAssertEqual(numCall, 1)
     }
 }
 
 actor FlightServerData {
     public var serverup = false
-    func SetServerUp(_ serverUp: Bool) {
+    func setServerUp(_ serverUp: Bool) {
         self.serverup = serverUp
     }
-    
-    func IsServerUp() -> Bool {
+
+    func isServerUp() -> Bool {
         return serverup
     }
 }
 
 final class FlightTest: XCTestCase {
     let serverData = FlightServerData()
-    
+
     func testFlightServer() async throws {
         let basicTask = Task {
             try await FlightServerImpl.run()
             defer {
                 print("server shutting down")
-                try! FlightServerImpl.group?.syncShutdownGracefully()
+                do {
+                    try FlightServerImpl.group?.syncShutdownGracefully()
+                } catch {
+                }
             }
-            
-            await serverData.SetServerUp(true)
+
+            await serverData.setServerUp(true)
             try await FlightServerImpl.server?.onClose.get()
             return "done"
         }
@@ -298,11 +304,11 @@ final class FlightTest: XCTestCase {
             defer {
                 _ = FlightServerImpl.server?.close()
             }
-            
-            while await !serverData.IsServerUp() {
+
+            while await !serverData.isServerUp() {
                 try await Task.sleep(nanoseconds: 1_000_000)
             }
-            
+
             let clientImpl = try await FlightClientTester()
             try await clientImpl.listActionTest()
             try await clientImpl.listFlightsTest()
@@ -312,11 +318,10 @@ final class FlightTest: XCTestCase {
             try await clientImpl.doGetTestFlightData()
             try await clientImpl.doPutTest()
             try await clientImpl.doExchangeTest()
-            
             return "done"
         }
-                
-        let _ = try await [basicTask.value, secondTask.value]
+
+        _ = try await [basicTask.value, secondTask.value]
         print("done running")
     }
 }

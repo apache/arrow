@@ -35,9 +35,9 @@ public class ArrowReader {
         public var schema: ArrowSchema?
         public var batches = [RecordBatch]()
     }
-    
+
     public init() {}
-    
+
     private func loadSchema(_ schema: org_apache_arrow_flatbuf_Schema) -> Result<ArrowSchema, ArrowError> {
         let builder = ArrowSchema.Builder()
         for index in 0 ..< schema.fieldsCount {
@@ -95,8 +95,12 @@ public class ArrowReader {
         }
     }
 
-    private func loadRecordBatch(_ message: org_apache_arrow_flatbuf_Message, schema: org_apache_arrow_flatbuf_Schema,
-                                 arrowSchema: ArrowSchema, data: Data, messageEndOffset: Int64) -> Result<RecordBatch, ArrowError> {
+    private func loadRecordBatch(_ message: org_apache_arrow_flatbuf_Message,
+                                 schema: org_apache_arrow_flatbuf_Schema,
+                                 arrowSchema: ArrowSchema,
+                                 data: Data,
+                                 messageEndOffset: Int64
+    ) -> Result<RecordBatch, ArrowError> {
         let recordBatch = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)
         let nodesCount = recordBatch?.nodesCount ?? 0
         var bufferIndex: Int32 = 0
@@ -114,16 +118,15 @@ public class ArrowReader {
                 result = loadVariableData(loadInfo)
                 bufferIndex += 3
             }
-            
+
             switch result {
             case .success(let holder):
                 columns.append(holder)
             case .failure(let error):
                 return .failure(error)
             }
-            
         }
-        
+
         return .success(RecordBatch(arrowSchema, columns: columns))
     }
 
