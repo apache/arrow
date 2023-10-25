@@ -334,7 +334,7 @@ class SortedMergeNode : public ExecNode {
       }
 
       const auto& ref = sort_key.target;
-      if (!ref.IsName()) [[unlikely]] {
+      if (!ref.IsName()) {
         return Status::Invalid("Ordering must be a name. ", ref.ToString(),
                                " is not a name");
       }
