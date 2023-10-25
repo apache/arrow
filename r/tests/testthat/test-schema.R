@@ -39,7 +39,6 @@ test_that("Schema print method", {
 })
 
 test_that("Schema$code()", {
-
   test_schema <- schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
 
   expect_code_roundtrip(test_schema)
@@ -321,5 +320,4 @@ test_that("schema extraction", {
 
   adq <- as_adq(example_data)
   expect_equal(schema(adq), adq$.data$schema)
-
 })
