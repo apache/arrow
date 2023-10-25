@@ -220,7 +220,7 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = schema_proxy_id_mda;
     }
 
-    void RecordBatch::getRowString(libmexclass::proxy::method::Context& context) {
+    void RecordBatch::getRowAsString(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         using namespace libmexclass::proxy;
         mda::ArrayFactory factory;

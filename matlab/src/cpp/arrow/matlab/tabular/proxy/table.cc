@@ -59,7 +59,7 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(Table, getSchema);
         REGISTER_METHOD(Table, getColumnByIndex);
         REGISTER_METHOD(Table, getColumnByName);
-        REGISTER_METHOD(Table, getRowString);
+        REGISTER_METHOD(Table, getRowAsString);
     }
 
     std::shared_ptr<arrow::Table> Table::unwrap() {
@@ -215,7 +215,7 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = chunked_array_proxy_id_mda;
     }
 
-    void Table::getRowString(libmexclass::proxy::method::Context& context) {
+    void Table::getRowAsString(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         using namespace libmexclass::proxy;
         mda::ArrayFactory factory;
