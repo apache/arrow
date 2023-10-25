@@ -31,7 +31,7 @@ public class RecordBatchStreamReader: AsyncSequence, AsyncIteratorProtocol {
         self.stream = stream
         self.streamIterator = self.stream.makeAsyncIterator()
     }
-    
+
     public func next() async throws -> Arrow.RecordBatch? {
         guard !Task.isCancelled else {
             return nil
@@ -42,21 +42,24 @@ public class RecordBatchStreamReader: AsyncSequence, AsyncIteratorProtocol {
             batchIndex += 1
             return batch
         }
-         
+
         while true {
             let flightData = try await self.streamIterator.next()
             if flightData == nil {
                 return nil
             }
-            
-            let data = (flightData as! Arrow_Flight_Protocol_FlightData).dataBody
-            switch reader.fromStream(data) {
-            case .success(let rbResult):
-                batches = rbResult.batches
-                batchIndex = 1
-                return batches[0]
-            case .failure(let error):
-                throw error
+
+            if let data = (flightData as? Arrow_Flight_Protocol_FlightData)?.dataBody {
+                switch reader.fromStream(data) {
+                case .success(let rbResult):
+                    batches = rbResult.batches
+                    batchIndex = 1
+                    return batches[0]
+                case .failure(let error):
+                    throw error
+                }
+            } else {
+                throw ArrowError.invalid("Flight data is incorrect type.")
             }
         }
     }

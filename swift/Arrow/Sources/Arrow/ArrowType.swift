@@ -20,9 +20,9 @@ import Foundation
 public typealias Time32 = Int32
 public typealias Time64 = Int64
 
-func FlatBuffersVersion_23_1_4() {
+func FlatBuffersVersion_23_1_4() { // swiftlint:disable:this identifier_name
 }
-                                                                                  
+
 public enum ArrowError: Error {
     case none
     case unknownType(String)
@@ -36,50 +36,50 @@ public enum ArrowError: Error {
 }
 
 public enum ArrowTypeId {
-    case Binary
-    case Boolean
-    case Date32
-    case Date64
-    case DateType
-    case Decimal128
-    case Decimal256
-    case Dictionary
-    case Double
-    case FixedSizeBinary
-    case FixedWidthType
-    case Float
-    //case HalfFloatType
-    case Int16
-    case Int32
-    case Int64
-    case Int8
-    case Integer
-    case IntervalUnit
-    case List
-    case Nested
-    case Null
-    case Number
-    case String
-    case Struct
-    case Time32
-    case Time64
-    case Time
-    case UInt16
-    case UInt32
-    case UInt64
-    case UInt8
-    case Union
-    case Unknown
+    case binary
+    case boolean
+    case date32
+    case date64
+    case dateType
+    case decimal128
+    case decimal256
+    case dictionary
+    case double
+    case fixedSizeBinary
+    case fixedWidthType
+    case float
+    // case HalfFloatType
+    case int16
+    case int32
+    case int64
+    case int8
+    case integer
+    case intervalUnit
+    case list
+    case nested
+    case null
+    case number
+    case string
+    case strct
+    case time32
+    case time64
+    case time
+    case uint16
+    case uint32
+    case uint64
+    case uint8
+    case union
+    case unknown
 }
 
 public enum ArrowTime32Unit {
-    case Seconds
-    case Milliseconds
+    case seconds
+    case milliseconds
 }
 
 public enum ArrowTime64Unit {
-    case Microseconds
-    case Nanoseconds
+    case microseconds
+    case nanoseconds
 }
 
 public class ArrowTypeTime32: ArrowType {
@@ -100,70 +100,70 @@ public class ArrowTypeTime64: ArrowType {
 
 public class ArrowType {
     public private(set) var info: ArrowType.Info
-    public static let ArrowInt8 = Info.PrimitiveInfo(ArrowTypeId.Int8)
-    public static let ArrowInt16 = Info.PrimitiveInfo(ArrowTypeId.Int16)
-    public static let ArrowInt32 = Info.PrimitiveInfo(ArrowTypeId.Int32)
-    public static let ArrowInt64 = Info.PrimitiveInfo(ArrowTypeId.Int64)
-    public static let ArrowUInt8 = Info.PrimitiveInfo(ArrowTypeId.UInt8)
-    public static let ArrowUInt16 = Info.PrimitiveInfo(ArrowTypeId.UInt16)
-    public static let ArrowUInt32 = Info.PrimitiveInfo(ArrowTypeId.UInt32)
-    public static let ArrowUInt64 = Info.PrimitiveInfo(ArrowTypeId.UInt64)
-    public static let ArrowFloat = Info.PrimitiveInfo(ArrowTypeId.Float)
-    public static let ArrowDouble = Info.PrimitiveInfo(ArrowTypeId.Double)
-    public static let ArrowUnknown = Info.PrimitiveInfo(ArrowTypeId.Unknown)
-    public static let ArrowString = Info.VariableInfo(ArrowTypeId.String)
-    public static let ArrowBool = Info.PrimitiveInfo(ArrowTypeId.Boolean)
-    public static let ArrowDate32 = Info.PrimitiveInfo(ArrowTypeId.Date32)
-    public static let ArrowDate64 = Info.PrimitiveInfo(ArrowTypeId.Date64)
-    public static let ArrowBinary = Info.VariableInfo(ArrowTypeId.Binary)
-    public static let ArrowTime32 = Info.TimeInfo(ArrowTypeId.Time32)
-    public static let ArrowTime64 = Info.TimeInfo(ArrowTypeId.Time64)
+    public static let ArrowInt8 = Info.primitiveInfo(ArrowTypeId.int8)
+    public static let ArrowInt16 = Info.primitiveInfo(ArrowTypeId.int16)
+    public static let ArrowInt32 = Info.primitiveInfo(ArrowTypeId.int32)
+    public static let ArrowInt64 = Info.primitiveInfo(ArrowTypeId.int64)
+    public static let ArrowUInt8 = Info.primitiveInfo(ArrowTypeId.uint8)
+    public static let ArrowUInt16 = Info.primitiveInfo(ArrowTypeId.uint16)
+    public static let ArrowUInt32 = Info.primitiveInfo(ArrowTypeId.uint32)
+    public static let ArrowUInt64 = Info.primitiveInfo(ArrowTypeId.uint64)
+    public static let ArrowFloat = Info.primitiveInfo(ArrowTypeId.float)
+    public static let ArrowDouble = Info.primitiveInfo(ArrowTypeId.double)
+    public static let ArrowUnknown = Info.primitiveInfo(ArrowTypeId.unknown)
+    public static let ArrowString = Info.variableInfo(ArrowTypeId.string)
+    public static let ArrowBool = Info.primitiveInfo(ArrowTypeId.boolean)
+    public static let ArrowDate32 = Info.primitiveInfo(ArrowTypeId.date32)
+    public static let ArrowDate64 = Info.primitiveInfo(ArrowTypeId.date64)
+    public static let ArrowBinary = Info.variableInfo(ArrowTypeId.binary)
+    public static let ArrowTime32 = Info.timeInfo(ArrowTypeId.time32)
+    public static let ArrowTime64 = Info.timeInfo(ArrowTypeId.time64)
 
     public init(_ info: ArrowType.Info) {
         self.info = info
     }
-    
+
     public enum Info {
-        case PrimitiveInfo(ArrowTypeId)
-        case VariableInfo(ArrowTypeId)
-        case TimeInfo(ArrowTypeId)
+        case primitiveInfo(ArrowTypeId)
+        case variableInfo(ArrowTypeId)
+        case timeInfo(ArrowTypeId)
     }
 
-    public static func infoForNumericType<T>(_ t: T.Type) -> ArrowType.Info {
-        if t == Int8.self {
+    public static func infoForNumericType<T>(_ type: T.Type) -> ArrowType.Info {
+        if type == Int8.self {
             return ArrowType.ArrowInt8
-        }else if t == Int16.self {
+        } else if type == Int16.self {
             return ArrowType.ArrowInt16
-        }else if t == Int32.self {
+        } else if type == Int32.self {
             return ArrowType.ArrowInt32
-        }else if t == Int64.self {
+        } else if type == Int64.self {
             return ArrowType.ArrowInt64
-        }else if t == UInt8.self {
+        } else if type == UInt8.self {
             return ArrowType.ArrowUInt8
-        }else if t == UInt16.self {
+        } else if type == UInt16.self {
             return ArrowType.ArrowUInt16
-        }else if t == UInt32.self {
+        } else if type == UInt32.self {
             return ArrowType.ArrowUInt32
-        }else if t == UInt64.self {
+        } else if type == UInt64.self {
             return ArrowType.ArrowUInt64
-        }else if t == Float.self {
+        } else if type == Float.self {
             return ArrowType.ArrowFloat
-        }else if t == Double.self {
+        } else if type == Double.self {
             return ArrowType.ArrowDouble
-        }else {
+        } else {
             return ArrowType.ArrowUnknown
         }
     }
 }
 
 extension ArrowType.Info: Equatable {
-    public static func==(lhs: ArrowType.Info, rhs: ArrowType.Info) -> Bool {
+    public static func == (lhs: ArrowType.Info, rhs: ArrowType.Info) -> Bool {
         switch(lhs, rhs) {
-        case (.PrimitiveInfo(let lhsId), .PrimitiveInfo(let rhsId)):
+        case (.primitiveInfo(let lhsId), .primitiveInfo(let rhsId)):
             return lhsId == rhsId
-        case (.VariableInfo(let lhsId), .VariableInfo(let rhsId)):
+        case (.variableInfo(let lhsId), .variableInfo(let rhsId)):
             return lhsId == rhsId
-        case (.TimeInfo(let lhsId), .TimeInfo(let rhsId)):
+        case (.timeInfo(let lhsId), .timeInfo(let rhsId)):
             return lhsId == rhsId
         default:
             return false
@@ -172,11 +172,9 @@ extension ArrowType.Info: Equatable {
 }
 
 func getBytesFor<T>(_ data: T) -> Data? {
-    let t = T.self
-    if t == String.self {
-        let temp = data as! String
+    if let temp = data as? String {
         return temp.data(using: .utf8)
-    } else if t == Data.self {
+    } else if T.self == Data.self {
         return data as? Data
     } else {
         return nil
