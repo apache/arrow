@@ -459,9 +459,7 @@ class SortedMergeNode : public ExecNode {
       output_col_to_src[i] = std::make_pair(0, i);
     }
     UnmaterializedCompositeTable output(output_schema(), 1, std::move(output_col_to_src),
-                                        plan()->query_context()->memory_pool()
-
-    );
+                                        plan()->query_context()->memory_pool());
 
     // Generate rows until we run out of data or we exceed the target output
     // size
