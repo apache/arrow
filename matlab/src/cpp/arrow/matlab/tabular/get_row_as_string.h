@@ -55,8 +55,12 @@ namespace arrow::matlab::tabular {
                 auto slice = column->Slice(row_index, 1);
                 ARROW_RETURN_NOT_OK(arrow::PrettyPrint(*slice, opts, &ss));
             } else if (type_id == arrow::Type::type::STRUCT) {
+                // Use <Struct> as a placeholder since we don't have a good
+                // way to display StructArray elements horiztonally on screen.
                 ss << "<Struct>";
             } else if (type_id == arrow::Type::type::LIST) {
+                // Use <List> as a placeholder since we don't have a good
+                // way to display ListArray elements horiztonally on screen.
                 ss << "<List>";
             } else {
                 return arrow::Status::NotImplemented("Datatype " + column->type()->ToString() + "is not currently supported for display.");
