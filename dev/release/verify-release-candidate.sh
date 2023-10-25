@@ -962,7 +962,7 @@ ensure_source_directory() {
   # Ensure that the testing repositories are prepared
   if [ ! -d ${ARROW_SOURCE_DIR}/testing/data ]; then
     if [ -d ${SOURCE_DIR}/../../testing/data ]; then
-      cp -a ${SOURCE_DIR}/../../testing/ ${ARROW_SOURCE_DIR}/
+      cp -a ${SOURCE_DIR}/../../testing ${ARROW_SOURCE_DIR}/
     else
       git clone \
         https://github.com/apache/arrow-testing.git \
@@ -972,7 +972,7 @@ ensure_source_directory() {
   if [ ! -d ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data ]; then
     if [ -d ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/data ]; then
       cp -a \
-         ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/ \
+         ${SOURCE_DIR}/../../cpp/submodules/parquet-testing \
          ${ARROW_SOURCE_DIR}/cpp/submodules/
     else
       git clone \
