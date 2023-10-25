@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-
->>>>>>> b34c999b6 (Create sorted merge node)
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
@@ -20,10 +16,7 @@
 // under the License.
 
 #pragma once
-<<<<<<< HEAD
-=======
 #include "arrow/acero/exec_plan.h"
->>>>>>> b34c999b6 (Create sorted merge node)
 #include "arrow/acero/options.h"
 
 #include <memory>
@@ -32,26 +25,16 @@ namespace arrow::acero {
 
 class BackpressureHandler {
  private:
-<<<<<<< HEAD
-  BackpressureHandler(size_t low_threshold, size_t high_threshold,
-                      std::unique_ptr<BackpressureControl> backpressure_control)
-      : low_threshold_(low_threshold),
-=======
   BackpressureHandler(ExecNode* input, size_t low_threshold, size_t high_threshold,
                       std::unique_ptr<BackpressureControl> backpressure_control)
       : input_(input),
         low_threshold_(low_threshold),
->>>>>>> b34c999b6 (Create sorted merge node)
         high_threshold_(high_threshold),
         backpressure_control_(std::move(backpressure_control)) {}
 
  public:
   static Result<BackpressureHandler> Make(
-<<<<<<< HEAD
-      size_t low_threshold, size_t high_threshold,
-=======
       ExecNode* input, size_t low_threshold, size_t high_threshold,
->>>>>>> b34c999b6 (Create sorted merge node)
       std::unique_ptr<BackpressureControl> backpressure_control) {
     if (low_threshold >= high_threshold) {
       return Status::Invalid("low threshold (", low_threshold,
@@ -60,11 +43,7 @@ class BackpressureHandler {
     if (backpressure_control == NULLPTR) {
       return Status::Invalid("null backpressure control parameter");
     }
-<<<<<<< HEAD
-    BackpressureHandler backpressure_handler(low_threshold, high_threshold,
-=======
     BackpressureHandler backpressure_handler(input, low_threshold, high_threshold,
->>>>>>> b34c999b6 (Create sorted merge node)
                                              std::move(backpressure_control));
     return std::move(backpressure_handler);
   }
@@ -77,9 +56,6 @@ class BackpressureHandler {
     }
   }
 
-<<<<<<< HEAD
- private:
-=======
   Status ForceShutdown() {
     // It may be unintuitive to call Resume() here, but this is to avoid a deadlock.
     // Since acero's executor won't terminate if any one node is paused, we need to
@@ -89,8 +65,8 @@ class BackpressureHandler {
   }
 
  private:
+ private:
   ExecNode* input_;
->>>>>>> b34c999b6 (Create sorted merge node)
   size_t low_threshold_;
   size_t high_threshold_;
   std::unique_ptr<BackpressureControl> backpressure_control_;
