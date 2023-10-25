@@ -418,6 +418,8 @@ func (b *BaseEncodingTestSuite) TestSpacedRoundTrip() {
 			if validBits != nil {
 				b.checkRoundTripSpaced(parquet.Encodings.Plain, validBits, validBitsOffset)
 				switch b.typ {
+				case reflect.TypeOf(false):
+					b.checkRoundTripSpaced(parquet.Encodings.RLE, validBits, validBitsOffset)
 				case reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)):
 					b.checkRoundTripSpaced(parquet.Encodings.DeltaBinaryPacked, validBits, validBitsOffset)
 				case reflect.TypeOf(parquet.ByteArray{}):
