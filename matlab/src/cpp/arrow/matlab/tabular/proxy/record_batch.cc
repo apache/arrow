@@ -59,7 +59,7 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
         REGISTER_METHOD(RecordBatch, getColumnByName);
         REGISTER_METHOD(RecordBatch, getSchema);
-        REGISTER_METHOD(RecordBatch, getRowString);
+        REGISTER_METHOD(RecordBatch, getRowAsString);
     }
 
     std::shared_ptr<arrow::RecordBatch> RecordBatch::unwrap() {
