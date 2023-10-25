@@ -24,8 +24,8 @@ namespace arrow::acero {
 
 // normalize the value to 64-bits while preserving ordering of values
 template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
-static inline uint64_t get_time_normalized(T t);
+inline uint64_t NormalizeTime(T t);
 
-uint64_t get_time(const RecordBatch* batch, Type::type time_type, int col, uint64_t row);
+uint64_t GetTime(const RecordBatch* batch, Type::type time_type, int col, uint64_t row);
 
 }  // namespace arrow::acero
