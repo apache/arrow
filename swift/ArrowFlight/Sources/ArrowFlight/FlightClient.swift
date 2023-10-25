@@ -27,35 +27,36 @@ public class FlightClient {
     public init(channel: GRPCChannel) {
         client = Arrow_Flight_Protocol_FlightServiceAsyncClient(channel: channel)
     }
-    
+
     public func listActions(_ closure: (FlightActionType) -> Void) async throws {
         let listActions = client.makeListActionsCall(Arrow_Flight_Protocol_Empty())
         for try await data in listActions.responseStream {
             closure(FlightActionType(data))
         }
     }
-    
-    public func listFlights(_ criteria :FlightCriteria, closure: (FlightInfo) throws -> Void) async throws {
+
+    public func listFlights(_ criteria: FlightCriteria, closure: (FlightInfo) throws -> Void) async throws {
         let listFlights = client.makeListFlightsCall(criteria.toProtocol())
         for try await data in listFlights.responseStream {
-            try closure(FlightInfo(data));
+            try closure(FlightInfo(data))
         }
     }
-    
-    
+
     public func doAction(_ action: FlightAction, closure: (FlightResult) throws -> Void) async throws {
         let actionResponse = client.makeDoActionCall(action.toProtocol())
         for try await data in actionResponse.responseStream {
-            try closure(FlightResult(data));
+            try closure(FlightResult(data))
         }
     }
-    
+
     public func getSchema(_ descriptor: FlightDescriptor) async throws -> FlightSchemaResult {
         let schemaResultResponse = client.makeGetSchemaCall(descriptor.toProtocol())
         return FlightSchemaResult(try await schemaResultResponse.response)
     }
-    
-    public func doGet(_ ticket: FlightTicket, readerResultClosure: (ArrowReader.ArrowReaderResult) throws -> Void) async throws {
+
+    public func doGet(
+        _ ticket: FlightTicket,
+        readerResultClosure: (ArrowReader.ArrowReaderResult) throws -> Void) async throws {
         let getResult = client.makeDoGetCall(ticket.toProtocol())
         let reader = ArrowReader()
         for try await data in getResult.responseStream {
@@ -77,9 +78,9 @@ public class FlightClient {
 
     public func doPut(_ recordBatchs: [RecordBatch], closure: (FlightPutResult) throws -> Void) async throws {
         if recordBatchs.isEmpty {
-            throw ArrowFlightError.EmptyCollection
+            throw ArrowFlightError.emptyCollection
         }
-        
+
         let putCall = client.makeDoPutCall()
         let writer = ArrowWriter()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: recordBatchs[0].schema, batches: recordBatchs)
@@ -104,11 +105,13 @@ public class FlightClient {
         }
     }
 
-    public func doExchange(_ recordBatchs: [RecordBatch], closure: (ArrowReader.ArrowReaderResult) throws -> Void) async throws {
+    public func doExchange(
+        _ recordBatchs: [RecordBatch],
+        closure: (ArrowReader.ArrowReaderResult) throws -> Void) async throws {
         if recordBatchs.isEmpty {
-            throw ArrowFlightError.EmptyCollection
+            throw ArrowFlightError.emptyCollection
         }
-        
+
         let exchangeCall = client.makeDoExchangeCall()
         let writer = ArrowWriter()
         let info = ArrowWriter.Info(.recordbatch, schema: recordBatchs[0].schema, batches: recordBatchs)
