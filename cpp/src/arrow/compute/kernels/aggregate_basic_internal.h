@@ -18,10 +18,9 @@
 #pragma once
 
 #include <cmath>
+#include <iostream>
 #include <type_traits>
 #include <utility>
-#include<iostream>
-
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
@@ -1064,17 +1063,7 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     if (batch[0].is_scalar()) {
       return Status::NotImplemented("No min/max implemented for DictionaryScalar");
     }
-
-    std::cout<<1<<"\n";
-
-    if (this->valueState == nullptr) {
-      const DataType& value_type_ref = checked_cast<const DataType&>(*this->value_type);
-      MinMaxInitState<SimdLevel::NONE> valueMinMaxInitState(
-          nullptr, value_type_ref, out_type, ScalarAggregateOptions::Defaults());
-      ARROW_ASSIGN_OR_RAISE(this->valueState, valueMinMaxInitState.Create());
-    }
-
-    std::cout<<2<<"\n";
+    RETURN_NOT_OK(this->InitValueState());
 
     DictionaryArray dict_arr(batch[0].array.ToArrayData());
     ARROW_ASSIGN_OR_RAISE(auto compacted_arr, dict_arr.Compact(ctx->memory_pool()));
@@ -1086,26 +1075,23 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
       return Status::OK();
     }
 
-    std::cout<<3<<"\n";
-
-
     this->has_nulls |= compacted_dict_arr.null_count() > 0;
     this->count += non_null_count;
     if (this->has_nulls && !options.skip_nulls) {
       return Status::OK();
     }
 
-    std::cout<<4<<"\n";
-
-
     const ArrayData& dict_data =
         checked_cast<const ArrayData&>(*compacted_dict_arr.dictionary()->data());
-    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->valueState.get())
-                      ->Consume(ctx, ExecSpan(std::vector({ExecValue(dict_data)}), 1)));
+    RETURN_NOT_OK(
+        checked_cast<ScalarAggregator*>(this->valueState.get())
+            ->Consume(nullptr, ExecSpan(std::vector({ExecValue(dict_data)}), 1)));
     return Status::OK();
   }
 
-  Status MergeFrom(KernelContext* ctx, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    RETURN_NOT_OK(this->InitValueState());
+
     const auto& other = checked_cast<const ThisType&>(src);
     this->has_nulls |= other.has_nulls;
     this->count += other.count;
@@ -1113,14 +1099,13 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
       return Status::OK();
     }
 
-    KernelState otherValueState = *other.valueState;
     RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->valueState.get())
-                      ->MergeFrom(ctx, std::move(otherValueState)));
+                      ->MergeFrom(nullptr, std::move(*other.valueState)));
     return Status::OK();
   }
 
-  Status Finalize(KernelContext* ctx, Datum* out) override {
-    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
+  Status Finalize(KernelContext*, Datum* out) override {
+    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count) || this->valueState.get() == nullptr) {
       const auto& struct_type = checked_cast<const StructType&>(*out_type);
       const auto& child_type = struct_type.field(0)->type();
 
@@ -1129,8 +1114,8 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
       out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
     } else {
       Datum temp;
-      RETURN_NOT_OK(
-          checked_cast<ScalarAggregator*>(this->valueState.get())->Finalize(ctx, &temp));
+      RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->valueState.get())
+                        ->Finalize(nullptr, &temp));
       const auto& result = temp.scalar_as<StructScalar>();
       DCHECK(result.is_valid);
       out->value = result.GetSharedPtr();
@@ -1145,6 +1130,17 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   int64_t count;
   std::shared_ptr<DataType> value_type;
   std::unique_ptr<KernelState> valueState;
+
+  private:
+   inline Status InitValueState() {
+     if (this->valueState == nullptr) {
+       const DataType& value_type_ref = checked_cast<const DataType&>(*this->value_type);
+       MinMaxInitState<SimdLevel::NONE> valueMinMaxInitState(
+           nullptr, value_type_ref, out_type, ScalarAggregateOptions::Defaults());
+       ARROW_ASSIGN_OR_RAISE(this->valueState, valueMinMaxInitState.Create());
+     }
+     return Status::OK();
+   }
 };
 
 template <SimdLevel::type SimdLevel>
