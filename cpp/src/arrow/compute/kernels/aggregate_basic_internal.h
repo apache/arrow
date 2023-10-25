@@ -1105,7 +1105,8 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
-    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count) || this->valueState.get() == nullptr) {
+    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count) ||
+        this->valueState.get() == nullptr) {
       const auto& struct_type = checked_cast<const StructType&>(*out_type);
       const auto& child_type = struct_type.field(0)->type();
 
@@ -1131,16 +1132,16 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   std::shared_ptr<DataType> value_type;
   std::unique_ptr<KernelState> valueState;
 
-  private:
-   inline Status InitValueState() {
-     if (this->valueState == nullptr) {
-       const DataType& value_type_ref = checked_cast<const DataType&>(*this->value_type);
-       MinMaxInitState<SimdLevel::NONE> valueMinMaxInitState(
-           nullptr, value_type_ref, out_type, ScalarAggregateOptions::Defaults());
-       ARROW_ASSIGN_OR_RAISE(this->valueState, valueMinMaxInitState.Create());
-     }
-     return Status::OK();
-   }
+ private:
+  inline Status InitValueState() {
+    if (this->valueState == nullptr) {
+      const DataType& value_type_ref = checked_cast<const DataType&>(*this->value_type);
+      MinMaxInitState<SimdLevel::NONE> valueMinMaxInitState(
+          nullptr, value_type_ref, out_type, ScalarAggregateOptions::Defaults());
+      ARROW_ASSIGN_OR_RAISE(this->valueState, valueMinMaxInitState.Create());
+    }
+    return Status::OK();
+  }
 };
 
 template <SimdLevel::type SimdLevel>
