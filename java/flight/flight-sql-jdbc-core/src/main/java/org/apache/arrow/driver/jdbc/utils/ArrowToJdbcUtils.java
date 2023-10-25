@@ -57,7 +57,7 @@ class ArrowToJdbcUtils {
       case FixedSizeList:
         return Types.ARRAY;
       case Int:
-        switch(((ArrowType.Int) type).getBitWidth()) {
+        switch (((ArrowType.Int) type).getBitWidth()) {
           case 64:
             return Types.BIGINT;
           case 32:
@@ -66,6 +66,9 @@ class ArrowToJdbcUtils {
             return Types.SMALLINT;
           case 8:
             return Types.TINYINT;
+          default:
+            // FIXME: Does this ever even happen?
+            return Types.OTHER;
         }
       case FloatingPoint:
         /*
