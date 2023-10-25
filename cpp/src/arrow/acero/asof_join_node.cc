@@ -811,7 +811,7 @@ class CompositeTableBuilder {
     DCHECK_LE(n_tables_, MAX_TABLES);
   }
 
-  size_t n_rows() const { unmaterialized_table.Size(); }
+  size_t n_rows() const { return unmaterialized_table.Size(); }
 
   // Adds the latest row from the input state as a new composite reference row
   // - LHS must have a valid key,timestep,and latest rows

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 #include "arrow/acero/backpressure_handler.h"
