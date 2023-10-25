@@ -431,7 +431,7 @@ func (src *ipcSource) fieldMetadata(i int) *flatbuf.FieldNode {
 }
 
 func (src *ipcSource) variadicCount(i int) int64 {
-	return src.meta.VariadicCounts(i)
+	return src.meta.VariadicBufferCounts(i)
 }
 
 type arrayLoaderContext struct {

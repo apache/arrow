@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 )
 
 func (sh *StringHeader) InlineData() (data string) {
