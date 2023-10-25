@@ -21,7 +21,6 @@ import decimal
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
-import pickle
 import pytest
 import struct
 import subprocess
@@ -29,10 +28,6 @@ import sys
 import weakref
 
 import numpy as np
-try:
-    import pickle5
-except ImportError:
-    pickle5 = None
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -301,7 +296,7 @@ def test_asarray():
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert type(np_arr[0]) == pa.lib.Int64Value
+    assert isinstance(np_arr[0], pa.lib.Int64Value)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
@@ -2007,51 +2002,48 @@ pickle_test_parametrize = pytest.mark.parametrize(
 
 
 @pickle_test_parametrize
-def test_array_pickle(data, typ):
+def test_array_pickle(data, typ, pickle_module):
     # Allocate here so that we don't have any Arrow data allocated.
     # This is needed to ensure that allocator tests can be reliable.
     array = pa.array(data, type=typ)
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
-        result = pickle.loads(pickle.dumps(array, proto))
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        result = pickle_module.loads(pickle_module.dumps(array, proto))
         assert array.equals(result)
 
 
-def test_array_pickle_dictionary():
+def test_array_pickle_dictionary(pickle_module):
     # not included in the above as dictionary array cannot be created with
     # the pa.array function
     array = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1], ['a', 'b', 'c'])
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
-        result = pickle.loads(pickle.dumps(array, proto))
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        result = pickle_module.loads(pickle_module.dumps(array, proto))
         assert array.equals(result)
 
 
+@h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
 @h.given(
     past.arrays(
         past.all_types,
         size=st.integers(min_value=0, max_value=10)
     )
 )
-def test_pickling(arr):
-    data = pickle.dumps(arr)
-    restored = pickle.loads(data)
+def test_pickling(pickle_module, arr):
+    data = pickle_module.dumps(arr)
+    restored = pickle_module.loads(data)
     assert arr.equals(restored)
 
 
 @pickle_test_parametrize
-def test_array_pickle5(data, typ):
+def test_array_pickle_protocol5(data, typ, pickle_module):
     # Test zero-copy pickling with protocol 5 (PEP 574)
-    picklemod = pickle5 or pickle
-    if pickle5 is None and picklemod.HIGHEST_PROTOCOL < 5:
-        pytest.skip("need pickle5 package or Python 3.8+")
-
     array = pa.array(data, type=typ)
     addresses = [buf.address if buf is not None else 0
                  for buf in array.buffers()]
 
-    for proto in range(5, pickle.HIGHEST_PROTOCOL + 1):
+    for proto in range(5, pickle_module.HIGHEST_PROTOCOL + 1):
         buffers = []
-        pickled = picklemod.dumps(array, proto, buffer_callback=buffers.append)
-        result = picklemod.loads(pickled, buffers=buffers)
+        pickled = pickle_module.dumps(array, proto, buffer_callback=buffers.append)
+        result = pickle_module.loads(pickled, buffers=buffers)
         assert array.equals(result)
 
         result_addresses = [buf.address if buf is not None else 0
@@ -3342,6 +3334,24 @@ def test_array_protocol():
     result = pa.array(arr)
     expected = pa.chunked_array([[1, 2, 3], [1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
+
+
+def test_c_array_protocol():
+    class ArrayWrapper:
+        def __init__(self, data):
+            self.data = data
+
+        def __arrow_c_array__(self, requested_type=None):
+            return self.data.__arrow_c_array__(requested_type)
+
+    # Can roundtrip through the C array protocol
+    arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))
+    result = pa.array(arr)
+    assert result == arr.data
+
+    # Will case to requested type
+    result = pa.array(arr, type=pa.int32())
+    assert result == pa.array([1, 2, 3], type=pa.int32())
 
 
 def test_concat_array():

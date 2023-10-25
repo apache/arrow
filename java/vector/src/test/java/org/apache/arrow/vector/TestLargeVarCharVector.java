@@ -21,6 +21,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -37,6 +38,7 @@ import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
@@ -791,6 +793,42 @@ public class TestLargeVarCharVector {
 
       vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
       assertEquals("foo", new String(vector.get(initialCapacity), StandardCharsets.UTF_8));
+    }
+  }
+
+  @Test
+  public void testGetTextRepeatedly() {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("myvector", allocator)) {
+
+      ValueVectorDataPopulator.setVector(vector, STR1, STR2);
+      vector.setValueCount(2);
+
+      /* check the vector output */
+      Text text = new Text();
+      vector.read(0, text);
+      byte[] result = new byte[(int) text.getLength()];
+      System.arraycopy(text.getBytes(), 0, result, 0, (int) text.getLength());
+      assertArrayEquals(STR1, result);
+      vector.read(1, text);
+      result = new byte[(int) text.getLength()];
+      System.arraycopy(text.getBytes(), 0, result, 0, (int) text.getLength());
+      assertArrayEquals(STR2, text.getBytes());
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
+        LargeVarCharVector v1 = new LargeVarCharVector("v1", childAllocator1)) {
+      v1.allocateNew();
+      v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+      v1.setValueCount(4001);
+
+      TransferPair tp = v1.getTransferPair(v1.getField(), allocator);
+      tp.transfer();
+      LargeVarCharVector v2 = (LargeVarCharVector) tp.getTo();
+      assertSame(v1.getField(), v2.getField());
+      v2.clear();
     }
   }
 

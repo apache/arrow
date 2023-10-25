@@ -23,7 +23,6 @@ import inspect
 import itertools
 import math
 import os
-import pickle
 import pytest
 import random
 import sys
@@ -41,6 +40,10 @@ import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
 from pyarrow.tests import util
 
+try:
+    import pyarrow.substrait as pas
+except ImportError:
+    pas = None
 
 all_array_types = [
     ('bool', [True, False, False, True, True]),
@@ -131,6 +134,9 @@ def test_exported_option_classes():
                                       param.VAR_KEYWORD)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
+)
 def test_option_class_equality():
     options = [
         pc.ArraySortOptions(),
@@ -210,7 +216,12 @@ def test_option_class_equality():
         buf = option.serialize()
         deserialized = pc.FunctionOptions.deserialize(buf)
         assert option == deserialized
-        assert repr(option) == repr(deserialized)
+        # TODO remove the check under the if statement and the filterwarnings
+        # mark when the deprecated class CumulativeSumOptions is removed.
+        if repr(option).startswith("CumulativeSumOptions"):
+            assert repr(deserialized).startswith("CumulativeOptions")
+        else:
+            assert repr(option) == repr(deserialized)
     for option1, option2 in zip(options, options[1:]):
         assert option1 != option2
 
@@ -266,18 +277,18 @@ def test_call_function_with_memory_pool():
     assert result3.equals(expected)
 
 
-def test_pickle_functions():
+def test_pickle_functions(pickle_module):
     # Pickle registered functions
     for name in pc.list_functions():
         func = pc.get_function(name)
-        reconstructed = pickle.loads(pickle.dumps(func))
+        reconstructed = pickle_module.loads(pickle_module.dumps(func))
         assert type(reconstructed) is type(func)
         assert reconstructed.name == func.name
         assert reconstructed.arity == func.arity
         assert reconstructed.num_kernels == func.num_kernels
 
 
-def test_pickle_global_functions():
+def test_pickle_global_functions(pickle_module):
     # Pickle global wrappers (manual or automatic) of registered functions
     for name in pc.list_functions():
         try:
@@ -285,7 +296,7 @@ def test_pickle_global_functions():
         except AttributeError:
             # hash_aggregate functions are not exported as callables.
             continue
-        reconstructed = pickle.loads(pickle.dumps(func))
+        reconstructed = pickle_module.loads(pickle_module.dumps(func))
         assert reconstructed is func
 
 
@@ -1367,6 +1378,11 @@ def test_filter_errors():
                            match="must all be the same length"):
             obj.filter(mask)
 
+    scalar = pa.scalar(True)
+    for filt in [batch, table, scalar]:
+        with pytest.raises(TypeError):
+            table.filter(filt)
+
 
 def test_filter_null_type():
     # ARROW-10027
@@ -1611,9 +1627,9 @@ def test_round_binary():
     scale = pa.scalar(-1, pa.int32())
 
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_zero") == expect_zero
+        5.0, scale, round_mode="half_towards_zero") == expect_zero
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_infinity") == expect_inf
+        5.0, scale, round_mode="half_towards_infinity") == expect_inf
 
 
 def test_is_null():
@@ -1754,6 +1770,17 @@ def test_logical():
     assert pc.xor(a, b) == pa.array([False, True, False, None])
 
     assert pc.invert(a) == pa.array([False, True, True, None])
+
+
+def test_dictionary_decode():
+    array = pa.array(["a", "a", "b", "c", "b"])
+    dictionary_array = array.dictionary_encode()
+    dictionary_array_decode = pc.dictionary_decode(dictionary_array)
+
+    assert array != dictionary_array
+
+    assert array == dictionary_array_decode
+    assert array == pc.dictionary_decode(array)
 
 
 def test_cast():
@@ -3269,7 +3296,14 @@ def test_rank_options():
                        tiebreaker="NonExisting")
 
 
-def test_expression_serialization():
+def create_sample_expressions():
+    # We need a schema for substrait conversion
+    schema = pa.schema([pa.field("i64", pa.int64()), pa.field(
+        "foo", pa.struct([pa.field("bar", pa.string())]))])
+
+    # Creates a bunch of sample expressions for testing
+    # serialization and deserialization. The expressions are categorized
+    # to reflect certain nuances in Substrait conversion.
     a = pc.scalar(1)
     b = pc.scalar(1.1)
     c = pc.scalar(True)
@@ -3278,18 +3312,131 @@ def test_expression_serialization():
     f = pc.scalar({'a': 1})
     g = pc.scalar(pa.scalar(1))
     h = pc.scalar(np.int64(2))
+    j = pc.scalar(False)
 
-    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
-                 d.is_valid(), a.cast(pa.int32(), safe=False),
-                 a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
-                 pc.field('i64') > 5, pc.field('i64') == 5,
-                 pc.field('i64') == 7, pc.field('i64').is_null(),
-                 pc.field(('foo', 'bar')) == 'value',
-                 pc.field('foo', 'bar') == 'value']
-    for expr in all_exprs:
+    # These expression consist entirely of literals
+    literal_exprs = [a, b, c, d, e, g, h, j]
+
+    # These expressions include at least one function call
+    exprs_with_call = [a == b, a != b, a > b, c & j, c | j, ~c, d.is_valid(),
+                       a + b, a - b, a * b, a / b, pc.negate(a),
+                       pc.add(a, b), pc.subtract(a, b), pc.divide(a, b),
+                       pc.multiply(a, b), pc.power(a, a), pc.sqrt(a),
+                       pc.exp(b), pc.cos(b), pc.sin(b), pc.tan(b),
+                       pc.acos(b), pc.atan(b), pc.asin(b), pc.atan2(b, b),
+                       pc.abs(b), pc.sign(a), pc.bit_wise_not(a),
+                       pc.bit_wise_and(a, a), pc.bit_wise_or(a, a),
+                       pc.bit_wise_xor(a, a), pc.is_nan(b), pc.is_finite(b),
+                       pc.coalesce(a, b),
+                       a.cast(pa.int32(), safe=False)]
+
+    # These expressions test out various reference styles and may include function
+    # calls.  Named references are used here.
+    exprs_with_ref = [pc.field('i64') > 5, pc.field('i64') == 5,
+                      pc.field('i64') == 7,
+                      pc.field(('foo', 'bar')) == 'value',
+                      pc.field('foo', 'bar') == 'value']
+
+    # Similar to above but these use numeric references instead of string refs
+    exprs_with_numeric_refs = [pc.field(0) > 5, pc.field(0) == 5,
+                               pc.field(0) == 7,
+                               pc.field((1, 0)) == 'value',
+                               pc.field(1, 0) == 'value']
+
+    # Expressions that behave uniquely when converting to/from substrait
+    special_cases = [
+        f,  # Struct literals lose their field names
+        a.isin([1, 2, 3]),  # isin converts to an or list
+        pc.field('i64').is_null()  # pyarrow always specifies a FunctionOptions
+                                   # for is_null which, being the default, is
+                                   # dropped on serialization
+    ]
+
+    all_exprs = literal_exprs.copy()
+    all_exprs += exprs_with_call
+    all_exprs += exprs_with_ref
+    all_exprs += special_cases
+
+    return {
+        "all": all_exprs,
+        "literals": literal_exprs,
+        "calls": exprs_with_call,
+        "refs": exprs_with_ref,
+        "numeric_refs": exprs_with_numeric_refs,
+        "special": special_cases,
+        "schema": schema
+    }
+
+# Tests the Arrow-specific serialization mechanism
+
+
+def test_expression_serialization_arrow(pickle_module):
+    for expr in create_sample_expressions()["all"]:
         assert isinstance(expr, pc.Expression)
-        restored = pickle.loads(pickle.dumps(expr))
+        restored = pickle_module.loads(pickle_module.dumps(expr))
         assert expr.equals(restored)
+
+
+@pytest.mark.substrait
+def test_expression_serialization_substrait():
+
+    exprs = create_sample_expressions()
+    schema = exprs["schema"]
+
+    # Basic literals don't change on binding and so they will round
+    # trip without any change
+    for expr in exprs["literals"]:
+        serialized = expr.to_substrait(schema)
+        deserialized = pc.Expression.from_substrait(serialized)
+        assert expr.equals(deserialized)
+
+    # Expressions are bound when they get serialized.  Since bound
+    # expressions are not equal to their unbound variants we cannot
+    # compare the round tripped with the original
+    for expr in exprs["calls"]:
+        serialized = expr.to_substrait(schema)
+        deserialized = pc.Expression.from_substrait(serialized)
+        # We can't compare the expressions themselves because of the bound
+        # unbound difference. But we can compare the string representation
+        assert str(deserialized) == str(expr)
+        serialized_again = deserialized.to_substrait(schema)
+        deserialized_again = pc.Expression.from_substrait(serialized_again)
+        assert deserialized.equals(deserialized_again)
+
+    for expr, expr_norm in zip(exprs["refs"], exprs["numeric_refs"]):
+        serialized = expr.to_substrait(schema)
+        deserialized = pc.Expression.from_substrait(serialized)
+        assert str(deserialized) == str(expr_norm)
+        serialized_again = deserialized.to_substrait(schema)
+        deserialized_again = pc.Expression.from_substrait(serialized_again)
+        assert deserialized.equals(deserialized_again)
+
+    # For the special cases we get various wrinkles in serialization but we
+    # should always get the same thing from round tripping twice
+    for expr in exprs["special"]:
+        serialized = expr.to_substrait(schema)
+        deserialized = pc.Expression.from_substrait(serialized)
+        serialized_again = deserialized.to_substrait(schema)
+        deserialized_again = pc.Expression.from_substrait(serialized_again)
+        assert deserialized.equals(deserialized_again)
+
+    # Special case, we lose the field names of struct literals
+    f = exprs["special"][0]
+    serialized = f.to_substrait(schema)
+    deserialized = pc.Expression.from_substrait(serialized)
+    assert deserialized.equals(pc.scalar({'': 1}))
+
+    # Special case, is_in converts to a == opt[0] || a == opt[1] ...
+    a = pc.scalar(1)
+    expr = a.isin([1, 2, 3])
+    target = (a == 1) | (a == 2) | (a == 3)
+    serialized = expr.to_substrait(schema)
+    deserialized = pc.Expression.from_substrait(serialized)
+    # Compare str's here to bypass the bound/unbound difference
+    assert str(target) == str(deserialized)
+    serialized_again = deserialized.to_substrait(schema)
+    deserialized_again = pc.Expression.from_substrait(serialized_again)
+    assert deserialized.equals(deserialized_again)
 
 
 def test_expression_construction():

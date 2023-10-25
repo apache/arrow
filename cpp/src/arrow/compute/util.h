@@ -168,7 +168,8 @@ ARROW_EXPORT void bytes_to_bits(int64_t hardware_flags, const int num_bits,
 ARROW_EXPORT bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
                                      uint32_t num_bytes);
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2) && defined(ARROW_HAVE_RUNTIME_BMI2)
+// The functions below use BMI2 instructions, be careful before calling!
 
 namespace avx2 {
 ARROW_EXPORT void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,

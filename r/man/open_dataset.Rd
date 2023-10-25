@@ -74,10 +74,11 @@ only version 2 files are supported
 \item "csv"/"text", aliases for the same thing (because comma is the default
 delimiter for text files
 \item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
-}
-
+\item "json", for JSON format datasets Note: only newline-delimited JSON (aka ND-JSON) datasets
+are currently supported
 Default is "parquet", unless a \code{delimiter} is also specified, in which case
-it is assumed to be "text".}
+it is assumed to be "text".
+}}
 
 \item{factory_options}{list of optional FileSystemFactoryOptions:
 \itemize{

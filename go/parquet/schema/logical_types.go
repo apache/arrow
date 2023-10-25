@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v13/internal/json"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/debug"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/debug"
+	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
 )
 
 // DecimalMetadata is a struct for managing scale and precision information between
@@ -614,6 +614,55 @@ func NewTimestampLogicalTypeForce(isAdjustedToUTC bool, unit TimeUnitType) Logic
 		forceConverted: true,
 		fromConverted:  false,
 	}
+}
+
+// TimestampOpt options used with New Timestamp Logical Type
+type TimestampOpt func(*TimestampLogicalType)
+
+// WithTSIsAdjustedToUTC sets the IsAdjustedToUTC field of the timestamp type.
+func WithTSIsAdjustedToUTC() TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.typ.IsAdjustedToUTC = true
+	}
+}
+
+// WithTSTimeUnitType sets the time unit for the timestamp type
+func WithTSTimeUnitType(unit TimeUnitType) TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.typ.Unit = createTimeUnit(unit)
+	}
+}
+
+// WithTSForceConverted enable force converted mode
+func WithTSForceConverted() TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.forceConverted = true
+	}
+}
+
+// WithTSFromConverted enable the timestamp logical type to be
+// constructed from a converted type.
+func WithTSFromConverted() TimestampOpt {
+	return func(t *TimestampLogicalType) {
+		t.fromConverted = true
+	}
+}
+
+// NewTimestampLogicalTypeWithOpts creates a new TimestampLogicalType with the provided options.
+//
+// TimestampType Unit defaults to milliseconds (TimeUnitMillis)
+func NewTimestampLogicalTypeWithOpts(opts ...TimestampOpt) LogicalType {
+	ts := &TimestampLogicalType{
+		typ: &format.TimestampType{
+			Unit: createTimeUnit(TimeUnitMillis), // default to milliseconds
+		},
+	}
+
+	for _, o := range opts {
+		o(ts)
+	}
+
+	return ts
 }
 
 // TimestampLogicalType represents an int64 number that can be decoded

@@ -25,7 +25,6 @@
 #include "arrow/flight/server.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/io/test_common.h"
-#include "arrow/testing/json_integration.h"
 #include "arrow/util/logging.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");

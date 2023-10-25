@@ -66,13 +66,17 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace fs {
 
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
+using ::arrow::internal::ToChars;
 using ::arrow::internal::UriEscape;
+using ::arrow::internal::Zip;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
@@ -297,6 +301,13 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Invalid option
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
+
+  // Endpoint from environment variable
+  {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
+    ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+    ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
+  }
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
@@ -452,15 +463,18 @@ class TestS3FS : public S3TestMixin {
     }
   }
 
-  void MakeFileSystem() {
+  Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
+      io::IOContext io_context = io::default_io_context()) {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = "http";
     options_.endpoint_override = minio_->connect_string();
     if (!options_.retry_strategy) {
       options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     }
-    ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
+    return S3FileSystem::Make(options_, io_context);
   }
+
+  void MakeFileSystem() { ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem()); }
 
   template <typename Matcher>
   void AssertMetadataRoundtrip(const std::string& path,
@@ -573,6 +587,21 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK(stream->Write("new data"));
     // Destructor implicitly closes stream and completes the multipart upload.
     stream.reset();
+    AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
+  }
+
+  void TestOpenOutputStreamCloseAsyncDestructor() {
+    std::shared_ptr<io::OutputStream> stream;
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/somefile"));
+    ASSERT_OK(stream->Write("new data"));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    // GH-37670: Testing it doesn't matter whether flush is triggered asynchronously
+    // after CloseAsync or synchronously after stream.reset() since we're just
+    // checking that `closeAsyncFut` keeps the stream alive until completion
+    // rather than segfaulting on a dangling stream
+    auto closeAsyncFut = stream->CloseAsync();
+    stream.reset();
+    ASSERT_OK(closeAsyncFut.MoveResult());
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
   }
 
@@ -778,6 +807,81 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
   AssertInfoAllBucketsRecursive(infos);
 
   // Non-root dir case is tested by generic tests
+}
+
+TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
+  // This test is slow because it needs to create a bunch of seed files.  However, it is
+  // the only test that stresses listing and deleting when there are more than 1000 files
+  // and paging is required.
+  constexpr int32_t kNumDirs = 4;
+  constexpr int32_t kNumFilesPerDir = 512;
+  FileInfoVector expected_infos;
+
+  ASSERT_OK(fs_->CreateDir("stress"));
+  for (int32_t i = 0; i < kNumDirs; i++) {
+    const std::string dir_path = "stress/" + ToChars(i);
+    ASSERT_OK(fs_->CreateDir(dir_path));
+    expected_infos.emplace_back(dir_path, FileType::Directory);
+
+    std::vector<Future<>> tasks;
+    for (int32_t j = 0; j < kNumFilesPerDir; j++) {
+      // Create the files in parallel in hopes of speeding up this process as much as
+      // possible
+      const std::string file_name = ToChars(j);
+      const std::string file_path = dir_path + "/" + file_name;
+      expected_infos.emplace_back(file_path, FileType::File);
+      ASSERT_OK_AND_ASSIGN(Future<> task,
+                           ::arrow::internal::GetCpuThreadPool()->Submit(
+                               [fs = fs_, file_name, file_path]() -> Status {
+                                 ARROW_ASSIGN_OR_RAISE(
+                                     std::shared_ptr<io::OutputStream> out_str,
+                                     fs->OpenOutputStream(file_path));
+                                 ARROW_RETURN_NOT_OK(out_str->Write(file_name));
+                                 return out_str->Close();
+                               }));
+      tasks.push_back(std::move(task));
+    }
+    ASSERT_FINISHES_OK(AllFinished(tasks));
+  }
+  SortInfos(&expected_infos);
+
+  FileSelector select;
+  FileInfoVector infos;
+  select.base_dir = "stress";
+  select.recursive = true;
+
+  // 32 is pretty fast, listing is much faster than the create step above
+  constexpr int32_t kNumTasks = 32;
+  for (int i = 0; i < kNumTasks; i++) {
+    CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+    SortInfos(&infos);
+    // One info for each directory and one info for each file
+    ASSERT_EQ(infos.size(), expected_infos.size());
+    for (const auto&& [info, expected] : Zip(infos, expected_infos)) {
+      AssertFileInfo(info, expected.path(), expected.type());
+    }
+  }
+
+  ASSERT_OK(fs_->DeleteDirContents("stress"));
+
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  ASSERT_EQ(infos.size(), 0);
+}
+
+TEST_F(TestS3FS, GetFileInfoGeneratorCancelled) {
+  FileSelector select;
+  FileInfoVector infos;
+  select.base_dir = "bucket";
+  select.recursive = true;
+
+  StopSource stop_source;
+  io::IOContext cancellable_context(stop_source.token());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<S3FileSystem> cancellable_fs,
+                       MakeNewFileSystem(cancellable_context));
+  stop_source.RequestStop();
+  FileInfoGenerator generator = cancellable_fs->GetFileInfoGenerator(select);
+  auto file_infos = CollectAsyncGenerator(std::move(generator));
+  ASSERT_FINISHES_AND_RAISES(Cancelled, file_infos);
 }
 
 TEST_F(TestS3FS, CreateDir) {
@@ -1088,6 +1192,16 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
   TestOpenOutputStreamDestructor();
 }
 
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorBackgroundWrites) {
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorSyncWrite) {
+  options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {
   std::shared_ptr<io::OutputStream> stream;
 
@@ -1265,6 +1379,32 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
 };
 
 GENERIC_FS_TEST_FUNCTIONS(TestS3FSGeneric);
+
+////////////////////////////////////////////////////////////////////////////
+// S3GlobalOptions::Defaults tests
+
+TEST(S3GlobalOptions, DefaultsLogLevel) {
+  // Verify we get the default value of Fatal
+  ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
+
+  // Verify we get the value specified by env var and not the default
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "ERROR");
+    ASSERT_EQ(S3LogLevel::Error, arrow::fs::S3GlobalOptions::Defaults().log_level);
+  }
+
+  // Verify we trim and case-insensitively compare the environment variable's value
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", " eRrOr ");
+    ASSERT_EQ(S3LogLevel::Error, arrow::fs::S3GlobalOptions::Defaults().log_level);
+  }
+
+  // Verify we get the default value of Fatal if our env var is invalid
+  {
+    EnvVarGuard log_level_guard("ARROW_S3_LOG_LEVEL", "invalid");
+    ASSERT_EQ(S3LogLevel::Fatal, arrow::fs::S3GlobalOptions::Defaults().log_level);
+  }
+}
 
 }  // namespace fs
 }  // namespace arrow

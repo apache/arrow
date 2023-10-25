@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 )
 
 var (
@@ -112,6 +112,18 @@ func WithHeader(useHeader bool) Option {
 			cfg.header = useHeader
 		case *Writer:
 			cfg.header = useHeader
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
+// WithLazyQuotes sets csv parsing option to LazyQuotes
+func WithLazyQuotes(useLazyQuotes bool) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			cfg.r.LazyQuotes = useLazyQuotes
 		default:
 			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}

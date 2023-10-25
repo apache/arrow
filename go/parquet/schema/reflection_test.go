@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -309,7 +309,8 @@ func TestStructFromSchema(t *testing.T) {
 
 func TestStructFromSchemaWithNesting(t *testing.T) {
 	type Other struct {
-		List *[]*float32
+		List     *[]*float32
+		Excluded int32 `parquet:"-"`
 	}
 
 	type Nested struct {

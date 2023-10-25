@@ -259,16 +259,6 @@ class FileReaderImpl : public FileReader {
                              reader_->metadata()->key_value_metadata(), out);
   }
 
-  Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
-    auto included_leaves = VectorToSharedSet(Iota(reader_->metadata()->num_columns()));
-    std::vector<int> row_groups = Iota(reader_->metadata()->num_row_groups());
-
-    std::unique_ptr<ColumnReaderImpl> reader;
-    RETURN_NOT_OK(GetFieldReader(i, included_leaves, row_groups, &reader));
-
-    return ReadColumn(i, row_groups, reader.get(), out);
-  }
-
   Status ReadColumn(int i, const std::vector<int>& row_groups, ColumnReader* reader,
                     std::shared_ptr<ChunkedArray>* out) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -1009,7 +999,8 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
     for (int row_group : row_groups) {
       int64_t num_rows = parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
 
-      batches.insert(batches.end(), num_rows / batch_size, max_sized_batch);
+      batches.insert(batches.end(), static_cast<size_t>(num_rows / batch_size),
+                     max_sized_batch);
 
       if (int64_t trailing_rows = num_rows % batch_size) {
         batches.push_back(max_sized_batch->Slice(0, trailing_rows));

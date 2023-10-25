@@ -25,21 +25,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/compress"
-	"github.com/apache/arrow/go/v13/parquet/file"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v13/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v13/parquet/pqarrow"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/types"
+	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/compress"
+	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v14/parquet/pqarrow"
+	"github.com/apache/arrow/go/v14/parquet/schema"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -359,6 +360,51 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 	}
 }
 
+func TestWriteKeyValueMetadata(t *testing.T) {
+	kv := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "int32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+	)
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		require.NoError(t, fw.AppendKeyValueMetadata(key, value))
+	}
+
+	err = fw.Close()
+	require.NoError(t, err)
+
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		got := reader.MetaData().KeyValueMetadata().FindValue(key)
+		require.NotNil(t, got)
+		assert.Equal(t, value, *got)
+	}
+}
+
 func TestWriteEmptyLists(t *testing.T) {
 	sc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
@@ -474,9 +520,9 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 		default:
 			panic("only micro and nano seconds are supported for arrow TIME64")
 		}
-	case arrow.DECIMAL:
-		dec := typ.(*arrow.Decimal128Type)
-		return schema.NewDecimalLogicalType(dec.Precision, dec.Scale)
+	case arrow.DECIMAL, arrow.DECIMAL256:
+		dec := typ.(arrow.DecimalType)
+		return schema.NewDecimalLogicalType(dec.GetPrecision(), dec.GetScale())
 	}
 	return schema.NoLogicalType{}
 }
@@ -552,15 +598,15 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 	switch typ := typ.(type) {
 	case *arrow.FixedSizeBinaryType:
 		byteWidth = int32(typ.ByteWidth)
-	case *arrow.Decimal128Type:
-		byteWidth = pqarrow.DecimalSize(typ.Precision)
+	case arrow.DecimalType:
+		byteWidth = pqarrow.DecimalSize(typ.GetPrecision())
 	case *arrow.DictionaryType:
 		valuesType := typ.ValueType
 		switch dt := valuesType.(type) {
 		case *arrow.FixedSizeBinaryType:
 			byteWidth = int32(dt.ByteWidth)
-		case *arrow.Decimal128Type:
-			byteWidth = pqarrow.DecimalSize(dt.Precision)
+		case arrow.DecimalType:
+			byteWidth = pqarrow.DecimalSize(dt.GetPrecision())
 		}
 	}
 
@@ -930,6 +976,56 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 
 	ps.Len(chunked.Chunks(), 1)
 	ps.True(array.Equal(expected, chunked.Chunk(0)))
+}
+
+func (ps *ParquetIOTestSuite) TestReadDecimal256() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bigEndian := []parquet.ByteArray{
+		// 123456
+		[]byte{1, 226, 64},
+		// 987654
+		[]byte{15, 18, 6},
+		// -123456
+		[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 29, 192},
+	}
+
+	bldr := array.NewDecimal256Builder(mem, &arrow.Decimal256Type{Precision: 40, Scale: 3})
+	defer bldr.Release()
+
+	bldr.Append(decimal256.FromU64(123456))
+	bldr.Append(decimal256.FromU64(987654))
+	bldr.Append(decimal256.FromI64(-123456))
+
+	expected := bldr.NewDecimal256Array()
+	defer expected.Release()
+
+	sc := schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.NewPrimitiveNodeLogical("decimals", parquet.Repetitions.Required, schema.NewDecimalLogicalType(40, 3), parquet.Types.ByteArray, -1, -1)),
+	}, -1))
+
+	sink := encoding.NewBufferWriter(0, mem)
+	defer sink.Release()
+	writer := file.NewParquetWriter(sink, sc)
+
+	rgw := writer.AppendRowGroup()
+	cw, _ := rgw.NextColumn()
+	cw.(*file.ByteArrayColumnChunkWriter).WriteBatch(bigEndian, nil, nil)
+	cw.Close()
+	rgw.Close()
+	writer.Close()
+
+	rdr := ps.createReader(mem, sink.Bytes())
+	cr, err := rdr.GetColumn(context.TODO(), 0)
+	ps.NoError(err)
+
+	chunked, err := cr.NextBatch(smallSize)
+	ps.NoError(err)
+	defer chunked.Release()
+
+	ps.Len(chunked.Chunks(), 1)
+	ps.Truef(array.Equal(expected, chunked.Chunk(0)), "expected: %s\ngot: %s", expected, chunked.Chunk(0))
 }
 
 func (ps *ParquetIOTestSuite) TestReadNestedStruct() {

@@ -32,7 +32,7 @@ test_that("simple int column roundtrip", {
   pq_tmp_file <- tempfile() # You can specify the .parquet here but that's probably not necessary
 
   write_parquet(df, pq_tmp_file)
-  df_read <- read_parquet(pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file, mmap = FALSE)
   expect_equal(df, df_read)
   # Make sure file connection is cleaned up
   expect_error(file.remove(pq_tmp_file), NA)
@@ -288,15 +288,21 @@ test_that("write_parquet() returns its input", {
 
 test_that("write_parquet() handles version argument", {
   df <- tibble::tibble(x = 1:5)
-  tf <- tempfile()
-  on.exit(unlink(tf))
 
-  purrr::walk(list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L), ~ {
-    write_parquet(df, tf, version = .x)
+  versions <- list("1.0", "2.4", "2.6", "latest", 1.0, 2.4, 2.6, 1L)
+  purrr::walk(versions, function(x) {
+    tf <- tempfile()
+    on.exit(unlink(tf))
+
+    write_parquet(df, tf, version = x)
     expect_identical(read_parquet(tf), df)
   })
-  purrr::walk(list("3.0", 3.0, 3L, "A"), ~ {
-    expect_error(write_parquet(df, tf, version = .x))
+
+  invalid_versions <- list("3.0", 3.0, 3L, "A")
+  purrr::walk(invalid_versions, function(x) {
+    tf <- tempfile()
+    on.exit(unlink(tf))
+    expect_error(write_parquet(df, tf, version = x))
   })
 })
 
@@ -483,4 +489,44 @@ test_that("Can read Parquet files from a URL", {
   pu <- read_parquet(parquet_url)
   expect_true(tibble::is_tibble(pu))
   expect_identical(dim(pu), c(10L, 11L))
+})
+
+test_that("thrift string and container size can be specified when reading Parquet files", {
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  table <- arrow_table(example_data)
+  write_parquet(table, tf)
+  file <- make_readable_file(tf)
+  on.exit(file$close())
+
+  # thrift string size
+  reader_props <- ParquetReaderProperties$create()
+  reader_props$set_thrift_string_size_limit(1)
+  expect_identical(reader_props$thrift_string_size_limit(), 1L)
+
+  # We get an error if we set the Thrift string size limit too small
+  expect_error(ParquetFileReader$create(file, reader_props = reader_props), "TProtocolException: Exceeded size limit")
+
+  # Increase the size and we can read successfully
+  reader_props$set_thrift_string_size_limit(10000)
+  reader <- ParquetFileReader$create(file, reader_props = reader_props)
+  data <- reader$ReadTable()
+  expect_identical(collect.ArrowTabular(data), example_data)
+
+  # thrift container size
+  reader_props_container <- ParquetReaderProperties$create()
+  reader_props_container$set_thrift_container_size_limit(1)
+  expect_identical(reader_props_container$thrift_container_size_limit(), 1L)
+
+  expect_error(
+    ParquetFileReader$create(file, reader_props = reader_props_container),
+    "TProtocolException: Exceeded size limit"
+  )
+
+  reader_props_container$set_thrift_container_size_limit(100)
+
+  reader_container <- ParquetFileReader$create(file, reader_props = reader_props_container)
+  data <- reader_container$ReadTable()
+  expect_identical(collect.ArrowTabular(data), example_data)
 })

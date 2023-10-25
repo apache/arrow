@@ -1428,6 +1428,77 @@ TEST(TestDictionary, IndicesArray) {
   ASSERT_OK(arr->indices()->ValidateFull());
 }
 
+void CheckDictionaryCompact(const std::shared_ptr<DataType>& dict_type,
+                            const std::string& input_dictionary_json,
+                            const std::string& input_index_json,
+                            const std::string& expected_dictionary_json,
+                            const std::string& expected_index_json) {
+  auto input = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
+  const DictionaryArray& input_ref = checked_cast<const DictionaryArray&>(*input);
+
+  auto expected =
+      DictArrayFromJSON(dict_type, expected_index_json, expected_dictionary_json);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, input_ref.Compact());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+TEST(TestDictionary, Compact) {
+  std::shared_ptr<arrow::DataType> type;
+  std::shared_ptr<arrow::DataType> dict_type;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    type = boolean();
+    dict_type = dictionary(index_type, type);
+
+    // input is compacted
+    CheckDictionaryCompact(dict_type, "[]", "[]", "[]", "[]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0, 1, 0]", "[true, false]",
+                           "[0, 1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, 1, 0]",
+                           "[true, null, false]", "[2, 1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0, null, 1, 0]", "[true, false]",
+                           "[0, null, 1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, null, 1, 0]",
+                           "[true, null, false]", "[2, null, 1, 0]");
+
+    // input isn't compacted
+    CheckDictionaryCompact(dict_type, "[null]", "[]", "[]", "[]");
+    CheckDictionaryCompact(dict_type, "[false]", "[null]", "[]", "[null]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0]", "[true]", "[0]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0, null]", "[true]",
+                           "[0, null]");
+
+    // input isn't compacted && its indices needs to be adjusted
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, 1]", "[null, false]",
+                           "[1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, null, 1]",
+                           "[null, false]", "[1, null, 0]");
+
+    // indices out of bound
+    auto temp_indices = ArrayFromJSON(index_type, "[8, 0]");
+    auto temp_dictionary = ArrayFromJSON(type, "[true, false]");
+    DictionaryArray input(dict_type, temp_indices, temp_dictionary);
+    ASSERT_RAISES(IndexError, input.Compact());
+
+    type = int64();
+    dict_type = dictionary(index_type, type);
+
+    // input isn't compacted && its indices needs to be adjusted
+    CheckDictionaryCompact(dict_type, "[3, 4, 7, 0, 12, 191, 21, 8]",
+                           "[0, 2, 4, 4, 6, 4, 2, 0, 6]", "[3, 7, 12, 21]",
+                           "[0, 1, 2, 2, 3, 2, 1, 0, 3]");
+    CheckDictionaryCompact(dict_type, "[3, 4, 7, 0, 12, 191, 21, 8]",
+                           "[4, 6, 7, 7, 6, 4, 6, 6, 6]", "[12, 21, 8]",
+                           "[0, 1, 2, 2, 1, 0, 1, 1, 1]");
+    CheckDictionaryCompact(dict_type, "[3, 4, 7, 0, 12, 191, 21, 8]",
+                           "[7, 4, 7, 7, 7, 7, 4, 7, 7]", "[12, 8]",
+                           "[1, 0, 1, 1, 1, 1, 0, 1, 1]");
+  }
+}
+
 TEST(TestDictionaryUnifier, Numeric) {
   auto dict_ty = int64();
 

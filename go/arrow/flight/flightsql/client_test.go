@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/flight"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
+	pb "github.com/apache/arrow/go/v14/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -85,6 +85,11 @@ func (m *FlightServiceClientMock) ListFlights(ctx context.Context, in *flight.Cr
 func (m *FlightServiceClientMock) GetFlightInfo(ctx context.Context, in *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.FlightInfo, error) {
 	args := m.Called(in.Type, in.Cmd, opts)
 	return args.Get(0).(*flight.FlightInfo), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) PollFlightInfo(ctx context.Context, in *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	args := m.Called(in.Type, in.Cmd, opts)
+	return args.Get(0).(*flight.PollInfo), args.Error(1)
 }
 
 func (m *FlightServiceClientMock) GetSchema(ctx context.Context, in *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.SchemaResult, error) {

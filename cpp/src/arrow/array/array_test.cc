@@ -388,7 +388,12 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       large_utf8(),
       list(utf8()),
       list(int64()),  // NOTE: Regression case for ARROW-9071/MakeArrayOfNull
+      list(large_utf8()),
+      list(list(int64())),
+      list(list(large_utf8())),
+      large_list(utf8()),
       large_list(large_utf8()),
+      large_list(list(large_utf8())),
       fixed_size_list(utf8(), 3),
       fixed_size_list(int64(), 4),
       dictionary(int32(), utf8()),
@@ -1727,21 +1732,6 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  int64_t n = 1000;
-  ASSERT_OK(this->builder_->Reserve(n));
-
-  ASSERT_OK(this->builder_->Advance(100));
-  ASSERT_EQ(100, this->builder_->length());
-
-  ASSERT_OK(this->builder_->Advance(900));
-
-  int64_t too_many = this->builder_->capacity() - 1000 + 1;
-  ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
-}
-
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   int64_t cap = kMinBuilderCapacity * 2;
 
@@ -1757,9 +1747,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(100));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  ASSERT_OK(this->builder_->Advance(100));
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  ASSERT_OK(this->builder_->AppendEmptyValues(100));
   ASSERT_EQ(100, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
 

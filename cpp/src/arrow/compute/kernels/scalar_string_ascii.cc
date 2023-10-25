@@ -2064,11 +2064,17 @@ struct RegexSubstringReplacer {
         regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
   Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    re2::StringPiece piece(s.data(), s.length());
+    return ReplaceStringImpl(piece, builder);
+  }
+
+  Status ReplaceStringImpl(re2::StringPiece s,
+                           TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
     // If s is empty, then it's essentially global
     if (options_.max_replacements == -1 || s.empty()) {
-      std::string s_copy(s);
+      std::string s_copy{s.data(), s.length()};
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
@@ -2079,18 +2085,18 @@ struct RegexSubstringReplacer {
     // We might do this faster similar to RE2::GlobalReplace using Match and Rewrite
     const char* i = s.data();
     const char* end = s.data() + s.length();
-    re2::StringPiece piece(s.data(), s.length());
+    re2::StringPiece mutable_s{s};
 
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       std::string found;
-      if (!RE2::FindAndConsume(&piece, regex_find_, &found)) {
+      if (!RE2::FindAndConsume(&mutable_s, regex_find_, &found)) {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(end - i)));
         i = end;
       } else {
         // wind back to the beginning of the match
-        const char* pos = piece.begin() - found.length();
+        const char* pos = mutable_s.data() - found.length();
         // the string before the pattern
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(pos - i)));
@@ -2101,7 +2107,7 @@ struct RegexSubstringReplacer {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(found.data()),
                                       static_cast<int64_t>(found.length())));
         // skip pattern
-        i = piece.begin();
+        i = mutable_s.data();
         max_replacements--;
       }
     }

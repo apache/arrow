@@ -15,8 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+
 import os
 import warnings
+from cython import sizeof
 
 
 cdef _sequence_to_array(object sequence, object mask, object size,
@@ -123,9 +126,11 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Parameters
     ----------
-    obj : sequence, iterable, ndarray or pandas.Series
+    obj : sequence, iterable, ndarray, pandas.Series, Arrow-compatible array
         If both type and size are specified may be a single use iterable. If
         not strongly-typed, Arrow type will be inferred for resulting array.
+        Any Arrow-compatible array that implements the Arrow PyCapsule Protocol
+        (has an ``__arrow_c_array__`` method) can be passed as well.
     type : pyarrow.DataType
         Explicit type to attempt to coerce to, otherwise will be inferred from
         the data.
@@ -241,6 +246,18 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
+    elif hasattr(obj, '__arrow_c_array__'):
+        if type is not None:
+            requested_type = type.__arrow_c_schema__()
+        else:
+            requested_type = None
+        schema_capsule, array_capsule = obj.__arrow_c_array__(requested_type)
+        out_array = Array._import_from_c_capsule(schema_capsule, array_capsule)
+        if type is not None and out_array.type != type:
+            # PyCapsule interface type coersion is best effort, so we need to
+            # check the type of the returned array and cast if necessary
+            out_array = array.cast(type, safe=safe, memory_pool=memory_pool)
+        return out_array
     elif _is_array_like(obj):
         if mask is not None:
             if _is_array_like(mask):
@@ -1265,6 +1282,17 @@ cdef class Array(_PandasConvertible):
         return frombytes(result, safe=True)
 
     def format(self, **kwargs):
+        """
+        DEPRECATED, use pyarrow.Array.to_string
+
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        str
+        """
         import warnings
         warnings.warn('Array.format is deprecated, use Array.to_string')
         return self.to_string(**kwargs)
@@ -1281,6 +1309,15 @@ cdef class Array(_PandasConvertible):
             return NotImplemented
 
     def equals(Array self, Array other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.Array
+
+        Returns
+        -------
+        bool
+        """
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
@@ -1679,6 +1716,68 @@ cdef class Array(_PandasConvertible):
                                                      c_type))
         return pyarrow_wrap_array(c_array)
 
+    def __arrow_c_array__(self, requested_schema=None):
+        """
+        Get a pair of PyCapsules containing a C ArrowArray representation of the object.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule | None
+            A PyCapsule containing a C ArrowSchema representation of a requested
+            schema. PyArrow will attempt to cast the array to this data type.
+            If None, the array will be returned as-is, with a type matching the
+            one returned by :meth:`__arrow_c_schema__()`.
+
+        Returns
+        -------
+        Tuple[PyCapsule, PyCapsule]
+            A pair of PyCapsules containing a C ArrowSchema and ArrowArray,
+            respectively.
+        """
+        cdef:
+            ArrowArray* c_array
+            ArrowSchema* c_schema
+            shared_ptr[CArray] inner_array
+
+        if requested_schema is not None:
+            target_type = DataType._import_from_c_capsule(requested_schema)
+
+            if target_type != self.type:
+                try:
+                    casted_array = _pc().cast(self, target_type, safe=True)
+                    inner_array = pyarrow_unwrap_array(casted_array)
+                except ArrowInvalid as e:
+                    raise ValueError(
+                        f"Could not cast {self.type} to requested type {target_type}: {e}"
+                    )
+            else:
+                inner_array = self.sp_array
+        else:
+            inner_array = self.sp_array
+
+        schema_capsule = alloc_c_schema(&c_schema)
+        array_capsule = alloc_c_array(&c_array)
+
+        with nogil:
+            check_status(ExportArray(deref(inner_array), c_array, c_schema))
+
+        return schema_capsule, array_capsule
+
+    @staticmethod
+    def _import_from_c_capsule(schema_capsule, array_capsule):
+        cdef:
+            ArrowSchema* c_schema
+            ArrowArray* c_array
+            shared_ptr[CArray] array
+
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema_capsule, 'arrow_schema')
+        c_array = <ArrowArray*> PyCapsule_GetPointer(array_capsule, 'arrow_array')
+
+        with nogil:
+            array = GetResultValue(ImportArray(c_array, c_schema))
+
+        return pyarrow_wrap_array(array)
+
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
@@ -1944,7 +2043,7 @@ cdef class BaseListArray(Array):
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.
 
-        Note that this method is different from ``self.values()`` in that
+        Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
         by non-empty sub-lists.
 
@@ -2083,6 +2182,72 @@ cdef class ListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the ListArray
+        ignoring the array's offset.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        ListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from sub-lists:
+
+        >>> import pyarrow as pa
+        >>> array = pa.array([[1, 2], None, [3, 4, None, 6]])
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.ListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        """
         cdef CListArray* arr = <CListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2170,6 +2335,74 @@ cdef class LargeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the LargeListArray
+        ignoring the array's offset.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        LargeListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from the sub-lists:
+
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, 4, None, 6]],
+        ...     type=pa.large_list(pa.int32()),
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.LargeListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+        """
         cdef CLargeListArray* arr = <CLargeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2209,6 +2442,79 @@ cdef class MapArray(ListArray):
         Returns
         -------
         map_array : MapArray
+
+        Examples
+        --------
+        First, let's understand the structure of our dataset when viewed in a rectangular data model. 
+        The total of 5 respondents answered the question "How much did you like the movie x?".
+        The value -1 in the integer array means that the value is missing. The boolean array
+        represents the null bitmask corresponding to the missing values in the integer array.
+
+        >>> import pyarrow as pa
+        >>> movies_rectangular = np.ma.masked_array([
+        ...     [10, -1, -1],
+        ...     [8, 4, 5],
+        ...     [-1, 10, 3],
+        ...     [-1, -1, -1],
+        ...     [-1, -1, -1]
+        ... ],
+        ... [
+        ...     [False, True, True],
+        ...     [False, False, False],
+        ...     [True, False, False],
+        ...     [True, True, True],
+        ...     [True, True, True],
+        ... ])
+
+        To represent the same data with the MapArray and from_arrays, the data is
+        formed like this:
+
+        >>> offsets = [
+        ...     0, #  -- row 1 start
+        ...     1, #  -- row 2 start
+        ...     4, #  -- row 3 start
+        ...     6, #  -- row 4 start
+        ...     6, #  -- row 5 start
+        ...     6, #  -- row 5 end
+        ... ]
+        >>> movies = [
+        ...     "Dark Knight", #  ---------------------------------- row 1
+        ...     "Dark Knight", "Meet the Parents", "Superman", #  -- row 2
+        ...     "Meet the Parents", "Superman", #  ----------------- row 3
+        ... ]
+        >>> likings = [
+        ...     10, #  -------- row 1
+        ...     8, 4, 5, #  --- row 2
+        ...     10, 3 #  ------ row 3
+        ... ]
+        >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
+        0                                  [(Dark Knight, 10)]
+        1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
+        2              [(Meet the Parents, 10), (Superman, 3)]
+        3                                                   []
+        4                                                   []
+        dtype: object
+
+        If the data in the empty rows needs to be marked as missing, it's possible
+        to do so by modifying the offsets argument, so that we specify `None` as
+        the starting positions of the rows we want marked as missing. The end row
+        offset still has to refer to the existing value from keys (and values):
+
+        >>> offsets = [
+        ...     0, #  ----- row 1 start
+        ...     1, #  ----- row 2 start
+        ...     4, #  ----- row 3 start
+        ...     None, #  -- row 4 start
+        ...     None, #  -- row 5 start
+        ...     6, #  ----- row 5 end
+        ... ]
+        >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
+        0                                  [(Dark Knight, 10)]
+        1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
+        2              [(Meet the Parents, 10), (Superman, 3)]
+        3                                                 None
+        4                                                 None
+        dtype: object
         """
         cdef:
             Array _offsets, _keys, _items
@@ -2326,6 +2632,42 @@ cdef class FixedSizeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the
+        FixedSizeListArray.
+
+        Note even null elements are included.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        sub-list values.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        FixedSizeListArray.flatten : ...
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, None]],
+        ...     type=pa.list_(pa.int32(), 2)
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          null,
+          null,
+          3,
+          null
+        ]
+
+        """
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2336,6 +2678,19 @@ cdef class UnionArray(Array):
     """
 
     def child(self, int pos):
+        """
+        DEPRECATED, use field() instead.
+
+        Parameters
+        ----------
+        pos : int
+            The physical index of the union child field (not its type code).
+
+        Returns
+        -------
+        field : pyarrow.Field
+            The given child field.
+        """
         import warnings
         warnings.warn("child is deprecated, use field", FutureWarning)
         return self.field(pos)

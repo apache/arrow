@@ -19,9 +19,9 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 )
 
 const (
@@ -176,6 +176,8 @@ func init() {
 		arrow.LARGE_LIST:              func(data arrow.ArrayData) arrow.Array { return NewLargeListData(data) },
 		arrow.INTERVAL_MONTH_DAY_NANO: func(data arrow.ArrayData) arrow.Array { return NewMonthDayNanoIntervalData(data) },
 		arrow.RUN_END_ENCODED:         func(data arrow.ArrayData) arrow.Array { return NewRunEndEncodedData(data) },
+		arrow.LIST_VIEW:               func(data arrow.ArrayData) arrow.Array { return NewListViewData(data) },
+		arrow.LARGE_LIST_VIEW:         func(data arrow.ArrayData) arrow.Array { return NewLargeListViewData(data) },
 
 		// invalid data types to fill out array to size 2^6 - 1
 		63: invalidDataType,

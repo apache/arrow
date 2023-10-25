@@ -85,6 +85,28 @@ that changing their value later will have an effect.
    ``libhdfs.dylib`` on macOS, ``libhdfs.so`` on other platforms).
    Alternatively, one can set :envvar:`HADOOP_HOME`.
 
+.. envvar:: ARROW_S3_LOG_LEVEL
+
+   Controls the verbosity of logging produced by S3 calls. Defaults to ``FATAL``
+   which only produces output in the case of fatal errors. ``DEBUG`` is recommended
+   when you're trying to troubleshoot issues.
+
+   Possible values include:
+
+   - ``FATAL`` (the default)
+   - ``ERROR``
+   - ``WARN``
+   - ``INFO``
+   - ``DEBUG``
+   - ``TRACE``
+   - ``OFF``
+
+   .. seealso::
+
+      `Logging - AWS SDK For C++
+      <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/logging.html>`__
+
+
 .. envvar:: ARROW_TRACING_BACKEND
 
    The backend where to export `OpenTelemetry <https://opentelemetry.io/>`_-based
@@ -138,10 +160,14 @@ that changing their value later will have an effect.
       SIGILL (Illegal Instruction).  User must rebuild Arrow and PyArrow from
       scratch by setting cmake option ``ARROW_SIMD_LEVEL=NONE``.
 
+.. envvar:: AWS_ENDPOINT_URL
+
+   Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+
 .. envvar:: GANDIVA_CACHE_SIZE
 
    The number of entries to keep in the Gandiva JIT compilation cache.
-   The cache is in-memory and does not persist accross processes.
+   The cache is in-memory and does not persist across processes.
 
 .. envvar:: HADOOP_HOME
 

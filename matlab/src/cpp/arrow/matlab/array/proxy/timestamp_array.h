@@ -17,27 +17,15 @@
 
 #pragma once
 
-#include "arrow/array.h"
+#include "arrow/matlab/array/proxy/numeric_array.h"
 
-#include "arrow/matlab/array/proxy/array.h"
-
-#include "libmexclass/proxy/Proxy.h"
-
-#include "arrow/type_fwd.h"
+#include "arrow/matlab/api/visibility.h"
 
 namespace arrow::matlab::array::proxy {
 
-class TimestampArray : public arrow::matlab::array::proxy::Array {
-    public:
-        TimestampArray(std::shared_ptr<arrow::TimestampArray> array);
+    using TimestampArray = NumericArray<arrow::TimestampType>;
 
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-    protected:
-        void toMATLAB(libmexclass::proxy::method::Context& context) override;
-
-        std::shared_ptr<type::proxy::Type> typeProxy() override;
-
-};
-
+    // Specialization of NumericArray::Make for arrow::TimestampType
+    template<>
+    ARROW_MATLAB_EXPORT libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 }

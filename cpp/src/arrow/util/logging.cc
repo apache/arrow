@@ -94,7 +94,8 @@ class CerrLog {
   void PrintBackTrace() {
 #ifdef ARROW_WITH_BACKTRACE
     void* buffer[255];
-    const int calls = backtrace(buffer, static_cast<int>(sizeof(buffer) / sizeof(void*)));
+    const auto calls =
+        backtrace(buffer, static_cast<int>(sizeof(buffer) / sizeof(void*)));
     backtrace_symbols_fd(buffer, calls, 1);
 #endif
   }

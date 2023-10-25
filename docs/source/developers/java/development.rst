@@ -23,6 +23,20 @@ Development Guidelines
 
 .. contents::
 
+Logger Abstraction
+==================
+
+Apache Arrow Java uses the SLF4J API, so please configure SLF4J to see logs (e.g. via Logback/Apache Log4j):
+
+1. If no jar dependencies are added by the user via Logback or Apache Log4j then SLF4J will default
+   to no-operation (NOP) logging.
+
+2. If a user adds any dependencies via Logback or Apache Log4j but does not configure/add/define
+   logback.xml/log4j2.xml, then logs will default to DEBUG mode.
+
+3. To disable debug logs, the user must define their own rules within their logback.xml/log4j2.xml
+   and define their own loggers.
+
 Unit Testing
 ============
 Unit tests are run by Maven during the build.
@@ -84,11 +98,13 @@ UI Benchmark:
 Integration Testing
 ===================
 
-Integration tests can be run via Archery:
+Integration tests can be run :ref:`via Archery <running_integration_tests>`.
+For example, assuming you only built Arrow Java and want to run the IPC
+integration tests, you would do:
 
-.. code-block::
+.. code-block:: console
 
-    $ archery integration --with-java true --with-cpp false --with-js false --with-csharp false --with-go false --with-rust false
+   $ archery integration --run-ipc --with-java 1
 
 Code Style
 ==========

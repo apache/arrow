@@ -122,7 +122,7 @@
 #' @export
 write_dataset <- function(dataset,
                           path,
-                          format = c("parquet", "feather", "arrow", "ipc", "csv"),
+                          format = c("parquet", "feather", "arrow", "ipc", "csv", "tsv", "txt", "text"),
                           partitioning = dplyr::group_vars(dataset),
                           basename_template = paste0("part-{i}.", as.character(format)),
                           hive_style = TRUE,
@@ -178,12 +178,31 @@ write_dataset <- function(dataset,
   }
 
   path_and_fs <- get_path_and_filesystem(path)
+
+  dots <- list(...)
+  if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(dots))) {
+    stop("A delimiter must be given for a txt format.")
+  }
+  if (format == "tsv" && any(c("delimiter", "delim") %in% names(dots))) {
+    stop("Can't set a delimiter for the tsv format.")
+  }
+
   output_schema <- final_node$schema
-  options <- FileWriteOptions$create(
-    format,
-    column_names = names(output_schema),
-    ...
-  )
+  # This is a workaround because CsvFileFormat$create defaults the delimiter to ","
+  if (format == "tsv") {
+    options <- FileWriteOptions$create(
+      format,
+      column_names = names(output_schema),
+      delimiter = "\t",
+      ...
+    )
+  } else {
+    options <- FileWriteOptions$create(
+      format,
+      column_names = names(output_schema),
+      ...
+    )
+  }
 
   # TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
   # and encapsulate this logic better
@@ -206,6 +225,174 @@ write_dataset <- function(dataset,
     existing_data_behavior, max_partitions,
     max_open_files, max_rows_per_file,
     min_rows_per_group, max_rows_per_group
+  )
+}
+
+#' Write a dataset into partitioned flat files.
+#'
+#' The `write_*_dataset()` are a family of wrappers around [write_dataset] to allow for easy switching
+#' between functions for writing datasets.
+#'
+#' @inheritParams write_dataset
+#' @param col_names Whether to write an initial header line with column names.
+#' @param batch_size Maximum number of rows processed at a time. Default is 1024L.
+#' @param delim Delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and
+#' `write_csv_dataset()`, and `"\t` for `write_tsv_dataset()`. Cannot be changed for `write_tsv_dataset()`.
+#' @param na a character vector of strings to interpret as missing values. Quotes are not allowed in this string.
+#' The default is an empty string `""`.
+#' @param eol the end of line character to use for ending rows. The default is `"\n"`.
+#' @param quote How to handle fields which contain characters that need to be quoted.
+#' - `needed` - Enclose all strings and binary values in quotes which need them, because their CSV rendering can
+#'  contain quotes itself  (the default)
+#' - `all` -   Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
+#' interpret all values as strings if schema is inferred.
+#' - `none` -   Do not enclose any values in quotes. Prevents values from containing quotes ("),
+#' cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
+#' contain these characters, an error is caused when attempting to write.
+#' @return The input `dataset`, invisibly.
+#'
+#' @seealso [write_dataset()]
+#' @export
+write_delim_dataset <- function(dataset,
+                                path,
+                                partitioning = dplyr::group_vars(dataset),
+                                basename_template = "part-{i}.txt",
+                                hive_style = TRUE,
+                                existing_data_behavior = c("overwrite", "error", "delete_matching"),
+                                max_partitions = 1024L,
+                                max_open_files = 900L,
+                                max_rows_per_file = 0L,
+                                min_rows_per_group = 0L,
+                                max_rows_per_group = bitwShiftL(1, 20),
+                                col_names = TRUE,
+                                batch_size = 1024L,
+                                delim = ",",
+                                na = "",
+                                eol = "\n",
+                                quote = c("needed", "all", "none")) {
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
+
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
+  write_dataset(
+    dataset = dataset,
+    path = path,
+    format = "txt",
+    partitioning = partitioning,
+    basename_template = basename_template,
+    hive_style = hive_style,
+    existing_data_behavior = existing_data_behavior,
+    max_partitions = max_partitions,
+    max_open_files = max_open_files,
+    max_rows_per_file = max_rows_per_file,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    include_header = col_names,
+    batch_size = batch_size,
+    delimiter = delim,
+    null_string = na,
+    eol = eol,
+    quoting_style = quote
+  )
+}
+
+#' @rdname write_delim_dataset
+#' @export
+write_csv_dataset <- function(dataset,
+                              path,
+                              partitioning = dplyr::group_vars(dataset),
+                              basename_template = "part-{i}.csv",
+                              hive_style = TRUE,
+                              existing_data_behavior = c("overwrite", "error", "delete_matching"),
+                              max_partitions = 1024L,
+                              max_open_files = 900L,
+                              max_rows_per_file = 0L,
+                              min_rows_per_group = 0L,
+                              max_rows_per_group = bitwShiftL(1, 20),
+                              col_names = TRUE,
+                              batch_size = 1024L,
+                              delim = ",",
+                              na = "",
+                              eol = "\n",
+                              quote = c("needed", "all", "none")) {
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
+
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
+  write_dataset(
+    dataset = dataset,
+    path = path,
+    format = "csv",
+    partitioning = partitioning,
+    basename_template = basename_template,
+    hive_style = hive_style,
+    existing_data_behavior = existing_data_behavior,
+    max_partitions = max_partitions,
+    max_open_files = max_open_files,
+    max_rows_per_file = max_rows_per_file,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    include_header = col_names,
+    batch_size = batch_size,
+    delimiter = delim,
+    null_string = na,
+    eol = eol,
+    quoting_style = quote
+  )
+}
+
+#' @rdname write_delim_dataset
+#' @export
+write_tsv_dataset <- function(dataset,
+                              path,
+                              partitioning = dplyr::group_vars(dataset),
+                              basename_template = "part-{i}.tsv",
+                              hive_style = TRUE,
+                              existing_data_behavior = c("overwrite", "error", "delete_matching"),
+                              max_partitions = 1024L,
+                              max_open_files = 900L,
+                              max_rows_per_file = 0L,
+                              min_rows_per_group = 0L,
+                              max_rows_per_group = bitwShiftL(1, 20),
+                              col_names = TRUE,
+                              batch_size = 1024L,
+                              na = "",
+                              eol = "\n",
+                              quote = c("needed", "all", "none")) {
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
+
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
+  write_dataset(
+    dataset = dataset,
+    path = path,
+    format = "tsv",
+    partitioning = partitioning,
+    basename_template = basename_template,
+    hive_style = hive_style,
+    existing_data_behavior = existing_data_behavior,
+    max_partitions = max_partitions,
+    max_open_files = max_open_files,
+    max_rows_per_file = max_rows_per_file,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    include_header = col_names,
+    batch_size = batch_size,
+    null_string = na,
+    eol = eol,
+    quoting_style = quote
   )
 }
 

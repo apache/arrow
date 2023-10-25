@@ -31,10 +31,7 @@ namespace arrow::matlab::array::proxy {
             static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
         protected:
-            void toMATLAB(libmexclass::proxy::method::Context& context) override;
-
-            std::shared_ptr<type::proxy::Type> typeProxy() override;
-
+            void toMATLAB(libmexclass::proxy::method::Context& context);
     };
 
 }

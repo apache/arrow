@@ -748,8 +748,8 @@ dataset___JsonFragmentScanOptions__Make <- function(parse_options, read_options)
   .Call(`_arrow_dataset___JsonFragmentScanOptions__Make`, parse_options, read_options)
 }
 
-dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer) {
-  .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer)
+dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit) {
+  .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit)
 }
 
 dataset___DirectoryPartitioning <- function(schm, segment_encoding) {
@@ -1592,6 +1592,26 @@ parquet___arrow___ArrowReaderProperties__Make <- function(use_threads) {
   .Call(`_arrow_parquet___arrow___ArrowReaderProperties__Make`, use_threads)
 }
 
+parquet___arrow___ReaderProperties__Make <- function() {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__Make`)
+}
+
+parquet___arrow___ReaderProperties__get_thrift_string_size_limit <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__get_thrift_string_size_limit`, properties)
+}
+
+parquet___arrow___ReaderProperties__set_thrift_string_size_limit <- function(properties, size) {
+  invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit`, properties, size))
+}
+
+parquet___arrow___ReaderProperties__get_thrift_container_size_limit <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit`, properties)
+}
+
+parquet___arrow___ReaderProperties__set_thrift_container_size_limit <- function(properties, size) {
+  invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit`, properties, size))
+}
+
 parquet___arrow___ArrowReaderProperties__set_use_threads <- function(properties, use_threads) {
   invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads`, properties, use_threads))
 }
@@ -1616,8 +1636,8 @@ parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit <- func
   .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit`, properties)
 }
 
-parquet___arrow___FileReader__OpenFile <- function(file, props) {
-  .Call(`_arrow_parquet___arrow___FileReader__OpenFile`, file, props)
+parquet___arrow___FileReader__OpenFile <- function(file, props, reader_props) {
+  .Call(`_arrow_parquet___arrow___FileReader__OpenFile`, file, props, reader_props)
 }
 
 parquet___arrow___FileReader__ReadTable1 <- function(reader) {

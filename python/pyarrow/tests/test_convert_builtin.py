@@ -21,6 +21,7 @@ import decimal
 import itertools
 import math
 import re
+import sys
 
 import hypothesis as h
 import numpy as np
@@ -28,6 +29,7 @@ import pytest
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
+from pyarrow.tests import util
 import pyarrow.tests.strategies as past
 
 
@@ -1338,6 +1340,8 @@ def test_sequence_timestamp_nanoseconds():
 
 
 @pytest.mark.pandas
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_sequence_timestamp_from_int_with_unit():
     # TODO(wesm): This test might be rewritten to assert the actual behavior
     # when pandas is not installed
@@ -1353,7 +1357,7 @@ def test_sequence_timestamp_from_int_with_unit():
     assert len(arr_s) == 1
     assert arr_s.type == s
     assert repr(arr_s[0]) == (
-        "<pyarrow.TimestampScalar: datetime.datetime(1970, 1, 1, 0, 0, 1)>"
+        "<pyarrow.TimestampScalar: '1970-01-01T00:00:01'>"
     )
     assert str(arr_s[0]) == "1970-01-01 00:00:01"
 

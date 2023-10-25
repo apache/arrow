@@ -50,10 +50,21 @@ namespace Apache.Arrow
             {
                 BigInteger scaleBy = BigInteger.Pow(10, scale);
                 BigInteger integerPart = BigInteger.DivRem(integerValue, scaleBy, out BigInteger fractionalPart);
-                if (integerPart > _maxDecimal || integerPart < _minDecimal) // decimal overflow, not much we can do here - C# needs a BigDecimal
+
+                // decimal overflow, not much we can do here - C# needs a BigDecimal
+                if (integerPart > _maxDecimal)
                 {
-                    throw new OverflowException($"Value: {integerPart} too big or too small to be represented as a decimal");
+                    throw new OverflowException($"Value: {integerPart} of {integerValue} is too big be represented as a decimal");
                 }
+                else if (integerPart < _minDecimal) 
+                {
+                    throw new OverflowException($"Value: {integerPart} of {integerValue} is too small be represented as a decimal");
+                }
+                else if (fractionalPart > _maxDecimal || fractionalPart < _minDecimal)
+                {
+                    throw new OverflowException($"Value: {fractionalPart} of {integerValue} is too precise be represented as a decimal");
+                }
+
                 return (decimal)integerPart + DivideByScale(fractionalPart, scale);
             }
             else
