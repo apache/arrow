@@ -3558,7 +3558,7 @@ def PyCapsule_IsValid(capsule, name):
     'tensor_type',
     [pa.uint8(), pa.uint32(), pa.int16(), pa.float32()]
 )
-def test_dlpack_spec(tensor_type):
+def test_dlpack(tensor_type):
     if Version(np.__version__) < Version("1.22.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
     arr = pa.array([1, 2, 3], type=tensor_type)
@@ -3569,3 +3569,18 @@ def test_dlpack_spec(tensor_type):
     expected = np.array([1, 2, 3])
     result = np.from_dlpack(arr)
     np.testing.assert_array_equal(result, expected)
+
+
+def test_dlpack_not_supported():
+    if Version(np.__version__) < Version("1.22.0"):
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array([1, None, 3])
+        np.from_dlpack(arr)
+    
+    with pytest.raises(pa.ArrowTypeError):
+        arr = pa.array(
+            [[0, 1], [3, 4]],
+            type=pa.list_(pa.int32())
+        )
+        np.from_dlpack(arr)
