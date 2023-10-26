@@ -24,6 +24,9 @@ function header = getTabularHeader(className, numRows, numColumns)
     numColsString = boldFontIfPossible(numColumns);
     rowWordString = pluralizeStringIfNeeded(numRows, "row");
     colWordString = pluralizeStringIfNeeded(numColumns, "column");
-    formatSpec = "  %s with %s %s and %s %s";
+    formatSpec = "  Arrow %s with %s %s and %s %s";
+    if numColumns > 0
+        formatSpec = formatSpec + ":";
+    end
     header = compose(formatSpec,className, numRowsString, rowWordString, numColsString, colWordString);
 end
