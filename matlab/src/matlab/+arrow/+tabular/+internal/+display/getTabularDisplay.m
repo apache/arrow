@@ -35,7 +35,7 @@ function tabularDisplay = getTabularDisplay(tabularObj, className)
         tabularDisplay = tabularDisplay + twoNewLines + schemaDisplay;
     
         if numRows > 0
-            rowHeader = fourSpaces + "Sample Data Row:";
+            rowHeader = fourSpaces + "First Row:";
             rowBody = eightSpaces + tabularObj.Proxy.getRowAsString(struct(Index=int64(1)));
             rowDisplay = rowHeader + twoNewLines + rowBody;
             tabularDisplay = tabularDisplay + twoNewLines + rowDisplay;
