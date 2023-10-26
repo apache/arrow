@@ -93,16 +93,16 @@ classdef tTabularInternal < matlab.unittest.TestCase
             testCase.verifyEqual(actualString, expectedString);
         end
 
-        function PrintRowFailed(testCase, TabularObjectWithThreeRows)
+        function GetRowAsStringFailed(testCase, TabularObjectWithThreeRows)
             % Verify getRowAsString throws an error with the ID
-            % arrow:tabular:PrintRowFailed if provided invalid index
+            % arrow:tabular:GetRowAsStringFailed if provided invalid index
             % values.
             proxy = TabularObjectWithThreeRows.Proxy;
             fcn = @() proxy.getRowAsString(struct(Index=int64(0)));
-            testCase.verifyError(fcn, "arrow:tabular:PrintRowFailed");
+            testCase.verifyError(fcn, "arrow:tabular:GetRowAsStringFailed");
 
             fcn = @() proxy.getRowAsString(struct(Index=int64(4)));
-            testCase.verifyError(fcn, "arrow:tabular:PrintRowFailed");
+            testCase.verifyError(fcn, "arrow:tabular:GetRowAsStringFailed");
         end
 
     end
