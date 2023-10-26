@@ -838,7 +838,7 @@ data_page_version : {"1.0", "2.0"}, default "1.0"
 use_compliant_nested_type : bool, default True
     Whether to write compliant Parquet nested type (lists) as defined
     `here <https://github.com/apache/parquet-format/blob/master/
-    LogicalTypes.md#nested-types>`_, defaults to ``False``.
+    LogicalTypes.md#nested-types>`_, defaults to ``True``.
     For ``use_compliant_nested_type=True``, this will write into a list
     with 3-level structure where the middle level, named ``list``,
     is a repeated group with a single field named ``element``::
