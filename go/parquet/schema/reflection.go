@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/apache/arrow/go/v15/arrow/float16"
 	"github.com/apache/arrow/go/v15/parquet"
 	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
 	"golang.org/x/xerrors"
@@ -375,6 +376,9 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 		return Must(MapOf(name, key, value, repType, fieldID))
 	case reflect.Struct:
+		if typ == reflect.TypeOf(float16.Num{}) {
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2, fieldID))
+		}
 		// structs are Group nodes
 		fields := make(FieldList, 0)
 		for i := 0; i < typ.NumField(); i++ {
