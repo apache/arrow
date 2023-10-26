@@ -231,27 +231,28 @@ struct ListViewConcatenationChecker {
   using ListViewArrayType = typename TypeTraits<ListViewType>::ArrayType;
 
   template <typename Self>
-  static void Check(Self& self, int32_t size, double null_probability,
+  static void Check(Self& self, int32_t num_list_views, double null_probability,
                     std::shared_ptr<Array>* out) {
-    auto values_size = 4 * size;
+    auto values_size = 4 * num_list_views;
     auto values =
         self.template GeneratePrimitive<Int8Type>(values_size, null_probability);
 
     std::shared_ptr<Array> offsets;
-    auto offsets_vector = self.template Offsets<offset_type>(values_size, size);
+    auto offsets_vector = self.template Offsets<offset_type>(values_size, num_list_views);
     offsets_vector.front() = 0;
     ArrayFromVector<OffsetArrowType>(offsets_vector, &offsets);
 
     std::shared_ptr<Array> sizes;
     std::vector<offset_type> sizes_vector;
-    sizes_vector.reserve(size);
-    for (int32_t i = 0; i < size; ++i) {
-      // Make list-views share values with the next list-view by extending the size to a
-      // point after the next offset.
+    sizes_vector.reserve(num_list_views);
+    for (int32_t i = 0; i < num_list_views; ++i) {
+      ASSERT_LE(offsets_vector[i], values_size);
       offset_type size = offsets_vector[i + 1] - offsets_vector[i];
-      size = std::min(2 * size / 3, values_size - offsets_vector[i]);
+      // Make list-views share values with the next list-view by
+      // extending the list-view size to a point after the next offset.
+      size = std::min(3 * size / 2, values_size - offsets_vector[i]);
       sizes_vector.push_back(size);
-      ASSERT_LE(offsets_vector[i] + sizes_vector.back(), values_size);
+      ASSERT_LE(offsets_vector[i] + size, values_size);
     }
     ASSERT_EQ(offsets_vector.size(), sizes_vector.size() + 1);
     ArrayFromVector<OffsetArrowType>(sizes_vector, &sizes);
