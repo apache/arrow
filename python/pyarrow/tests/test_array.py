@@ -3605,7 +3605,7 @@ DLManagedTensorDeleter = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 
 class DLManagedTensor(ctypes.Structure):
     _fields_ = [
-    ("dl_tensor", DLTensor),
+    ("dl_tensor", (DLTensor)),
     ("manager_ctx", ctypes.c_void_p),
     ("deleter", DLManagedTensorDeleter),
 ]
@@ -3634,6 +3634,4 @@ def test_dlpack_spec():
 
     pointer = PyCapsule_GetPointer(DLTensor, b"dltensor")
     tensor = ctypes.cast(pointer, DLManagedTensor_p)
-    breakpoint()
-    tensor.contents.dl_tensor.ndim
     tensor.contents.dl_tensor.ndim

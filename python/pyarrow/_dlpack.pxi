@@ -23,33 +23,33 @@ from cython import sizeof
 
 
 ctypedef enum DLDeviceType:
-    kDLCPU
-    kDLCUDA
-    kDLCUDAHost
-    kDLOpenCL
-    kDLVulkan
-    kDLMetal
-    kDLVPI
-    kDLROCM
-    kDLROCMHost
-    kDLExtDev
-    kDLCUDAManaged
-    kDLOneAPI
-    kDLWebGPU
-    kDLHexagon
+    kDLCPU = 1
+    kDLCUDA = 2
+    kDLCUDAHost = 3
+    kDLOpenCL = 4
+    kDLVulkan = 7
+    kDLMetal = 8
+    kDLVPI = 9
+    kDLROCM = 10
+    kDLROCMHost = 11
+    kDLExtDev = 12
+    kDLCUDAManaged = 13
+    kDLOneAPI = 14
+    kDLWebGPU = 15
+    kDLHexagon = 16
 
 ctypedef struct DLDevice:
     DLDeviceType device_type
     int32_t device_id
 
 ctypedef enum DLDataTypeCode:
-    kDLInt
-    kDLUInt
-    kDLFloat
-    kDLOpaqueHandle
-    kDLBfloat
-    kDLComplex
-    kDLBool
+    kDLInt = 0
+    kDLUInt = 1
+    kDLFloat = 2
+    kDLOpaqueHandle = 3
+    kDLBfloat = 4
+    kDLComplex = 5
+    kDLBool = 6
 
 ctypedef struct DLDataType:
     uint8_t code
@@ -92,11 +92,14 @@ cpdef object to_dlpack(Array arr) except +:
     cdef DLManagedTensor* dlm_tensor = <DLManagedTensor*> malloc(sizeof(DLManagedTensor))
 
     cdef DLTensor* dl_tensor = &dlm_tensor.dl_tensor
-    #dl_tensor.data = <void*> arr.ap
-    #dl_tensor.ndim = 0
-    #dl_tensor.shape = NULL
-    #dl_tensor.strides = NULL
-    #dl_tensor.byte_offset = 0
+    dl_tensor.data = <void*> arr.buffers()[1].address
+    dl_tensor.ndim = 1
+    cdef int64_t* shape = <int64_t*> malloc(sizeof(int64_t))
+    shape[0] = len(arr)
+    dl_tensor.shape = shape
+
+    dl_tensor.strides = NULL
+    dl_tensor.byte_offset = 0
 
     cdef DLDevice* device = &dl_tensor.device
     device.device_type = kDLCPU
@@ -104,17 +107,17 @@ cpdef object to_dlpack(Array arr) except +:
 
     cdef DLDataType* dtype = &dl_tensor.dtype
     if arr.type in [uint8(), uint16(), uint32(), uint64()]:
-        dtype.code = <uint8_t>kDLUInt
+        dtype.code = kDLUInt
     elif arr.type in [int8(), int16(), int32(), int64()]:
-        dtype.code = <uint8_t>kDLInt
+        dtype.code = kDLInt
     elif arr.type in [float16(), float32(), float64()]:
-        dtype.code = <uint8_t>kDLFloat
+        dtype.code = kDLFloat
     elif arr.type == bool_():
-        dtype.code = <uint8_t>kDLBool
+        dtype.code = kDLBool
     else:
         raise ValueError(f'Unsupported dtype {arr.type}')
     dtype.lanes = <uint16_t>1
-    dtype.bits = <uint8_t>arr.nbytes * 8
+    dtype.bits = <uint8_t>arr.type.bit_width
 
     dlm_tensor.manager_ctx = <void*>arr
     cpython.Py_INCREF(arr)
