@@ -79,6 +79,7 @@ classdef ListArray < arrow.array.Array
                 offsets (1, 1) arrow.array.Int32Array
                 values (1, 1) arrow.array.Array
                 opts.Valid
+                opts.ValidationMode (1, 1) arrow.array.internal.validation.ValidationMode
             end
             
             import arrow.internal.validate.parseValid

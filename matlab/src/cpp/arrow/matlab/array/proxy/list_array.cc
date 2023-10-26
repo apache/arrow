@@ -18,7 +18,9 @@
 #include "arrow/matlab/array/proxy/list_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
+#include "arrow/matlab/array/validation/validation_mode.h"
 #include "arrow/matlab/error/error.h"
+#include "arrow/util/utf8.h"
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::array::proxy {
@@ -100,4 +102,32 @@ namespace arrow::matlab::array::proxy {
         mda::ArrayFactory factory;
         context.outputs[0] = factory.createScalar(offsets_int32_array_proxy_id);
     }
+
+    void ListArray::validate(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using ValidationMode = array::validation::ValidationMode;
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<std::uint8_t> validation_mode_mda = args[0]["ValidationMode"];
+        const auto validation_mode_integer = std::uint8_t(validation_mode_mda[0]);
+        const auto validation_mode = static_cast<ValidationMode>(validation_mode_integer); 
+        // Convert integer representation to ValidationMode enum.
+        switch (validation_mode) {
+            case ValidationMode::None: {
+                // Do nothing
+                break;
+            }
+            case ValidationMode::Minimal: {
+                // Validate
+                break;
+            }
+            case ValidationMode::Full: {
+                // ValidateFull
+                break;
+            }
+            default: {
+                // Unsupported. Error.
+            } 
+        }
+    }
+
 }
