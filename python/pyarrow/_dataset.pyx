@@ -1242,7 +1242,7 @@ cdef class FileFormat(_Weakrefable):
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None,
-                      size=None):
+                      *, size=None):
         """
         Make a FileFragment from a given file.
 

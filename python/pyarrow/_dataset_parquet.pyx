@@ -235,7 +235,7 @@ cdef class ParquetFileFormat(FileFormat):
         return f"<ParquetFileFormat read_options={self.read_options}>"
 
     def make_fragment(self, file, filesystem=None,
-                      Expression partition_expression=None, row_groups=None, size=None):
+                      Expression partition_expression=None, row_groups=None, *, size=None):
         """
         Make a FileFragment from a given file.
 
@@ -270,7 +270,7 @@ cdef class ParquetFileFormat(FileFormat):
             c_size = size
         if row_groups is None:
             return super().make_fragment(file, filesystem,
-                                         partition_expression, size)
+                                         partition_expression, size=size)
 
         c_source = _make_file_source(file, filesystem, size=c_size)
         c_row_groups = [<int> row_group for row_group in set(row_groups)]
