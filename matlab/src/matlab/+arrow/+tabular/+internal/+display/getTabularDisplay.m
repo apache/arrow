@@ -17,7 +17,7 @@
 % permissions and limitations under the License.
 
 function tabularDisplay = getTabularDisplay(tabularObj, className)
-    import arrow.tabular.internal.displaySchema
+    import arrow.tabular.internal.display.getSchemaString
     import arrow.tabular.internal.display.getTabularHeader
 
     numRows = tabularObj.NumRows;
@@ -26,15 +26,17 @@ function tabularDisplay = getTabularDisplay(tabularObj, className)
 
     if numColumns > 0
         twoNewLines = string([newline newline]);
-        
-        schemaHeader = "    Schema:";
-        schemaBody =   "    " + displaySchema(tabularObj.Schema);
+        fourSpaces = string(repmat(' ', 1, 4));
+        eightSpaces = string(repmat(' ', 1, 8));
+
+        schemaHeader = fourSpaces + "Schema:";
+        schemaBody =   eightSpaces + getSchemaString(tabularObj.Schema);
         schemaDisplay = schemaHeader + twoNewLines + schemaBody;
         tabularDisplay = tabularDisplay + twoNewLines + schemaDisplay;
     
         if numRows > 0
-            rowHeader = "    Sample Data Row:";
-            rowBody = "        " + tabularObj.Proxy.getRowAsString(struct(Index=int64(1)));
+            rowHeader = fourSpaces + "Sample Data Row:";
+            rowBody = eightSpaces + tabularObj.Proxy.getRowAsString(struct(Index=int64(1)));
             rowDisplay = rowHeader + twoNewLines + rowBody;
             tabularDisplay = tabularDisplay + twoNewLines + rowDisplay;
         end
