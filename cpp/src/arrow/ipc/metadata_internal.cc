@@ -258,6 +258,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::LargeBinary:
       *out = large_binary();
       return Status::OK();
+    case flatbuf::Type::BinaryView:
+      *out = binary_view();
+      return Status::OK();
     case flatbuf::Type::FixedSizeBinary: {
       auto fw_binary = static_cast<const flatbuf::FixedSizeBinary*>(type_data);
       return FixedSizeBinaryType::Make(fw_binary->byteWidth()).Value(out);
@@ -267,6 +270,9 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       return Status::OK();
     case flatbuf::Type::LargeUtf8:
       *out = large_utf8();
+      return Status::OK();
+    case flatbuf::Type::Utf8View:
+      *out = utf8_view();
       return Status::OK();
     case flatbuf::Type::Bool:
       *out = boolean();
@@ -531,6 +537,18 @@ class FieldToFlatbufferVisitor {
   Status Visit(const BinaryType& type) {
     fb_type_ = flatbuf::Type::Binary;
     type_offset_ = flatbuf::CreateBinary(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const BinaryViewType& type) {
+    fb_type_ = flatbuf::Type::BinaryView;
+    type_offset_ = flatbuf::CreateBinaryView(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const StringViewType& type) {
+    fb_type_ = flatbuf::Type::Utf8View;
+    type_offset_ = flatbuf::CreateUtf8View(fbb_).Union();
     return Status::OK();
   }
 
@@ -967,6 +985,7 @@ static Status GetBodyCompression(FBB& fbb, const IpcWriteOptions& options,
 static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
                               const std::vector<FieldMetadata>& nodes,
                               const std::vector<BufferMetadata>& buffers,
+                              const std::vector<int64_t>& variadic_buffer_counts,
                               const IpcWriteOptions& options, RecordBatchOffset* offset) {
   FieldNodeVector fb_nodes;
   RETURN_NOT_OK(WriteFieldNodes(fbb, nodes, &fb_nodes));
@@ -977,7 +996,13 @@ static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
   BodyCompressionOffset fb_compression;
   RETURN_NOT_OK(GetBodyCompression(fbb, options, &fb_compression));
 
-  *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers, fb_compression);
+  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_variadic_buffer_counts{};
+  if (!variadic_buffer_counts.empty()) {
+    fb_variadic_buffer_counts = fbb.CreateVector(variadic_buffer_counts);
+  }
+
+  *offset = flatbuf::CreateRecordBatch(fbb, length, fb_nodes, fb_buffers, fb_compression,
+                                       fb_variadic_buffer_counts);
   return Status::OK();
 }
 
@@ -1224,11 +1249,12 @@ Status WriteRecordBatchMessage(
     int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
-  RETURN_NOT_OK(
-      MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
+                                variadic_buffer_counts, options, &record_batch));
   return WriteFBMessage(fbb, flatbuf::MessageHeader::RecordBatch, record_batch.Union(),
                         body_length, options.metadata_version, custom_metadata,
                         options.memory_pool)
@@ -1285,11 +1311,12 @@ Status WriteDictionaryMessage(
     int64_t id, bool is_delta, int64_t length, int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const IpcWriteOptions& options, std::shared_ptr<Buffer>* out) {
+    const std::vector<int64_t>& variadic_buffer_counts, const IpcWriteOptions& options,
+    std::shared_ptr<Buffer>* out) {
   FBB fbb;
   RecordBatchOffset record_batch;
-  RETURN_NOT_OK(
-      MakeRecordBatch(fbb, length, body_length, nodes, buffers, options, &record_batch));
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers,
+                                variadic_buffer_counts, options, &record_batch));
   auto dictionary_batch =
       flatbuf::CreateDictionaryBatch(fbb, id, record_batch, is_delta).Union();
   return WriteFBMessage(fbb, flatbuf::MessageHeader::DictionaryBatch, dictionary_batch,

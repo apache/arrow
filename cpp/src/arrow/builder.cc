@@ -148,6 +148,8 @@ struct DictionaryBuilderCase {
   Status Visit(const StringType&) { return CreateFor<StringType>(); }
   Status Visit(const LargeBinaryType&) { return CreateFor<LargeBinaryType>(); }
   Status Visit(const LargeStringType&) { return CreateFor<LargeStringType>(); }
+  Status Visit(const BinaryViewType&) { return CreateFor<BinaryViewType>(); }
+  Status Visit(const StringViewType&) { return CreateFor<StringViewType>(); }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
   Status Visit(const Decimal128Type&) { return CreateFor<Decimal128Type>(); }
   Status Visit(const Decimal256Type&) { return CreateFor<Decimal256Type>(); }
@@ -190,7 +192,7 @@ struct DictionaryBuilderCase {
 
 struct MakeBuilderImpl {
   template <typename T>
-  enable_if_not_nested<T, Status> Visit(const T&) {
+  enable_if_not_nested<T, Status> Visit(const T& t) {
     out.reset(new typename TypeTraits<T>::BuilderType(type, pool));
     return Status::OK();
   }

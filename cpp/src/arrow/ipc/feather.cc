@@ -536,8 +536,8 @@ struct ArrayWriterV1 {
       is_nested_type<T>::value || is_null_type<T>::value || is_decimal_type<T>::value ||
           std::is_same<DictionaryType, T>::value || is_duration_type<T>::value ||
           is_interval_type<T>::value || is_fixed_size_binary_type<T>::value ||
-          std::is_same<Date64Type, T>::value || std::is_same<Time64Type, T>::value ||
-          std::is_same<ExtensionType, T>::value,
+          is_binary_view_like_type<T>::value || std::is_same<Date64Type, T>::value ||
+          std::is_same<Time64Type, T>::value || std::is_same<ExtensionType, T>::value,
       Status>::type
   Visit(const T& type) {
     return Status::NotImplemented(type.ToString());

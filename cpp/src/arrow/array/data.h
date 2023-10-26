@@ -28,6 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -472,10 +473,12 @@ struct ARROW_EXPORT ArraySpan {
   void SetSlice(int64_t offset, int64_t length) {
     this->offset = offset;
     this->length = length;
-    if (this->type->id() != Type::NA) {
+    if (this->type->id() == Type::NA) {
+      this->null_count = this->length;
+    } else if (this->MayHaveNulls()) {
       this->null_count = kUnknownNullCount;
     } else {
-      this->null_count = this->length;
+      this->null_count = 0;
     }
   }
 
@@ -529,6 +532,16 @@ struct ARROW_EXPORT ArraySpan {
   ///
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
+
+  /// Some DataTypes (StringView, BinaryView) may have an arbitrary number of variadic
+  /// buffers. Since ArraySpan only has 3 buffers, we pack the variadic buffers into
+  /// buffers[2]; IE buffers[2].data points to the first shared_ptr<Buffer> of the
+  /// variadic set and buffers[2].size is the number of variadic buffers times
+  /// sizeof(shared_ptr<Buffer>).
+  ///
+  /// \see HasVariadicBuffers
+  util::span<const std::shared_ptr<Buffer>> GetVariadicBuffers() const;
+  bool HasVariadicBuffers() const;
 
  private:
   ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& span,

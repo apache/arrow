@@ -1469,7 +1469,19 @@ TEST(TestBinaryType, ToString) {
 TEST(TestStringType, ToString) {
   StringType str;
   ASSERT_EQ(str.id(), Type::STRING);
+  ASSERT_EQ(str.name(), std::string("utf8"));
+  ASSERT_EQ(str.type_name(), std::string("utf8"));
   ASSERT_EQ(str.ToString(), std::string("string"));
+}
+
+TEST(TestBinaryViewType, ToString) {
+  BinaryViewType t1;
+  BinaryViewType e1;
+  StringViewType t2;
+  AssertTypeEqual(t1, e1);
+  AssertTypeNotEqual(t1, t2);
+  ASSERT_EQ(t1.id(), Type::BINARY_VIEW);
+  ASSERT_EQ(t1.ToString(), std::string("binary_view"));
 }
 
 TEST(TestLargeBinaryTypes, ToString) {
