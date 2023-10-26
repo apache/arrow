@@ -615,7 +615,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "app_metadata_flight_info_endpoint",
             description="Ensure support FlightInfo and Endpoint app_metadata",
-            skip_testers={"JS", "C#", "Rust", "Java"}
+            skip_testers={"JS", "C#", "Rust"}
         ),
         Scenario(
             "flight_sql",
