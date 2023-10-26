@@ -112,9 +112,31 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
     end
 
     methods (Access=protected)
+        function header = getHeader(obj)
+            className = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            header = arrow.tabular.internal.display.getHeader(className, ...
+                obj.NumRows, obj.Schema);
+        end
 
         function displayScalarObject(obj)
-            disp(obj.toString());
+           numRows = obj.NumRows;
+            numColumns = obj.NumColumns;
+            className = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            tabularDisplay = arrow.tabular.internal.display.getHeader(className, numRows, numColumns);
+            if numColumns > 0
+                twoNewLines = string([newline newline]);
+                schemaHeader = "    Schema:";
+                schemaBody =   "    " + arrow.tabular.internal.displaySchema(obj.Schema);
+                schemaDisplay = schemaHeader + twoNewLines + schemaBody;
+                tabularDisplay = tabularDisplay + twoNewLines + schemaDisplay;
+                if numRows > 0
+                    rowHeader = "    Sample Data Row:";
+                    rowBody = "        " + obj.Proxy.getRowAsString(struct(Index=int64(1)));
+                    rowDisplay = rowHeader + twoNewLines + rowBody;
+                    tabularDisplay = tabularDisplay + twoNewLines + rowDisplay;
+                end
+            end
+           disp(tabularDisplay + newline);
         end
 
     end
