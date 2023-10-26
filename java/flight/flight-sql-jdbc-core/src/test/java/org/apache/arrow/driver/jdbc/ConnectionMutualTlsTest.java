@@ -269,10 +269,9 @@ public class ConnectionMutualTlsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final Connection connection = DriverManager.getConnection(
-        String.format(
+    final String jdbcUrl = String.format(
             "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
-                "&useEncryption=true&%s=%s&%s=%s&%s=%s",
+                    "&useEncryption=true&%s=%s&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -281,9 +280,11 @@ public class ConnectionMutualTlsTest {
             ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(),
             URLEncoder.encode(clientMTlsCertPath, "UTF-8"),
             ArrowFlightConnectionProperty.CLIENT_KEY.camelName(),
-            URLEncoder.encode(clientMTlsKeyPath, "UTF-8")));
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            URLEncoder.encode(clientMTlsKeyPath, "UTF-8"));
+
+    try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -307,13 +308,13 @@ public class ConnectionMutualTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.setProperty(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final Connection connection = DriverManager.getConnection(
-        String.format(
+    final String jdbcUrl = String.format(
             "jdbc:arrow-flight-sql://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            FLIGHT_SERVER_TEST_RULE.getPort());
+
+    try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -337,13 +338,13 @@ public class ConnectionMutualTlsTest {
     properties.put(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.put(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final Connection connection = DriverManager.getConnection(
-        String.format(
+    final String jdbcUrl = String.format(
             "jdbc:arrow-flight-sql://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            FLIGHT_SERVER_TEST_RULE.getPort());
+
+    try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -358,10 +359,9 @@ public class ConnectionMutualTlsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final Connection connection = DriverManager.getConnection(
-        String.format(
+    final String jdbcUrl = String.format(
             "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
-                "&useEncryption=1&useSystemTrustStore=0&%s=%s&%s=%s&%s=%s",
+                    "&useEncryption=1&useSystemTrustStore=0&%s=%s&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -370,9 +370,11 @@ public class ConnectionMutualTlsTest {
             ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(),
             URLEncoder.encode(clientMTlsCertPath, "UTF-8"),
             ArrowFlightConnectionProperty.CLIENT_KEY.camelName(),
-            URLEncoder.encode(clientMTlsKeyPath, "UTF-8")));
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            URLEncoder.encode(clientMTlsKeyPath, "UTF-8"));
+
+    try (Connection connection = DriverManager.getConnection(jdbcUrl)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -396,11 +398,11 @@ public class ConnectionMutualTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.setProperty(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final Connection connection = DriverManager.getConnection(
-        String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+    final String jdbcUrl = String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort());
+
+    try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -424,11 +426,11 @@ public class ConnectionMutualTlsTest {
     properties.put(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.put(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final Connection connection = DriverManager.getConnection(
-        String.format("jdbc:arrow-flight-sql://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+    final String jdbcUrl = String.format("jdbc:arrow-flight-sql://localhost:%s",
+            FLIGHT_SERVER_TEST_RULE.getPort());
+
+    try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 }
