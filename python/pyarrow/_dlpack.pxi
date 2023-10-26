@@ -92,7 +92,8 @@ cpdef object to_dlpack(Array arr) except +:
     cdef DLManagedTensor* dlm_tensor = <DLManagedTensor*> malloc(sizeof(DLManagedTensor))
 
     cdef DLTensor* dl_tensor = &dlm_tensor.dl_tensor
-    dl_tensor.data = <void*> arr.buffers()[1].address
+    cdef intptr_t data_ptr = arr.buffers()[1].address
+    dl_tensor.data = <void*> data_ptr
     dl_tensor.ndim = 1
     cdef int64_t* shape = <int64_t*> malloc(sizeof(int64_t))
     shape[0] = len(arr)

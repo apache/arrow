@@ -32,6 +32,7 @@ import numpy as np
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
+from pyarrow.vendored.version import Version
 
 
 def test_total_bytes_allocated():
@@ -3549,89 +3550,22 @@ def test_run_end_encoded_from_buffers():
                                            1, offset, children)
 
 
-
-from enum import IntEnum
-
-class DLDeviceType(IntEnum):
-    kDLCPU = 1
-    kDLCUDA = 2
-    kDLCUDAHost = 3
-    kDLOpenCL = 4
-    kDLVulkan = 7
-    kDLMetal = 8
-    kDLVPI = 9
-    kDLROCM = 10
-    kDLROCMHost = 11
-    kDLExtDev = 12
-    kDLCUDAManaged = 13
-    kDLOneAPI = 14
-    kDLWebGPU = 15
-    kDLHexagon = 16
-
-class DLDevice(ctypes.Structure):
-  _fields_ = [
-      ("device_type", ctypes.c_uint),
-      ("device_id", ctypes.c_int32),
-  ]
-
-class DLDataTypeCode(IntEnum):
-    kDLInt = 0
-    kDLUInt = 1
-    kDLFloat = 2
-    kDLOpaqueHandle = 3
-    kDLBfloat = 4
-    kDLComplex = 5
-    kDLBool = 6
-
-class DLDataType(ctypes.Structure):
-  _fields_ = [
-      ("code", ctypes.c_uint8),
-      ("bits", ctypes.c_uint8),
-      ("lanes", ctypes.c_uint16),
-  ]
-
-class DLTensor(ctypes.Structure):
-  _fields_ = [
-      ("data", ctypes.c_void_p),
-      ("device", DLDevice),
-      ("ndim", ctypes.c_int32),
-      ("dtype", DLDataType),
-      ("shape", ctypes.POINTER(ctypes.c_int64)),
-      ("strides", ctypes.POINTER(ctypes.c_int64)),
-      ("byte_offset", ctypes.c_uint64),
-  ]
-
-DLManagedTensorDeleter = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-
-class DLManagedTensor(ctypes.Structure):
-    _fields_ = [
-    ("dl_tensor", (DLTensor)),
-    ("manager_ctx", ctypes.c_void_p),
-    ("deleter", DLManagedTensorDeleter),
-]
-
-DLManagedTensor_p = ctypes.POINTER(DLManagedTensor)
-
-
 def PyCapsule_IsValid(capsule, name):
     return ctypes.pythonapi.PyCapsule_IsValid(ctypes.py_object(capsule), name) == 1
 
 
-def PyCapsule_GetPointer(capsule, name):
-    return ctypes.pythonapi.PyCapsule_GetPointer(ctypes.py_object(capsule), name)
-
-
-def PyCapsule_New(pointer, name, destructor):
-    return ctypes.pythonapi.PyCapsule_New(ctypes.c_void_p(pointer),
-                                          name)
-
-
-def test_dlpack_spec():
-    arr = pa.array([1, 2, 3])
+@pytest.mark.parametrize(
+    'tensor_type',
+    [pa.uint8(), pa.uint32(), pa.int16(), pa.float32()]
+)
+def test_dlpack_spec(tensor_type):
+    if Version(np.__version__) < Version("1.22.0"):
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+    arr = pa.array([1, 2, 3], type=tensor_type)
 
     DLTensor = arr.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") == True
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
 
-    pointer = PyCapsule_GetPointer(DLTensor, b"dltensor")
-    tensor = ctypes.cast(pointer, DLManagedTensor_p)
-    tensor.contents.dl_tensor.ndim
+    expected = np.array([1, 2, 3])
+    result = np.from_dlpack(arr)
+    np.testing.assert_array_equal(result, expected)
