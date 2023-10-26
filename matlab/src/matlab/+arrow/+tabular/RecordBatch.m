@@ -113,8 +113,8 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
     methods (Access=protected)
         function displayScalarObject(obj)
             className = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
-            tabularDisplay = arrow.tabular.internal.display.getTabular(obj, className);
-            disp(tabularDisplay + newline);
+            tabularDisplay = arrow.tabular.internal.display.getTabularDisplay(obj, className);
+            disp(tabularDisplay + newline);cl
         end
     end
 

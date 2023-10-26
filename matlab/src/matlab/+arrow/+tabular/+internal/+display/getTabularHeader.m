@@ -1,4 +1,4 @@
-%GETHEADER Generates the display header for arrow.tabular.Table and
+%GETTABULARHEADER Generates the display header for arrow.tabular.Table and
 % arrow.tabular.RecordBatch.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
@@ -16,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function header = getHeader(className, numRows, numColumns)
+function header = getTabularHeader(className, numRows, numColumns)
     import arrow.internal.display.boldFontIfPossible
     import arrow.internal.display.pluralizeStringIfNeeded
 

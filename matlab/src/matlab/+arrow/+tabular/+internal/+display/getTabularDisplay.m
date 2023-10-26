@@ -1,4 +1,4 @@
-%GETTABULAR Generates the display for arrow.tabular.Table and
+%GETTABULARDISPLAY Generates the display for arrow.tabular.Table and
 % arrow.tabular.RecordBatch.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
@@ -16,13 +16,13 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function tabularDisplay = getTabular(tabularObj, className)
+function tabularDisplay = getTabularDisplay(tabularObj, className)
     import arrow.tabular.internal.displaySchema
-    import arrow.tabular.internal.display.getHeader
+    import arrow.tabular.internal.display.getTabularHeader
 
     numRows = tabularObj.NumRows;
     numColumns = tabularObj.NumColumns;
-    tabularDisplay = getHeader(className, numRows, numColumns);
+    tabularDisplay = getTabularHeader(className, numRows, numColumns);
 
     if numColumns > 0
         twoNewLines = string([newline newline]);
