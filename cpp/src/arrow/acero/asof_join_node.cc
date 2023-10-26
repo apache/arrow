@@ -17,7 +17,7 @@
 
 #include "arrow/acero/asof_join_node.h"
 #include "arrow/acero/backpressure_handler.h"
-#include "arrow/acero/concurrent_queue.h"
+#include "arrow/acero/concurrent_queue_internal.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -122,7 +122,7 @@ struct TolType {
 };
 
 // Maximum number of tables that can be joined
-#define MAX_JOIN_TABLES 64
+#define MAX_JOIN_TABLES 4  // NOCOMMIT
 typedef uint64_t row_index_t;
 typedef int col_index_t;
 
@@ -870,9 +870,8 @@ class CompositeTableBuilder {
           new_row.AddEntry(entry->batch, entry->row, entry->row + 1);
           continue;
         }
-      } else {
-        new_row.AddEntry(nullptr, 0, 1);
       }
+      new_row.AddEntry(nullptr, 0, 1);
     }
     new_row.Finalize();
   }

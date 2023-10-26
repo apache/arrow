@@ -25,54 +25,39 @@
 namespace arrow::acero {
 
 /**
- * Simple implementation for an unbound concurrent queue
+ * Simple implementation for a thread safe blocking unbound multi-consumer /
+ * multi-producer concurrent queue
  */
 template <class T>
 class ConcurrentQueue {
  public:
+  // Pops the last item from the queue. Must be called on a non-empty queue
+  //
   T Pop() {
     std::unique_lock<std::mutex> lock(mutex_);
     cond_.wait(lock, [&] { return !queue_.empty(); });
     return PopUnlocked();
   }
 
-  T PopUnlocked() {
-    auto item = queue_.front();
-    queue_.pop();
-    return item;
-  }
-
-  void Push(const T& item) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return PushUnlocked(item);
-  }
-
-  void PushUnlocked(const T& item) {
-    queue_.push(item);
-    cond_.notify_one();
-  }
-
-  void Clear() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ClearUnlocked();
-  }
-
-  void ClearUnlocked() { queue_ = std::queue<T>(); }
-
+  // Pops the last item from the queue, or returns a nullopt if empty
+  //
   std::optional<T> TryPop() {
     std::unique_lock<std::mutex> lock(mutex_);
     return TryPopUnlocked();
   }
 
-  std::optional<T> TryPopUnlocked() {
-    // Try to pop the oldest value from the queue (or return nullopt if none)
-    if (queue_.empty()) {
-      return std::nullopt;
-    } else {
-      auto item = queue_.front();
-      queue_.pop();
-      return item;
-    }
+  // Pushes an item to the queue
+  //
+  void Push(const T& item) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return PushUnlocked(item);
+  }
+
+  // Clears the queue
+  //
+  void Clear() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    ClearUnlocked();
   }
 
   bool Empty() const {
@@ -91,8 +76,32 @@ class ConcurrentQueue {
  protected:
   std::mutex& GetMutex() { return mutex_; }
 
- private:
+  T PopUnlocked() {
+    auto item = queue_.front();
+    queue_.pop();
+    return item;
+  }
+
+  void PushUnlocked(const T& item) {
+    queue_.push(item);
+    cond_.notify_one();
+  }
+
+  void ClearUnlocked() { queue_ = std::queue<T>(); }
+
+  std::optional<T> TryPopUnlocked() {
+    // Try to pop the oldest value from the queue (or return nullopt if none)
+    if (queue_.empty()) {
+      return std::nullopt;
+    } else {
+      auto item = queue_.front();
+      queue_.pop();
+      return item;
+    }
+  }
   std::queue<T> queue_;
+
+ private:
   mutable std::mutex mutex_;
   std::condition_variable cond_;
 };
@@ -105,6 +114,8 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
         : queue_(queue), start_size_(queue_.UnsyncSize()) {}
 
     ~DoHandle() {
+      // unsynced access is safe since DoHandle is internally only used when the
+      // lock is held
       size_t end_size = queue_.UnsyncSize();
       queue_.handler_.Handle(start_size_, end_size);
     }

@@ -22,10 +22,10 @@
 
 namespace arrow::acero {
 
-// normalize the value to 64-bits while preserving ordering of values
 template <typename T, enable_if_t<std::is_integral<T>::value, bool>>
 inline uint64_t NormalizeTime(T t) {
-  uint64_t bias = std::is_signed<T>::value ? (uint64_t)1 << (8 * sizeof(T) - 1) : 0;
+  uint64_t bias =
+      std::is_signed<T>::value ? static_cast<uint64_t>(1) << (8 * sizeof(T) - 1) : 0;
   return t < 0 ? static_cast<uint64_t>(t + bias) : static_cast<uint64_t>(t);
 }
 

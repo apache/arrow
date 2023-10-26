@@ -23,7 +23,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
-#include "arrow/acero/concurrent_queue.h"
+#include "arrow/acero/concurrent_queue_internal.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
