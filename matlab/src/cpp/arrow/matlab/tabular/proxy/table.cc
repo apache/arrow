@@ -225,7 +225,7 @@ namespace arrow::matlab::tabular::proxy {
         const auto matlab_row_index = int64_t(index_mda[0]);
 
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf8, arrow::matlab::tabular::get_row_as_string(table, matlab_row_index), 
-                                            context, error::TABULAR_GET_STRING_AS_ROW_FAILED);
+                                            context, error::TABULAR_GET_ROW_AS_STRING_FAILED);
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf16, arrow::util::UTF8StringToUTF16(row_str_utf8),
                                             context, error::UNICODE_CONVERSION_ERROR_ID);
         context.outputs[0] = factory.createScalar(row_str_utf16);
