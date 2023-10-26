@@ -381,7 +381,7 @@ type BinaryViewBuilder struct {
 	dtype arrow.BinaryDataType
 
 	data    *memory.Buffer
-	rawData []arrow.StringHeader
+	rawData []arrow.ViewHeader
 
 	blockBuilder multiBufferBuilder
 }
@@ -439,7 +439,7 @@ func (b *BinaryViewBuilder) Resize(n int) {
 		b.init(n)
 		return
 	}
-	
+
 	b.builder.resize(nbuild, b.init)
 	b.data.Resize(arrow.StringHeaderTraits.BytesRequired(n))
 	b.rawData = arrow.StringHeaderTraits.CastFromBytes(b.data.Bytes())
@@ -462,7 +462,7 @@ func (b *BinaryViewBuilder) Append(v []byte) {
 		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 4GB", arrow.ErrInvalid))
 	}
 
-	if !arrow.IsStringHeaderInline(len(v)) {
+	if !arrow.IsViewInline(len(v)) {
 		b.ReserveData(len(v))
 	}
 
@@ -532,7 +532,7 @@ func (b *BinaryViewBuilder) AppendValues(v [][]byte, valid []bool) {
 	outOfLineTotal := 0
 	for i, vv := range v {
 		if len(valid) == 0 || valid[i] {
-			if !arrow.IsStringHeaderInline(len(vv)) {
+			if !arrow.IsViewInline(len(vv)) {
 				outOfLineTotal += len(vv)
 			}
 		}
@@ -565,7 +565,7 @@ func (b *BinaryViewBuilder) AppendStringValues(v []string, valid []bool) {
 	outOfLineTotal := 0
 	for i, vv := range v {
 		if len(valid) == 0 || valid[i] {
-			if !arrow.IsStringHeaderInline(len(vv)) {
+			if !arrow.IsViewInline(len(vv)) {
 				outOfLineTotal += len(vv)
 			}
 		}

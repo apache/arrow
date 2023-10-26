@@ -321,12 +321,12 @@ func arrayEqualLargeBinary(left, right *LargeBinary) bool {
 
 type ViewLike interface {
 	arrow.Array
-	ValueHeader(int) *arrow.StringHeader
+	ValueHeader(int) *arrow.ViewHeader
 }
 
 type BinaryView struct {
 	array
-	values      []arrow.StringHeader
+	values      []arrow.ViewHeader
 	dataBuffers []*memory.Buffer
 }
 
@@ -350,7 +350,7 @@ func (a *BinaryView) setData(data *Data) {
 	a.dataBuffers = data.buffers[2:]
 }
 
-func (a *BinaryView) ValueHeader(i int) *arrow.StringHeader {
+func (a *BinaryView) ValueHeader(i int) *arrow.ViewHeader {
 	if i < 0 || i >= a.array.data.length {
 		panic("arrow/array: index out of range")
 	}

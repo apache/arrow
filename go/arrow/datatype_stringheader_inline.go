@@ -24,7 +24,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 )
 
-func (sh *StringHeader) InlineData() (data string) {
+func (sh *ViewHeader) InlineData() (data string) {
 	debug.Assert(sh.IsInline(), "calling InlineData on non-inline StringHeader")
 
 	return unsafe.String((*byte)(unsafe.Pointer(&sh.data)), sh.size)

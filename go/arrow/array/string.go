@@ -317,7 +317,7 @@ func arrayEqualLargeString(left, right *LargeString) bool {
 
 type StringView struct {
 	array
-	values      []arrow.StringHeader
+	values      []arrow.ViewHeader
 	dataBuffers []*memory.Buffer
 }
 
@@ -346,7 +346,7 @@ func (a *StringView) setData(data *Data) {
 	a.dataBuffers = data.buffers[2:]
 }
 
-func (a *StringView) ValueHeader(i int) *arrow.StringHeader {
+func (a *StringView) ValueHeader(i int) *arrow.ViewHeader {
 	if i < 0 || i >= a.array.data.length {
 		panic("arrow/array: index out of range")
 	}

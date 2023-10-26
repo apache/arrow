@@ -237,7 +237,7 @@ func (b *multiBufferBuilder) Reset() {
 	b.blocks = nil
 }
 
-func (b *multiBufferBuilder) UnsafeAppend(hdr *arrow.StringHeader, val []byte) {
+func (b *multiBufferBuilder) UnsafeAppend(hdr *arrow.ViewHeader, val []byte) {
 	buf := b.blocks[b.currentOutBuffer]
 	idx, offset := b.currentOutBuffer, buf.Len()
 	hdr.SetIndexOffset(uint32(idx), uint32(offset))
@@ -246,7 +246,7 @@ func (b *multiBufferBuilder) UnsafeAppend(hdr *arrow.StringHeader, val []byte) {
 	buf.ResizeNoShrink(offset + n)
 }
 
-func (b *multiBufferBuilder) UnsafeAppendString(hdr *arrow.StringHeader, val string) {
+func (b *multiBufferBuilder) UnsafeAppendString(hdr *arrow.ViewHeader, val string) {
 	// create a byte slice with zero-copies
 	// in go1.20 this would be equivalent to unsafe.StringData
 	v := *(*[]byte)(unsafe.Pointer(&struct {

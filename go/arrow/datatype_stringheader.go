@@ -26,15 +26,15 @@ import (
 )
 
 const (
-	StringHeaderPrefixLen  = 4
-	stringHeaderInlineSize = 12
+	StringViewPrefixLen  = 4
+	stringViewInlineSize = 12
 )
 
-func IsStringHeaderInline(length int) bool {
-	return length < stringHeaderInlineSize
+func IsViewInline(length int) bool {
+	return length < stringViewInlineSize
 }
 
-// StringHeader is a variable length string (utf8) or byte slice with
+// ViewHeader is a variable length string (utf8) or byte slice with
 // a 4 byte prefix and inline optimization for small values (12 bytes
 // or fewer). This is similar to Go's standard string but limited by
 // a length of Uint32Max and up to the first four bytes of the string
@@ -44,20 +44,22 @@ func IsStringHeaderInline(length int) bool {
 //
 // There are two situations:
 //
-//	Short string   |----|----|--------|
-//	                ^    ^    ^
-//	                |    |    |
-//	              size prefix remaining in-line portion, zero padded
+//		Entirely inlined string data
+//	                |----|------------|
+//		                ^    ^
+//		                |    |
+//		              size  inline string data, zero padded
 //
-//	IO Long String |----|----|----|----|
-//	                ^    ^     ^     ^
-//	                |    |     |     |
-//	              size prefix buffer index and offset to out-of-line portion
+//		Reference into buffer
+//	                |----|----|----|----|
+//		                ^    ^     ^     ^
+//		                |    |     |     |
+//		              size prefix buffer index and offset to out-of-line portion
 //
 // Adapted from TU Munich's UmbraDB [1], Velox, DuckDB.
 //
 // [1]: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf
-type StringHeader struct {
+type ViewHeader struct {
 	size uint32
 	// the first 4 bytes of this are the prefix for the string
 	// if size <= StringHeaderInlineSize, then the entire string
@@ -65,32 +67,32 @@ type StringHeader struct {
 	// if size > StringHeaderInlineSize, the next 8 bytes are 2 uint32
 	// values which are the buffer index and offset in that buffer
 	// containing the full string.
-	data [stringHeaderInlineSize]byte
+	data [stringViewInlineSize]byte
 }
 
-func (sh *StringHeader) IsInline() bool {
-	return sh.size <= uint32(stringHeaderInlineSize)
+func (sh *ViewHeader) IsInline() bool {
+	return sh.size <= uint32(stringViewInlineSize)
 }
 
-func (sh *StringHeader) Len() int { return int(sh.size) }
-func (sh *StringHeader) Prefix() [StringHeaderPrefixLen]byte {
+func (sh *ViewHeader) Len() int { return int(sh.size) }
+func (sh *ViewHeader) Prefix() [StringViewPrefixLen]byte {
 	return *(*[4]byte)(unsafe.Pointer(&sh.data))
 }
 
-func (sh *StringHeader) BufferIndex() uint32 {
-	return endian.Native.Uint32(sh.data[StringHeaderPrefixLen:])
+func (sh *ViewHeader) BufferIndex() uint32 {
+	return endian.Native.Uint32(sh.data[StringViewPrefixLen:])
 }
 
-func (sh *StringHeader) BufferOffset() uint32 {
-	return endian.Native.Uint32(sh.data[StringHeaderPrefixLen+4:])
+func (sh *ViewHeader) BufferOffset() uint32 {
+	return endian.Native.Uint32(sh.data[StringViewPrefixLen+4:])
 }
 
-func (sh *StringHeader) InlineBytes() (data []byte) {
+func (sh *ViewHeader) InlineBytes() (data []byte) {
 	debug.Assert(sh.IsInline(), "calling InlineBytes on non-inline StringHeader")
 	return sh.data[:sh.size]
 }
 
-func (sh *StringHeader) SetBytes(data []byte) int {
+func (sh *ViewHeader) SetBytes(data []byte) int {
 	sh.size = uint32(len(data))
 	if sh.IsInline() {
 		return copy(sh.data[:], data)
@@ -98,7 +100,7 @@ func (sh *StringHeader) SetBytes(data []byte) int {
 	return copy(sh.data[:4], data)
 }
 
-func (sh *StringHeader) SetString(data string) int {
+func (sh *ViewHeader) SetString(data string) int {
 	sh.size = uint32(len(data))
 	if sh.IsInline() {
 		return copy(sh.data[:], data)
@@ -106,12 +108,12 @@ func (sh *StringHeader) SetString(data string) int {
 	return copy(sh.data[:4], data)
 }
 
-func (sh *StringHeader) SetIndexOffset(bufferIndex, offset uint32) {
-	endian.Native.PutUint32(sh.data[StringHeaderPrefixLen:], bufferIndex)
-	endian.Native.PutUint32(sh.data[StringHeaderPrefixLen+4:], offset)
+func (sh *ViewHeader) SetIndexOffset(bufferIndex, offset uint32) {
+	endian.Native.PutUint32(sh.data[StringViewPrefixLen:], bufferIndex)
+	endian.Native.PutUint32(sh.data[StringViewPrefixLen+4:], offset)
 }
 
-func (sh *StringHeader) Equals(buffers []*memory.Buffer, other *StringHeader, otherBuffers []*memory.Buffer) bool {
+func (sh *ViewHeader) Equals(buffers []*memory.Buffer, other *ViewHeader, otherBuffers []*memory.Buffer) bool {
 	if sh.sizeAndPrefixAsInt() != other.sizeAndPrefixAsInt() {
 		return false
 	}
@@ -125,12 +127,12 @@ func (sh *StringHeader) Equals(buffers []*memory.Buffer, other *StringHeader, ot
 	return bytes.Equal(data, otherData)
 }
 
-func (sh *StringHeader) inlinedAsInt64() int64 {
+func (sh *ViewHeader) inlinedAsInt64() int64 {
 	s := unsafe.Slice((*int64)(unsafe.Pointer(sh)), 2)
 	return s[1]
 }
 
-func (sh *StringHeader) sizeAndPrefixAsInt() int64 {
+func (sh *ViewHeader) sizeAndPrefixAsInt() int64 {
 	s := unsafe.Slice((*int64)(unsafe.Pointer(sh)), 2)
 	return s[0]
 }
