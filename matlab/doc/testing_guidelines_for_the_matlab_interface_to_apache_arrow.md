@@ -34,6 +34,8 @@ MATLAB interface has its own tests to ensure its quality. To run those tests loc
 
 When adding new tests, it is recommended to, at a minimum, ensure that real-world workflows work as expected.  
 
+If the change cannot be covered by any use case at the MATLAB interface level, please consider test it at the C++ level. One approach for testing C++ code is to create a Proxy instance manually in MATLAB and call the Proxy's method from a MATLAB test case. Examples can be found in `matlab/test/arrow/tabular/tTabularInternal.m`.
+
 ### MATLAB Class-Based Unit Testing Framework  
 
 All tests for the MATLAB interface should use the [MATLAB Class-Based Unit Testing Framework](https://www.mathworks.com/help/matlab/class-based-unit-tests.html) (i.e. they should use [`matlab.unittest.TestCase`](https://www.mathworks.com/help/matlab/ref/matlab.unittest.testcase-class.html)).  
