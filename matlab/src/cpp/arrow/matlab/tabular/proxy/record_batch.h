@@ -41,6 +41,7 @@ namespace arrow::matlab::tabular::proxy {
             void getColumnByIndex(libmexclass::proxy::method::Context& context);
             void getColumnByName(libmexclass::proxy::method::Context& context);
             void getSchema(libmexclass::proxy::method::Context& context);
+            void getRowAsString(libmexclass::proxy::method::Context& context);
 
             std::shared_ptr<arrow::RecordBatch> record_batch;
     };
