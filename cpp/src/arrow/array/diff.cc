@@ -241,19 +241,11 @@ class REEValueComparator : public ValueComparator {
       DCHECK_GT(base_run, 0);
       DCHECK_GT(target_run, 0);
 
-      int64_t increment = 0;
-      if (base_run < target_run) {
-        increment = base_run;
-        physical_base_index += 1;  // skip to next run on base
-      } else if (base_run > target_run) {
-        increment = target_run;
-        physical_target_index += 1;  // skip to next run on target
-      } else {
-        increment = base_run;
-        // skip to next run on both base and target
-        physical_base_index += 1;
-        physical_target_index += 1;
-      }
+      // Skip the smallest run (or both runs if they are equal)
+      const int64_t increment = std::min(base_run, target_run);
+      physical_base_index += increment == base_run;
+      physical_target_index += increment == target_run;
+
       // Since both base_run and target_run are greater than zero,
       // increment is also greater than zero...
       DCHECK_GT(increment, 0);
