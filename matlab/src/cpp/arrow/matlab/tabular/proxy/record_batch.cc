@@ -23,6 +23,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
+#include "arrow/matlab/tabular/get_row_as_string.h"
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
 
@@ -58,6 +59,7 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
         REGISTER_METHOD(RecordBatch, getColumnByName);
         REGISTER_METHOD(RecordBatch, getSchema);
+        REGISTER_METHOD(RecordBatch, getRowAsString);
     }
 
     std::shared_ptr<arrow::RecordBatch> RecordBatch::unwrap() {
@@ -216,6 +218,22 @@ namespace arrow::matlab::tabular::proxy {
         const auto schema_proxy_id_mda = factory.createScalar(schema_proxy_id);
 
         context.outputs[0] = schema_proxy_id_mda;
+    }
+
+    void RecordBatch::getRowAsString(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<int64_t> index_mda = args[0]["Index"];
+        const auto matlab_row_index = int64_t(index_mda[0]);
+
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf8, arrow::matlab::tabular::get_row_as_string(record_batch, matlab_row_index), 
+                                            context, error::TABULAR_GET_ROW_AS_STRING_FAILED);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto row_str_utf16, arrow::util::UTF8StringToUTF16(row_str_utf8),
+                                            context, error::UNICODE_CONVERSION_ERROR_ID);
+        context.outputs[0] = factory.createScalar(row_str_utf16);
     }
 
 }
