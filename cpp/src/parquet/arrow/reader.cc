@@ -1122,9 +1122,8 @@ class RowGroupGenerator {
     } else {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-      auto cpu_executor = cpu_executor_;
       row_group_read =
-          ready.Then([cpu_executor, reader, row_group,
+          ready.Then([cpu_executor = cpu_executor_, reader, row_group,
                       column_indices = std::move(
                           column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
             return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices);
@@ -1183,7 +1182,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         int64_t rows_to_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
   if (rows_to_readahead < 0) {
-    return Status::Invalid("rows_to_readahead must be > 0");
+    return Status::Invalid("rows_to_readahead must be >= 0");
   }
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
