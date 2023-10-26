@@ -28,6 +28,7 @@ excluded:
   - Arrow/Sources/Arrow/Tensor_generated.swift
   - ArrowFlight/Sources/ArrowFlight/Flight.grpc.swift
   - ArrowFlight/Sources/ArrowFlight/Flight.pb.swift
+  - ArrowFlight/Sources/ArrowFlight/FlightSql.pb.swift
 identifier_name:
   min_length: 2 # only warning
 allow_zero_lintable_files: false
