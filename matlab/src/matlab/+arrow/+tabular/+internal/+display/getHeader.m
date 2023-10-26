@@ -20,13 +20,10 @@ function header = getHeader(className, numRows, numColumns)
     import arrow.internal.display.boldFontIfPossible
     import arrow.internal.display.pluralizeStringIfNeeded
 
-    if numColumns > 0
-        numRowsString = boldFontIfPossible(numRows);
-        rowWordString = pluralizeStringIfNeeded(numRows, "row");
-        header = compose("  %s with %s %s and Schema:" + newline, ...
-            className, numRowsString, rowWordString);
-    else
-        zeroString = boldFontIfPossible(0);
-        header = compose("  %s with %s Columns" + newline, className, zeroString);
-    end
+    numRowsString = boldFontIfPossible(numRows);
+    numColsString = boldFontIfPossible(numColumns);
+    rowWordString = pluralizeStringIfNeeded(numRows, "row");
+    colWordString = pluralizeStringIfNeeded(numColumns, "column");
+    formatSpec = "  %s with %s %s and %s %s";
+    header = compose(formatSpec,className, numRowsString, rowWordString, numColsString, colWordString);
 end
