@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/api.h>
 #include <atomic>
 #include <mutex>
 #include <sstream>
@@ -66,7 +65,7 @@ inline bool std_has(const T& container, const V& val) {
 
 namespace arrow::acero {
 
-namespace sorted_merge {
+namespace {
 
 // Each slice is associated with a single input source, so we only need 1 record
 // batch per slice
@@ -77,8 +76,8 @@ using row_index_t = uint64_t;
 using time_unit_t = uint64_t;
 using col_index_t = int;
 
-#define NEW_TASK true
-#define POISON_PILL false
+constexpr bool kNewTask = true;
+constexpr bool kPoisonPill = false;
 
 class BackpressureController : public BackpressureControl {
  public:
@@ -273,7 +272,7 @@ class SortedMergeNode : public ExecNode {
 
   ~SortedMergeNode() override {
     process_queue.Push(
-        POISON_PILL);  // poison pill
+        kPoisonPill);  // poison pill
                        // We might create a temporary (such as to inspect the output
                        // schema), in which case there isn't anything  to join
     if (process_thread.joinable()) {
@@ -325,7 +324,7 @@ class SortedMergeNode : public ExecNode {
       const auto& schema = input->output_schema();
       const auto& sort_key = ordering_.sort_keys()[0];
       if (sort_key.order != arrow::compute::SortOrder::Ascending) {
-        return Status::Invalid("Only ascending sort order is supported");
+        return Status::NotImplemented("Only ascending sort order is supported");
       }
 
       const auto& ref = sort_key.target;
@@ -354,7 +353,7 @@ class SortedMergeNode : public ExecNode {
     // InputState's ConcurrentQueue manages locking
     input_counter[index] += rb->num_rows();
     ARROW_RETURN_NOT_OK(state[index]->Push(rb));
-    process_queue.Push(NEW_TASK);
+    process_queue.Push(kNewTask);
     return Status::OK();
   }
 
@@ -367,7 +366,7 @@ class SortedMergeNode : public ExecNode {
       state.at(k)->set_total_batches(total_batches);
     }
     // Trigger a final process call for stragglers
-    process_queue.Push(NEW_TASK);
+    process_queue.Push(kNewTask);
     return Status::OK();
   }
 
@@ -384,7 +383,7 @@ class SortedMergeNode : public ExecNode {
 
   arrow::Status StopProducingImpl() override {
     process_queue.Clear();
-    process_queue.Push(POISON_PILL);
+    process_queue.Push(kPoisonPill);
     return Status::OK();
   }
 
@@ -541,7 +540,7 @@ class SortedMergeNode : public ExecNode {
   void EmitBatches() {
     while (true) {
       // Implementation note: If the queue is empty, we will block here
-      if (process_queue.Pop() == POISON_PILL) {
+      if (process_queue.Pop() == kPoisonPill) {
         EndFromProcessThread();
       }
       // Either we're out of data or something went wrong
@@ -584,14 +583,11 @@ class SortedMergeNode : public ExecNode {
   std::atomic<int> total_batches_{0};
 };
 
-#undef NEW_TASK
-#undef POISON_PILL
-
-}  // namespace sorted_merge
+}  // namespace
 
 namespace internal {
 void RegisterSortedMergeNode(ExecFactoryRegistry* registry) {
-  DCHECK_OK(registry->AddFactory("sorted_merge", sorted_merge::SortedMergeNode::Make));
+  DCHECK_OK(registry->AddFactory("sorted_merge", SortedMergeNode::Make));
 }
 }  // namespace internal
 

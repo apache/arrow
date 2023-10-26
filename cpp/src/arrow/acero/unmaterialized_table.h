@@ -231,9 +231,6 @@ class UnmaterializedCompositeTable {
     }
     std::shared_ptr<arrow::Array> result;
     ARROW_RETURN_NOT_OK(builder.Finish(&result));
-    if (result->length() == 5) {
-      ARROW_LOG(ERROR) << result->ToString();
-    }
     return Result{std::move(result)};
   }
 };
@@ -253,14 +250,9 @@ class UnmaterializedSliceBuilder {
     }
     if (slice.num_components) {
       size_t last_index = slice.num_components - 1;
-      // All components should be the same length
-      const auto& last_item = slice.components[last_index];
       DCHECK_EQ(slice.components[last_index].end - slice.components[last_index].start,
                 end - start)
-          << "Slices should be the same length"
-          << (last_item.batch ? last_item.batch->ToString() : "NULL") << " "
-          << last_item.start << " " << last_item.end << " "
-          << (rb ? rb->ToString() : "NULL") << start << " " << end;
+          << "Slices should be the same length. ";
     }
     slice.components[slice.num_components++] = CompositeEntry{rb.get(), start, end};
   }
