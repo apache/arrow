@@ -280,7 +280,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
 		// we're positive we'll add 0.5.
 		p := (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt())
-		out.Mul(out, p).SetPrec(precInBits)
+		out.SetPrec(precInBits).Mul(out, p)
 		if out.Signbit() {
 			out.Sub(out, pt5)
 		} else {
