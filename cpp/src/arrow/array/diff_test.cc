@@ -598,6 +598,19 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 +11
 )");
   }
+
+  for (const auto& type : {
+           decimal128(10, 4),
+           decimal256(10, 4),
+       }) {
+    base_ = ArrayFromJSON(type, R"(["123.4567", "-78.9000"])");
+    target_ = ArrayFromJSON(type, R"(["123.4567", "-123.4567"])");
+    AssertDiffAndFormat(R"(
+@@ -1, +1 @@
+--78.9000
++-123.4567
+)");
+  }
 }
 
 TEST_F(DiffTest, DictionaryDiffFormatter) {

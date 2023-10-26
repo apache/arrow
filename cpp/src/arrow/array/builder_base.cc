@@ -96,10 +96,7 @@ namespace {
 template <typename ConstIterator>
 struct AppendScalarImpl {
   template <typename T>
-  enable_if_t<has_c_type<T>::value || is_decimal_type<T>::value ||
-                  is_fixed_size_binary_type<T>::value,
-              Status>
-  Visit(const T&) {
+  Status HandleFixedWidth(const T&) {
     auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
     RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalars_end_ - scalars_begin_)));
 
@@ -117,7 +114,16 @@ struct AppendScalarImpl {
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+  enable_if_t<has_c_type<T>::value, Status> Visit(const T& t) {
+    return HandleFixedWidth(t);
+  }
+
+  Status Visit(const FixedSizeBinaryType& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal128Type& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal256Type& t) { return HandleFixedWidth(t); }
+
+  template <typename T>
+  enable_if_has_string_view<T, Status> Visit(const T&) {
     int64_t data_size = 0;
     for (auto it = scalars_begin_; it != scalars_end_; ++it) {
       const auto& scalar = checked_cast<const typename TypeTraits<T>::ScalarType&>(*it);

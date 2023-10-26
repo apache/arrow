@@ -64,9 +64,13 @@ constexpr Type::type FixedSizeListType::type_id;
 
 constexpr Type::type BinaryType::type_id;
 
+constexpr Type::type BinaryViewType::type_id;
+
 constexpr Type::type LargeBinaryType::type_id;
 
 constexpr Type::type StringType::type_id;
+
+constexpr Type::type StringViewType::type_id;
 
 constexpr Type::type LargeStringType::type_id;
 
@@ -130,6 +134,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::BINARY,
           Type::LARGE_STRING,
           Type::LARGE_BINARY,
+          Type::STRING_VIEW,
+          Type::BINARY_VIEW,
           Type::FIXED_SIZE_BINARY,
           Type::STRUCT,
           Type::LIST,
@@ -194,7 +200,9 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(INTERVAL_MONTHS)
     TO_STRING_CASE(DURATION)
     TO_STRING_CASE(STRING)
+    TO_STRING_CASE(STRING_VIEW)
     TO_STRING_CASE(BINARY)
+    TO_STRING_CASE(BINARY_VIEW)
     TO_STRING_CASE(LARGE_STRING)
     TO_STRING_CASE(LARGE_BINARY)
     TO_STRING_CASE(FIXED_SIZE_BINARY)
@@ -247,7 +255,7 @@ struct PhysicalTypeVisitor {
   }
 
   template <typename Type, typename PhysicalType = typename Type::PhysicalType>
-  Status Visit(const Type&) {
+  Status Visit(const Type& type) {
     result = TypeTraits<PhysicalType>::type_singleton();
     return Status::OK();
   }
@@ -1058,9 +1066,13 @@ std::string FixedSizeListType::ToString() const {
 
 std::string BinaryType::ToString() const { return "binary"; }
 
+std::string BinaryViewType::ToString() const { return "binary_view"; }
+
 std::string LargeBinaryType::ToString() const { return "large_binary"; }
 
 std::string StringType::ToString() const { return "string"; }
+
+std::string StringViewType::ToString() const { return "string_view"; }
 
 std::string LargeStringType::ToString() const { return "large_string"; }
 
@@ -2821,8 +2833,10 @@ PARAMETER_LESS_FINGERPRINT(HalfFloat)
 PARAMETER_LESS_FINGERPRINT(Float)
 PARAMETER_LESS_FINGERPRINT(Double)
 PARAMETER_LESS_FINGERPRINT(Binary)
+PARAMETER_LESS_FINGERPRINT(BinaryView)
 PARAMETER_LESS_FINGERPRINT(LargeBinary)
 PARAMETER_LESS_FINGERPRINT(String)
+PARAMETER_LESS_FINGERPRINT(StringView)
 PARAMETER_LESS_FINGERPRINT(LargeString)
 PARAMETER_LESS_FINGERPRINT(Date32)
 PARAMETER_LESS_FINGERPRINT(Date64)
@@ -3033,6 +3047,16 @@ TYPE_FACTORY(binary, BinaryType)
 TYPE_FACTORY(large_binary, LargeBinaryType)
 TYPE_FACTORY(date64, Date64Type)
 TYPE_FACTORY(date32, Date32Type)
+
+const std::shared_ptr<DataType>& utf8_view() {
+  static std::shared_ptr<DataType> type = std::make_shared<StringViewType>();
+  return type;
+}
+
+const std::shared_ptr<DataType>& binary_view() {
+  static std::shared_ptr<DataType> type = std::make_shared<BinaryViewType>();
+  return type;
+}
 
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);
@@ -3294,7 +3318,7 @@ void InitStaticData() {
   // * Time32
   // * Time64
   // * Timestamp
-  g_primitive_types = {null(), boolean(), date32(), date64()};
+  g_primitive_types = {null(), boolean(), date32(), date64(), binary_view(), utf8_view()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
 }
