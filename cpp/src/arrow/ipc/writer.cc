@@ -52,10 +52,12 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
 #include "arrow/visit_array_inline.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -174,7 +176,8 @@ class RecordBatchSerializer {
   // Override this for writing dictionary metadata
   virtual Status SerializeMetadata(int64_t num_rows) {
     return WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
-                                   field_nodes_, buffer_meta_, options_, &out_->metadata);
+                                   field_nodes_, buffer_meta_, variadic_counts_, options_,
+                                   &out_->metadata);
   }
 
   bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
@@ -296,6 +299,8 @@ class RecordBatchSerializer {
       offset += size + padding;
     }
 
+    variadic_counts_ = out_->variadic_buffer_counts;
+
     out_->body_length = offset - buffer_start_offset_;
     DCHECK(bit_util::IsMultipleOf8(out_->body_length));
 
@@ -400,6 +405,18 @@ class RecordBatchSerializer {
 
     out_->body_buffers.emplace_back(value_offsets);
     out_->body_buffers.emplace_back(data);
+    return Status::OK();
+  }
+
+  Status Visit(const BinaryViewArray& array) {
+    auto views = SliceBuffer(array.values(), array.offset() * BinaryViewType::kSize,
+                             array.length() * BinaryViewType::kSize);
+    out_->body_buffers.emplace_back(std::move(views));
+
+    out_->variadic_buffer_counts.emplace_back(array.data()->buffers.size() - 2);
+    for (size_t i = 2; i < array.data()->buffers.size(); ++i) {
+      out_->body_buffers.emplace_back(array.data()->buffers[i]);
+    }
     return Status::OK();
   }
 
@@ -590,6 +607,7 @@ class RecordBatchSerializer {
 
   std::vector<internal::FieldMetadata> field_nodes_;
   std::vector<internal::BufferMetadata> buffer_meta_;
+  std::vector<int64_t> variadic_counts_;
 
   const IpcWriteOptions& options_;
   int64_t max_recursion_depth_;
@@ -606,8 +624,8 @@ class DictionarySerializer : public RecordBatchSerializer {
 
   Status SerializeMetadata(int64_t num_rows) override {
     return WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
-                                  custom_metadata_, field_nodes_, buffer_meta_, options_,
-                                  &out_->metadata);
+                                  custom_metadata_, field_nodes_, buffer_meta_,
+                                  variadic_counts_, options_, &out_->metadata);
   }
 
   Status Assemble(const std::shared_ptr<Array>& dictionary) {

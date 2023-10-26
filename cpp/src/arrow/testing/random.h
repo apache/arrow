@@ -367,6 +367,26 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                                 int64_t alignment = kDefaultBufferAlignment,
                                 MemoryPool* memory_pool = default_memory_pool());
 
+  /// \brief Generate a random StringViewArray
+  ///
+  /// \param[in] size the size of the array to generate
+  /// \param[in] min_length the lower bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] max_length the upper bound of the string length
+  ///            determined by the uniform distribution
+  /// \param[in] null_probability the probability of a value being null
+  /// \param[in] max_data_buffer_length the data buffer size at which
+  ///            a new chunk will be generated
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> StringView(int64_t size, int32_t min_length, int32_t max_length,
+                                    double null_probability = 0,
+                                    std::optional<int64_t> max_data_buffer_length = {},
+                                    int64_t alignment = kDefaultBufferAlignment,
+                                    MemoryPool* memory_pool = default_memory_pool());
+
   /// \brief Generate a random LargeStringArray
   ///
   /// \param[in] size the size of the array to generate
@@ -556,9 +576,13 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// - max_length (T::offset_type): the minimum length of the child to generate,
   ///   default 1024
   ///
-  /// For string and binary types T (not including their large variants):
+  /// For string and binary types T (not including their large or view variants):
   /// - unique (int32_t): if positive, this many distinct values will be generated
   ///   and all array values will be one of these values, default -1
+  ///
+  /// For string and binary view types T:
+  /// - max_data_buffer_length (int64_t): the data buffer size at which a new chunk
+  ///   will be generated, default 32KB
   ///
   /// For MapType:
   /// - values (int32_t): the number of key-value pairs to generate, which will be

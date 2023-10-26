@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 
@@ -262,7 +263,7 @@ class HashKernel : public KernelState {
 // Base class for all "regular" hash kernel implementations
 // (NullType has a separate implementation)
 
-template <typename Type, typename Scalar, typename Action,
+template <typename Type, typename Action, typename Scalar = typename Type::c_type,
           bool with_error_status = Action::with_error_status>
 class RegularHashKernel : public HashKernel {
  public:
@@ -503,39 +504,13 @@ class DictionaryHashKernel : public HashKernel {
 };
 
 // ----------------------------------------------------------------------
-
-template <typename Type, typename Action, typename Enable = void>
-struct HashKernelTraits {};
-
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_null<Type>> {
-  using HashKernel = NullHashKernel<Action>;
-};
-
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_has_c_type<Type>> {
-  using HashKernel = RegularHashKernel<Type, typename Type::c_type, Action>;
-};
-
-template <typename Type, typename Action>
-struct HashKernelTraits<Type, Action, enable_if_has_string_view<Type>> {
-  using HashKernel = RegularHashKernel<Type, std::string_view, Action>;
-};
-
-template <typename Type, typename Action>
-Result<std::unique_ptr<HashKernel>> HashInitImpl(KernelContext* ctx,
-                                                 const KernelInitArgs& args) {
-  using HashKernelType = typename HashKernelTraits<Type, Action>::HashKernel;
-  auto result = std::make_unique<HashKernelType>(args.inputs[0].GetSharedPtr(),
-                                                 args.options, ctx->memory_pool());
-  RETURN_NOT_OK(result->Reset());
-  return std::move(result);
-}
-
-template <typename Type, typename Action>
+template <typename HashKernel>
 Result<std::unique_ptr<KernelState>> HashInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  return HashInitImpl<Type, Action>(ctx, args);
+  auto result = std::make_unique<HashKernel>(args.inputs[0].GetSharedPtr(), args.options,
+                                             ctx->memory_pool());
+  RETURN_NOT_OK(result->Reset());
+  return std::move(result);
 }
 
 template <typename Action>
@@ -544,22 +519,22 @@ KernelInit GetHashInit(Type::type type_id) {
   // representation
   switch (type_id) {
     case Type::NA:
-      return HashInit<NullType, Action>;
+      return HashInit<NullHashKernel<Action>>;
     case Type::BOOL:
-      return HashInit<BooleanType, Action>;
+      return HashInit<RegularHashKernel<BooleanType, Action>>;
     case Type::INT8:
     case Type::UINT8:
-      return HashInit<UInt8Type, Action>;
+      return HashInit<RegularHashKernel<UInt8Type, Action>>;
     case Type::INT16:
     case Type::UINT16:
-      return HashInit<UInt16Type, Action>;
+      return HashInit<RegularHashKernel<UInt16Type, Action>>;
     case Type::INT32:
     case Type::UINT32:
     case Type::FLOAT:
     case Type::DATE32:
     case Type::TIME32:
     case Type::INTERVAL_MONTHS:
-      return HashInit<UInt32Type, Action>;
+      return HashInit<RegularHashKernel<UInt32Type, Action>>;
     case Type::INT64:
     case Type::UINT64:
     case Type::DOUBLE:
@@ -568,22 +543,24 @@ KernelInit GetHashInit(Type::type type_id) {
     case Type::TIMESTAMP:
     case Type::DURATION:
     case Type::INTERVAL_DAY_TIME:
-      return HashInit<UInt64Type, Action>;
+      return HashInit<RegularHashKernel<UInt64Type, Action>>;
     case Type::BINARY:
     case Type::STRING:
-      return HashInit<BinaryType, Action>;
+      return HashInit<RegularHashKernel<BinaryType, Action, std::string_view>>;
     case Type::LARGE_BINARY:
     case Type::LARGE_STRING:
-      return HashInit<LargeBinaryType, Action>;
+      return HashInit<RegularHashKernel<LargeBinaryType, Action, std::string_view>>;
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return HashInit<RegularHashKernel<BinaryViewType, Action, std::string_view>>;
     case Type::FIXED_SIZE_BINARY:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
-      return HashInit<FixedSizeBinaryType, Action>;
+      return HashInit<RegularHashKernel<FixedSizeBinaryType, Action, std::string_view>>;
     case Type::INTERVAL_MONTH_DAY_NANO:
-      return HashInit<MonthDayNanoIntervalType, Action>;
+      return HashInit<RegularHashKernel<MonthDayNanoIntervalType, Action>>;
     default:
-      DCHECK(false);
-      return nullptr;
+      Unreachable("non hashable type");
   }
 }
 
@@ -593,31 +570,11 @@ template <typename Action>
 Result<std::unique_ptr<KernelState>> DictionaryHashInit(KernelContext* ctx,
                                                         const KernelInitArgs& args) {
   const auto& dict_type = checked_cast<const DictionaryType&>(*args.inputs[0].type);
-  Result<std::unique_ptr<HashKernel>> indices_hasher;
-  switch (dict_type.index_type()->id()) {
-    case Type::INT8:
-    case Type::UINT8:
-      indices_hasher = HashInitImpl<UInt8Type, Action>(ctx, args);
-      break;
-    case Type::INT16:
-    case Type::UINT16:
-      indices_hasher = HashInitImpl<UInt16Type, Action>(ctx, args);
-      break;
-    case Type::INT32:
-    case Type::UINT32:
-      indices_hasher = HashInitImpl<UInt32Type, Action>(ctx, args);
-      break;
-    case Type::INT64:
-    case Type::UINT64:
-      indices_hasher = HashInitImpl<UInt64Type, Action>(ctx, args);
-      break;
-    default:
-      DCHECK(false) << "Unsupported dictionary index type";
-      break;
-  }
-  RETURN_NOT_OK(indices_hasher);
-  return std::make_unique<DictionaryHashKernel>(std::move(indices_hasher.ValueOrDie()),
-                                                dict_type.value_type());
+  ARROW_ASSIGN_OR_RAISE(auto indices_hasher,
+                        GetHashInit<Action>(dict_type.index_type()->id())(ctx, args));
+  return std::make_unique<DictionaryHashKernel>(
+      checked_pointer_cast<HashKernel>(std::move(indices_hasher)),
+      dict_type.value_type());
 }
 
 Status HashExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {

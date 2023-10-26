@@ -159,7 +159,7 @@ TEST_P(TestMessage, SerializeCustomMetadata) {
     ASSERT_OK(internal::WriteRecordBatchMessage(
         /*length=*/0, /*body_length=*/0, metadata,
         /*nodes=*/{},
-        /*buffers=*/{}, options_, &serialized));
+        /*buffers=*/{}, /*variadic_counts=*/{}, options_, &serialized));
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
                          Message::Open(serialized, /*body=*/nullptr));
 
@@ -240,23 +240,33 @@ class TestSchemaMetadata : public ::testing::Test {
   }
 };
 
-const std::shared_ptr<DataType> INT32 = std::make_shared<Int32Type>();
-
 TEST_F(TestSchemaMetadata, PrimitiveFields) {
-  auto f0 = field("f0", std::make_shared<Int8Type>());
-  auto f1 = field("f1", std::make_shared<Int16Type>(), false);
-  auto f2 = field("f2", std::make_shared<Int32Type>());
-  auto f3 = field("f3", std::make_shared<Int64Type>());
-  auto f4 = field("f4", std::make_shared<UInt8Type>());
-  auto f5 = field("f5", std::make_shared<UInt16Type>());
-  auto f6 = field("f6", std::make_shared<UInt32Type>());
-  auto f7 = field("f7", std::make_shared<UInt64Type>());
-  auto f8 = field("f8", std::make_shared<FloatType>());
-  auto f9 = field("f9", std::make_shared<DoubleType>(), false);
-  auto f10 = field("f10", std::make_shared<BooleanType>());
+  CheckSchemaRoundtrip(Schema({
+      field("f0", int8()),
+      field("f1", int16(), false),
+      field("f2", int32()),
+      field("f3", int64()),
+      field("f4", uint8()),
+      field("f5", uint16()),
+      field("f6", uint32()),
+      field("f7", uint64()),
+      field("f8", float32()),
+      field("f9", float64(), false),
+      field("f10", boolean()),
+  }));
+}
 
-  Schema schema({f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10});
-  CheckSchemaRoundtrip(schema);
+TEST_F(TestSchemaMetadata, BinaryFields) {
+  CheckSchemaRoundtrip(Schema({
+      field("f0", utf8()),
+      field("f1", binary()),
+      field("f2", large_utf8()),
+      field("f3", large_binary()),
+      field("f4", utf8_view()),
+      field("f5", binary_view()),
+      field("f6", fixed_size_binary(3)),
+      field("f7", fixed_size_binary(33)),
+  }));
 }
 
 TEST_F(TestSchemaMetadata, PrimitiveFieldsWithKeyValueMetadata) {
@@ -269,15 +279,14 @@ TEST_F(TestSchemaMetadata, PrimitiveFieldsWithKeyValueMetadata) {
 }
 
 TEST_F(TestSchemaMetadata, NestedFields) {
-  auto type = list(int32());
-  auto f0 = field("f0", type);
-
-  std::shared_ptr<StructType> type2(
-      new StructType({field("k1", INT32), field("k2", INT32), field("k3", INT32)}));
-  auto f1 = field("f1", type2);
-
-  Schema schema({f0, f1});
-  CheckSchemaRoundtrip(schema);
+  CheckSchemaRoundtrip(Schema({
+      field("f0", list(int32())),
+      field("f1", struct_({
+                      field("k1", int32()),
+                      field("k2", int32()),
+                      field("k3", int32()),
+                  })),
+  }));
 }
 
 // Verify that nullable=false is well-preserved for child fields of map type.
@@ -305,19 +314,15 @@ TEST_F(TestSchemaMetadata, NestedFieldsWithKeyValueMetadata) {
 
 TEST_F(TestSchemaMetadata, DictionaryFields) {
   {
-    auto dict_type = dictionary(int8(), int32(), true /* ordered */);
-    auto f0 = field("f0", dict_type);
-    auto f1 = field("f1", list(dict_type));
-
-    Schema schema({f0, f1});
-    CheckSchemaRoundtrip(schema);
+    auto dict_type = dictionary(int8(), int32(), /*ordered=*/true);
+    CheckSchemaRoundtrip(Schema({
+        field("f0", dict_type),
+        field("f1", list(dict_type)),
+    }));
   }
   {
     auto dict_type = dictionary(int8(), list(int32()));
-    auto f0 = field("f0", dict_type);
-
-    Schema schema({f0});
-    CheckSchemaRoundtrip(schema);
+    CheckSchemaRoundtrip(Schema({field("f0", dict_type)}));
   }
 }
 
@@ -325,9 +330,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
   {
     auto inner_dict_type = dictionary(int8(), int32(), /*ordered=*/true);
     auto dict_type = dictionary(int16(), list(inner_dict_type));
-
-    Schema schema({field("f0", dict_type)});
-    CheckSchemaRoundtrip(schema);
+    CheckSchemaRoundtrip(Schema({field("f0", dict_type)}));
   }
   {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
@@ -2910,21 +2913,21 @@ void GetReadRecordBatchReadRanges(
   // 1) read magic and footer length IO
   // 2) read footer IO
   // 3) read record batch metadata IO
-  ASSERT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+  EXPECT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
   const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
   auto footer_length = bit_util::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
-  ASSERT_EQ(read_ranges[0].length, file_end_size);
+  EXPECT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
-  ASSERT_EQ(read_ranges[1].length, footer_length);
+  EXPECT_EQ(read_ranges[1].length, footer_length);
   // read record batch metadata.  The exact size is tricky to determine but it doesn't
   // matter for this test and it should be smaller than the footer.
-  ASSERT_LT(read_ranges[2].length, footer_length);
+  EXPECT_LE(read_ranges[2].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
-    ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
+    EXPECT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
   }
 }
 

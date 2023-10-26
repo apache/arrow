@@ -43,6 +43,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -228,6 +229,45 @@ class ConcatenateImpl {
                                               &value_ranges));
     ARROW_ASSIGN_OR_RAISE(auto value_buffers, Buffers(2, value_ranges));
     return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
+  }
+
+  Status Visit(const BinaryViewType& type) {
+    out_->buffers.resize(2);
+
+    for (const auto& in_data : in_) {
+      for (const auto& buf : util::span(in_data->buffers).subspan(2)) {
+        out_->buffers.push_back(buf);
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto view_buffers, Buffers(1, BinaryViewType::kSize));
+    ARROW_ASSIGN_OR_RAISE(auto view_buffer, ConcatenateBuffers(view_buffers, pool_));
+
+    auto* views = view_buffer->mutable_data_as<BinaryViewType::c_type>();
+    size_t preceding_buffer_count = 0;
+
+    int64_t i = in_[0]->length;
+    for (size_t in_index = 1; in_index < in_.size(); ++in_index) {
+      preceding_buffer_count += in_[in_index - 1]->buffers.size() - 2;
+
+      for (int64_t end_i = i + in_[in_index]->length; i < end_i; ++i) {
+        if (views[i].is_inline()) continue;
+        views[i].ref.buffer_index = SafeSignedAdd(
+            views[i].ref.buffer_index, static_cast<int32_t>(preceding_buffer_count));
+      }
+    }
+
+    if (out_->buffers[0] != nullptr) {
+      i = in_[0]->length;
+      VisitNullBitmapInline(
+          out_->buffers[0]->data(), i, out_->length - i, out_->null_count, [&] { ++i; },
+          [&] {
+            views[i++] = {};  // overwrite views under null bits with an empty view
+          });
+    }
+
+    out_->buffers[1] = std::move(view_buffer);
+    return Status::OK();
   }
 
   Status Visit(const ListType&) {

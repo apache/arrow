@@ -87,6 +87,8 @@ struct ScalarFromArraySlotImpl {
     return Finish(a.GetString(index_));
   }
 
+  Status Visit(const BinaryViewArray& a) { return Finish(a.GetString(index_)); }
+
   Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }
 
   Status Visit(const DayTimeIntervalArray& a) { return Finish(a.Value(index_)); }

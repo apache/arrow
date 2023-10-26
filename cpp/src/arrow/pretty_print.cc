@@ -229,18 +229,13 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_string_like<T, Status> WriteDataValues(const ArrayType& array) {
+  enable_if_has_string_view<T, Status> WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
-      (*sink_) << "\"" << array.GetView(i) << "\"";
-      return Status::OK();
-    });
-  }
-
-  template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_t<is_binary_like_type<T>::value && !is_decimal_type<T>::value, Status>
-  WriteDataValues(const ArrayType& array) {
-    return WriteValues(array, [&](int64_t i) {
-      (*sink_) << HexEncode(array.GetView(i));
+      if constexpr (T::is_utf8) {
+        (*sink_) << "\"" << array.GetView(i) << "\"";
+      } else {
+        (*sink_) << HexEncode(array.GetView(i));
+      }
       return Status::OK();
     });
   }
@@ -302,6 +297,7 @@ class ArrayPrinter : public PrettyPrinter {
                   std::is_base_of<FixedSizeBinaryArray, T>::value ||
                   std::is_base_of<BinaryArray, T>::value ||
                   std::is_base_of<LargeBinaryArray, T>::value ||
+                  std::is_base_of<BinaryViewArray, T>::value ||
                   std::is_base_of<ListArray, T>::value ||
                   std::is_base_of<LargeListArray, T>::value ||
                   std::is_base_of<MapArray, T>::value ||

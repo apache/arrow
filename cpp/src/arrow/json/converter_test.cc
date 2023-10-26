@@ -131,8 +131,8 @@ TEST(ConverterTest, Floats) {
   }
 }
 
-TEST(ConverterTest, StringAndLargeString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+TEST(ConverterTest, StringAndLargeStringAndStringView) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     ParseOptions options;
     options.explicit_schema = schema({field("", string_type)});
 

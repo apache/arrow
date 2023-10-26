@@ -88,6 +88,8 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
     case Type::DURATION:
     case Type::INTERVAL_MONTH_DAY_NANO:  // Stored as two 32-bit integers and a 64-bit
                                          // integer
+    case Type::STRING_VIEW:
+    case Type::BINARY_VIEW:
       return 8;
     case Type::DICTIONARY:
     case Type::EXTENSION:

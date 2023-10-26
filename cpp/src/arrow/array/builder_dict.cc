@@ -194,6 +194,12 @@ Status DictionaryMemoTable::GetOrInsert(const BinaryType*, std::string_view valu
   return impl_->GetOrInsert<BinaryType>(value, out);
 }
 
+Status DictionaryMemoTable::GetOrInsert(const BinaryViewType*, std::string_view value,
+                                        int32_t* out) {
+  // Create BinaryArray dictionary for now
+  return impl_->GetOrInsert<BinaryType>(value, out);
+}
+
 Status DictionaryMemoTable::GetOrInsert(const LargeBinaryType*, std::string_view value,
                                         int32_t* out) {
   return impl_->GetOrInsert<LargeBinaryType>(value, out);

@@ -23,6 +23,7 @@
 #include <iosfwd>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -113,8 +114,14 @@ struct ARROW_EXPORT DataTypeLayout {
   std::vector<BufferSpec> buffers;
   /// Whether this type expects an associated dictionary array.
   bool has_dictionary = false;
+  /// If this is provided, the number of buffers expected is only lower-bounded by
+  /// buffers.size(). Buffers beyond this lower bound are expected to conform to
+  /// variadic_spec.
+  std::optional<BufferSpec> variadic_spec;
 
-  explicit DataTypeLayout(std::vector<BufferSpec> v) : buffers(std::move(v)) {}
+  explicit DataTypeLayout(std::vector<BufferSpec> buffers,
+                          std::optional<BufferSpec> variadic_spec = {})
+      : buffers(std::move(buffers)), variadic_spec(variadic_spec) {}
 };
 
 /// \brief Base class for all data types
@@ -772,6 +779,103 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
   explicit BinaryType(Type::type logical_type) : BaseBinaryType(logical_type) {}
 };
 
+/// \brief Concrete type class for variable-size binary view data
+class ARROW_EXPORT BinaryViewType : public DataType {
+ public:
+  static constexpr Type::type type_id = Type::BINARY_VIEW;
+  static constexpr bool is_utf8 = false;
+  using PhysicalType = BinaryViewType;
+
+  static constexpr int kSize = 16;
+  static constexpr int kInlineSize = 12;
+  static constexpr int kPrefixSize = 4;
+
+  /// Variable length string or binary with inline optimization for small values (12 bytes
+  /// or fewer). This is similar to std::string_view except limited in size to INT32_MAX
+  /// and at least the first four bytes of the string are copied inline (accessible
+  /// without pointer dereference). This inline prefix allows failing comparisons early.
+  /// Furthermore when dealing with short strings the CPU cache working set is reduced
+  /// since many can be inline.
+  ///
+  /// This union supports two states:
+  ///
+  /// - Entirely inlined string data
+  ///                |----|--------------|
+  ///                 ^    ^
+  ///                 |    |
+  ///              size    in-line string data, zero padded
+  ///
+  /// - Reference into a buffer
+  ///                |----|----|----|----|
+  ///                 ^    ^    ^    ^
+  ///                 |    |    |    |
+  ///              size    |    |    `------.
+  ///                  prefix   |           |
+  ///                        buffer index   |
+  ///                                  offset in buffer
+  ///
+  /// Adapted from TU Munich's UmbraDB [1], Velox, DuckDB.
+  ///
+  /// [1]: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf
+  ///
+  /// Alignment to 64 bits enables an aligned load of the size and prefix into
+  /// a single 64 bit integer, which is useful to the comparison fast path.
+  union alignas(int64_t) c_type {
+    struct {
+      int32_t size;
+      std::array<uint8_t, kInlineSize> data;
+    } inlined;
+
+    struct {
+      int32_t size;
+      std::array<uint8_t, kPrefixSize> prefix;
+      int32_t buffer_index;
+      int32_t offset;
+    } ref;
+
+    /// The number of bytes viewed.
+    int32_t size() const {
+      // Size is in the common initial subsequence of each member of the union,
+      // so accessing `inlined.size` is legal even if another member is active.
+      return inlined.size;
+    }
+
+    /// True if the view's data is entirely stored inline.
+    bool is_inline() const { return size() <= kInlineSize; }
+
+    /// Return a pointer to the inline data of a view.
+    ///
+    /// For inline views, this points to the entire data of the view.
+    /// For other views, this points to the 4 byte prefix.
+    const uint8_t* inline_data() const& {
+      // Since `ref.prefix` has the same address as `inlined.data`,
+      // the branch will be trivially optimized out.
+      return is_inline() ? inlined.data.data() : ref.prefix.data();
+    }
+    const uint8_t* inline_data() && = delete;
+  };
+  static_assert(sizeof(c_type) == kSize);
+  static_assert(std::is_trivial_v<c_type>);
+
+  static constexpr const char* type_name() { return "binary_view"; }
+
+  BinaryViewType() : BinaryViewType(Type::BINARY_VIEW) {}
+
+  DataTypeLayout layout() const override {
+    return DataTypeLayout({DataTypeLayout::Bitmap(), DataTypeLayout::FixedWidth(kSize)},
+                          DataTypeLayout::VariableWidth());
+  }
+
+  std::string ToString() const override;
+  std::string name() const override { return "binary_view"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+
+  // Allow subclasses like StringType to change the logical type.
+  explicit BinaryViewType(Type::type logical_type) : DataType(logical_type) {}
+};
+
 /// \brief Concrete type class for large variable-size binary data
 class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
  public:
@@ -813,6 +917,24 @@ class ARROW_EXPORT StringType : public BinaryType {
 
   std::string ToString() const override;
   std::string name() const override { return "utf8"; }
+
+ protected:
+  std::string ComputeFingerprint() const override;
+};
+
+/// \brief Concrete type class for variable-size string data, utf8-encoded
+class ARROW_EXPORT StringViewType : public BinaryViewType {
+ public:
+  static constexpr Type::type type_id = Type::STRING_VIEW;
+  static constexpr bool is_utf8 = true;
+  using PhysicalType = BinaryViewType;
+
+  static constexpr const char* type_name() { return "utf8_view"; }
+
+  StringViewType() : BinaryViewType(Type::STRING_VIEW) {}
+
+  std::string ToString() const override;
+  std::string name() const override { return "utf8_view"; }
 
  protected:
   std::string ComputeFingerprint() const override;

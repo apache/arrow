@@ -847,6 +847,8 @@ Status GetDictConverter(const std::shared_ptr<DataType>& type,
     PARAM_CONVERTER_CASE(Type::BINARY, StringConverter, BinaryType)
     PARAM_CONVERTER_CASE(Type::LARGE_STRING, StringConverter, LargeStringType)
     PARAM_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter, LargeBinaryType)
+    PARAM_CONVERTER_CASE(Type::STRING_VIEW, StringConverter, StringViewType)
+    PARAM_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter, BinaryViewType)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter,
                           FixedSizeBinaryType)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter, Decimal128Type)
@@ -905,6 +907,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::BINARY, StringConverter<BinaryType>)
     SIMPLE_CONVERTER_CASE(Type::LARGE_STRING, StringConverter<LargeStringType>)
     SIMPLE_CONVERTER_CASE(Type::LARGE_BINARY, StringConverter<LargeBinaryType>)
+    SIMPLE_CONVERTER_CASE(Type::STRING_VIEW, StringConverter<StringViewType>)
+    SIMPLE_CONVERTER_CASE(Type::BINARY_VIEW, StringConverter<BinaryViewType>)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_BINARY, FixedSizeBinaryConverter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL128, Decimal128Converter<>)
     SIMPLE_CONVERTER_CASE(Type::DECIMAL256, Decimal256Converter<>)

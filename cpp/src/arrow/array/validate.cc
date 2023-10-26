@@ -31,41 +31,43 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/sort.h"
+#include "arrow/util/string.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
 struct UTF8DataValidator {
   const ArrayData& data;
 
-  Status Visit(const DataType&) {
-    // Default, should be unreachable
-    return Status::NotImplemented("");
-  }
+  template <typename T>
+  Status Visit(const T&) {
+    if constexpr (std::is_same_v<T, StringType> || std::is_same_v<T, LargeStringType> ||
+                  std::is_same_v<T, StringViewType>) {
+      util::InitializeUTF8();
 
-  template <typename StringType>
-  enable_if_string<StringType, Status> Visit(const StringType&) {
-    util::InitializeUTF8();
-
-    int64_t i = 0;
-    return VisitArraySpanInline<StringType>(
-        data,
-        [&](std::string_view v) {
-          if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(v))) {
-            return Status::Invalid("Invalid UTF8 sequence at string index ", i);
-          }
-          ++i;
-          return Status::OK();
-        },
-        [&]() {
-          ++i;
-          return Status::OK();
-        });
+      int64_t i = 0;
+      return VisitArraySpanInline<T>(
+          data,
+          [&](std::string_view v) {
+            if (ARROW_PREDICT_FALSE(!util::ValidateUTF8(v))) {
+              return Status::Invalid("Invalid UTF8 sequence at string index ", i);
+            }
+            ++i;
+            return Status::OK();
+          },
+          [&]() {
+            ++i;
+            return Status::OK();
+          });
+    } else {
+      Unreachable("utf-8 validation of non string type");
+    }
   }
 };
 
@@ -169,6 +171,14 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
+  Status Visit(const StringViewType& type) {
+    RETURN_NOT_OK(ValidateBinaryView(type));
+    if (full_validation) {
+      RETURN_NOT_OK(ValidateUTF8(data));
+    }
+    return Status::OK();
+  }
+
   Status Visit(const Date64Type& type) {
     RETURN_NOT_OK(ValidateFixedWidthBuffers());
 
@@ -247,6 +257,8 @@ struct ValidateArrayImpl {
   Status Visit(const BinaryType& type) { return ValidateBinaryLike(type); }
 
   Status Visit(const LargeBinaryType& type) { return ValidateBinaryLike(type); }
+
+  Status Visit(const BinaryViewType& type) { return ValidateBinaryView(type); }
 
   Status Visit(const ListType& type) { return ValidateListLike(type); }
 
@@ -453,11 +465,16 @@ struct ValidateArrayImpl {
       return Status::Invalid("Array length is negative");
     }
 
-    if (data.buffers.size() != layout.buffers.size()) {
+    if (layout.variadic_spec) {
+      if (data.buffers.size() < layout.buffers.size()) {
+        return Status::Invalid("Expected at least ", layout.buffers.size(),
+                               " buffers in array of type ", type.ToString(), ", got ",
+                               data.buffers.size());
+      }
+    } else if (data.buffers.size() != layout.buffers.size()) {
       return Status::Invalid("Expected ", layout.buffers.size(),
-                             " buffers in array "
-                             "of type ",
-                             type.ToString(), ", got ", data.buffers.size());
+                             " buffers in array of type ", type.ToString(), ", got ",
+                             data.buffers.size());
     }
 
     // This check is required to avoid addition overflow below
@@ -469,7 +486,9 @@ struct ValidateArrayImpl {
 
     for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
       const auto& buffer = data.buffers[i];
-      const auto& spec = layout.buffers[i];
+      const auto& spec = i < static_cast<int>(layout.buffers.size())
+                             ? layout.buffers[i]
+                             : *layout.variadic_spec;
 
       if (buffer == nullptr) {
         continue;
@@ -592,6 +611,85 @@ struct ValidateArrayImpl {
         return Status::Invalid("First offset larger than last offset in binary array");
       }
     }
+    return Status::OK();
+  }
+
+  Status ValidateBinaryView(const BinaryViewType& type) {
+    int64_t views_byte_size = data.buffers[1]->size();
+    int64_t required_view_count = data.length + data.offset;
+    if (static_cast<int64_t>(views_byte_size / BinaryViewType::kSize) <
+        required_view_count) {
+      return Status::Invalid("View buffer size (bytes): ", views_byte_size,
+                             " isn't large enough for length: ", data.length,
+                             " and offset: ", data.offset);
+    }
+
+    if (!full_validation) return Status::OK();
+
+    auto CheckPrefix = [&](size_t i,
+                           std::array<uint8_t, BinaryViewType::kPrefixSize> prefix,
+                           const uint8_t* data) {
+      if (std::memcmp(data, prefix.data(), BinaryViewType::kPrefixSize) == 0) {
+        return Status::OK();
+      }
+      return Status::Invalid("View at slot ", i, " has inlined prefix 0x",
+                             HexEncode(prefix.data(), BinaryViewType::kPrefixSize),
+                             " but the out-of-line data begins with 0x",
+                             HexEncode(data, BinaryViewType::kPrefixSize));
+    };
+
+    util::span views(data.GetValues<BinaryViewType::c_type>(1),
+                     static_cast<size_t>(data.length));
+    util::span data_buffers(data.buffers.data() + 2, data.buffers.size() - 2);
+
+    for (size_t i = 0; i < static_cast<size_t>(data.length); ++i) {
+      if (data.IsNull(i)) continue;
+
+      if (views[i].size() < 0) {
+        return Status::Invalid("View at slot ", i, " has negative size ",
+                               views[i].size());
+      }
+
+      if (views[i].is_inline()) {
+        auto padding_bytes = util::span(views[i].inlined.data).subspan(views[i].size());
+        for (auto padding_byte : padding_bytes) {
+          if (padding_byte != 0) {
+            return Status::Invalid("View at slot ", i, " was inline with size ",
+                                   views[i].size(),
+                                   " but its padding bytes were not all zero: ",
+                                   HexEncode(padding_bytes.data(), padding_bytes.size()));
+          }
+        }
+        continue;
+      }
+
+      auto [size, prefix, buffer_index, offset] = views[i].ref;
+
+      if (buffer_index < 0) {
+        return Status::Invalid("View at slot ", i, " has negative buffer index ",
+                               buffer_index);
+      }
+
+      if (offset < 0) {
+        return Status::Invalid("View at slot ", i, " has negative offset ", offset);
+      }
+
+      if (static_cast<size_t>(buffer_index) >= data_buffers.size()) {
+        return Status::IndexError("View at slot ", i, " references buffer ", buffer_index,
+                                  " but there are only ", data_buffers.size(),
+                                  " data buffers");
+      }
+      const auto& buffer = data_buffers[buffer_index];
+
+      if (int64_t end = offset + static_cast<int64_t>(size); end > buffer->size()) {
+        return Status::IndexError(
+            "View at slot ", i, " references range ", offset, "-", end, " of buffer ",
+            buffer_index, " but that buffer is only ", buffer->size(), " bytes long");
+      }
+
+      RETURN_NOT_OK(CheckPrefix(i, prefix, buffer->data() + offset));
+    }
+
     return Status::OK();
   }
 
@@ -798,7 +896,8 @@ Status ValidateArrayFull(const Array& array) { return ValidateArrayFull(*array.d
 
 ARROW_EXPORT
 Status ValidateUTF8(const ArrayData& data) {
-  DCHECK(data.type->id() == Type::STRING || data.type->id() == Type::LARGE_STRING);
+  DCHECK(data.type->id() == Type::STRING || data.type->id() == Type::STRING_VIEW ||
+         data.type->id() == Type::LARGE_STRING);
   UTF8DataValidator validator{data};
   return VisitTypeInline(*data.type, &validator);
 }
@@ -806,5 +905,4 @@ Status ValidateUTF8(const ArrayData& data) {
 ARROW_EXPORT
 Status ValidateUTF8(const Array& array) { return ValidateUTF8(*array.data()); }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
