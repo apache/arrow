@@ -1782,7 +1782,8 @@ cdef class Array(_PandasConvertible):
 
     def __dlpack__(self, stream=None):
         if len(self.buffers()) > 2 or self.buffers()[0]:
-            raise ArrowTypeError("Can only use __dlpack__ on primitive types with no validity buffer.")
+            raise ArrowTypeError(
+                "Can only use __dlpack__ on primitive types with no validity buffer.")
         return to_dlpack(self)
 
 

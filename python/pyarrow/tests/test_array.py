@@ -3577,7 +3577,7 @@ def test_dlpack_not_supported():
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([1, None, 3])
         np.from_dlpack(arr)
-    
+
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array(
             [[0, 1], [3, 4]],

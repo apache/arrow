@@ -71,7 +71,7 @@ ctypedef struct DLManagedTensor:
     void (*deleter)(DLManagedTensor *)
 
 
-cdef void pycapsule_deleter(object dltensor):
+cdef void pycapsule_deleter(object dltensor) noexcept:
     cdef DLManagedTensor* dlm_tensor
     if cpython.PyCapsule_IsValid(dltensor, 'dltensor'):
         dlm_tensor = <DLManagedTensor*>cpython.PyCapsule_GetPointer(
@@ -88,7 +88,7 @@ cdef void deleter(DLManagedTensor* tensor) with gil:
     free(tensor)
 
 
-cpdef object to_dlpack(Array arr) except +:
+cpdef object to_dlpack(Array arr) except *:
     cdef DLManagedTensor* dlm_tensor = <DLManagedTensor*> malloc(sizeof(DLManagedTensor))
 
     cdef DLTensor* dl_tensor = &dlm_tensor.dl_tensor
@@ -115,8 +115,7 @@ cpdef object to_dlpack(Array arr) except +:
         dtype.code = kDLFloat
     elif arr.type == bool_():
         dtype.code = kDLBool
-    else:
-        raise ValueError(f'Unsupported dtype {arr.type}')
+
     dtype.lanes = <uint16_t>1
     dtype.bits = <uint8_t>arr.type.bit_width
 
