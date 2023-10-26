@@ -355,6 +355,28 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(SqlDecimal.MaxValue - 10, array.GetSqlDecimal(2));
                     Assert.Equal(SqlDecimal.MinValue + 10, array.GetSqlDecimal(3));
                 }
+
+                [Fact]
+                public void AppendRangeSqlDecimal()
+                {
+                    // Arrange
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(24, 8));
+                    var range = new SqlDecimal[] { 2.123M, 1.5984M, -0.0000001M, 9878987987987987.1235407M };
+
+                    // Act
+                    builder.AppendRange(range);
+                    builder.AppendNull();
+
+                    // Assert
+                    var array = builder.Build();
+                    for (int i = 0; i < range.Length; i++)
+                    {
+                        Assert.Equal(range[i], array.GetSqlDecimal(i));
+                        Assert.Equal(Convert(range[i]), array.GetValue(i));
+                    }
+
+                    Assert.Null(array.GetValue(range.Length));
+                }
             }
 #endif
         }

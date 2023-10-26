@@ -80,7 +80,7 @@ namespace Apache.Arrow
                     throw new ArgumentNullException(nameof(values));
                 }
 
-                foreach (decimal d in values)
+                foreach (SqlDecimal d in values)
                 {
                     Append(d);
                 }
