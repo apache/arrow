@@ -48,7 +48,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
                 ClassName=TabularType.ClassName, BoldFont=true);
             zeroString = getNumString(0);
-            header = compose("  %s with %s rows and %s columns", classNameString, zeroString, zeroString);
+            header = compose("  Arrow %s with %s rows and %s columns", classNameString, zeroString, zeroString);
             expectedDisplay = char(header + newline + newline);
             actualDisplay = evalc('disp(tabularObj)');
 
@@ -65,7 +65,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             
             classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
                 ClassName=TabularType.ClassName, BoldFont=true);
-            header = compose("  %s with %s rows and %s column", classNameString, getNumString(0), getNumString(1));
+            header = compose("  Arrow %s with %s rows and %s column:", classNameString, getNumString(0), getNumString(1));
             
             fieldString = makeFieldString("Number", "Float64", "arrow.type.Float64Type");
             schema = join(["    Schema:" "        " + fieldString], [newline newline]);
@@ -86,11 +86,11 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             
             classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
                 ClassName=TabularType.ClassName, BoldFont=true);
-            header = compose("  %s with %s row and %s column", classNameString, getNumString(1), getNumString(1));
+            header = compose("  Arrow %s with %s row and %s column:", classNameString, getNumString(1), getNumString(1));
             
             fieldString = makeFieldString("Number", "Float64", "arrow.type.Float64Type");
             schema = join(["    Schema:" "        " + fieldString], [newline newline]);
-            row = join(["    Sample Data Row:"  "        1"], [newline newline]);
+            row = join(["    First Row:"  "        1"], [newline newline]);
 
             
             expectedDisplay = char(join([header schema row + newline + newline], [newline newline]));
@@ -109,7 +109,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             
             classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
                 ClassName=TabularType.ClassName, BoldFont=true);
-            header = compose("  %s with %s rows and %s columns", classNameString, getNumString(2), getNumString(3));
+            header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(2), getNumString(3));
             
             fieldOneString = makeFieldString("Number", "Float64", "arrow.type.Float64Type");
             fieldTwoString = makeFieldString("Letter", "String", "arrow.type.StringType");
@@ -117,7 +117,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
 
             fields = join([fieldOneString fieldTwoString fieldThreeString], " | ");
             schema = join(["    Schema:" "        " + fields], [newline newline]);
-            row = join(["    Sample Data Row:"  "        1 | ""A"" | true"], [newline newline]);
+            row = join(["    First Row:"  "        1 | ""A"" | true"], [newline newline]);
             
             expectedDisplay = char(join([header schema row + newline + newline], [newline newline]));
             actualDisplay = evalc('disp(tabularObj)');
