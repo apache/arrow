@@ -375,39 +375,32 @@ struct EditPoint {
 class QuadraticSpaceMyersDiff {
  public:
   QuadraticSpaceMyersDiff(const Array& base, const Array& target, MemoryPool* pool)
-      : base_(base),
-        target_(target),
-        pool_(pool),
-        base_end_(base.length()),
-        target_end_(target.length()),
-        insert_({true}) {
-    // endpoint_base_ is initialized when Diff() is called to start the algorithm.
-  }
+      : base_(base), target_(target), pool_(pool) {}
 
  private:
   // increment the position within base (the element pointed to was deleted)
   // then extend maximally
-  EditPoint DeleteOne(ValueComparator& comparator, EditPoint p) const {
+  EditPoint DeleteOne(EditPoint p) const {
     if (p.base != base_end_) {
       ++p.base;
     }
-    return ExtendFrom(comparator, p);
+    return ExtendFrom(p);
   }
 
   // increment the position within target (the element pointed to was inserted)
   // then extend maximally
-  EditPoint InsertOne(ValueComparator& comparator, EditPoint p) const {
+  EditPoint InsertOne(EditPoint p) const {
     if (p.target != target_end_) {
       ++p.target;
     }
-    return ExtendFrom(comparator, p);
+    return ExtendFrom(p);
   }
 
   // increment the position within base and target (the elements skipped in this way were
   // present in both sequences)
-  EditPoint ExtendFrom(ValueComparator& comparator, EditPoint p) const {
+  EditPoint ExtendFrom(EditPoint p) const {
     const int64_t run_length_of_equals =
-        comparator.RunLengthOfEqualsFrom(p.base, base_end_, p.target, target_end_);
+        _comparator->RunLengthOfEqualsFrom(p.base, base_end_, p.target, target_end_);
     p.base += run_length_of_equals;
     p.target += run_length_of_equals;
     return p;
@@ -432,7 +425,7 @@ class QuadraticSpaceMyersDiff {
     return {maximal_base, maximal_target};
   }
 
-  void Next(ValueComparator& comparator) {
+  void Next() {
     ++edit_count_;
     // base_begin_ is used as a dummy value here since Iterator may not be default
     // constructible. The newly allocated range is completely overwritten below.
@@ -445,8 +438,7 @@ class QuadraticSpaceMyersDiff {
     // try deleting from base first
     for (int64_t i = 0, i_out = 0; i < edit_count_; ++i, ++i_out) {
       auto previous_endpoint = GetEditPoint(edit_count_ - 1, i + previous_offset);
-      endpoint_base_[i_out + current_offset] =
-          DeleteOne(comparator, previous_endpoint).base;
+      endpoint_base_[i_out + current_offset] = DeleteOne(previous_endpoint).base;
     }
 
     // check if inserting from target could do better
@@ -456,7 +448,7 @@ class QuadraticSpaceMyersDiff {
       auto endpoint_after_deletion = GetEditPoint(edit_count_, i_out + current_offset);
 
       auto previous_endpoint = GetEditPoint(edit_count_ - 1, i + previous_offset);
-      auto endpoint_after_insertion = InsertOne(comparator, previous_endpoint);
+      auto endpoint_after_insertion = InsertOne(previous_endpoint);
 
       if (endpoint_after_insertion.base - endpoint_after_deletion.base >= 0) {
         // insertion was more efficient; keep it and mark the insertion in insert_
@@ -520,30 +512,42 @@ class QuadraticSpaceMyersDiff {
 
  public:
   Result<std::shared_ptr<StructArray>> Diff() {
-    ARROW_ASSIGN_OR_RAISE(auto comparator,
+    base_begin_ = 0;
+    base_end_ = base_.length();
+    target_begin_ = 0;
+    target_end_ = target_.length();
+    ARROW_ASSIGN_OR_RAISE(_comparator,
                           ValueComparatorFactory::Create(*base_.type(), base_, target_));
-    DCHECK_GE(base_end_, 0);
-    DCHECK_GE(target_end_, 0);
-    endpoint_base_ = {ExtendFrom(*comparator, {base_begin_, target_begin_}).base};
+
+    finish_index_ = -1;
+    edit_count_ = 0;
+    endpoint_base_ = {ExtendFrom({base_begin_, target_begin_}).base};
+    insert_ = {true};
     if ((base_end_ - base_begin_ == target_end_ - target_begin_) &&
         endpoint_base_[0] == base_end_) {
       // trivial case: base == target
       finish_index_ = 0;
     }
     while (!Done()) {
-      Next(*comparator);
+      Next();
     }
     return GetEdits(pool_);
   }
 
  private:
+  // Constructor-injected references
   const Array& base_;
   const Array& target_;
   MemoryPool* pool_;
-  int64_t finish_index_ = -1;
-  int64_t edit_count_ = 0;
+
+  // Initialized on Diff() and immutable thereafter
   int64_t base_begin_ = 0, base_end_ = -1;
   int64_t target_begin_ = 0, target_end_ = -1;
+  std::unique_ptr<ValueComparator> _comparator;
+
+  // Initialized on Next() and mutated throughout the diffing process
+  int64_t finish_index_ = -1;
+  int64_t edit_count_ = 0;
   // each element of endpoint_base_ is the furthest position in base reachable given an
   // edit_count and (# insertions) - (# deletions). Each bit of insert_ records whether
   // the corresponding furthest position was reached via an insertion or a deletion
