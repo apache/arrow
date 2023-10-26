@@ -71,19 +71,24 @@ public class RecordBatchStreamWriter {
     }
 
     public func write(_ rb: RecordBatch) async throws {
-        let info = ArrowWriter.Info(.recordbatch,
-                                    schema: rb.schema,
-                                    batches: [rb]
-        )
-
-        let result = writer.toStream(info)
-        switch result {
-        case .success(let rbResult):
-            let data = Arrow_Flight_Protocol_FlightData.with {
-                $0.dataBody = rbResult
+        switch writer.toMessage(rb.schema) {
+        case .success(let schemaData):
+            let schemaFlightData = Arrow_Flight_Protocol_FlightData.with {
+                $0.dataHeader = schemaData
             }
 
-            try await self.stream.send(data)
+            try await self.stream.send(schemaFlightData)
+            switch writer.toMessage(rb) {
+            case .success(let recordMessages):
+                let rbMessage = Arrow_Flight_Protocol_FlightData.with {
+                    $0.dataHeader = recordMessages[0]
+                    $0.dataBody = recordMessages[1]
+                }
+
+                try await self.stream.send(rbMessage)
+            case .failure(let error):
+                throw error
+            }
         case .failure(let error):
             throw error
         }

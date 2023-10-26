@@ -32,6 +32,7 @@ public class ArrowReader {
     }
 
     public class ArrowReaderResult {
+        fileprivate var messageSchema: org_apache_arrow_flatbuf_Schema?
         public var schema: ArrowSchema?
         public var batches = [RecordBatch]()
     }
@@ -95,19 +96,19 @@ public class ArrowReader {
         }
     }
 
-    private func loadRecordBatch(_ message: org_apache_arrow_flatbuf_Message,
-                                 schema: org_apache_arrow_flatbuf_Schema,
-                                 arrowSchema: ArrowSchema,
-                                 data: Data,
-                                 messageEndOffset: Int64
+    private func loadRecordBatch(
+        _ recordBatch: org_apache_arrow_flatbuf_RecordBatch,
+        schema: org_apache_arrow_flatbuf_Schema,
+        arrowSchema: ArrowSchema,
+        data: Data,
+        messageEndOffset: Int64
     ) -> Result<RecordBatch, ArrowError> {
-        let recordBatch = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)
-        let nodesCount = recordBatch?.nodesCount ?? 0
+        let nodesCount = recordBatch.nodesCount
         var bufferIndex: Int32 = 0
         var columns: [ArrowArrayHolder] = []
         for nodeIndex in 0 ..< nodesCount {
             let field = schema.fields(at: nodeIndex)!
-            let loadInfo = DataLoadInfo(recordBatch: recordBatch!, field: field,
+            let loadInfo = DataLoadInfo(recordBatch: recordBatch, field: field,
                                         nodeIndex: nodeIndex, bufferIndex: bufferIndex,
                                         fileData: data, messageOffset: messageEndOffset)
             var result: Result<ArrowArrayHolder, ArrowError>
@@ -130,7 +131,9 @@ public class ArrowReader {
         return .success(RecordBatch(arrowSchema, columns: columns))
     }
 
-    public func fromStream(_ fileData: Data) -> Result<ArrowReaderResult, ArrowError> {
+    public func fromStream( // swiftlint:disable:this function_body_length
+        _ fileData: Data
+    ) -> Result<ArrowReaderResult, ArrowError> {
         let footerLength = fileData.withUnsafeBytes { rawBuffer in
             rawBuffer.loadUnaligned(fromByteOffset: fileData.count - 4, as: Int32.self)
         }
@@ -172,8 +175,13 @@ public class ArrowReader {
             switch message.headerType {
             case .recordbatch:
                 do {
-                    let recordBatch = try loadRecordBatch(message, schema: footer.schema!, arrowSchema: result.schema!,
-                                                          data: fileData, messageEndOffset: messageEndOffset).get()
+                    let rbMessage = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)!
+                    let recordBatch = try loadRecordBatch(
+                        rbMessage,
+                        schema: footer.schema!,
+                        arrowSchema: result.schema!,
+                        data: fileData,
+                        messageEndOffset: messageEndOffset).get()
                     result.batches.append(recordBatch)
                 } catch let error as ArrowError {
                     return .failure(error)
@@ -203,4 +211,46 @@ public class ArrowReader {
             return .failure(.unknownError("Error loading file: \(error)"))
         }
     }
+
+    static public func makeArrowReaderResult() -> ArrowReaderResult {
+        return ArrowReaderResult()
+    }
+
+    public func fromMessage(
+        _ dataHeader: Data,
+        dataBody: Data,
+        result: ArrowReaderResult
+    ) -> Result<Void, ArrowError> {
+        let mbb = ByteBuffer(data: dataHeader)
+        let message = org_apache_arrow_flatbuf_Message.getRootAsMessage(bb: mbb)
+        switch message.headerType {
+        case .schema:
+            let sMessage = message.header(type: org_apache_arrow_flatbuf_Schema.self)!
+            switch loadSchema(sMessage) {
+            case .success(let schema):
+                result.schema = schema
+                result.messageSchema = sMessage
+                return .success(())
+            case .failure(let error):
+                return .failure(error)
+            }
+        case .recordbatch:
+            let rbMessage = message.header(type: org_apache_arrow_flatbuf_RecordBatch.self)!
+            do {
+                let recordBatch = try loadRecordBatch(
+                    rbMessage, schema: result.messageSchema!, arrowSchema: result.schema!,
+                    data: dataBody, messageEndOffset: 0).get()
+                result.batches.append(recordBatch)
+                return .success(())
+            } catch let error as ArrowError {
+                return .failure(error)
+            } catch {
+                return .failure(.unknownError("Unexpected error: \(error)"))
+            }
+
+        default:
+            return .failure(.unknownError("Unhandled header type: \(message.headerType)"))
+        }
+    }
+
 }

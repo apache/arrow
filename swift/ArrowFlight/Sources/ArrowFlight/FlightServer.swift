@@ -29,27 +29,36 @@ public enum ArrowFlightError: Error {
     case ioError(String? = nil)
 }
 
-public func schemaToArrowStream(_ schema: ArrowSchema) throws -> Data {
+public func schemaToMessage(_ schema: ArrowSchema) throws -> Data {
     let arrowWriter = ArrowWriter()
-    switch arrowWriter.toStream(ArrowWriter.Info(.schema, schema: schema)) {
+    switch arrowWriter.toMessage(schema) {
     case .success(let result):
-        return result
+        var outputResult = Data()
+        withUnsafeBytes(of: Int32(0).littleEndian) {outputResult.append(Data($0))}
+        withUnsafeBytes(of: Int32(result.count).littleEndian) {outputResult.append(Data($0))}
+        outputResult.append(result)
+        return outputResult
     case .failure(let error):
         throw error
     }
 }
 
-public func streamToArrowSchema(_ schema: Data) throws -> ArrowSchema {
-    let schemaResult = ArrowReader().fromStream(schema)
-    switch schemaResult {
-    case .success(let result):
-        if let retSchema = result.schema {
-            return retSchema
-        }
+public func schemaFromMessage(_ schemaData: Data) -> ArrowSchema? {
+    let messageLength = schemaData.withUnsafeBytes { rawBuffer in
+        rawBuffer.loadUnaligned(fromByteOffset: 4, as: Int32.self)
+    }
 
-        throw ArrowFlightError.ioError("Schema not found")
-    case .failure(let error):
-        throw error
+    let startIndex = schemaData.count - Int(messageLength)
+    let schema = schemaData[startIndex...]
+
+    let reader = ArrowReader()
+    let result = ArrowReader.makeArrowReaderResult()
+    switch reader.fromMessage(schema, dataBody: Data(), result: result) {
+    case .success:
+        return result.schema!
+    case .failure:
+        // TODO: add handling of error swiftlint:disable:this todo
+        return nil
     }
 }
 
