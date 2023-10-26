@@ -15,17 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/api.h>
 #include <gtest/gtest.h>
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_nodes.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/compute/ordering.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 
@@ -39,7 +41,7 @@ std::shared_ptr<Table> TestTable(int start, int step, int rows_per_batch,
       ->Table(rows_per_batch, num_batches);
 }
 
-void CheckMerging() {
+TEST(SortedMergeNode, Basic) {
   auto table1 = TestTable(
       /*start=*/0,
       /*step=*/2,
@@ -69,16 +71,15 @@ void CheckMerging() {
                        DeclarationToTable(sorted_merge, /*use_threads=*/false));
   ASSERT_EQ(output->num_rows(), 18);
 
-  Int32Builder expected_ts_builder;
+  ASSERT_OK_AND_ASSIGN(auto expected_ts_builder,
+                       MakeBuilder(int32(), default_memory_pool()));
   for (auto i : {0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 9, 9, 10, 11, 12, 15, 18}) {
-    ASSERT_OK(expected_ts_builder.Append(i));
+    ASSERT_OK(expected_ts_builder->AppendScalar(*MakeScalar(i)));
   }
-  ASSERT_OK_AND_ASSIGN(auto expected_timestamps, expected_ts_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto expected_timestamps, expected_ts_builder->Finish());
   auto chunked_array =
       std::make_shared<arrow::ChunkedArray>(std::move(expected_timestamps));
   ASSERT_TRUE(chunked_array->Equals(output->column(0)))
       << chunked_array->ToString() << " " << output->column(0)->ToString();
 }
-
-TEST(FetchNode, Basic) { CheckMerging(); }
 }  // namespace arrow::acero

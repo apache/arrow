@@ -35,21 +35,9 @@ struct CompositeEntry {
   uint64_t end;
 };
 
+// Forward declare the builder
 template <size_t MAX_COMPOSITE_TABLES>
-struct UnmaterializedSlice {
-  // A slice is represented by a [start, end) range of rows in a collection of record
-  // batches, where end-start is the same length
-
-  CompositeEntry components[MAX_COMPOSITE_TABLES];
-  size_t num_components;
-
-  inline int64_t Size() const {
-    if (num_components == 0) {
-      return 0;
-    }
-    return components[0].end - components[0].start;
-  }
-};
+class UnmaterializedSliceBuilder;
 
 /// A table of composite reference rows.  Rows maintain pointers to the
 /// constituent record batches, but the overall table retains shared_ptr
@@ -60,9 +48,8 @@ struct UnmaterializedSlice {
 /// column-oriented.  Separating the join part from the columnar materialization
 /// part simplifies the logic around data types and increases efficiency.
 ///
-/// We don't put the shared_ptr's into the rows for efficiency reasons, so the caller
-/// must manually call addRecordBatchRef to maintain the lifetime of the stored
-/// record batches.
+/// We don't put the shared_ptr's into the rows for efficiency reasons. Use
+/// UnmaterializedSliceBuilder to add ranges of record batches to this table
 template <size_t MAX_COMPOSITE_TABLES>
 class UnmaterializedCompositeTable {
  public:
@@ -81,16 +68,6 @@ class UnmaterializedCompositeTable {
 
   inline size_t Size() const { return num_rows; }
   inline size_t Empty() const { return num_rows == 0; }
-
-  void AddRecordBatchRef(const std::shared_ptr<arrow::RecordBatch>& ref) {
-    if (!ptr2Ref.count((uintptr_t)ref.get())) {
-      ptr2Ref[(uintptr_t)ref.get()] = ref;
-    }
-  }
-  void AddSlice(const UnmaterializedSlice<MAX_COMPOSITE_TABLES>& slice) {
-    slices.push_back(slice);
-    num_rows += slice.Size();
-  }
 
   Result<std::optional<std::shared_ptr<RecordBatch>>> Materialize() {
     // Don't build empty batches
@@ -148,6 +125,18 @@ class UnmaterializedCompositeTable {
   }
 
  private:
+  struct UnmaterializedSlice {
+    CompositeEntry components[MAX_COMPOSITE_TABLES];
+    size_t num_components;
+
+    inline int64_t Size() const {
+      if (num_components == 0) {
+        return 0;
+      }
+      return components[0].end - components[0].start;
+    }
+  };
+
   // Mapping from an output column ID to a source table ID and column ID
   std::shared_ptr<arrow::Schema> schema;
   size_t num_composite_tables;
@@ -159,9 +148,22 @@ class UnmaterializedCompositeTable {
   /// maintain the lifetime of the record batch in case it goes out of scope
   /// by the main exec node thread
   std::unordered_map<uintptr_t, std::shared_ptr<arrow::RecordBatch>> ptr2Ref = {};
-  std::vector<UnmaterializedSlice<MAX_COMPOSITE_TABLES>> slices;
+  std::vector<UnmaterializedSlice> slices;
 
   size_t num_rows = 0;
+
+  // for AddRecordBatchRef/AddSlice and access to UnmaterializedSlice
+  friend class UnmaterializedSliceBuilder<MAX_COMPOSITE_TABLES>;
+
+  void AddRecordBatchRef(const std::shared_ptr<arrow::RecordBatch>& ref) {
+    if (!ptr2Ref.count((uintptr_t)ref.get())) {
+      ptr2Ref[(uintptr_t)ref.get()] = ref;
+    }
+  }
+  void AddSlice(const UnmaterializedSlice& slice) {
+    slices.push_back(slice);
+    num_rows += slice.Size();
+  }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
   enable_if_boolean<Type, Status> static BuilderAppend(
@@ -229,6 +231,35 @@ class UnmaterializedCompositeTable {
     ARROW_RETURN_NOT_OK(builder.Finish(&result));
     return Result{std::move(result)};
   }
+};
+
+/// Builder that simplifies the statefulness of building up blocks of an
+/// UnmaterializedCompositeTable
+template <size_t MAX_COMPOSITE_TABLES>
+class UnmaterializedSliceBuilder {
+ public:
+  explicit UnmaterializedSliceBuilder(
+      UnmaterializedCompositeTable<MAX_COMPOSITE_TABLES>* table_)
+      : table(table_) {}
+
+  void AddEntry(std::shared_ptr<RecordBatch> rb, uint64_t start, uint64_t end) {
+    if (rb) {
+      table->AddRecordBatchRef(rb);
+    }
+    slice.components[index++] = CompositeEntry{rb.get(), start, end};
+    slice.num_components++;
+  }
+
+  void Finalize() { table->AddSlice(slice); }
+  int64_t Size() { return slice.Size(); }
+
+ private:
+  using UnmaterializedCompositeTable = UnmaterializedCompositeTable<MAX_COMPOSITE_TABLES>;
+  using UnmaterializedSlice = typename UnmaterializedCompositeTable::UnmaterializedSlice;
+
+  UnmaterializedCompositeTable* table;
+  UnmaterializedSlice slice{};
+  size_t index = 0;
 };
 
 }  // namespace arrow::acero

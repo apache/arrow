@@ -18,7 +18,6 @@
 #include "arrow/acero/exec_plan.h"
 
 #include <atomic>
-#include <iostream>
 #include <optional>
 #include <sstream>
 #include <unordered_map>

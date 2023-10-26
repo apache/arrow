@@ -799,6 +799,9 @@ class InputState {
 /// the join row-by-row
 template <size_t MAX_TABLES>
 class CompositeTableBuilder {
+  using UnmaterializedSliceBuilder = UnmaterializedSliceBuilder<MAX_TABLES>;
+  using UnmaterializedCompositeTable = UnmaterializedCompositeTable<MAX_TABLES>;
+
  public:
   NDEBUG_EXPLICIT CompositeTableBuilder(
       const std::vector<std::unique_ptr<InputState>>& inputs,
@@ -837,13 +840,10 @@ class CompositeTableBuilder {
       }
     }
 
-    UnmaterializedSlice<MAX_TABLES> slice;
-    slice.num_components = in.size();
+    UnmaterializedSliceBuilder new_row{&unmaterialized_table};
 
     // Each item represents a portion of the columns of the output table
-    slice.components[0] =
-        CompositeEntry{lhs_latest_batch.get(), lhs_latest_row, lhs_latest_row + 1};
-    unmaterialized_table.AddRecordBatchRef(lhs_latest_batch);
+    new_row.AddEntry(lhs_latest_batch, lhs_latest_row, lhs_latest_row + 1);
 
     DEBUG_SYNC(node_, "Emplace: key=", key, " lhs_latest_row=", lhs_latest_row,
                " lhs_latest_time=", lhs_latest_time, DEBUG_MANIP(std::endl));
@@ -867,16 +867,14 @@ class CompositeTableBuilder {
         if (tolerance.Accepts(lhs_latest_time, (*opt_entry)->time)) {
           // Have a valid entry
           const MemoStore::Entry* entry = *opt_entry;
-          slice.components[i] =
-              CompositeEntry{entry->batch.get(), entry->row, entry->row + 1};
-          unmaterialized_table.AddRecordBatchRef(entry->batch);
+          new_row.AddEntry(entry->batch, entry->row, entry->row + 1);
           continue;
         }
+      } else {
+        new_row.AddEntry(nullptr, 0, 1);
       }
-      slice.components[i] = CompositeEntry{nullptr, 0, 1};
     }
-
-    unmaterialized_table.AddSlice(std::move(slice));
+    new_row.Finalize();
   }
 
   // Materializes the current reference table into a target record batch
@@ -888,7 +886,7 @@ class CompositeTableBuilder {
   bool empty() const { return unmaterialized_table.Empty(); }
 
  private:
-  UnmaterializedCompositeTable<MAX_TABLES> unmaterialized_table;
+  UnmaterializedCompositeTable unmaterialized_table;
 
   // Total number of tables in the composite table
   size_t n_tables_;
@@ -898,7 +896,7 @@ class CompositeTableBuilder {
   AsofJoinNode* node_;
 #endif
 
-  static UnmaterializedCompositeTable<MAX_TABLES> InitUnmaterializedTable(
+  static UnmaterializedCompositeTable InitUnmaterializedTable(
       const std::shared_ptr<Schema>& schema,
       const std::vector<std::unique_ptr<InputState>>& inputs, arrow::MemoryPool* pool) {
     std::unordered_map<int, std::pair<int, int>> dst_to_src;
@@ -911,8 +909,7 @@ class CompositeTableBuilder {
         }
       }
     }
-    return UnmaterializedCompositeTable<MAX_TABLES>{schema, inputs.size(), dst_to_src,
-                                                    pool};
+    return UnmaterializedCompositeTable{schema, inputs.size(), dst_to_src, pool};
   }
 };
 

@@ -70,7 +70,7 @@ namespace sorted_merge {
 
 // Each slice is associated with a single input source, so we only need 1 record
 // batch per slice
-using UnmaterializedSlice = arrow::acero::UnmaterializedSlice<1>;
+using UnmaterializedSliceBuilder = arrow::acero::UnmaterializedSliceBuilder<1>;
 using UnmaterializedCompositeTable = arrow::acero::UnmaterializedCompositeTable<1>;
 
 using row_index_t = uint64_t;
@@ -164,17 +164,15 @@ class InputState {
 
   bool Finished() const { return batches_processed_ == total_batches_; }
 
-  arrow::Result<std::pair<UnmaterializedSlice, std::shared_ptr<arrow::RecordBatch>>>
-  Advance() {
+  void Advance(UnmaterializedSliceBuilder& builder) {
     // Advance the row until a new time is encountered or the record batch
     // ends. This will return a range of {-1, -1} and a nullptr if there is
     // no input
-
     bool active =
         (latest_ref_row_ > 0 /*short circuit the lock on the queue*/) || !queue_.Empty();
 
     if (!active) {
-      return std::make_pair(UnmaterializedSlice(), nullptr);
+      return;
     }
 
     row_index_t start = latest_ref_row_;
@@ -198,11 +196,7 @@ class InputState {
         break;
       }
     }
-
-    UnmaterializedSlice slice;
-    slice.num_components = 1;
-    slice.components[0] = CompositeEntry{batch.get(), start, end};
-    return std::make_pair(slice, batch);
+    builder.AddEntry(batch, start, end);
   }
 
   arrow::Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
@@ -476,14 +470,12 @@ class SortedMergeNode : public ExecNode {
           << " latestTime=" << latest_time;
 
       latest_time = new_time;
-      ARROW_ASSIGN_OR_RAISE(auto slice_rb, next_item->Advance());
-      UnmaterializedSlice& slice = slice_rb.first;
-      std::shared_ptr<arrow::RecordBatch>& rb = slice_rb.second;
+      UnmaterializedSliceBuilder builder{&output};
+      next_item->Advance(builder);
 
-      if (slice.Size() > 0) {
-        output_counter[next_item->index()] += slice.Size();
-        output.AddSlice(slice);
-        output.AddRecordBatchRef(rb);
+      if (builder.Size() > 0) {
+        output_counter[next_item->index()] += builder.Size();
+        builder.Finalize();
       }
 
       if (next_item->Finished() || next_item->Empty()) {
