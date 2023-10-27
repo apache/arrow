@@ -264,7 +264,8 @@ TEST_P(TestFeather, TimeTypes) {
 
 TEST_P(TestFeather, VLenPrimitiveRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch));
+  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, /*with_nulls=*/true,
+                                                  /*with_view_types=*/false));
   CheckRoundtrip(batch);
 }
 
@@ -306,7 +307,8 @@ TEST_P(TestFeather, SliceFloatRoundTrip) {
 
 TEST_P(TestFeather, SliceStringsRoundTrip) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, /*with_nulls=*/true));
+  ASSERT_OK(ipc::test::MakeStringTypesRecordBatch(&batch, /*with_nulls=*/true,
+                                                  /*with_view_types=*/false));
   CheckSlices(batch);
 }
 

@@ -263,6 +263,12 @@ struct ScalarValidateImpl {
 
   Status Visit(const StringScalar& s) { return ValidateStringScalar(s); }
 
+  Status Visit(const BinaryViewScalar& s) { return ValidateBinaryScalar(s); }
+
+  Status Visit(const StringViewScalar& s) { return ValidateStringScalar(s); }
+
+  Status Visit(const LargeBinaryScalar& s) { return ValidateBinaryScalar(s); }
+
   Status Visit(const LargeStringScalar& s) { return ValidateStringScalar(s); }
 
   template <typename ScalarType>
@@ -548,17 +554,8 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
-BinaryScalar::BinaryScalar(std::string s)
-    : BinaryScalar(Buffer::FromString(std::move(s))) {}
-
-StringScalar::StringScalar(std::string s)
-    : StringScalar(Buffer::FromString(std::move(s))) {}
-
-LargeBinaryScalar::LargeBinaryScalar(std::string s)
-    : LargeBinaryScalar(Buffer::FromString(std::move(s))) {}
-
-LargeStringScalar::LargeStringScalar(std::string s)
-    : LargeStringScalar(Buffer::FromString(std::move(s))) {}
+BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type)
+    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
                                              std::shared_ptr<DataType> type,

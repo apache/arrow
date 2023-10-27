@@ -61,6 +61,12 @@ struct DictionaryValue<T, enable_if_base_binary<T>> {
 };
 
 template <typename T>
+struct DictionaryValue<T, enable_if_binary_view_like<T>> {
+  using type = std::string_view;
+  using PhysicalType = BinaryViewType;
+};
+
+template <typename T>
 struct DictionaryValue<T, enable_if_fixed_size_binary<T>> {
   using type = std::string_view;
   using PhysicalType = BinaryType;
@@ -114,6 +120,7 @@ class ARROW_EXPORT DictionaryMemoTable {
 
   Status GetOrInsert(const BinaryType*, std::string_view value, int32_t* out);
   Status GetOrInsert(const LargeBinaryType*, std::string_view value, int32_t* out);
+  Status GetOrInsert(const BinaryViewType*, std::string_view value, int32_t* out);
 
   class DictionaryMemoTableImpl;
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
