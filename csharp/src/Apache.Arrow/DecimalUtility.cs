@@ -81,18 +81,23 @@ namespace Apache.Arrow
         {
             const int byteWidth = 16;
             const int intWidth = byteWidth / 4;
+            const int longWidth = byteWidth / 8;
 
             byte mostSignificantByte = valueBuffer.Span[(index + 1) * byteWidth - 1];
             bool isPositive = (mostSignificantByte & 0x80) == 0;
 
-            ReadOnlySpan<int> value = valueBuffer.Span.CastTo<int>().Slice(index * intWidth, intWidth);
             if (isPositive)
             {
+                ReadOnlySpan<int> value = valueBuffer.Span.CastTo<int>().Slice(index * intWidth, intWidth);
                 return new SqlDecimal((byte)precision, (byte)scale, true, value[0], value[1], value[2], value[3]);
             }
             else
             {
-                return new SqlDecimal((byte)precision, (byte)scale, false, -value[0], ~value[1], ~value[2], ~value[3]);
+                ReadOnlySpan<long> value = valueBuffer.Span.CastTo<long>().Slice(index * longWidth, longWidth);
+                long data1 = -value[0];
+                long data2 = (data1 == 0) ? -value[1] : ~value[1];
+
+                return new SqlDecimal((byte)precision, (byte)scale, false, (int)(data1 & 0xffffffff), (int)(data1 >> 32), (int)(data2 & 0xffffffff), (int)(data2 >> 32));
             }
         }
 #endif
@@ -207,10 +212,9 @@ namespace Apache.Arrow
             value.Data.AsSpan().CopyTo(span);
             if (!value.IsPositive)
             {
-                span[0] = -span[0];
-                span[1] = ~span[1];
-                span[2] = ~span[2];
-                span[3] = ~span[3];
+                Span<long> longSpan = bytes.CastTo<long>();
+                longSpan[0] = -longSpan[0];
+                longSpan[1] = (longSpan[0] == 0) ? -longSpan[1] : ~longSpan[1];
             }
         }
 #endif

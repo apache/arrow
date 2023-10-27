@@ -81,7 +81,7 @@ namespace Apache.Arrow.Tests
                 const int scale = 0;
                 const int bitWidth = 16;
 
-                var negative = new SqlDecimal(precision, scale, false, -1, -1, 1, 0);
+                var negative = new SqlDecimal(precision, scale, false, 0, 0, 1, 0);
                 var bytes = new byte[16];
                 DecimalUtility.GetBytes(negative.Value, precision, scale, bitWidth, bytes);
                 var sqlNegative = DecimalUtility.GetSqlDecimal128(new ArrowBuffer(bytes), 0, precision, scale);
