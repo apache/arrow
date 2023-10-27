@@ -762,7 +762,7 @@ const DictionaryEncodeOptions* GetDefaultDictionaryEncodeOptions() {
 const FunctionDoc dictionary_encode_doc(
     "Dictionary-encode array",
     ("Return a dictionary-encoded version of the input array.\n"
-     "This function does nothing if the input is already a dictionary."),
+     "This function does nothing if the input is already a dictionary array."),
     {"array"}, "DictionaryEncodeOptions");
 
 // ----------------------------------------------------------------------
