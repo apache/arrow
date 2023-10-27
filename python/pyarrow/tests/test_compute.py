@@ -3660,3 +3660,9 @@ def test_pairwise_diff():
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
         pa.compute.pairwise_diff_checked(arr, period=-1)
+
+
+def test_random_seed():
+    lhs = pa.compute.random(n=5, initializer=22)
+    rhs = random(n=5, options=pa.compute.RandomOptions(initializer=22))
+    assert lhs == rhs
