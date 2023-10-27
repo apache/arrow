@@ -14,6 +14,9 @@
 // limitations under the License.
 
 using System;
+#if !NETSTANDARD1_3
+using System.Data.SqlTypes;
+#endif
 using System.Numerics;
 
 namespace Apache.Arrow
@@ -72,6 +75,32 @@ namespace Apache.Arrow
                 return DivideByScale(integerValue, scale);
             }
         }
+
+#if !NETSTANDARD1_3
+        internal static SqlDecimal GetSqlDecimal128(in ArrowBuffer valueBuffer, int index, int precision, int scale)
+        {
+            const int byteWidth = 16;
+            const int intWidth = byteWidth / 4;
+            const int longWidth = byteWidth / 8;
+
+            byte mostSignificantByte = valueBuffer.Span[(index + 1) * byteWidth - 1];
+            bool isPositive = (mostSignificantByte & 0x80) == 0;
+
+            if (isPositive)
+            {
+                ReadOnlySpan<int> value = valueBuffer.Span.CastTo<int>().Slice(index * intWidth, intWidth);
+                return new SqlDecimal((byte)precision, (byte)scale, true, value[0], value[1], value[2], value[3]);
+            }
+            else
+            {
+                ReadOnlySpan<long> value = valueBuffer.Span.CastTo<long>().Slice(index * longWidth, longWidth);
+                long data1 = -value[0];
+                long data2 = (data1 == 0) ? -value[1] : ~value[1];
+
+                return new SqlDecimal((byte)precision, (byte)scale, false, (int)(data1 & 0xffffffff), (int)(data1 >> 32), (int)(data2 & 0xffffffff), (int)(data2 >> 32));
+            }
+        }
+#endif
 
         private static decimal DivideByScale(BigInteger integerValue, int scale)
         {
@@ -169,5 +198,25 @@ namespace Apache.Arrow
                 }
             }
         }
+
+#if !NETSTANDARD1_3
+        internal static void GetBytes(SqlDecimal value, int precision, int scale, Span<byte> bytes)
+        {
+            if (value.Precision != precision || value.Scale != scale)
+            {
+                value = SqlDecimal.ConvertToPrecScale(value, precision, scale);
+            }
+
+            // TODO: Consider groveling in the internals to avoid the probable allocation
+            Span<int> span = bytes.CastTo<int>();
+            value.Data.AsSpan().CopyTo(span);
+            if (!value.IsPositive)
+            {
+                Span<long> longSpan = bytes.CastTo<long>();
+                longSpan[0] = -longSpan[0];
+                longSpan[1] = (longSpan[0] == 0) ? -longSpan[1] : ~longSpan[1];
+            }
+        }
+#endif
     }
 }
