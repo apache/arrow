@@ -84,7 +84,7 @@ arrow-vector, and arrow-memory-netty.
     </project>
 
 A bill of materials (BOM) module has been provided to simplify adding
-Arrow modules. This eliminates the needed to specify the version for
+Arrow modules. This eliminates the need to specify the version for
 every module. An alternative to the above would be:
 
 .. code-block:: xml
