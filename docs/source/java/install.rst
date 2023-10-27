@@ -98,7 +98,7 @@ every module. An alternative to the above would be:
         <artifactId>demo</artifactId>
         <version>1.0-SNAPSHOT</version>
         <properties>
-            <arrow.version>9.0.0</arrow.version>
+            <arrow.version>15.0.0</arrow.version>
         </properties>
         <dependencies>
             <dependency>
