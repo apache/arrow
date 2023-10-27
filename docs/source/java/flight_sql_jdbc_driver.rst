@@ -80,8 +80,8 @@ The components of the URI are as follows.
 * **HOSTNAME** is the hostname of the Flight SQL service.
 * **PORT** is the port of the Flight SQL service.
 
-Additional options can be passed as query parameters.  The supported
-parameters are:
+Additional options can be passed as query parameters. Parameter names are
+case-sensitive. The supported parameters are:
 
 .. list-table::
    :header-rows: 1
