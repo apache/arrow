@@ -30,8 +30,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
@@ -133,6 +132,37 @@ static void ReferenceStreamingCompression(
   StreamingCompression(COMPRESSION, data, state);
 }
 
+int64_t Compress(Codec* codec, const std::vector<uint8_t>& data,
+                 std::vector<uint8_t>* compressed_data) {
+  const uint8_t* input = data.data();
+  int64_t input_len = data.size();
+  int64_t compressed_size = 0;
+  int64_t max_compressed_len = codec->MaxCompressedLen(input_len, input);
+  compressed_data->resize(max_compressed_len);
+
+  if (input_len > 0) {
+    compressed_size = *codec->Compress(input_len, input, compressed_data->size(),
+                                       compressed_data->data());
+    compressed_data->resize(compressed_size);
+  }
+  return compressed_size;
+}
+
+template <Compression::type COMPRESSION>
+static void ReferenceCompression(benchmark::State& state) {  // NOLINT non-const reference
+  auto data = MakeCompressibleData(8 * 1024 * 1024);         // 8 MB
+
+  auto codec = *Codec::Create(COMPRESSION);
+
+  while (state.KeepRunning()) {
+    std::vector<uint8_t> compressed_data;
+    auto compressed_size = Compress(codec.get(), data, &compressed_data);
+    state.counters["ratio"] =
+        static_cast<double>(data.size()) / static_cast<double>(compressed_size);
+  }
+  state.SetBytesProcessed(state.iterations() * data.size());
+}
+
 static void StreamingDecompression(
     Compression::type compression, const std::vector<uint8_t>& data,
     benchmark::State& state) {  // NOLINT non-const reference
@@ -175,27 +205,64 @@ static void ReferenceStreamingDecompression(
   StreamingDecompression(COMPRESSION, data, state);
 }
 
+template <Compression::type COMPRESSION>
+static void ReferenceDecompression(
+    benchmark::State& state) {                        // NOLINT non-const reference
+  auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
+
+  auto codec = *Codec::Create(COMPRESSION);
+
+  std::vector<uint8_t> compressed_data;
+  ARROW_UNUSED(Compress(codec.get(), data, &compressed_data));
+  state.counters["ratio"] =
+      static_cast<double>(data.size()) / static_cast<double>(compressed_data.size());
+
+  std::vector<uint8_t> decompressed_data(data);
+  while (state.KeepRunning()) {
+    auto result = codec->Decompress(compressed_data.size(), compressed_data.data(),
+                                    decompressed_data.size(), decompressed_data.data());
+    ARROW_CHECK(result.ok());
+    ARROW_CHECK(*result == static_cast<int64_t>(decompressed_data.size()));
+  }
+  state.SetBytesProcessed(state.iterations() * data.size());
+}
+
 #ifdef ARROW_WITH_ZLIB
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::GZIP);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::GZIP);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::GZIP);
 #endif
 
 #ifdef ARROW_WITH_BROTLI
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::BROTLI);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::BROTLI);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::BROTLI);
 #endif
 
 #ifdef ARROW_WITH_ZSTD
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::ZSTD);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::ZSTD);
 #endif
 
 #ifdef ARROW_WITH_LZ4
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4_FRAME);
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::LZ4_FRAME);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4_FRAME);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::LZ4_FRAME);
+
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::LZ4);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::LZ4);
+#endif
+
+#ifdef ARROW_WITH_SNAPPY
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::SNAPPY);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::SNAPPY);
 #endif
 
 #endif
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

@@ -199,8 +199,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (valueCount == 0) {
       return 0.0D;
     }
-    final int startOffset = offsetBuffer.getInt(0);
-    final int endOffset = offsetBuffer.getInt((long) valueCount * OFFSET_WIDTH);
+    final int startOffset = getStartOffset(0);
+    final int endOffset = getStartOffset(valueCount);
     final double totalListSize = endOffset - startOffset;
     return totalListSize / valueCount;
   }
@@ -694,6 +694,18 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /**
    * Construct a transfer pair of this vector and another vector of same type.
+   * @param field The field materialized by this vector.
+   * @param allocator allocator for the target vector
+   * @param callBack not used
+   * @return TransferPair
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(field, allocator);
+  }
+
+  /**
+   * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @param callBack not used
@@ -721,6 +733,14 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @return TransferPair
    */
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
+
+  /**
+   * Construct a transfer pair of this vector and another vector of same type.
+   * @param field The field materialized by this vector.
+   * @param allocator allocator for the target vector
+   * @return TransferPair
+   */
+  public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
 
   /**
    * Transfer this vector'data to another vector. The memory associated
@@ -771,8 +791,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * in the target vector.
    */
   private void splitAndTransferOffsetBuffer(int startIndex, int length, BaseVariableWidthVector target) {
-    final int start = offsetBuffer.getInt((long) startIndex * OFFSET_WIDTH);
-    final int end = offsetBuffer.getInt((long) (startIndex + length) * OFFSET_WIDTH);
+    final int start = getStartOffset(startIndex);
+    final int end = getStartOffset(startIndex + length);
     final int dataLength = end - start;
 
     if (start == 0) {
@@ -781,7 +801,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     } else {
       target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
       for (int i = 0; i < length + 1; i++) {
-        final int relativeSourceOffset = offsetBuffer.getInt((long) (startIndex + i) * OFFSET_WIDTH) - start;
+        final int relativeSourceOffset = getStartOffset(startIndex + i) - start;
         target.offsetBuffer.setInt((long) i * OFFSET_WIDTH, relativeSourceOffset);
       }
     }
@@ -1012,8 +1032,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       return 0;
     }
     final int startOffset = getStartOffset(index);
-    final int dataLength =
-            offsetBuffer.getInt((index + 1) * OFFSET_WIDTH) - startOffset;
+    final int dataLength = getEndOffset(index) - startOffset;
     return dataLength;
   }
 
@@ -1218,7 +1237,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     handleSafe(index, length);
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
-    final int startOffset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+    final int startOffset = getStartOffset(index);
     offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     final ArrowBuf bb = buffer.slice(start, length);
     valueBuffer.setBytes(startOffset, bb);
@@ -1355,7 +1374,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       final int length = end - start;
       fillHoles(thisIndex);
       BitVectorHelper.setBit(this.validityBuffer, thisIndex);
-      final int copyStart = offsetBuffer.getInt((long) thisIndex * OFFSET_WIDTH);
+      final int copyStart = getStartOffset(thisIndex);
       from.getDataBuffer().getBytes(start, this.valueBuffer, copyStart, length);
       offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
     }
@@ -1378,7 +1397,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       handleSafe(thisIndex, 0);
       fillHoles(thisIndex);
       BitVectorHelper.unsetBit(this.validityBuffer, thisIndex);
-      final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
+      final int copyStart = getStartOffset(thisIndex);
       offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart);
     } else {
       final int start = from.getOffsetBuffer().getInt((long) fromIndex * OFFSET_WIDTH);
@@ -1387,7 +1406,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       handleSafe(thisIndex, length);
       fillHoles(thisIndex);
       BitVectorHelper.setBit(this.validityBuffer, thisIndex);
-      final int copyStart = offsetBuffer.getInt((long) thisIndex * OFFSET_WIDTH);
+      final int copyStart = getStartOffset(thisIndex);
       from.getDataBuffer().getBytes(start, this.valueBuffer, copyStart, length);
       offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
     }
@@ -1404,8 +1423,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (isNull(index)) {
       reuse.set(null, 0, 0);
     } else {
-      int offset = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
-      int length = offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH) - offset;
+      int offset = getStartOffset(index);
+      int length = getEndOffset(index) - offset;
       reuse.set(valueBuffer, offset, length);
     }
     return reuse;
@@ -1422,7 +1441,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       return ArrowBufPointer.NULL_HASH_CODE;
     }
     final int start = getStartOffset(index);
-    final int end = getStartOffset(index + 1);
+    final int end = getEndOffset(index);
     return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
   }
 

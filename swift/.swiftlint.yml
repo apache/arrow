@@ -15,21 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{% import 'macros.jinja' as macros with context %}
-
-{{ macros.github_header() }}
-
-jobs:
-  build:
-    name: "Clean old wheels"
-    runs-on: ubuntu-latest
-    steps:
-      {{ macros.github_checkout_arrow()|indent }}
-
-      - name: Clean old wheels
-        env:
-          GEMFURY_API_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_API_TOKEN }}' }}
-        shell: bash
-        run: |
-          gem install --user-install gemfury
-          ruby arrow/ci/scripts/gemfury_clean.rb
+included:
+  - Arrow/Sources
+  - Arrow/Tests
+  - ArrowFlight/Sources
+  - ArrowFlight/Tests
+excluded:
+  - Arrow/Sources/Arrow/File_generated.swift
+  - Arrow/Sources/Arrow/Message_generated.swift
+  - Arrow/Sources/Arrow/Schema_generated.swift
+  - Arrow/Sources/Arrow/SparseTensor_generated.swift
+  - Arrow/Sources/Arrow/Tensor_generated.swift
+  - ArrowFlight/Sources/ArrowFlight/Flight.grpc.swift
+  - ArrowFlight/Sources/ArrowFlight/Flight.pb.swift
+  - ArrowFlight/Sources/ArrowFlight/FlightSql.pb.swift
+identifier_name:
+  min_length: 2 # only warning
+allow_zero_lintable_files: false

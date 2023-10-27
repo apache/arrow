@@ -26,16 +26,17 @@ public class ChunkedArrayHolder {
     public let length: UInt
     public let nullCount: UInt
     public let holder: Any
+
     public let getBufferData: () -> Result<[Data], ArrowError>
     public let getBufferDataSizes: () -> Result<[Int], ArrowError>
-    public init<T>(_ chunked: ChunkedArray<T>) {
+    public init<T>(_ chunked: ChunkedArray<T>) { // swiftlint:disable:this cyclomatic_complexity
         self.holder = chunked
         self.length = chunked.length
         self.type = chunked.type
         self.nullCount = chunked.nullCount
         self.getBufferData = {() -> Result<[Data], ArrowError> in
             var bufferData = [Data]()
-            var numBuffers = 2;
+            var numBuffers = 2
             switch toFBTypeEnum(chunked.type) {
             case .success(let fbType):
                 if !isFixedPrimitive(fbType) {
@@ -49,19 +50,19 @@ public class ChunkedArrayHolder {
                 bufferData.append(Data())
             }
 
-            for arrow_data in chunked.arrays {
+            for arrowData in chunked.arrays {
                 for index in 0 ..< numBuffers {
-                    arrow_data.arrowData.buffers[index].append(to: &bufferData[index])
+                    arrowData.arrowData.buffers[index].append(to: &bufferData[index])
                 }
             }
 
-            return .success(bufferData);
+            return .success(bufferData)
         }
-        
+
         self.getBufferDataSizes = {() -> Result<[Int], ArrowError> in
             var bufferDataSizes = [Int]()
-            var numBuffers = 2;
-            
+            var numBuffers = 2
+
             switch toFBTypeEnum(chunked.type) {
             case .success(let fbType):
                 if !isFixedPrimitive(fbType) {
@@ -70,35 +71,34 @@ public class ChunkedArrayHolder {
             case .failure(let error):
                 return .failure(error)
             }
-            
+
             for _ in 0 ..< numBuffers {
                 bufferDataSizes.append(Int(0))
             }
-            
-            for arrow_data in chunked.arrays {
+
+            for arrowData in chunked.arrays {
                 for index in 0 ..< numBuffers {
-                    bufferDataSizes[index] += Int(arrow_data.arrowData.buffers[index].capacity)
+                    bufferDataSizes[index] += Int(arrowData.arrowData.buffers[index].capacity)
                 }
             }
 
             return .success(bufferDataSizes)
         }
-
     }
 }
 
-public class ChunkedArray<T> : AsString {
+public class ChunkedArray<T>: AsString {
     public let arrays: [ArrowArray<T>]
     public let type: ArrowType
     public let nullCount: UInt
     public let length: UInt
-    public var arrayCount: UInt {get{return UInt(self.arrays.count)}}
-    
+    public var arrayCount: UInt {return UInt(self.arrays.count)}
+
     public init(_ arrays: [ArrowArray<T>]) throws {
         if arrays.count == 0 {
             throw ArrowError.arrayHasNoElements
         }
-        
+
         self.type = arrays[0].arrowData.type
         var len: UInt = 0
         var nullCount: UInt = 0
@@ -106,38 +106,38 @@ public class ChunkedArray<T> : AsString {
             len += array.length
             nullCount += array.nullCount
         }
-        
+
         self.arrays = arrays
         self.length = len
         self.nullCount = nullCount
     }
-    
+
     public subscript(_ index: UInt) -> T? {
         if arrays.count == 0 {
             return nil
         }
-        
+
         var localIndex = index
-        var arrayIndex = 0;
+        var arrayIndex = 0
         var len: UInt = arrays[arrayIndex].length
         while localIndex > (len - 1) {
             arrayIndex += 1
             if arrayIndex > arrays.count {
                 return nil
             }
-            
+
             localIndex -= len
             len = arrays[arrayIndex].length
         }
-        
+
         return arrays[arrayIndex][localIndex]
     }
-    
+
     public func asString(_ index: UInt) -> String {
         if self[index] == nil {
             return ""
         }
-        
+
         return "\(self[index]!)"
     }
 }

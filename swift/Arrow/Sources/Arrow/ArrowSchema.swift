@@ -20,7 +20,7 @@ public class ArrowField {
     let type: ArrowType
     let name: String
     let isNullable: Bool
-    
+
     init(_ name: String, type: ArrowType, isNullable: Bool) {
         self.name = name
         self.type = type
@@ -34,13 +34,13 @@ public class ArrowSchema {
     init(_ fields: [ArrowField]) {
         var fieldLookup = [String: Int]()
         for (index, field) in fields.enumerated() {
-            fieldLookup[field.name] = index;
+            fieldLookup[field.name] = index
         }
-        
+
         self.fields = fields
         self.fieldLookup = fieldLookup
     }
-    
+
     public func field(_ index: Int) -> ArrowField {
         return self.fields[index]
     }
@@ -51,9 +51,9 @@ public class ArrowSchema {
 
     public class Builder {
         private var fields: [ArrowField] = []
-        
+
         public init() {}
-        
+
         @discardableResult
         public func addField(_ field: ArrowField) -> Builder {
             fields.append(field)
@@ -65,7 +65,7 @@ public class ArrowSchema {
             fields.append(ArrowField(name, type: type, isNullable: isNullable))
             return self
         }
-        
+
         public func finish() -> ArrowSchema {
             return ArrowSchema(fields)
         }
