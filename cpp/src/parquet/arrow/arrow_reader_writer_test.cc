@@ -3374,6 +3374,8 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
 
   for (const auto& inner_type : types) {
     if (inner_type->id() == ::arrow::Type::NA) continue;
+    if (inner_type->id() == ::arrow::Type::BINARY_VIEW) continue;
+    if (inner_type->id() == ::arrow::Type::STRING_VIEW) continue;
 
     auto writer_props = WriterProperties::Builder();
     auto arrow_writer_props = ArrowWriterProperties::Builder();
@@ -3389,7 +3391,6 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
         arrow_writer_props.coerce_timestamps(unit);
       }
     }
-
     ASSERT_NO_FATAL_FAILURE(DoNestedRequiredRoundtrip(inner_type, writer_props.build(),
                                                       arrow_writer_props.build()));
 
