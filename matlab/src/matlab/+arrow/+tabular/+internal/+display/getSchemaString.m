@@ -1,4 +1,5 @@
-%DISPLAYSCHEMA Generates arrow.tabular.Schema display text.
+%GETSCHEMASTRING Generates a string representation of an 
+% arrow.tabular.Schema object.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function text = displaySchema(schema)
+function text = getSchemaString(schema)
     fields = schema.Fields;
     names = [fields.Name];
     types = [fields.Type];
@@ -46,5 +47,5 @@ function text = displaySchema(schema)
     end
 
     text = names + ": " + typeIDs;
-    text = "    " + strjoin(text, " | ");
+    text = strjoin(text, " | ");
 end

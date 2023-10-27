@@ -1,4 +1,5 @@
-%GETHEADER Generates the display header for arrow.array.Array classes
+%GETTABULARHEADER Generates the display header for arrow.tabular.Table and
+% arrow.tabular.RecordBatch.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,24 +16,17 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function header = getHeader(className, numElements, numNulls)
+function header = getTabularHeader(className, numRows, numColumns)
+    import arrow.internal.display.boldFontIfPossible
     import arrow.internal.display.pluralizeStringIfNeeded
-    elementString = pluralizeStringIfNeeded(numElements, "element");
 
-    nullString = pluralizeStringIfNeeded(numNulls, "null value");
-    
-    numString = "%d";
-    if usejava("desktop")
-        % Bold the number of elements and nulls if the desktop is enabled
-        numString = compose("<strong>%s</strong>", numString);
-    end
-
-    formatSpec = "  %s with " + numString + " %s and " + numString + " %s";
-    if numElements > 0
+    numRowsString = boldFontIfPossible(numRows);
+    numColsString = boldFontIfPossible(numColumns);
+    rowWordString = pluralizeStringIfNeeded(numRows, "row");
+    colWordString = pluralizeStringIfNeeded(numColumns, "column");
+    formatSpec = "  Arrow %s with %s %s and %s %s";
+    if numColumns > 0
         formatSpec = formatSpec + ":";
     end
-    formatSpec = formatSpec + newline;
-    
-    header = compose(formatSpec, className, numElements, elementString, numNulls, nullString);
-    header = char(header);
+    header = compose(formatSpec,className, numRowsString, rowWordString, numColsString, colWordString);
 end
