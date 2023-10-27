@@ -2436,7 +2436,7 @@ func stringHeadersToJSON(arr array.ViewLike, isBinary bool) []interface{} {
 	for i := range o {
 		hdr := arr.ValueHeader(i)
 		if hdr.IsInline() {
-			data := hdr.InlineData()
+			data := hdr.InlineString()
 			if isBinary {
 				data = strings.ToUpper(hex.EncodeToString(hdr.InlineBytes()))
 			}

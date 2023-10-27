@@ -25,8 +25,8 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 )
 
-func (sh *ViewHeader) InlineData() (data string) {
-	debug.Assert(sh.IsInline(), "calling InlineData on non-inline ViewHeader")
+func (sh *ViewHeader) InlineString() (data string) {
+	debug.Assert(sh.IsInline(), "calling InlineString on non-inline ViewHeader")
 
 	h := (*reflect.StringHeader)(unsafe.Pointer(&data))
 	h.Data = uintptr(unsafe.Pointer(&sh.data))

@@ -356,7 +356,7 @@ func (a *StringView) ValueHeader(i int) *arrow.ViewHeader {
 func (a *StringView) Value(i int) string {
 	s := a.ValueHeader(i)
 	if s.IsInline() {
-		return s.InlineData()
+		return s.InlineString()
 	}
 	start := s.BufferOffset()
 	buf := a.dataBuffers[s.BufferIndex()]
