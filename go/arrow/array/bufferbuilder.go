@@ -240,7 +240,7 @@ func (b *multiBufferBuilder) Reset() {
 func (b *multiBufferBuilder) UnsafeAppend(hdr *arrow.ViewHeader, val []byte) {
 	buf := b.blocks[b.currentOutBuffer]
 	idx, offset := b.currentOutBuffer, buf.Len()
-	hdr.SetIndexOffset(uint32(idx), uint32(offset))
+	hdr.SetIndexOffset(int32(idx), int32(offset))
 
 	n := copy(buf.Buf()[offset:], val)
 	buf.ResizeNoShrink(offset + n)

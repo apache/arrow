@@ -2405,7 +2405,7 @@ func stringHeadersFromJSON(mem memory.Allocator, isBinary bool, data []interface
 				panic(err)
 			}
 
-			values[i].SetIndexOffset(uint32(bufIdx), uint32(bufOffset))
+			values[i].SetIndexOffset(int32(bufIdx), int32(bufOffset))
 			prefix, err := hex.DecodeString(v["PREFIX"].(string))
 			if err != nil {
 				panic(err)

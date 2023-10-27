@@ -372,8 +372,8 @@ func (b *BinaryBuilder) UnmarshalJSON(data []byte) error {
 }
 
 const (
-	dfltBlockSize             = 1 << 20 // 1 MB
-	viewValueSizeLimit uint32 = math.MaxUint32
+	dfltBlockSize            = 32 << 10 // 32 KB
+	viewValueSizeLimit int32 = math.MaxInt32
 )
 
 type BinaryViewBuilder struct {
@@ -399,6 +399,10 @@ func NewBinaryViewBuilder(mem memory.Allocator) *BinaryViewBuilder {
 			mem:       mem,
 		},
 	}
+}
+
+func (b *BinaryViewBuilder) SetBlockSize(sz uint) {
+	b.blockBuilder.blockSize = int(sz)
 }
 
 func (b *BinaryViewBuilder) Type() arrow.DataType { return b.dtype }
@@ -446,8 +450,8 @@ func (b *BinaryViewBuilder) Resize(n int) {
 }
 
 func (b *BinaryViewBuilder) ReserveData(length int) {
-	if uint32(length) > viewValueSizeLimit {
-		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 4GB",
+	if int32(length) > viewValueSizeLimit {
+		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 2GB",
 			arrow.ErrInvalid))
 	}
 	b.blockBuilder.Reserve(int(length))
@@ -458,8 +462,8 @@ func (b *BinaryViewBuilder) Reserve(n int) {
 }
 
 func (b *BinaryViewBuilder) Append(v []byte) {
-	if uint32(len(v)) > viewValueSizeLimit {
-		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 4GB", arrow.ErrInvalid))
+	if int32(len(v)) > viewValueSizeLimit {
+		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 2GB", arrow.ErrInvalid))
 	}
 
 	if !arrow.IsViewInline(len(v)) {
@@ -476,7 +480,7 @@ func (b *BinaryViewBuilder) Append(v []byte) {
 //
 // This is different than AppendValueFromString which exists for the
 // Builder interface, in that this expects raw binary data which is
-// appended as such. AppendValueFromString expects base64 encoded binary
+// appended unmodified. AppendValueFromString expects base64 encoded binary
 // data instead.
 func (b *BinaryViewBuilder) AppendString(v string) {
 	// create a []byte without copying the bytes

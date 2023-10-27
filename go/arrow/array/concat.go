@@ -625,7 +625,7 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 					continue
 				}
 
-				bufIndex := s[i].BufferIndex() + uint32(precedingBufsCount)
+				bufIndex := s[i].BufferIndex() + int32(precedingBufsCount)
 				s[i].SetIndexOffset(bufIndex, s[i].BufferOffset())
 			}
 		}

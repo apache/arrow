@@ -60,7 +60,7 @@ func IsViewInline(length int) bool {
 //
 // [1]: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf
 type ViewHeader struct {
-	size uint32
+	size int32
 	// the first 4 bytes of this are the prefix for the string
 	// if size <= StringHeaderInlineSize, then the entire string
 	// is in the data array and is zero padded.
@@ -71,7 +71,7 @@ type ViewHeader struct {
 }
 
 func (sh *ViewHeader) IsInline() bool {
-	return sh.size <= uint32(stringViewInlineSize)
+	return sh.size <= int32(stringViewInlineSize)
 }
 
 func (sh *ViewHeader) Len() int { return int(sh.size) }
@@ -79,12 +79,12 @@ func (sh *ViewHeader) Prefix() [StringViewPrefixLen]byte {
 	return *(*[4]byte)(unsafe.Pointer(&sh.data))
 }
 
-func (sh *ViewHeader) BufferIndex() uint32 {
-	return endian.Native.Uint32(sh.data[StringViewPrefixLen:])
+func (sh *ViewHeader) BufferIndex() int32 {
+	return int32(endian.Native.Uint32(sh.data[StringViewPrefixLen:]))
 }
 
-func (sh *ViewHeader) BufferOffset() uint32 {
-	return endian.Native.Uint32(sh.data[StringViewPrefixLen+4:])
+func (sh *ViewHeader) BufferOffset() int32 {
+	return int32(endian.Native.Uint32(sh.data[StringViewPrefixLen+4:]))
 }
 
 func (sh *ViewHeader) InlineBytes() (data []byte) {
@@ -93,7 +93,7 @@ func (sh *ViewHeader) InlineBytes() (data []byte) {
 }
 
 func (sh *ViewHeader) SetBytes(data []byte) int {
-	sh.size = uint32(len(data))
+	sh.size = int32(len(data))
 	if sh.IsInline() {
 		return copy(sh.data[:], data)
 	}
@@ -101,16 +101,16 @@ func (sh *ViewHeader) SetBytes(data []byte) int {
 }
 
 func (sh *ViewHeader) SetString(data string) int {
-	sh.size = uint32(len(data))
+	sh.size = int32(len(data))
 	if sh.IsInline() {
 		return copy(sh.data[:], data)
 	}
 	return copy(sh.data[:4], data)
 }
 
-func (sh *ViewHeader) SetIndexOffset(bufferIndex, offset uint32) {
-	endian.Native.PutUint32(sh.data[StringViewPrefixLen:], bufferIndex)
-	endian.Native.PutUint32(sh.data[StringViewPrefixLen+4:], offset)
+func (sh *ViewHeader) SetIndexOffset(bufferIndex, offset int32) {
+	endian.Native.PutUint32(sh.data[StringViewPrefixLen:], uint32(bufferIndex))
+	endian.Native.PutUint32(sh.data[StringViewPrefixLen+4:], uint32(offset))
 }
 
 func (sh *ViewHeader) Equals(buffers []*memory.Buffer, other *ViewHeader, otherBuffers []*memory.Buffer) bool {

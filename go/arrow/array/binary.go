@@ -364,7 +364,7 @@ func (a *BinaryView) Value(i int) []byte {
 	}
 	start := s.BufferOffset()
 	buf := a.dataBuffers[s.BufferIndex()]
-	return buf.Bytes()[start : start+uint32(s.Len())]
+	return buf.Bytes()[start : start+int32(s.Len())]
 }
 
 // ValueString returns the value at index i as a string instead of

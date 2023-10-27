@@ -34,7 +34,7 @@ type stringHeaderTraits struct{}
 func (stringHeaderTraits) BytesRequired(n int) int { return StringHeaderSizeBytes * n }
 
 func (stringHeaderTraits) PutValue(b []byte, v ViewHeader) {
-	endian.Native.PutUint32(b, v.size)
+	endian.Native.PutUint32(b, uint32(v.size))
 	copy(b[4:], v.data[:])
 }
 

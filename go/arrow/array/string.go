@@ -360,7 +360,7 @@ func (a *StringView) Value(i int) string {
 	}
 	start := s.BufferOffset()
 	buf := a.dataBuffers[s.BufferIndex()]
-	value := buf.Bytes()[start : start+uint32(s.Len())]
+	value := buf.Bytes()[start : start+int32(s.Len())]
 	return *(*string)(unsafe.Pointer(&value))
 }
 
