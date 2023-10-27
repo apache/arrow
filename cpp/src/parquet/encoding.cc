@@ -1923,7 +1923,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int32_t indices[kBufferSize];
 
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
-    // RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
     int values_decoded = 0;
@@ -1991,7 +1990,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int values_decoded = 0;
 
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
-    // RETURN_NOT_OK(helper.Prepare(len_));
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
