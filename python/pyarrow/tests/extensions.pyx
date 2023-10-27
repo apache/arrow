@@ -37,7 +37,7 @@ cdef extern from * namespace "arrow::py" nogil:
     class UuidType : public ExtensionType {
     public:
         UuidType() : ExtensionType(fixed_size_binary(16)) {}
-        std::string extension_name() const override { return "uuid"; }
+        std::string extension_name() const override { return "example-uuid"; }
 
         bool ExtensionEquals(const ExtensionType& other) const override {
             return other.extension_name() == this->extension_name();
