@@ -32,7 +32,7 @@ else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(ORC_STATIC_TEST_LINK_LIBS orc::liborc ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
+set(ORC_STATIC_TEST_LINK_LIBS orc::orc ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
                               ${ARROW_GTEST_GTEST_MAIN} ${ARROW_GTEST_GTEST})
 
 add_arrow_test(adapter_test
