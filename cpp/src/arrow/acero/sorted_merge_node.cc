@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <any>
 #include <atomic>
 #include <mutex>
 #include <sstream>
@@ -69,8 +70,8 @@ namespace {
 
 // Each slice is associated with a single input source, so we only need 1 record
 // batch per slice
-using UnmaterializedSliceBuilder = arrow::acero::UnmaterializedSliceBuilder<1>;
-using UnmaterializedCompositeTable = arrow::acero::UnmaterializedCompositeTable<1>;
+using SingleRecordBatchSliceBuilder = arrow::acero::UnmaterializedSliceBuilder<1>;
+using SingleRecordBatchCompositeTable = arrow::acero::UnmaterializedCompositeTable<1>;
 
 using row_index_t = uint64_t;
 using time_unit_t = uint64_t;
@@ -163,7 +164,7 @@ class InputState {
 
   bool Finished() const { return batches_processed_ == total_batches_; }
 
-  void Advance(UnmaterializedSliceBuilder& builder) {
+  void Advance(SingleRecordBatchSliceBuilder& builder) {
     // Advance the row until a new time is encountered or the record batch
     // ends. This will return a range of {-1, -1} and a nullptr if there is
     // no input
@@ -318,25 +319,30 @@ class SortedMergeNode : public ExecNode {
   const arrow::Ordering& ordering() const override { return ordering_; }
 
   arrow::Status Init() override {
+    ARROW_CHECK(ordering_.sort_keys().size() == 1) << "Only one sort key supported";
+
     auto inputs = this->inputs();
     for (size_t i = 0; i < inputs.size(); i++) {
       ExecNode* input = inputs[i];
       const auto& schema = input->output_schema();
+
       const auto& sort_key = ordering_.sort_keys()[0];
       if (sort_key.order != arrow::compute::SortOrder::Ascending) {
         return Status::NotImplemented("Only ascending sort order is supported");
       }
 
-      const auto& ref = sort_key.target;
-      if (!ref.IsName()) {
-        return Status::Invalid("Ordering must be a name. ", ref.ToString(),
-                               " is not a name");
+      const FieldRef& ref = sort_key.target;
+      auto match_res = ref.FindOne(*schema);
+      if (!match_res.ok()) {
+        return Status::Invalid("Bad sort key : ", match_res.status().message());
       }
+      ARROW_ASSIGN_OR_RAISE(auto match, match_res);
+      ARROW_DCHECK(match.indices().size() == 1);
 
       ARROW_ASSIGN_OR_RAISE(auto input_state,
                             InputState::Make<std::shared_ptr<InputState>>(
                                 i, input, this, backpressure_counter, schema,
-                                schema->GetFieldIndex(*ref.name())));
+                                std::move(match.indices()[0])));
       state.push_back(std::move(input_state));
     }
     return Status::OK();
@@ -437,11 +443,18 @@ class SortedMergeNode : public ExecNode {
     }
 
     std::vector<std::shared_ptr<InputState>> heap = state;
-    // filter out empty states
+    // filter out finished states
     heap.erase(std::remove_if(
                    heap.begin(), heap.end(),
                    [](const std::shared_ptr<InputState>& s) { return s->Finished(); }),
                heap.end());
+
+    // If any are Empty(), then return early since we don't have enough data
+    if (std::any_of(heap.begin(), heap.end(),
+                    [](const std::shared_ptr<InputState>& s) { return s->Empty(); })) {
+      return nullptr;
+    };
+
     // Currently we only support one sort key
     const auto sort_col = *ordering_.sort_keys().at(0).target.name();
     const auto comp = InputStateComparator();
@@ -452,12 +465,15 @@ class SortedMergeNode : public ExecNode {
     for (int i = 0; i < output_schema_->num_fields(); i++) {
       output_col_to_src[i] = std::make_pair(0, i);
     }
-    UnmaterializedCompositeTable output(output_schema(), 1, std::move(output_col_to_src),
-                                        plan()->query_context()->memory_pool());
+    SingleRecordBatchCompositeTable output(output_schema(), 1,
+                                           std::move(output_col_to_src),
+                                           plan()->query_context()->memory_pool());
 
     // Generate rows until we run out of data or we exceed the target output
     // size
-    while (!heap.empty() && output.Size() < kTargetOutputBatchSize) {
+    bool waiting_for_more_data = false;
+    while (!waiting_for_more_data && !heap.empty() &&
+           output.Size() < kTargetOutputBatchSize) {
       std::pop_heap(heap.begin(), heap.end(), comp);
 
       auto& next_item = heap.back();
@@ -469,16 +485,19 @@ class SortedMergeNode : public ExecNode {
           << " latestTime=" << latest_time;
 
       latest_time = new_time;
-      UnmaterializedSliceBuilder builder{&output};
+      SingleRecordBatchSliceBuilder builder{&output};
       next_item->Advance(builder);
 
       if (builder.Size() > 0) {
         output_counter[next_item->index()] += builder.Size();
         builder.Finalize();
       }
-
       if (next_item->Finished() || next_item->Empty()) {
         heap.pop_back();
+      }
+      // We've run out of data on one of the inputs
+      if (next_item->Empty()) {
+        waiting_for_more_data = true;
       }
       std::make_heap(heap.begin(), heap.end(), comp);
     }
@@ -488,7 +507,11 @@ class SortedMergeNode : public ExecNode {
       return nullptr;
     }
 
+    ARROW_LOG(ERROR) << "heap length: " << heap.size();
+
     ARROW_ASSIGN_OR_RAISE(auto maybe_rb, output.Materialize());
+    ARROW_LOG(ERROR) << "Materialized "
+                     << (maybe_rb.has_value() ? (*maybe_rb)->ToString() : " EMPTY");
     return maybe_rb.value_or(nullptr);
   }
   /// Gets a batch. Returns true if there is more data to process, false if we

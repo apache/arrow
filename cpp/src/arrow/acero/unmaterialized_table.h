@@ -261,11 +261,13 @@ class UnmaterializedSliceBuilder {
   int64_t Size() { return slice.Size(); }
 
  private:
-  using UnmaterializedCompositeTable = UnmaterializedCompositeTable<MAX_COMPOSITE_TABLES>;
-  using UnmaterializedSlice = typename UnmaterializedCompositeTable::UnmaterializedSlice;
+  using TUnmaterializedCompositeTable =
+      UnmaterializedCompositeTable<MAX_COMPOSITE_TABLES>;
+  using TUnmaterializedSlice =
+      typename TUnmaterializedCompositeTable::UnmaterializedSlice;
 
-  UnmaterializedCompositeTable* table;
-  UnmaterializedSlice slice{};
+  TUnmaterializedCompositeTable* table;
+  TUnmaterializedSlice slice{};
 };
 
 }  // namespace arrow::acero
