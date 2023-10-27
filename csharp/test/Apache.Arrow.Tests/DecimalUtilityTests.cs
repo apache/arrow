@@ -96,6 +96,7 @@ namespace Apache.Arrow.Tests
             public void LargeScale()
             {
                 string digits = "1.2345678901234567890123456789012345678";
+
                 var positive = SqlDecimal.Parse(digits);
                 Assert.Equal(38, positive.Precision);
                 Assert.Equal(37, positive.Scale);
