@@ -1000,7 +1000,7 @@ def test_make_fragment_with_size(s3_example_simple):
     assert tbl.equals(table)
 
     sizes_toosmall = [1]
-    fragments_with_size = [file_format.make_fragment(path, fs, size=size)
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
                            for path, size in zip(paths, sizes_toosmall)]
 
     dataset_with_size = ds.FileSystemDataset(
@@ -1011,7 +1011,7 @@ def test_make_fragment_with_size(s3_example_simple):
         table = dataset_with_size.to_table()
 
     sizes_toolarge = [1000000]
-    fragments_with_size = [file_format.make_fragment(path, fs, size=size)
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
                            for path, size in zip(paths, sizes_toolarge)]
 
     dataset_with_size = ds.FileSystemDataset(

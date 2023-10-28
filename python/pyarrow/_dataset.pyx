@@ -96,7 +96,7 @@ def _get_parquet_symbol(name):
     return _dataset_pq and getattr(_dataset_pq, name)
 
 
-cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int64_t size=-1):
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int64_t file_size=-1):
 
     cdef:
         CFileSource c_source
@@ -115,8 +115,8 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int6
         c_filesystem = filesystem.unwrap()
         c_path = tobytes(_stringify_path(file))
 
-        if size >= 0:
-            c_size = size
+        if file_size >= 0:
+            c_size = file_size
             c_source = CFileSource(move(c_path), move(c_size), move(c_filesystem))
         else:
             c_source = CFileSource(move(c_path), move(c_filesystem))
@@ -1242,7 +1242,7 @@ cdef class FileFormat(_Weakrefable):
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None,
-                      *, size=None):
+                      *, file_size=None):
         """
         Make a FileFragment from a given file.
 
@@ -1256,7 +1256,7 @@ cdef class FileFormat(_Weakrefable):
         partition_expression : Expression, optional
             An expression that is guaranteed true for all rows in the fragment.  Allows
             fragment to be potentially skipped while scanning with a filter.
-        size : int, optional
+        file_size : int, optional
             The size of the file in bytes. Can improve performance with high-latency filesystems
             when file size needs to be known before reading.
 
@@ -1270,9 +1270,9 @@ cdef class FileFormat(_Weakrefable):
             int64_t c_size = -1
         if partition_expression is None:
             partition_expression = _true
-        if size is not None:
-            c_size = size
-        c_source = _make_file_source(file, filesystem=filesystem, size=c_size)
+        if file_size is not None:
+            c_size = file_size
+        c_source = _make_file_source(file, filesystem=filesystem, file_size=c_size)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.format.MakeFragment(move(c_source),
                                      partition_expression.unwrap(),
