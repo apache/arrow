@@ -189,7 +189,7 @@ static const std::string kEncodedUuidMetadata =  // NOLINT: runtime/string
 #if ARROW_LITTLE_ENDIAN
     std::string {2, 0, 0, 0} +
     std::string {20, 0, 0, 0} + kExtensionTypeKeyName +
-    std::string {4, 0, 0, 0} + "uuid" +
+    std::string {10, 0, 0, 0} + "arrow.uuid" +
     std::string {24, 0, 0, 0} + kExtensionMetadataKeyName +
     std::string {15, 0, 0, 0} + "uuid-serialized";
 #else

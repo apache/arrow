@@ -185,7 +185,7 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
   auto type_not_exist = GetExtensionType("uuid-unknown");
   ASSERT_EQ(type_not_exist, nullptr);
 
-  auto registered_type = GetExtensionType("uuid");
+  auto registered_type = GetExtensionType("arrow.uuid");
   ASSERT_NE(registered_type, nullptr);
 
   auto type = uuid();
@@ -235,9 +235,9 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
 
   ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
 
-  ASSERT_OK(UnregisterExtensionType("uuid"));
+  ASSERT_OK(UnregisterExtensionType("arrow.uuid"));
   auto ext_metadata =
-      key_value_metadata({{"ARROW:extension:name", "uuid"},
+      key_value_metadata({{"ARROW:extension:name", "arrow.uuid"},
                           {"ARROW:extension:metadata", "uuid-serialized"}});
   auto ext_field = field("f0", fixed_size_binary(16), true, ext_metadata);
   auto batch_no_ext = RecordBatch::Make(schema({ext_field}), 4, {storage_arr});
