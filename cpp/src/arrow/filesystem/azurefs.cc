@@ -467,6 +467,40 @@ class AzureFileSystem::Impl {
 
   const AzureOptions& options() const { return options_; }
 
+  Result<FileInfo> GetFileInfo(const AzurePath& path) {
+    FileInfo info;
+    info.set_path(path.full_path);
+
+    if (path.container.empty()) {
+      DCHECK(path.path_to_file.empty());  // The path is invalid if the container is empty
+                                          // but not path_to_file.
+      // path must refer to the root of the Azure storage account. This is a directory,
+      // and there isn't any extra metadata to fetch.
+      // TODO: Confirm if we need to check that the storage account exists. I think there
+      // would have been an earlier failure.
+      return FileInfo(path.full_path, FileType::Directory);
+    }
+    if (path.path_to_file.empty()) {
+      // path refers to a container. This is a directory if it exists.
+      auto container_client = service_client_->GetBlobContainerClient(path.container);
+      try {
+        auto properties = container_client.GetProperties();
+        auto info = FileInfo(path.full_path, FileType::Directory);
+        info.set_mtime(
+            std::chrono::system_clock::time_point(properties.Value.LastModified));
+        return info;
+      } catch (const Azure::Storage::StorageException& exception) {
+        if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+          return FileInfo(path.full_path, FileType::NotFound);
+        }
+        return ErrorToStatus(
+            "When fetching properties for '" + container_client.GetUrl() + "': ",
+            exception);
+      }
+    }
+    return info;
+  }
+
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
                                                          AzureFileSystem* fs) {
     ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(s));
@@ -518,7 +552,8 @@ bool AzureFileSystem::Equals(const FileSystem& other) const {
 }
 
 Result<FileInfo> AzureFileSystem::GetFileInfo(const std::string& path) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, AzurePath::FromString(path));
+  return impl_->GetFileInfo(p);
 }
 
 Result<FileInfoVector> AzureFileSystem::GetFileInfo(const FileSelector& select) {
