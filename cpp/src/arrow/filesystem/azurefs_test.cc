@@ -47,6 +47,7 @@
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
 
+#include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
@@ -226,67 +227,71 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 };
 
-TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
-  auto fs = GcsFileSystem::Make(TestGcsOptions());
-  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
+TEST_F(TestAzureFileSystem, GetFileInfoContainer) {
+  arrow::fs::AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
 
   // URI
-  ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
 }
 
-TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
+TEST_F(TestAzureFileSystem, GetFileInfoObjectWithNestedStructure) {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
-  auto fs = GcsFileSystem::Make(TestGcsOptions());
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
   ASSERT_OK_AND_ASSIGN(
       auto output,
-      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName, /*metadata=*/{}));
+      fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName, /*metadata=*/{}));
   const auto data = std::string(kLoremIpsum);
   ASSERT_OK(output->Write(data.data(), data.size()));
   ASSERT_OK(output->Close());
 
   // 0 is immediately after "/" lexicographically, ensure that this doesn't
   // cause unexpected issues.
-  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(PreexistingBucketPath() +
-                                                        "test-object-dir/some_other_dir0",
-                                                    /*metadata=*/{}));
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs_->OpenOutputStream(
+                           PreexistingContainerPath() + "test-object-dir/some_other_dir0",
+                           /*metadata=*/{}));
   ASSERT_OK(output->Write(data.data(), data.size()));
   ASSERT_OK(output->Close());
   ASSERT_OK_AND_ASSIGN(
-      output,
-      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName + "0", /*metadata=*/{}));
+      output, fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName + "0",
+                                    /*metadata=*/{}));
   ASSERT_OK(output->Write(data.data(), data.size()));
   ASSERT_OK(output->Close());
 
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName, FileType::File);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName + "/",
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName + "/",
                  FileType::NotFound);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir",
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir",
                  FileType::Directory);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/",
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/",
                  FileType::Directory);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir",
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_dir",
                  FileType::Directory);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir/",
+  AssertFileInfo(fs_.get(),
+                 PreexistingContainerPath() + "test-object-dir/some_other_dir/",
                  FileType::Directory);
 
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-di",
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-di",
                  FileType::NotFound);
-  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_di",
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_di",
                  FileType::NotFound);
 }
 
-TEST_F(GcsIntegrationTest, GetFileInfoObjectNoExplicitObject) {
-  auto fs = GcsFileSystem::Make(TestGcsOptions());
-  auto object =
-      GcsClient().GetObjectMetadata(PreexistingBucketName(), PreexistingObjectName());
-  ASSERT_TRUE(object.ok()) << "status=" << object.status();
-  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File,
-                            object->time_created(), static_cast<int64_t>(object->size()));
+TEST_F(TestAzureFileSystem, GetFileInfoObjectNoExplicitObject) {
+  auto object_properties =
+      service_client_->GetBlobContainerClient(PreexistingContainerName())
+          .GetBlobClient(PreexistingObjectName())
+          .GetProperties()
+          .Value;
+
+  arrow::fs::AssertFileInfo(
+      fs_.get(), PreexistingObjectPath(), FileType::File,
+      std::chrono::system_clock::time_point(object_properties.LastModified),
+      static_cast<int64_t>(object_properties.BlobSize));
 
   // URI
-  ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingObjectName()));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamString) {
@@ -343,7 +348,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamNotFound) {
 
 TEST_F(TestAzureFileSystem, OpenInputStreamInfoInvalid) {
   // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
-  // fs->GetFileInfo(PreexistingBucketPath()));
+  // fs->GetFileInfo(PreexistingContainerPath()));
   arrow::fs::FileInfo info(PreexistingContainerPath(), FileType::Directory);
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info));
 
