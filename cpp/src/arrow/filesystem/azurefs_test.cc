@@ -226,6 +226,69 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 };
 
+TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
+
+  // URI
+  ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
+  // Adds detailed tests to handle cases of different edge cases
+  // with directory naming conventions (e.g. with and without slashes).
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
+  ASSERT_OK_AND_ASSIGN(
+      auto output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName, /*metadata=*/{}));
+  const auto data = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  // 0 is immediately after "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues.
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(PreexistingBucketPath() +
+                                                        "test-object-dir/some_other_dir0",
+                                                    /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(
+      output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName + "0", /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName, FileType::File);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName + "/",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir/",
+                 FileType::Directory);
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-di",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_di",
+                 FileType::NotFound);
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoObjectNoExplicitObject) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  auto object =
+      GcsClient().GetObjectMetadata(PreexistingBucketName(), PreexistingObjectName());
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File,
+                            object->time_created(), static_cast<int64_t>(object->size()));
+
+  // URI
+  ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingObjectName()));
+}
+
 TEST_F(TestAzureFileSystem, OpenInputStreamString) {
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
