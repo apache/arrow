@@ -112,15 +112,12 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// value is null or out-of-bounds.
   int64_t GetValueIndex(int64_t i) const;
 
-  std::string_view GetView(int64_t i) const {
+  std::string GetView(int64_t i) const {
     // Obtain the index at position i
     const auto index = GetValueIndex(i);
 
-    // Assuming the dictionary is a StringArray
-    return std::string_view(
-        reinterpret_cast<const char*>(
-            dictionary()->GetScalar(index).ValueOrDie()->ToString().data()),
-        dictionary()->GetScalar(index).ValueOrDie()->ToString().size());
+    // Assuming the dictionary is a String
+    return dictionary()->GetScalar(index).ValueOrDie()->ToString();
   }
 
   const DictionaryType* dict_type() const { return dict_type_; }
