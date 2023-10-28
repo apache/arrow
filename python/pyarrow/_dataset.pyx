@@ -32,7 +32,7 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._acero cimport ExecNodeOptions
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._compute import _forbid_instantiation
-from pyarrow._fs cimport FileSystem, FileSelector
+from pyarrow._fs cimport FileSystem, FileSelector, FileInfo
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
@@ -101,6 +101,7 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int6
     cdef:
         CFileSource c_source
         shared_ptr[CFileSystem] c_filesystem
+        CFileInfo c_info
         c_string c_path
         shared_ptr[CRandomAccessFile] c_file
         shared_ptr[CBuffer] c_buffer
@@ -117,7 +118,9 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int6
 
         if file_size >= 0:
             c_size = file_size
-            c_source = CFileSource(move(c_path), move(c_size), move(c_filesystem))
+            info = FileInfo(c_path, size=c_size)
+            c_info = info.unwrap()
+            c_source = CFileSource(move(c_info), move(c_filesystem))
         else:
             c_source = CFileSource(move(c_path), move(c_filesystem))
     elif hasattr(file, 'read'):

@@ -54,11 +54,6 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
       : file_info_(std::move(path)),
         filesystem_(std::move(filesystem)),
         compression_(compression) {}
-  FileSource(std::string path, int64_t size, std::shared_ptr<fs::FileSystem> filesystem,
-             Compression::type compression = Compression::UNCOMPRESSED)
-      : file_info_(std::move(path), std::move(size)),
-        filesystem_(std::move(filesystem)),
-        compression_(compression) {}
   FileSource(fs::FileInfo info, std::shared_ptr<fs::FileSystem> filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
       : file_info_(std::move(info)),

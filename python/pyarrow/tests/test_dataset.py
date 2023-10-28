@@ -991,7 +991,6 @@ def test_make_fragment_with_size(s3_example_simple):
 
     fragments = [file_format.make_fragment(path, fs)
                  for path in paths]
-
     dataset = ds.FileSystemDataset(
         fragments, format=file_format, schema=table.schema, filesystem=fs
     )
@@ -999,7 +998,18 @@ def test_make_fragment_with_size(s3_example_simple):
     tbl = dataset.to_table()
     assert tbl.equals(table)
 
-    sizes_toosmall = [1]
+    # true sizes -> works
+    sizes_true = [dataset.filesystem.get_file_info(x).size for x in dataset.files]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_true)]
+    dataset_with_size = ds.FileSystemDataset(
+            fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    # too small sizes -> error
+    sizes_toosmall = [1 for path in paths]
     fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
                            for path, size in zip(paths, sizes_toosmall)]
 
@@ -1010,7 +1020,8 @@ def test_make_fragment_with_size(s3_example_simple):
     with pytest.raises(pyarrow.lib.ArrowInvalid, match='Parquet file size is 1 bytes'):
         table = dataset_with_size.to_table()
 
-    sizes_toolarge = [1000000]
+    # too large sizes -> error
+    sizes_toolarge = [1000000 for path in paths]
     fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
                            for path, size in zip(paths, sizes_toolarge)]
 
