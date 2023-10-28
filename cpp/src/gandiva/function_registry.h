@@ -52,8 +52,14 @@ class GANDIVA_EXPORT FunctionRegistry {
   arrow::Status Register(const std::vector<NativeFunction>& funcs,
                          std::shared_ptr<arrow::Buffer> bitcode_buffer);
 
+  /// \brief register a stub function into the function registry
+  arrow::Status Register(NativeFunction func, void* stub_function_ptr);
+
   /// \brief get a list of bitcode memory buffers saved in the registry
   const std::vector<std::shared_ptr<arrow::Buffer>>& GetBitcodeBuffers() const;
+
+  /// \brief get a list of stub functions saved in the registry
+  const std::vector<std::pair<NativeFunction, void*>>& GetStubFunctions() const;
 
   iterator begin() const;
   iterator end() const;
@@ -65,6 +71,7 @@ class GANDIVA_EXPORT FunctionRegistry {
   std::vector<NativeFunction> pc_registry_;
   SignatureMap pc_registry_map_;
   std::vector<std::shared_ptr<arrow::Buffer>> bitcode_memory_buffers_;
+  std::vector<std::pair<NativeFunction, void*>> stub_functions_;
 
   Status Add(NativeFunction func);
 };

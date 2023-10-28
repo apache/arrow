@@ -43,10 +43,27 @@ NativeFunction GetTestExternalFunction() {
   return multiply_by_two_func;
 }
 
+NativeFunction GetTestExternalStubFunction() {
+  NativeFunction multiply_by_three_func(
+      "multiply_by_three", {}, {arrow::int32()}, arrow::int64(),
+      ResultNullableType::kResultNullIfNull, "multiply_by_three_int32");
+  return multiply_by_three_func;
+}
+
 std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
     std::shared_ptr<FunctionRegistry> registry) {
   ARROW_EXPECT_OK(
       registry->Register({GetTestExternalFunction()}, GetTestFunctionLLVMIRPath()));
+  auto external_func_config = ConfigurationBuilder().build(std::move(registry));
+  return external_func_config;
+}
+
+int64_t multiply_by_three(int32_t in) { return in * 3; }
+
+std::shared_ptr<Configuration> TestConfigurationWithExternalStubFunctionRegistry(
+    std::shared_ptr<FunctionRegistry> registry) {
+  ARROW_EXPECT_OK(registry->Register(GetTestExternalStubFunction(),
+                                     reinterpret_cast<void*>(multiply_by_three)));
   auto external_func_config = ConfigurationBuilder().build(std::move(registry));
   return external_func_config;
 }

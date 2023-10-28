@@ -109,9 +109,20 @@ arrow::Status FunctionRegistry::Register(const std::vector<NativeFunction>& func
   return Status::OK();
 }
 
+arrow::Status FunctionRegistry::Register(NativeFunction func, void* stub_function_ptr) {
+  stub_functions_.emplace_back(func, stub_function_ptr);
+  ARROW_RETURN_NOT_OK(FunctionRegistry::Add(std::move(func)));
+  return Status::OK();
+}
+
 const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeBuffers()
     const {
   return bitcode_memory_buffers_;
+}
+
+const std::vector<std::pair<NativeFunction, void*>>& FunctionRegistry::GetStubFunctions()
+    const {
+  return stub_functions_;
 }
 
 arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
