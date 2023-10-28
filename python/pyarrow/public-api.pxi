@@ -432,10 +432,11 @@ cdef api object pyarrow_wrap_batch(
 
 
 cdef api bint pyarrow_is_expression(object expr):
-    return isinstance(expr, Expression)
+    return isinstance(expr, _pc().Expression)
 
 
 cdef api shared_ptr[CExpression] pyarrow_unwrap_expression(object expr):
+    Expression = _pc().Expression
     cdef Expression expression
     if pyarrow_is_expression(expr):
         expression = <Expression>(expr)
@@ -448,6 +449,7 @@ cdef api object pyarrow_wrap_expression(const shared_ptr[CExpression]& cexpr):
     if cexpr.get() == NULL:
         raise ValueError('Expression was NULL')
 
+    Expression = _pc().Expression
     cdef Expression expr = Expression.__new__(Expression)
     expr.init(cexpr)
     return expr
