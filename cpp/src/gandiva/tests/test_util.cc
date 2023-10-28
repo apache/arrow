@@ -17,8 +17,11 @@
 
 #include "gandiva/tests/test_util.h"
 
+#include <memory>
+
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "gandiva/function_holder.h"
 
 namespace gandiva {
 std::shared_ptr<Configuration> TestConfiguration() {
@@ -43,11 +46,20 @@ NativeFunction GetTestExternalFunction() {
   return multiply_by_two_func;
 }
 
-NativeFunction GetTestExternalStubFunction() {
+static NativeFunction GetTestExternalStubFunction() {
   NativeFunction multiply_by_three_func(
       "multiply_by_three", {}, {arrow::int32()}, arrow::int64(),
       ResultNullableType::kResultNullIfNull, "multiply_by_three_int32");
   return multiply_by_three_func;
+}
+
+static NativeFunction GetTestFunctionWithFunctionHolder() {
+  // the 2nd parameter is expected to be an int32 literal
+  NativeFunction multiply_by_n_func("multiply_by_n", {}, {arrow::int32(), arrow::int32()},
+                                    arrow::int64(), ResultNullableType::kResultNullIfNull,
+                                    "multiply_by_n_int32_int32",
+                                    NativeFunction::kNeedsFunctionHolder);
+  return multiply_by_n_func;
 }
 
 std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
@@ -58,12 +70,66 @@ std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
   return external_func_config;
 }
 
-int64_t multiply_by_three(int32_t in) { return in * 3; }
+class MultiplyHolder : public FunctionHolder {
+ public:
+  MultiplyHolder(int32_t num) : num_(num){};
+
+  static Status Make(const FunctionNode& node, std::shared_ptr<MultiplyHolder>* holder) {
+    ARROW_RETURN_IF(node.children().size() != 2,
+                    Status::Invalid("'multiply_by_n' function requires two parameters"));
+
+    auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+    ARROW_RETURN_IF(
+        literal == nullptr,
+        Status::Invalid(
+            "'multiply_by_n' function requires a literal as the 2nd parameter"));
+
+    auto literal_type = literal->return_type()->id();
+    ARROW_RETURN_IF(
+        literal_type != arrow::Type::INT32,
+        Status::Invalid(
+            "'multiply_by_n' function requires an int32 literal as the 2nd parameter"));
+
+    *holder = std::make_shared<MultiplyHolder>(
+        literal->is_null() ? 0 : std::get<int32_t>(literal->holder()));
+    return Status::OK();
+  }
+
+  int32_t operator()() { return num_; }
+
+ private:
+  int32_t num_;
+};
+
+extern "C" {
+// this function is used as an external stub function for testing so it has to be declared
+// with extern C
+static int64_t multiply_by_three(int32_t value) { return value * 3; }
+
+// this function requires a function holder
+static int64_t multiply_by_n(int64_t holder_ptr, int32_t value) {
+  MultiplyHolder* holder = reinterpret_cast<MultiplyHolder*>(holder_ptr);
+  return value * (*holder)();
+}
+}
 
 std::shared_ptr<Configuration> TestConfigurationWithExternalStubFunctionRegistry(
     std::shared_ptr<FunctionRegistry> registry) {
   ARROW_EXPECT_OK(registry->Register(GetTestExternalStubFunction(),
                                      reinterpret_cast<void*>(multiply_by_three)));
+  auto external_func_config = ConfigurationBuilder().build(std::move(registry));
+  return external_func_config;
+}
+
+std::shared_ptr<Configuration> TestConfigurationWithFunctionHolderRegistry(
+    std::shared_ptr<FunctionRegistry> registry) {
+  ARROW_EXPECT_OK(registry->Register(
+      GetTestFunctionWithFunctionHolder(), reinterpret_cast<void*>(multiply_by_n),
+      [](const FunctionNode& node) -> arrow::Result<FunctionHolderPtr> {
+        std::shared_ptr<MultiplyHolder> derived_instance;
+        ARROW_RETURN_NOT_OK(MultiplyHolder::Make(node, &derived_instance));
+        return derived_instance;
+      }));
   auto external_func_config = ConfigurationBuilder().build(std::move(registry));
   return external_func_config;
 }

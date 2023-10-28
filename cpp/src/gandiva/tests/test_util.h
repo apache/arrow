@@ -104,12 +104,10 @@ std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
 std::shared_ptr<Configuration> TestConfigurationWithExternalStubFunctionRegistry(
     std::shared_ptr<FunctionRegistry> registry);
 
+std::shared_ptr<Configuration> TestConfigurationWithFunctionHolderRegistry(
+    std::shared_ptr<FunctionRegistry> registry);
+
 std::string GetTestFunctionLLVMIRPath();
 NativeFunction GetTestExternalFunction();
-NativeFunction GetTestExternalStubFunction();
-
-extern "C" {
-int64_t multiply_by_three(int32_t in);
-}
 
 }  // namespace gandiva

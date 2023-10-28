@@ -65,6 +65,7 @@ set(SRC_FILES
     external_stub_functions.cc
     filter.cc
     function_ir_builder.cc
+    function_holder_maker_registry.cc
     function_registry.cc
     function_registry_arithmetic.cc
     function_registry_datetime.cc

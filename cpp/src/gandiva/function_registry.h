@@ -18,11 +18,14 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
+#include "gandiva/function_holder.h"
+#include "gandiva/function_holder_maker_registry.h"
 #include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
@@ -34,6 +37,9 @@ namespace gandiva {
 class GANDIVA_EXPORT FunctionRegistry {
  public:
   using iterator = const NativeFunction*;
+  using FunctionHolderMaker =
+      std::function<arrow::Result<std::shared_ptr<FunctionHolder>>(
+          const FunctionNode& function_node)>;
 
   FunctionRegistry();
   FunctionRegistry(const FunctionRegistry&) = delete;
@@ -53,13 +59,22 @@ class GANDIVA_EXPORT FunctionRegistry {
                          std::shared_ptr<arrow::Buffer> bitcode_buffer);
 
   /// \brief register a stub function into the function registry
-  arrow::Status Register(NativeFunction func, void* stub_function_ptr);
+  /// @param func the registered function's metadata
+  /// @param stub_function_ptr the function pointer to the
+  /// registered function's implementation
+  /// @param function_holder_maker this will be used as the function holder if the
+  /// function requires a function holder
+  arrow::Status Register(
+      NativeFunction func, void* stub_function_ptr,
+      std::optional<FunctionHolderMaker> function_holder_maker = std::nullopt);
 
   /// \brief get a list of bitcode memory buffers saved in the registry
   const std::vector<std::shared_ptr<arrow::Buffer>>& GetBitcodeBuffers() const;
 
   /// \brief get a list of stub functions saved in the registry
   const std::vector<std::pair<NativeFunction, void*>>& GetStubFunctions() const;
+
+  const FunctionHolderMakerRegistry& GetFunctionHolderMakerRegistry() const;
 
   iterator begin() const;
   iterator end() const;
@@ -72,6 +87,7 @@ class GANDIVA_EXPORT FunctionRegistry {
   SignatureMap pc_registry_map_;
   std::vector<std::shared_ptr<arrow::Buffer>> bitcode_memory_buffers_;
   std::vector<std::pair<NativeFunction, void*>> stub_functions_;
+  FunctionHolderMakerRegistry holder_maker_registry_;
 
   Status Add(NativeFunction func);
 };
