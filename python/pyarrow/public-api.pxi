@@ -16,14 +16,16 @@
 # under the License.
 
 from libcpp.memory cimport shared_ptr
-from pyarrow.includes.libarrow cimport (CArray, CDataType, CExpression,
-                                        CField, CRecordBatch, CRecordBatchReader,
-                                        CSchema, CTable, CTensor,
-                                        CSparseCOOTensor, CSparseCSRMatrix,
-                                        CSparseCSCMatrix, CSparseCSFTensor)
-from pyarrow.includes.libarrow_dataset cimport (CDataset, CFragment,
-                                                CPartitioning, CScanner)
-from pyarrow.includes.libarrow_fs cimport CFileSystem
+from pyarrow.includes.libarrow cimport (
+    CArray, CDataType, CExpression,
+    CField, CRecordBatch, CRecordBatchReader,
+    CSchema, CTable, CTensor,
+    CSparseCOOTensor, CSparseCSRMatrix,
+    CSparseCSCMatrix, CSparseCSFTensor
+)
+# from pyarrow.includes.libarrow_dataset cimport (CDataset, CFragment,
+#                                                 CPartitioning, CScanner)
+# from pyarrow.includes.libarrow_fs cimport CFileSystem
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
@@ -443,120 +445,123 @@ cdef api shared_ptr[CExpression] pyarrow_unwrap_expression(object expr):
 
 
 cdef api object pyarrow_wrap_expression(const shared_ptr[CExpression]& cexpr):
+    if cexpr.get() == NULL:
+        raise ValueError('Expression was NULL')
+
     cdef Expression expr = Expression.__new__(Expression)
     expr.init(cexpr)
     return expr
 
 
-cdef api bint pyarrow_is_filesystem(object fs):
-    return isinstance(fs, FileSystem)
+# cdef api bint pyarrow_is_filesystem(object fs):
+#     return isinstance(fs, FileSystem)
 
 
-cdef api shared_ptr[CFileSystem] pyarrow_unwrap_filesystem(object fs):
-    cdef FileSystem filesystem
-    if pyarrow_is_filesystem(fs):
-        filesystem = <FileSystem>(fs)
-        return filesystem.unwrap()
+# cdef api shared_ptr[CFileSystem] pyarrow_unwrap_filesystem(object fs):
+#     cdef FileSystem filesystem
+#     if pyarrow_is_filesystem(fs):
+#         filesystem = <FileSystem>(fs)
+#         return filesystem.unwrap()
 
-    return shared_ptr[CFileSystem]()
-
-
-cdef api object pyarrow_wrap_filesystem(const shared_ptr[CFileSystem]& cfs):
-    cdef FileSystem fs = FileSystem.__new__(FileSystem)
-    fs.init(cfs)
-    return fs
+#     return shared_ptr[CFileSystem]()
 
 
-cdef api bint pyarrow_is_dataset(object dataset):
-    return isinstance(dataset, Dataset)
+# cdef api object pyarrow_wrap_filesystem(const shared_ptr[CFileSystem]& cfs):
+#     cdef FileSystem fs = FileSystem.__new__(FileSystem)
+#     fs.init(cfs)
+#     return fs
 
 
-cdef api shared_ptr[CDataset] pyarrow_unwrap_dataset(object dataset):
-    cdef Dataset d
-    if pyarrow_is_dataset(dataset):
-        d = <Dataset>(dataset)
-        return d.unwrap()
-
-    return shared_ptr[CDataset]()
+# cdef api bint pyarrow_is_dataset(object dataset):
+#     return isinstance(dataset, Dataset)
 
 
-cdef api object pyarrow_wrap_dataset(const shared_ptr[CDataset]& cdataset):
-    cdef Dataset dataset = Dataset.__new__(Dataset)
-    dataset.init(cdataset)
-    return dataset
+# cdef api shared_ptr[CDataset] pyarrow_unwrap_dataset(object dataset):
+#     cdef Dataset d
+#     if pyarrow_is_dataset(dataset):
+#         d = <Dataset>(dataset)
+#         return d.unwrap()
+
+#     return shared_ptr[CDataset]()
 
 
-cdef api bint pyarrow_is_fragment(object frag):
-    return isinstance(frag, Fragment)
+# cdef api object pyarrow_wrap_dataset(const shared_ptr[CDataset]& cdataset):
+#     cdef Dataset dataset = Dataset.__new__(Dataset)
+#     dataset.init(cdataset)
+#     return dataset
 
 
-cdef api shared_ptr[CFragment] pyarrow_unwrap_fragment(object frag):
-    cdef Fragment fragment
-    if pyarrow_is_dataset(frag):
-        fragment = <Fragment>(frag)
-        return fragment.unwrap()
-
-    return shared_ptr[CFragment]()
+# cdef api bint pyarrow_is_fragment(object frag):
+#     return isinstance(frag, Fragment)
 
 
-cdef api object pyarrow_wrap_fragment(const shared_ptr[CFragment]& cfrag):
-    cdef Fragment frag = Fragment.__new__(Fragment)
-    frag.init(cfrag)
-    return frag
+# cdef api shared_ptr[CFragment] pyarrow_unwrap_fragment(object frag):
+#     cdef Fragment fragment
+#     if pyarrow_is_dataset(frag):
+#         fragment = <Fragment>(frag)
+#         return fragment.unwrap()
+
+#     return shared_ptr[CFragment]()
 
 
-cdef api bint pyarrow_is_partitioning(object part):
-    return isinstance(part, Partitioning)
+# cdef api object pyarrow_wrap_fragment(const shared_ptr[CFragment]& cfrag):
+#     cdef Fragment frag = Fragment.__new__(Fragment)
+#     frag.init(cfrag)
+#     return frag
 
 
-cdef api shared_ptr[CPartitioning] pyarrow_unwrap_dataset(object part):
-    cdef Partitioning partitioning
-    if pyarrow_is_partitioning(part):
-        partitioning = <Partitioning>(part)
-        return partitioning.unwrap()
-
-    return shared_ptr[CPartitioning]()
+# cdef api bint pyarrow_is_partitioning(object part):
+#     return isinstance(part, Partitioning)
 
 
-cdef api object pyarrow_wrap_partitioning(const shared_ptr[CPartitioning]& cpart):
-    cdef Partitioning part = Partitioning.__new__(Partitioning)
-    part.init(cpart)
-    return part
+# cdef api shared_ptr[CPartitioning] pyarrow_unwrap_dataset(object part):
+#     cdef Partitioning partitioning
+#     if pyarrow_is_partitioning(part):
+#         partitioning = <Partitioning>(part)
+#         return partitioning.unwrap()
+
+#     return shared_ptr[CPartitioning]()
 
 
-cdef api bint pyarrow_is_scanner(object scanner):
-    return isinstance(scanner, Scanner)
+# cdef api object pyarrow_wrap_partitioning(const shared_ptr[CPartitioning]& cpart):
+#     cdef Partitioning part = Partitioning.__new__(Partitioning)
+#     part.init(cpart)
+#     return part
 
 
-cdef api shared_ptr[CScanner] pyarrow_unwrap_scanner(object scanner):
-    cdef Scanner s
-    if pyarrow_is_scanner(scanner):
-        s = <Scanner>(scanner)
-        return s.unwrap()
-
-    return shared_ptr[CScanner]()
+# cdef api bint pyarrow_is_scanner(object scanner):
+#     return isinstance(scanner, Scanner)
 
 
-cdef api object pyarrow_wrap_scanner(const shared_ptr[CScanner]& cscanner):
-    cdef Scanner scanner = Scanner.__new__(Scanner)
-    scanner.init(cscanner)
-    return scanner
+# cdef api shared_ptr[CScanner] pyarrow_unwrap_scanner(object scanner):
+#     cdef Scanner s
+#     if pyarrow_is_scanner(scanner):
+#         s = <Scanner>(scanner)
+#         return s.unwrap()
+
+#     return shared_ptr[CScanner]()
 
 
-cdef api bint pyarrow_is_record_batch_reader(object rdr):
-    return isinstance(rdr, RecordBatchReader)
+# cdef api object pyarrow_wrap_scanner(const shared_ptr[CScanner]& cscanner):
+#     cdef Scanner scanner = Scanner.__new__(Scanner)
+#     scanner.init(cscanner)
+#     return scanner
 
 
-cdef api shared_ptr[CRecordBatchReader] pyarrow_unwrap_record_batch_reader(object rdr):
-    cdef RecordBatchReader record_batch_reader
-    if pyarrow_is_record_batch_reader(rdr):
-        record_batch_reader = <RecordBatchReader>(rdr)
-        return record_batch_reader.unwrap()
-
-    return shared_ptr[CRecordBatchReader]()
+# cdef api bint pyarrow_is_record_batch_reader(object rdr):
+#     return isinstance(rdr, RecordBatchReader)
 
 
-cdef api object pyarrow_wrap_record_batch_reader(const shared_ptr[CRecordBatchReader]& crdr):
-    cdef RecordBatchReader rdr = RecordBatchReader.__new__(RecordBatchReader)
-    rdr.init(crdr)
-    return rdr
+# cdef api shared_ptr[CRecordBatchReader] pyarrow_unwrap_record_batch_reader(object rdr):
+#     cdef RecordBatchReader record_batch_reader
+#     if pyarrow_is_record_batch_reader(rdr):
+#         record_batch_reader = <RecordBatchReader>(rdr)
+#         return record_batch_reader.unwrap()
+
+#     return shared_ptr[CRecordBatchReader]()
+
+
+# cdef api object pyarrow_wrap_record_batch_reader(const shared_ptr[CRecordBatchReader]& crdr):
+#     cdef RecordBatchReader rdr = RecordBatchReader.__new__(RecordBatchReader)
+#     rdr.init(crdr)
+#     return rdr

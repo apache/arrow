@@ -637,18 +637,18 @@ cdef public object pyarrow_wrap_sparse_csr_matrix(
     const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 
-cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
-cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
+# cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
+# cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 
 cdef public object pyarrow_wrap_expression(const shared_ptr[CExpression]& cexpr)
-cdef public object pyarrow_wrap_filesystem(const shared_ptr[CFileSystem]& cfs)
+# cdef public object pyarrow_wrap_filesystem(const shared_ptr[CFileSystem]& cfs)
 
-cdef public object pyarrow_wrap_dataset(const shared_ptr[CDataset]& cdataset)
-cdef public object pyarrow_wrap_fragment(const shared_ptr[CFragment]& cfrag)
-cdef public object pyarrow_wrap_partitioning(const shared_ptr[CPartitioning]& cpart)
+# cdef public object pyarrow_wrap_dataset(const shared_ptr[CDataset]& cdataset)
+# cdef public object pyarrow_wrap_fragment(const shared_ptr[CFragment]& cfrag)
+# cdef public object pyarrow_wrap_partitioning(const shared_ptr[CPartitioning]& cpart)
 
-cdef public object pyarrow_wrap_scanner(const shared_ptr[CScanner]& cscanner)
-cdef public object pyarrow_wrap_record_batch_reader(const shared_ptr[CRecordBatchReader]& crdr)
+# cdef public object pyarrow_wrap_scanner(const shared_ptr[CScanner]& cscanner)
+# cdef public object pyarrow_wrap_record_batch_reader(const shared_ptr[CRecordBatchReader]& crdr)
 
 # Unwrapping Python -> C++
 
@@ -678,11 +678,11 @@ cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
 
 cdef public shared_ptr[CExpression] pyarrow_unwrap_expression(object expr)
-cdef public shared_ptr[CFileSystem] pyarrow_unwrap_filesystem(object fs)
+# cdef public shared_ptr[CFileSystem] pyarrow_unwrap_filesystem(object fs)
 
-cdef public shared_ptr[CDataset] pyarrow_unwrap_dataset(object dataset)
-cdef public shared_ptr[CFragment] pyarrow_unwrap_fragment(object frag)
-cdef public shared_ptr[CPartitioning] pyarrow_unwrap_partitioning(object part)
+# cdef public shared_ptr[CDataset] pyarrow_unwrap_dataset(object dataset)
+# cdef public shared_ptr[CFragment] pyarrow_unwrap_fragment(object frag)
+# cdef public shared_ptr[CPartitioning] pyarrow_unwrap_partitioning(object part)
 
-cdef public shared_ptr[CScanner] pyarrow_unwrap_scanner(object scanner)
-cdef public shared_ptr[CRecordBatchReader] pyarrow_unwrap_record_batch_reader(object rdr)
+# cdef public shared_ptr[CScanner] pyarrow_unwrap_scanner(object scanner)
+# cdef public shared_ptr[CRecordBatchReader] pyarrow_unwrap_record_batch_reader(object rdr)

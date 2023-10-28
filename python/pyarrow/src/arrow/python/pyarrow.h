@@ -32,16 +32,16 @@ namespace arrow {
 
 class Array;
 class Buffer;
-class Dataset;
+// class Dataset;
 class DataType;
 class Expression;
 class Field;
-class FileSystem;
-class Fragment;
+// class FileSystem;
+// class Fragment;
 class RecordBatch;
-class RecordBatchReader;
-class Partitioning;
-class Scanner;
+// class RecordBatchReader;
+// class Partitioning;
+// class Scanner;
 class Schema;
 class Status;
 class Table;
@@ -79,14 +79,14 @@ DECLARE_WRAP_FUNCTIONS(batch, RecordBatch)
 DECLARE_WRAP_FUNCTIONS(table, Table)
 
 DECLARE_WRAP_FUNCTIONS(expression, Expression)
-DECLARE_WRAP_FUNCTIONS(filesystem, FileSystem)
+// DECLARE_WRAP_FUNCTIONS(filesystem, FileSystem)
 
-DECLARE_WRAP_FUNCTIONS(dataset, Dataset)
-DECLARE_WRAP_FUNCTIONS(fragment, Fragment)
-DECLARE_WRAP_FUNCTIONS(partitioning, Partitioning)
+// DECLARE_WRAP_FUNCTIONS(dataset, Dataset)
+// DECLARE_WRAP_FUNCTIONS(fragment, Fragment)
+// DECLARE_WRAP_FUNCTIONS(partitioning, Partitioning)
 
-DECLARE_WRAP_FUNCTIONS(scanner, Scanner)
-DECLARE_WRAP_FUNCTIONS(record_batch_reader, RecordBatchReader)
+// DECLARE_WRAP_FUNCTIONS(scanner, Scanner)
+// DECLARE_WRAP_FUNCTIONS(record_batch_reader, RecordBatchReader)
 
 #undef DECLARE_WRAP_FUNCTIONS
 
