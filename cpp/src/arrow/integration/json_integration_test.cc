@@ -31,7 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/integration/json_integration.h"
 #include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"

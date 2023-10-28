@@ -18,7 +18,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 
 namespace arrow {
 namespace extension {
@@ -29,7 +29,8 @@ bool UuidType::ExtensionEquals(const ExtensionType& other) const {
 
 std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
+  DCHECK_EQ("arrow.uuid",
+            static_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<UuidArray>(data);
 }
 

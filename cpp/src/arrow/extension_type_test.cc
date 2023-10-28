@@ -26,7 +26,7 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/options.h"

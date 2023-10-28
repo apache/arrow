@@ -17,7 +17,7 @@
 
 add_arrow_test(test
                SOURCES
-               uuid_array_test.cc
+               uuid_test.cc
                fixed_shape_tensor_test.cc
                PREFIX
                "arrow-canonical-extensions")

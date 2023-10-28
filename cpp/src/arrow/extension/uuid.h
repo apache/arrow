@@ -31,7 +31,9 @@ class ARROW_EXPORT UuidType : public ExtensionType {
  public:
   UuidType() : ExtensionType(fixed_size_binary(16)) {}
 
-  std::string extension_name() const override { return "uuid"; }
+  std::string extension_name() const override { return "arrow.uuid"; }
+
+  const std::shared_ptr<DataType> value_type() const { return fixed_size_binary(16); }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 
@@ -42,6 +44,9 @@ class ARROW_EXPORT UuidType : public ExtensionType {
       const std::string& serialized) const override;
 
   std::string Serialize() const override { return "uuid-serialized"; }
+
+  /// \brief Create a UuidType instance
+  static Result<std::shared_ptr<DataType>> Make() { return std::make_shared<UuidType>(); }
 };
 
 ARROW_EXPORT

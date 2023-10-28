@@ -31,7 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"

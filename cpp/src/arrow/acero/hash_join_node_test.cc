@@ -28,7 +28,7 @@
 #include "arrow/api.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"

@@ -31,7 +31,7 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/cast.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"

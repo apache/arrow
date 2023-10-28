@@ -21,7 +21,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 
 using testing::Eq;
 

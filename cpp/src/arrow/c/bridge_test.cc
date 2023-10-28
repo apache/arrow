@@ -31,7 +31,7 @@
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
 #include "arrow/c/util_internal.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/builder.h"

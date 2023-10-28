@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 
 #include "arrow/testing/matchers.h"
 
@@ -23,9 +23,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
-#include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
 

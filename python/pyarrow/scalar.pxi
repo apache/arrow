@@ -17,6 +17,7 @@
 
 import collections
 from cython cimport binding
+from uuid import UUID
 
 
 cdef class Scalar(_Weakrefable):
@@ -1041,6 +1042,15 @@ cdef class ExtensionScalar(Scalar):
         with nogil:
             check_status(sp_scalar.get().Validate())
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
+
+
+class UuidScalar(ExtensionScalar):
+    """
+    Concrete class for Uuid extension scalar.
+    """
+
+    def as_py(self):
+        return None if self.value is None else UUID(bytes=self.value.as_py())
 
 
 cdef class FixedShapeTensorScalar(ExtensionScalar):
