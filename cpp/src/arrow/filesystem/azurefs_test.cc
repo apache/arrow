@@ -227,6 +227,13 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 };
 
+TEST_F(TestAzureFileSystem, GetFileInfoAccount) {
+  arrow::fs::AssertFileInfo(fs_.get(), "", FileType::Directory);
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://"));
+}
+
 TEST_F(TestAzureFileSystem, GetFileInfoContainer) {
   arrow::fs::AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
 
