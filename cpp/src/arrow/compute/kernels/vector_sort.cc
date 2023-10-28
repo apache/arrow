@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <unordered_map>
 #include <unordered_set>
 
 #include "arrow/compute/function.h"
