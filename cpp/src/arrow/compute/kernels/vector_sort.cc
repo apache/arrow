@@ -189,64 +189,6 @@ class ChunkedArraySorter : public TypeVisitor {
     std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
   }
 
-  template <>
-  void MergeNonNulls<DictionaryType>(uint64_t* range_begin, uint64_t* range_middle,
-                                     uint64_t* range_end,
-                                     const std::vector<const Array*>& arrays,
-                                     uint64_t* temp_indices) {
-    const ChunkedArrayResolver left_resolver(arrays);
-    const ChunkedArrayResolver right_resolver(arrays);
-
-    // concatenate all dictionary arrays to calculate rank
-    ArrayVector dicts_array;
-    for (const auto& array : arrays) {
-      const auto& dicts = checked_cast<const DictionaryArray&>(*array);
-      dicts_array.push_back(dicts.dictionary());
-    }
-    auto concat_dict = Concatenate(dicts_array).ValueOrDie();
-    auto ranks = RanksWithNulls(concat_dict).ValueOrDie();
-
-    // build unified rank map using dicts and rank array
-    std::unordered_map<std::string, int64_t> unified_rank_map;
-    for (int i = 0; i < concat_dict->length(); i++) {
-      auto dict = concat_dict->GetScalar(i).ValueOrDie();
-      auto rank = ranks->GetScalar(i).ValueOrDie();
-      unified_rank_map[dict->ToString()] =
-          static_cast<const arrow::Int64Scalar&>(*rank).value;
-    }
-
-    auto compare_func = [&](uint64_t left, uint64_t right) {
-      const auto chunk_left = left_resolver.Resolve<DictionaryArray>(left);
-      const auto chunk_right = right_resolver.Resolve<DictionaryArray>(right);
-
-      auto left_index = chunk_left.array->GetValueIndex(chunk_left.index);
-      auto right_index = chunk_right.array->GetValueIndex(chunk_right.index);
-
-      auto value_left =
-          chunk_left.array->dictionary()->GetScalar(left_index).ValueOrDie();
-      auto value_right =
-          chunk_right.array->dictionary()->GetScalar(right_index).ValueOrDie();
-
-      // get rank from unified_rank_map
-      auto rank_left = unified_rank_map[value_left->ToString()];
-      auto rank_right = unified_rank_map[value_right->ToString()];
-
-      return rank_left < rank_right;
-    };
-
-    if (order_ == SortOrder::Ascending) {
-      std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-                 compare_func);
-    } else {
-      std::merge(
-          range_begin, range_middle, range_middle, range_end, temp_indices,
-          [&](uint64_t left, uint64_t right) { return !compare_func(left, right); });
-    }
-
-    // Copy back temp area into main buffer
-    std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
-  }
-
   // Duplicate of ArrayCompareSorter
   static Result<std::shared_ptr<Array>> RanksWithNulls(
       const std::shared_ptr<Array>& array) {
@@ -295,6 +237,61 @@ class ChunkedArraySorter : public TypeVisitor {
   ExecContext* ctx_;
   NullPartitionResult* output_;
 };
+
+template <>
+void ChunkedArraySorter::MergeNonNulls<DictionaryType>(
+    uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end,
+    const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
+  const ChunkedArrayResolver left_resolver(arrays);
+  const ChunkedArrayResolver right_resolver(arrays);
+
+  // concatenate all dictionary arrays to calculate rank
+  ArrayVector dicts_array;
+  for (const auto& array : arrays) {
+    const auto& dicts = checked_cast<const DictionaryArray&>(*array);
+    dicts_array.push_back(dicts.dictionary());
+  }
+  auto concat_dict = Concatenate(dicts_array).ValueOrDie();
+  auto ranks = RanksWithNulls(concat_dict).ValueOrDie();
+
+  // build unified rank map using dicts and rank array
+  std::unordered_map<std::string, int64_t> unified_rank_map;
+  for (int i = 0; i < concat_dict->length(); i++) {
+    auto dict = concat_dict->GetScalar(i).ValueOrDie();
+    auto rank = ranks->GetScalar(i).ValueOrDie();
+    unified_rank_map[dict->ToString()] =
+        static_cast<const arrow::Int64Scalar&>(*rank).value;
+  }
+
+  auto compare_func = [&](uint64_t left, uint64_t right) {
+    const auto chunk_left = left_resolver.Resolve<DictionaryArray>(left);
+    const auto chunk_right = right_resolver.Resolve<DictionaryArray>(right);
+
+    auto left_index = chunk_left.array->GetValueIndex(chunk_left.index);
+    auto right_index = chunk_right.array->GetValueIndex(chunk_right.index);
+
+    auto value_left = chunk_left.array->dictionary()->GetScalar(left_index).ValueOrDie();
+    auto value_right =
+        chunk_right.array->dictionary()->GetScalar(right_index).ValueOrDie();
+
+    // get rank from unified_rank_map
+    auto rank_left = unified_rank_map[value_left->ToString()];
+    auto rank_right = unified_rank_map[value_right->ToString()];
+
+    return rank_left < rank_right;
+  };
+
+  if (order_ == SortOrder::Ascending) {
+    std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
+               compare_func);
+  } else {
+    std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
+               [&](uint64_t left, uint64_t right) { return !compare_func(left, right); });
+  }
+
+  // Copy back temp area into main buffer
+  std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
+}
 
 // ----------------------------------------------------------------------
 // Record batch sorting implementation(s)
