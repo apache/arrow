@@ -113,14 +113,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
   int64_t GetValueIndex(int64_t i) const;
 
   std::string_view GetView(int64_t i) const {
-    // Ensure the dictionary and indices are not null
-    assert(dictionary() != nullptr && indices() != nullptr);
-
     // Obtain the index at position i
     const auto index = GetValueIndex(i);
-
-    // Ensure the index is within bounds
-    assert(index < dictionary()->length());
 
     // Assuming the dictionary is a StringArray
     return std::string_view(
