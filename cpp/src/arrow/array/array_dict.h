@@ -23,6 +23,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/array/data.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
@@ -110,6 +111,23 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// for use in performance-sensitive code. Does not validate whether the
   /// value is null or out-of-bounds.
   int64_t GetValueIndex(int64_t i) const;
+
+  std::string_view GetView(int64_t i) const {
+    // Ensure the dictionary and indices are not null
+    assert(dictionary() != nullptr && indices() != nullptr);
+
+    // Obtain the index at position i
+    const auto index = GetValueIndex(i);
+
+    // Ensure the index is within bounds
+    assert(index < dictionary()->length());
+
+    // Assuming the dictionary is a StringArray
+    return std::string_view(
+        reinterpret_cast<const char*>(
+            dictionary()->GetScalar(index).ValueOrDie()->ToString().data()),
+        dictionary()->GetScalar(index).ValueOrDie()->ToString().size());
+  }
 
   const DictionaryType* dict_type() const { return dict_type_; }
 

@@ -18,6 +18,7 @@
 #include <unordered_set>
 
 #include "arrow/compute/function.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 
@@ -65,6 +66,7 @@ class ChunkedArraySorter : public TypeVisitor {
   Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
 
   VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+  VISIT(DictionaryType)
 
 #undef VISIT
 
@@ -117,8 +119,13 @@ class ChunkedArraySorter : public TypeVisitor {
       };
       auto merge_non_nulls = [&](uint64_t* range_begin, uint64_t* range_middle,
                                  uint64_t* range_end, uint64_t* temp_indices) {
-        MergeNonNulls<ArrayType>(range_begin, range_middle, range_end, arrays,
-                                 temp_indices);
+        if (is_dictionary(*physical_type_)) {
+          MergeNonNulls<DictionaryType>(range_begin, range_middle, range_end, arrays,
+                                        temp_indices);
+        } else {
+          MergeNonNulls<ArrayType>(range_begin, range_middle, range_end, arrays,
+                                   temp_indices);
+        }
       };
 
       MergeImpl merge_impl{null_placement_, std::move(merge_nulls),
@@ -180,6 +187,102 @@ class ChunkedArraySorter : public TypeVisitor {
     }
     // Copy back temp area into main buffer
     std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
+  }
+
+  template <>
+  void MergeNonNulls<DictionaryType>(uint64_t* range_begin, uint64_t* range_middle,
+                                     uint64_t* range_end,
+                                     const std::vector<const Array*>& arrays,
+                                     uint64_t* temp_indices) {
+    const ChunkedArrayResolver left_resolver(arrays);
+    const ChunkedArrayResolver right_resolver(arrays);
+
+    // concatenate all dictionary arrays to calculate rank
+    ArrayVector dicts_array;
+    for (const auto& array : arrays) {
+      const auto& dicts = checked_cast<const DictionaryArray&>(*array);
+      dicts_array.push_back(dicts.dictionary());
+    }
+    auto concat_dict = Concatenate(dicts_array).ValueOrDie();
+    auto ranks = RanksWithNulls(concat_dict).ValueOrDie();
+
+    // build unified rank map using dicts and rank array
+    std::unordered_map<std::string, int64_t> unified_rank_map;
+    for (int i = 0; i < concat_dict->length(); i++) {
+      auto dict = concat_dict->GetScalar(i).ValueOrDie();
+      auto rank = ranks->GetScalar(i).ValueOrDie();
+      unified_rank_map[dict->ToString()] =
+          static_cast<const arrow::Int64Scalar&>(*rank).value;
+    }
+
+    auto compare_func = [&](uint64_t left, uint64_t right) {
+      const auto chunk_left = left_resolver.Resolve<DictionaryArray>(left);
+      const auto chunk_right = right_resolver.Resolve<DictionaryArray>(right);
+
+      auto left_index = chunk_left.array->GetValueIndex(chunk_left.index);
+      auto right_index = chunk_right.array->GetValueIndex(chunk_right.index);
+
+      auto value_left =
+          chunk_left.array->dictionary()->GetScalar(left_index).ValueOrDie();
+      auto value_right =
+          chunk_right.array->dictionary()->GetScalar(right_index).ValueOrDie();
+
+      // get rank from unified_rank_map
+      auto rank_left = unified_rank_map[value_left->ToString()];
+      auto rank_right = unified_rank_map[value_right->ToString()];
+
+      return rank_left < rank_right;
+    };
+
+    if (order_ == SortOrder::Ascending) {
+      std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
+                 compare_func);
+    } else {
+      std::merge(
+          range_begin, range_middle, range_middle, range_end, temp_indices,
+          [&](uint64_t left, uint64_t right) { return !compare_func(left, right); });
+    }
+
+    // Copy back temp area into main buffer
+    std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
+  }
+
+  // Duplicate of ArrayCompareSorter
+  static Result<std::shared_ptr<Array>> RanksWithNulls(
+      const std::shared_ptr<Array>& array) {
+    // Notes:
+    // * The order is always ascending here, since the goal is to produce
+    //   an exactly-equivalent-order of the dictionary values.
+    // * We're going to re-emit nulls in the output, so we can just always consider
+    //   them "at the end".  Note that choosing AtStart would merely shift other
+    //   ranks by 1 if there are any nulls...
+    RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
+                             RankOptions::Dense);
+
+    auto data = array->data();
+    std::shared_ptr<Buffer> null_bitmap;
+    if (array->null_count() > 0) {
+      null_bitmap = array->null_bitmap();
+      data = array->data()->Copy();
+      if (data->offset > 0) {
+        ARROW_ASSIGN_OR_RAISE(
+            null_bitmap,
+            arrow::internal::CopyBitmap(arrow::default_memory_pool(), null_bitmap->data(),
+                                        data->offset, data->length));
+      }
+      data->buffers[0] = nullptr;
+      data->null_count = 0;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto rank_datum,
+                          CallFunction("rank", {std::move(data)}, &rank_options));
+    auto rank_data = rank_datum.array();
+    DCHECK_EQ(rank_data->GetNullCount(), 0);
+    // If there were nulls in the input, paste them in the output
+    if (null_bitmap) {
+      rank_data->buffers[0] = std::move(null_bitmap);
+      rank_data->null_count = array->null_count();
+    }
+    return MakeArray(rank_data);
   }
 
   uint64_t* indices_begin_;

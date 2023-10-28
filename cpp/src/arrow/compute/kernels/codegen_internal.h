@@ -187,6 +187,14 @@ struct GetOutputType<Decimal256Type> {
   using T = Decimal256;
 };
 
+template <>
+struct GetViewType<DictionaryType> {
+  using T = std::string_view;
+  using PhysicalType = std::string_view;
+
+  static T LogicalValue(PhysicalType value) { return value; }
+};
+
 // ----------------------------------------------------------------------
 // enable_if helpers for C types
 

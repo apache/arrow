@@ -1105,6 +1105,34 @@ TYPED_TEST(TestChunkedArraySortIndicesForDecimal, Basics) {
                     "[2, 5, 3, 0, 1, 4]");
 }
 
+// Tests for dictionary types
+template <typename ArrayType>
+class TestChunkedArraySortIndicesForDictionary : public TestChunkedArraySortIndices {
+ protected:
+  std::shared_ptr<DataType> GetType() {
+    return dictionary(int8(), utf8(), /*ordered=*/false);
+  }
+};
+
+TYPED_TEST_SUITE(TestChunkedArraySortIndicesForDictionary, DictionaryArrowTypes);
+
+TYPED_TEST(TestChunkedArraySortIndicesForDictionary, Basics) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(type, {
+                                                      R"([null, "e", "a"])",
+                                                      R"(["d", null, "b"])",
+                                                      R"(["c", "a"])",
+                                                  });
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtEnd,
+                    "[2, 7, 5, 6, 3, 1, 0, 4]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtStart,
+                    "[0, 4, 2, 7, 5, 6, 3, 1]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtEnd,
+                    "[1, 3, 6, 5, 7, 2, 0, 4]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtStart,
+                    "[0, 4, 1, 3, 6, 5, 7, 2]");
+}
+
 // Base class for testing against random chunked array.
 template <typename Type>
 class TestChunkedArrayRandomBase : public ::testing::Test {
