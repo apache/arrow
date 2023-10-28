@@ -1720,6 +1720,38 @@ cdef class ExtensionType(BaseExtensionType):
         return ExtensionScalar
 
 
+cdef class UuidType(BaseExtensionType):
+    """
+    Concrete class for UUID extension type.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.uuid_ext_type = <const CUuidType*> type.get()
+
+    def __arrow_ext_serialize__(self):
+        """
+        Serialized representation of metadata to reconstruct the type object.
+        """
+        return self.uuid_ext_type.Serialize()
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """
+        Return an UuidType instance from the storage type.
+        """
+        return self.uuid_ext_type.Deserialize(storage_type, serialized)
+
+    def __arrow_ext_class__(self):
+        return UuidArray
+
+    def __reduce__(self):
+        return uuid, (self.value_type,)
+
+    def __arrow_ext_scalar_class__(self):
+        return UuidScalar
+
+
 cdef class FixedShapeTensorType(BaseExtensionType):
     """
     Concrete class for fixed shape tensor extension type.
@@ -5086,6 +5118,21 @@ def run_end_encoded(run_end_type, value_type):
         raise ValueError("The run_end_type should be 'int16', 'int32', or 'int64'")
     ree_type = CMakeRunEndEncodedType(_run_end_type.sp_type, _value_type.sp_type)
     return pyarrow_wrap_data_type(ree_type)
+
+
+def uuid():
+    """
+    Create UuidType instance.
+
+    Returns
+    -------
+    type : UuidType
+    """
+
+    cdef UuidType out = UuidType.__new__(UuidType)
+    c_uuid_ext_type = GetResultValue(CUuidType.Make())
+    out.init(c_uuid_ext_type)
+    return out
 
 
 def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=None):

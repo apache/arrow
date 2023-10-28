@@ -28,7 +28,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
