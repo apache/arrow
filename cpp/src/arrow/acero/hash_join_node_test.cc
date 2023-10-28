@@ -29,7 +29,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/row_encoder_internal.h"
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"

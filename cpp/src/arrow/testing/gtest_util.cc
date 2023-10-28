@@ -17,7 +17,7 @@
 
 #include "arrow/testing/gtest_util.h"
 
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/testing/extension_type.h"
 
 #ifdef _WIN32

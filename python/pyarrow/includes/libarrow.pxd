@@ -2865,7 +2865,20 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
-cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
+cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension":
+    cdef cppclass CUuidType" arrow::extension::UuidType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make()
+
+        CResult[shared_ptr[CDataType]] Deserialize(const c_string& serialized_data) const
+
+        c_string Serialize() const
+
+        const shared_ptr[CDataType] value_type()
+
+
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
 

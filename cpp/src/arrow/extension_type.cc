@@ -32,7 +32,7 @@
 #include "arrow/extension/fixed_shape_tensor.h"
 #include "arrow/extension/opaque.h"
 #endif
-#include "arrow/extension/uuid_array.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
