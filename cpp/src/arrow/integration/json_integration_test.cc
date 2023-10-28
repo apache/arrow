@@ -468,7 +468,7 @@ static const char* json_example2 = R"example(
         "nullable": true,
         "children" : [],
         "metadata" : [
-           {"key": "ARROW:extension:name", "value": "uuid"},
+           {"key": "ARROW:extension:name", "value": "arrow.uuid"},
            {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
         ]
       },
