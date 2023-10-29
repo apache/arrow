@@ -5207,7 +5207,7 @@ TEST(TestArrowReadWrite, FuzzReader) {
 }
 
 // Test writing table with a closed writer, should not segfault
-// but throw exception instead. (GH-15074).
+// but throw exception instead. (GH-37969).
 TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   /* A sample table, type and structure does not matter in this test case*/
   auto schema = ::arrow::schema({::arrow::field("letter", ::arrow::utf8())});
