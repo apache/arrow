@@ -80,18 +80,17 @@ struct AzurePath {
           "Expected an Azure object path of the form 'container/path...', got a URI: '",
           s, "'");
     }
-    const auto src = internal::RemoveTrailingSlash(s);
-    auto first_sep = src.find_first_of(internal::kSep);
+    auto first_sep = s.find_first_of(internal::kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      return AzurePath{std::string(src), std::string(src), "", {}};
+      return AzurePath{std::string(s), std::string(s), "", {}};
     }
     AzurePath path;
-    path.full_path = std::string(src);
-    path.container = std::string(src.substr(0, first_sep));
-    path.path_to_file = std::string(src.substr(first_sep + 1));
+    path.full_path = std::string(s);
+    path.container = std::string(s.substr(0, first_sep));
+    path.path_to_file = std::string(s.substr(first_sep + 1));
     path.path_to_file_parts = internal::SplitAbstractPath(path.path_to_file);
     RETURN_NOT_OK(Validate(path));
     return path;
@@ -482,7 +481,8 @@ class AzureFileSystem::Impl {
       auto path_client = datalake_service_client_->GetFileSystemClient(container);
       // try {
       path_client.GetAccessPolicy();
-      is_hierarchical_namespace_enabled_ = true;
+      is_hierarchical_namespace_enabled_ = false;
+      // is_hierarchical_namespace_enabled_ = true;
       // } catch () {
       //   is_hierarchical_namespace_enabled_ = false;
       // }
@@ -548,20 +548,19 @@ class AzureFileSystem::Impl {
         // We need to detect implied directories by listing.
         Azure::Storage::Blobs::ListBlobsOptions list_blob_options;
 
-        // AzurePath::FromString() ensures that path_to_file does not end with a slash.
-        // If listing the prefix `path.path_to_file + "/"` returns at least one result
-        // then path refers to an implied directory.
-        ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path.path_to_file));
-        list_blob_options.Prefix = path.path_to_file + "/";
+        // If listing the prefix `path.path_to_file` with trailing slash returns at least
+        // one result then path refers to an implied directory.
+        list_blob_options.Prefix = internal::EnsureTrailingSlash(path.path_to_file);
         // We only need to know if there is at least one result, so minimise page size
         // for efficiency.
         list_blob_options.PageSizeHint = 1;
 
         // TODO: Confirm this will only fetch a single page, for efficiency
         // TODO: Return appropriate status if there is an exception.
-        if (blob_service_client_->GetBlobContainerClient(path.container)
-                .ListBlobs(list_blob_options)
-                .HasPage()) {
+        auto paged_list_result =
+            blob_service_client_->GetBlobContainerClient(path.container)
+                .ListBlobs(list_blob_options);
+        if (paged_list_result.Blobs.size() > 0) {
           return FileInfo(path.full_path, FileType::Directory);
         } else {
           return FileInfo(path.full_path, FileType::NotFound);
