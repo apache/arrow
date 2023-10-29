@@ -1105,6 +1105,34 @@ TYPED_TEST(TestChunkedArraySortIndicesForDecimal, Basics) {
                     "[2, 5, 3, 0, 1, 4]");
 }
 
+// Tests for string types
+template <typename ArrayType>
+class TestChunkedArraySortIndicesForString : public TestChunkedArraySortIndices {
+ protected:
+  std::shared_ptr<DataType> GetType() {
+    return utf8();
+  }
+};
+
+TYPED_TEST_SUITE(TestChunkedArraySortIndicesForString, StringArrowTypes);
+
+TYPED_TEST(TestChunkedArraySortIndicesForString, Basics) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(type, {
+                                                      R"([null, "e", "a"])",
+                                                      R"(["d", null, "b"])",
+                                                      R"(["c", "a"])",
+                                                  });
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtEnd,
+                    "[2, 7, 5, 6, 3, 1, 0, 4]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtStart,
+                    "[0, 4, 2, 7, 5, 6, 3, 1]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtEnd,
+                    "[1, 3, 6, 5, 2, 7, 0, 4]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtStart,
+                    "[0, 4, 1, 3, 6, 5, 2, 7]");
+}
+
 // Tests for dictionary types
 template <typename ArrayType>
 class TestChunkedArraySortIndicesForDictionary : public TestChunkedArraySortIndices {
