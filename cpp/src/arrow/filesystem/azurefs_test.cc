@@ -237,6 +237,8 @@ TEST_F(TestAzureFileSystem, GetFileInfoAccount) {
 TEST_F(TestAzureFileSystem, GetFileInfoContainer) {
   arrow::fs::AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
 
+  arrow::fs::AssertFileInfo(fs_.get(), "non-existent-container", FileType::NotFound);
+
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
 }
@@ -245,26 +247,21 @@ TEST_F(TestAzureFileSystem, GetFileInfoObjectWithNestedStructure) {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
-  ASSERT_OK_AND_ASSIGN(
-      auto output,
-      fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName, /*metadata=*/{}));
-  const auto data = std::string(kLoremIpsum);
-  ASSERT_OK(output->Write(data.data(), data.size()));
-  ASSERT_OK(output->Close());
+  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
+  service_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlockBlobClient(kObjectName)
+      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
 
   // 0 is immediately after "/" lexicographically, ensure that this doesn't
   // cause unexpected issues.
-  ASSERT_OK_AND_ASSIGN(output,
-                       fs_->OpenOutputStream(
-                           PreexistingContainerPath() + "test-object-dir/some_other_dir0",
-                           /*metadata=*/{}));
-  ASSERT_OK(output->Write(data.data(), data.size()));
-  ASSERT_OK(output->Close());
-  ASSERT_OK_AND_ASSIGN(
-      output, fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName + "0",
-                                    /*metadata=*/{}));
-  ASSERT_OK(output->Write(data.data(), data.size()));
-  ASSERT_OK(output->Close());
+  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
+  service_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlockBlobClient("test-object-dir/some_other_dir0")
+      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
+
+  service_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlockBlobClient(std::string(kObjectName) + "0")
+      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
 
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName + "/",
@@ -284,6 +281,8 @@ TEST_F(TestAzureFileSystem, GetFileInfoObjectWithNestedStructure) {
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_di",
                  FileType::NotFound);
 }
+
+// TODO: Add ADLS Gen2 directory tests. 
 
 TEST_F(TestAzureFileSystem, GetFileInfoObjectNoExplicitObject) {
   auto object_properties =
