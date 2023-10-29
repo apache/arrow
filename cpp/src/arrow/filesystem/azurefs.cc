@@ -151,6 +151,13 @@ Status ErrorToStatus(const std::string& prefix,
   return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
 
+// Copy of private function from Azure SDK
+// https://github.com/Azure/azure-sdk-for-cpp/blob/dd236311193c6a3debf3b12c47f14e49a20c72c7/sdk/storage/azure-storage-files-datalake/src/datalake_utilities.cpp#L86-L90
+bool MetadataIncidatesIsDirectory(const Azure::Storage::Metadata& metadata) {
+  auto ite = metadata.find("hdi_isFolder");
+  return ite != metadata.end() && ite->second == "true";
+}
+
 template <typename ArrowType>
 std::string FormatValue(typename TypeTraits<ArrowType>::CType value) {
   struct StringAppender {
@@ -498,7 +505,30 @@ class AzureFileSystem::Impl {
             exception);
       }
     }
-    return info;
+    auto blob_client = service_client_->GetBlobContainerClient(path.container)
+                           .GetBlobClient(path.path_to_file);
+    try {
+      auto properties = blob_client.GetProperties();
+      auto info = FileInfo(path.full_path, FileType::File);
+      if (MetadataIncidatesIsDirectory(properties.Value.Metadata)) {
+        info.set_type(FileType::Directory);
+      } else {
+        info.set_type(FileType::File);
+        info.set_size(properties.Value.BlobSize);
+      }
+      info.set_mtime(
+          std::chrono::system_clock::time_point(properties.Value.LastModified));
+      return info;
+    } catch (const Azure::Storage::StorageException& exception) {
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+        blob_service_client_->GetBlobContainerClient(path.container)
+            // TODO: List the `path_to_file/` prefix and consider it a directory if there
+            // is at least one result.
+            return FileInfo(path.full_path, FileType::NotFound);
+      }
+      return ErrorToStatus(
+          "When fetching properties for '" + blob_client.GetUrl() + "': ", exception);
+    }
   }
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
