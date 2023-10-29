@@ -655,7 +655,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 33
+    #   FEDORA: 38
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -671,7 +671,6 @@ services:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
-      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
@@ -957,7 +956,7 @@ services:
     #   docker-compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 33
+    #   FEDORA: 38
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .
@@ -969,7 +968,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
-      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: *fedora-volumes
     command: *python-command
 
@@ -1733,19 +1731,8 @@ services:
       ARCHERY_INTEGRATION_WITH_RUST: 0
       # Tell Archery where the arrow C++ binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
-      ARROW_GO_INTEGRATION: 1
-      ARROW_JAVA_CDATA: "ON"
-      JAVA_JNI_CMAKE_ARGS: >-
-        -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
-        -DARROW_JAVA_JNI_ENABLE_C=ON
     command:
-      ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/csharp_build.sh /arrow /build &&
-        /arrow/ci/scripts/go_build.sh /arrow &&
-        /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/$$(arch) &&
-        /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
-        /arrow/ci/scripts/js_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 
   ################################ Docs #######################################

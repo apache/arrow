@@ -106,7 +106,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair(null, allocator);
+    return getTransferPair((String) null, allocator);
   }
 
   @Override
@@ -163,8 +163,18 @@ public class NullVector implements FieldVector {
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl();
+  }
+
+  @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return getTransferPair(ref, allocator);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(field, allocator);
   }
 
   @Override

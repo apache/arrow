@@ -47,26 +47,36 @@ func toFBTypeEnum(_ arrowType: ArrowType) -> Result<org_apache_arrow_flatbuf_Typ
     return .failure(.unknownType("Unable to find flatbuf type for Arrow type: \(infoType)"))
 }
 
-func toFBType(_ fbb: inout FlatBufferBuilder, arrowType: ArrowType) -> Result<Offset, ArrowError> {
+func toFBType( // swiftlint:disable:this cyclomatic_complexity
+    _ fbb: inout FlatBufferBuilder,
+    arrowType: ArrowType
+) -> Result<Offset, ArrowError> {
     let infoType = arrowType.info
     if infoType == ArrowType.ArrowInt8 || infoType == ArrowType.ArrowUInt8 {
-        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 8, isSigned: infoType == ArrowType.ArrowInt8))
+        return .success(org_apache_arrow_flatbuf_Int.createInt(
+            &fbb, bitWidth: 8, isSigned: infoType == ArrowType.ArrowInt8))
     } else if infoType == ArrowType.ArrowInt16 || infoType == ArrowType.ArrowUInt16 {
-        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 16, isSigned: infoType == ArrowType.ArrowInt16))
+        return .success(org_apache_arrow_flatbuf_Int.createInt(
+            &fbb, bitWidth: 16, isSigned: infoType == ArrowType.ArrowInt16))
     } else if infoType == ArrowType.ArrowInt32 || infoType == ArrowType.ArrowUInt32 {
-        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 32, isSigned: infoType == ArrowType.ArrowInt32))
+        return .success(org_apache_arrow_flatbuf_Int.createInt(
+            &fbb, bitWidth: 32, isSigned: infoType == ArrowType.ArrowInt32))
     } else if infoType == ArrowType.ArrowInt64 || infoType == ArrowType.ArrowUInt64 {
-        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 64, isSigned: infoType == ArrowType.ArrowInt64))
+        return .success(org_apache_arrow_flatbuf_Int.createInt(
+            &fbb, bitWidth: 64, isSigned: infoType == ArrowType.ArrowInt64))
     } else if infoType == ArrowType.ArrowFloat {
         return .success(org_apache_arrow_flatbuf_FloatingPoint.createFloatingPoint(&fbb, precision: .single))
     } else if infoType == ArrowType.ArrowDouble {
         return .success(org_apache_arrow_flatbuf_FloatingPoint.createFloatingPoint(&fbb, precision: .double))
     } else if infoType == ArrowType.ArrowString {
-        return .success(org_apache_arrow_flatbuf_Utf8.endUtf8(&fbb, start: org_apache_arrow_flatbuf_Utf8.startUtf8(&fbb)))
+        return .success(org_apache_arrow_flatbuf_Utf8.endUtf8(
+            &fbb, start: org_apache_arrow_flatbuf_Utf8.startUtf8(&fbb)))
     } else if infoType == ArrowType.ArrowBinary {
-        return .success(org_apache_arrow_flatbuf_Binary.endBinary(&fbb, start: org_apache_arrow_flatbuf_Binary.startBinary(&fbb)))
+        return .success(org_apache_arrow_flatbuf_Binary.endBinary(
+            &fbb, start: org_apache_arrow_flatbuf_Binary.startBinary(&fbb)))
     } else if infoType == ArrowType.ArrowBool {
-        return .success(org_apache_arrow_flatbuf_Bool.endBool(&fbb, start: org_apache_arrow_flatbuf_Bool.startBool(&fbb)))
+        return .success(org_apache_arrow_flatbuf_Bool.endBool(
+            &fbb, start: org_apache_arrow_flatbuf_Bool.startBool(&fbb)))
     } else if infoType == ArrowType.ArrowDate32 {
         let startOffset = org_apache_arrow_flatbuf_Date.startDate(&fbb)
         org_apache_arrow_flatbuf_Date.add(unit: .day, &fbb)
@@ -77,14 +87,20 @@ func toFBType(_ fbb: inout FlatBufferBuilder, arrowType: ArrowType) -> Result<Of
         return .success(org_apache_arrow_flatbuf_Date.endDate(&fbb, start: startOffset))
     } else if infoType == ArrowType.ArrowTime32 {
         let startOffset = org_apache_arrow_flatbuf_Time.startTime(&fbb)
-        let timeType = arrowType as! ArrowTypeTime32
-        org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .Seconds ? .second : .millisecond, &fbb)
-        return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
+        if let timeType = arrowType as? ArrowTypeTime32 {
+            org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .seconds ? .second : .millisecond, &fbb)
+            return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
+        }
+
+        return .failure(.invalid("Unable to case to Time32"))
     } else if infoType == ArrowType.ArrowTime64 {
         let startOffset = org_apache_arrow_flatbuf_Time.startTime(&fbb)
-        let timeType = arrowType as! ArrowTypeTime64
-        org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .Microseconds ? .microsecond : .nanosecond, &fbb)
-        return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
+        if let timeType = arrowType as? ArrowTypeTime64 {
+            org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .microseconds ? .microsecond : .nanosecond, &fbb)
+            return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
+        }
+
+        return .failure(.invalid("Unable to case to Time64"))
     }
 
     return .failure(.unknownType("Unable to add flatbuf type for Arrow type: \(infoType)"))
@@ -109,6 +125,6 @@ func getPadForAlignment(_ count: Int, alignment: Int = 8) -> Int {
     if padding > 0 {
         return count + (alignment - padding)
     }
-    
+
     return count
 }

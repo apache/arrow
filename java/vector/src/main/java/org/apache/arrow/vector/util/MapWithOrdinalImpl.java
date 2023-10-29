@@ -25,14 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
-import org.apache.arrow.util.Preconditions;
+import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.collection.IntObjectMap;
 
 /**
  * An implementation of map that supports constant time look-up by a generic key or an ordinal.
@@ -133,9 +129,7 @@ public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
 
     @Override
     public Collection<V> values() {
-      return StreamSupport.stream(secondary.entries().spliterator(), false)
-          .map((IntObjectMap.PrimitiveEntry<V> t) -> Preconditions.checkNotNull(t).value())
-          .collect(Collectors.toList());
+      return secondary.values();
     }
 
     @Override

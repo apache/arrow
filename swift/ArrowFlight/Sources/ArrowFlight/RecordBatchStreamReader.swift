@@ -21,9 +21,10 @@ import GRPC
 
 public class RecordBatchStreamReader: AsyncSequence, AsyncIteratorProtocol {
     public typealias AsyncIterator = RecordBatchStreamReader
-    public typealias Element = RecordBatch
+    public typealias Element = (Arrow.RecordBatch?, FlightDescriptor?)
     let reader = ArrowReader()
     var batches = [RecordBatch]()
+    var descriptor: FlightDescriptor?
     var batchIndex = 0
     var streamIterator: any AsyncIteratorProtocol
     let stream: GRPC.GRPCAsyncRequestStream<Arrow_Flight_Protocol_FlightData>
@@ -31,8 +32,8 @@ public class RecordBatchStreamReader: AsyncSequence, AsyncIteratorProtocol {
         self.stream = stream
         self.streamIterator = self.stream.makeAsyncIterator()
     }
-    
-    public func next() async throws -> Arrow.RecordBatch? {
+
+    public func next() async throws -> (Arrow.RecordBatch?, FlightDescriptor?)? {
         guard !Task.isCancelled else {
             return nil
         }
@@ -40,21 +41,27 @@ public class RecordBatchStreamReader: AsyncSequence, AsyncIteratorProtocol {
         if batchIndex < batches.count {
             let batch = batches[batchIndex]
             batchIndex += 1
-            return batch
+            return (batch, descriptor)
         }
-         
+
+        let result = ArrowReader.makeArrowReaderResult()
         while true {
-            let flightData = try await self.streamIterator.next()
-            if flightData == nil {
+            let streamData = try await self.streamIterator.next()
+            if streamData == nil {
                 return nil
             }
-            
-            let data = (flightData as! Arrow_Flight_Protocol_FlightData).dataBody
-            switch reader.fromStream(data) {
-            case .success(let rbResult):
-                batches = rbResult.batches
-                batchIndex = 1
-                return batches[0]
+
+            let flightData = (streamData as? Arrow_Flight_Protocol_FlightData)!
+            let dataBody = flightData.dataBody
+            let dataHeader = flightData.dataHeader
+            descriptor = FlightDescriptor(flightData.flightDescriptor)
+            switch reader.fromMessage(dataHeader, dataBody: dataBody, result: result) {
+            case .success(()):
+                if result.batches.count > 0 {
+                    batches = result.batches
+                    batchIndex = 1
+                    return (batches[0], descriptor)
+                }
             case .failure(let error):
                 throw error
             }
