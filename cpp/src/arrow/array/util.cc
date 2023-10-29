@@ -42,6 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/span.h"
@@ -51,6 +52,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MultiplyWithOverflow;
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData
@@ -669,11 +671,18 @@ class RepeatedArrayFactory {
   enable_if_base_binary<T, Status> Visit(const T&) {
     const std::shared_ptr<Buffer>& value = scalar<T>().value;
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;
-    RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
     auto size = static_cast<typename T::offset_type>(value->size());
+
+    int64_t total_size;
+    if (MultiplyWithOverflow(size, length_, &total_size)) {
+      return Status::Invalid("offset overflow in repeated array construction");
+    }
+
+    RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
     RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
-    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(
-        length_, std::move(offsets_buffer), std::move(values_buffer));
+
+    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(length_, offsets_buffer,
+                                                               values_buffer);
     return Status::OK();
   }
 

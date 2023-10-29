@@ -685,6 +685,19 @@ TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   }
 }
 
+TEST_F(TestArray, TestMakeArrayFromScalarOverflow) {
+  auto scalar = std::make_shared<StringScalar>("aa");
+
+  // Use a length that will cause an overflow when multiplied by the size of the string
+  int64_t length = static_cast<int64_t>(std::numeric_limits<int64_t>::max()) / 2 + 1;
+  auto array_result = MakeArrayFromScalar(*scalar, length);
+
+  std::string err_msg = "offset overflow in repeated array construction";
+  ASSERT_FALSE(array_result.ok());
+  ASSERT_EQ(array_result.status().code(), StatusCode::Invalid);
+  ASSERT_EQ(array_result.status().message().substr(0, err_msg.length()), err_msg);
+}
+
 TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   auto dictionary = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])");
   auto type = std::make_shared<DictionaryType>(int8(), utf8());
