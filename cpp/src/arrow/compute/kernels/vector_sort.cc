@@ -268,16 +268,12 @@ void ChunkedArraySorter::MergeNonNulls<DictionaryType>(
     const auto chunk_left = left_resolver.Resolve<DictionaryArray>(left);
     const auto chunk_right = right_resolver.Resolve<DictionaryArray>(right);
 
-    auto left_index = chunk_left.array->GetValueIndex(chunk_left.index);
-    auto right_index = chunk_right.array->GetValueIndex(chunk_right.index);
-
-    auto value_left = chunk_left.array->dictionary()->GetScalar(left_index).ValueOrDie();
-    auto value_right =
-        chunk_right.array->dictionary()->GetScalar(right_index).ValueOrDie();
+    auto value_left = chunk_left.array->GetView(chunk_left.index);
+    auto value_right = chunk_right.array->GetView(chunk_right.index);
 
     // get rank from unified_rank_map
-    auto rank_left = unified_rank_map[value_left->ToString()];
-    auto rank_right = unified_rank_map[value_right->ToString()];
+    auto rank_left = unified_rank_map[value_left];
+    auto rank_right = unified_rank_map[value_right];
 
     return rank_left < rank_right;
   };
