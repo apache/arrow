@@ -1824,7 +1824,7 @@ cdef class VariableShapeTensorType(BaseExtensionType):
                                        self.dim_names, self.permutation,
                                        self.uniform_shape)
 
-    def __variable_ext_scalar_class__(self):
+    def __arrow_ext_scalar_class__(self):
         return VariableShapeTensorScalar
 
 
