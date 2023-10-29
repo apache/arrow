@@ -1468,7 +1468,7 @@ def test_tensor_array_from_numpy(value_type):
 
 
 @pytest.mark.parametrize("value_type", (np.int8, np.int32, np.int64, np.float64))
-def test_variable_shape_tensor_class_method(value_type):
+def test_variable_shape_tensor_class_methods(value_type):
     ndim = 2
     shape_type = pa.list_(pa.uint32(), ndim)
     arrow_type = pa.from_numpy_dtype(value_type)
@@ -1513,6 +1513,12 @@ def test_variable_shape_tensor_class_method(value_type):
         {"data": [1, 2, 3, 4, 5, 6], "shape": [2, 3]},
         {"data": [7, 8], "shape": [2, 1]},
     ]
+
+    expected_0 = np.array([[1, 2, 3], [4, 5, 6]], dtype=value_type)
+    expected_1 = np.array([[7], [8]], dtype=value_type)
+
+    np.testing.assert_array_equal(arr[0].to_numpy_ndarray(), expected_0)
+    np.testing.assert_array_equal(arr[1].to_numpy_ndarray(), expected_1)
 
 
 @pytest.mark.parametrize("tensor_type", (

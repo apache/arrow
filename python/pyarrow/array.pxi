@@ -4387,17 +4387,31 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         """
         Convert variable shape tensor extension array to list of numpy arrays.
         """
-        cdef:
-            CVariableShapeTensorArray * ext_array = <CVariableShapeTensorArray *> (self.ap)
-            CResult[shared_ptr[CTensor]] ctensor
-
         tensors = []
         for i in range(len(self.storage)):
-            with nogil:
-                ctensor = ext_array.GetTensor(i)
-            tensors.append(pyarrow_wrap_tensor(GetResultValue(ctensor)).to_numpy())
+            tensors.append(self.get_tensor(i).to_numpy())
 
         return tensors
+
+    def get_tensor(self, int64_t i):
+        """
+        Get i-th tensor from variable shape tensor extension array.
+
+        Parameters
+        ----------
+        i : int64_t
+            The index of the tensor to get.
+
+        Returns
+        -------
+        tensor : pyarrow.Tensor
+        """
+        cdef:
+            CVariableShapeTensorArray* ext_array = <CVariableShapeTensorArray*>(self.ap)
+            CResult[shared_ptr[CTensor]] ctensor
+        with nogil:
+            ctensor = ext_array.GetTensor(i)
+        return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
     def from_numpy_ndarray(obj):
