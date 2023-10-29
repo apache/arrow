@@ -1824,6 +1824,10 @@ cdef class VariableShapeTensorType(BaseExtensionType):
                                        self.dim_names, self.permutation,
                                        self.uniform_shape)
 
+    def __variable_ext_scalar_class__(self):
+        return VariableShapeTensorScalar
+
+
 cdef class FixedShapeTensorType(BaseExtensionType):
     """
     Concrete class for fixed shape tensor extension type.
