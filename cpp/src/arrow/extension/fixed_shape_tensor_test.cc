@@ -462,7 +462,6 @@ TEST_F(TestExtensionType, ToString) {
       "extension<arrow.fixed_shape_tensor[value_type=int64, shape=[3,4,7], "
       "dim_names=[C,H,W]]>";
   ASSERT_EQ(expected_3, result_3);
-
 }
 
 TEST_F(TestExtensionType, GetScalar) {

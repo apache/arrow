@@ -3581,7 +3581,15 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
     def get_tensor(self, int64_t i):
         """
-        Convert variable shape tensor extension array to list of numpy arrays.
+        Get i-th tensor from fixed shape tensor extension array.
+
+        Parameters
+        ----------
+        i : int64_t
+            The index of the tensor to get.
+        Returns
+        -------
+        tensor : pyarrow.Tensor
         """
         cdef:
             CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
