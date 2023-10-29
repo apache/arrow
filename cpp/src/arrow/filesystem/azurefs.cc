@@ -152,13 +152,6 @@ Status ErrorToStatus(const std::string& prefix,
   return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
 
-// Copy of private function from Azure SDK
-// https://github.com/Azure/azure-sdk-for-cpp/blob/dd236311193c6a3debf3b12c47f14e49a20c72c7/sdk/storage/azure-storage-files-datalake/src/datalake_utilities.cpp#L86-L90
-bool MetadataIncidatesIsDirectory(const Azure::Storage::Metadata& metadata) {
-  auto ite = metadata.find("hdi_isFolder");
-  return ite != metadata.end() && ite->second == "true";
-}
-
 template <typename ArrowType>
 std::string FormatValue(typename TypeTraits<ArrowType>::CType value) {
   struct StringAppender {
@@ -483,13 +476,13 @@ class AzureFileSystem::Impl {
 
   const AzureOptions& options() const { return options_; }
 
-  public:
+ public:
   const bool get_is_hierarchical_namespace_enabled(const std::string& container) {
     if (!is_hierarchical_namespace_enabled_.has_value()) {
       auto path_client = datalake_service_client_->GetFileSystemClient(container);
       // try {
-        path_client.GetAccessPolicy();
-        is_hierarchical_namespace_enabled_ = true;
+      path_client.GetAccessPolicy();
+      is_hierarchical_namespace_enabled_ = true;
       // } catch () {
       //   is_hierarchical_namespace_enabled_ = false;
       // }
@@ -529,28 +522,53 @@ class AzureFileSystem::Impl {
             exception);
       }
     }
-    auto blob_client = blob_service_client_->GetBlobContainerClient(path.container)
-                           .GetBlobClient(path.path_to_file);
+    auto file_client = datalake_service_client_->GetFileSystemClient(path.container)
+                           .GetFileClient(path.path_to_file);
     try {
-      auto properties = blob_client.GetProperties();
+      auto properties = file_client.GetProperties();
       auto info = FileInfo(path.full_path, FileType::File);
-      if (MetadataIncidatesIsDirectory(properties.Value.Metadata)) {
+      if (properties.Value.IsDirectory) {
         info.set_type(FileType::Directory);
       } else {
         info.set_type(FileType::File);
-        info.set_size(properties.Value.BlobSize);
+        info.set_size(properties.Value.FileSize);
       }
       info.set_mtime(
           std::chrono::system_clock::time_point(properties.Value.LastModified));
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
-        // TODO: List the `path_to_file/` prefix and consider it a directory if there
-        // is at least one result.
-        return FileInfo(path.full_path, FileType::NotFound);
+        if (get_is_hierarchical_namespace_enabled(path.container)) {
+          // If the hierarchical namespace is enabled, then the storage account will have
+          // explicit directories. Neither a file nor a directory was found.
+          return FileInfo(path.full_path, FileType::NotFound);
+        }
+        // If the hierarchical namespace is not enabled, then there are no real
+        // directories. Directories are only implied by using `/` in the blob name.
+        // We need to detect implied directories by listing.
+        Azure::Storage::Blobs::ListBlobsOptions list_blob_options;
+
+        // AzurePath::FromString() ensures that path_to_file does not end with a slash.
+        // If listing the prefix `path.path_to_file + "/"` returns at least one result
+        // then path refers to an implied directory.
+        ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path.path_to_file));
+        list_blob_options.Prefix = path.path_to_file + "/";
+        // We only need to know if there is at least one result, so minimise page size
+        // for efficiency.
+        list_blob_options.PageSizeHint = 1;
+
+        // TODO: Confirm this will only fetch a single page, for efficiency
+        // TODO: Return appropriate status if there is an exception.
+        if (blob_service_client_->GetBlobContainerClient(path.container)
+                .ListBlobs(list_blob_options)
+                .HasPage()) {
+          return FileInfo(path.full_path, FileType::Directory);
+        } else {
+          return FileInfo(path.full_path, FileType::NotFound);
+        }
       }
       return ErrorToStatus(
-          "When fetching properties for '" + blob_client.GetUrl() + "': ", exception);
+          "When fetching properties for '" + file_client.GetUrl() + "': ", exception);
     }
   }
 
