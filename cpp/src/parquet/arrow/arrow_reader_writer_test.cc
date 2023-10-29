@@ -5205,6 +5205,42 @@ TEST(TestArrowReadWrite, FuzzReader) {
   }
 }
 
+// Test writing table with a closed writer, should not segfault
+// but throw exception instead. (GH-15074).
+TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
+  /* A sample table, type and structure does not matter in this test case*/
+  auto schema = ::arrow::schema({::arrow::field("letter", ::arrow::utf8())});
+  auto table = ::arrow::Table::Make(
+      schema, {::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])")});
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_AND_ASSIGN(auto writer, parquet::arrow::FileWriter::Open(
+                                        *schema, ::arrow::default_memory_pool(), sink,
+                                        parquet::default_writer_properties(),
+                                        parquet::default_arrow_writer_properties()));
+
+  /* Should be ok*/
+  ASSERT_OK(writer->WriteTable(*table, 1));
+
+  /* Operations on closed writer are incorrect. However, should not segfault*/
+  ASSERT_OK(writer->Close());
+
+  EXPECT_THROW_THAT(
+      [&]() { ASSERT_OK(writer->WriteTable(*table, 1)); }, ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("Cannot do operation on closed file")));
+
+  EXPECT_THROW_THAT(
+      [&]() { ASSERT_OK(writer->NewBufferedRowGroup()); }, ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("Cannot do operation on closed file")));
+
+  EXPECT_THROW_THAT(
+      [&]() { ASSERT_OK(writer->NewRowGroup(1)); }, ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("Cannot do operation on closed file")));
+}
+
 namespace {
 
 struct ColumnIndexObject {
