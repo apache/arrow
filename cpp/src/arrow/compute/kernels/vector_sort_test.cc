@@ -1128,9 +1128,9 @@ TYPED_TEST(TestChunkedArraySortIndicesForDictionary, Basics) {
   AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtStart,
                     "[0, 4, 2, 7, 5, 6, 3, 1]");
   AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtEnd,
-                    "[1, 3, 6, 5, 7, 2, 0, 4]");
+                    "[1, 3, 6, 5, 2, 7, 0, 4]");
   AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtStart,
-                    "[0, 4, 1, 3, 6, 5, 7, 2]");
+                    "[0, 4, 1, 3, 6, 5, 2, 7]");
 }
 
 // Base class for testing against random chunked array.

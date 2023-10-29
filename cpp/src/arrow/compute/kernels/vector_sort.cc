@@ -264,26 +264,36 @@ void ChunkedArraySorter::MergeNonNulls<DictionaryType>(
         static_cast<const arrow::Int64Scalar&>(*rank).value;
   }
 
-  auto compare_func = [&](uint64_t left, uint64_t right) {
-    const auto chunk_left = left_resolver.Resolve<DictionaryArray>(left);
-    const auto chunk_right = right_resolver.Resolve<DictionaryArray>(right);
-
-    auto value_left = chunk_left.array->GetView(chunk_left.index);
-    auto value_right = chunk_right.array->GetView(chunk_right.index);
-
-    // get rank from unified_rank_map
-    auto rank_left = unified_rank_map[value_left];
-    auto rank_right = unified_rank_map[value_right];
-
-    return rank_left < rank_right;
-  };
-
   if (order_ == SortOrder::Ascending) {
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-               compare_func);
+               [&](uint64_t left, uint64_t right) {
+                 const auto chunk_left = left_resolver.Resolve<DictionaryArray>(left);
+                 const auto chunk_right = right_resolver.Resolve<DictionaryArray>(right);
+
+                 auto value_left = chunk_left.array->GetView(chunk_left.index);
+                 auto value_right = chunk_right.array->GetView(chunk_right.index);
+
+                 // get rank from unified_rank_map
+                 auto rank_left = unified_rank_map[value_left];
+                 auto rank_right = unified_rank_map[value_right];
+
+                 return rank_left < rank_right;
+               });
   } else {
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
-               [&](uint64_t left, uint64_t right) { return !compare_func(left, right); });
+               [&](uint64_t left, uint64_t right) {
+                 const auto chunk_left = left_resolver.Resolve<DictionaryArray>(left);
+                 const auto chunk_right = right_resolver.Resolve<DictionaryArray>(right);
+
+                 auto value_left = chunk_left.array->GetView(chunk_left.index);
+                 auto value_right = chunk_right.array->GetView(chunk_right.index);
+
+                 // get rank from unified_rank_map
+                 auto rank_left = unified_rank_map[value_left];
+                 auto rank_right = unified_rank_map[value_right];
+
+                 return rank_right < rank_left;
+               });
   }
 
   // Copy back temp area into main buffer
