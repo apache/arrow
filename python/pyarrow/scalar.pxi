@@ -1047,11 +1047,10 @@ class VariableShapeTensorScalar(ExtensionScalar):
         Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
 
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            shape = self.get("shape")
-            np_flat = np.asarray(self.get("values").flatten())
-            numpy_tensor = np_flat.reshape(tuple(shape))
-            return numpy_tensor
+        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.permutation))):
+            shape = self.value[0].values.to_pylist()
+            np_flat = np.asarray(self.value[1].values)
+            return np_flat.reshape(shape)
         else:
             raise ValueError(
                 'Only non-permuted tensors can be converted to numpy tensors.')

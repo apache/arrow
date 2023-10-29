@@ -56,7 +56,7 @@ const Result<std::shared_ptr<Tensor>> VariableShapeTensorArray::GetTensor(
   }
 
   std::vector<int64_t> strides;
-  // TODO: optimize ComputeStrides for ragged tensors
+  // TODO: optimize ComputeStrides for non-uniform tensors
   ARROW_CHECK_OK(internal::ComputeStrides(*value_type.get(), shape,
                                           ext_type->permutation(), &strides));
 
