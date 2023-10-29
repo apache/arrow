@@ -18,6 +18,7 @@
 #include "arrow/filesystem/azurefs.h"
 
 #include <azure/storage/blobs.hpp>
+#include <azure/storage/files/datalake.hpp>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/path_util.h"
@@ -460,19 +461,41 @@ class ObjectInputFile final : public io::RandomAccessFile {
 class AzureFileSystem::Impl {
  public:
   io::IOContext io_context_;
-  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> service_client_;
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+      datalake_service_client_;
+  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
+  std::optional<bool> is_hierarchical_namespace_enabled_;
 
   explicit Impl(AzureOptions options, io::IOContext io_context)
-      : io_context_(io_context), options_(std::move(options)) {}
+      : io_context_(io_context),
+        options_(std::move(options)),
+        is_hierarchical_namespace_enabled_(std::nullopt) {}
 
   Status Init() {
-    service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
+    blob_service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
+    datalake_service_client_ =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
+            options_.account_blob_url, options_.storage_credentials_provider);
     return Status::OK();
   }
 
   const AzureOptions& options() const { return options_; }
+
+  public:
+  const bool get_is_hierarchical_namespace_enabled(const std::string& container) {
+    if (!is_hierarchical_namespace_enabled_.has_value()) {
+      auto path_client = datalake_service_client_->GetFileSystemClient(container);
+      // try {
+        path_client.GetAccessPolicy();
+        is_hierarchical_namespace_enabled_ = true;
+      // } catch () {
+      //   is_hierarchical_namespace_enabled_ = false;
+      // }
+    }
+    return is_hierarchical_namespace_enabled_.value();
+  }
 
   Result<FileInfo> GetFileInfo(const AzurePath& path) {
     FileInfo info;
@@ -489,7 +512,8 @@ class AzureFileSystem::Impl {
     }
     if (path.path_to_file.empty()) {
       // path refers to a container. This is a directory if it exists.
-      auto container_client = service_client_->GetBlobContainerClient(path.container);
+      auto container_client =
+          blob_service_client_->GetBlobContainerClient(path.container);
       try {
         auto properties = container_client.GetProperties();
         auto info = FileInfo(path.full_path, FileType::Directory);
@@ -505,7 +529,7 @@ class AzureFileSystem::Impl {
             exception);
       }
     }
-    auto blob_client = service_client_->GetBlobContainerClient(path.container)
+    auto blob_client = blob_service_client_->GetBlobContainerClient(path.container)
                            .GetBlobClient(path.path_to_file);
     try {
       auto properties = blob_client.GetProperties();
@@ -521,10 +545,9 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
-        blob_service_client_->GetBlobContainerClient(path.container)
-            // TODO: List the `path_to_file/` prefix and consider it a directory if there
-            // is at least one result.
-            return FileInfo(path.full_path, FileType::NotFound);
+        // TODO: List the `path_to_file/` prefix and consider it a directory if there
+        // is at least one result.
+        return FileInfo(path.full_path, FileType::NotFound);
       }
       return ErrorToStatus(
           "When fetching properties for '" + blob_client.GetUrl() + "': ", exception);
@@ -537,7 +560,7 @@ class AzureFileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
-        service_client_->GetBlobContainerClient(path.container)
+        blob_service_client_->GetBlobContainerClient(path.container)
             .GetBlobClient(path.path_to_file));
 
     auto ptr =
@@ -558,7 +581,7 @@ class AzureFileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(info.path()));
     RETURN_NOT_OK(ValidateFilePath(path));
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
-        service_client_->GetBlobContainerClient(path.container)
+        blob_service_client_->GetBlobContainerClient(path.container)
             .GetBlobClient(path.path_to_file));
 
     auto ptr = std::make_shared<ObjectInputFile>(blob_client, fs->io_context(),
