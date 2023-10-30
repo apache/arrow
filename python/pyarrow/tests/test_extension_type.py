@@ -1520,6 +1520,13 @@ def test_variable_shape_tensor_class_methods(value_type):
     np.testing.assert_array_equal(arr[0].to_numpy_ndarray(), expected_0)
     np.testing.assert_array_equal(arr[1].to_numpy_ndarray(), expected_1)
 
+    assert arr[0].to_tensor().equals(
+        pa.Tensor.from_numpy(expected_0, dim_names=["H", "W"]))
+
+    # TODO: due to wrong offset this would return [[1], [2]] instead of [[7], [8]]
+    assert arr[1].to_tensor().equals(
+        pa.Tensor.from_numpy(expected_1, dim_names=["H", "W"]))
+
 
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
