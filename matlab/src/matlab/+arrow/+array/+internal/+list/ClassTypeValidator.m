@@ -25,7 +25,13 @@ classdef ClassTypeValidator < arrow.array.internal.list.ListTypeValidator
         end
         
         function validateElement(obj, element)
-           isa(element, obj.ClassName);
+           if ~isa(element, obj.ClassName)
+               id = "arrow:array:list:ClassTypeMismatch";
+               msg = "Expected all cell array elements to be of class type " + ...
+                   obj.ClassName + ", but encountered element of class type " + ...
+                   class(element) + ".";
+               error(msg, id);
+           end
         end
 
         function length = getElementLength(~, element)
