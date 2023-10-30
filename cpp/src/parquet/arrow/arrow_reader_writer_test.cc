@@ -5225,16 +5225,17 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
 
   // Operations on closed writer are incorrect. However, should not segfault
   ASSERT_OK(writer->Close());
-  EXPECT_THROW_THAT(
-      [&]() { ASSERT_OK(writer->WriteTable(*table, 1)); }, ParquetException,
-      ::testing::Property(&ParquetException::what,
-                          ::testing::HasSubstr("Cannot do operation on closed file")));
+  EXPECT_THROW_THAT([&]() { ASSERT_OK(writer->WriteTable(*table, 1)); }, ParquetException,
+                    ::testing::Property(
+                        &ParquetException::what,
+                        ::testing::HasSubstr("Cannot get properties from closed file")));
 
   // These two functions do not throw because they use PARQUET_CATCH_NOT_OK
   // in their implementations.
-  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Cannot do operation on closed file",
+  ASSERT_RAISES_WITH_MESSAGE(IOError,
+                             "IOError: Cannot append buffered-row-group to closed file",
                              writer->NewBufferedRowGroup());
-  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Cannot do operation on closed file",
+  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Cannot append row-group to closed file",
                              writer->NewRowGroup(1));
 }
 

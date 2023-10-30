@@ -635,12 +635,12 @@ void ParquetFileWriter::Close() {
 }
 
 RowGroupWriter* ParquetFileWriter::AppendRowGroup() {
-  AssertNotClosed();
+  AssertNotClosed("Cannot append row-group to closed file");
   return contents_->AppendRowGroup();
 }
 
 RowGroupWriter* ParquetFileWriter::AppendBufferedRowGroup() {
-  AssertNotClosed();
+  AssertNotClosed("Cannot append buffered-row-group to closed file");
   return contents_->AppendBufferedRowGroup();
 }
 
@@ -650,18 +650,18 @@ RowGroupWriter* ParquetFileWriter::AppendRowGroup(int64_t num_rows) {
 
 void ParquetFileWriter::AddKeyValueMetadata(
     const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
-  AssertNotClosed();
+  AssertNotClosed("Cannot add key-value metadata to closed file");
   contents_->AddKeyValueMetadata(key_value_metadata);
 }
 
 const std::shared_ptr<WriterProperties>& ParquetFileWriter::properties() const {
-  AssertNotClosed();
+  AssertNotClosed("Cannot get properties from closed file");
   return contents_->properties();
 }
 
-void ParquetFileWriter::AssertNotClosed() const {
+void ParquetFileWriter::AssertNotClosed(std::string_view message) const {
   if (contents_ == nullptr) {
-    throw ParquetException("Cannot do operation on closed file");
+    throw ParquetException(message);
   }
 }
 
