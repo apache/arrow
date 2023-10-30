@@ -97,12 +97,13 @@ public class AvaticaParameterBinder {
   private void bind(FieldVector vector, TypedValue typedValue, int index) {
     try {
       if (!vector.getField().getType().accept(new BinderVisitor(vector, typedValue, index))) {
-        throw new UnsupportedOperationException(
+        throw new RuntimeException(
                 String.format("Binding to vector type %s is not yet supported", vector.getClass()));
       }
     } catch (ClassCastException e) {
-      throw new RuntimeException(String.format("Value of type %s is not compatible with Arrow type %s",
-              typedValue.type, vector.getField().getType()));
+      throw new RuntimeException(
+              String.format("Binding value of type %s is not yet supported for expected Arrow type %s",
+                      typedValue.type, vector.getField().getType()));
     }
   }
 
@@ -224,5 +225,3 @@ public class AvaticaParameterBinder {
   }
 
 }
-
-

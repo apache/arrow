@@ -23,6 +23,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * AvaticaParameterConverter for Duration Arrow types.
+ */
 public class DurationAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
   public DurationAvaticaParameterConverter(ArrowType.Duration type) {

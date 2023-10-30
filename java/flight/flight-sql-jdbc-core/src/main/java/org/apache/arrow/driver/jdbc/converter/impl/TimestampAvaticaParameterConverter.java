@@ -31,6 +31,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * AvaticaParameterConverter for Timestamp Arrow types.
+ */
 public class TimestampAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
   public TimestampAvaticaParameterConverter(ArrowType.Timestamp type) {

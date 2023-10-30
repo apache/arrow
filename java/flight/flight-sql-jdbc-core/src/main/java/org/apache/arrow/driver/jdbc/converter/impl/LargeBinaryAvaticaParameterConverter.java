@@ -24,6 +24,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * AvaticaParameterConverter for LargeBinary Arrow types.
+ */
 public class LargeBinaryAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
   public LargeBinaryAvaticaParameterConverter(ArrowType.LargeBinary type) {

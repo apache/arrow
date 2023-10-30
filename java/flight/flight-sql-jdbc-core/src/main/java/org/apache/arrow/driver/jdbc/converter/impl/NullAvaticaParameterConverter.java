@@ -24,6 +24,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * AvaticaParameterConverter for Null Arrow types.
+ */
 public class NullAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
   public NullAvaticaParameterConverter(ArrowType.Null type) {

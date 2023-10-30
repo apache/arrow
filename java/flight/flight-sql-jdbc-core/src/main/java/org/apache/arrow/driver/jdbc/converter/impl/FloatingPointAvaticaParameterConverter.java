@@ -25,6 +25,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * AvaticaParameterConverter for FloatingPoint Arrow types.
+ */
 public class FloatingPointAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
   public FloatingPointAvaticaParameterConverter(ArrowType.FloatingPoint type) {

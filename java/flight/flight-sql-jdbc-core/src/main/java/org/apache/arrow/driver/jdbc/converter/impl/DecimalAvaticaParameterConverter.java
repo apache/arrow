@@ -26,6 +26,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * AvaticaParameterConverter for Decimal Arrow types.
+ */
 public class DecimalAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
   public DecimalAvaticaParameterConverter(ArrowType.Decimal type) {
