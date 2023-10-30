@@ -25,44 +25,69 @@ The goal of this document is to provide helpful guidelines for testing functiona
 
 ## Prerequisites  
 
-MATLAB interface has its own tests to ensure its quality. To run those tests locally on your machine, the following software must be installed on your machine:  
+Adding tests to the MATLAB interface helps to ensure quality and verify that the software works as intended. To run the MATLAB interface tests, the following software must be installed locally:  
 
 1. [MATLAB](https://www.mathworks.com/products/get-matlab.html)
-2. [MATLAB Interface to Apache Arrow](https://github.com/mathworks/arrow/tree/main/matlab)
+2. [MATLAB Interface to Apache Arrow](https://github.com/mathworks/arrow/tree/main/matlab)  
 
-## General Guidelines  
+## Running Tests Locally  
+
+To run the MATLAB interface tests on a local machine, start MATLAB and then `cd` to the directory under `matlab/test` where the test files of interest reside. After changing to the test directory, call the `runtests` command to run your tests:  
+
+```matlab
+% To run a single test file
+>> runtests(testFileName) % For example: runtests("tArray.m")
+
+% To run all tests recursively under a test directory
+>> runtests(testFolderName, IncludeSubfolders = true) % For example: runtests('matlab\test', IncludeSubfolders = true)
+```
+
+To learn more about `runtests`, please check [the documentation of `runtests`](https://www.mathworks.com/help/matlab/ref/runtests.html).  
+
+## Writing Tests  
+
+All tests for the MATLAB interface should use the [MATLAB Class-Based Unit Testing Framework](https://www.mathworks.com/help/matlab/class-based-unit-tests.html) (i.e. they should use [`matlab.unittest.TestCase`](https://www.mathworks.com/help/matlab/ref/matlab.unittest.testcase-class.html)). Here is a simple example.  
+
+```matlab
+classdef tStringArray < matlab.unittest.TestCase
+    methods(Test)
+        function TestBasicStringArray(testCase)
+            % Verify that an `arrow.array.StringArray` can be created from
+            % a basic MATLAB `string` array using the `arrow.array` gateway
+            % construction function.
+
+            % Create a basic MATLAB `string` array.
+            matlabArray = ["A" ,"B", "C"];
+            % Create an `arrow.array.StringArray` from the MATLAB `string`
+            % array by using the `arrow.array` gateway construction function.
+            arrowArray = arrow.array(matlabArray);
+            % Verify the class of `arrowArray` is `arrow.array.StringArray`.
+            testCase.verifyEqual(string(class(arrowArray)), "arrow.array.StringArray");
+            % Verify `arrowArray` can be converted back into a MATLAB `string` array.
+            testCase.verifyEqual(arrowArray.toMATLAB, ["A"; "B"; "C"]);
+        end
+    end
+end
+```
+
+More test examples can be found in the `matlab/test` directory.  
+
+### Testing Best Practices  
+
+- Use descriptive names for your test cases.
+- Focus on testing one software "behavior" in each test case.
+- Test with both "expected" and "unexpected" inputs.
+- Add a comment at the beginning of each test case which describes what the test case is verifying.
+- Treat test code like any other code (i.e. use clear variable names, write helper functions, make use of abstraction, etc.)
+- Follow existing patterns when adding new test cases to an existing test class.
+
+## Test Case Design Guidelines  
 
 When adding new tests, it is recommended to, at a minimum, ensure that real-world workflows work as expected.  
 
-If the change cannot be covered by any use case at the MATLAB interface level, please consider test it at the C++ level. One approach for testing C++ code is to create a Proxy instance manually in MATLAB and call the Proxy's method from a MATLAB test case. Examples can be found in `matlab/test/arrow/tabular/tTabularInternal.m`.
+If a change cannot be easily tested at the MATLAB interface level (e.g. you would like to test the behavior of a C++ `Proxy` method), consider creating a `Proxy` instance manually from a MATLAB test case and calling relevant methods on the `Proxy`.  
 
-### MATLAB Class-Based Unit Testing Framework  
-
-All tests for the MATLAB interface should use the [MATLAB Class-Based Unit Testing Framework](https://www.mathworks.com/help/matlab/class-based-unit-tests.html) (i.e. they should use [`matlab.unittest.TestCase`](https://www.mathworks.com/help/matlab/ref/matlab.unittest.testcase-class.html)).  
-
-## Code Coverage Goals  
-
-When making changes to the MATLAB interface, please do your best to add tests to cover all changed lines, conditions, and decisions.  
-
-Before making a pull request, please check the code coverage for any changed code. If possible, it can be helpful to explicitly comment on the code coverage in your pull request description.  
-
-Although we strive for high code coverage, it is understood that some code cannot be reasonably tested (e.g. an "un-reachable" branch in a `switch` condition on an enumeration value).
-
-### How to Check Code Coverage  
-
-To generate a MATLAB code coverage report, the [`ReportCoverageFor`](https://www.mathworks.com/help/matlab/ref/runtests.html#mw_764c9db7-6823-439f-a77d-7fd25a03d20e) name-value pair argument can be supplied to the [`runtests`](https://www.mathworks.com/help/matlab/ref/runtests.html) command. Before generating the code coverage report, remember to add your source file directory to path. Here are the commands.
-
-```matlab  
->> addpath( genpath(<your local arrow/matlab>) ) % Include subdirectories
->> runtests(testFilePath/testFolderPath, 'ReportCoverageFor', sourceFilePath/sourceFolderPath, 'IncludeSubfolders', true/false);  
-```
-
-Below is an example of running all tests under `matlab/test` and getting the MATLAB code coverage report for all files under `matlab/src/matlab`.
-
-```matlab  
->> addpath(genpath("C:\TryCodeCoverage\arrow\matlab"))
->> runtests('C:\TryCodeCoverage\arrow\matlab\test', 'ReportCoverageFor', 'C:\TryCodeCoverage\arrow\matlab\src\matlab\', 'IncludeSubfolders', true);
-```
+An example of this approach to test C++ `Proxy` code can be found in [`matlab/test/arrow/tabular/tTabularInternal.m`](https://github.com/apache/arrow/blob/main/matlab/test/arrow/tabular/tTabularInternal.m).  
 
 ## Test Organization  
 
@@ -84,59 +109,34 @@ Reviewers will generally expect the MATLAB CI Workflows to be passing successful
 
 If you are having trouble understanding CI failures, you can always ask a reviewer or another community member for help.  
 
-## Writing Tests  
+## Code Coverage Goals  
 
-Tests for MATLAB interface should use the MATLAB testing framework [`matlab.unittest.TestCase class`](https://www.mathworks.com/help/matlab/ref/matlab.unittest.testcase-class.html). Here is a simple example.  
+When making changes to the MATLAB interface, please do your best to add tests to cover all changed lines, conditions, and decisions.  
 
-```matlab
-classdef tStringArray < matlab.unittest.TestCase
-    methods(Test)
-        function TestBasicStringArray(testCase)
-            % Verify that an `arrow.array.StringArray` can be created from
-            % a basic MATLAB `string` array using the `arrow.array` gateway
-            % construction function.
+Before making a pull request, please check the code coverage for any changed code. If possible, it can be helpful to explicitly comment on the code coverage in your pull request description.  
 
-            % Create a basic MATLAB array.
-            matlabArray = ["A" ,"B", "C"];
-            % Create an `arrow.array.StringArray` from the MATLAB `string`
-            % array by using the `arrow.array` gateway construction function.
-            arrowArray = arrow.array(matlabArray);
-            % Verify the class of `arrowArray` is `arrow.array.StringArray`.
-            testCase.verifyEqual(string(class(arrowArray)), "arrow.array.StringArray");
-            % Verify the value of `arrowArray`
-            testCase.verifyEqual(arrowArray.toMATLAB,["A";"B";"C"]);
-        end
-    end
-end
+Although we strive for high code coverage, it is understood that some code cannot be reasonably tested (e.g. an "un-reachable" branch in a `switch` condition on an enumeration value).
+
+### How to Check Code Coverage  
+
+***Requirement:** MATLAB R2023b or later.*  
+
+To generate a MATLAB code coverage report, the [`ReportCoverageFor`](https://www.mathworks.com/help/matlab/ref/runtests.html#mw_764c9db7-6823-439f-a77d-7fd25a03d20e) name-value pair argument can be supplied to the [`runtests`](https://www.mathworks.com/help/matlab/ref/runtests.html) command. Before generating the code coverage report, remember to add your source file directory to the [MATLAB Search Path](https://www.mathworks.com/help/matlab/matlab_env/what-is-the-matlab-search-path.html).  
+
+```matlab  
+>> addpath( genpath(<your local arrow/matlab>) ) % `genpath` is needed to include all subdirectories and add them to MATLAB search path.
+>> runtests(testFilePath/testFolderPath, 'ReportCoverageFor', sourceFilePath/sourceFolderPath, 'IncludeSubfolders', true/false);  
 ```
 
-More test examples can be found in the `matlab/test` directory.  
+Below is an example of running all tests under `matlab/test` and getting the MATLAB code coverage report for all files under `matlab/src/matlab`.
 
-### Testing Best Practices  
-
-- Use descriptive names for your test cases.
-- Focus on testing one software "behavior" in each test case.
-- Test with both "expected" and "unexpected" inputs.
-- Add a comment at the beginning of each test case which describes what the test case is verifying.
-- Treat test code like any other code (i.e. use clear variable names, write helper functions, make use of abstraction, etc.)
-- Follow existing patterns when adding new test cases to an existing test class.
-
-## Running Tests Locally   
-
-To run the MATLAB tests, start MATLAB and then cd to the test directory where test files of interest reside.  Call the `runtests` command to run your tests:  
-
-```matlab
-% To run a single test file
->> runtests(testFileName) % For example runtests("tArray.m")
-
-% To run tests under a test directory
->> runtests(testFolderName, IncludeSubfolders=true) % For example runtests('matlab\test',IncludeSubfolders=true)
+```matlab  
+>> addpath(genpath("C:\TryCodeCoverage\arrow\matlab"))
+>> runtests('C:\TryCodeCoverage\arrow\matlab\test', 'ReportCoverageFor', 'C:\TryCodeCoverage\arrow\matlab\src\matlab\', 'IncludeSubfolders', true);
 ```
-
-To learn more about `runtests`, please check [the documentation of `runtests`](https://www.mathworks.com/help/matlab/ref/runtests.html).  
 
 ## Tips  
 
-### Generate MATLAB Code Coverage Report  
+### Debugging Code Coverage Results  
 
-It might happen that caching or other issue causes zero coverage because the test ends up executing some other source file. To avoid such problem, please first set a breakpoint in your source file and run the tests. This step is to make sure that your source file is executed by the tests. After this step, the command `runtests(___, "ReportCoverageFor", ___)` will work well.
+If the `runtests` command with `RepoCoverageFor` reports confusing or incorrect code coverage results, this could be due to caching or other issues. As a workaround, you can try setting a breakpoint in your source file, and then run the tests. This step can be used to verify that your source file is being executed by the tests.  
