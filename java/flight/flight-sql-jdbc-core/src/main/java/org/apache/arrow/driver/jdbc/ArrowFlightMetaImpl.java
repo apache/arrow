@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
-import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
-import org.apache.arrow.driver.jdbc.utils.TypedValueBinder;
+import org.apache.arrow.driver.jdbc.converter.ConvertUtils;
+import org.apache.arrow.driver.jdbc.utils.AvaticaParameterBinder;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -94,15 +94,14 @@ public class ArrowFlightMetaImpl extends MetaImpl {
                                final List<TypedValue> typedValues, final long maxRowCount) {
     Preconditions.checkArgument(connection.id.equals(statementHandle.connectionId),
             "Connection IDs are not consistent");
-    final StatementHandleKey key = new StatementHandleKey(statementHandle);
-    PreparedStatement preparedStatement = statementHandlePreparedStatementMap.get(key);
+    PreparedStatement preparedStatement = getPreparedStatement(statementHandle);
 
     if (preparedStatement == null) {
       throw new IllegalStateException("Prepared statement not found: " + statementHandle);
     }
 
-    final TypedValueBinder binder =
-                 new TypedValueBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator());
+    final AvaticaParameterBinder binder =
+                 new AvaticaParameterBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator());
     binder.bind(typedValues);
 
     if (statementHandle.signature == null) {

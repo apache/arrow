@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.utils;
+package org.apache.arrow.driver.jdbc.converter;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -122,15 +123,6 @@ public final class ConvertUtils {
    * @return list of {@link AvaticaParameter}.
    */
   public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(final List<Field> fields) {
-    return fields.stream().map(field -> {
-      final boolean signed = ArrowToJdbcUtils.isSigned(field.getType());
-      final int precision = 0; // Would have to know about the actual number
-      final int scale = 0; // According to https://www.postgresql.org/docs/current/datatype-numeric.html
-      final int type = ArrowToJdbcUtils.toJdbcType(field.getType());
-      final String typeName = field.getType().toString();
-      final String clazz = ArrowToJdbcUtils.getClassName(field.getType());
-      final String name = field.getName();
-      return new AvaticaParameter(signed, precision, scale, type, typeName, clazz, name);
-    }).collect(Collectors.toList());
+    return fields.stream().map(ArrowFieldToAvaticaParameter::convert).collect(Collectors.toList());
   }
 }

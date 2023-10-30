@@ -21,6 +21,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 
 import java.util.List;
 
+import org.apache.arrow.driver.jdbc.converter.ConvertUtils;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
