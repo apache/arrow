@@ -135,9 +135,13 @@ namespace Apache.Arrow.Tests
             [InlineData(-100.12, 7, 4, "-100.1200")]
             [InlineData(-.12, 6, 3, "-0.120")]
             [InlineData(-.0012, 5, 4, "-0.0012")]
+            [InlineData(7.89, 76, 38, "7.89000000000000000000000000000000000000")]
             public void FromDecimal(decimal d, int precision, int scale, string result)
             {
-                TestFromDecimal(d, precision, scale, 16, result);
+                if (precision <= 38)
+                {
+                    TestFromDecimal(d, precision, scale, 16, result);
+                }
                 TestFromDecimal(d, precision, scale, 32, result);
             }
 
