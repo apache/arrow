@@ -261,7 +261,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 	var precInBits = uint(math.Round(float64(prec+scale+1)/math.Log10(2))) + 1
 
 	var out *big.Float
-	out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestEven)
+	out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestEven)
 	if err != nil {
 		return
 	}

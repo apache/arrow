@@ -701,9 +701,9 @@ func TestBitLen(t *testing.T) {
 }
 
 func TestFromStringDecimal128b(t *testing.T) {
-	const decStr = "766710016439641.74508380782495962772837"
+	const decStr = "9323406071781562130.6457232358109488923"
 
-	num, err := decimal128.FromString(decStr, 38, 23)
+	num, err := decimal128.FromString(decStr, 38, 19)
 	require.NoError(t, err)
-	assert.Equal(t, decStr, num.ToString(23))
+	assert.Equal(t, decStr, num.ToString(19))
 }
