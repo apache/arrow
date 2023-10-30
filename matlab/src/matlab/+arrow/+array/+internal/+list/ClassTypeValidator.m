@@ -30,7 +30,7 @@ classdef ClassTypeValidator < arrow.array.internal.list.ListTypeValidator
                msg = "Expected all cell array elements to be of class type " + ...
                    obj.ClassName + ", but encountered element of class type " + ...
                    class(element) + ".";
-               error(msg, id);
+               error(id, msg);
            end
         end
 
