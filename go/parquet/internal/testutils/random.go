@@ -438,15 +438,16 @@ func fillRandomIsValid(seed uint64, pctNull float64, out []bool) {
 // If the type is parquet.ByteArray or parquet.FixedLenByteArray, heap must not be null.
 //
 // The default values are:
-//  []bool uses the current time as the seed with only values of 1 being false, for use
-//   of creating validity boolean slices.
-//  all other types use 0 as the seed
-//  a []parquet.ByteArray is populated with lengths between 2 and 12
-//  a []parquet.FixedLenByteArray is populated with fixed size random byte arrays of length 12.
+//
+//	[]bool uses the current time as the seed with only values of 1 being false, for use
+//	 of creating validity boolean slices.
+//	all other types use 0 as the seed
+//	a []parquet.ByteArray is populated with lengths between 2 and 12
+//	a []parquet.FixedLenByteArray is populated with fixed size random byte arrays of length 12.
 func InitValues(values interface{}, heap *memory.Buffer) {
 	switch arr := values.(type) {
 	case []bool:
-		fillRandomIsValid(uint64(time.Now().Unix()), 1.0, arr)
+		fillRandomIsValid(uint64(time.Now().Unix()), 0.5, arr)
 	case []int32:
 		FillRandomInt32(0, arr)
 	case []int64:

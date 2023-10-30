@@ -244,7 +244,7 @@ func (d *dictEncoder) FlushValues() (Buffer, error) {
 // EstimatedDataEncodedSize returns the maximum number of bytes needed to store the RLE encoded indexes, not including the
 // dictionary index in the computation.
 func (d *dictEncoder) EstimatedDataEncodedSize() int64 {
-	return 1 + int64(utils.MaxBufferSize(d.BitWidth(), len(d.idxValues))+utils.MinBufferSize(d.BitWidth()))
+	return 1 + int64(utils.MaxRLEBufferSize(d.BitWidth(), len(d.idxValues))+utils.MinRLEBufferSize(d.BitWidth()))
 }
 
 // NumEntries returns the number of entires in the dictionary index for this encoder.
