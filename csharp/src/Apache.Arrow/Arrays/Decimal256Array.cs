@@ -15,8 +15,10 @@
 
 using System;
 using System.Collections.Generic;
+#if !NETSTANDARD1_3
+using System.Data.SqlTypes;
+#endif
 using System.Diagnostics;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
@@ -61,6 +63,68 @@ namespace Apache.Arrow
                 return Instance;
             }
 
+            public Builder Append(string value)
+            {
+                if (value == null)
+                {
+                    AppendNull();
+                }
+                else
+                {
+                    Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                    DecimalUtility.GetBytes(value, DataType.Precision, DataType.Scale, ByteWidth, bytes);
+                    Append(bytes);
+                }
+
+                return Instance;
+            }
+
+            public Builder AppendRange(IEnumerable<string> values)
+            {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
+                foreach (string s in values)
+                {
+                    Append(s);
+                }
+
+                return Instance;
+            }
+
+#if !NETSTANDARD1_3
+            public Builder Append(SqlDecimal value)
+            {
+                Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                DecimalUtility.GetBytes(value, DataType.Precision, DataType.Scale, bytes);
+                if (!value.IsPositive)
+                {
+                    var span = bytes.CastTo<long>();
+                    span[2] = -1;
+                    span[3] = -1;
+                }
+
+                return Append(bytes);
+            }
+
+            public Builder AppendRange(IEnumerable<SqlDecimal> values)
+            {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
+                foreach (SqlDecimal d in values)
+                {
+                    Append(d);
+                }
+
+                return Instance;
+            }
+#endif
+
             public Builder Set(int index, decimal value)
             {
                 Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
@@ -92,5 +156,37 @@ namespace Apache.Arrow
 
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
         }
+
+        public string GetString(int index)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
+        }
+
+#if !NETSTANDARD1_3
+        public bool TryGetSqlDecimal(int index, out SqlDecimal? value)
+        {
+            if (IsNull(index))
+            {
+                value = null;
+                return true;
+            }
+
+            const int longWidth = 4;
+            var span = ValueBuffer.Span.CastTo<long>().Slice(index * longWidth);
+            if ((span[2] == 0 && span[3] == 0) ||
+                (span[2] == -1 && span[3] == -1))
+            {
+                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * index, Precision, Scale);
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
+#endif
     }
 }

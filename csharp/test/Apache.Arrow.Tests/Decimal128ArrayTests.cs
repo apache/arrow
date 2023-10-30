@@ -16,6 +16,7 @@
 using System;
 #if !NETSTANDARD1_3
 using System.Data.SqlTypes;
+using System.Linq;
 #endif
 using Apache.Arrow.Types;
 using Xunit;
@@ -373,6 +374,94 @@ namespace Apache.Arrow.Tests
                     {
                         Assert.Equal(range[i], array.GetSqlDecimal(i));
                         Assert.Equal(Convert(range[i]), array.GetValue(i));
+                    }
+
+                    Assert.Null(array.GetValue(range.Length));
+                }
+            }
+
+            public class Strings
+            {
+                [Theory]
+                [InlineData(200)]
+                public void AppendString(int count)
+                {
+                    // Arrange
+                    const int precision = 10;
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(14, precision));
+
+                    // Act
+                    string[] testData = new string[count];
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (i == count - 2)
+                        {
+                            builder.AppendNull();
+                            testData[i] = null;
+                            continue;
+                        }
+                        SqlDecimal rnd = i * (SqlDecimal)Math.Round(new Random().NextDouble(), 10);
+                        builder.Append(rnd);
+                        testData[i] = SqlDecimal.Round(rnd, precision).ToString();
+                    }
+
+                    // Assert
+                    var array = builder.Build();
+                    Assert.Equal(count, array.Length);
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (testData[i] == null)
+                        {
+                            Assert.Null(array.GetString(i));
+                            Assert.Null(array.GetSqlDecimal(i));
+                        }
+                        else
+                        {
+                            Assert.Equal(testData[i].TrimEnd('0'), array.GetString(i).TrimEnd('0'));
+                            Assert.Equal(SqlDecimal.Parse(testData[i]), array.GetSqlDecimal(i));
+                        }
+                    }
+                }
+
+                [Fact]
+                public void AppendMaxAndMinSqlDecimal()
+                {
+                    // Arrange
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(38, 0));
+
+                    // Act
+                    builder.Append(SqlDecimal.MaxValue.ToString());
+                    builder.Append(SqlDecimal.MinValue.ToString());
+                    string maxMinusTen = (SqlDecimal.MaxValue - 10).ToString();
+                    string minPlusTen = (SqlDecimal.MinValue + 10).ToString();
+                    builder.Append(maxMinusTen);
+                    builder.Append(minPlusTen);
+
+                    // Assert
+                    var array = builder.Build();
+                    Assert.Equal(SqlDecimal.MaxValue.ToString(), array.GetString(0));
+                    Assert.Equal(SqlDecimal.MinValue.ToString(), array.GetString(1));
+                    Assert.Equal(maxMinusTen, array.GetString(2));
+                    Assert.Equal(minPlusTen, array.GetString(3));
+                }
+
+                [Fact]
+                public void AppendRangeSqlDecimal()
+                {
+                    // Arrange
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(24, 8));
+                    var range = new SqlDecimal[] { 2.123M, 1.5984M, -0.0000001M, 9878987987987987.1235407M };
+
+                    // Act
+                    builder.AppendRange(range.Select(d => d.ToString()));
+                    builder.AppendNull();
+
+                    // Assert
+                    var array = builder.Build();
+                    for (int i = 0; i < range.Length; i++)
+                    {
+                        Assert.Equal(range[i], array.GetSqlDecimal(i));
+                        Assert.Equal(range[i].ToString(), array.GetString(i).TrimEnd('0'));
                     }
 
                     Assert.Null(array.GetValue(range.Length));
