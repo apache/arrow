@@ -211,11 +211,7 @@ class InputState {
 
   const std::shared_ptr<arrow::Schema>& get_schema() const { return schema_; }
 
-  void set_total_batches(int n) {
-    DCHECK_GE(n, 0);
-    DCHECK_EQ(total_batches_, -1) << "Set total batch more than once";
-    total_batches_ = n;
-  }
+  void set_total_batches(int n) { total_batches_ = n; }
 
  private:
   size_t index_;
@@ -453,7 +449,7 @@ class SortedMergeNode : public ExecNode {
     if (std::any_of(heap.begin(), heap.end(),
                     [](const std::shared_ptr<InputState>& s) { return s->Empty(); })) {
       return nullptr;
-    };
+    }
 
     // Currently we only support one sort key
     const auto sort_col = *ordering_.sort_keys().at(0).target.name();
@@ -492,12 +488,12 @@ class SortedMergeNode : public ExecNode {
         output_counter[next_item->index()] += builder.Size();
         builder.Finalize();
       }
-      if (next_item->Finished() || next_item->Empty()) {
+      if (next_item->Finished()) {
         heap.pop_back();
-      }
-      // We've run out of data on one of the inputs
-      if (next_item->Empty()) {
+      } else if (next_item->Empty()) {
+        // We've run out of data on one of the inputs
         waiting_for_more_data = true;
+        continue;  // skip the unnecessary make_heap
       }
       std::make_heap(heap.begin(), heap.end(), comp);
     }
@@ -507,11 +503,7 @@ class SortedMergeNode : public ExecNode {
       return nullptr;
     }
 
-    ARROW_LOG(ERROR) << "heap length: " << heap.size();
-
     ARROW_ASSIGN_OR_RAISE(auto maybe_rb, output.Materialize());
-    ARROW_LOG(ERROR) << "Materialized "
-                     << (maybe_rb.has_value() ? (*maybe_rb)->ToString() : " EMPTY");
     return maybe_rb.value_or(nullptr);
   }
   /// Gets a batch. Returns true if there is more data to process, false if we
@@ -580,8 +572,8 @@ class SortedMergeNode : public ExecNode {
 
   // Each input state corresponds to an input (e.g. a parquet data file)
   std::vector<std::shared_ptr<InputState>> state;
-  std::vector<std::atomic_long> input_counter;
-  std::vector<std::atomic_long> output_counter;
+  std::vector<std::atomic_int64_t> input_counter;
+  std::vector<std::atomic_int64_t> output_counter;
   std::mutex gate;
 
   std::atomic<bool> cleanup_started{false};
