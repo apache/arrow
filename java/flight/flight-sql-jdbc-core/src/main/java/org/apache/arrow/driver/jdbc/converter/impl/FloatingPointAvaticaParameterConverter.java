@@ -31,16 +31,16 @@ public class FloatingPointAvaticaParameterConverter extends BaseAvaticaParameter
   }
 
   @Override
-  public boolean setParameter(FieldVector vector, TypedValue typedValue, int index) {
+  public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     Object value = typedValue.toLocal();
-      if (vector instanceof Float4Vector) {
-        ((Float4Vector) vector).setSafe(index, (float) value);
-        return true;
-      } else if (vector instanceof Float8Vector) {
-        ((Float8Vector) vector).setSafe(index, (double) value);
-        return true;
-      }
-      return false;
+    if (vector instanceof Float4Vector) {
+      ((Float4Vector) vector).setSafe(index, (float) value);
+      return true;
+    } else if (vector instanceof Float8Vector) {
+      ((Float8Vector) vector).setSafe(index, (double) value);
+      return true;
+    }
+    return false;
   }
 
   @Override

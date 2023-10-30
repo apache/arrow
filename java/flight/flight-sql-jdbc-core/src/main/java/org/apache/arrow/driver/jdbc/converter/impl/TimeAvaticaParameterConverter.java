@@ -33,7 +33,7 @@ public class TimeAvaticaParameterConverter extends BaseAvaticaParameterConverter
   }
 
   @Override
-  public boolean setParameter(FieldVector vector, TypedValue typedValue, int index) {
+  public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     int value = (int) typedValue.toLocal();
     if (vector instanceof TimeMicroVector) {
       ((TimeMicroVector) vector).setSafe(index, value);

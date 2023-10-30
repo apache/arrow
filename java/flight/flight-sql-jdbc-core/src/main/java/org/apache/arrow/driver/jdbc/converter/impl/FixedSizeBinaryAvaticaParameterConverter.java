@@ -30,7 +30,7 @@ public class FixedSizeBinaryAvaticaParameterConverter extends BaseAvaticaParamet
   }
 
   @Override
-  public boolean setParameter(FieldVector vector, TypedValue typedValue, int index) {
+  public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     Object value = typedValue.toLocal();
     if (vector instanceof FixedSizeBinaryVector) {
       ((FixedSizeBinaryVector) vector).setSafe(index, (byte[]) value);

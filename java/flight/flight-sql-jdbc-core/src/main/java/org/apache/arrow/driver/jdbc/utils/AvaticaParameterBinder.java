@@ -119,7 +119,7 @@ public class AvaticaParameterBinder {
 
     @Override
     public Boolean visit(ArrowType.Null type) {
-      return new NullAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new NullAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
@@ -154,72 +154,72 @@ public class AvaticaParameterBinder {
 
     @Override
     public Boolean visit(ArrowType.Int type) {
-      return new IntAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new IntAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.FloatingPoint type) {
-      return new FloatingPointAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new FloatingPointAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Utf8 type) {
-      return new Utf8AvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new Utf8AvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.LargeUtf8 type) {
-      return new LargeUtf8AvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new LargeUtf8AvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Binary type) {
-      return new BinaryAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new BinaryAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.LargeBinary type) {
-      return new LargeBinaryAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new LargeBinaryAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.FixedSizeBinary type) {
-      return new FixedSizeBinaryAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new FixedSizeBinaryAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Bool type) {
-      return new BoolAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new BoolAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Decimal type) {
-      return new DecimalAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new DecimalAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Date type) {
-      return new DateAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new DateAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Time type) {
-      return new TimeAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new TimeAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Timestamp type) {
-      return new TimestampAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new TimestampAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Interval type) {
-      return new IntervalAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new IntervalAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Duration type) {
-      return new DurationAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+      return new DurationAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
   }
 

@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
-import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.driver.jdbc.utils.AvaticaParameterBinder;
+import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaConnection;
@@ -100,9 +100,9 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       throw new IllegalStateException("Prepared statement not found: " + statementHandle);
     }
 
-    final AvaticaParameterBinder binder =
-                 new AvaticaParameterBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator());
-    binder.bind(typedValues);
+
+    new AvaticaParameterBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator())
+            .bind(typedValues);
 
     if (statementHandle.signature == null) {
       // Update query
@@ -136,8 +136,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       throw new IllegalStateException("Prepared statement not found: " + statementHandle);
     }
 
-    final AvaticaParameterBinder binder =
-                 new AvaticaParameterBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator());
+    final AvaticaParameterBinder binder = new AvaticaParameterBinder(preparedStatement,
+            ((ArrowFlightConnection) connection).getBufferAllocator());
     for (int i = 0; i < parameterValuesList.size(); i++) {
       binder.bind(parameterValuesList.get(i), i);
     }

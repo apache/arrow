@@ -22,7 +22,21 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * Interface for a class in charge of converting between AvaticaParameters and TypedValues and
+ * Arrow.
+ */
 public interface AvaticaParameterConverter {
-  boolean setParameter(FieldVector vector, TypedValue typedValue, int index);
+
+  /**
+   * Bind a TypedValue to a FieldVector at the given index.
+   *
+   * @param vector FieldVector that the parameter should be bound to.
+   * @param typedValue TypedValue to bind as a parameter.
+   * @param index Vector index that the TypedValue should be bound to.
+   * @return Whether the value was set successfully.
+   */
+  boolean bindParameter(FieldVector vector, TypedValue typedValue, int index);
+
   AvaticaParameter createParameter(Field field);
 }

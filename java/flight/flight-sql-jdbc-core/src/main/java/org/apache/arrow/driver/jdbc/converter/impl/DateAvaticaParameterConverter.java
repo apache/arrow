@@ -31,7 +31,7 @@ public class DateAvaticaParameterConverter extends BaseAvaticaParameterConverter
   }
 
   @Override
-  public boolean setParameter(FieldVector vector, TypedValue typedValue, int index) {
+  public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     Object value = typedValue.toLocal();
     if (vector instanceof DateMilliVector) {
       ((DateMilliVector) vector).setSafe(index, (int) value);

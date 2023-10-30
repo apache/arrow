@@ -29,7 +29,7 @@ public class DurationAvaticaParameterConverter extends BaseAvaticaParameterConve
   }
 
   @Override
-  public boolean setParameter(FieldVector vector, TypedValue typedValue, int index) {
+  public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     return false;
   }
 

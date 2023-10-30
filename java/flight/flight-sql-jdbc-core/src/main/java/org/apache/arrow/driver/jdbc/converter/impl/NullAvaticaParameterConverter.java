@@ -30,7 +30,7 @@ public class NullAvaticaParameterConverter extends BaseAvaticaParameterConverter
   }
 
   @Override
-  public boolean setParameter(FieldVector vector, TypedValue typedValue, int index) {
+  public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     Object value = typedValue.toLocal();
     if (vector instanceof NullVector) {
       if (value != null) throw new RuntimeException("Can't set non-null value on NullVector");
