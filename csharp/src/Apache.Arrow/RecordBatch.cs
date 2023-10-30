@@ -93,5 +93,7 @@ namespace Apache.Arrow
             IEnumerable<IArrowArray> arrays = _arrays.Select(array => ArrowArrayFactory.BuildArray(array.Data.Clone(allocator)));
             return new RecordBatch(Schema, arrays, Length);
         }
+
+        public override string ToString() => $"{nameof(RecordBatch)}: {ColumnCount} columns by {Length} rows";
     }
 }
