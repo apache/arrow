@@ -466,7 +466,13 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       return this;
     }
 
-
+    /**
+     * Sets the TLS root certificate path as an alternative to using the System
+     * or other Trust Store.  The path must contain a valid PEM file.
+     *
+     * @param tlsRootCertificatesPath the TLS root certificate path (if TLS is required).
+     * @return this instance.
+     */
     public Builder withTlsRootCertificates(final String tlsRootCertificatesPath) {
       this.tlsRootCertificatesPath = tlsRootCertificatesPath;
       return this;
