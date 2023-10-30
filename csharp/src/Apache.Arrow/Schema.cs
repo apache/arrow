@@ -114,5 +114,7 @@ namespace Apache.Arrow
 
             return new Schema(fields, Metadata);
         }
+
+        public override string ToString() => $"{nameof(Schema)}: Num fields={_fieldsList.Count}, Num metadata={Metadata?.Count ?? 0}";
     }
 }

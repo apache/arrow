@@ -92,6 +92,8 @@ namespace Apache.Arrow
             return Slice(offset, Length - offset);
         }
 
+        public override string ToString() => $"{nameof(ChunkedArray)}: Length={Length}, DataType={DataType.Name}";
+      
         private static IArrowArray[] Cast(IList<Array> arrays)
         {
             IArrowArray[] arrowArrays = new IArrowArray[arrays.Count];
