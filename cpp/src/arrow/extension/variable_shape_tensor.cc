@@ -41,8 +41,7 @@ const Result<std::shared_ptr<Tensor>> VariableShapeTensorArray::GetTensor(
     const int64_t i) const {
   auto ext_arr = internal::checked_pointer_cast<StructArray>(this->storage());
   auto ext_type = internal::checked_pointer_cast<VariableShapeTensorType>(this->type());
-  auto value_type =
-      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
+  auto value_type = ext_type->value_type();
   auto ndim = ext_type->ndim();
   auto dim_names = ext_type->dim_names();
   auto shapes =
@@ -57,16 +56,16 @@ const Result<std::shared_ptr<Tensor>> VariableShapeTensorArray::GetTensor(
 
   std::vector<int64_t> strides;
   // TODO: optimize ComputeStrides for non-uniform tensors
-  ARROW_CHECK_OK(internal::ComputeStrides(*value_type.get(), shape,
-                                          ext_type->permutation(), &strides));
+  ARROW_CHECK_OK(
+      internal::ComputeStrides(value_type, shape, ext_type->permutation(), &strides));
 
   auto list_arr =
       std::static_pointer_cast<ListArray>(ext_arr->field(1))->value_slice(i)->data();
-  auto bw = value_type->byte_width();
-  auto buffer =
-      SliceBuffer(list_arr->buffers[1], list_arr->offset * bw, list_arr->length * bw);
+  auto byte_width = value_type->byte_width();
+  auto buffer = SliceBuffer(list_arr->buffers[1], list_arr->offset * byte_width,
+                            list_arr->length * byte_width);
 
-  return Tensor::Make(ext_type->value_type(), buffer, shape, strides, dim_names);
+  return Tensor::Make(value_type, buffer, shape, strides, dim_names);
 }
 
 bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const {

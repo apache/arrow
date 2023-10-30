@@ -1035,7 +1035,7 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
-class VariableShapeTensorScalar(ExtensionScalar):
+cdef class VariableShapeTensorScalar(ExtensionScalar):
     """
     Concrete class for variable shape tensor extension scalar.
     """
@@ -1054,6 +1054,32 @@ class VariableShapeTensorScalar(ExtensionScalar):
         else:
             raise ValueError(
                 'Only non-permuted tensors can be converted to numpy tensors.')
+
+    def to_tensor(self):
+        """
+        Convert variable shape tensor extension scalar to a pyarrow.Tensor.
+        """
+        cdef:
+            shared_ptr[CTensor] ctensor
+            vector[int64_t] strides
+            vector[c_string] dim_names
+
+            shared_ptr[CVariableShapeTensorType] typ = static_pointer_cast[CVariableShapeTensorType, CDataType](
+                self.wrapped.get().type)
+
+            shared_ptr[CDataType] ty = typ.get().value_type()
+            # TODO: this accesses the full buffer instead of a slice
+            shared_ptr[CBuffer] data = pyarrow_unwrap_buffer(self.value[1].values.buffers()[1])
+            vector[int64_t] shape = self.value[0].values.to_pylist()
+            vector[int64_t] permutation = self.type.permutation
+
+        for name in self.type.dim_names:
+            dim_names.push_back(tobytes(name))
+
+        check_status(ComputeStrides(ty, shape, permutation, &strides))
+        ctensor = make_shared[CTensor](ty, data, shape, strides, dim_names)
+
+        return pyarrow_wrap_tensor(ctensor)
 
 
 cdef dict _scalar_classes = {

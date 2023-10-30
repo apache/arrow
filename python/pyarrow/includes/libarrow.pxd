@@ -1052,6 +1052,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         void set_chunksize(int64_t chunksize)
 
     cdef cppclass CTensor" arrow::Tensor":
+        CTensor(const shared_ptr[CDataType]& type,
+                const shared_ptr[CBuffer]& data,
+                const vector[int64_t]& shape,
+                const vector[int64_t]& strides,
+                const vector[c_string]& dim_names)
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
 
@@ -2816,6 +2821,11 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::internal" nogil:
+    cdef CStatus ComputeStrides(const shared_ptr[CDataType]& value_type,
+                                const vector[int64_t]& shape,
+                                const vector[int64_t]& permutation,
+                                vector[int64_t]* strides)
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":

@@ -39,14 +39,15 @@ namespace arrow {
 
 namespace internal {
 
-Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                      const std::vector<int64_t>& shape,
                       const std::vector<int64_t>& permutation,
                       std::vector<int64_t>* strides) {
+  auto fixed_width_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
   if (permutation.empty()) {
-    return internal::ComputeRowMajorStrides(type, shape, strides);
+    return internal::ComputeRowMajorStrides(*fixed_width_type.get(), shape, strides);
   }
-
-  const int byte_width = type.byte_width();
+  const int byte_width = value_type->byte_width();
 
   int64_t remaining = 0;
   if (!shape.empty() && shape.front() > 0) {
@@ -319,13 +320,12 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   permutation.insert(permutation.begin(), 1, 0);
 
   std::vector<int64_t> tensor_strides;
-  auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
+  std::shared_ptr<DataType> type = ext_arr->value_type();
   ARROW_RETURN_NOT_OK(
-      internal::ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
+      internal::ComputeStrides(type, shape, permutation, &tensor_strides));
   ARROW_ASSIGN_OR_RAISE(auto buffers, ext_arr->Flatten());
-  ARROW_ASSIGN_OR_RAISE(
-      auto tensor, Tensor::Make(ext_arr->value_type(), buffers->data()->buffers[1], shape,
-                                tensor_strides, dim_names));
+  ARROW_ASSIGN_OR_RAISE(auto tensor, Tensor::Make(type, buffers->data()->buffers[1],
+                                                  shape, tensor_strides, dim_names));
   return tensor;
 }
 
@@ -348,9 +348,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
 
 const std::vector<int64_t>& FixedShapeTensorType::strides() {
   if (strides_.empty()) {
-    auto value_type = internal::checked_pointer_cast<FixedWidthType>(this->value_type_);
     std::vector<int64_t> tensor_strides;
-    ARROW_CHECK_OK(internal::ComputeStrides(*value_type.get(), this->shape(),
+    ARROW_CHECK_OK(internal::ComputeStrides(this->value_type_, this->shape(),
                                             this->permutation(), &tensor_strides));
     strides_ = tensor_strides;
   }
