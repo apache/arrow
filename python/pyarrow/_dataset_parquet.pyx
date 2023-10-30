@@ -96,6 +96,9 @@ cdef class ParquetFileFormat(FileFormat):
                              if option in _PARQUET_READ_OPTIONS}
         scan_args = {option: kwargs[option] for option in kwargs
                      if option not in _PARQUET_READ_OPTIONS}
+        print("dataset: read_options_args:", read_options_args, "scan_args", scan_args)
+        print("read_options:", read_options)
+        print("default_fragment_scan_options:", default_fragment_scan_options)
         if read_options and read_options_args:
             duplicates = ', '.join(sorted(read_options_args))
             raise ValueError(f'If `read_options` is given, '
@@ -126,9 +129,11 @@ cdef class ParquetFileFormat(FileFormat):
                             'instance of ParquetReadOptions')
 
         if default_fragment_scan_options is None:
+            print("build scanOptions with ", scan_args)
             default_fragment_scan_options = ParquetFragmentScanOptions(
                 **scan_args)
         elif isinstance(default_fragment_scan_options, dict):
+            print("build scanOptions with ", default_fragment_scan_options)
             default_fragment_scan_options = ParquetFragmentScanOptions(
                 **default_fragment_scan_options)
         elif not isinstance(default_fragment_scan_options,
