@@ -3987,6 +3987,59 @@ cdef class Table(_Tabular):
         return result
 
     @staticmethod
+    def from_struct_array(struct_array):
+        """
+        Construct a Table from a StructArray.
+
+        Each field in the StructArray will become a column in the resulting
+        ``Table``.
+
+        Parameters
+        ----------
+        struct_array : StructArray or ChunkedArray
+            Array to construct the table from.
+
+        Returns
+        -------
+        pyarrow.Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
+        ...                    {'year': 2022, 'n_legs': 4}])
+        >>> pa.Table.from_struct_array(struct).to_pandas()
+          animals  n_legs    year
+        0  Parrot       2     NaN
+        1    None       4  2022.0
+        """
+        if isinstance(struct_array, Array):
+            struct_array = chunked_array([struct_array])
+        return Table.from_batches([
+            RecordBatch.from_struct_array(chunk)
+            for chunk in struct_array.chunks
+        ])
+
+    def to_struct_array(self, max_chunksize=None):
+        """
+        Convert to a struct array.
+
+        Parameters
+        ----------
+        max_chunksize : int, default None
+            Maximum size for ChunkedArray chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns.
+
+        Returns
+        -------
+        ChunkedArray
+        """
+        return chunked_array([
+            batch.to_struct_array()
+            for batch in self.to_batches(max_chunksize=max_chunksize)
+        ])
+
+    @staticmethod
     def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches.
