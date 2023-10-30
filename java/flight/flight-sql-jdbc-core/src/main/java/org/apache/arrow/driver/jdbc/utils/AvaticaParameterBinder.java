@@ -26,14 +26,20 @@ import org.apache.arrow.driver.jdbc.converter.impl.DateAvaticaParameterConverter
 import org.apache.arrow.driver.jdbc.converter.impl.DecimalAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.DurationAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.FixedSizeBinaryAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.FixedSizeListAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.FloatingPointAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.IntAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.IntervalAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.LargeBinaryAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.LargeListAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.LargeUtf8AvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.ListAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.MapAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.NullAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.StructAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.UnionAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -125,32 +131,32 @@ public class AvaticaParameterBinder {
 
     @Override
     public Boolean visit(ArrowType.Struct type) {
-      return false;
+      return new StructAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.List type) {
-      return false;
+      return new ListAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.LargeList type) {
-      return false;
+      return new LargeListAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.FixedSizeList type) {
-      return false;
+      return new FixedSizeListAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Union type) {
-      return false;
+      return new UnionAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Map type) {
-      return false;
+      return new MapAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
