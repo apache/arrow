@@ -3589,7 +3589,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
             The index of the tensor to get.
         Returns
         -------
-        tensor : pyarrow.Tensor
+        tensor : Tensor
         """
         cdef:
             CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
