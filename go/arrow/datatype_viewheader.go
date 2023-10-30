@@ -114,7 +114,7 @@ func (sh *ViewHeader) SetIndexOffset(bufferIndex, offset int32) {
 }
 
 func (sh *ViewHeader) Equals(buffers []*memory.Buffer, other *ViewHeader, otherBuffers []*memory.Buffer) bool {
-	if sh.sizeAndPrefixAsInt() != other.sizeAndPrefixAsInt() {
+	if sh.sizeAndPrefixAsInt64() != other.sizeAndPrefixAsInt64() {
 		return false
 	}
 
@@ -122,9 +122,12 @@ func (sh *ViewHeader) Equals(buffers []*memory.Buffer, other *ViewHeader, otherB
 		return sh.inlinedAsInt64() == other.inlinedAsInt64()
 	}
 
-	data := buffers[sh.BufferIndex()].Bytes()[sh.BufferOffset() : sh.BufferOffset()+sh.size]
-	otherData := otherBuffers[other.BufferIndex()].Bytes()[other.BufferOffset() : other.BufferOffset()+other.size]
-	return bytes.Equal(data, otherData)
+	return bytes.Equal(sh.getBufferBytes(buffers), other.getBufferBytes(otherBuffers))
+}
+
+func (sh *ViewHeader) getBufferBytes(buffers []*memory.Buffer) []byte {
+	offset := sh.BufferOffset()
+	return buffers[sh.BufferIndex()].Bytes()[offset : offset+sh.size]
 }
 
 func (sh *ViewHeader) inlinedAsInt64() int64 {
@@ -132,7 +135,7 @@ func (sh *ViewHeader) inlinedAsInt64() int64 {
 	return s[1]
 }
 
-func (sh *ViewHeader) sizeAndPrefixAsInt() int64 {
+func (sh *ViewHeader) sizeAndPrefixAsInt64() int64 {
 	s := unsafe.Slice((*int64)(unsafe.Pointer(sh)), 2)
 	return s[0]
 }

@@ -428,9 +428,9 @@ func (b *BinaryViewBuilder) Release() {
 func (b *BinaryViewBuilder) init(capacity int) {
 	b.builder.init(capacity)
 	b.data = memory.NewResizableBuffer(b.mem)
-	bytesN := arrow.StringHeaderTraits.BytesRequired(capacity)
+	bytesN := arrow.ViewHeaderTraits.BytesRequired(capacity)
 	b.data.Resize(bytesN)
-	b.rawData = arrow.StringHeaderTraits.CastFromBytes(b.data.Bytes())
+	b.rawData = arrow.ViewHeaderTraits.CastFromBytes(b.data.Bytes())
 }
 
 func (b *BinaryViewBuilder) Resize(n int) {
@@ -445,8 +445,8 @@ func (b *BinaryViewBuilder) Resize(n int) {
 	}
 
 	b.builder.resize(nbuild, b.init)
-	b.data.Resize(arrow.StringHeaderTraits.BytesRequired(n))
-	b.rawData = arrow.StringHeaderTraits.CastFromBytes(b.data.Bytes())
+	b.data.Resize(arrow.ViewHeaderTraits.BytesRequired(n))
+	b.rawData = arrow.ViewHeaderTraits.CastFromBytes(b.data.Bytes())
 }
 
 func (b *BinaryViewBuilder) ReserveData(length int) {
@@ -665,7 +665,7 @@ func (b *BinaryViewBuilder) UnmarshalJSON(data []byte) error {
 }
 
 func (b *BinaryViewBuilder) newData() (data *Data) {
-	bytesRequired := arrow.StringHeaderTraits.BytesRequired(b.length)
+	bytesRequired := arrow.ViewHeaderTraits.BytesRequired(b.length)
 	if bytesRequired > 0 && bytesRequired < b.data.Len() {
 		// trim buffers
 		b.data.Resize(bytesRequired)

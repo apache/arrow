@@ -340,7 +340,7 @@ func (a *StringView) setData(data *Data) {
 	a.array.setData(data)
 
 	if valueData := data.buffers[1]; valueData != nil {
-		a.values = arrow.StringHeaderTraits.CastFromBytes(valueData.Bytes())
+		a.values = arrow.ViewHeaderTraits.CastFromBytes(valueData.Bytes())
 	}
 
 	a.dataBuffers = data.buffers[2:]

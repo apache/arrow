@@ -23,31 +23,31 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/endian"
 )
 
-var StringHeaderTraits stringHeaderTraits
+var ViewHeaderTraits viewHeaderTraits
 
 const (
-	StringHeaderSizeBytes = int(unsafe.Sizeof(ViewHeader{}))
+	ViewHeaderSizeBytes = int(unsafe.Sizeof(ViewHeader{}))
 )
 
-type stringHeaderTraits struct{}
+type viewHeaderTraits struct{}
 
-func (stringHeaderTraits) BytesRequired(n int) int { return StringHeaderSizeBytes * n }
+func (viewHeaderTraits) BytesRequired(n int) int { return ViewHeaderSizeBytes * n }
 
-func (stringHeaderTraits) PutValue(b []byte, v ViewHeader) {
+func (viewHeaderTraits) PutValue(b []byte, v ViewHeader) {
 	endian.Native.PutUint32(b, uint32(v.size))
 	copy(b[4:], v.data[:])
 }
 
-func (stringHeaderTraits) CastFromBytes(b []byte) (res []ViewHeader) {
+func (viewHeaderTraits) CastFromBytes(b []byte) (res []ViewHeader) {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	return unsafe.Slice((*ViewHeader)(unsafe.Pointer(h.Data)), cap(b)/StringHeaderSizeBytes)[:len(b)/StringHeaderSizeBytes]
+	return unsafe.Slice((*ViewHeader)(unsafe.Pointer(h.Data)), cap(b)/ViewHeaderSizeBytes)[:len(b)/ViewHeaderSizeBytes]
 }
 
-func (stringHeaderTraits) CastToBytes(b []ViewHeader) (res []byte) {
+func (viewHeaderTraits) CastToBytes(b []ViewHeader) (res []byte) {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*StringHeaderSizeBytes)[:len(b)*StringHeaderSizeBytes]
+	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*ViewHeaderSizeBytes)[:len(b)*ViewHeaderSizeBytes]
 }
 
-func (stringHeaderTraits) Copy(dst, src []ViewHeader) { copy(dst, src) }
+func (viewHeaderTraits) Copy(dst, src []ViewHeader) { copy(dst, src) }

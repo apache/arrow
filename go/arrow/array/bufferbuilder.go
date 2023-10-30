@@ -230,11 +230,9 @@ func (b *multiBufferBuilder) RemainingBytes() int {
 
 func (b *multiBufferBuilder) Reset() {
 	b.currentOutBuffer = 0
-	for i, block := range b.blocks {
+	for _, block := range b.Finish() {
 		block.Release()
-		b.blocks[i] = nil
 	}
-	b.blocks = nil
 }
 
 func (b *multiBufferBuilder) UnsafeAppend(hdr *arrow.ViewHeader, val []byte) {
@@ -258,7 +256,6 @@ func (b *multiBufferBuilder) UnsafeAppendString(hdr *arrow.ViewHeader, val strin
 
 func (b *multiBufferBuilder) Finish() (out []*memory.Buffer) {
 	b.currentOutBuffer = 0
-	out = b.blocks
-	b.blocks = nil
+	out, b.blocks = b.blocks, nil
 	return
 }

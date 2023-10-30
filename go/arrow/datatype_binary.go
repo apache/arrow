@@ -95,7 +95,7 @@ func (t *BinaryViewType) Fingerprint() string { return typeFingerprint(t) }
 func (*BinaryViewType) Layout() DataTypeLayout {
 	variadic := SpecVariableWidth()
 	return DataTypeLayout{
-		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(StringHeaderSizeBytes)},
+		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(ViewHeaderSizeBytes)},
 		VariadicSpec: &variadic,
 	}
 }
@@ -112,7 +112,7 @@ func (t *StringViewType) Fingerprint() string { return typeFingerprint(t) }
 func (*StringViewType) Layout() DataTypeLayout {
 	variadic := SpecVariableWidth()
 	return DataTypeLayout{
-		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(StringHeaderSizeBytes)},
+		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(ViewHeaderSizeBytes)},
 		VariadicSpec: &variadic,
 	}
 }

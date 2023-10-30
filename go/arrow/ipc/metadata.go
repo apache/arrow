@@ -1210,17 +1210,24 @@ func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMe
 		bodyCompressFB = writeBodyCompression(b, codec)
 	}
 
-	flatbuf.RecordBatchStartVariadicBufferCountsVector(b, len(variadicCounts))
-	for i := len(variadicCounts) - 1; i >= 0; i-- {
-		b.PrependInt64(variadicCounts[i])
+	var vcFB *flatbuffers.UOffsetT
+	if len(variadicCounts) > 0 {
+		flatbuf.RecordBatchStartVariadicBufferCountsVector(b, len(variadicCounts))
+		for i := len(variadicCounts) - 1; i >= 0; i-- {
+			b.PrependInt64(variadicCounts[i])
+		}
+		vcFBVal := b.EndVector(len(variadicCounts))
+		vcFB = &vcFBVal
 	}
-	vcFB := b.EndVector(len(variadicCounts))
 
 	flatbuf.RecordBatchStart(b)
 	flatbuf.RecordBatchAddLength(b, size)
 	flatbuf.RecordBatchAddNodes(b, fieldsFB)
 	flatbuf.RecordBatchAddBuffers(b, metaFB)
-	flatbuf.RecordBatchAddVariadicBufferCounts(b, vcFB)
+	if vcFB != nil {
+		flatbuf.RecordBatchAddVariadicBufferCounts(b, *vcFB)
+	}
+
 	if codec != -1 {
 		flatbuf.RecordBatchAddCompression(b, bodyCompressFB)
 	}

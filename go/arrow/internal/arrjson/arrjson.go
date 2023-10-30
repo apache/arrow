@@ -2372,9 +2372,9 @@ func variadicBuffersToJSON(bufs []*memory.Buffer) []string {
 
 func stringHeadersFromJSON(mem memory.Allocator, isBinary bool, data []interface{}) *memory.Buffer {
 	buf := memory.NewResizableBuffer(mem)
-	buf.Resize(arrow.StringHeaderTraits.BytesRequired(len(data)))
+	buf.Resize(arrow.ViewHeaderTraits.BytesRequired(len(data)))
 
-	values := arrow.StringHeaderTraits.CastFromBytes(buf.Bytes())
+	values := arrow.ViewHeaderTraits.CastFromBytes(buf.Bytes())
 
 	for i, d := range data {
 		switch v := d.(type) {

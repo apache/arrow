@@ -607,7 +607,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		data := arr.Data()
 		values := data.Buffers()[1]
 		arrLen := int64(arr.Len())
-		typeWidth := int64(arrow.StringHeaderSizeBytes)
+		typeWidth := int64(arrow.ViewHeaderSizeBytes)
 		minLength := paddedLength(arrLen*typeWidth, kArrowAlignment)
 
 		switch {

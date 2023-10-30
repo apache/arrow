@@ -609,10 +609,10 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 			}
 		}
 
-		out.buffers[1] = concatBuffers(gatherFixedBuffers(data, 1, arrow.StringHeaderSizeBytes), mem)
+		out.buffers[1] = concatBuffers(gatherFixedBuffers(data, 1, arrow.ViewHeaderSizeBytes), mem)
 
 		var (
-			s                  = arrow.StringHeaderTraits.CastFromBytes(out.buffers[1].Bytes())
+			s                  = arrow.ViewHeaderTraits.CastFromBytes(out.buffers[1].Bytes())
 			i                  = data[0].Len()
 			precedingBufsCount int
 		)
