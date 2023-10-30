@@ -143,6 +143,14 @@ func (fw *FileWriter) RowGroupNumRows() (int, error) {
 	return 0, nil
 }
 
+// NumRows returns the total number of rows that have been written so far.
+func (fw *FileWriter) NumRows() int {
+	if fw.wr != nil {
+		return fw.wr.NumRows()
+	}
+	return 0
+}
+
 // WriteBuffered will either append to an existing row group or create a new one
 // based on the record length and max row group length.
 //

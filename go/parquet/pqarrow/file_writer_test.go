@@ -21,11 +21,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/pqarrow"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,4 +55,35 @@ func TestFileWriterRowGroupNumRows(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 4, numRows)
 	require.NoError(t, writer.Close())
+}
+
+func TestFileWriterNumRows(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "one", Nullable: true, Type: arrow.PrimitiveTypes.Float64},
+		{Name: "two", Nullable: true, Type: arrow.PrimitiveTypes.Float64},
+	}, nil)
+
+	data := `[
+		{"one": 1, "two": 2},
+		{"one": 1, "two": null},
+		{"one": null, "two": 2},
+		{"one": null, "two": null}
+	]`
+	record, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, strings.NewReader(data))
+	require.NoError(t, err)
+
+	maxRowGroupLength := 2
+
+	output := &bytes.Buffer{}
+	writerProps := parquet.NewWriterProperties(parquet.WithMaxRowGroupLength(int64(maxRowGroupLength)))
+	writer, err := pqarrow.NewFileWriter(schema, output, writerProps, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Write(record))
+	rowGroupNumRows, err := writer.RowGroupNumRows()
+	require.NoError(t, err)
+	assert.Equal(t, maxRowGroupLength, rowGroupNumRows)
+
+	require.NoError(t, writer.Close())
+	assert.Equal(t, 4, writer.NumRows())
 }
