@@ -1785,9 +1785,6 @@ cdef vector[CSortingColumn] _convert_sorting_columns(sorting_columns) except *:
     cdef vector[CSortingColumn] c_sorting_columns = [_convert_sorting_column(col)
                                                      for col in sorting_columns]
 
-    if len(sorting_columns) != len(c_sorting_columns):
-        raise ValueError("something has gone wrong")
-
     return c_sorting_columns
 
 
