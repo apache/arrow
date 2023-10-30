@@ -434,8 +434,14 @@ func TestRleBooleanEncodingFileRead(t *testing.T) {
 	}
 	expectedNulls := []int{2, 15, 23, 38, 48, 60}
 
-	for _, v := range expectedNulls {
-		assert.Zero(t, defLvls[v])
+	expectedNullIdx := 0
+	for i, v := range defLvls {
+		if expectedNullIdx < len(expectedNulls) && i == expectedNulls[expectedNullIdx] {
+			assert.Zero(t, v)
+			expectedNullIdx++
+		} else {
+			assert.EqualValues(t, 1, v)
+		}
 	}
 
 	assert.Equal(t, expected, values[:len(expected)])
