@@ -776,17 +776,57 @@ enum class SetSessionOptionResult : int8_t {
   kUnspecified,
   kOk,
   kOkMapped,  // PHOXME add remapped key/value status(es) to Proto too
-  kInvalidResult,
+  kInvalidKey, // PHOXME
+  kInvalidValue, // PHOXME
   kError
 };
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionResultValue& r) {
+  switch (r) {
+    case SetSessionOptionResult::kUnspecified:
+      os << "Unspecified";
+      break;
+    case SetSessionOptionResult::kOk:
+      os << "Ok";
+      break;
+    case SetSessionOptionResult::kOkMapped:
+      os << "OkMapped";
+      break;
+    case SetSessionOptionResult::kInvalidKey:
+      os << "InvalidKey";
+      break;
+    case SetSessionOptionResult::kInvalidValue:
+      os << "InvalidValue";
+      break;
+    case SetSessionOptionResult::kError:
+      os << "Error";
+      break;
+  }
+}
 
 /// \brief The result of closing a session.
-enum class CloseSessionResult : int8_t {
+enum class CloseSessionResultValue : int8_t {
   kUnspecified,
   kClosed,
   kClosing,
   kNotClosable
 };
+std::ostream& operator<<(std::ostream& os, const CloseSessionResult& r) {
+  switch (r) {
+    case CloseSessionResult::kUnspecified:
+      os << "Unspecified";
+      break; 
+    case CloseSessionResult::kClosed:
+      os << "Closed";
+      break; 
+    case CloseSessionResult::kClosing:
+      os << "Closing";
+      break; 
+    case CloseSessionResult::kNotClosable:
+      os << "NotClosable";
+      break; 
+  }
+  return os;
+}
 
 /// \brief A request to set a set of session options by key/value.
 struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionsRequest {
@@ -814,7 +854,7 @@ struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionsRequest {
 
 /// \brief The result(s) of setting session option(s).
 struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionsResult {
-  std::map<std::string, SetSessionOptionResult> results;
+  std::map<std::string, SetSessionOptionResultValue> results;
 
   std::string ToString() const;
   bool Equals(const SetSessionOptionsResult& other) const;
@@ -907,7 +947,7 @@ struct ARROW_FLIGHT_SQL_EXPORT CloseSessionRequest {  std::string ToString() con
 
 /// \brief The result of attempting to close the client session.
 struct ARROW_FLIGHT_SQL_EXPORT CloseSessionResult {
-  CloseSessionResult result;
+  CloseSessionResultValue result;
 
   std::string ToString() const;
   bool Equals(const CloseSessionResult& other) const;

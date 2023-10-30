@@ -477,22 +477,54 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
 
 
 // PHOXME impl...
-std::string SetSessionOptionsRequest::ToString() const {
+// PHOXME extend SessionOptionMapToString to support result code enums too
+template <typename T>
+static std::string SessionOptionMapToString(std::map<std::string, T>) {
+  // PHOXME replace with operator<<
   std::stringstream ss;
 
-  ss << "<SetSessionOptionsRequest session_options={";
+  ss << '{';
   std::string sep = "";
   for (const auto& [k, v] : session_options) {
-    std::cout << sep << '[' << k << "]: '" << v.ToString() << "', ";  // PHOXME v.ToString() not implemented yet
+    std::cout << sep << '[' << k << "]: '" << v << "', ";  // PHOXME v.ToString() not implemented yet
     sep = ", ";
   }
-  ss << "}>";
+  ss << '}';
+
+  return ss.str();
+}
+static bool CompareSessionOptionMaps(
+    const std::map<std::string, SessionOptionValue>& a,
+    const std::map<std::string, SessionOptionValue>& b) {
+  if (a.session_options.size() != b.session_options.size()) {
+    return false;
+  }
+  for (const auto & [k, v] : a.session_options) {
+    if (!b.session_options.contains(k)) {
+      return false;
+    }
+    const auto& b_v = b.session_options[k];
+    if (v.index() != b_v.index()) {
+      return false;
+    }
+    if (v != b_v) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// SetSessionOptionsRequest
+std::string SetSessionOptionsRequest::ToString() const {
+  std::stringstream ss;32     
+
+  ss << "<SetSessionOptionsRequest session_options="
+     << SessionOptionMapToString(session_options); << '>';
 
   return ss.str();
 }
 bool SetSessionOptionsRequest::Equals(const SetSessionOptionsRequest& other) const {
-  // compare map equality including variant types not just value equality
-  // PHOXME
+  return CompareSessionOptionMaps(session_options, other.session_options);
 }
 arrow::Result<std::string>
 SetSessionOptionsRequest::SerializeToString() const {
@@ -506,13 +538,28 @@ SetSessionOptionsRequest::SerializeToString() const {
   return out;
 }
 static arrow::Result<SetSessionOptionsRequest>
-SetSessionOptionsRequest::Deserialize(std::string_view serialized) {}
+SetSessionOptionsRequest::Deserialize(std::string_view serialized) {
+  // TODO these & SerializeToString should all be factored out to a superclass
+  pb::SetSessionOptionsRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized SetSessionOptionsRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid SetSessionOptionsRequest");
+  }
+  SetSessionOptionsRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
 
-
-
-std::string SetSessionOptionsResult::ToString() const {}
+// SetSessionOptionsResult
+std::string SetSessionOptionsResult::ToString() const {
+  // TODO 1/
+}
 bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const {
-  // Simple comparison with fixed types
   if (results != other.results) {
     return false;
   }
@@ -530,14 +577,29 @@ SetSessionOptionsResult::SerializeToString() const {
   return out;
 }
 static arrow::Result<SetSessionOptionsResult>
-SetSessionOptionsResult::Deserialize(std::string_view serialized) {}
+SetSessionOptionsResult::Deserialize(std::string_view serialized) {
+  pb::SetSessionOptionsResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized SetSessionOptionsResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid SetSessionOptionsResult");
+  }
+  SetSessionOptionsResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
 
-
-
+// GetSessionOptionsRequest
 std::string GetSessionOptionsRequest::ToString() const {
+  return "<GetSessionOptionsRequest>";
+}
+bool GetSessionOptionsRequest::Equals(const GetSessionOptionsRequest& other) const {
   return true;
 }
-bool GetSessionOptionsRequest::Equals(const GetSessionOptionsRequest& other) const {}
 arrow::Result<std::string>
 GetSessionOptionsRequest::SerializeToString() const {
   pb::GetSessionOptionsRequest pb_request;
@@ -550,16 +612,28 @@ GetSessionOptionsRequest::SerializeToString() const {
   return out;
 }
 static arrow::Result<GetSessionOptionsRequest>
-GetSessionOptionsRequest::Deserialize(std::string_view serialized) {}
+GetSessionOptionsRequest::Deserialize(std::string_view serialized) {
+  pb::GetSessionOptionsRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized GetSessionOptionsRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid GetSessionOptionsRequest");
+  }
+  GetSessionOptionsRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
 
-
-
+// GetSessionOptionsResult
 std::string GetSessionOptionsResult::ToString() const {
-  // compare map equality including variant types not just value equality
+  // TODO 2/ (another string method?)
 }
 bool GetSessionOptionsResult::Equals(const GetSessionOptionsResult& other) const {
-  // compare map equality including variant types not just value equality
-  // PHOXME
+  return CompareSessionOptionMaps(session_options, other.session_options);
 }
 arrow::Result<std::string>
 GetSessionOptionsResult::SerializeToString() const {
@@ -573,11 +647,27 @@ GetSessionOptionsResult::SerializeToString() const {
   return out;
 }
 static arrow::Result<GetSessionOptionsResult>
-GetSessionOptionsResult::Deserialize(std::string_view serialized) {}
+GetSessionOptionsResult::Deserialize(std::string_view serialized) {
+  pb::GetSessionOptionsResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized GetSessionOptionsResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid GetSessionOptionsResult");
+  }
+  GetSessionOptionsResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
 
 
 
-std::string CloseSessionRequest::ToString() const {}
+std::string CloseSessionRequest::ToString() const {
+  return "<CloseSessionRequest>";
+}
 bool CloseSessionRequest::Equals(const CloseSessionRequest& other) const {
   return true;
 }
@@ -593,15 +683,32 @@ CloseSessionRequest::SerializeToString() const {
   return out;
 }
 static arrow::Result<CloseSessionRequest>
-CloseSessionRequest::Deserialize(std::string_view serialized) {}
+CloseSessionRequest::Deserialize(std::string_view serialized) {
+  pb::CloseSessionRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized CloseSessionRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid CloseSessionRequest");
+  }
+  CloseSessionRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
 
 
 
-std::string CloseSessionResult::ToString() const {}
+std::string CloseSessionResult::ToString() const {
+  // TODO 3/
+}
 bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
   if (result != other.result)    {
     return false;
   }
+  return true;
 }
 arrow::Result<std::string>
 CloseSessionResult::SerializeToString() const {
@@ -615,7 +722,21 @@ CloseSessionResult::SerializeToString() const {
   return out;
 }
 static arrow::Result<CloseSessionResult>
-CloseSessionResult::Deserialize(std::string_view serialized) {}
+CloseSessionResult::Deserialize(std::string_view serialized) {
+  pb::CloseSessionResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized CloseSessionResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid CloseSessionResult");
+  }
+  CloseSessionResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
 
 
 
