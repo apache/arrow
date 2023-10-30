@@ -26,7 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
 
-import org.apache.arrow.driver.jdbc.converter.ConvertUtils;
+import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;

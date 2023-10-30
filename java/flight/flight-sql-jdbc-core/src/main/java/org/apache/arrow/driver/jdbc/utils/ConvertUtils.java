@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.driver.jdbc.converter;
+package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.List;
 import java.util.Map;
@@ -37,7 +37,6 @@ import org.apache.arrow.driver.jdbc.converter.impl.NullAvaticaParameterConverter
 import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
-import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
