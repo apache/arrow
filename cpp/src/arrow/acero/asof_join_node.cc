@@ -549,15 +549,16 @@ class BackpressureController : public BackpressureControl {
 
 class BackpressureHandler {
  private:
-  BackpressureHandler(size_t low_threshold, size_t high_threshold,
+  BackpressureHandler(ExecNode* input, size_t low_threshold, size_t high_threshold,
                       std::unique_ptr<BackpressureControl> backpressure_control)
-      : low_threshold_(low_threshold),
+      : input_(input),
+        low_threshold_(low_threshold),
         high_threshold_(high_threshold),
         backpressure_control_(std::move(backpressure_control)) {}
 
  public:
   static Result<BackpressureHandler> Make(
-      size_t low_threshold, size_t high_threshold,
+      ExecNode* input, size_t low_threshold, size_t high_threshold,
       std::unique_ptr<BackpressureControl> backpressure_control) {
     if (low_threshold >= high_threshold) {
       return Status::Invalid("low threshold (", low_threshold,
@@ -566,7 +567,7 @@ class BackpressureHandler {
     if (backpressure_control == NULLPTR) {
       return Status::Invalid("null backpressure control parameter");
     }
-    BackpressureHandler backpressure_handler(low_threshold, high_threshold,
+    BackpressureHandler backpressure_handler(input, low_threshold, high_threshold,
                                              std::move(backpressure_control));
     return std::move(backpressure_handler);
   }
@@ -579,7 +580,16 @@ class BackpressureHandler {
     }
   }
 
+  Status ForceShutdown() {
+    // It may be unintuitive to call Resume() here, but this is to avoid a deadlock.
+    // Since acero's executor won't terminate if any one node is paused, we need to
+    // force resume the node before stopping production.
+    backpressure_control_->Resume();
+    return input_->StopProducing();
+  }
+
  private:
+  ExecNode* input_;
   size_t low_threshold_;
   size_t high_threshold_;
   std::unique_ptr<BackpressureControl> backpressure_control_;
@@ -629,6 +639,8 @@ class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
     return ConcurrentQueue<T>::TryPopUnlocked();
   }
 
+  Status ForceShutdown() { return handler_.ForceShutdown(); }
+
  private:
   BackpressureHandler handler_;
 };
@@ -672,9 +684,9 @@ class InputState {
     std::unique_ptr<BackpressureControl> backpressure_control =
         std::make_unique<BackpressureController>(
             /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
-    ARROW_ASSIGN_OR_RAISE(auto handler,
-                          BackpressureHandler::Make(low_threshold, high_threshold,
-                                                    std::move(backpressure_control)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto handler, BackpressureHandler::Make(asof_input, low_threshold, high_threshold,
+                                                std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
                                         key_hasher, asof_node, std::move(handler), schema,
                                         time_col_index, key_col_index);
@@ -928,6 +940,12 @@ class InputState {
     DCHECK_GE(n, 0);
     DCHECK_EQ(total_batches_, -1) << "Set total batch more than once";
     total_batches_ = n;
+  }
+
+  Status ForceShutdown() {
+    // Force the upstream input node to unpause. Necessary to avoid deadlock when we
+    // terminate the process thread
+    return queue_.ForceShutdown();
   }
 
  private:
@@ -1323,6 +1341,9 @@ class AsofJoinNode : public ExecNode {
           if (st.ok()) {
             st = output_->InputFinished(this, batches_produced_);
           }
+          for (const auto& s : state_) {
+            st &= s->ForceShutdown();
+          }
         }));
   }
 
@@ -1679,6 +1700,15 @@ class AsofJoinNode : public ExecNode {
   const Ordering& ordering() const override { return ordering_; }
 
   Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    // InputReceived may be called after execution was finished. Pushing it to the
+    // InputState is unnecessary since we're done (and anyway may cause the
+    // BackPressureController to pause the input, causing a deadlock), so drop it.
+    if (process_task_.is_finished()) {
+      DEBUG_SYNC(this, "Input received while done. Short circuiting.",
+                 DEBUG_MANIP(std::endl));
+      return Status::OK();
+    }
+
     // Get the input
     ARROW_DCHECK(std_has(inputs_, input));
     size_t k = std_find(inputs_, input) - inputs_.begin();
@@ -1687,6 +1717,7 @@ class AsofJoinNode : public ExecNode {
     auto rb = *batch.ToRecordBatch(input->output_schema());
     DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
                rb->ToString(), DEBUG_MANIP(std::endl));
+
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
     return Status::OK();

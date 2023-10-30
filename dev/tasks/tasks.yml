@@ -460,10 +460,6 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-  wheel-clean:
-    ci: github
-    template: python-wheels/github.clean.yml
-
 {% for python_version, python_tag, abi_tag in [("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
@@ -793,6 +789,7 @@ tasks:
       - arrow-avro-{no_rc_snapshot_version}-tests.jar
       - arrow-avro-{no_rc_snapshot_version}.jar
       - arrow-avro-{no_rc_snapshot_version}.pom
+      - arrow-bom-{no_rc_snapshot_version}.pom
       - arrow-c-data-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-c-data-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-c-data-{no_rc_snapshot_version}-javadoc.jar
@@ -1185,12 +1182,12 @@ tasks:
       image: debian-cpp
 {% endfor %}
 
-  test-fedora-35-cpp:
+  test-fedora-38-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 35
+        FEDORA: 38
       image: fedora-cpp
 
 {% for cpp_standard in [20] %}
@@ -1298,12 +1295,12 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-python
 
-  test-fedora-35-python-3:
+  test-fedora-38-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        FEDORA: 35
+        FEDORA: 38
       image: fedora-python
 
   test-r-linux-valgrind:

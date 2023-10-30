@@ -16,21 +16,25 @@
 // under the License.
 
 import Foundation
+import Arrow
 
 public class FlightSchemaResult {
     let schemaResult: Arrow_Flight_Protocol_SchemaResult
-    
-    public var schema: Data { schemaResult.schema }
+
+    public var schema: ArrowSchema? {
+        return schemaFromMessage(self.schemaResult.schema)
+    }
+
     public init(_ schema: Data) {
         self.schemaResult = Arrow_Flight_Protocol_SchemaResult.with {
             $0.schema = schema
         }
     }
-    
+
     init(_ schemaResult: Arrow_Flight_Protocol_SchemaResult) {
         self.schemaResult = schemaResult
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_SchemaResult {
         return schemaResult
     }

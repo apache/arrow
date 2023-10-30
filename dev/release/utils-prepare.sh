@@ -65,7 +65,7 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version}
+  mvn versions:set -DnewVersion=${version} -DprocessAllModules
   find . -type f -name pom.xml.versionsBackup -delete
   git add "pom.xml"
   git add "**/pom.xml"

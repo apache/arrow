@@ -31,6 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -90,6 +91,11 @@ bool UnionMayHaveLogicalNulls(const ArrayData& data) {
 
 bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+BufferSpan PackVariadicBuffers(util::span<const std::shared_ptr<Buffer>> buffers) {
+  return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(buffers.data())),
+          static_cast<int64_t>(buffers.size() * sizeof(std::shared_ptr<Buffer>))};
 }
 
 }  // namespace internal
@@ -187,7 +193,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   }
   this->offset = data.offset;
 
-  for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
+  for (int i = 0; i < std::min(static_cast<int>(data.buffers.size()), 3); ++i) {
     const std::shared_ptr<Buffer>& buffer = data.buffers[i];
     // It is the invoker-of-kernels's responsibility to ensure that
     // const buffers are not written to accidentally.
@@ -200,7 +206,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 
   Type::type type_id = this->type->id();
   if (type_id == Type::EXTENSION) {
-    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    auto* ext_type = checked_cast<const ExtensionType*>(this->type);
     type_id = ext_type->storage_type()->id();
   }
 
@@ -213,6 +219,11 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   // Makes sure any other buffers are seen as null / non-existent
   for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
     this->buffers[i] = {};
+  }
+
+  if (type_id == Type::STRING_VIEW || type_id == Type::BINARY_VIEW) {
+    // store the span of data buffers in the third buffer
+    this->buffers[2] = internal::PackVariadicBuffers(util::span(data.buffers).subspan(2));
   }
 
   if (type_id == Type::DICTIONARY) {
@@ -247,6 +258,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::LARGE_BINARY:
     case Type::STRING:
     case Type::LARGE_STRING:
+    case Type::STRING_VIEW:
+    case Type::BINARY_VIEW:
     case Type::DENSE_UNION:
       return 3;
     case Type::EXTENSION:
@@ -351,6 +364,19 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
+  } else if (type_id == Type::BINARY_VIEW || type_id == Type::STRING_VIEW) {
+    const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
+
+    this->buffers[1].size = BinaryViewType::kSize;
+    this->buffers[1].data = scalar.scratch_space_;
+    static_assert(sizeof(BinaryViewType::c_type) <= sizeof(scalar.scratch_space_));
+    auto* view = new (&scalar.scratch_space_) BinaryViewType::c_type;
+    if (scalar.is_valid) {
+      *view = util::ToBinaryView(std::string_view{*scalar.value}, 0, 0);
+      this->buffers[2] = internal::PackVariadicBuffers({&scalar.value, 1});
+    } else {
+      *view = {};
+    }
   } else if (type_id == Type::FIXED_SIZE_BINARY) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
     this->buffers[1].data = const_cast<uint8_t*>(scalar.value->data());
@@ -513,6 +539,14 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
     type_id = ext_type->storage_type()->id();
   }
 
+  if (HasVariadicBuffers()) {
+    DCHECK_EQ(result->buffers.size(), 3);
+    result->buffers.pop_back();
+    for (const auto& data_buffer : GetVariadicBuffers()) {
+      result->buffers.push_back(data_buffer);
+    }
+  }
+
   if (type_id == Type::NA) {
     result->null_count = this->length;
   } else if (this->buffers[0].data == nullptr) {
@@ -529,6 +563,16 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
     }
   }
   return result;
+}
+
+util::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const {
+  DCHECK(HasVariadicBuffers());
+  return {buffers[2].data_as<std::shared_ptr<Buffer>>(),
+          buffers[2].size / sizeof(std::shared_ptr<Buffer>)};
+}
+
+bool ArraySpan::HasVariadicBuffers() const {
+  return type->id() == Type::BINARY_VIEW || type->id() == Type::STRING_VIEW;
 }
 
 std::shared_ptr<Array> ArraySpan::ToArray() const {
@@ -722,7 +766,8 @@ struct ViewDataImpl {
       }
 
       RETURN_NOT_OK(CheckInputAvailable());
-      const auto& in_spec = in_layouts[in_layout_idx].buffers[in_buffer_idx];
+      const auto& in_layout = in_layouts[in_layout_idx];
+      const auto& in_spec = in_layout.buffers[in_buffer_idx];
       if (out_spec != in_spec) {
         return InvalidView("incompatible layouts");
       }
@@ -733,6 +778,18 @@ struct ViewDataImpl {
       DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx);
       out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
       ++in_buffer_idx;
+
+      if (in_buffer_idx == in_layout.buffers.size()) {
+        if (out_layout.variadic_spec != in_layout.variadic_spec) {
+          return InvalidView("incompatible layouts");
+        }
+
+        if (in_layout.variadic_spec) {
+          for (; in_buffer_idx < in_data_item->buffers.size(); ++in_buffer_idx) {
+            out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
+          }
+        }
+      }
       AdjustInputPointer();
     }
 

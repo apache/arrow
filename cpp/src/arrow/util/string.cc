@@ -25,15 +25,13 @@
 
 namespace arrow {
 
-static const char* kAsciiTable = "0123456789ABCDEF";
-
 std::string HexEncode(const uint8_t* data, size_t length) {
-  std::string hex_string;
-  hex_string.reserve(length * 2);
-  for (size_t j = 0; j < length; ++j) {
+  std::string hex_string(length * 2, '\0');
+  for (size_t j = 0, i = 0; j < length; ++j) {
     // Convert to 2 base16 digits
-    hex_string.push_back(kAsciiTable[data[j] >> 4]);
-    hex_string.push_back(kAsciiTable[data[j] & 15]);
+    constexpr auto kHexDigitTable = "0123456789ABCDEF";
+    hex_string[i++] = kHexDigitTable[data[j] >> 4];
+    hex_string[i++] = kHexDigitTable[data[j] & 0b1111];
   }
   return hex_string;
 }
@@ -73,20 +71,34 @@ std::string HexEncode(std::string_view str) { return HexEncode(str.data(), str.s
 
 std::string Escape(std::string_view str) { return Escape(str.data(), str.size()); }
 
-Status ParseHexValue(const char* data, uint8_t* out) {
-  char c1 = data[0];
-  char c2 = data[1];
+constexpr uint8_t kInvalidHexDigit = -1;
 
-  const char* kAsciiTableEnd = kAsciiTable + 16;
-  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTableEnd, c1);
-  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTableEnd, c2);
+constexpr uint8_t ParseHexDigit(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return kInvalidHexDigit;
+}
+
+Status ParseHexValue(const char* data, uint8_t* out) {
+  uint8_t high = ParseHexDigit(data[0]);
+  uint8_t low = ParseHexDigit(data[1]);
 
   // Error checking
-  if (pos1 == kAsciiTableEnd || pos2 == kAsciiTableEnd || *pos1 != c1 || *pos2 != c2) {
+  if (high == kInvalidHexDigit || low == kInvalidHexDigit) {
     return Status::Invalid("Encountered non-hex digit");
   }
 
-  *out = static_cast<uint8_t>((pos1 - kAsciiTable) << 4 | (pos2 - kAsciiTable));
+  *out = static_cast<uint8_t>(high << 4 | low);
+  return Status::OK();
+}
+
+Status ParseHexValues(std::string_view hex_string, uint8_t* out) {
+  if (hex_string.size() % 2 != 0) {
+    return Status::Invalid("Expected base16 hex string");
+  }
+  for (size_t j = 0; j < hex_string.size() / 2; ++j) {
+    RETURN_NOT_OK(ParseHexValue(hex_string.data() + j * 2, out + j));
+  }
   return Status::OK();
 }
 
