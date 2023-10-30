@@ -246,6 +246,15 @@ public class StructVector extends NonNullableStructVector implements FieldVector
         allowConflictPolicyChanges), false);
   }
 
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new NullableStructTransferPair(this, new StructVector(field,
+        allocator,
+        callBack,
+        getConflictPolicy(),
+        allowConflictPolicyChanges), false);
+  }
+
   /**
    * {@link TransferPair} for this (nullable) {@link StructVector}.
    */

@@ -307,6 +307,18 @@ public class TestStructVector {
     }
   }
 
+  @Test
+  public void testGetTransferPairWithFieldAndCallBack() {
+    SchemaChangeCallBack callBack = new SchemaChangeCallBack();
+    try (final StructVector fromVector = simpleStructVector("s1", allocator)) {
+      TransferPair tp = fromVector.getTransferPair(fromVector.getField(), allocator, callBack);
+      final StructVector toVector = (StructVector) tp.getTo();
+      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      assertSame(toVector.getField(), fromVector.getField());
+      toVector.clear();
+    }
+  }
+
   private StructVector simpleStructVector(String name, BufferAllocator allocator) {
     final String INT_COL = "struct_int_child";
     final String FLT_COL = "struct_flt_child";
