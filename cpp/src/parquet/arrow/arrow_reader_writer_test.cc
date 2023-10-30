@@ -5209,7 +5209,7 @@ TEST(TestArrowReadWrite, FuzzReader) {
 // Test writing table with a closed writer, should not segfault
 // but throw exception instead. (GH-37969).
 TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
-  /* A sample table, type and structure does not matter in this test case*/
+  // A sample table, type and structure does not matter in this test case
   auto schema = ::arrow::schema({::arrow::field("letter", ::arrow::utf8())});
   auto table = ::arrow::Table::Make(
       schema, {::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])")});
@@ -5220,26 +5220,22 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
                                         parquet::default_writer_properties(),
                                         parquet::default_arrow_writer_properties()));
 
-  /* Should be ok*/
+  // Should be ok
   ASSERT_OK(writer->WriteTable(*table, 1));
 
-  /* Operations on closed writer are incorrect. However, should not segfault*/
+  // Operations on closed writer are incorrect. However, should not segfault
   ASSERT_OK(writer->Close());
-
   EXPECT_THROW_THAT(
       [&]() { ASSERT_OK(writer->WriteTable(*table, 1)); }, ParquetException,
       ::testing::Property(&ParquetException::what,
                           ::testing::HasSubstr("Cannot do operation on closed file")));
 
-  EXPECT_THROW_THAT(
-      [&]() { ASSERT_OK(writer->NewBufferedRowGroup()); }, ParquetException,
-      ::testing::Property(&ParquetException::what,
-                          ::testing::HasSubstr("Cannot do operation on closed file")));
-
-  EXPECT_THROW_THAT(
-      [&]() { ASSERT_OK(writer->NewRowGroup(1)); }, ParquetException,
-      ::testing::Property(&ParquetException::what,
-                          ::testing::HasSubstr("Cannot do operation on closed file")));
+  // These two functions do not throw because they use PARQUET_CATCH_NOT_OK
+  // in their implementations.
+  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Cannot do operation on closed file",
+                             writer->NewBufferedRowGroup());
+  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Cannot do operation on closed file",
+                             writer->NewRowGroup(1));
 }
 
 namespace {
