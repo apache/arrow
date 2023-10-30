@@ -17,6 +17,7 @@
 package file
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -345,6 +346,11 @@ func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 		c.curDecoder = decoder
 	} else {
 		switch encoding {
+		case format.Encoding_RLE:
+			if c.descr.PhysicalType() != parquet.Types.Boolean {
+				return fmt.Errorf("parquet: only boolean supports RLE encoding, got %s", c.descr.PhysicalType())
+			}
+			fallthrough
 		case format.Encoding_PLAIN,
 			format.Encoding_DELTA_BYTE_ARRAY,
 			format.Encoding_DELTA_LENGTH_BYTE_ARRAY,
@@ -352,7 +358,7 @@ func (c *columnChunkReader) initDataDecoder(page Page, lvlByteLen int64) error {
 			c.curDecoder = c.decoderTraits.Decoder(parquet.Encoding(encoding), c.descr, false, c.mem)
 			c.decoders[encoding] = c.curDecoder
 		case format.Encoding_RLE_DICTIONARY:
-			return xerrors.New("parquet: dictionary page must be before data page")
+			return errors.New("parquet: dictionary page must be before data page")
 		case format.Encoding_BYTE_STREAM_SPLIT:
 			return fmt.Errorf("parquet: unsupported data encoding %s", encoding)
 		default:
