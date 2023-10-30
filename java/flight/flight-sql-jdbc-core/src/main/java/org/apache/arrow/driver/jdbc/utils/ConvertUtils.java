@@ -137,7 +137,9 @@ public final class ConvertUtils {
    * @return list of {@link AvaticaParameter}.
    */
   public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(final List<Field> fields) {
-    return fields.stream().map( field -> field.getType().accept(new ConverterVisitor(field))).collect(Collectors.toList());
+    return fields.stream()
+            .map(field -> field.getType().accept(new ConverterVisitor(field)))
+            .collect(Collectors.toList());
   }
 
   private static class ConverterVisitor implements ArrowType.ArrowTypeVisitor<AvaticaParameter> {
