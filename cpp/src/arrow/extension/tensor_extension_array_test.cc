@@ -652,6 +652,11 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 3, 1}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 8, 8}));
 
+  ASSERT_OK_AND_ASSIGN(auto sc, ext_array->GetScalar(0));
+
+  auto vt = internal::checked_pointer_cast<VariableShapeTensorType>(sc->type);
+  auto it = vt->value_type();
+
   std::vector<int64_t> shape = {2, 3, 1};
   std::vector<int64_t> strides = {sizeof(int64_t) * 3, sizeof(int64_t) * 1,
                                   sizeof(int64_t) * 1};

@@ -23,7 +23,8 @@ namespace arrow {
 namespace internal {
 
 ARROW_EXPORT
-Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                      const std::vector<int64_t>& shape,
                       const std::vector<int64_t>& permutation,
                       std::vector<int64_t>* strides);
 

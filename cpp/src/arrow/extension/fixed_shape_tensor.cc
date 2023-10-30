@@ -43,14 +43,15 @@ namespace extension {
 
 namespace {
 
-Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                      const std::vector<int64_t>& shape,
                       const std::vector<int64_t>& permutation,
                       std::vector<int64_t>* strides) {
+  auto fixed_width_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
   if (permutation.empty()) {
-    return internal::ComputeRowMajorStrides(type, shape, strides);
+    return internal::ComputeRowMajorStrides(*fixed_width_type.get(), shape, strides);
   }
-
-  const int byte_width = type.byte_width();
+  const int byte_width = value_type->byte_width();
 
   int64_t remaining = 0;
   if (!shape.empty() && shape.front() > 0) {
