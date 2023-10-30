@@ -47,9 +47,9 @@ private func makeFloatHolder(_ floatType: org_apache_arrow_flatbuf_FloatingPoint
 ) -> Result<ArrowArrayHolder, ArrowError> {
     switch floatType.precision {
     case .single:
-        return makeFixedHolder(Float.self, buffers: buffers)
+        return makeFixedHolder(Float.self, buffers: buffers, arrowType: ArrowType.ArrowFloat)
     case .double:
-        return makeFixedHolder(Double.self, buffers: buffers)
+        return makeFixedHolder(Double.self, buffers: buffers, arrowType: ArrowType.ArrowDouble)
     default:
         return .failure(.unknownType("Float precision \(floatType.precision) currently not supported"))
     }
@@ -99,7 +99,7 @@ private func makeTimeHolder(_ timeType: org_apache_arrow_flatbuf_Time,
 
 private func makeBoolHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowInt32), buffers: buffers,
+        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowBool), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<UInt8>.stride)
         return .success(ArrowArrayHolder(BoolArray(arrowData)))
     } catch let error as ArrowError {
@@ -109,9 +109,12 @@ private func makeBoolHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder
     }
 }
 
-private func makeFixedHolder<T>(_: T.Type, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+private func makeFixedHolder<T>(
+    _: T.Type, buffers: [ArrowBuffer],
+    arrowType: ArrowType.Info
+) -> Result<ArrowArrayHolder, ArrowError> {
     do {
-        let arrowData = try ArrowData(ArrowType(ArrowType.ArrowInt32), buffers: buffers,
+        let arrowData = try ArrowData(ArrowType(arrowType), buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<T>.stride)
         return .success(ArrowArrayHolder(FixedArray<T>(arrowData)))
     } catch let error as ArrowError {
@@ -132,27 +135,27 @@ func makeArrayHolder( // swiftlint:disable:this cyclomatic_complexity
         let bitWidth = intType.bitWidth
         if bitWidth == 8 {
             if intType.isSigned {
-                return makeFixedHolder(Int8.self, buffers: buffers)
+                return makeFixedHolder(Int8.self, buffers: buffers, arrowType: ArrowType.ArrowInt8)
             } else {
-                return makeFixedHolder(UInt8.self, buffers: buffers)
+                return makeFixedHolder(UInt8.self, buffers: buffers, arrowType: ArrowType.ArrowUInt8)
             }
         } else if bitWidth == 16 {
             if intType.isSigned {
-                return makeFixedHolder(Int16.self, buffers: buffers)
+                return makeFixedHolder(Int16.self, buffers: buffers, arrowType: ArrowType.ArrowInt16)
             } else {
-                return makeFixedHolder(UInt16.self, buffers: buffers)
+                return makeFixedHolder(UInt16.self, buffers: buffers, arrowType: ArrowType.ArrowUInt16)
             }
         } else if bitWidth == 32 {
             if intType.isSigned {
-                return makeFixedHolder(Int32.self, buffers: buffers)
+                return makeFixedHolder(Int32.self, buffers: buffers, arrowType: ArrowType.ArrowInt32)
             } else {
-                return makeFixedHolder(UInt32.self, buffers: buffers)
+                return makeFixedHolder(UInt32.self, buffers: buffers, arrowType: ArrowType.ArrowUInt32)
             }
         } else if bitWidth == 64 {
             if intType.isSigned {
-                return makeFixedHolder(Int64.self, buffers: buffers)
+                return makeFixedHolder(Int64.self, buffers: buffers, arrowType: ArrowType.ArrowInt64)
             } else {
-                return makeFixedHolder(UInt64.self, buffers: buffers)
+                return makeFixedHolder(UInt64.self, buffers: buffers, arrowType: ArrowType.ArrowUInt64)
             }
         }
         return .failure(.unknownType("Int width \(bitWidth) currently not supported"))

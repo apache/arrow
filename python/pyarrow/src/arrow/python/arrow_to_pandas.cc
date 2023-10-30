@@ -1353,7 +1353,8 @@ struct ObjectWriterVisitor {
                   std::is_same<ExtensionType, Type>::value ||
                   (std::is_base_of<IntervalType, Type>::value &&
                    !std::is_same<MonthDayNanoIntervalType, Type>::value) ||
-                  std::is_base_of<UnionType, Type>::value,
+                  std::is_base_of<UnionType, Type>::value ||
+                  std::is_base_of<BinaryViewType, Type>::value,
               Status>
   Visit(const Type& type) {
     return Status::NotImplemented("No implemented conversion to object dtype: ",

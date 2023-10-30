@@ -1182,12 +1182,12 @@ tasks:
       image: debian-cpp
 {% endfor %}
 
-  test-fedora-35-cpp:
+  test-fedora-38-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 35
+        FEDORA: 38
       image: fedora-cpp
 
 {% for cpp_standard in [20] %}
@@ -1295,12 +1295,12 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-python
 
-  test-fedora-35-python-3:
+  test-fedora-38-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        FEDORA: 35
+        FEDORA: 38
       image: fedora-python
 
   test-r-linux-valgrind:

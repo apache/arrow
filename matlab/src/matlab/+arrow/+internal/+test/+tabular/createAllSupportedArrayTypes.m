@@ -24,8 +24,8 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
     end
 
     % Seed the random number generator to ensure
-    % reproducible results in tests.
-    rng(1);
+    % reproducible results in tests across MATLAB sessions.
+    rng(1, "twister");
 
     import arrow.type.ID
     import arrow.array.*
@@ -101,6 +101,7 @@ function classes = getArrayClassNames()
 
     % Return the class names as a string array
     classes = string({metaClass.Name});
+    classes = sort(classes);
 end
 
 function dict = getNumericArrayToMatlabDictionary()

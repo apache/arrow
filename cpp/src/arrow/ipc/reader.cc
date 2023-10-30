@@ -248,6 +248,15 @@ class ArrayLoader {
     }
   }
 
+  Result<size_t> GetVariadicCount(int i) {
+    auto* variadic_counts = metadata_->variadicBufferCounts();
+    CHECK_FLATBUFFERS_NOT_NULL(variadic_counts, "RecordBatch.variadicBufferCounts");
+    if (i >= static_cast<int>(variadic_counts->size())) {
+      return Status::IOError("variadic_count_index out of range.");
+    }
+    return static_cast<size_t>(variadic_counts->Get(i));
+  }
+
   Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
     CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
@@ -296,7 +305,6 @@ class ArrayLoader {
     return Status::OK();
   }
 
-  template <typename TYPE>
   Status LoadBinary(Type::type type_id) {
     DCHECK_NE(out_, nullptr);
     out_->buffers.resize(3);
@@ -355,7 +363,22 @@ class ArrayLoader {
 
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& type) {
-    return LoadBinary<T>(type.id());
+    return LoadBinary(type.id());
+  }
+
+  Status Visit(const BinaryViewType& type) {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+
+    ARROW_ASSIGN_OR_RAISE(auto character_buffer_count,
+                          GetVariadicCount(variadic_count_index_++));
+    out_->buffers.resize(character_buffer_count + 2);
+    for (size_t i = 0; i < character_buffer_count; ++i) {
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
+    }
+    return Status::OK();
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
@@ -450,6 +473,7 @@ class ArrayLoader {
   int buffer_index_ = 0;
   int field_index_ = 0;
   bool skip_io_ = false;
+  int variadic_count_index_ = 0;
 
   BatchDataReadRequest read_request_;
   const Field* field_ = nullptr;
@@ -580,10 +604,9 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
 
   // swap endian in a set of ArrayData if necessary (swap_endian == true)
   if (context.swap_endian) {
-    for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
-      ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
-                            arrow::internal::SwapEndianArrayData(
-                                filtered_columns[i], context.options.memory_pool));
+    for (auto& filtered_column : filtered_columns) {
+      ARROW_ASSIGN_OR_RAISE(filtered_column,
+                            arrow::internal::SwapEndianArrayData(filtered_column));
     }
   }
   return RecordBatch::Make(std::move(filtered_schema), metadata->length(),

@@ -48,6 +48,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+#include "arrow/util/span.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"
@@ -104,6 +105,13 @@ std::string GetTimeUnitName(TimeUnit::type unit) {
       break;
   }
   return "UNKNOWN";
+}
+
+Result<std::string_view> GetStringView(const rj::Value& str) {
+  if (!str.IsString()) {
+    return Status::Invalid("field was not a string");
+  }
+  return std::string_view{str.GetString(), str.GetStringLength()};
 }
 
 class SchemaWriter {
@@ -226,8 +234,9 @@ class SchemaWriter {
 
   template <typename T>
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
-              is_base_binary_type<T>::value || is_var_length_list_type<T>::value ||
-              is_struct_type<T>::value || is_run_end_encoded_type<T>::value>
+              is_base_binary_type<T>::value || is_binary_view_like_type<T>::value ||
+              is_var_length_list_type<T>::value || is_struct_type<T>::value ||
+              is_run_end_encoded_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -382,6 +391,8 @@ class SchemaWriter {
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
+  Status Visit(const StringViewType& type) { return WritePrimitive("utf8view", type); }
+  Status Visit(const BinaryViewType& type) { return WritePrimitive("binaryview", type); }
   Status Visit(const LargeStringType& type) { return WriteVarBytes("largeutf8", type); }
   Status Visit(const LargeBinaryType& type) { return WriteVarBytes("largebinary", type); }
   Status Visit(const FixedSizeBinaryType& type) {
@@ -528,22 +539,19 @@ class ArrayWriter {
     }
   }
 
-  // Binary, encode to hexadecimal.
-  template <typename ArrayType>
-  enable_if_binary_like<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
+  template <typename ArrayType, typename Type = typename ArrayType::TypeClass>
+  std::enable_if_t<is_base_binary_type<Type>::value ||
+                   is_fixed_size_binary_type<Type>::value>
+  WriteDataValues(const ArrayType& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
-      writer_->String(HexEncode(arr.GetView(i)));
-    }
-  }
-
-  // UTF8 string, write as is
-  template <typename ArrayType>
-  enable_if_string_like<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      auto view = arr.GetView(i);
-      writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+      if constexpr (Type::is_utf8) {
+        // UTF8 string, write as is
+        auto view = arr.GetView(i);
+        writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+      } else {
+        // Binary, encode to hexadecimal.
+        writer_->String(HexEncode(arr.GetView(i)));
+      }
     }
   }
 
@@ -642,6 +650,50 @@ class ArrayWriter {
     writer_->EndArray();
   }
 
+  template <typename ArrayType>
+  void WriteBinaryViewField(const ArrayType& array) {
+    writer_->Key("VIEWS");
+    writer_->StartArray();
+    for (int64_t i = 0; i < array.length(); ++i) {
+      auto s = array.raw_values()[i];
+      writer_->StartObject();
+      writer_->Key("SIZE");
+      writer_->Int64(s.size());
+      if (s.is_inline()) {
+        writer_->Key("INLINED");
+        if constexpr (ArrayType::TypeClass::is_utf8) {
+          writer_->String(reinterpret_cast<const char*>(s.inline_data()), s.size());
+        } else {
+          writer_->String(HexEncode(s.inline_data(), s.size()));
+        }
+      } else {
+        // Prefix is always 4 bytes so it may not be utf-8 even if the whole
+        // string view is
+        writer_->Key("PREFIX_HEX");
+        writer_->String(HexEncode(s.inline_data(), BinaryViewType::kPrefixSize));
+        writer_->Key("BUFFER_INDEX");
+        writer_->Int64(s.ref.buffer_index);
+        writer_->Key("OFFSET");
+        writer_->Int64(s.ref.offset);
+      }
+      writer_->EndObject();
+    }
+    writer_->EndArray();
+  }
+
+  void WriteVariadicBuffersField(const BinaryViewArray& arr) {
+    writer_->Key("VARIADIC_DATA_BUFFERS");
+    writer_->StartArray();
+    const auto& buffers = arr.data()->buffers;
+    for (size_t i = 2; i < buffers.size(); ++i) {
+      // Encode the data buffers into hexadecimal strings.
+      // Even for arrays which contain utf-8, portions of the buffer not
+      // referenced by any view may be invalid.
+      writer_->String(buffers[i]->ToHexString());
+    }
+    writer_->EndArray();
+  }
+
   void WriteValidityField(const Array& arr) {
     writer_->Key("VALIDITY");
     writer_->StartArray();
@@ -682,8 +734,10 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_t<std::is_base_of<PrimitiveArray, ArrayType>::value, Status> Visit(
-      const ArrayType& array) {
+  enable_if_t<std::is_base_of<PrimitiveArray, ArrayType>::value &&
+                  !is_binary_view_like_type<typename ArrayType::TypeClass>::value,
+              Status>
+  Visit(const ArrayType& array) {
     WriteValidityField(array);
     WriteDataField(array);
     SetNoChildren();
@@ -696,6 +750,17 @@ class ArrayWriter {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     WriteDataField(array);
+    SetNoChildren();
+    return Status::OK();
+  }
+
+  template <typename ArrayType>
+  enable_if_binary_view_like<typename ArrayType::TypeClass, Status> Visit(
+      const ArrayType& array) {
+    WriteValidityField(array);
+    WriteBinaryViewField(array);
+    WriteVariadicBuffersField(array);
+
     SetNoChildren();
     return Status::OK();
   }
@@ -1033,6 +1098,10 @@ Result<std::shared_ptr<DataType>> GetType(const RjObject& json_type,
     return utf8();
   } else if (type_name == "binary") {
     return binary();
+  } else if (type_name == "utf8view") {
+    return utf8_view();
+  } else if (type_name == "binaryview") {
+    return binary_view();
   } else if (type_name == "largeutf8") {
     return large_utf8();
   } else if (type_name == "largebinary") {
@@ -1246,10 +1315,12 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Result<const RjArray> GetDataArray(const RjObject& obj) {
-    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetMemberArray(obj, kData));
+  Result<const RjArray> GetDataArray(const RjObject& obj,
+                                     const std::string& key = kData) {
+    ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetMemberArray(obj, key));
     if (static_cast<int32_t>(json_data_arr.Size()) != length_) {
-      return Status::Invalid("JSON DATA array size differs from advertised array length");
+      return Status::Invalid("JSON ", key, " array size ", json_data_arr.Size(),
+                             " differs from advertised array length ", length_);
     }
     return json_data_arr;
   }
@@ -1293,10 +1364,7 @@ class ArrayReader {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-
-      DCHECK(json_val.IsString());
-      std::string_view val{
-          json_val.GetString()};  // XXX can we use json_val.GetStringLength()?
+      ARROW_ASSIGN_OR_RAISE(auto val, GetStringView(json_val));
 
       int64_t offset_start = ParseOffset(json_offsets[i]);
       int64_t offset_end = ParseOffset(json_offsets[i + 1]);
@@ -1330,6 +1398,97 @@ class ArrayReader {
     }
 
     return FinishBuilder(&builder);
+  }
+
+  template <typename ViewType>
+  enable_if_binary_view_like<ViewType, Status> Visit(const ViewType& type) {
+    ARROW_ASSIGN_OR_RAISE(const auto json_views, GetDataArray(obj_, "VIEWS"));
+    ARROW_ASSIGN_OR_RAISE(const auto json_variadic_bufs,
+                          GetMemberArray(obj_, "VARIADIC_DATA_BUFFERS"));
+
+    using internal::Zip;
+    using util::span;
+
+    BufferVector buffers;
+    buffers.resize(json_variadic_bufs.Size() + 2);
+    for (auto [json_buf, buf] : Zip(json_variadic_bufs, span{buffers}.subspan(2))) {
+      ARROW_ASSIGN_OR_RAISE(auto hex_string, GetStringView(json_buf));
+      ARROW_ASSIGN_OR_RAISE(
+          buf, AllocateBuffer(static_cast<int64_t>(hex_string.size()) / 2, pool_));
+      RETURN_NOT_OK(ParseHexValues(hex_string, buf->mutable_data()));
+    }
+
+    TypedBufferBuilder<bool> validity_builder{pool_};
+    RETURN_NOT_OK(validity_builder.Resize(length_));
+    for (bool is_valid : is_valid_) {
+      validity_builder.UnsafeAppend(is_valid);
+    }
+    ARROW_ASSIGN_OR_RAISE(buffers[0], validity_builder.Finish());
+
+    ARROW_ASSIGN_OR_RAISE(
+        buffers[1], AllocateBuffer(length_ * sizeof(BinaryViewType::c_type), pool_));
+
+    span views{buffers[1]->mutable_data_as<BinaryViewType::c_type>(),
+               static_cast<size_t>(length_)};
+
+    int64_t null_count = 0;
+    for (auto [json_view, out_view, is_valid] : Zip(json_views, views, is_valid_)) {
+      if (!is_valid) {
+        out_view = {};
+        ++null_count;
+        continue;
+      }
+
+      DCHECK(json_view.IsObject());
+      const auto& json_view_obj = json_view.GetObject();
+
+      auto json_size = json_view_obj.FindMember("SIZE");
+      RETURN_NOT_INT("SIZE", json_size, json_view_obj);
+      DCHECK_GE(json_size->value.GetInt64(), 0);
+      auto size = static_cast<int32_t>(json_size->value.GetInt64());
+
+      if (size <= BinaryViewType::kInlineSize) {
+        auto json_inlined = json_view_obj.FindMember("INLINED");
+        RETURN_NOT_STRING("INLINED", json_inlined, json_view_obj);
+        out_view.inlined = {size, {}};
+
+        if constexpr (ViewType::is_utf8) {
+          DCHECK_LE(json_inlined->value.GetStringLength(), BinaryViewType::kInlineSize);
+          memcpy(&out_view.inlined.data, json_inlined->value.GetString(), size);
+        } else {
+          DCHECK_LE(json_inlined->value.GetStringLength(),
+                    BinaryViewType::kInlineSize * 2);
+          ARROW_ASSIGN_OR_RAISE(auto inlined, GetStringView(json_inlined->value));
+          RETURN_NOT_OK(ParseHexValues(inlined, out_view.inlined.data.data()));
+        }
+        continue;
+      }
+
+      auto json_prefix = json_view_obj.FindMember("PREFIX_HEX");
+      auto json_buffer_index = json_view_obj.FindMember("BUFFER_INDEX");
+      auto json_offset = json_view_obj.FindMember("OFFSET");
+      RETURN_NOT_STRING("PREFIX_HEX", json_prefix, json_view_obj);
+      RETURN_NOT_INT("BUFFER_INDEX", json_buffer_index, json_view_obj);
+      RETURN_NOT_INT("OFFSET", json_offset, json_view_obj);
+
+      out_view.ref = {
+          size,
+          {},
+          static_cast<int32_t>(json_buffer_index->value.GetInt64()),
+          static_cast<int32_t>(json_offset->value.GetInt64()),
+      };
+
+      DCHECK_EQ(json_prefix->value.GetStringLength(), BinaryViewType::kPrefixSize * 2);
+      ARROW_ASSIGN_OR_RAISE(auto prefix, GetStringView(json_prefix->value));
+      RETURN_NOT_OK(ParseHexValues(prefix, out_view.ref.prefix.data()));
+
+      DCHECK_LE(static_cast<size_t>(out_view.ref.buffer_index), buffers.size() - 2);
+      DCHECK_LE(static_cast<int64_t>(out_view.ref.offset) + out_view.size(),
+                buffers[out_view.ref.buffer_index + 2]->size());
+    }
+
+    data_ = ArrayData::Make(type_, length_, std::move(buffers), null_count);
+    return Status::OK();
   }
 
   Status Visit(const DayTimeIntervalType& type) {

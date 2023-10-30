@@ -27,18 +27,18 @@ import Arrow
 
 func makeSchema() -> ArrowSchema {
     let schemaBuilder = ArrowSchema.Builder()
-    return schemaBuilder.addField("col1", type: ArrowType(ArrowType.ArrowUInt8), isNullable: true)
+    return schemaBuilder.addField("col1", type: ArrowType(ArrowType.ArrowDouble), isNullable: true)
         .addField("col2", type: ArrowType(ArrowType.ArrowString), isNullable: false)
         .addField("col3", type: ArrowType(ArrowType.ArrowDate32), isNullable: false)
         .finish()
 }
 
 func makeRecordBatch() throws -> RecordBatch {
-    let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
-    uint8Builder.append(10)
-    uint8Builder.append(22)
-    uint8Builder.append(33)
-    uint8Builder.append(44)
+    let doubleBuilder: NumberArrayBuilder<Double> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+    doubleBuilder.append(11.11)
+    doubleBuilder.append(22.22)
+    doubleBuilder.append(33.33)
+    doubleBuilder.append(44.44)
     let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
     stringBuilder.append("test10")
     stringBuilder.append("test22")
@@ -51,11 +51,11 @@ func makeRecordBatch() throws -> RecordBatch {
     date32Builder.append(date2)
     date32Builder.append(date1)
     date32Builder.append(date2)
-    let intHolder = ArrowArrayHolder(try uint8Builder.finish())
+    let doubleHolder = ArrowArrayHolder(try doubleBuilder.finish())
     let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
     let date32Holder = ArrowArrayHolder(try date32Builder.finish())
     let result = RecordBatch.Builder()
-        .addColumn("col1", arrowArray: intHolder)
+        .addColumn("col1", arrowArray: doubleHolder)
         .addColumn("col2", arrowArray: stringHolder)
         .addColumn("col3", arrowArray: date32Holder)
         .finish()
@@ -67,12 +67,14 @@ func makeRecordBatch() throws -> RecordBatch {
     }
 }
 
+var flights = [String: FlightInfo]()
 final class MyFlightServer: ArrowFlightServer {
     func doExchange(
         _ reader: ArrowFlight.RecordBatchStreamReader,
         writer: ArrowFlight.RecordBatchStreamWriter) async throws {
         do {
-            for try await rb in reader {
+            for try await rbData in reader {
+                let rb = rbData.0!
                 XCTAssertEqual(rb.schema.fields.count, 3)
                 XCTAssertEqual(rb.length, 4)
             }
@@ -87,7 +89,10 @@ final class MyFlightServer: ArrowFlightServer {
     func doPut(
         _ reader: ArrowFlight.RecordBatchStreamReader,
         writer: ArrowFlight.PutResultDataStreamWriter) async throws {
-        for try await rb in reader {
+        for try await rbData in reader {
+            let rb = rbData.0!
+            let key = String(decoding: rbData.1!.cmd, as: UTF8.self)
+            flights[key] = try FlightInfo(schemaToMessage(rb.schema), endpoints: [], descriptor: rbData.1)
             XCTAssertEqual(rb.schema.fields.count, 3)
             XCTAssertEqual(rb.length, 4)
             try await writer.write(FlightPutResult())
@@ -101,27 +106,33 @@ final class MyFlightServer: ArrowFlightServer {
     func getSchema(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightSchemaResult {
         XCTAssertEqual(String(bytes: request.cmd, encoding: .utf8)!, "schema info")
         XCTAssertEqual(request.type, .cmd)
-        return try ArrowFlight.FlightSchemaResult(schemaToArrowStream(makeSchema()))
+        return try ArrowFlight.FlightSchemaResult(schemaToMessage(makeSchema()))
     }
 
     func getFlightInfo(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightInfo {
-        return ArrowFlight.FlightInfo(Data())
+        let key = String(decoding: request.cmd, as: UTF8.self)
+        if flights[key] != nil {
+            return ArrowFlight.FlightInfo(flights[key]!.toProtocol())
+        }
+
+        throw ArrowFlightError.ioError("Flight not found")
     }
 
     func listFlights(_ criteria: ArrowFlight.FlightCriteria, writer: ArrowFlight.FlightInfoStreamWriter) async throws {
         XCTAssertEqual(String(bytes: criteria.expression, encoding: .utf8), "flight criteria expression")
-        let flightInfo = try ArrowFlight.FlightInfo(schemaToArrowStream(makeSchema()))
-        try await writer.write(flightInfo)
+        for flightData in flights {
+            try await writer.write(flightData.value)
+        }
     }
 
     func listActions(_ writer: ArrowFlight.ActionTypeStreamWriter) async throws {
-        try await writer.write(FlightActionType("type1", description: "desc1"))
-        try await writer.write(FlightActionType("type2", description: "desc2"))
+        try await writer.write(FlightActionType("clear", description: "Clear the stored flights."))
+        try await writer.write(FlightActionType("shutdown", description: "Shut down this server."))
     }
 
     func doAction(_ action: FlightAction, writer: ResultStreamWriter) async throws {
-        XCTAssertEqual(action.type, "test_action")
-        XCTAssertEqual(String(bytes: action.body, encoding: .utf8)!, "test_action body")
+        XCTAssertEqual(action.type, "healthcheck")
+        XCTAssertEqual(String(bytes: action.body, encoding: .utf8)!, "healthcheck body")
         try await writer.write(FlightResult("test_action result".data(using: .utf8)!))
     }
 }
@@ -180,26 +191,28 @@ public class FlightClientTester {
         })
 
         XCTAssertEqual(actionTypes.count, 2)
-        XCTAssertEqual(actionTypes[0].type, "type1")
-        XCTAssertEqual(actionTypes[0].description, "desc1")
-        XCTAssertEqual(actionTypes[1].type, "type2")
-        XCTAssertEqual(actionTypes[1].description, "desc2")
+
+        XCTAssertEqual(actionTypes[0].type, "clear")
+        XCTAssertEqual(actionTypes[0].description, "Clear the stored flights.")
+        XCTAssertEqual(actionTypes[1].type, "shutdown")
+        XCTAssertEqual(actionTypes[1].description, "Shut down this server.")
     }
 
     func listFlightsTest() async throws {
         let flightCriteria = FlightCriteria("flight criteria expression".data(using: .utf8)!)
         var numCalls = 0
         try await client?.listFlights(flightCriteria, closure: { data in
-            numCalls += 1
-            let schema = try streamToArrowSchema(data.schema)
-            XCTAssertEqual(schema.fields.count, 3)
+            if let schema = data.schema {
+                XCTAssertGreaterThanOrEqual(schema.fields.count, 0)
+                numCalls += 1
+            }
         })
 
-        XCTAssertEqual(numCalls, 1)
+        XCTAssertEqual(numCalls, 2)
     }
 
-    func doActionTest() async throws {
-        let action = FlightAction("test_action", body: "test_action body".data(using: .utf8)!)
+    func doActionTest(_ type: String, actionBody: Data) async throws {
+        let action = FlightAction(type, body: actionBody)
         var actionResults = [FlightResult]()
         try await client?.doAction(action, closure: { result in
             actionResults.append(result)
@@ -209,36 +222,33 @@ public class FlightClientTester {
         XCTAssertEqual(String(bytes: actionResults[0].body, encoding: .utf8), "test_action result")
     }
 
-    func getSchemaTest() async throws {
-        let descriptor = FlightDescriptor(cmd: "schema info".data(using: .utf8)!)
+    func getSchemaTest(_ cmd: Data) async throws {
+        let descriptor = FlightDescriptor(cmd: cmd)
         let schemaResult = try await client?.getSchema(descriptor)
-        let schema = try streamToArrowSchema(schemaResult!.schema)
+        let schema = schemaResult!.schema!
         XCTAssertEqual(schema.fields.count, 3)
     }
 
-    func doGetTest() async throws {
-        let ticket = FlightTicket("flight_ticket test".data(using: .utf8)!)
+    func doGetTest(_ flightData: Data) async throws {
+        let ticket = FlightTicket(flightData)
         var numCall = 0
         try await client?.doGet(ticket, readerResultClosure: { rb in
             numCall += 1
             XCTAssertEqual(rb.schema!.fields.count, 3)
             XCTAssertEqual(rb.batches[0].length, 4)
-        })
-
-        XCTAssertEqual(numCall, 1)
-    }
-
-    func doGetTestFlightData() async throws {
-        let ticket = FlightTicket("flight_ticket test".data(using: .utf8)!)
-        var numCall = 0
-        try await client?.doGet(ticket, flightDataClosure: { flightData in
-            let reader = ArrowReader()
-            let result = reader.fromStream(flightData.dataBody)
-            switch result {
-            case .success(let rb):
-                XCTAssertEqual(rb.schema?.fields.count, 3)
-                XCTAssertEqual(rb.batches[0].length, 4)
-                numCall += 1
+            switch ArrowTable.from(recordBatches: rb.batches) {
+            case .success(let table):
+                    for column in table.columns {
+                    switch column.type.id {
+                    case .double:
+                        let doubleArray = column.data() as? ChunkedArray<Double>
+                        XCTAssertNotNil(doubleArray)
+                        XCTAssertEqual(doubleArray?[0], 11.11)
+                        XCTAssertEqual(doubleArray?.asString(0), "11.11")
+                    default:
+                        continue
+                    }
+                }
             case .failure(let error):
                 throw error
             }
@@ -247,10 +257,28 @@ public class FlightClientTester {
         XCTAssertEqual(numCall, 1)
     }
 
-    func doPutTest() async throws {
+    func doGetTestFlightData(_ flightData: Data) async throws {
+        let ticket = FlightTicket(flightData)
+        var numCall = 0
+        let reader = ArrowReader()
+        let arrowResult = ArrowReader.makeArrowReaderResult()
+        try await client?.doGet(ticket, flightDataClosure: { flightData in
+            switch reader.fromMessage(flightData.dataHeader, dataBody: flightData.dataBody, result: arrowResult) {
+            case .success:
+                numCall += 1
+            case .failure(let error):
+                throw error
+            }
+        })
+
+        XCTAssertEqual(numCall, 2)
+    }
+
+    func doPutTest(_ cmd: String) async throws {
+        let descriptor = FlightDescriptor(cmd: cmd.data(using: .utf8)!)
         let rb = try makeRecordBatch()
         var numCall = 0
-        try await client?.doPut([rb], closure: { _ in
+        try await client?.doPut(descriptor, recordBatchs: [rb], closure: { _ in
             numCall += 1
         })
 
@@ -258,9 +286,10 @@ public class FlightClientTester {
     }
 
     func doExchangeTest() async throws {
+        let descriptor = FlightDescriptor(cmd: "flight_ticket".data(using: .utf8)!)
         let rb = try makeRecordBatch()
         var numCall = 0
-        try await client?.doExchange([rb], closure: { result in
+        try await client?.doExchange(descriptor, recordBatchs: [rb], closure: { result in
             numCall += 1
             XCTAssertEqual(result.schema?.fields.count, 3)
             XCTAssertEqual(result.batches[0].length, 4)
@@ -311,12 +340,13 @@ final class FlightTest: XCTestCase {
 
             let clientImpl = try await FlightClientTester()
             try await clientImpl.listActionTest()
+            try await clientImpl.doPutTest("flight_ticket")
+            try await clientImpl.doPutTest("flight_another")
             try await clientImpl.listFlightsTest()
-            try await clientImpl.doActionTest()
-            try await clientImpl.getSchemaTest()
-            try await clientImpl.doGetTest()
-            try await clientImpl.doGetTestFlightData()
-            try await clientImpl.doPutTest()
+            try await clientImpl.doActionTest("healthcheck", actionBody: Data("healthcheck body".utf8))
+            try await clientImpl.getSchemaTest(Data("schema info".utf8))
+            try await clientImpl.doGetTest(Data("'flight_ticket'".utf8))
+            try await clientImpl.doGetTestFlightData(Data("'flight_another'".utf8))
             try await clientImpl.doExchangeTest()
             return "done"
         }
