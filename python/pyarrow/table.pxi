@@ -2804,7 +2804,7 @@ cdef class RecordBatch(_Tabular):
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> names = ["n_legs", "animals"]
 
-        Construct a RecordBartch from pyarrow Arrays using names:
+        Construct a RecordBatch from pyarrow Arrays using names:
 
         >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names)
         pyarrow.RecordBatch
@@ -2822,7 +2822,7 @@ cdef class RecordBatch(_Tabular):
         4       5  Brittle stars
         5     100      Centipede
 
-        Construct a RecordBartch from pyarrow Arrays using schema:
+        Construct a RecordBatch from pyarrow Arrays using schema:
 
         >>> my_schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
