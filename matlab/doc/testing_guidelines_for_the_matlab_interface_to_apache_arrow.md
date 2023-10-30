@@ -42,11 +42,13 @@ To run the MATLAB interface tests on a local machine, start MATLAB and then `cd`
 >> runtests(testFolderName, IncludeSubfolders = true) % For example: runtests('matlab\test', IncludeSubfolders = true)
 ```
 
-To learn more about `runtests`, please check [the documentation of `runtests`](https://www.mathworks.com/help/matlab/ref/runtests.html).  
+To learn more about `runtests`, please check [the documentation](https://www.mathworks.com/help/matlab/ref/runtests.html).  
 
 ## Writing Tests  
 
-All tests for the MATLAB interface should use the [MATLAB Class-Based Unit Testing Framework](https://www.mathworks.com/help/matlab/class-based-unit-tests.html) (i.e. they should use [`matlab.unittest.TestCase`](https://www.mathworks.com/help/matlab/ref/matlab.unittest.testcase-class.html)). Here is a simple example.  
+All tests for the MATLAB interface should use the [MATLAB Class-Based Unit Testing Framework](https://www.mathworks.com/help/matlab/class-based-unit-tests.html) (i.e. they should use [`matlab.unittest.TestCase`](https://www.mathworks.com/help/matlab/ref/matlab.unittest.testcase-class.html)).  
+
+Included below is a simple example of a MATLAB test:  
 
 ```matlab
 classdef tStringArray < matlab.unittest.TestCase
@@ -139,4 +141,4 @@ Below is an example of running all tests under `matlab/test` and getting the MAT
 
 ### Debugging Code Coverage Results  
 
-If the `runtests` command with `RepoCoverageFor` reports confusing or incorrect code coverage results, this could be due to caching or other issues. As a workaround, you can try setting a breakpoint in your source file, and then run the tests. This step can be used to verify that your source file is being executed by the tests.  
+If the `runtests` command with `RepoCoverageFor` reports confusing or incorrect code coverage results, this could be due to caching or other issues. As a workaround, you can try setting a breakpoint in your source file, and then re-run the tests. This step can be used to verify that your source file is being executed by the tests.  
