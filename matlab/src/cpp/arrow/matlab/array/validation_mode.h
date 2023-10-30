@@ -17,12 +17,14 @@
 
 #pragma once
 
-namespace arrow::matlab::array::validation {
+#include <cstdint>
 
-    enum class ValidationMode : std::uint8_t { 
-        Full,
-        Minimal,
-        None
+namespace arrow::matlab::array {
+
+    enum class ValidationMode : uint8_t { 
+        None    = 0,
+        Minimal = 1,
+        Full    = 2
     };
 
 }
