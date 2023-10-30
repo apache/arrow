@@ -80,8 +80,8 @@ The components of the URI are as follows.
 * **HOSTNAME** is the hostname of the Flight SQL service.
 * **PORT** is the port of the Flight SQL service.
 
-Additional options can be passed as query parameters.  The supported
-parameters are:
+Additional options can be passed as query parameters. Parameter names are
+case-sensitive. The supported parameters are:
 
 .. list-table::
    :header-rows: 1
@@ -115,17 +115,19 @@ parameters are:
      - When TLS is enabled, the password for the certificate store
 
    * - useEncryption
-     - false
-     - Whether to use TLS (the default is an insecure, plaintext
-       connection)
+     - true
+     - Whether to use TLS (the default is an encrypted connection)
 
-   * - username
+   * - user
      - null
      - The username for user/password authentication
 
    * - useSystemTrustStore
      - true
      - When TLS is enabled, whether to use the system certificate store
+
+Note that URI values must be URI-encoded if they contain characters such
+as !, @, $, etc.
 
 Any URI parameters that are not handled by the driver are passed to
 the Flight SQL service as gRPC headers. For example, the following URI ::
@@ -135,3 +137,14 @@ the Flight SQL service as gRPC headers. For example, the following URI ::
 This will connect without authentication or encryption, to a Flight
 SQL service running on ``localhost`` on port 12345. Each request will
 also include a `database=mydb` gRPC header.
+
+Connection parameters may also be supplied using the Properties object
+when using the JDBC Driver Manager to connect. When supplying using
+the Properties object, values should *not* be URI-encoded.
+
+Parameters specified by the URI supercede parameters supplied by the
+Properties object. When calling the `user/password overload of 
+DriverManager#getConnection() 
+<https://docs.oracle.com/javase/8/docs/api/java/sql/DriverManager.html#getConnection-java.lang.String-java.lang.String-java.lang.String->`_,
+the username and password supplied on the URI supercede the username and
+password arguments to the function call.
