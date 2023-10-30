@@ -76,6 +76,113 @@ namespace Apache.Arrow
             }
         }
 
+#if NETCOREAPP
+        internal unsafe static string GetString(in ArrowBuffer valueBuffer, int index, int precision, int scale, int byteWidth)
+        {
+            int startIndex = index * byteWidth;
+            ReadOnlySpan<byte> value = valueBuffer.Span.Slice(startIndex, byteWidth);
+            BigInteger integerValue = new BigInteger(value);
+            if (scale == 0)
+            {
+                return integerValue.ToString();
+            }
+
+            bool negative = integerValue.Sign < 0;
+            if (negative)
+            {
+                integerValue = -integerValue;
+            }
+
+            int start = scale + 3;
+            Span<char> result = stackalloc char[start + precision];
+            if (!integerValue.TryFormat(result.Slice(start), out int charsWritten) || charsWritten > precision)
+            {
+                throw new OverflowException($"Value: {integerValue} cannot be formatted");
+            }
+
+            if (scale >= charsWritten)
+            {
+                int length = charsWritten;
+                result[++length] = '0';
+                result[++length] = '.';
+                while (scale > length - 2)
+                {
+                    result[++length] = '0';
+                }
+                start = charsWritten + 1;
+                charsWritten = length;
+            }
+            else
+            {
+                result.Slice(start, charsWritten - scale).CopyTo(result.Slice(--start));
+                charsWritten++;
+                result[charsWritten + 1] = '.';
+            }
+
+            if (negative)
+            {
+                result[--start] = '-';
+                charsWritten++;
+            }
+
+            return new string(result.Slice(start, charsWritten));
+        }
+#else
+        internal unsafe static string GetString(in ArrowBuffer valueBuffer, int index, int precision, int scale, int byteWidth)
+        {
+            int startIndex = index * byteWidth;
+            ReadOnlySpan<byte> value = valueBuffer.Span.Slice(startIndex, byteWidth);
+            BigInteger integerValue = new BigInteger(value.ToArray());
+            if (scale == 0)
+            {
+                return integerValue.ToString();
+            }
+
+            bool negative = integerValue.Sign < 0;
+            if (negative)
+            {
+                integerValue = -integerValue;
+            }
+
+            string toString = integerValue.ToString();
+            int charsWritten = toString.Length;
+            if (charsWritten > precision)
+            {
+                throw new OverflowException($"Value: {integerValue} cannot be formatted");
+            }
+
+            char[] result = new char[precision + 2];
+            int pos = 0;
+            if (negative)
+            {
+                result[pos++] = '-';
+            }
+            if (scale >= charsWritten)
+            {
+                result[pos++] = '0';
+                result[pos++] = '.';
+                int length = 0;
+                while (scale > charsWritten + length)
+                {
+                    result[pos++] = '0';
+                    length++;
+                }
+                toString.CopyTo(0, result, pos, charsWritten);
+                pos += charsWritten;
+            }
+            else
+            {
+                int wholePartLength = charsWritten - scale;
+                toString.CopyTo(0, result, pos, wholePartLength);
+                pos += wholePartLength;
+                result[pos++] = '.';
+                toString.CopyTo(wholePartLength, result, pos, scale);
+                pos += scale;
+            }
+            return new string(result, 0, pos);
+        }
+#endif
+
 #if !NETSTANDARD1_3
         internal static SqlDecimal GetSqlDecimal128(in ArrowBuffer valueBuffer, int index, int precision, int scale)
         {
@@ -196,6 +303,128 @@ namespace Apache.Arrow
                 {
                     bytes[i] = 255;
                 }
+            }
+        }
+
+        internal static void GetBytes(string value, int precision, int scale, int byteWidth, Span<byte> bytes)
+        {
+            if (value == null || value.Length == 0)
+            {
+                throw new ArgumentException("numeric value may not be null or blank", nameof(value));
+            }
+
+            int start = 0;
+            if (value[0] == '-' || value[0] == '+')
+            {
+                start++;
+            }
+            while (value[start] == '0' && start < value.Length - 1)
+            {
+                start++;
+            }
+
+            int pos = value.IndexOf('.');
+            int neededPrecision = value.Length - start;
+            int neededScale;
+            if (pos == -1)
+            {
+                neededScale = 0;
+            }
+            else
+            {
+                neededPrecision--;
+                neededScale = value.Length - pos - 1;
+            }
+
+            if (neededScale > scale)
+            {
+                throw new OverflowException($"Decimal scale cannot be greater than that in the Arrow vector: {value} has scale > {scale}");
+            }
+            if (neededPrecision > precision)
+            {
+                throw new OverflowException($"Decimal precision cannot be greater than that in the Arrow vector: {value} has precision > {precision}");
+            }
+
+#if NETCOREAPP
+            ReadOnlySpan<char> src = value.AsSpan();
+            Span<char> buffer = stackalloc char[precision + start + 1];
+
+            int end;
+            if (pos == -1)
+            {
+                src.CopyTo(buffer);
+                end = src.Length;
+            }
+            else
+            {
+                src.Slice(0, pos).CopyTo(buffer);
+                src.Slice(pos + 1).CopyTo(buffer.Slice(pos));
+                end = src.Length - 1;
+            }
+
+            while (neededScale < scale)
+            {
+                buffer[end++] = '0';
+                neededScale++;
+            }
+
+            if (!BigInteger.TryParse(buffer.Slice(0, end), out BigInteger bigInt))
+            {
+                throw new ArgumentException($"Unable to parse {value} as decimal");
+            }
+
+            if (!bigInt.TryWriteBytes(bytes, out int bytesWritten, false, !BitConverter.IsLittleEndian))
+            {
+                throw new OverflowException("Could not extract bytes from integer value " + bigInt);
+            }
+#else
+            char[] buffer = new char[precision + start + 1];
+
+            int end;
+            if (pos == -1)
+            {
+                value.CopyTo(0, buffer, 0, value.Length);
+                end = value.Length;
+            }
+            else
+            {
+                value.CopyTo(0, buffer, 0, pos);
+                value.CopyTo(pos + 1, buffer, pos, neededScale);
+                end = value.Length - 1;
+            }
+
+            while (neededScale < scale)
+            {
+                buffer[end++] = '0';
+                neededScale++;
+            }
+
+            if (!BigInteger.TryParse(new string(buffer, 0, end), out BigInteger bigInt))
+            {
+                throw new ArgumentException($"Unable to parse {value} as decimal");
+            }
+
+            byte[] tempBytes = bigInt.ToByteArray();
+            try
+            {
+                tempBytes.CopyTo(bytes);
+            }
+            catch (ArgumentException)
+            {
+                throw new OverflowException("Could not extract bytes from integer value " + bigInt);
+            }
+            int bytesWritten = tempBytes.Length;
+#endif
+
+            if (bytes.Length > byteWidth)
+            {
+                throw new OverflowException($"Decimal size greater than {byteWidth} bytes: {bytes.Length}");
+            }
+
+            byte fill = bigInt.Sign == -1 ? (byte)255 : (byte)0;
+            for (int i = bytesWritten; i < byteWidth; i++)
+            {
+                bytes[i] = fill;
             }
         }
 
