@@ -1237,6 +1237,7 @@ cdef class ParquetReader(_Weakrefable):
 
         arrow_props.set_pre_buffer(pre_buffer)
 
+        print("open with page_checksum_verification: ", page_checksum_verification)
         properties.set_page_checksum_verification(page_checksum_verification)
 
         if coerce_int96_timestamp_unit is None:

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -756,6 +757,8 @@ std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
   std::unique_ptr<ParquetFileReader::Contents> result(
       new SerializedFile(std::move(source), props));
 
+  std::cout << "Open with crc: " << std::boolalpha << props.page_checksum_verification()
+            << std::endl;
   // Access private methods here, but otherwise unavailable
   SerializedFile* file = static_cast<SerializedFile*>(result.get());
 
