@@ -128,7 +128,23 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   public ExecuteBatchResult executeBatch(final StatementHandle statementHandle,
                                          final List<List<TypedValue>> parameterValuesList)
       throws IllegalStateException {
-    throw new IllegalStateException("executeBatch not implemented.");
+    Preconditions.checkArgument(connection.id.equals(statementHandle.connectionId),
+            "Connection IDs are not consistent");
+    PreparedStatement preparedStatement = getPreparedStatement(statementHandle);
+
+    if (preparedStatement == null) {
+      throw new IllegalStateException("Prepared statement not found: " + statementHandle);
+    }
+
+    final AvaticaParameterBinder binder =
+                 new AvaticaParameterBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator());
+    for (int i = 0; i < parameterValuesList.size(); i++) {
+      binder.bind(parameterValuesList.get(i), i);
+    }
+
+    // Update query
+    long[] updatedCounts = {preparedStatement.executeUpdate()};
+    return new ExecuteBatchResult(updatedCounts);
   }
 
   @Override

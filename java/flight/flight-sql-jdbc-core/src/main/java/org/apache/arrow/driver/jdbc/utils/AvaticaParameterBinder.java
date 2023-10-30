@@ -20,8 +20,25 @@ package org.apache.arrow.driver.jdbc.utils;
 import java.util.List;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
+import org.apache.arrow.driver.jdbc.converter.impl.BinaryAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.BoolAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.DateAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.DecimalAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.DurationAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.FixedSizeBinaryAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.FloatingPointAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.IntAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.IntervalAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.LargeBinaryAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.LargeUtf8AvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.NullAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.calcite.avatica.remote.TypedValue;
 
 /**
@@ -44,6 +61,15 @@ public class AvaticaParameterBinder {
    * @param typedValues The parameter values.
    */
   public void bind(List<TypedValue> typedValues) {
+    bind(typedValues, 0);
+  }
+
+  /**
+   * Bind the given Avatica values to the prepared statement at the given index.
+   * @param typedValues The parameter values.
+   * @param index index for parameter.
+   */
+  public void bind(List<TypedValue> typedValues, int index) {
     if (preparedStatement.getParameterSchema().getFields().size() != typedValues.size()) {
       throw new IllegalStateException(
           String.format("Prepared statement has %s parameters, but only received %s",
@@ -52,14 +78,151 @@ public class AvaticaParameterBinder {
     }
 
     for (int i = 0; i < typedValues.size(); i++) {
-      TypedValueVectorBinder.bind(parameters.getVector(i), typedValues.get(i), 0);
+      bind(parameters.getVector(i), typedValues.get(i), index);
     }
 
     if (!typedValues.isEmpty()) {
-      parameters.setRowCount(1);
+      parameters.setRowCount(index + 1);
       preparedStatement.setParameters(parameters);
     }
   }
+
+  /**
+   * Bind a TypedValue to the given index on the FieldVctor.
+   *
+   * @param vector     FieldVector to bind to.
+   * @param typedValue TypedValue to bind to the vector.
+   * @param index      Vector index to bind the value at.
+   */
+  private void bind(FieldVector vector, TypedValue typedValue, int index) {
+    try {
+      if (!vector.getField().getType().accept(new BinderVisitor(vector, typedValue, index))) {
+        throw new UnsupportedOperationException(
+                String.format("Binding to vector type %s is not yet supported", vector.getClass()));
+      }
+    } catch (ClassCastException e) {
+      throw new RuntimeException(String.format("Value of type %s is not compatible with Arrow type %s",
+              typedValue.type, vector.getField().getType()));
+    }
+  }
+
+  private static class BinderVisitor implements ArrowType.ArrowTypeVisitor<Boolean> {
+    private final FieldVector vector;
+    private final TypedValue typedValue;
+    private final int index;
+
+    private BinderVisitor(FieldVector vector, TypedValue value, int index) {
+      this.vector = vector;
+      this.typedValue = value;
+      this.index = index;
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Null type) {
+      return new NullAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Struct type) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(ArrowType.List type) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(ArrowType.LargeList type) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(ArrowType.FixedSizeList type) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Union type) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Map type) {
+      return false;
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Int type) {
+      return new IntAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.FloatingPoint type) {
+      return new FloatingPointAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Utf8 type) {
+      return new Utf8AvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.LargeUtf8 type) {
+      return new LargeUtf8AvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Binary type) {
+      return new BinaryAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.LargeBinary type) {
+      return new LargeBinaryAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.FixedSizeBinary type) {
+      return new FixedSizeBinaryAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Bool type) {
+      return new BoolAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Decimal type) {
+      return new DecimalAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Date type) {
+      return new DateAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Time type) {
+      return new TimeAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Timestamp type) {
+      return new TimestampAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Interval type) {
+      return new IntervalAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.Duration type) {
+      return new DurationAvaticaParameterConverter(type).setParameter(vector, typedValue, index);
+    }
+  }
+
 }
 
 
