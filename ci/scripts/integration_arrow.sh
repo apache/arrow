@@ -20,11 +20,25 @@
 set -ex
 
 arrow_dir=${1}
+build_dir=${2}
+
 gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
+: ${ARROW_INTEGRATION_CPP:=ON}
+: ${ARROW_INTEGRATION_CSHARP:=ON}
+: ${ARROW_INTEGRATION_GO:=ON}
+: ${ARROW_INTEGRATION_JAVA:=ON}
+: ${ARROW_INTEGRATION_JS:=ON}
+
 pip install -e $arrow_dir/dev/archery[integration]
-# For C# C Data Interface testing
-pip install pythonnet
+
+# For C Data Interface testing
+if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
+    pip install pythonnet
+fi
+if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
+    pip install jpype1
+fi
 
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
@@ -34,11 +48,11 @@ time archery integration \
     --run-c-data \
     --run-ipc \
     --run-flight \
-    --with-cpp=1 \
-    --with-csharp=1 \
-    --with-java=1 \
-    --with-js=1 \
-    --with-go=1 \
+    --with-cpp=$([ "$ARROW_INTEGRATION_CPP" == "ON" ] && echo "1" || echo "0") \
+    --with-csharp=$([ "$ARROW_INTEGRATION_CSHARP" == "ON" ] && echo "1" || echo "0") \
+    --with-go=$([ "$ARROW_INTEGRATION_GO" == "ON" ] && echo "1" || echo "0") \
+    --with-java=$([ "$ARROW_INTEGRATION_JAVA" == "ON" ] && echo "1" || echo "0") \
+    --with-js=$([ "$ARROW_INTEGRATION_JS" == "ON" ] && echo "1" || echo "0") \
     --gold-dirs=$gold_dir/0.14.1 \
     --gold-dirs=$gold_dir/0.17.1 \
     --gold-dirs=$gold_dir/1.0.0-bigendian \

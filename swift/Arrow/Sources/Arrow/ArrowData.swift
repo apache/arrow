@@ -26,17 +26,17 @@ public class ArrowData {
 
     init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
         let infoType = arrowType.info
-        switch(infoType) {
-        case let .PrimitiveInfo(typeId):
-            if typeId == ArrowTypeId.Unknown {
+        switch infoType {
+        case let .primitiveInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown primitive type for data")
             }
-        case let .VariableInfo(typeId):
-            if typeId == ArrowTypeId.Unknown {
+        case let .variableInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown variable type for data")
             }
-        case let .TimeInfo(typeId):
-            if typeId == ArrowTypeId.Unknown {
+        case let .timeInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown time type for data")
             }
         }
@@ -49,7 +49,7 @@ public class ArrowData {
     }
 
     public func isNull(_ at: UInt) -> Bool {
-        let nullBuffer = buffers[0];
+        let nullBuffer = buffers[0]
         return nullBuffer.length > 0 && !BitUtility.isSet(at, buffer: nullBuffer)
     }
 }
