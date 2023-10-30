@@ -24,6 +24,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.SqlType;
 
+/**
+ * Base AvaticaParameterConverter with a generic createParameter method that can be used by most
+ * Arrow types.
+ */
 abstract class BaseAvaticaParameterConverter implements AvaticaParameterConverter {
   protected AvaticaParameter createParameter(Field field, boolean signed) {
     final String name = field.getName();
