@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collections;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
@@ -164,6 +165,26 @@ public class ArrowFlightPreparedStatementTest {
       stmt.setString(1, "foo");
       int updated = stmt.executeUpdate();
       assertEquals(42, updated);
+    }
+  }
+
+  @Test
+  public void testUpdateQueryWithBatchedParameters() throws SQLException {
+    String query = "Fake update with batched parameters";
+    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
+    PRODUCER.addExpectedParameters(query,
+            new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
+            Arrays.asList(
+                    Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8))),
+                    Collections.singletonList(new Text("bar".getBytes(StandardCharsets.UTF_8)))));
+    try (final PreparedStatement stmt = connection.prepareStatement(query)) {
+      // TODO: make sure this is validated on the server too
+      stmt.setString(1, "foo");
+      stmt.addBatch();
+      stmt.setString(1, "bar");
+      stmt.addBatch();
+      int[] updated = stmt.executeBatch();
+      assertEquals(42, updated[0]);
     }
   }
 }
