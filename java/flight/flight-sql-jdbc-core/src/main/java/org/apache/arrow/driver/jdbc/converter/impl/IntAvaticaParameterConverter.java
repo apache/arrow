@@ -31,8 +31,11 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
+/**
+ * AvaticaParameterConverter for Int Arrow types.
+ */
 public class IntAvaticaParameterConverter extends BaseAvaticaParameterConverter {
-  final private ArrowType.Int type;
+  private final ArrowType.Int type;
 
   public IntAvaticaParameterConverter(ArrowType.Int type) {
     this.type = type;

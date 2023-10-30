@@ -40,8 +40,7 @@ public class DateAvaticaParameterConverter extends BaseAvaticaParameterConverter
       ((DateDayVector) vector).setSafe(index, (int) value);
       return true;
     }
-      return false;
-
+    return false;
   }
 
   @Override

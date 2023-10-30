@@ -30,12 +30,12 @@ public class IntervalAvaticaParameterConverter extends BaseAvaticaParameterConve
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-//    Object value = typedValue.toLocal();
-//    if (vector instanceof IntervalDayVector) {
-//      ((IntervalDayVector) vector).setSafe(index, () value);
-//    } else if (vector instanceof IntervalYearVector) {
-//      ((IntervalYearVector) vector).setSafe(index, () value);
-//    }
+    //    Object value = typedValue.toLocal();
+    //    if (vector instanceof IntervalDayVector) {
+    //      ((IntervalDayVector) vector).setSafe(index, () value);
+    //    } else if (vector instanceof IntervalYearVector) {
+    //      ((IntervalYearVector) vector).setSafe(index, () value);
+    //    }
     return false;
   }
 
