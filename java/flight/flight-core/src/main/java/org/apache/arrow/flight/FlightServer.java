@@ -330,11 +330,24 @@ public class FlightServer implements AutoCloseable {
     }
 
     /**
+     * A small utility function to ensure that InputStream attributes.
+     * are closed if they are not null
+     * @param stream The InputStream to close (if it is not null).
+     */
+    private void closeInputStreamIfNotNull(InputStream stream) throws IOException {
+      if (stream != null) {
+        stream.close();
+      }
+    }
+
+    /**
      * Enable TLS on the server.
      * @param certChain The certificate chain to use.
      * @param key The private key to use.
      */
     public Builder useTls(final File certChain, final File key) throws IOException {
+      closeInputStreamIfNotNull(this.certChain);
+      closeInputStreamIfNotNull(this.key);
       this.certChain = new FileInputStream(certChain);
       this.key = new FileInputStream(key);
       return this;
@@ -345,6 +358,7 @@ public class FlightServer implements AutoCloseable {
      * @param mTlsCACert The CA certificate to use for verifying clients.
      */
     public Builder useMTlsClientVerification(final File mTlsCACert) throws IOException {
+      closeInputStreamIfNotNull(this.mTlsCACert);
       this.mTlsCACert = new FileInputStream(mTlsCACert);
       return this;
     }
@@ -354,7 +368,9 @@ public class FlightServer implements AutoCloseable {
      * @param certChain The certificate chain to use.
      * @param key The private key to use.
      */
-    public Builder useTls(final InputStream certChain, final InputStream key) {
+    public Builder useTls(final InputStream certChain, final InputStream key) throws IOException {
+      closeInputStreamIfNotNull(this.certChain);
+      closeInputStreamIfNotNull(this.key);
       this.certChain = certChain;
       this.key = key;
       return this;
@@ -365,6 +381,7 @@ public class FlightServer implements AutoCloseable {
      * @param mTlsCACert The CA certificate to use for verifying clients.
      */
     public Builder useMTlsClientVerification(final InputStream mTlsCACert) throws IOException {
+      closeInputStreamIfNotNull(this.mTlsCACert);
       this.mTlsCACert = mTlsCACert;
       return this;
     }
