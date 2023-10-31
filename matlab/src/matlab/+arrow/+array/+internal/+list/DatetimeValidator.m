@@ -29,7 +29,7 @@ classdef DatetimeValidator < arrow.array.internal.list.ClassTypeValidator
         end
 
         function validateElement(obj, element)
-            validateElement@arrow.array.internal.list.ClassTypeValidator(element);
+            validateElement@arrow.array.internal.list.ClassTypeValidator(obj, element);
             hasTimeZone = ~isempty(element.TimeZone);
             if obj.HasTimeZone && ~hasTimeZone
                 errorID = "arrow:array:list:ExpectedZonedDatetime";
