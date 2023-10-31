@@ -71,8 +71,8 @@ classdef tDatetimeValidator < matlab.unittest.TestCase
         function ValidateElementNoThrow(testCase) %#ok<MANU>
             % Verify validateElement does not throw an exception if:
             %  1. the input element is a datetime
-            %  2. its TimeZone property is '' (only if Zoned = false)
-            %  3. its TimeZone property is not empty (ony if Zoned = true).
+            %  2. its TimeZone property is '' and Zoned = false
+            %  3. its TimeZone property is not empty and Zoned = true
 
             import arrow.array.internal.list.DatetimeValidator
 
@@ -135,7 +135,6 @@ classdef tDatetimeValidator < matlab.unittest.TestCase
             testCase.verifyError(fcn, errorID);
             fcn = @() validator.validateElement(seconds(1));
             testCase.verifyError(fcn, errorID);
-
         end
 
         function GetElementLength(testCase)
