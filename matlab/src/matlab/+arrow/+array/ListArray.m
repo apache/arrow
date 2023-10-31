@@ -81,7 +81,7 @@ classdef ListArray < arrow.array.Array
                 opts.Valid
                 opts.ValidationMode (1, 1) arrow.array.ValidationMode = arrow.array.ValidationMode.Minimal
             end
-            
+
             import arrow.internal.validate.parseValid
 
             if nargin < 2
@@ -91,17 +91,17 @@ classdef ListArray < arrow.array.Array
 
             % Offsets should contain one more element than the number of elements in the output ListArray.
             numElements = offsets.NumElements - 1;
-            
+
             validElements = parseValid(opts, numElements);
             offsetsProxyID = offsets.Proxy.ID;
             valuesProxyID = values.Proxy.ID;
-            
+
             args = struct(...
                 OffsetsProxyID=offsetsProxyID, ...
                 ValuesProxyID=valuesProxyID, ...
                 Valid=validElements ...
             );
-            
+
             proxyName = "arrow.array.proxy.ListArray";
             proxy = arrow.internal.proxy.create(proxyName, args);
             % Validate the provided offsets and values.
