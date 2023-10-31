@@ -39,7 +39,7 @@ classdef TableValidator < arrow.array.internal.list.Validator
                 validators{ii} = arrow.array.internal.list.createValidator(T.(ii));
             end
 
-            obj.VariableValidators = validators{:};
+            obj.VariableValidators = [validators{:}];
         end
 
         function validateElement(obj, element)
