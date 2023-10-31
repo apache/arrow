@@ -30,6 +30,8 @@ classdef DatetimeValidator < arrow.array.internal.list.ClassTypeValidator
 
         function validateElement(obj, element)
             validateElement@arrow.array.internal.list.ClassTypeValidator(obj, element);
+            % hasTimeZone and obj.HasTimeZone must be equal because zoned
+            % and unzoned datetimes cannot be concatenated together.
             hasTimeZone = ~isempty(element.TimeZone);
             if obj.HasTimeZone && ~hasTimeZone
                 errorID = "arrow:array:list:ExpectedZonedDatetime";
