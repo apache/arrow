@@ -158,9 +158,7 @@ class UnmaterializedCompositeTable {
   friend class UnmaterializedSliceBuilder<MAX_COMPOSITE_TABLES>;
 
   void AddRecordBatchRef(const std::shared_ptr<arrow::RecordBatch>& ref) {
-    if (!ptr2Ref.count((uintptr_t)ref.get())) {
-      ptr2Ref[(uintptr_t)ref.get()] = ref;
-    }
+    ptr2Ref[(uintptr_t)ref.get()] = ref;
   }
   void AddSlice(const UnmaterializedSlice& slice) {
     slices.push_back(slice);
