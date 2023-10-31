@@ -17,23 +17,14 @@
 
 #pragma once
 
-#include "arrow/matlab/array/proxy/array.h"
+#include <cstdint>
 
-namespace arrow::matlab::array::proxy {
+namespace arrow::matlab::array {
 
-class ListArray : public arrow::matlab::array::proxy::Array {
-
-    public:
-        ListArray(std::shared_ptr<arrow::ListArray> list_array);
-        ~ListArray() {}
-
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-    protected:
-        void getValues(libmexclass::proxy::method::Context& context);
-        void getOffsets(libmexclass::proxy::method::Context& context);
-        void validate(libmexclass::proxy::method::Context& context);
-
+    enum class ValidationMode : uint8_t {
+        None    = 0,
+        Minimal = 1,
+        Full    = 2
     };
 
 }
