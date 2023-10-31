@@ -1,4 +1,4 @@
-%LISTTYPEVALIDATOR Defines interface used to validate MATLAB cell arrays
+%VALIDATOR Defines interface used to validate MATLAB cell arrays
 %can be converted into Arrow List arrays.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
@@ -16,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef ListTypeValidator
+classdef Validator
 
     methods (Abstract)
         tf = validateElement(obj, element)

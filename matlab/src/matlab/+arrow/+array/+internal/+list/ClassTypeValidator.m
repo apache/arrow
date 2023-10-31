@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef ClassTypeValidator < arrow.array.internal.list.ListTypeValidator
+classdef ClassTypeValidator < arrow.array.internal.list.Validator
     
     properties (GetAccess=public, SetAccess=private)
         ClassName(1, 1) string
