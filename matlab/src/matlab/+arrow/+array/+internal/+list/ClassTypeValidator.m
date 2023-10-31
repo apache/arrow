@@ -27,10 +27,11 @@ classdef ClassTypeValidator < arrow.array.internal.list.ListTypeValidator
         function validateElement(obj, element)
            if ~isa(element, obj.ClassName)
                id = "arrow:array:list:ClassTypeMismatch";
-               msg = "Expected all cell array elements to be of class type " + ...
-                   obj.ClassName + ", but encountered element of class type " + ...
-                   class(element) + ".";
-               error(id, msg);
+               fmt = "Expected all cell array elements to have class type " + ...
+                   """%s"", but encountered an element whose class type is" + ...
+                   " ""%s"".";
+               msg = compose(fmt, obj.ClassName, class(element));
+              error(id, msg);
            end
         end
 
