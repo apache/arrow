@@ -63,6 +63,7 @@ classdef tClassTypeValidator < matlab.unittest.TestCase
             % value.
             import arrow.array.internal.list.ClassTypeValidator
 
+            % validator will expect all elements to be of type double, since "1" is a double.
             validator = ClassTypeValidator(1);
             errorID = "arrow:array:list:ClassTypeMismatch";
             testCase.verifyError(@() validator.validateElement("A"), errorID);
