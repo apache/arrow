@@ -16,15 +16,42 @@
 classdef TableValidator < arrow.array.internal.list.Validator
 
     properties (GetAccess=public, SetAccess=private)
-        VariableNames
-        VariableValidators
+        VariableNames string = string.empty(1, 0)
+        VariableValidators arrow.array.internal.list.Validator = arrow.array.internal.list.Validator.empty(1, 0) 
     end
 
     methods
         function obj = TableValidator(T)
             arguments
-                T table
+                T table {}
             end
+            
+            numVars = width(T);
+
+            if (numVars == 0)
+                error("arrow:array:list:TableWithZeroVariables", ...
+                    "Require tables to have at least one variable.");
+            end
+
+            obj.VariableNames = string(T.Properties.VariableNames);
+            validators = cell([1 numVars]);
+            for ii = 1:numVars
+                validators{ii} = arrow.array.internal.list.createValidator(T.(ii));
+            end
+
+            obj.VariableValidators = validators{:};
+        end
+
+        function validateElement(obj, element)
+            error("Not Implemented");
+        end
+
+        function length = getElementLength(obj, element)
+            error("Not Implemented");
+        end
+
+        function C = reshapeCellElements(obj, C)
+            error("Not Implemented");
         end
     end
 end
