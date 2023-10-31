@@ -66,7 +66,9 @@ classdef TableValidator < arrow.array.internal.list.ClassTypeValidator
             for ii=1:numVars
                 var = element.(ii);
 
-                if ~istable(var) && ~iscolumn(var)
+                % In order to concatenate tables together later, require
+                % all non-tabular variables to be columnar or empty.
+                if ~istable(var) && (~iscolumn(var) || isempty(var))
                     id = "arrow:array:list:NonTabularVariablesMustBeColumnar";
                     msg = "Table variables must be columnar";
                     error(id, msg);
