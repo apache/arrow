@@ -319,7 +319,6 @@ class FileWriterImpl : public FileWriter {
       closed_ = true;
       if (row_group_writer_ != nullptr) {
         PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
-        row_group_writer_ = nullptr;  // To avoid double closing
       }
       PARQUET_CATCH_NOT_OK(writer_->Close());
     }

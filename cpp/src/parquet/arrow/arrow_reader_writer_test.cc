@@ -5229,14 +5229,6 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
                     ::testing::Property(
                         &ParquetException::what,
                         ::testing::HasSubstr("Cannot get properties from closed file")));
-
-  // These two functions do not throw because they use PARQUET_CATCH_NOT_OK
-  // in their implementations.
-  ASSERT_RAISES_WITH_MESSAGE(IOError,
-                             "IOError: Cannot append buffered-row-group to closed file",
-                             writer->NewBufferedRowGroup());
-  ASSERT_RAISES_WITH_MESSAGE(IOError, "IOError: Cannot append row-group to closed file",
-                             writer->NewRowGroup(1));
 }
 
 namespace {

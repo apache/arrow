@@ -248,9 +248,6 @@ class PARQUET_EXPORT ParquetFileWriter {
   /// Returns the file metadata, only available after calling Close().
   const std::shared_ptr<FileMetaData> metadata() const;
 
-  /// Verify file is not closed.
-  void AssertNotClosed(std::string_view message) const;
-
  private:
   // Holds a pointer to an instance of Contents implementation
   std::unique_ptr<Contents> contents_;
