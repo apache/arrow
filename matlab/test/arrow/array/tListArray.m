@@ -192,7 +192,9 @@ classdef tListArray < matlab.unittest.TestCase
             values = TestValidationModeArray.Values;
             valid = TestValidationModeArray.Valid;
             fcn = @() arrow.array.ListArray.fromArrays(offsets, values);
-            if ~valid
+            if valid
+                testCase.verifyWarningFree(fcn);
+            else
                 testCase.verifyError(fcn, "arrow:array:ValidateMinimalFailed");
             end
         end
@@ -220,7 +222,9 @@ classdef tListArray < matlab.unittest.TestCase
             valid = TestValidationModeArray.Valid;
             validationMode = arrow.array.ValidationMode.Minimal;
             fcn = @() arrow.array.ListArray.fromArrays(offsets, values, ValidationMode=validationMode);
-            if ~valid
+            if valid
+                testCase.verifyWarningFree(fcn);
+            else
                 testCase.verifyError(fcn, "arrow:array:ValidateMinimalFailed");
             end
         end
@@ -236,7 +240,9 @@ classdef tListArray < matlab.unittest.TestCase
             validationMode = arrow.array.ValidationMode.Full;
             valid = TestValidationModeArray.Valid;
             fcn = @() arrow.array.ListArray.fromArrays(offsets, values, ValidationMode=validationMode);
-            if ~valid
+            if valid
+                testCase.verifyWarningFree(fcn);
+            else
                 testCase.verifyError(fcn, "arrow:array:ValidateFullFailed");
             end
         end
