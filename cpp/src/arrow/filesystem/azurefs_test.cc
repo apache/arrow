@@ -149,19 +149,21 @@ class TestAzureFileSystem : public ::testing::Test {
 
   TestAzureFileSystem() : generator_(std::random_device()()) {}
 
-  AzureOptions MakeOptions() {
-    const std::string& account_name = GetAzuriteEnv()->account_name();
-    const std::string& account_key = GetAzuriteEnv()->account_key();
+  // virtual std::string GetAccountName() const { return GetAzuriteEnv()->account_name();
+  // } virtual std::string GetAccountKey() const { return GetAzuriteEnv()->account_key();
+  // }
+
+  virtual AzureOptions MakeOptions() {
+    EXPECT_THAT(GetAzuriteEnv(), NotNull());
+    ARROW_EXPECT_OK(GetAzuriteEnv()->status());
     AzureOptions options;
     options.backend = AzureBackend::Azurite;
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
+        GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key()));
     return options;
   }
 
   void SetUp() override {
-    ASSERT_THAT(GetAzuriteEnv(), NotNull());
-    ASSERT_OK(GetAzuriteEnv()->status());
-
     container_name_ = RandomChars(32);
     auto options = MakeOptions();
     service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
@@ -227,6 +229,15 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 };
 
+class TestAzureHNSFileSystem : public TestAzureFileSystem {
+  virtual AzureOptions MakeOptions() override {
+    AzureOptions options;
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
+        std::getenv("AZURE_HNS_ACCOUNT_NAME"), std::getenv("AZURE_HNS_ACCOUNT_KEY")));
+    return options;
+  }
+};
+
 TEST_F(TestAzureFileSystem, GetFileInfoAccount) {
   arrow::fs::AssertFileInfo(fs_.get(), "", FileType::Directory);
 
@@ -282,9 +293,25 @@ TEST_F(TestAzureFileSystem, GetFileInfoObjectWithNestedStructure) {
                  FileType::NotFound);
 }
 
-// TODO: Add ADLS Gen2 directory tests. 
+// TODO: Add ADLS Gen2 directory tests.
 
 TEST_F(TestAzureFileSystem, GetFileInfoObjectNoExplicitObject) {
+  auto object_properties =
+      service_client_->GetBlobContainerClient(PreexistingContainerName())
+          .GetBlobClient(PreexistingObjectName())
+          .GetProperties()
+          .Value;
+
+  arrow::fs::AssertFileInfo(
+      fs_.get(), PreexistingObjectPath(), FileType::File,
+      std::chrono::system_clock::time_point(object_properties.LastModified),
+      static_cast<int64_t>(object_properties.BlobSize));
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
+}
+
+TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectNoExplicitObject) {
   auto object_properties =
       service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
