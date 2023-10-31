@@ -98,6 +98,8 @@ classdef tDatetimeValidator < matlab.unittest.TestCase
             % datetimes to zoned.
             import arrow.array.internal.list.DatetimeValidator
 
+            % validator will expect all elements to be zoned datetimes
+            % because the input datetime is zoned.
             validator = DatetimeValidator(datetime(2023, 10, 31, TimeZone="UTC"));
             errorID = "arrow:array:list:ExpectedZonedDatetime";
             fcn = @() validator.validateElement(datetime(2023, 11, 1));
@@ -111,6 +113,8 @@ classdef tDatetimeValidator < matlab.unittest.TestCase
             % datetimes to be unzoned.
             import arrow.array.internal.list.DatetimeValidator
 
+            % validator will expect all elements to be unzoned datetimes
+            % because the input datetime is not zoned.
             validator = DatetimeValidator(datetime(2023, 10, 31));
             errorID = "arrow:array:list:ExpectedUnzonedDatetime";
             fcn = @() validator.validateElement(datetime(2023, 11, 1, TimeZone="America/New_York"));
