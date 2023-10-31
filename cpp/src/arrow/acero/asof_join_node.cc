@@ -122,7 +122,7 @@ struct TolType {
 };
 
 // Maximum number of tables that can be joined
-#define MAX_JOIN_TABLES 4  // NOCOMMIT
+#define MAX_JOIN_TABLES 64
 typedef uint64_t row_index_t;
 typedef int col_index_t;
 
@@ -904,7 +904,7 @@ class CompositeTableBuilder {
       for (int src = 0; src < input->get_schema()->num_fields(); src++) {
         auto dst = input->MapSrcToDst(src);
         if (dst.has_value()) {
-          dst_to_src[dst.value()] = std::make_pair(i, src);
+          dst_to_src[dst.value()] = std::make_pair(static_cast<int>(i), src);
         }
       }
     }

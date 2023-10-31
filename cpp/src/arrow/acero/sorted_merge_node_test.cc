@@ -22,6 +22,7 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_nodes.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/ordering.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -76,10 +77,11 @@ TEST(SortedMergeNode, Basic) {
   for (auto i : {0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 9, 9, 10, 11, 12, 15, 18}) {
     ASSERT_OK(expected_ts_builder->AppendScalar(*MakeScalar(i)));
   }
-  ASSERT_OK_AND_ASSIGN(auto expected_timestamps, expected_ts_builder->Finish());
-  auto chunked_array =
-      std::make_shared<arrow::ChunkedArray>(std::move(expected_timestamps));
-  ASSERT_TRUE(chunked_array->Equals(output->column(0)))
-      << chunked_array->ToString() << " " << output->column(0)->ToString();
+  ASSERT_OK_AND_ASSIGN(auto expected_ts, expected_ts_builder->Finish());
+  auto output_col = output->column(0);
+  ASSERT_OK_AND_ASSIGN(auto output_ts, Concatenate(output_col->chunks()));
+
+  AssertArraysEqual(*expected_ts, *output_ts);
 }
+
 }  // namespace arrow::acero
