@@ -68,7 +68,12 @@ classdef tDatetimeValidator < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
-        function validateElementNoThrow(testCase) %#ok<MANU>
+        function ValidateElementNoThrow(testCase) %#ok<MANU>
+            % Verify validateElement does not throw an exception if:
+            %  1. the input element is a datetime
+            %  2. its TimeZone property is '' (only if HasTimeZone = false)
+            %  3. its TimeZone property is not empty (ony if HasTimeZone = true).
+
             import arrow.array.internal.list.DatetimeValidator
 
             validator = DatetimeValidator(datetime(2023, 10, 31));
@@ -84,6 +89,88 @@ classdef tDatetimeValidator < matlab.unittest.TestCase
             emptyDatetime = datetime.empty(0, 1);
             emptyDatetime.TimeZone = "Asia/Dubai";
             validator.validateElement(emptyDatetime);
+        end
+
+        function ValidateElementExpectedZonedDatetimeError(testCase)
+            % Verify validateElement throws an exception whose identifier
+            % is "arrow:array:list:ExpectedZonedDatetime" if the input
+            % datetime is unzoned, but the validator expected all 
+            % datetimes to zoned.
+            import arrow.array.internal.list.DatetimeValidator
+
+            validator = DatetimeValidator(datetime(2023, 10, 31, TimeZone="UTC"));
+            errorID = "arrow:array:list:ExpectedZonedDatetime";
+            fcn = @() validator.validateElement(datetime(2023, 11, 1));
+            testCase.verifyError(fcn, errorID);
+        end
+
+        function ValidateElementExpectedUnzonedDatetimeError(testCase)
+            % Verify validateElement throws an exception whose identifier
+            % is "arrow:array:list:ExpectedUnzonedDatetime" if the input
+            % datetime has a time zone, but the validator expected all 
+            % datetimes to be unzoned.
+            import arrow.array.internal.list.DatetimeValidator
+
+            validator = DatetimeValidator(datetime(2023, 10, 31));
+            errorID = "arrow:array:list:ExpectedUnzonedDatetime";
+            fcn = @() validator.validateElement(datetime(2023, 11, 1, TimeZone="America/New_York"));
+            testCase.verifyError(fcn, errorID);
+        end
+
+        function ValidateElementClassTypeMismatchError(testCase)
+            % Verify validateElement throws an exception whose identifier
+            % is "arrow:array:list:ClassTypeMismatch" if the input
+            % element is not a datetime.
+            import arrow.array.internal.list.DatetimeValidator
+
+            validator = DatetimeValidator(datetime(2023, 10, 31));
+            errorID = "arrow:array:list:ClassTypeMismatch";
+            fcn = @() validator.validateElement(1);
+            testCase.verifyError(fcn, errorID);
+            fcn = @() validator.validateElement("A");
+            testCase.verifyError(fcn, errorID);
+            fcn = @() validator.validateElement(seconds(1));
+            testCase.verifyError(fcn, errorID);
+
+        end
+
+        function GetElementLength(testCase)
+            % Verify getElementLength returns the expected length values
+            % for the given input arrays.
+            import arrow.array.internal.list.DatetimeValidator
+
+            validator = DatetimeValidator(datetime(2023, 10, 31));
+            length = validator.getElementLength(datetime.empty(0, 1));
+            testCase.verifyEqual(length, 0);
+            length = validator.getElementLength(datetime(2023, 11, 1));
+            testCase.verifyEqual(length, 1);
+            length = validator.getElementLength(datetime(2023, 11, 1) + days(0:2));
+            testCase.verifyEqual(length, 3);
+            length = validator.getElementLength(datetime(2023, 11, 1) + days([0 1; 2 3]));
+            testCase.verifyEqual(length, 4);
+        end
+
+        function ReshapeCellElements(testCase)
+            % Verify reshapeCellElements reshapes all elements in the input
+            % cell array into column vectors.
+            import arrow.array.internal.list.DatetimeValidator
+
+            validator = DatetimeValidator(datetime(2023, 10, 31));
+            date = datetime(2023, 10, 31);
+            
+            C = {date + days(0:2), ...
+                 date + days(3:4)', ...
+                 date + days([5 6; 7 8]), ...
+                 datetime.empty(1, 0)};
+
+            act = validator.reshapeCellElements(C);
+
+            exp = {date + days(0:2)', ...
+                   date + days(3:4)', ...
+                   date + days([5; 7; 6; 8]), ...
+                   datetime.empty(0, 1)};
+
+            testCase.verifyEqual(act, exp);
         end
 
     end
