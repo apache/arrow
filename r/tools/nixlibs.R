@@ -35,7 +35,8 @@ exit <- function(..., .status = 1) {
 
 
 # checks the nightly repo for the latest nightly version X.Y.Z.100<dev>
-find_latest_nightly <- function(description_version) {
+find_latest_nightly <- function(description_version,
+                                list_uri = "https://nightlies.apache.org/arrow/r/src/contrib") {
   if (!startsWith(arrow_repo, "https://nightlies.apache.org/arrow/r")) {
     lg("Detected non standard dev repo: %s, not checking latest nightly version.", arrow_repo)
     return(description_version)
@@ -44,17 +45,27 @@ find_latest_nightly <- function(description_version) {
   res <- try(
     {
       # Binaries are only uploaded if all jobs pass so can just look at the source versions.
-      urls <- readLines("https://nightlies.apache.org/arrow/r/src/contrib")
+      urls <- readLines(list_uri)
       versions <- grep("arrow_.*\\.tar\\.gz", urls, value = TRUE)
       versions <- sub(".*arrow_(.*)\\.tar\\.gz.*", "\\1", x = versions)
-      versions <- sapply(versions, package_version)
+      versions <- lapply(versions, package_version)
       versions <- data.frame(do.call(rbind, versions))
-      matching_major <- versions[versions$X1 == description_version[1, 1], ]
-      latest <- matching_major[which.max(matching_major$X4), ]
+      matching_major <- versions[versions$X1 == description_version[1, 1], , drop = FALSE]
+      if (nrow(matching_major) == 0) {
+        lg(
+          "No nightly binaries were found for version %s: falling back to libarrow build from source",
+          description_version
+        )
+
+        return(description_version)
+      }
+
+      latest <- matching_major[which.max(matching_major$X4), , drop = TRUE]
       package_version(paste0(latest, collapse = "."))
     },
     silent = quietly
   )
+
   if (inherits(res, "try-error")) {
     lg("Failed to find latest nightly for %s", description_version)
     latest <- description_version
