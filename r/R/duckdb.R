@@ -76,6 +76,8 @@ to_duckdb <- function(.data,
   tbl
 }
 
+arrow_duck_finalizer <- new.env(parent = emptyenv())
+
 arrow_duck_connection <- function() {
   con <- getOption("arrow_duck_con")
   if (is.null(con) || !DBI::dbIsValid(con)) {
@@ -86,23 +88,20 @@ arrow_duck_connection <- function() {
     # This connection will get cleaned up at exit using the garbage collector,
     # but if we don't explicitly run dbDisconnect() the user gets a warning
     # that they may not expect (since they did not open a duckdb connection).
-    # This bit of code will run when the global options are cleaned up (i.e.,
+    # This bit of code will run when the package namespace is cleaned up (i.e.,
     # at exit). This is more reliable than ..onUnload() or .onDetatch(), which
     # don't necessarily run on exit.
-    arrow_duck_finalizer <- new.env(parent = emptyenv())
     reg.finalizer(arrow_duck_finalizer, function(...) {
       con <- getOption("arrow_duck_con")
       if (is.null(con)) {
         return()
       }
 
+      options(arrow_duck_con = NULL)
       DBI::dbDisconnect(con, shutdown = TRUE)
     }, onexit = TRUE)
 
-    options(
-      arrow_duck_con = con,
-      arrow_duck_con_finalizer = arrow_duck_finalizer
-    )
+    options(arrow_duck_con = con)
   }
   con
 }
