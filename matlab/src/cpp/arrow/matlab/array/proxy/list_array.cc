@@ -20,7 +20,6 @@
 #include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/error/error.h"
-#include "arrow/util/utf8.h"
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::array::proxy {
