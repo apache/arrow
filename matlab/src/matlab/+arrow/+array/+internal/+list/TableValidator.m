@@ -66,7 +66,7 @@ classdef TableValidator < arrow.array.internal.list.ClassTypeValidator
             for ii=1:numVars
                 var = element.(ii);
 
-                if ~istable(var) || ~iscolumn(var)
+                if ~istable(var) && ~iscolumn(var)
                     id = "arrow:array:list:NonTabularVariablesMustBeColumnar";
                     msg = "Table variables must be columnar";
                     error(id, msg);
