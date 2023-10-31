@@ -59,6 +59,8 @@ jobs:
     name: "Fix all the things"
     if: startsWith(github.event.comment.body, '@github-actions autotune')
     runs-on: ubuntu-latest
+    permissions: 
+      contents: write
     steps:
       - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
       - uses: r-lib/actions/pr-fetch@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
