@@ -383,9 +383,60 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
 // PHOXME I think most of the enum types will just get static_cast<>() as in (I think?) the CancelFlightInfo code...??
 // SessionOptionValue
 
+Result<SessionOptionValue> FromProto(const pb::SessionOptionValue& pb_val) {
+  SessionOptionValue val;
+  switch (pb_opt_val.option_value_case()) {
+    case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
+      return Status::Invalid("Unset option_value for name '" + pb_opt_name + "'");
+    case pb::SessionOptionValue::kStringValue:
+      val = pb_opt_val.string_value();
+      break;
+    case pb::SessionOptionValue::kBoolValue:
+      val = pb_opt_val.bool_value();
+      break;
+    case pb::SessionOptionValue::kInt32Value:
+      val = pb_opt_val.int32_value();
+      break;
+    case pb::SessionOptionValue::kInt64Value:
+      val = pb_opt_val.int64_value();
+      break;
+    case pb::SessionOptionValue::kFloatValue:
+      val = pb_opt_val.float_value();
+      break;
+    case pb::SessionOptionValue::kDoubleValue:
+      val = pb_opt_val.double_value();
+      break;
+    case pb::SessionOptionValue::kStringListValue:
+      val.emplace<std::vector<std::string>>();
+      std::get<std::vector<std::string>>(val)
+          .reserve(pb_opt_val.string_list_value().values_size());
+      for (const std::string& s : pb_opt_val.string_list_value().values())
+        std::get<std::vector<std::string>>(val).push_back(s);
+      break;
+  }
+  return val;
+}
+
+Result<pb::SessionOptionValue> ToProto(const SessionOptionValue& val) {
+  pb::SessionOptionValue pb_val;
+  std::visit(overloaded{
+      [&](std::string v) { pb_val.set_string_value(v); },
+      [&](bool v) { pb_val.set_bool_value(v); },
+      [&](int32_t v) { pb_val.set_int32_value(v); },
+      [&](int64_t v) { pb_val.set_int64_value(v); },
+      [&](float v) { pb_val.set_float_value(v); },
+      [&](double v) { pb_val.set_double_value(v); },
+      [&](std::vector<std::string> v) {
+        auto* string_list_value = pb_val.mutable_string_list_value();
+        for (const std::string& s : v)
+          string_list_value->add_values(s);
+      }
+    }, opt_value);
+  return pb_val;
+}
+
 // SetSessionOptionsRequest
-// FIXME I still need to move the underlying types into types.{h,cc} to be referenced from here
-// FIXME as above I still need to write code to convert SessionOptionValues; debatable if a corresponding map is something to break out (probably??)
+// FIXME as above I still need to write code to convert SessionOptionValues; debatable if a corresponding map is something to break out (probably??) (-> yes)
 
 Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
                  pb::SetSessionOptionsRequest* request) {
@@ -397,11 +448,31 @@ Status ToProto(const SetSessionOptionsRequest request,
 
 }
 
-// SetSessionOptionsResult
+// SetSessionOptionResult   NOTE use static_cast here as in other code in this module e.g. CloseSessionResult
+
+// Note for primitive types T and pb_T may be equivalent, but nested messages to handle e.g. std::variant
+// require a separate, possibly distinct template parameter.  std::same_as<> may aid implementation of some
+// overloads.
+template <typename K, typename T>
+Status FromProto(const google::protobuf::Map<K, T>& pb_dict,
+                 std::map<K, T>* dict) {
+                  // FIXME impl
+                 }
+
+template <typename K, typename T, typename pb_T>
+Status ToProto(const std::map<K, pb_T>& dict,
+               google::protobuf::Map<K, T>* pb_dict) {
+                for (const auto & [key, val] : dict) {
+                  (*pb_dict)[key] = ToProto(val);
+                }
+                return Status::OK();
+               }
 
 // GetSessionOptionsRequest
 
 // GetSessionOptionsResult
+
+// CloseSessionRequest
 
 // CloseSessionResult
 
