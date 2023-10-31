@@ -24,6 +24,7 @@
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -150,13 +151,148 @@ Status ErrorToStatus(const std::string& prefix,
   return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
 
-template <typename ObjectResult>
-std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& result) {
-  auto md = std::make_shared<KeyValueMetadata>();
-  for (auto prop : result) {
-    md->Append(prop.first, prop.second);
+template <typename ArrowType>
+std::string FormatValue(typename TypeTraits<ArrowType>::CType value) {
+  struct StringAppender {
+    std::string string;
+    Status operator()(std::string_view view) {
+      string.append(view.data(), view.size());
+      return Status::OK();
+    }
+  } appender;
+  arrow::internal::StringFormatter<ArrowType> formatter;
+  ARROW_UNUSED(formatter(value, appender));
+  return appender.string;
+}
+
+std::shared_ptr<const KeyValueMetadata> PropertiesToMetadata(
+    const Azure::Storage::Blobs::Models::BlobProperties& properties) {
+  auto metadata = std::make_shared<KeyValueMetadata>();
+  // Not supported yet:
+  // * properties.ObjectReplicationSourceProperties
+  // * properties.Metadata
+  //
+  // They may have the same key defined in the following
+  // metadata->Append() list. If we have duplicated key in metadata,
+  // the first value may be only used by users because
+  // KeyValueMetadata::Get() returns the first found value. Note that
+  // users can use all values by using KeyValueMetadata::keys() and
+  // KeyValueMetadata::values().
+  if (properties.ImmutabilityPolicy.HasValue()) {
+    metadata->Append("Immutability-Policy-Expires-On",
+                     properties.ImmutabilityPolicy.Value().ExpiresOn.ToString());
+    metadata->Append("Immutability-Policy-Mode",
+                     properties.ImmutabilityPolicy.Value().PolicyMode.ToString());
   }
-  return md;
+  metadata->Append("Content-Type", properties.HttpHeaders.ContentType);
+  metadata->Append("Content-Encoding", properties.HttpHeaders.ContentEncoding);
+  metadata->Append("Content-Language", properties.HttpHeaders.ContentEncoding);
+  const auto& content_hash = properties.HttpHeaders.ContentHash.Value;
+  metadata->Append("Content-Hash", HexEncode(content_hash.data(), content_hash.size()));
+  metadata->Append("Content-Disposition", properties.HttpHeaders.ContentDisposition);
+  metadata->Append("Cache-Control", properties.HttpHeaders.CacheControl);
+  metadata->Append("Last-Modified", properties.LastModified.ToString());
+  metadata->Append("Created-On", properties.CreatedOn.ToString());
+  if (properties.ObjectReplicationDestinationPolicyId.HasValue()) {
+    metadata->Append("Object-Replication-Destination-Policy-Id",
+                     properties.ObjectReplicationDestinationPolicyId.Value());
+  }
+  metadata->Append("Blob-Type", properties.BlobType.ToString());
+  if (properties.CopyCompletedOn.HasValue()) {
+    metadata->Append("Copy-Completed-On", properties.CopyCompletedOn.Value().ToString());
+  }
+  if (properties.CopyStatusDescription.HasValue()) {
+    metadata->Append("Copy-Status-Description", properties.CopyStatusDescription.Value());
+  }
+  if (properties.CopyId.HasValue()) {
+    metadata->Append("Copy-Id", properties.CopyId.Value());
+  }
+  if (properties.CopyProgress.HasValue()) {
+    metadata->Append("Copy-Progress", properties.CopyProgress.Value());
+  }
+  if (properties.CopySource.HasValue()) {
+    metadata->Append("Copy-Source", properties.CopySource.Value());
+  }
+  if (properties.CopyStatus.HasValue()) {
+    metadata->Append("Copy-Status", properties.CopyStatus.Value().ToString());
+  }
+  if (properties.IsIncrementalCopy.HasValue()) {
+    metadata->Append("Is-Incremental-Copy",
+                     FormatValue<BooleanType>(properties.IsIncrementalCopy.Value()));
+  }
+  if (properties.IncrementalCopyDestinationSnapshot.HasValue()) {
+    metadata->Append("Incremental-Copy-Destination-Snapshot",
+                     properties.IncrementalCopyDestinationSnapshot.Value());
+  }
+  if (properties.LeaseDuration.HasValue()) {
+    metadata->Append("Lease-Duration", properties.LeaseDuration.Value().ToString());
+  }
+  if (properties.LeaseState.HasValue()) {
+    metadata->Append("Lease-State", properties.LeaseState.Value().ToString());
+  }
+  if (properties.LeaseStatus.HasValue()) {
+    metadata->Append("Lease-Status", properties.LeaseStatus.Value().ToString());
+  }
+  metadata->Append("Content-Length", FormatValue<Int64Type>(properties.BlobSize));
+  if (properties.ETag.HasValue()) {
+    metadata->Append("ETag", properties.ETag.ToString());
+  }
+  if (properties.SequenceNumber.HasValue()) {
+    metadata->Append("Sequence-Number",
+                     FormatValue<Int64Type>(properties.SequenceNumber.Value()));
+  }
+  if (properties.CommittedBlockCount.HasValue()) {
+    metadata->Append("Committed-Block-Count",
+                     FormatValue<Int32Type>(properties.CommittedBlockCount.Value()));
+  }
+  metadata->Append("IsServerEncrypted",
+                   FormatValue<BooleanType>(properties.IsServerEncrypted));
+  if (properties.EncryptionKeySha256.HasValue()) {
+    const auto& sha256 = properties.EncryptionKeySha256.Value();
+    metadata->Append("Encryption-Key-Sha-256", HexEncode(sha256.data(), sha256.size()));
+  }
+  if (properties.EncryptionScope.HasValue()) {
+    metadata->Append("Encryption-Scope", properties.EncryptionScope.Value());
+  }
+  if (properties.AccessTier.HasValue()) {
+    metadata->Append("Access-Tier", properties.AccessTier.Value().ToString());
+  }
+  if (properties.IsAccessTierInferred.HasValue()) {
+    metadata->Append("Is-Access-Tier-Inferred",
+                     FormatValue<BooleanType>(properties.IsAccessTierInferred.Value()));
+  }
+  if (properties.ArchiveStatus.HasValue()) {
+    metadata->Append("Archive-Status", properties.ArchiveStatus.Value().ToString());
+  }
+  if (properties.AccessTierChangedOn.HasValue()) {
+    metadata->Append("Access-Tier-Changed-On",
+                     properties.AccessTierChangedOn.Value().ToString());
+  }
+  if (properties.VersionId.HasValue()) {
+    metadata->Append("Version-Id", properties.VersionId.Value());
+  }
+  if (properties.IsCurrentVersion.HasValue()) {
+    metadata->Append("Is-Current-Version",
+                     FormatValue<BooleanType>(properties.IsCurrentVersion.Value()));
+  }
+  if (properties.TagCount.HasValue()) {
+    metadata->Append("Tag-Count", FormatValue<Int32Type>(properties.TagCount.Value()));
+  }
+  if (properties.ExpiresOn.HasValue()) {
+    metadata->Append("Expires-On", properties.ExpiresOn.Value().ToString());
+  }
+  if (properties.IsSealed.HasValue()) {
+    metadata->Append("Is-Sealed", FormatValue<BooleanType>(properties.IsSealed.Value()));
+  }
+  if (properties.RehydratePriority.HasValue()) {
+    metadata->Append("Rehydrate-Priority",
+                     properties.RehydratePriority.Value().ToString());
+  }
+  if (properties.LastAccessedOn.HasValue()) {
+    metadata->Append("Last-Accessed-On", properties.LastAccessedOn.Value().ToString());
+  }
+  metadata->Append("Has-Legal-Hold", FormatValue<BooleanType>(properties.HasLegalHold));
+  return metadata;
 }
 
 class ObjectInputFile final : public io::RandomAccessFile {
@@ -176,7 +312,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     try {
       auto properties = blob_client_->GetProperties();
       content_length_ = properties.Value.BlobSize;
-      metadata_ = GetObjectMetadata(properties.Value.Metadata);
+      metadata_ = PropertiesToMetadata(properties.Value);
       return Status::OK();
     } catch (const Azure::Storage::StorageException& exception) {
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
