@@ -19,15 +19,15 @@ function validator = createValidator(data)
     import arrow.array.internal.list.TableValidator
 
     if isnumeric(data)
-        validator = ClassValidator(data);
+        validator = ClassTypeValidator(data);
     elseif islogical(data)
-        validator = ClassValidator(data);
+        validator = ClassTypeValidator(data);
     elseif isduration(data)
-        validator = ClassValidator(data);
+        validator = ClassTypeValidator(data);
     elseif isstring(data)
-        validator = ClassValidator(data);
+        validator = ClassTypeValidator(data);
     elseif iscell(data)
-        validator = ClassValidator(data);
+        validator = ClassTypeValidator(data);
     elseif isdatetime(data)
         validator = DatetimeValidator(data);
     elseif istable(data)
