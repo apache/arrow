@@ -46,8 +46,8 @@ classdef TableValidator < arrow.array.internal.list.Validator
             error("Not Implemented");
         end
 
-        function length = getElementLength(obj, element)
-            error("Not Implemented");
+        function length = getElementLength(~, element)
+            length = height(element);
         end
 
         function C = reshapeCellElements(~, C)
