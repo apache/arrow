@@ -16,7 +16,7 @@
 classdef DatetimeValidator < arrow.array.internal.list.ClassTypeValidator
 
     properties (GetAccess=public, SetAccess=private)
-        HasTimeZone (1, 1) logical = false
+        Zoned (1, 1) logical = false
     end
 
     methods
@@ -25,20 +25,20 @@ classdef DatetimeValidator < arrow.array.internal.list.ClassTypeValidator
                 date(:, :) datetime
             end
             obj@arrow.array.internal.list.ClassTypeValidator(date);
-            obj.HasTimeZone = ~isempty(date.TimeZone);
+            obj.Zoned = ~isempty(date.TimeZone);
         end
 
         function validateElement(obj, element)
             validateElement@arrow.array.internal.list.ClassTypeValidator(obj, element);
-            % hasTimeZone and obj.HasTimeZone must be equal because zoned
+            % zoned and obj.Zoned must be equal because zoned
             % and unzoned datetimes cannot be concatenated together.
-            hasTimeZone = ~isempty(element.TimeZone);
-            if obj.HasTimeZone && ~hasTimeZone
+            zoned = ~isempty(element.TimeZone);
+            if obj.Zoned && ~zoned
                 errorID = "arrow:array:list:ExpectedZonedDatetime";
                 msg = "Expected all datetime elements in the cell array to " + ...
                     "have a time zone but encountered a datetime array without a time zone";
                 error(errorID, msg);
-            elseif ~obj.HasTimeZone && hasTimeZone
+            elseif ~obj.Zoned && zoned
                 errorID = "arrow:array:list:ExpectedUnzonedDatetime";
                 msg = "Expected all datetime elements in the cell array to " + ...
                     "not have a time zone but encountered a datetime array with a time zone";

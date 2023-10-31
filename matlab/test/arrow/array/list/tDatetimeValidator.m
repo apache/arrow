@@ -1,5 +1,5 @@
 %TDATETIMEVALIDATOR Unit tests for
-%arrow.array.internal.list.DatetimeValditor
+%arrow.array.internal.list.DatetimeValidator
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -43,36 +43,36 @@ classdef tDatetimeValidator < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
-        function HasTimeZoneGetter(testCase)
-            % Verify the HasTimeZone getter returns the expected scalar
+        function ZonedGetter(testCase)
+            % Verify the Zoned getter returns the expected scalar
             % logical.
 
             import arrow.array.internal.list.DatetimeValidator
             validator = DatetimeValidator(datetime(2023, 10, 31));
-            testCase.verifyEqual(validator.HasTimeZone, false);
+            testCase.verifyEqual(validator.Zoned, false);
 
             validator = DatetimeValidator(datetime(2023, 10, 31, TimeZone="UTC"));
-            testCase.verifyEqual(validator.HasTimeZone, true);
+            testCase.verifyEqual(validator.Zoned, true);
         end
 
-        function HasTimeZoneNoSetter(testCase)
-            % Verify HasTimeZone property is not settable.
+        function ZonedNoSetter(testCase)
+            % Verify Zoned property is not settable.
             import arrow.array.internal.list.DatetimeValidator
 
             validator = DatetimeValidator(datetime(2023, 10, 31));
-            fcn = @() setfield(validator, "HasTimeZone", true);
+            fcn = @() setfield(validator, "Zoned", true);
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
 
              validator = DatetimeValidator(datetime(2023, 10, 31, TimeZone="UTC"));
-            fcn = @() setfield(validator, "HasTimeZone", false);
+            fcn = @() setfield(validator, "Zoned", false);
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
         function ValidateElementNoThrow(testCase) %#ok<MANU>
             % Verify validateElement does not throw an exception if:
             %  1. the input element is a datetime
-            %  2. its TimeZone property is '' (only if HasTimeZone = false)
-            %  3. its TimeZone property is not empty (ony if HasTimeZone = true).
+            %  2. its TimeZone property is '' (only if Zoned = false)
+            %  3. its TimeZone property is not empty (ony if Zoned = true).
 
             import arrow.array.internal.list.DatetimeValidator
 
