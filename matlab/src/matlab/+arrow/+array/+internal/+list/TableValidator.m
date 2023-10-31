@@ -50,8 +50,8 @@ classdef TableValidator < arrow.array.internal.list.Validator
             error("Not Implemented");
         end
 
-        function C = reshapeCellElements(obj, C)
-            error("Not Implemented");
+        function C = reshapeCellElements(~, C)
+            % NO-OP for cell array of tables
         end
     end
 end
