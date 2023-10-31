@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/matlab/array/validation_mode.h"
 #include "arrow/matlab/array/proxy/list_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
@@ -26,6 +27,7 @@ namespace arrow::matlab::array::proxy {
     ListArray::ListArray(std::shared_ptr<arrow::ListArray> list_array) : proxy::Array{std::move(list_array)} {
         REGISTER_METHOD(ListArray, getValues);
         REGISTER_METHOD(ListArray, getOffsets);
+        REGISTER_METHOD(ListArray, validate);
     }
 
     libmexclass::proxy::MakeResult ListArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -100,4 +102,38 @@ namespace arrow::matlab::array::proxy {
         mda::ArrayFactory factory;
         context.outputs[0] = factory.createScalar(offsets_int32_array_proxy_id);
     }
+
+    void ListArray::validate(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<std::uint8_t> validation_mode_mda = args[0]["ValidationMode"];
+        const auto validation_mode_integer = uint8_t(validation_mode_mda[0]);
+        // Convert integer representation to ValidationMode enum.
+        const auto validation_mode = static_cast<ValidationMode>(validation_mode_integer);
+        switch (validation_mode) {
+            case ValidationMode::None: {
+                // Do nothing.
+                break;
+            }
+            case ValidationMode::Minimal: {
+                MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(array->Validate(),
+                        context,
+                        error::ARRAY_VALIDATE_MINIMAL_FAILED);
+                break;
+            }
+            case ValidationMode::Full: {
+                MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(array->ValidateFull(),
+                        context,
+                        error::ARRAY_VALIDATE_FULL_FAILED);
+                break;
+            }
+            default: {
+                // Throw an error if an unsupported enumeration value is provided.
+                const auto msg = "Unsupported ValidationMode enumeration value: " + std::to_string(validation_mode_integer);
+                context.error = libmexclass::error::Error{error::ARRAY_VALIDATE_UNSUPPORTED_ENUM, msg};
+                return;
+            }
+        }
+    }
+
 }

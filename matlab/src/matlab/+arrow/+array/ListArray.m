@@ -79,8 +79,9 @@ classdef ListArray < arrow.array.Array
                 offsets (1, 1) arrow.array.Int32Array
                 values (1, 1) arrow.array.Array
                 opts.Valid
+                opts.ValidationMode (1, 1) arrow.array.ValidationMode = arrow.array.ValidationMode.Minimal
             end
-            
+
             import arrow.internal.validate.parseValid
 
             if nargin < 2
@@ -100,9 +101,11 @@ classdef ListArray < arrow.array.Array
                 ValuesProxyID=valuesProxyID, ...
                 Valid=validElements ...
             );
-            
+
             proxyName = "arrow.array.proxy.ListArray";
             proxy = arrow.internal.proxy.create(proxyName, args);
+            % Validate the provided offsets and values.
+            proxy.validate(struct(ValidationMode=uint8(opts.ValidationMode)));
             array = arrow.array.ListArray(proxy);
         end
 
