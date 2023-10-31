@@ -36,8 +36,8 @@ class DataGenerator {
 
 class Random {
  public:
-  Random() : gen_(::arrow::internal::GetRandomSeed()) {}
-  explicit Random(uint64_t seed) : gen_(seed) {}
+  Random() : gen_(static_cast<unsigned int>(::arrow::internal::GetRandomSeed())) {}
+  explicit Random(uint64_t seed) : gen_(static_cast<unsigned int>(seed)) {}
 
   int32_t next() { return gen_(); }
 
