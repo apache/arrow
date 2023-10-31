@@ -1225,6 +1225,8 @@ func (boolEncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.
 	switch e {
 	case format.Encoding_PLAIN:
 		return &PlainBooleanEncoder{encoder: newEncoderBase(e, descr, mem)}
+	case format.Encoding_RLE:
+		return &RleBooleanEncoder{encoder: newEncoderBase(e, descr, mem)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1248,6 +1250,8 @@ func (boolDecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useDi
 	switch e {
 	case parquet.Encodings.Plain:
 		return &PlainBooleanDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+	case parquet.Encodings.RLE:
+		return &RleBooleanDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}
