@@ -110,7 +110,7 @@ namespace arrow::matlab::array::proxy {
         const mda::TypedArray<std::uint8_t> validation_mode_mda = args[0]["ValidationMode"];
         const auto validation_mode_integer = uint8_t(validation_mode_mda[0]);
         // Convert integer representation to ValidationMode enum.
-        const auto validation_mode = static_cast<ValidationMode>(validation_mode_integer); 
+        const auto validation_mode = static_cast<ValidationMode>(validation_mode_integer);
         switch (validation_mode) {
             case ValidationMode::None: {
                 // Do nothing.
@@ -133,7 +133,7 @@ namespace arrow::matlab::array::proxy {
                 const auto msg = "Unsupported ValidationMode enumeration value: " + std::to_string(validation_mode_integer);
                 context.error = libmexclass::error::Error{error::ARRAY_VALIDATE_UNSUPPORTED_ENUM, msg};
                 return;
-            } 
+            }
         }
     }
 
