@@ -543,27 +543,29 @@ class AzureFileSystem::Impl {
           // explicit directories. Neither a file nor a directory was found.
           return FileInfo(path.full_path, FileType::NotFound);
         }
-        // If the hierarchical namespace is not enabled, then there are no real
-        // directories. Directories are only implied by using `/` in the blob name.
-        // We need to detect implied directories by listing.
+        // On flat namespace accounts there are no real directories. Directories are only
+        // implied by using `/` in the blob name.
         Azure::Storage::Blobs::ListBlobsOptions list_blob_options;
 
         // If listing the prefix `path.path_to_file` with trailing slash returns at least
-        // one result then path refers to an implied directory.
-        list_blob_options.Prefix = internal::EnsureTrailingSlash(path.path_to_file);
+        // one result then `path` refers to an implied directory.
+        auto prefix = internal::EnsureTrailingSlash(path.path_to_file);
+        list_blob_options.Prefix = prefix;
         // We only need to know if there is at least one result, so minimise page size
         // for efficiency.
         list_blob_options.PageSizeHint = 1;
 
-        // TODO: Confirm this will only fetch a single page, for efficiency
-        // TODO: Return appropriate status if there is an exception.
-        auto paged_list_result =
-            blob_service_client_->GetBlobContainerClient(path.container)
-                .ListBlobs(list_blob_options);
-        if (paged_list_result.Blobs.size() > 0) {
-          return FileInfo(path.full_path, FileType::Directory);
-        } else {
-          return FileInfo(path.full_path, FileType::NotFound);
+        try {
+          auto paged_list_result =
+              blob_service_client_->GetBlobContainerClient(path.container)
+                  .ListBlobs(list_blob_options);
+          if (paged_list_result.Blobs.size() > 0) {
+            return FileInfo(path.full_path, FileType::Directory);
+          } else {
+            return FileInfo(path.full_path, FileType::NotFound);
+          }
+        } catch (const Azure::Storage::StorageException& exception) {
+          return ErrorToStatus("When listing blobs for '" + prefix + "': ", exception);
         }
       }
       return ErrorToStatus(
