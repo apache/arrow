@@ -42,7 +42,7 @@ classdef tClassTypeValidator < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
-        function validateElementNoThrow(testCase) %#ok<MANU>
+        function ValidateElementNoThrow(testCase) %#ok<MANU>
             % Verify validateElement does not throw an exception
             % if class type of the input element matches the ClassName
             % property value.
@@ -56,7 +56,7 @@ classdef tClassTypeValidator < matlab.unittest.TestCase
             validator.validateElement(double.empty(0, 1));
         end
 
-        function validateElementClassTypeMismatchError(testCase)
+        function ValidateElementClassTypeMismatchError(testCase)
             % Verify validateElement throws an exception whose identifier
             % is "arrow:array:list:ClassTypeMismatch" if the input
             % element's class type does not match the ClassName property
@@ -70,7 +70,7 @@ classdef tClassTypeValidator < matlab.unittest.TestCase
             testCase.verifyError(@() validator.validateElement(datetime(2023, 1, 1)), errorID);
         end
 
-        function getElementLength(testCase)
+        function GetElementLength(testCase)
             % Verify getElementLength returns the expected length values
             % for the given input arrays.
             import arrow.array.internal.list.ClassTypeValidator
@@ -81,7 +81,7 @@ classdef tClassTypeValidator < matlab.unittest.TestCase
             testCase.verifyEqual(validator.getElementLength(double.empty(1, 0)), 0);
         end
 
-        function reshapeCellElements(testCase)
+        function ReshapeCellElements(testCase)
             % Verify reshapeCellElements reshapes all elements in the input
             % cell array into column vectors.
             import arrow.array.internal.list.ClassTypeValidator
