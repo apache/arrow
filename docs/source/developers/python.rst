@@ -407,7 +407,7 @@ to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
 By default, PyArrow will be built in release mode even if Arrow C++ has been
 built in debug mode. To create a debug build of PyArrow, run
-``PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
+``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
 build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
 similarly.
 
