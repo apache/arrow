@@ -24,7 +24,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++17',
         ])
 
-version = '14.0.0-SNAPSHOT'
+version = '15.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]

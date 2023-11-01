@@ -21,8 +21,8 @@ package kernels
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
 	"golang.org/x/sys/cpu"
 )
 

@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v15/arrow"
 )
 
 // Writer wraps encoding/csv.Writer and writes arrow.Record based on a schema.
