@@ -76,6 +76,34 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
+        function zeroRowsMultipleColumns(testCase, TabularType)
+            % Test the display of 0xN arrow tabular object.
+            import arrow.internal.test.display.makeLinkString
+            t = table(Size=[0,6], ...
+                      VariableTypes=["double" "single" "int8" "logical" "uint64" "string"], ...
+                      VariableNames=["ratio = a / b" "number" "ID" "A very looooooooooooooong name" "Result" "侯磊"]);
+            tabularObj = TabularType.FromTableFcn(t);
+            actualDisplay = evalc('disp(tabularObj)');
+
+            classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
+                ClassName=TabularType.ClassName, BoldFont=true);
+            header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(0), getNumString(6));
+            var1Field = char(makeFieldString(                 "ratio = a / b", "Float64", "arrow.type.Float64Type"));
+            var2Field = char(makeFieldString(                        "number", "Float32", "arrow.type.Float32Type"));
+            var3Field = char(makeFieldString(                            "ID", "Int8"   , "arrow.type.Int8Type"));
+            var4Field = char(makeFieldString("A very looooooooooooooong name", "Boolean", "arrow.type.BooleanType"));
+            var5Field = char(makeFieldString(                        "Result", "UInt64" , "arrow.type.UInt64Type"));
+            var6Field = char(makeFieldString(                          "侯磊", "String" , "arrow.type.StringType"));
+            expectedDisplay = [char(header), newline, ...
+                               newline, ...
+                               '    Schema:', newline, ...
+                               newline ...
+                               '        ', var1Field, ' | ', var2Field, ' | ', var3Field, ' | ', var4Field, ' | ', var5Field, ' | ', var6Field, newline, ...
+                               newline];
+
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
         function OneRowOneColumn(testCase, TabularType)
             % Verify tabular object display when the object has one row
             % and column.
@@ -99,9 +127,10 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
-        function ManyRowsAndColumns(testCase, TabularType)
-            % Verify tabular object display when the object has many rows
-            % and columns.
+        function MultipleRowsAndColumns(testCase, TabularType)
+            % Verify tabular object display when the object has mulitple rows
+            % and columns. Only the first row is displayed. All columns are
+            % displayed.
             import arrow.internal.test.display.makeLinkString
             
             t = table((1:2)', ["A"; "B"], true(2, 1), VariableNames=["Number", "Letter", "Logical"]);
@@ -121,6 +150,174 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             
             expectedDisplay = char(join([header schema row + newline + newline], [newline newline]));
             actualDisplay = evalc('disp(tabularObj)');
+
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
+        function veryWideTabular(testCase, TabularType)
+            % Test tabular object that is wider than the MATLAB Command
+            % Window. In this case, all variables are still displayed.
+            import arrow.internal.test.display.makeLinkString
+
+            t = array2table([1:100;101:200],VariableNames="x"+(1:100));
+            arrowTabularObj = TabularType.FromTableFcn(t);
+            actualDisplay = evalc('disp(arrowTabularObj)');
+
+            classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
+                ClassName=TabularType.ClassName, BoldFont=true);
+            header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(2), getNumString(100));
+            schemaDisplay = ['    Schema:', newline, newline, '        '];
+            dataDisplay   = ['    First Row:', newline, newline, '        '];
+            for i = 1 : width(t)
+                if i < width(t)
+                    schemaDisplay = [schemaDisplay, char(makeFieldString("x"+i, "Float64", "arrow.type.Float64Type")), ' | '];
+                    dataDisplay = [dataDisplay, num2str(i), ' | '];
+                else
+                    schemaDisplay = [schemaDisplay, char(makeFieldString("x"+i, "Float64", "arrow.type.Float64Type"))];
+                    dataDisplay = [dataDisplay, num2str(i)];
+                end
+            end
+            expectedDisplay = [char(header), newline, ...
+                               newline, ...
+                               schemaDisplay, newline, ...
+                               newline ...
+                               dataDisplay, newline, ...
+                               newline];
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
+        function dataContainHyperlink(testCase, TabularType)
+            % No matter whether hotlinks is turned on or off, the data text
+            % containing hyperlink is not impacted and is displayed well.
+            import arrow.internal.test.display.makeLinkString
+
+            hLink1 = string('<a href="http://www.foo.com">foo</a>');
+            hLink2 = string('<a href="http://www.foo.com">another foo</a>');
+            t = table(["a";"bcd";missing;""],[hLink1;hLink2;hLink1;hLink2],[NaN;1;2;3],'VariableNames',["Description", "Link_to_doc", "Result"]);
+            arrowTabularObj = TabularType.FromTableFcn(t);
+
+            % The display of schema and actual tabular data always contain 
+            % hyperlinks no matter whether hotlinks is turned on or off
+            var1Field = char(makeFieldString("Description", "String" , "arrow.type.StringType"));
+            var2Field = char(makeFieldString("Link_to_doc", "String" , "arrow.type.StringType"));
+            var3Field = char(makeFieldString(     "Result", "Float64", "arrow.type.Float64Type"));
+            schemaDisplay = ['    Schema:', newline, newline, ...
+                             '        ', var1Field, ' | ', var2Field, ' | ', var3Field];
+            dataDisplay   = ['    First Row:', newline, newline, ...
+                             '        ', '"a"', ' | ', '"', '<a href="http://www.foo.com">foo</a>', '"', ' | ', 'null'];
+
+            % hotlinks is turned off
+            actualDisplay = evalc('feature(''hotlinks'',''off'');disp(arrowTabularObj)');
+            header = ['  Arrow ', char(TabularType.ClassName) ' with <strong>4</strong> rows and <strong>3</strong> columns:'];
+            expectedDisplay = [header, newline, ...
+                               newline, ...
+                               schemaDisplay, newline, ...
+                               newline ...
+                               dataDisplay, newline, ...
+                               newline];
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+
+            % hotlinks is turned on
+            actualDisplay = evalc('feature(''hotlinks'',''on'');disp(arrowTabularObj)');
+            classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
+                ClassName=TabularType.ClassName, BoldFont=true);
+            header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(4), getNumString(3));
+            expectedDisplay = [char(header), newline, ...
+                               newline, ...
+                               schemaDisplay, newline, ...
+                               newline ...
+                               dataDisplay, newline, ...
+                               newline];
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
+        function displayClassNameWhenDataIsNotArray(testCase, TabularType)
+            % When the datatype of a column is not an homogeneous array
+            % type, the class name instead of the actual data will be
+            % displayed.
+            import arrow.internal.test.display.makeLinkString
+
+            t = table(datetime(2023,1,[1;2;3]),table([1;2;3],[4;5;6]),seconds([1;2;3]));
+            arrowTabularObj = TabularType.FromTableFcn(t);
+            actualDisplay = evalc('disp(arrowTabularObj)');
+
+            classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
+                ClassName=TabularType.ClassName, BoldFont=true);
+            header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(3), getNumString(3));
+            var1Field = char(makeFieldString("Var1", "Timestamp" , "arrow.type.TimestampType"));
+            var2Field = char(makeFieldString("Var2", "Struct" , "arrow.type.StructType"));
+            var3Field = char(makeFieldString("Var3", "Time64", "arrow.type.Time64Type"));
+            expectedDisplay = [char(header), newline, ...
+                               newline, ...
+                               '    Schema:', newline, ...
+                               newline, ...
+                               '        ', var1Field, ' | ', var2Field, ' | ', var3Field, newline, ...
+                               newline, ...
+                               '    First Row:', newline, ...
+                               newline, ...
+                               '        ', '2023-01-01 00:00:00.000000 | <Struct> | 00:00:01.000000', newline,...
+                               newline];
+
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
+        function displayInvalidData(testCase, TabularType)
+            % Display "null" for invalid value
+            import arrow.internal.test.display.makeLinkString
+
+            t = table(seconds([NaN;1]), string([missing;"a"]), string(["";"b"]),  [NaN;1], datetime(2023,1,[NaN;2]),...
+                      VariableNames=["durationVar", "stringVar1", "stringVar2", "doubleVar", "datetimeVar"]);
+            arrowTabularObj = TabularType.FromTableFcn(t);
+            actualDisplay = evalc('disp(arrowTabularObj)');
+
+            classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
+                ClassName=TabularType.ClassName, BoldFont=true);
+            header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(2), getNumString(5));
+            var1Field = char(makeFieldString("durationVar", "Time64" , "arrow.type.Time64Type"));
+            var2Field = char(makeFieldString("stringVar1", "String" , "arrow.type.StringType"));
+            var3Field = char(makeFieldString("stringVar2", "String", "arrow.type.StringType"));
+            var4Field = char(makeFieldString("doubleVar", "Float64", "arrow.type.Float64Type"));
+            var5Field = char(makeFieldString("datetimeVar", "Timestamp", "arrow.type.TimestampType"));
+            expectedDisplay = [char(header), newline, ...
+                               newline, ...
+                               '    Schema:', newline, ...
+                               newline, ...
+                               '        ', var1Field, ' | ', var2Field, ' | ', var3Field, ' | ', var4Field, ' | ', var5Field, newline, ...
+                               newline, ...
+                               '    First Row:', newline, ...
+                               newline, ...
+                               '        ', 'null | null | "" | null | null', newline,...
+                               newline];
+
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
+        function unicodeDisplayWell(testCase, TabularType)
+            % The current display doesn't align anything. So it should work
+            % well with displaying unicode.
+            import arrow.internal.test.display.makeLinkString
+
+            t = table([0.1;0.2],string(char([26228 22825; 22810 20113])), ["Kevin"; "Lei"],...
+                      VariableNames=["Number" "Weather" string(char([21517 23383]))]);
+            arrowTabularObj = TabularType.FromTableFcn(t);
+            actualDisplay = evalc('disp(arrowTabularObj)');
+
+            classNameString = makeLinkString(FullClassName=TabularType.FullClassName, ...
+                ClassName=TabularType.ClassName, BoldFont=true);
+            header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(2), getNumString(3));
+            var1Field = char(makeFieldString(t.Properties.VariableNames{1}, "Float64" , "arrow.type.Float64Type"));
+            var2Field = char(makeFieldString(t.Properties.VariableNames{2}, "String" , "arrow.type.StringType"));
+            var3Field = char(makeFieldString(t.Properties.VariableNames{3}, "String", "arrow.type.StringType"));
+            expectedDisplay = [char(header), newline, ...
+                               newline, ...
+                               '    Schema:', newline, ...
+                               newline, ...
+                               '        ', var1Field, ' | ', var2Field, ' | ', var3Field, newline, ...
+                               newline, ...
+                               '    First Row:', newline, ...
+                               newline, ...
+                               '        ', '0.1 | "', char([26228 22825]), '" | "Kevin"', newline,...
+                               newline];
 
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
