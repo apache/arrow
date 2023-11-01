@@ -543,7 +543,7 @@ message CloseSessionRequest {
 message CloseSessionResult {
   option (experimental) = true;
 
-  enum CloseSessionResult {
+  enum Result {
     // The session close status is unknown. Servers should avoid using
     // this value (send a NOT_FOUND error if the requested query is
     // not known). Clients can retry the request.
@@ -559,7 +559,7 @@ message CloseSessionResult {
     CLOSE_RESULT_NOT_CLOSEABLE = 3;
   }
 
-  CloseSessionResult result = 1;
+  Result result = 1;
 }
 
 message SessionOptionValue {
@@ -589,7 +589,7 @@ message SetSessionOptionsRequest {
 message SetSessionOptionsResult {
   option (experimental) = true;
 
-  enum SetSessionOptionResult {
+  enum Result {
     // The status of setting the option is unknown. Servers should avoid using
     // this value (send a NOT_FOUND error if the requested query is
     // not known). Clients can retry the request.
@@ -602,7 +602,7 @@ message SetSessionOptionsResult {
     SET_SESSION_OPTION_RESULT_ERROR = 3;
   }
 
-  map<string, SetSessionOptionResult> results = 1;
+  map<string, Result> results = 1;
 }
 
 message GetSessionOptionsRequest {

@@ -479,11 +479,12 @@ Status FromProto(const pb::SetSessionOptionsResult& pb_result,
   return Status::OK();
 }
 
-Statis ToProto(const SetSessionOptionsResult& result,
+Status ToProto(const SetSessionOptionsResult& result,
                pb::SetSessionOptionsResult* pb_result) {
   auto* pb_results = pb_result->mutable_results();
   for (const auto& [k, v] : result.results) {
-    pb_results[k] = static_cast<pb::SetSessionOptionsResult::Status>(v);
+    pb_results[k] =
+    static_cast<pb::SetSessionOptionsResult::SetSessionOptionResult>(v);
   }
   return Status::OK();
 }
@@ -537,7 +538,7 @@ Status FromProto(const pb::CloseSessionResult& pb_result,
 Status ToProto(const CloseSessionResult& result,
                pb::CloseSessionResult* pb_result) {
   pb_result->set_result(
-    static_cast<protocol::CloseSessionResult::CloseSessionResultValue>(
+    static_cast<protocol::CloseSessionResult::Status>(
       result.result));
   return Status::OK();
 }
