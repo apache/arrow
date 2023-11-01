@@ -772,29 +772,29 @@ using SessionOptionValue =
 enum class SetSessionOptionStatus : int8_t {
   kUnspecified,
   kOk,
-  kOkMapped,  // PHOXME add remapped key/value status(es) to Proto too
-  kInvalidKey, // PHOXME
-  kInvalidValue, // PHOXME
+  kOkMapped,
+  kInvalidKey,
+  kInvalidValue,
   kError
 };
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionResult& r) {
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r) {
   switch (r) {
-    case SetSessionOptionResult::kUnspecified:
+    case SetSessionOptionStatus::kUnspecified:
       os << "Unspecified";
       break;
-    case SetSessionOptionResult::kOk:
+    case SetSessionOptionStatus::kOk:
       os << "Ok";
       break;
-    case SetSessionOptionResult::kOkMapped:
+    case SetSessionOptionStatus::kOkMapped:
       os << "OkMapped";
       break;
-    case SetSessionOptionResult::kInvalidName:
+    case SetSessionOptionStatus::kInvalidName:
       os << "InvalidName";
       break;
-    case SetSessionOptionResult::kInvalidValue:
+    case SetSessionOptionStatus::kInvalidValue:
       os << "InvalidValue";
       break;
-    case SetSessionOptionResult::kError:
+    case SetSessionOptionStatus::kError:
       os << "Error";
       break;
   }
@@ -807,18 +807,18 @@ enum class CloseSessionStatus : int8_t {
   kClosing,
   kNotClosable
 };
-std::ostream& operator<<(std::ostream& os, const CloseSessionResult& r) {
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r) {
   switch (r) {
-    case CloseSessionResult::kUnspecified:
+    case CloseSessionStatus::kUnspecified:
       os << "Unspecified";
       break; 
-    case CloseSessionResult::kClosed:
+    case CloseSessionStatus::kClosed:
       os << "Closed";
       break; 
-    case CloseSessionResult::kClosing:
+    case CloseSessionStatus::kClosing:
       os << "Closing";
       break; 
-    case CloseSessionResult::kNotClosable:
+    case CloseSessionStatus::kNotClosable:
       os << "NotClosable";
       break; 
   }

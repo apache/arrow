@@ -481,7 +481,7 @@ ostream& operator<<(std::map<std::string, T>) {
   ss << '{';
   std::string sep = "";
   for (const auto& [k, v] : session_options) {
-    std::cout << sep << '[' << k << "]: '" << v << "', ";  // PHOXME v.ToString() not implemented yet
+    std::cout << sep << '[' << k << "]: '" << v << "', ";
     sep = ", ";
   }
   ss << '}';
