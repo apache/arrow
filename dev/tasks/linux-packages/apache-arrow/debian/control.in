@@ -41,7 +41,7 @@ Build-Depends-Indep: libglib2.0-doc
 Standards-Version: 3.9.8
 Homepage: https://arrow.apache.org/
 
-Package: libarrow1400
+Package: libarrow1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -61,12 +61,12 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow1400 (= ${binary:Version})
+  libarrow1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides tools.
 
-Package: libarrow-cuda1400
+Package: libarrow-cuda1500
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
@@ -74,12 +74,12 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow1400 (= ${binary:Version})
+  libarrow1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for CUDA support.
 
-Package: libarrow-acero1400
+Package: libarrow-acero1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -87,12 +87,12 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow1400 (= ${binary:Version})
+  libarrow1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Acero module.
 
-Package: libarrow-dataset1400
+Package: libarrow-dataset1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -100,13 +100,13 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-acero1400 (= ${binary:Version}),
-  libparquet1400 (= ${binary:Version})
+  libarrow-acero1500 (= ${binary:Version}),
+  libparquet1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Dataset module.
 
-Package: libarrow-flight1400
+Package: libarrow-flight1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -114,12 +114,12 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow1400 (= ${binary:Version})
+  libarrow1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Flight RPC system.
 
-Package: libarrow-flight-sql1400
+Package: libarrow-flight-sql1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -127,7 +127,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-flight1400 (= ${binary:Version})
+  libarrow-flight1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Flight SQL system.
@@ -138,7 +138,7 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow1400 (= ${binary:Version}),
+  libarrow1500 (= ${binary:Version}),
   libbrotli-dev,
   libbz2-dev,
   libcurl4-openssl-dev,
@@ -163,7 +163,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-cuda1400 (= ${binary:Version})
+  libarrow-cuda1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for CUDA support.
@@ -174,7 +174,7 @@ Architecture: any
 Multi-Arch: same
 Depends:
   ${misc:Depends},
-  libarrow-acero1400 (= ${binary:Version}),
+  libarrow-acero1500 (= ${binary:Version}),
   libparquet-dev (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -187,7 +187,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-acero-dev (= ${binary:Version}),
-  libarrow-dataset1400 (= ${binary:Version}),
+  libarrow-dataset1500 (= ${binary:Version}),
   libparquet-dev (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -200,7 +200,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-flight1400 (= ${binary:Version}),
+  libarrow-flight1500 (= ${binary:Version}),
   libc-ares-dev,
 @USE_SYSTEM_GRPC@  libgrpc++-dev,
 @USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
@@ -216,12 +216,12 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-flight-dev (= ${binary:Version}),
-  libarrow-flight-sql1400 (= ${binary:Version})
+  libarrow-flight-sql1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight SQL system.
 
-Package: libgandiva1400
+Package: libgandiva1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -229,7 +229,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow1400 (= ${binary:Version})
+  libarrow1500 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
  .
@@ -242,13 +242,13 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libgandiva1400 (= ${binary:Version})
+  libgandiva1500 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
  .
  This package provides C++ header files.
 
-Package: libparquet1400
+Package: libparquet1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -268,7 +268,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libparquet1400 (= ${binary:Version})
+  libparquet1500 (= ${binary:Version})
 Description: Apache Parquet is a columnar storage format
  .
  This package provides tools.
@@ -280,13 +280,13 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libparquet1400 (= ${binary:Version}),
+  libparquet1500 (= ${binary:Version}),
   libthrift-dev
 Description: Apache Parquet is a columnar storage format
  .
  This package provides C++ header files.
 
-Package: libarrow-glib1400
+Package: libarrow-glib1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -294,7 +294,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow1400 (= ${binary:Version})
+  libarrow1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files.
@@ -318,7 +318,7 @@ Depends:
   ${misc:Depends},
   libglib2.0-dev,
   libarrow-acero-dev (= ${binary:Version}),
-  libarrow-glib1400 (= ${binary:Version}),
+  libarrow-glib1500 (= ${binary:Version}),
   gir1.2-arrow-1.0 (= ${binary:Version})
 Suggests: libarrow-glib-doc
 Description: Apache Arrow is a data processing library for analysis
@@ -336,7 +336,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations.
 
-Package: libarrow-cuda-glib1400
+Package: libarrow-cuda-glib1500
 Section: libs
 Architecture: @CUDA_ARCHITECTURE@
 Multi-Arch: same
@@ -344,8 +344,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib1400 (= ${binary:Version}),
-  libarrow-cuda1400 (= ${binary:Version})
+  libarrow-glib1500 (= ${binary:Version}),
+  libarrow-cuda1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for CUDA support.
@@ -370,13 +370,13 @@ Depends:
   ${misc:Depends},
   libarrow-cuda-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libarrow-cuda-glib1400 (= ${binary:Version}),
+  libarrow-cuda-glib1500 (= ${binary:Version}),
   gir1.2-arrow-cuda-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based header files for CUDA support.
 
-Package: libarrow-dataset-glib1400
+Package: libarrow-dataset-glib1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -384,8 +384,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib1400 (= ${binary:Version}),
-  libarrow-dataset1400 (= ${binary:Version})
+  libarrow-glib1500 (= ${binary:Version}),
+  libarrow-dataset1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for dataset module.
@@ -410,7 +410,7 @@ Depends:
   ${misc:Depends},
   libarrow-dataset-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libarrow-dataset-glib1400 (= ${binary:Version}),
+  libarrow-dataset-glib1500 (= ${binary:Version}),
   gir1.2-arrow-dataset-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -427,7 +427,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations for dataset module.
 
-Package: libarrow-flight-glib1400
+Package: libarrow-flight-glib1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -435,8 +435,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib1400 (= ${binary:Version}),
-  libarrow-flight1400 (= ${binary:Version})
+  libarrow-glib1500 (= ${binary:Version}),
+  libarrow-flight1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for Apache Arrow Flight.
@@ -462,7 +462,7 @@ Depends:
   ${misc:Depends},
   libarrow-flight-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libarrow-flight-glib1400 (= ${binary:Version}),
+  libarrow-flight-glib1500 (= ${binary:Version}),
   gir1.2-arrow-flight-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -479,7 +479,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations for Apache Arrow Flight.
 
-Package: libarrow-flight-sql-glib1400
+Package: libarrow-flight-sql-glib1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -487,8 +487,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-flight-glib1400 (= ${binary:Version}),
-  libarrow-flight-sql1400 (= ${binary:Version})
+  libarrow-flight-glib1500 (= ${binary:Version}),
+  libarrow-flight-sql1500 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for Apache Arrow Flight SQL.
@@ -514,7 +514,7 @@ Depends:
   ${misc:Depends},
   libarrow-flight-sql-dev (= ${binary:Version}),
   libarrow-flight-glib-dev (= ${binary:Version}),
-  libarrow-flight-sql-glib1400 (= ${binary:Version}),
+  libarrow-flight-sql-glib1500 (= ${binary:Version}),
   gir1.2-arrow-flight-sql-1.0 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
@@ -531,7 +531,7 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides documentations for Apache Arrow Flight SQL.
 
-Package: libgandiva-glib1400
+Package: libgandiva-glib1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -539,8 +539,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib1400 (= ${binary:Version}),
-  libgandiva1400 (= ${binary:Version})
+  libarrow-glib1500 (= ${binary:Version}),
+  libgandiva1500 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
  .
@@ -567,7 +567,7 @@ Depends:
   ${misc:Depends},
   libgandiva-dev (= ${binary:Version}),
   libarrow-glib-dev (= ${binary:Version}),
-  libgandiva-glib1400 (= ${binary:Version}),
+  libgandiva-glib1500 (= ${binary:Version}),
   gir1.2-gandiva-1.0 (= ${binary:Version})
 Description: Gandiva is a toolset for compiling and evaluating expressions
  on Arrow Data.
@@ -586,7 +586,7 @@ Description: Gandiva is a toolset for compiling and evaluating expressions
  .
  This package provides documentations.
 
-Package: libparquet-glib1400
+Package: libparquet-glib1500
 Section: libs
 Architecture: any
 Multi-Arch: same
@@ -594,8 +594,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow-glib1400 (= ${binary:Version}),
-  libparquet1400 (= ${binary:Version})
+  libarrow-glib1500 (= ${binary:Version}),
+  libparquet1500 (= ${binary:Version})
 Description: Apache Parquet is a columnar storage format
  .
  This package provides GLib based library files.
@@ -620,7 +620,7 @@ Depends:
   ${misc:Depends},
   libarrow-glib-dev (= ${binary:Version}),
   libparquet-dev (= ${binary:Version}),
-  libparquet-glib1400 (= ${binary:Version}),
+  libparquet-glib1500 (= ${binary:Version}),
   gir1.2-parquet-1.0 (= ${binary:Version})
 Suggests: libparquet-glib-doc
 Description: Apache Parquet is a columnar storage format
