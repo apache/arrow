@@ -120,6 +120,23 @@ the ``type`` should be ``ClosePreparedStatement``).
 ``ActionCreatePreparedStatementRequest``
     Create a new prepared statement for a SQL query.
 
+    The response will contain an opaque handle used to identify the
+    prepared statement.  It may also contain two optional schemas: the
+    Arrow schema of the result set, and the Arrow schema of the bind
+    parameters (if any).  Because the schema of the result set may
+    depend on the bind parameters, the schemas may not necessarily be
+    provided here as a result, or if provided, they may not be accurate.
+    Clients should not assume the schema provided here will be the
+    schema of any data actually returned by executing the prepared
+    statement.
+
+    Some statements may have bind parameters without any specific type
+    type.  (As a trivial example for SQL, consider ``SELECT ?``.)  It is
+    not currently specified how this should be handled in the bind
+    parameter schema above.  We suggest either using a union type to
+    enumerate the possible types, or using the NA (null) type as a
+    wildcard/placeholder.
+
 ``CommandPreparedStatementQuery``
     Execute a previously created prepared statement and get the results.
 
@@ -127,6 +144,10 @@ the ``type`` should be ``ClosePreparedStatement``).
 
     When used with GetFlightInfo: execute the prepared statement. The
     prepared statement can be reused after fetching results.
+
+    When used with GetSchema: get the expected Arrow schema of the
+    result set.  If the client has bound parameter values with DoPut
+    previously, the server should take those values into account.
 
 ``CommandPreparedStatementUpdate``
     Execute a previously created prepared statement that does not
