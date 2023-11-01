@@ -571,7 +571,7 @@ void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
 }
 
 template <typename T>
-void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const size_t num_values,
+void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const int64_t num_values,
                                       uint8_t* output_buffer_raw) {
 #if defined(ARROW_HAVE_AVX512)
   return ByteStreamSplitEncodeAvx512<T>(raw_values, static_cast<size_t>(num_values),
