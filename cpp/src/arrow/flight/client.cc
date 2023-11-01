@@ -713,27 +713,6 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
   return result;
 }
 
-// PHOXME implement these...
-arrow::Result<SetSessionOptionsResult> FlightClient::SetSessionOptions(
-    const FlightCallOptions& options, const SetSessionOptionsRequest& request) {
-  RETURN_NOT_OK(CheckOpen());
-  /*
-  */
-}
-
-arrow::Result<GetSessionOptionsResult> FlightClient::GetSessionOptions(
-    const FlightCallOptions& options) {
-  RETURN_NOT_OK(CheckOpen());
-  /*
-  */
-}
-
-arrow::Result<> FlightClient::CloseSession(const FlightCallOptions& options) {
-  RETURN_NOT_OK(CheckOpen());
-  /*
-  */
-}
-
 ::arrow::Result<SetSessionOptionsResult>
 FlightClient::SetSessionOptions(
     const FlightCallOptions& options,
@@ -748,68 +727,7 @@ FlightClient::SetSessionOptions(
                         CloseSessionResult::Deserialize(
                           std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(set_session_options_result);  /*  PHOXME:  take anything from here then delete this code...
-  pb::SetSessionOptionsRequest request;
-  auto* options_map = request.mutable_session_options();
-
-  for (const auto & [name, opt_value] : session_options) {
-    pb::SessionOptionValue pb_opt_value;
-
-    if (opt_value.index() == std::variant_npos)
-      return Status::Invalid("Undefined SessionOptionValue type ");
-
-    std::visit(overloaded{
-      // TODO move this somewhere common that can have Proto-involved code
-      [&](std::string v) { pb_opt_value.set_string_value(v); },
-      [&](bool v) { pb_opt_value.set_bool_value(v); },
-      [&](int32_t v) { pb_opt_value.set_int32_value(v); },
-      [&](int64_t v) { pb_opt_value.set_int64_value(v); },
-      [&](float v) { pb_opt_value.set_float_value(v); },
-      [&](double v) { pb_opt_value.set_double_value(v); },
-      [&](std::vector<std::string> v) {
-        auto* string_list_value = pb_opt_value.mutable_string_list_value();
-        for (const std::string& s : v)
-          string_list_value->add_values(s);
-      }
-    }, opt_value);
-    (*options_map)[name] = std::move(pb_opt_value);
-  }
-
-
-
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("SetSessionOptions", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
-
-
-  pb::SetSessionOptionsResult pb_result;
-  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-  std::map<std::string, SetSessionOptionResult> result;
-
-  for (const auto & [result_key, result_value] : pb_result.results()) {
-    switch (result_value) {
-      case pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED:
-        result[result_key] = SetSessionOptionResult::kUnspecified;
-        break;
-      case pb::SetSessionOptionsResult
-          ::SET_SESSION_OPTION_RESULT_OK:
-        result[result_key] = SetSessionOptionResult::kOk;
-        break;
-      case pb::SetSessionOptionsResult
-          ::SET_SESSION_OPTION_RESULT_INVALID_VALUE:
-        result[result_key] = SetSessionOptionResult::kInvalidResult;
-        break;
-      case pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR:
-        result[result_key] = SetSessionOptionResult::kError;
-        break;
-      default:
-        return Status::IOError("Invalid SetSessionOptionResult value for key "
-                               + result_key);
-    }
-  }
-  */
+  return set_session_options_result;
 }
 
 ::arrow::Result<GetSessionOptionsResult>
@@ -825,57 +743,7 @@ FlightClient::GetSessionOptions (
                         CloseSessionResult::Deserialize(
                           std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(get_session_options_result);
-  /*  PHOXME:  take anything from here then delete this code...
-  pb::GetSessionOptionsRequest request;
-
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("GetSessionOptions", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
-  pb::GetSessionOptionsResult pb_result;
-  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-
-  std::map<std::string, SessionOptionValue> result;
-  if (pb_result.session_options_size() > 0) {
-    for (auto& [pb_opt_name, pb_opt_val] : pb_result.session_options()) {
-      SessionOptionValue val;
-      switch (pb_opt_val.option_value_case()) {
-        case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
-          return Status::Invalid("Unset option_value for name '" + pb_opt_name + "'");
-        case pb::SessionOptionValue::kStringValue:
-          val = pb_opt_val.string_value();
-          break;
-        case pb::SessionOptionValue::kBoolValue:
-          val = pb_opt_val.bool_value();
-          break;
-        case pb::SessionOptionValue::kInt32Value:
-          val = pb_opt_val.int32_value();
-          break;
-        case pb::SessionOptionValue::kInt64Value:
-          val = pb_opt_val.int64_value();
-          break;
-        case pb::SessionOptionValue::kFloatValue:
-          val = pb_opt_val.float_value();
-          break;
-        case pb::SessionOptionValue::kDoubleValue:
-          val = pb_opt_val.double_value();
-          break;
-        case pb::SessionOptionValue::kStringListValue:
-          val.emplace<std::vector<std::string>>();
-          std::get<std::vector<std::string>>(val)
-              .reserve(pb_opt_val.string_list_value().values_size());
-          for (const std::string& s : pb_opt_val.string_list_value().values())
-            std::get<std::vector<std::string>>(val).push_back(s);
-          break;
-      }
-      result[pb_opt_name] = std::move(val);
-    }
-  }
-
-  return result;
-  */
+  return get_session_options_result;
 }
 
 ::arrow::Result<CloseSessionResult> FlightClient::CloseSession(
@@ -889,41 +757,8 @@ FlightClient::GetSessionOptions (
                         CloseSessionResult::Deserialize(
                           std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(close_session_result);
+  return close_session_result;
 }
-
-
-/*  PHOXME:  take anything from here then delete this code...
-  pb::CloseSessionRequest request;
-
-  std::unique_ptr<ResultStream> results;
-  ARROW_ASSIGN_OR_RAISE(auto action, PackAction("CloseSession", request));
-  ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
-
-  pb::ActionCloseSessionResult result;
-  ARROW_RETURN_NOT_OK(ReadResult(results.get(), &result));
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
-  switch (result.result()) {
-    case pb::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED:
-      return CloseSessionResult::kUnspecified;
-    case pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSED:
-      return CloseSessionResult::kClosed;
-    case pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSING:
-      return CloseSessionResult::kClosing;
-    case pb::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE:
-      return CloseSessionResult::kNotClosable;
-    default:
-      break;
-  }
-
-  return Status::IOError("Server returned unknown result ", result.result()); */
- 
-// /PHOXME
-
-
-
-
-
 
 Status FlightClient::Close() {
   if (!closed_) {

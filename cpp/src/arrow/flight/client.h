@@ -383,6 +383,28 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoExchange({}, descriptor);
   }
 
+/// \\brief Set server session option(s) by key/value. Sessions are generally
+/// persisted via HTTP cookies.
+/// \param[in] options Per-RPC options
+/// \param[in] session_options The server session options to set
+::arrow::Result<SetSessionOptionsResult>
+FlightClient::SetSessionOptions(
+    const FlightCallOptions& options,
+    const std::map<std::string, SessionOptionValue>& session_options);
+
+/// \\brief Get the current server session options. The session is generally
+/// accessed via an HTTP cookie.
+/// \param[in] options Per-RPC options
+::arrow::Result<GetSessionOptionsResult>
+FlightClient::GetSessionOptions (
+    const FlightCallOptions& options);
+
+/// \\brief Close/invalidate the current server session. The session is generally
+/// accessed via an HTTP cookie.
+/// \param[in] options Per-RPC options
+::arrow::Result<CloseSessionResult> FlightClient::CloseSession(
+    const FlightCallOptions& options);
+
   /// \brief Explicitly shut down and clean up the client.
   ///
   /// For backwards compatibility, this will be implicitly called by
