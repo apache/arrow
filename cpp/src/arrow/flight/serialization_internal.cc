@@ -379,6 +379,12 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
   *out = Buffer::FromString(std::move(str_descr));
   return Status::OK();
 }
+
+
+
+
+
+
 // ================================================================================================== //
 // PHOXME I think most of the enum types will just get static_cast<>() as in (I think?) the CancelFlightInfo code...??
 // SessionOptionValue
@@ -435,6 +441,52 @@ Result<pb::SessionOptionValue> ToProto(const SessionOptionValue& val) {
   return pb_val;
 }
 
+// map<string, SessionOptionValue>
+Status FromProto(const google::protobuf::map<string, pb:SessionOptionValue> pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
+                 std::map<std::string, SessionOptionValue>* map) {
+  *map.clear();
+  if (pb_map.size() > 0) {
+    for (auto& [key, pb_val] : pb_map.session_options()) {
+      SessionOptionValue val;
+      switch (pb_val.option_value_case()) {
+        case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
+          return Status::Invalid("Unset option_value for name '" + pb_opt_name + "'");
+        case pb::SessionOptionValue::kStringValue:
+          val = pb_val.string_value();
+          break;
+        case pb::SessionOptionValue::kBoolValue:
+          val = pb_val.bool_value();
+          break;
+        case pb::SessionOptionValue::kInt32Value:
+          val = pb_val.int32_value();
+          break;
+        case pb::SessionOptionValue::kInt64Value:
+          val = pb_val.int64_value();
+          break;
+        case pb::SessionOptionValue::kFloatValue:
+          val = pb_val.float_value();
+          break;
+        case pb::SessionOptionValue::kDoubleValue:
+          val = pb_val.double_value();
+          break;
+        case pb::SessionOptionValue::kStringListValue:
+          val.emplace<std::vector<std::string>>();
+          std::get<std::vector<std::string>>(val)
+              .reserve(pb_val.string_list_value().values_size());
+          for (const std::string& s : pb_val.string_list_value().values())
+            std::get<std::vector<std::string>>(val).push_back(s);
+          break;
+      }
+      result[key] = std::move(val);
+    }
+  }
+
+  return Status::OK();
+}
+
+Status ToProto(const std::map<std::string, SessionOptionValue map>,
+               google::protobuf::map<string, pb::SessionOptionValue>* pb_map) {}
+
 // SetSessionOptionsRequest
 // FIXME as above I still need to write code to convert SessionOptionValues; debatable if a corresponding map is something to break out (probably??) (-> yes)
 
@@ -443,12 +495,12 @@ Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
 
 }
 
-Status ToProto(const SetSessionOptionsRequest request,
+Status ToProto(const SetSessionOptionsRequest& request,
                pb::SetSessionOptionsRequest* pb_request) {
 
 }
 
-// SetSessionOptionResult   NOTE use static_cast here as in other code in this module e.g. CloseSessionResult
+// SetSessionOptionsResult   NOTE use static_cast here as in other code in this module e.g. CloseSessionResult
 
 // Note for primitive types T and pb_T may be equivalent, but nested messages to handle e.g. std::variant
 // require a separate, possibly distinct template parameter.  std::same_as<> may aid implementation of some
@@ -469,12 +521,14 @@ Status ToProto(const std::map<K, pb_T>& dict,
                }
 
 // GetSessionOptionsRequest
+Status FromProto(const google:protobuf::)
 
 // GetSessionOptionsResult
 
 // CloseSessionRequest
 
 // CloseSessionResult
+
 
 
 // ================================================================================================== //
