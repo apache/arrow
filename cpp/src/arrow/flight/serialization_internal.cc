@@ -382,7 +382,7 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
 
 // SessionOptionValue
 
-Result<SessionOptionValue> FromProto(const pb::SessionOptionValue& pb_val
+Status FromProto(const pb::SessionOptionValue& pb_val
                                      SessionOptionValue* val) {
   switch (pb_opt_val.option_value_case()) {
     case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
@@ -417,7 +417,7 @@ Result<SessionOptionValue> FromProto(const pb::SessionOptionValue& pb_val
   return Status::OK();
 }
 
-Result<pb::SessionOptionValue> ToProto(const SessionOptionValue& val
+Status ToProto(const SessionOptionValue& val
                                        pb::SessionOptionValue pb_val) {
   std::visit(overloaded{
       [&](std::string v) { pb_val.set_string_value(v); },
