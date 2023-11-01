@@ -130,8 +130,8 @@ the ``type`` should be ``ClosePreparedStatement``).
     schema of any data actually returned by executing the prepared
     statement.
 
-    Some statements may have bind parameters without any specific type
-    type.  (As a trivial example for SQL, consider ``SELECT ?``.)  It is
+    Some statements may have bind parameters without any specific type.
+    (As a trivial example for SQL, consider ``SELECT ?``.)  It is
     not currently specified how this should be handled in the bind
     parameter schema above.  We suggest either using a union type to
     enumerate the possible types, or using the NA (null) type as a
