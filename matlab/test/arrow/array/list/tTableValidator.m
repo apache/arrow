@@ -250,5 +250,34 @@ classdef tTableValidator < matlab.unittest.TestCase
             inputTable = table([1; 2], seconds([3;4]), table(["C"; "D"], [false; false]));
             validator.validateElement(inputTable);
         end
+
+        function GetElementLength(testCase)
+            % Verify GetElementLength returns the the number of rows as the
+            % length of the element.
+            import arrow.array.internal.list.TableValidator
+            
+            validator = TableValidator(testCase.BaseTable);
+            
+            length = validator.getElementLength(testCase.BaseTable);
+            testCase.verifyEqual(length, 1);
+
+            length = validator.getElementLength(repmat(testCase.BaseTable, [12 1]));
+            testCase.verifyEqual(length, 12);
+
+            length = validator.getElementLength(testCase.BaseTable(1:0, :));
+            testCase.verifyEqual(length, 0);
+        end
+
+        function ReshapeCellElements(testCase)
+            % Verify reshapeCellElements is a no-op. It should return the
+            % original cell array unchanged.
+            import arrow.array.internal.list.TableValidator
+
+            validator = TableValidator(testCase.BaseTable);
+            
+            COriginal = {testCase.BaseTable, repmat(testCase.BaseTable, [10 1]), testCase.BaseTable(1:0, :)};
+            CActual = validator.reshapeCellElements(COriginal);
+            testCase.verifyEqual(COriginal, CActual);
+        end
     end
 end
