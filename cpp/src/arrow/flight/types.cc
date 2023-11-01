@@ -558,12 +558,12 @@ SetSessionOptionsRequest::Deserialize(std::string_view serialized) {
 std::string SetSessionOptionsResult::ToString() const {
   std::stringstream ss;
 
-  ss << "<SetSessionOptionsResult results=" << results << '>';
+  ss << "<SetSessionOptionsResult results=" << statuses << '>';
 
   return ss.str();
 }
 bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const {
-  if (results != other.results) {
+  if (statuses != other.statuses) {
     return false;
   }
   return true;
@@ -711,12 +711,12 @@ CloseSessionRequest::Deserialize(std::string_view serialized) {
 std::string CloseSessionResult::ToString() const {
   std::stringstream ss;
 
-  ss << "<CloseSessionResult result=" << result << '>';
+  ss << "<CloseSessionResult result=" << status << '>';
 
   return ss.str();
 }
 bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
-  if (result != other.result)    {
+  if (status != other.status)    {
     return false;
   }
   return true;
