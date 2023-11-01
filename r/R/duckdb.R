@@ -76,12 +76,31 @@ to_duckdb <- function(.data,
   tbl
 }
 
+arrow_duck_finalizer <- new.env(parent = emptyenv())
+
 arrow_duck_connection <- function() {
   con <- getOption("arrow_duck_con")
   if (is.null(con) || !DBI::dbIsValid(con)) {
     con <- DBI::dbConnect(duckdb::duckdb())
     # Use the same CPU count that the arrow library is set to
     DBI::dbExecute(con, paste0("PRAGMA threads=", cpu_count()))
+
+    # This connection will get cleaned up at exit using the garbage collector,
+    # but if we don't explicitly run dbDisconnect() the user gets a warning
+    # that they may not expect (since they did not open a duckdb connection).
+    # This bit of code will run when the package namespace is cleaned up (i.e.,
+    # at exit). This is more reliable than .onUnload() or .onDetatch(), which
+    # don't necessarily run on exit.
+    reg.finalizer(arrow_duck_finalizer, function(...) {
+      con <- getOption("arrow_duck_con")
+      if (is.null(con)) {
+        return()
+      }
+
+      options(arrow_duck_con = NULL)
+      DBI::dbDisconnect(con, shutdown = TRUE)
+    }, onexit = TRUE)
+
     options(arrow_duck_con = con)
   }
   con
