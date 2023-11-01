@@ -764,9 +764,6 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
   static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
 };
 
-
-
-
 /// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
 using SessionOptionValue =
     std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
@@ -791,8 +788,8 @@ std::ostream& operator<<(std::ostream& os, const SetSessionOptionResult& r) {
     case SetSessionOptionResult::kOkMapped:
       os << "OkMapped";
       break;
-    case SetSessionOptionResult::kInvalidKey:
-      os << "InvalidKey";
+    case SetSessionOptionResult::kInvalidName:
+      os << "InvalidName";
       break;
     case SetSessionOptionResult::kInvalidValue:
       os << "InvalidValue";
@@ -922,8 +919,6 @@ struct ARROW_FLIGHT_SQL_EXPORT GetSessionOptionsResult {
   Deserialize(std::string_view serialized);
 };
 
-// PHOXME struct CloseSessionResult (already below??)
-
 /// \brief A request to close the open client session.
 struct ARROW_FLIGHT_SQL_EXPORT CloseSessionRequest {  std::string ToString() const;
   bool Equals(const CloseSessionRequest& other) const;
@@ -968,10 +963,6 @@ struct ARROW_FLIGHT_SQL_EXPORT CloseSessionResult {
   static arrow::Result<CloseSessionResult>
   Deserialize(std::string_view serialized);
 }
-
-
-
-
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {

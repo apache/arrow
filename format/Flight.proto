@@ -596,10 +596,14 @@ message SetSessionOptionsResult {
     SET_SESSION_OPTION_RESULT_UNSPECIFIED = 0;
     // The session option setting completed successfully.
     SET_SESSION_OPTION_RESULT_OK = 1;
+    // The given session option name was an alias for another option name.
+    SET_SESSION_OPTION_RESULT_OK_MAPPED = 2;
+    // The given session option name is invalid.
+    SET_SESSION_OPTION_RESULT_INVALID_NAME = 3;
     // The session cannot be set to the given value.
-    SET_SESSION_OPTION_RESULT_INVALID_VALUE = 2;
+    SET_SESSION_OPTION_RESULT_INVALID_VALUE = 4;
     // The session cannot be set.
-    SET_SESSION_OPTION_RESULT_ERROR = 3;
+    SET_SESSION_OPTION_RESULT_ERROR = 5;
   }
 
   map<string, Status> statuses = 1;
