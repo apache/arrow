@@ -477,17 +477,17 @@ Status ToProto(const SetSessionOptionsRequest& request,
 
 Status FromProto(const pb::SetSessionOptionsResult& pb_result,
                  SetSessionOptionsResult* result) {
-  for (const auto& [k, pb_v] : pb_result.results()) {
-    result->results.insert({k, static_cast<SetSessionOptionResult>(pb_v)});
+  for (const auto& [k, pb_v] : pb_result.statuses()) {
+    result->statuses.insert({k, static_cast<SetSessionOptionStatus>(pb_v)});
   }
   return Status::OK();
 }
 
 Status ToProto(const SetSessionOptionsResult& result,
                pb::SetSessionOptionsResult* pb_result) {
-  auto* pb_results = pb_result->mutable_results();
-  for (const auto& [k, v] : result.results) {
-    pb_results[k] = static_cast<pb::SetSessionOptionsResult::Result>(v);
+  auto* pb_statuses = pb_result->mutable_statuses();
+  for (const auto& [k, v] : result.statuses) {
+    pb_statuses[k] = static_cast<pb::SetSessionOptionsResult::Status>(v);
   }
   return Status::OK();
 }
@@ -536,15 +536,15 @@ Status ToProto(const CloseSessionRequest& request,
 
 Status FromProto(const pb::CloseSessionResult& pb_result,
                  CloseSessionResult* result) {
-  result->result = static_cast<CloseSessionResultValue>(pb_result.status());
+  result->status = static_cast<CloseSessionStatus>(pb_result.status());
   return Status::OK();
 }
 
 Status ToProto(const CloseSessionResult& result,
                pb::CloseSessionResult* pb_result) {
-  pb_result->set_result(
-    static_cast<protocol::CloseSessionResult::Result>(
-      result.result));
+  pb_result->set_status(
+    static_cast<protocol::CloseSessionResult::Status>(
+      result.status));
   return Status::OK();
 }
 
