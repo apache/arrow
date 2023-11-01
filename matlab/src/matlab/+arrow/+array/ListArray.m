@@ -113,7 +113,51 @@ classdef ListArray < arrow.array.Array
             arguments
                 C(:, 1) cell {mustBeNonempty}
             end
-            error("Not Implemented");
+            import arrow.array.internal.list.findFirstNonMissingElement
+            import arrow.array.internal.list.createValidator
+
+            idx = findFirstNonMissingElement(C);
+
+            if idx == -1
+                id = "arrow:array:list:UnsupportedCellArray";
+                msg = "cell array does not contain a datatype supported for conversion to an Arrow array";
+                error(id, msg);
+            end
+
+            validator = createValidator(C{idx});
+
+            numElements = numel(C);
+            valid = true([numElements 1]);
+            valid(1:idx-1) = false;
+            offsets = zeros([numElements + 1 1], "int32");
+
+            for ii = idx:numElements
+                element = C{ii};
+                if isa(element, "missing")
+                    valid(ii) = false;
+                    offsets(ii + 1) = offsets(ii);
+                else
+                    validator.validateElement(element);
+                    length = validator.getElementLength(element);
+                    offsets(ii + 1) = offsets(ii) + length;
+                end
+            end
+
+            offsetArray = arrow.array(offsets);
+
+            validValueCellArray = validator.reshapeCellElements(C(valid));
+            values = vertcat(validValueCellArray{:});
+            valueArray = arrow.array(values);
+
+            args = struct(...
+                OffsetsProxyID=offsetArray.Proxy.ID, ...
+                ValuesProxyID=valueArray.Proxy.ID, ...
+                Valid=valid ...
+            );
+            
+            proxyName = "arrow.array.proxy.ListArray";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            array = arrow.array.ListArray(proxy);
         end
     end
 
