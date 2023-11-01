@@ -529,6 +529,9 @@ class AzureFileSystem::Impl {
       auto info = FileInfo(path.full_path, FileType::File);
       if (properties.Value.IsDirectory) {
         info.set_type(FileType::Directory);
+      } else if (internal::HasTrailingSlash(path.path_to_file)) {
+        info.set_type(FileType::NotFound);
+        return info;
       } else {
         info.set_type(FileType::File);
         info.set_size(properties.Value.FileSize);

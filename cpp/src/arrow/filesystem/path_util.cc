@@ -191,10 +191,17 @@ std::string_view RemoveLeadingSlash(std::string_view key) {
 }
 
 Status AssertNoTrailingSlash(std::string_view key) {
-  if (key.back() == '/') {
+  if (HasTrailingSlash(key)) {
     return NotAFile(key);
   }
   return Status::OK();
+}
+
+bool HasTrailingSlash(std::string_view key) {
+  if (key.back() != '/') {
+    return false;
+  }
+  return true;
 }
 
 bool HasLeadingSlash(std::string_view key) {
