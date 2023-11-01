@@ -780,7 +780,7 @@ enum class SetSessionOptionResult : int8_t {
   kInvalidValue, // PHOXME
   kError
 };
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionResultValue& r) {
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionResult& r) {
   switch (r) {
     case SetSessionOptionResult::kUnspecified:
       os << "Unspecified";

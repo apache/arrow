@@ -380,15 +380,8 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
   return Status::OK();
 }
 
-
-
-
-
-
-// ================================================================================================== //
-// PHOXME I think most of the enum types will just get static_cast<>() as in (I think?) the CancelFlightInfo code...??
-
 // SessionOptionValue
+
 Result<SessionOptionValue> FromProto(const pb::SessionOptionValue& pb_val
                                      SessionOptionValue* val) {
   switch (pb_opt_val.option_value_case()) {
@@ -442,13 +435,14 @@ Result<pb::SessionOptionValue> ToProto(const SessionOptionValue& val
 }
 
 // map<string, SessionOptionValue>
-Status FromProto(const google::protobuf::map<string, pb:SessionOptionValue> pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
+
+Status FromProto(const google::protobuf::map<string, pb::SessionOptionValue> pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
                  std::map<std::string, SessionOptionValue>* map) {
   if (pb_map.size() == 0) {
     return Status::OK();
   }
   for (auto& [key, pb_val] : pb_map.session_options()) {
-    RETURN_NOT_OK(FromProto(pb_val, &map[key]));
+    RETURN_NOT_OK(FromProto(pb_val, &(*map)[key]));
   }
   return Status::OK();
 }
@@ -462,50 +456,91 @@ Status ToProto(const std::map<std::string, SessionOptionValue> map,
 }
 
 // SetSessionOptionsRequest
-// FIXME as above I still need to write code to convert SessionOptionValues; debatable if a corresponding map is something to break out (probably??) (-> yes)
 
 Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
                  pb::SetSessionOptionsRequest* request) {
-
+  RETURN_NOT_OK(FromProto(pb_request.session_options(), &request->session_options));
+  return Status::OK();
 }
 
 Status ToProto(const SetSessionOptionsRequest& request,
                pb::SetSessionOptionsRequest* pb_request) {
-
+  RETURN_NOT_OK(ToProto(request.session_options, pb_request->mutable_session_options()));
+  return Status::OK();
 }
 
-// SetSessionOptionsResult   NOTE use static_cast here as in other code in this module e.g. CloseSessionResult
+// SetSessionOptionsResult
 
-// Note for primitive types T and pb_T may be equivalent, but nested messages to handle e.g. std::variant
-// require a separate, possibly distinct template parameter.  std::same_as<> may aid implementation of some
-// overloads.
-template <typename K, typename T>
-Status FromProto(const google::protobuf::Map<K, T>& pb_dict,
-                 std::map<K, T>* dict) {
-                  // FIXME impl
-                 }
+Status FromProto(const pb::SetSessionOptionsResult& pb_result,
+                 SetSessionOptionsResult* result) {
+  for (const auto& [k, pb_v] : pb_result.results()) {
+    result->results.insert({k, static_cast<SetSessionOptionResult>(pb_v)});
+  }
+  return Status::OK();
+}
 
-template <typename K, typename T, typename pb_T>
-Status ToProto(const std::map<K, pb_T>& dict,
-               google::protobuf::Map<K, T>* pb_dict) {
-                for (const auto & [key, val] : dict) {
-                  (*pb_dict)[key] = ToProto(val);
-                }
-                return Status::OK();
-               }
+Statis ToProto(const SetSessionOptionsResult& result,
+               pb::SetSessionOptionsResult* pb_result) {
+  auto* pb_results = pb_result->mutable_results();
+  for (const auto& [k, v] : result.results) {
+    pb_results[k] = static_cast<pb::SetSessionOptionsResult::Status>(v);
+  }
+  return Status::OK();
+}
 
 // GetSessionOptionsRequest
-Status FromProto(const google:protobuf::)
+
+Status FromProto(const pb::GetSessionOptionsRequest& pb_request,
+                 GetSessionOptionsRequest* request) {
+  return Status::OK();
+}
+
+Status ToProto(const GetSessionOptionsRequest& request,
+               pb::GetSessionOptionsRequest* pb_request) {
+  return Status::OK();
+}
 
 // GetSessionOptionsResult
 
+Status FromProto(const pb::GetSessionOptionsResult& pb_result,
+                 GetSessionOptionsResult* result) {
+  RETURN_NOT_OK(FromProto(pb_result.session_options(), &result->session_options));
+  return Status::OK;
+}
+
+Status ToProto(const GetSessionOptionsResult& result,
+              pb::GetSessionOptionsResult* pb_result) {
+  RETURN_NOT_OK(ToProto(result.session_options, pb_result->mutable_session_options()));
+  return Status::OK();
+}
+
 // CloseSessionRequest
+
+Status FromProto(const pb::CloseSessionRequest& pb_request,
+                 CloseSessionRequest* request) {
+  return Status::OK();
+}
+
+Status ToProto(const CloseSessionRequest& request,
+               pb::CloseSessionRequest* pb_request) {
+  return Status::OK();
+}
 
 // CloseSessionResult
 
+Status FromProto(const pb::CloseSessionResult& pb_result,
+                 CloseSessionResult* result) {
+  result->result = static_cast<CloseSessionResultValue>(pb_result.status());
+  return Status::OK();
+}
 
-
-// ================================================================================================== //
+Status ToProto(const CloseSessionResult& result,
+               pb::CloseSessionResult* pb_result) {
+  pb_result->set_result(
+    static_cast<protocol::CloseSessionResult::CloseSessionResultValue>(
+      result.result));
+  return Status::OK();
+}
 
 }  // namespace internal
 }  // namespace flight
