@@ -109,6 +109,12 @@ classdef ListArray < arrow.array.Array
             array = arrow.array.ListArray(proxy);
         end
 
+        function array = fromMATLAB(C)
+            arguments
+                C(:, 1) cell {mustBeNonempty}
+            end
+            error("Not Implemented");
+        end
     end
 
 end
