@@ -473,10 +473,6 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
   return out;
 }
 
-
-
-
-// PHOXME impl...
 // Helper for stringifying maps containing various types
 template <typename T>
 ostream& operator<<(std::map<std::string, T>) {
@@ -514,6 +510,7 @@ static bool CompareSessionOptionMaps(
 }
 
 // SetSessionOptionsRequest
+
 std::string SetSessionOptionsRequest::ToString() const {
   std::stringstream ss;
 
@@ -522,9 +519,11 @@ std::string SetSessionOptionsRequest::ToString() const {
 
   return ss.str();
 }
+
 bool SetSessionOptionsRequest::Equals(const SetSessionOptionsRequest& other) const {
   return CompareSessionOptionMaps(session_options, other.session_options);
 }
+
 arrow::Result<std::string>
 SetSessionOptionsRequest::SerializeToString() const {
   pb::SetSessionOptionsRequest pb_request;
@@ -536,7 +535,8 @@ SetSessionOptionsRequest::SerializeToString() const {
   }
   return out;
 }
-static arrow::Result<SetSessionOptionsRequest>
+
+arrow::Result<SetSessionOptionsRequest>
 SetSessionOptionsRequest::Deserialize(std::string_view serialized) {
   // TODO these & SerializeToString should all be factored out to a superclass
   pb::SetSessionOptionsRequest pb_request;
@@ -555,6 +555,7 @@ SetSessionOptionsRequest::Deserialize(std::string_view serialized) {
 }
 
 // SetSessionOptionsResult
+
 std::string SetSessionOptionsResult::ToString() const {
   std::stringstream ss;
 
@@ -562,12 +563,14 @@ std::string SetSessionOptionsResult::ToString() const {
 
   return ss.str();
 }
+
 bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const {
   if (statuses != other.statuses) {
     return false;
   }
   return true;
 }
+
 arrow::Result<std::string>
 SetSessionOptionsResult::SerializeToString() const {
   pb::SetSessionOptionsResult pb_result;
@@ -579,7 +582,8 @@ SetSessionOptionsResult::SerializeToString() const {
   }
   return out;
 }
-static arrow::Result<SetSessionOptionsResult>
+
+arrow::Result<SetSessionOptionsResult>
 SetSessionOptionsResult::Deserialize(std::string_view serialized) {
   pb::SetSessionOptionsResult pb_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
@@ -597,12 +601,15 @@ SetSessionOptionsResult::Deserialize(std::string_view serialized) {
 }
 
 // GetSessionOptionsRequest
+
 std::string GetSessionOptionsRequest::ToString() const {
   return "<GetSessionOptionsRequest>";
 }
+
 bool GetSessionOptionsRequest::Equals(const GetSessionOptionsRequest& other) const {
   return true;
 }
+
 arrow::Result<std::string>
 GetSessionOptionsRequest::SerializeToString() const {
   pb::GetSessionOptionsRequest pb_request;
@@ -614,7 +621,8 @@ GetSessionOptionsRequest::SerializeToString() const {
   }
   return out;
 }
-static arrow::Result<GetSessionOptionsRequest>
+
+arrow::Result<GetSessionOptionsRequest>
 GetSessionOptionsRequest::Deserialize(std::string_view serialized) {
   pb::GetSessionOptionsRequest pb_request;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
@@ -632,6 +640,7 @@ GetSessionOptionsRequest::Deserialize(std::string_view serialized) {
 }
 
 // GetSessionOptionsResult
+
 std::string GetSessionOptionsResult::ToString() const {
   std::stringstream ss;
   
@@ -639,9 +648,11 @@ std::string GetSessionOptionsResult::ToString() const {
 
   return ss.str();
 }
+
 bool GetSessionOptionsResult::Equals(const GetSessionOptionsResult& other) const {
   return CompareSessionOptionMaps(session_options, other.session_options);
 }
+
 arrow::Result<std::string>
 GetSessionOptionsResult::SerializeToString() const {
   pb::GetSessionOptionsResult pb_result;
@@ -653,7 +664,8 @@ GetSessionOptionsResult::SerializeToString() const {
   }
   return out;
 }
-static arrow::Result<GetSessionOptionsResult>
+
+arrow::Result<GetSessionOptionsResult>
 GetSessionOptionsResult::Deserialize(std::string_view serialized) {
   pb::GetSessionOptionsResult pb_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
@@ -670,14 +682,16 @@ GetSessionOptionsResult::Deserialize(std::string_view serialized) {
   return out;
 }
 
-
+// CloseSessionRequest
 
 std::string CloseSessionRequest::ToString() const {
   return "<CloseSessionRequest>";
 }
+
 bool CloseSessionRequest::Equals(const CloseSessionRequest& other) const {
   return true;
 }
+
 arrow::Result<std::string>
 CloseSessionRequest::SerializeToString() const {
   pb::CloseSessionRequest pb_request;
@@ -689,7 +703,8 @@ CloseSessionRequest::SerializeToString() const {
   }
   return out;
 }
-static arrow::Result<CloseSessionRequest>
+
+arrow::Result<CloseSessionRequest>
 CloseSessionRequest::Deserialize(std::string_view serialized) {
   pb::CloseSessionRequest pb_request;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
@@ -706,7 +721,7 @@ CloseSessionRequest::Deserialize(std::string_view serialized) {
   return out;
 }
 
-
+// CloseSessionResult
 
 std::string CloseSessionResult::ToString() const {
   std::stringstream ss;
@@ -715,12 +730,14 @@ std::string CloseSessionResult::ToString() const {
 
   return ss.str();
 }
+
 bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
   if (status != other.status)    {
     return false;
   }
   return true;
 }
+
 arrow::Result<std::string>
 CloseSessionResult::SerializeToString() const {
   pb::CloseSessionResult pb_result;
@@ -732,7 +749,8 @@ CloseSessionResult::SerializeToString() const {
   }
   return out;
 }
-static arrow::Result<CloseSessionResult>
+
+arrow::Result<CloseSessionResult>
 CloseSessionResult::Deserialize(std::string_view serialized) {
   pb::CloseSessionResult pb_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
@@ -748,10 +766,6 @@ CloseSessionResult::Deserialize(std::string_view serialized) {
   RETURN_NOT_OK(internal::FromProto(pb_result, &out));
   return out;
 }
-
-
-
-
 
 Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
 
