@@ -386,7 +386,8 @@ Result<SessionOptionValue> FromProto(const pb::SessionOptionValue& pb_val
                                      SessionOptionValue* val) {
   switch (pb_opt_val.option_value_case()) {
     case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
-      return Status::Invalid("Unset option_value for name '" + pb_opt_name + "'");
+      return Status::Invalid("Unset option_value for name '" +
+                             pb_opt_name + "'");
     case pb::SessionOptionValue::kStringValue:
       val = pb_opt_val.string_value();
       break;
@@ -436,7 +437,8 @@ Result<pb::SessionOptionValue> ToProto(const SessionOptionValue& val
 
 // map<string, SessionOptionValue>
 
-Status FromProto(const google::protobuf::map<string, pb::SessionOptionValue> pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
+Status FromProto(const google::protobuf::map<string,
+                                             pb::SessionOptionValue> pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
                  std::map<std::string, SessionOptionValue>* map) {
   if (pb_map.size() == 0) {
     return Status::OK();
@@ -459,13 +461,15 @@ Status ToProto(const std::map<std::string, SessionOptionValue> map,
 
 Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
                  pb::SetSessionOptionsRequest* request) {
-  RETURN_NOT_OK(FromProto(pb_request.session_options(), &request->session_options));
+  RETURN_NOT_OK(FromProto(pb_request.session_options(),
+                          &request->session_options));
   return Status::OK();
 }
 
 Status ToProto(const SetSessionOptionsRequest& request,
                pb::SetSessionOptionsRequest* pb_request) {
-  RETURN_NOT_OK(ToProto(request.session_options, pb_request->mutable_session_options()));
+  RETURN_NOT_OK(ToProto(request.session_options,
+                        pb_request->mutable_session_options()));
   return Status::OK();
 }
 
@@ -483,8 +487,7 @@ Status ToProto(const SetSessionOptionsResult& result,
                pb::SetSessionOptionsResult* pb_result) {
   auto* pb_results = pb_result->mutable_results();
   for (const auto& [k, v] : result.results) {
-    pb_results[k] =
-    static_cast<pb::SetSessionOptionsResult::SetSessionOptionResult>(v);
+    pb_results[k] = static_cast<pb::SetSessionOptionsResult::Result>(v);
   }
   return Status::OK();
 }
@@ -505,13 +508,15 @@ Status ToProto(const GetSessionOptionsRequest& request,
 
 Status FromProto(const pb::GetSessionOptionsResult& pb_result,
                  GetSessionOptionsResult* result) {
-  RETURN_NOT_OK(FromProto(pb_result.session_options(), &result->session_options));
+  RETURN_NOT_OK(FromProto(pb_result.session_options(),
+                          &result->session_options));
   return Status::OK;
 }
 
 Status ToProto(const GetSessionOptionsResult& result,
               pb::GetSessionOptionsResult* pb_result) {
-  RETURN_NOT_OK(ToProto(result.session_options, pb_result->mutable_session_options()));
+  RETURN_NOT_OK(ToProto(result.session_options,
+                        pb_result->mutable_session_options()));
   return Status::OK();
 }
 
@@ -538,7 +543,7 @@ Status FromProto(const pb::CloseSessionResult& pb_result,
 Status ToProto(const CloseSessionResult& result,
                pb::CloseSessionResult* pb_result) {
   pb_result->set_result(
-    static_cast<protocol::CloseSessionResult::Status>(
+    static_cast<protocol::CloseSessionResult::Result>(
       result.result));
   return Status::OK();
 }
