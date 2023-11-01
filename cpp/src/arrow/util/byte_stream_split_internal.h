@@ -590,10 +590,6 @@ void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const int64_t n
 // Scalar implementations
 //
 
-// CAUTION when editing this: on x86 platforms, the test suite only exercises
-// the SIMD versions by default. Either check on non-x86, or manually disable
-// SIMD in the ByteStreamSplitEncode/ByteStreamSplitDecode functions below.
-
 inline void DoSplitStreams(const uint8_t* src, int width, int64_t nvalues,
                            uint8_t** dest_streams) {
   // Value empirically chosen to provide the best performance on the author's machine
