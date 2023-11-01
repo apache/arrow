@@ -38,6 +38,8 @@ classdef tCreateValidator < matlab.unittest.TestCase
 
     methods (Test)
         function TestNumericTypes(testCase, NumericTypes)
+            % Verify createValidator returns a ClassTypeValidator with the
+            % expected ClassName value when given a numeric array as input.
             import arrow.array.internal.list.createValidator
             data = cast(1, NumericTypes);
             validator = createValidator(data);
@@ -46,6 +48,9 @@ classdef tCreateValidator < matlab.unittest.TestCase
         end
 
         function TestLogical(testCase)
+            % Verify createValidator returns a ClassTypeValidator whose
+            % ClassName property is set to "logical" when given a logical
+            % array as input.
             import arrow.array.internal.list.createValidator
             data = true;
             validator = createValidator(data);
@@ -54,6 +59,9 @@ classdef tCreateValidator < matlab.unittest.TestCase
         end
 
         function TestDuration(testCase)
+            % Verify createValidator returns a ClassTypeValidator whose
+            % ClassName property is set to "duration" when given a duration
+            % array as input.
             import arrow.array.internal.list.createValidator
             data = seconds(1);
             validator = createValidator(data);
@@ -62,6 +70,9 @@ classdef tCreateValidator < matlab.unittest.TestCase
         end
 
         function TestString(testCase)
+            % Verify createValidator returns a ClassTypeValidator whose
+            % ClassName property is set to "string" when given a string
+            % array as input.
             import arrow.array.internal.list.createValidator
             data = "Hello World";
             validator = createValidator(data);
@@ -70,6 +81,9 @@ classdef tCreateValidator < matlab.unittest.TestCase
         end
 
         function TestCell(testCase)
+            % Verify createValidator returns a ClassTypeValidator whose
+            % ClassName property is set to "cell" when given a cell
+            % array as input.
             import arrow.array.internal.list.createValidator
             data = {"Hello World"};
             validator = createValidator(data);
@@ -78,6 +92,8 @@ classdef tCreateValidator < matlab.unittest.TestCase
         end
 
         function TestDatetime(testCase)
+            % Verify createValidator returns a DatetimeValidator when given
+            % a datetime array as input.
             import arrow.array.internal.list.createValidator
             data = datetime(2023, 10, 31);
             validator = createValidator(data);
@@ -87,6 +103,8 @@ classdef tCreateValidator < matlab.unittest.TestCase
         end
 
         function TestTable(testCase)
+            % Verify createValidator returns a TableValidator when given
+            % a table as input.
             import arrow.array.internal.list.createValidator
             data = table(1, "A", VariableNames=["Number", "Letter"]);
             validator = createValidator(data);
@@ -101,6 +119,9 @@ classdef tCreateValidator < matlab.unittest.TestCase
         end
     
         function UnsupportedDataTypeError(testCase)
+            % Verify createValidator throws an exception whose identifier
+            % is "arrow:array:list:UnsupportedDataType" when given an
+            % unsupported datatype as input.
             import arrow.array.internal.list.createValidator
             data = calyears(1);
             fcn = @() createValidator(data);
