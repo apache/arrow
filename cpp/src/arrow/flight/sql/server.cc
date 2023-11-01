@@ -33,12 +33,6 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
-// Lambda helper & CTAD
-template<class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> // CTAD will not be needed for >=C++20
-overloaded(Ts...) -> overloaded<Ts...>;
-
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
@@ -517,8 +511,14 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
   return PackActionResult(pb_result);
 }
 
+
+// PHOXME remove code from 3 impls after serde stuff is written and/or *moved*
 arrow::Result<Result> PackActionResult(SetSessionOptionsResult result) {
-  pb::SetSessionOptionsResult pb_result;
+  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+  return Result(Buffer::FromString(std::move(serialized));
+
+
+  /* pb::SetSessionOptionsResult pb_result;
   auto* pb_results_map = pb_result.mutable_results();
   for (const auto& [opt_name, res] : result.results) {
     pb::ActionSetSessionOptionsResult_SetSessionOptionResult val;
@@ -538,11 +538,15 @@ arrow::Result<Result> PackActionResult(SetSessionOptionsResult result) {
     }
     (*pb_results_map)[opt_name] = val;
   }
-  return PackActionResult(pb_result);
+  return PackActionResult(pb_result); */
 }
 
 arrow::Result<Result> PackActionResult(GetSessionOptionsResult result) {
-  pb::GetSessionOptionsResult pb_result;
+  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+  return Result(Buffer::FromString(std::move(serialized));
+
+
+  /* pb::GetSessionOptionsResult pb_result;
   auto* pb_results = pb_result.mutable_session_options();
   for (const auto& [name, opt_value] : result.session_options) {
     pb::SessionOptionValue pb_opt_value;
@@ -567,11 +571,15 @@ arrow::Result<Result> PackActionResult(GetSessionOptionsResult result) {
     (*pb_results)[name] = std::move(pb_opt_value);
   }
 
-  return PackActionResult(pb_result);
+  return PackActionResult(pb_result); */
 }
 
 arrow::Result<Result> PackActionResult(CloseSessionResult result) {
-  pb::ActionCloseSessionResult pb_result;
+  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+  return Result(Buffer::FromString(std::move(serialized));
+
+
+  /* pb::ActionCloseSessionResult pb_result;
   switch (result) {
     case CloseSessionResult::kUnspecified:
       pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED);
@@ -586,8 +594,10 @@ arrow::Result<Result> PackActionResult(CloseSessionResult result) {
       pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE);
       break;
   }
-  return PackActionResult(pb_result);
+  return PackActionResult(pb_result);*/
 }
+
+// /PHOXME
 
 }  // namespace
 

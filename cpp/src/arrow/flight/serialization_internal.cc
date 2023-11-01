@@ -27,6 +27,12 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 
+// Lambda helper & CTAD
+template<class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> // CTAD will not be needed for >=C++20
+overloaded(Ts...) -> overloaded<Ts...>;
+
 namespace arrow {
 namespace flight {
 namespace internal {
