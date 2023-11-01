@@ -35,9 +35,9 @@ public class Utf8AvaticaParameterConverter extends BaseAvaticaParameterConverter
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-    Object value = typedValue.toLocal();
+    String value = (String) typedValue.toLocal();
     if (vector instanceof VarCharVector) {
-      ((VarCharVector) vector).setSafe(index, new Text((String) value));
+      ((VarCharVector) vector).setSafe(index, new Text(value));
       return true;
     }
     return false;

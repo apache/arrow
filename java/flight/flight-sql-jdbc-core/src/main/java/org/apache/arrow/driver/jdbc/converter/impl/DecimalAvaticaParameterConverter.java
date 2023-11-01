@@ -36,9 +36,9 @@ public class DecimalAvaticaParameterConverter extends BaseAvaticaParameterConver
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-    Object value = typedValue.toLocal();
+    BigDecimal value = (BigDecimal) typedValue.toLocal();
     if (vector instanceof DecimalVector) {
-      ((DecimalVector) vector).setSafe(index, (BigDecimal) value);
+      ((DecimalVector) vector).setSafe(index, value);
       return true;
     }
     return false;

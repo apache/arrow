@@ -43,40 +43,30 @@ public class IntAvaticaParameterConverter extends BaseAvaticaParameterConverter 
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-    Object value = typedValue.toLocal();
+    Number value = (Number) typedValue.value;
     if (vector instanceof TinyIntVector) {
-      ((TinyIntVector) vector).setSafe(index, (int) value);
+      ((TinyIntVector) vector).setSafe(index, value.intValue());
       return true;
     } else if (vector instanceof SmallIntVector) {
-      ((SmallIntVector) vector).setSafe(index, (int) value);
+      ((SmallIntVector) vector).setSafe(index, value.intValue());
       return true;
     } else if (vector instanceof IntVector) {
-      ((IntVector) vector).setSafe(index, (int) value);
+      ((IntVector) vector).setSafe(index, value.intValue());
       return true;
     } else if (vector instanceof BigIntVector) {
-      BigIntVector longVec = (BigIntVector) vector;
-      if (value instanceof Long) {
-        longVec.setSafe(index, (long) value);
-      } else {
-        longVec.setSafe(index, (int) value);
-      }
+      ((BigIntVector) vector).setSafe(index, value.longValue());
       return true;
     } else if (vector instanceof UInt1Vector) {
-      ((UInt1Vector) vector).setSafe(index, (int) value);
+      ((UInt1Vector) vector).setSafe(index, value.intValue());
       return true;
     } else if (vector instanceof UInt2Vector) {
-      ((UInt2Vector) vector).setSafe(index, (int) value);
+      ((UInt2Vector) vector).setSafe(index, value.intValue());
       return true;
     } else if (vector instanceof UInt4Vector) {
-      ((UInt4Vector) vector).setSafe(index, (int) value);
+      ((UInt4Vector) vector).setSafe(index, value.intValue());
       return true;
     } else if (vector instanceof UInt8Vector) {
-      UInt8Vector longVec = (UInt8Vector) vector;
-      if (value instanceof Long) {
-        longVec.setSafe(index, (long) value);
-      } else {
-        longVec.setSafe(index, (int) value);
-      }
+      ((UInt8Vector) vector).setSafe(index, value.longValue());
       return true;
     }
     return false;

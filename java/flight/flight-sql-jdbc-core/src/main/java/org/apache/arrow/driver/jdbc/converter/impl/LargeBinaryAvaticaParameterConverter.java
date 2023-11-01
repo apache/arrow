@@ -34,9 +34,9 @@ public class LargeBinaryAvaticaParameterConverter extends BaseAvaticaParameterCo
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-    Object value = typedValue.toLocal();
+    byte[] value = (byte[]) typedValue.toJdbc(null);
     if (vector instanceof LargeVarBinaryVector) {
-      ((LargeVarBinaryVector) vector).setSafe(index, (byte[]) value);
+      ((LargeVarBinaryVector) vector).setSafe(index, value);
       return true;
     }
     return false;

@@ -34,9 +34,9 @@ public class BoolAvaticaParameterConverter extends BaseAvaticaParameterConverter
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-    Object value = typedValue.toLocal();
+    boolean value = (boolean) typedValue.toLocal();
     if (vector instanceof BitVector) {
-      ((BitVector) vector).setSafe(index, (int) value);
+      ((BitVector) vector).setSafe(index, value ? 1 : 0);
       return true;
     }
     return false;
