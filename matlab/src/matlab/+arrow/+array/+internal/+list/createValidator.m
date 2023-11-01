@@ -34,7 +34,7 @@ function validator = createValidator(data)
         validator = TableValidator(data);
     else
         errorID = "arrow:array:list:UnsupportedDataType";
-        msg = "Unable to create ListArray from " + class(data) + " values.";
+        msg = "Unable to create a ListArray from a cell array containing " + class(data) + " values.";
         error(errorID, msg);
     end
 
