@@ -531,7 +531,7 @@ message PutResult {
  *
  * The exiting session is referenced via a cookie header.
  */
-message ActionCloseSessionRequest {
+message CloseSessionRequest {
   option (experimental) = true;
 }
 
@@ -540,7 +540,7 @@ message ActionCloseSessionRequest {
  *
  * The result should be wrapped in a google.protobuf.Any message.
  */
-message ActionCloseSessionResult {
+message CloseSessionResult {
   option (experimental) = true;
 
   enum CloseSessionResult {
@@ -580,13 +580,13 @@ message SessionOptionValue {
   }
 }
 
-message ActionSetSessionOptionsRequest {
+message SetSessionOptionsRequest {
   option (experimental) = true;
 
   map<string, SessionOptionValue> session_options = 1;
 }
 
-message ActionSetSessionOptionsResult {
+message SetSessionOptionsResult {
   option (experimental) = true;
 
   enum SetSessionOptionResult {
@@ -605,11 +605,11 @@ message ActionSetSessionOptionsResult {
   map<string, SetSessionOptionResult> results = 1;
 }
 
-message ActionGetSessionOptionsRequest {
+message GetSessionOptionsRequest {
     option (experimental) = true;
 }
 
-message ActionGetSessionOptionsResult {
+message GetSessionOptionsResult {
     option (experimental) = true;
 
     map<string, SessionOptionValue> session_options = 1;
