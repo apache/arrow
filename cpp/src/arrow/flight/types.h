@@ -772,7 +772,7 @@ using SessionOptionValue =
     std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
 
 /// \brief The result of setting a session option.
-enum class SetSessionOptionResult : int8_t {
+enum class SetSessionOptionStatus : int8_t {
   kUnspecified,
   kOk,
   kOkMapped,  // PHOXME add remapped key/value status(es) to Proto too
@@ -804,7 +804,7 @@ std::ostream& operator<<(std::ostream& os, const SetSessionOptionResult& r) {
 }
 
 /// \brief The result of closing a session.
-enum class CloseSessionResultValue : int8_t {
+enum class CloseSessionStatus : int8_t {
   kUnspecified,
   kClosed,
   kClosing,
@@ -854,7 +854,7 @@ struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionsRequest {
 
 /// \brief The result(s) of setting session option(s).
 struct ARROW_FLIGHT_SQL_EXPORT SetSessionOptionsResult {
-  std::map<std::string, SetSessionOptionResultValue> results;
+  std::map<std::string, SetSessionOptionStatus> statuses;
 
   std::string ToString() const;
   bool Equals(const SetSessionOptionsResult& other) const;
@@ -947,7 +947,7 @@ struct ARROW_FLIGHT_SQL_EXPORT CloseSessionRequest {  std::string ToString() con
 
 /// \brief The result of attempting to close the client session.
 struct ARROW_FLIGHT_SQL_EXPORT CloseSessionResult {
-  CloseSessionResultValue result;
+  CloseSessionStatus status;
 
   std::string ToString() const;
   bool Equals(const CloseSessionResult& other) const;
