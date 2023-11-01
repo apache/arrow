@@ -620,7 +620,7 @@ inline void DoSplitStreams(const uint8_t* src, int width, int64_t nvalues,
         uint64_t r = (a << 56) | (b << 48) | (c << 40) | (d << 32) | (e << 24) |
                      (f << 16) | (g << 8) | h;
 #endif
-        *reinterpret_cast<uint64_t*>(&dest[i]) = r;
+        arrow::util::SafeStore(&dest[i], r);
       }
       dest_streams[stream] += kBlockSize;
     }
@@ -648,7 +648,7 @@ inline void DoMergeStreams(const uint8_t** src_streams, int width, int64_t nvalu
       // to their logical places in destination.
       const uint8_t* src = src_streams[stream];
       for (int i = 0; i < kBlockSize; i += 8) {
-        uint64_t v = *reinterpret_cast<const uint64_t*>(&src[i]);
+        uint64_t v = arrow::util::SafeLoadAs<uint64_t>(&src[i]);
 #if ARROW_LITTLE_ENDIAN
         dest[stream + i * width] = static_cast<uint8_t>(v);
         dest[stream + (i + 1) * width] = static_cast<uint8_t>(v >> 8);
