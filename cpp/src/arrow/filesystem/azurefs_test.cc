@@ -46,6 +46,7 @@
 #include <azure/identity/managed_identity_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
+#include <azure/storage/files/datalake.hpp>
 
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
@@ -143,15 +144,12 @@ TEST(AzureFileSystem, OptionsCompare) {
 class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
-  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> service_client_;
+  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
+  AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
 
   TestAzureFileSystem() : generator_(std::random_device()()) {}
-
-  // virtual std::string GetAccountName() const { return GetAzuriteEnv()->account_name();
-  // } virtual std::string GetAccountKey() const { return GetAzuriteEnv()->account_key();
-  // }
 
   virtual AzureOptions MakeOptions() {
     EXPECT_THAT(GetAzuriteEnv(), NotNull());
@@ -165,11 +163,11 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void SetUp() override {
     container_name_ = RandomChars(32);
-    auto options = MakeOptions();
-    service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
-        options.account_blob_url, options.storage_credentials_provider);
-    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options));
-    auto container_client = service_client_->GetBlobContainerClient(container_name_);
+    options_ = MakeOptions();
+    blob_service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
+        options_.account_blob_url, options_.storage_credentials_provider);
+    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
+    auto container_client = blob_service_client_->GetBlobContainerClient(container_name_);
     container_client.CreateIfNotExists();
 
     auto blob_client = container_client.GetBlockBlobClient(PreexistingObjectName());
@@ -178,9 +176,10 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TearDown() override {
-    auto containers = service_client_->ListBlobContainers();
+    auto containers = blob_service_client_->ListBlobContainers();
     for (auto container : containers.BlobContainers) {
-      auto container_client = service_client_->GetBlobContainerClient(container.Name);
+      auto container_client =
+          blob_service_client_->GetBlobContainerClient(container.Name);
       container_client.DeleteIfExists();
     }
   }
@@ -221,8 +220,9 @@ class TestAzureFileSystem : public ::testing::Test {
   void UploadLines(const std::vector<std::string>& lines, const char* path_to_file,
                    int total_size) {
     // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-    auto blob_client = service_client_->GetBlobContainerClient(PreexistingContainerName())
-                           .GetBlockBlobClient(path_to_file);
+    auto blob_client =
+        blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+            .GetBlockBlobClient(path_to_file);
     std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
     blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()),
                            total_size);
@@ -230,11 +230,21 @@ class TestAzureFileSystem : public ::testing::Test {
 };
 
 class TestAzureHNSFileSystem : public TestAzureFileSystem {
-  virtual AzureOptions MakeOptions() override {
+ public:
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+      datalake_service_client_;
+  AzureOptions MakeOptions() override {
     AzureOptions options;
     ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
         std::getenv("AZURE_HNS_ACCOUNT_NAME"), std::getenv("AZURE_HNS_ACCOUNT_KEY")));
     return options;
+  }
+
+  void SetUp() override {
+    TestAzureFileSystem::SetUp();
+    datalake_service_client_ =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
+            options_.account_dfs_url, options_.storage_credentials_provider);
   }
 };
 
@@ -259,18 +269,57 @@ TEST_F(TestAzureFileSystem, GetFileInfoObjectWithNestedStructure) {
   // with directory naming conventions (e.g. with and without slashes).
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
   // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-  service_client_->GetBlobContainerClient(PreexistingContainerName())
+  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
       .GetBlockBlobClient(kObjectName)
       .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
 
   // 0 is immediately after "/" lexicographically, ensure that this doesn't
   // cause unexpected issues.
   // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-  service_client_->GetBlobContainerClient(PreexistingContainerName())
+  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
       .GetBlockBlobClient("test-object-dir/some_other_dir0")
       .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
 
-  service_client_->GetBlobContainerClient(PreexistingContainerName())
+  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlockBlobClient(std::string(kObjectName) + "0")
+      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
+
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName + "/",
+                 FileType::NotFound);
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir",
+                 FileType::Directory);
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/",
+                 FileType::Directory);
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_dir",
+                 FileType::Directory);
+  AssertFileInfo(fs_.get(),
+                 PreexistingContainerPath() + "test-object-dir/some_other_dir/",
+                 FileType::Directory);
+
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-di",
+                 FileType::NotFound);
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_di",
+                 FileType::NotFound);
+}
+
+TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectWithNestedStructure) {
+  // Adds detailed tests to handle cases of different edge cases
+  // with directory naming conventions (e.g. with and without slashes).
+  constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
+  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
+  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlockBlobClient(kObjectName)
+      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
+
+  // 0 is immediately after "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues.
+  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
+  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+      .GetBlockBlobClient("test-object-dir/some_other_dir0")
+      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
+
+  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
       .GetBlockBlobClient(std::string(kObjectName) + "0")
       .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
 
@@ -295,9 +344,11 @@ TEST_F(TestAzureFileSystem, GetFileInfoObjectWithNestedStructure) {
 
 // TODO: Add ADLS Gen2 directory tests.
 
+// TODO: Check I haven't accidentally changed the purpose of this test. The name seems a
+// bit strange.
 TEST_F(TestAzureFileSystem, GetFileInfoObjectNoExplicitObject) {
   auto object_properties =
-      service_client_->GetBlobContainerClient(PreexistingContainerName())
+      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
           .GetProperties()
           .Value;
@@ -313,7 +364,7 @@ TEST_F(TestAzureFileSystem, GetFileInfoObjectNoExplicitObject) {
 
 TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectNoExplicitObject) {
   auto object_properties =
-      service_client_->GetBlobContainerClient(PreexistingContainerName())
+      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
           .GetProperties()
           .Value;
@@ -364,7 +415,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
 TEST_F(TestAzureFileSystem, OpenInputStreamEmpty) {
   const auto path_to_file = "empty-object.txt";
   const auto path = PreexistingContainerPath() + path_to_file;
-  service_client_->GetBlobContainerClient(PreexistingContainerName())
+  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
       .GetBlockBlobClient(path_to_file)
       .UploadFrom(nullptr, 0);
 
@@ -552,8 +603,9 @@ TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
   const auto path = PreexistingContainerPath() + path_to_file;
   const std::string contents = "The quick brown fox jumps over the lazy dog";
 
-  auto blob_client = service_client_->GetBlobContainerClient(PreexistingContainerName())
-                         .GetBlockBlobClient(path_to_file);
+  auto blob_client =
+      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+          .GetBlockBlobClient(path_to_file);
   blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(contents.data()),
                          contents.length());
 
