@@ -323,6 +323,10 @@ TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectWithNestedStructure) {
       .GetBlockBlobClient(std::string(kObjectName) + "0")
       .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
 
+  datalake_service_client_->GetFileSystemClient(PreexistingContainerName())
+      .GetDirectoryClient("test-empty-object-dir")
+      .Create();
+
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName + "/",
                  FileType::NotFound);
@@ -340,6 +344,11 @@ TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectWithNestedStructure) {
                  FileType::NotFound);
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_di",
                  FileType::NotFound);
+
+  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-empty-object-dir",
+                 FileType::Directory);
+
+  // TODO: Add an assert that it did not use ListBlobs to detect directories.
 }
 
 // TODO: Add ADLS Gen2 directory tests.
