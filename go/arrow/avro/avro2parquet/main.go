@@ -18,6 +18,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -29,7 +30,6 @@ import (
 	"github.com/apache/arrow/go/v14/parquet"
 	"github.com/apache/arrow/go/v14/parquet/compress"
 	pq "github.com/apache/arrow/go/v14/parquet/pqarrow"
-	"github.com/dsnet/golib/memfile"
 )
 
 var (
@@ -69,8 +69,8 @@ func main() {
 	}
 	fmt.Printf("file : %v\nsize: %v MB\n", filepath, float64(filesize)/1024/1024)
 
-	fh := memfile.New(data)
-	ior := bufio.NewReaderSize(fh, 4096*8)
+	r := bytes.NewReader(data)
+	ior := bufio.NewReaderSize(r, 4096*8)
 	av2arReader, err := avro.NewOCFReader(ior, avro.WithChunk(chunk))
 	if err != nil {
 		fmt.Println(err)
