@@ -797,7 +797,6 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   return Status::IOError("Server returned unknown result ", result.result());
 }
 
- 
 Status FlightSqlClient::Close() { return impl_->Close(); }
 
 std::ostream& operator<<(std::ostream& os, CancelResult result) {

@@ -386,10 +386,10 @@ class ARROW_FLIGHT_EXPORT FlightClient {
 /// \\brief Set server session option(s) by key/value. Sessions are generally
 /// persisted via HTTP cookies.
 /// \param[in] options Per-RPC options
-/// \param[in] session_options The server session options to set
+/// \param[in] request The server session options to set
 ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
     const FlightCallOptions& options,
-    const SetSessionOptionsRequest& session_options);
+    const SetSessionOptionsRequest& request);
 
 /// \\brief Get the current server session options. The session is generally
 /// accessed via an HTTP cookie.

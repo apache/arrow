@@ -445,7 +445,7 @@ Status ToProto(const SessionOptionValue& val,
 Status FromProto(const google::protobuf::Map<std::string,
                                              pb::SessionOptionValue>& pb_map,
                  std::map<std::string, SessionOptionValue>* map) {
-  if (pb_map.size() == 0) {
+  if (pb_map.empty()) {
     return Status::OK();
   }
   for (auto& [key, pb_val] : pb_map) {

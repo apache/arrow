@@ -79,16 +79,16 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       for (const std::pair<std::string, std::string>& cookie : cookies) {
         if (cookie.first == kSessionCookieName) {
           session_id = cookie.second;
-          if (!session_id.length())
+          if (session_id.empty())
             return Status::Invalid(
                 "Empty " + static_cast<std::string>(kSessionCookieName)
                 + " cookie value.");
         }
       }
-      if (session_id.length()) break;
+      if (!session_id.empty()) break;
     }
 
-    if (!session_id.length()) {
+    if (session_id.empty()) {
       // No cookie was found
       *middleware = std::shared_ptr<ServerSessionMiddleware>(
           new ServerSessionMiddleware(this, incoming_headers));
@@ -130,7 +130,8 @@ ServerSessionMiddleware::ServerSessionMiddleware(
     ServerSessionMiddlewareFactory* factory, const CallHeaders& headers,
     std::shared_ptr<FlightSqlSession> session,
     std::string session_id)
-    : factory_(factory), headers_(headers), session_(session), existing_session(true) {}
+    : factory_(factory), headers_(headers), session_(std::move(session)),
+      session_id_(std::move(session_id)), existing_session(true) {}
 
 void ServerSessionMiddleware::SendingHeaders(AddCallHeaders* addCallHeaders) {
   if (!existing_session && session_) {
@@ -145,16 +146,16 @@ void ServerSessionMiddleware::CallCompleted(const Status&) {}
 bool ServerSessionMiddleware::HasSession() const {
   return static_cast<bool>(session_);
 }
+
 std::shared_ptr<FlightSqlSession> ServerSessionMiddleware::GetSession() {
   if (!session_)
     session_ = factory_->GetNewSession(&session_id_);
   return session_;
 }
+
 const CallHeaders& ServerSessionMiddleware::GetCallHeaders() const {
   return headers_;
 }
-
-
 
 std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
   return std::shared_ptr<ServerSessionMiddlewareFactory>(
@@ -165,10 +166,12 @@ SessionOptionValue FlightSqlSession::GetSessionOption(const std::string& k) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
   return map_.at(k);
 }
+
 void FlightSqlSession::SetSessionOption(const std::string& k, const SessionOptionValue& v) {
   const std::unique_lock<std::shared_mutex> l(map_lock_);
   map_[k] = v;
 }
+
 void FlightSqlSession::EraseSessionOption(const std::string& k) {
   const std::unique_lock<std::shared_mutex> l(map_lock_);
   map_.erase(k);
