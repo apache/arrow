@@ -774,21 +774,19 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
 
 Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
                                         std::vector<ActionType>* actions) {
-  *actions = {
-      ActionType::kCancelFlightInfo,
-      ActionType::kRenewFlightEndpoint,
-      FlightSqlServerBase::kBeginSavepointActionType,
-      FlightSqlServerBase::kBeginTransactionActionType,
-      FlightSqlServerBase::kCancelQueryActionType,
-      FlightSqlServerBase::kCreatePreparedStatementActionType,
-      FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
-      FlightSqlServerBase::kClosePreparedStatementActionType,
-      FlightSqlServerBase::kCloseSessionActionType,
-      FlightSqlServerBase::kEndSavepointActionType,
-      FlightSqlServerBase::kEndTransactionActionType,
-      FlightSqlServerBase::kSetSessionOptionsActionType,
-      FlightSqlServerBase::kGetSessionOptionsActionType
-  };
+  *actions = {ActionType::kCancelFlightInfo,
+              ActionType::kRenewFlightEndpoint,
+              FlightSqlServerBase::kBeginSavepointActionType,
+              FlightSqlServerBase::kBeginTransactionActionType,
+              FlightSqlServerBase::kCancelQueryActionType,
+              FlightSqlServerBase::kCreatePreparedStatementActionType,
+              FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
+              FlightSqlServerBase::kClosePreparedStatementActionType,
+              FlightSqlServerBase::kCloseSessionActionType,
+              FlightSqlServerBase::kEndSavepointActionType,
+              FlightSqlServerBase::kEndTransactionActionType,
+              FlightSqlServerBase::kSetSessionOptionsActionType,
+              FlightSqlServerBase::kGetSessionOptionsActionType};
   return Status::OK();
 }
 
@@ -1138,8 +1136,7 @@ arrow::Result<FlightEndpoint> FlightSqlServerBase::RenewFlightEndpoint(
 }
 
 arrow::Result<CloseSessionResult> FlightSqlServerBase::CloseSession(
-    const ServerCallContext& context,
-    const CloseSessionRequest& request) {
+    const ServerCallContext& context, const CloseSessionRequest& request) {
   return Status::NotImplemented("CloseSession not implemented");
 }
 
@@ -1174,14 +1171,12 @@ Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
 }
 
 arrow::Result<SetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions(
-    const ServerCallContext& context,
-    const SetSessionOptionsRequest& request) {
+    const ServerCallContext& context, const SetSessionOptionsRequest& request) {
   return Status::NotImplemented("SetSessionOptions not implemented");
 }
 
 arrow::Result<GetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions(
-    const ServerCallContext& context,
-    const GetSessionOptionsRequest& request) {
+    const ServerCallContext& context, const GetSessionOptionsRequest& request) {
   return Status::NotImplemented("GetSessionOptions not implemented");
 }
 

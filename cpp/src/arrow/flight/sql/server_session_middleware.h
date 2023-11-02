@@ -21,6 +21,7 @@
 #pragma once
 
 #include <string_view>
+#include <shared_mutex>
 
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/types.h"
@@ -31,13 +32,13 @@ namespace sql {
 
 class ServerSessionMiddlewareFactory;
 
-static constexpr char const kSessionCookieName[] =
-    "flight_sql_session_id";
+static constexpr char const kSessionCookieName[] = "flight_sql_session_id";
 
 class FlightSqlSession {
  protected:
   std::map<std::string, SessionOptionValue> map_;
   std::shared_mutex map_lock_;
+
  public:
   /// \brief Get session option by key
   ::arrow::Result<SessionOptionValue> GetSessionOption(const std::string&);
@@ -48,8 +49,7 @@ class FlightSqlSession {
 };
 
 /// \brief A middleware to handle Session option persistence and related *Cookie headers.
-class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware
-    : public ServerMiddleware {
+class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware {
  public:
   static constexpr char const kMiddlewareName[] =
       "arrow::flight::sql::ServerSessionMiddleware";
@@ -66,25 +66,22 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware
   const CallHeaders& GetCallHeaders() const;
 
  protected:
-    friend class ServerSessionMiddlewareFactory;
+  friend class ServerSessionMiddlewareFactory;
   ServerSessionMiddlewareFactory* factory_;
   const CallHeaders& headers_;
   std::shared_ptr<FlightSqlSession> session_;
   std::string session_id_;
   const bool existing_session;
 
-  ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
-                          const CallHeaders&);
-  ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
-                          const CallHeaders&,
-                          std::shared_ptr<FlightSqlSession>,
-                          std::string session_id);
+  ServerSessionMiddleware(ServerSessionMiddlewareFactory*, const CallHeaders&);
+  ServerSessionMiddleware(ServerSessionMiddlewareFactory*, const CallHeaders&,
+                          std::shared_ptr<FlightSqlSession>, std::string session_id);
 };
 
 /// \brief Returns a ServerMiddlewareFactory that handles Session option storage.
 ARROW_FLIGHT_SQL_EXPORT std::shared_ptr<ServerMiddlewareFactory>
 MakeServerSessionMiddlewareFactory();
 
-} // namespace sql
-} // namespace flight
-} // namespace arrow
+}  // namespace sql
+}  // namespace flight
+}  // namespace arrow

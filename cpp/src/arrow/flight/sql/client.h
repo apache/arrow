@@ -18,8 +18,8 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <map>
+#include <memory>
 #include <string>
 
 #include "arrow/flight/client.h"
@@ -356,8 +356,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] options            RPC-layer hints for this call.
   /// \param[in] request            The session options to set.
   ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
-      const FlightCallOptions& options,
-      const SetSessionOptionsRequest& request) {
+      const FlightCallOptions& options, const SetSessionOptionsRequest& request) {
     return impl_->SetSessionOptions(options, request);
   }
 
@@ -365,8 +364,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   ///
   /// \param[in] options            RPC-layer hints for this call.
   ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
-      const FlightCallOptions& options,
-      const GetSessionOptionsRequest& request) {
+      const FlightCallOptions& options, const GetSessionOptionsRequest& request) {
     return impl_->GetSessionOptions(options, request);
   }
 

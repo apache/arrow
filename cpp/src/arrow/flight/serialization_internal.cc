@@ -28,9 +28,11 @@
 #include "arrow/status.h"
 
 // Lambda helper & CTAD
-template<class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> // CTAD will not be needed for >=C++20
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts>  // CTAD will not be needed for >=C++20
 overloaded(Ts...) -> overloaded<Ts...>;
 
 namespace arrow {
@@ -388,8 +390,7 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
 
 // SessionOptionValue
 
-Status FromProto(const pb::SessionOptionValue& pb_val,
-                 SessionOptionValue* val) {
+Status FromProto(const pb::SessionOptionValue& pb_val, SessionOptionValue* val) {
   switch (pb_val.option_value_case()) {
     case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
       return Status::Invalid("Unset SessionOptionValue found");
@@ -413,8 +414,8 @@ Status FromProto(const pb::SessionOptionValue& pb_val,
       break;
     case pb::SessionOptionValue::kStringListValue:
       (*val).emplace<std::vector<std::string>>();
-      std::get<std::vector<std::string>>(*val)
-          .reserve(pb_val.string_list_value().values_size());
+      std::get<std::vector<std::string>>(*val).reserve(
+          pb_val.string_list_value().values_size());
       for (const std::string& s : pb_val.string_list_value().values())
         std::get<std::vector<std::string>>(*val).push_back(s);
       break;
@@ -422,28 +423,24 @@ Status FromProto(const pb::SessionOptionValue& pb_val,
   return Status::OK();
 }
 
-Status ToProto(const SessionOptionValue& val,
-               pb::SessionOptionValue* pb_val) {
-  std::visit(overloaded{
-      [&](std::string v) {  pb_val->set_string_value(v); },
-      [&](bool v) { pb_val->set_bool_value(v); },
-      [&](int32_t v) { pb_val->set_int32_value(v); },
-      [&](int64_t v) { pb_val->set_int64_value(v); },
-      [&](float v) { pb_val->set_float_value(v); },
-      [&](double v) { pb_val->set_double_value(v); },
-      [&](std::vector<std::string> v) {
-        auto* string_list_value = pb_val->mutable_string_list_value();
-        for (const std::string& s : v)
-          string_list_value->add_values(s);
-      }
-    }, val);
+Status ToProto(const SessionOptionValue& val, pb::SessionOptionValue* pb_val) {
+  std::visit(overloaded{[&](std::string v) { pb_val->set_string_value(v); },
+                        [&](bool v) { pb_val->set_bool_value(v); },
+                        [&](int32_t v) { pb_val->set_int32_value(v); },
+                        [&](int64_t v) { pb_val->set_int64_value(v); },
+                        [&](float v) { pb_val->set_float_value(v); },
+                        [&](double v) { pb_val->set_double_value(v); },
+                        [&](std::vector<std::string> v) {
+                          auto* string_list_value = pb_val->mutable_string_list_value();
+                          for (const std::string& s : v) string_list_value->add_values(s);
+                        }},
+             val);
   return Status::OK();
 }
 
 // map<string, SessionOptionValue>
 
-Status FromProto(const google::protobuf::Map<std::string,
-                                             pb::SessionOptionValue>& pb_map,
+Status FromProto(const google::protobuf::Map<std::string, pb::SessionOptionValue>& pb_map,
                  std::map<std::string, SessionOptionValue>* map) {
   if (pb_map.empty()) {
     return Status::OK();
@@ -456,7 +453,7 @@ Status FromProto(const google::protobuf::Map<std::string,
 
 Status ToProto(const std::map<std::string, SessionOptionValue>& map,
                google::protobuf::Map<std::string, pb::SessionOptionValue>* pb_map) {
-  for (const auto & [key, val] : map) {
+  for (const auto& [key, val] : map) {
     RETURN_NOT_OK(ToProto(val, &(*pb_map)[key]));
   }
   return Status::OK();
@@ -466,15 +463,13 @@ Status ToProto(const std::map<std::string, SessionOptionValue>& map,
 
 Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
                  SetSessionOptionsRequest* request) {
-  RETURN_NOT_OK(FromProto(pb_request.session_options(),
-                          &request->session_options));
+  RETURN_NOT_OK(FromProto(pb_request.session_options(), &request->session_options));
   return Status::OK();
 }
 
 Status ToProto(const SetSessionOptionsRequest& request,
                pb::SetSessionOptionsRequest* pb_request) {
-  RETURN_NOT_OK(ToProto(request.session_options,
-                        pb_request->mutable_session_options()));
+  RETURN_NOT_OK(ToProto(request.session_options, pb_request->mutable_session_options()));
   return Status::OK();
 }
 
@@ -513,15 +508,13 @@ Status ToProto(const GetSessionOptionsRequest& request,
 
 Status FromProto(const pb::GetSessionOptionsResult& pb_result,
                  GetSessionOptionsResult* result) {
-  RETURN_NOT_OK(FromProto(pb_result.session_options(),
-                          &result->session_options));
+  RETURN_NOT_OK(FromProto(pb_result.session_options(), &result->session_options));
   return Status::OK();
 }
 
 Status ToProto(const GetSessionOptionsResult& result,
-              pb::GetSessionOptionsResult* pb_result) {
-  RETURN_NOT_OK(ToProto(result.session_options,
-                        pb_result->mutable_session_options()));
+               pb::GetSessionOptionsResult* pb_result) {
+  RETURN_NOT_OK(ToProto(result.session_options, pb_result->mutable_session_options()));
   return Status::OK();
 }
 
@@ -532,24 +525,19 @@ Status FromProto(const pb::CloseSessionRequest& pb_request,
   return Status::OK();
 }
 
-Status ToProto(const CloseSessionRequest& request,
-               pb::CloseSessionRequest* pb_request) {
+Status ToProto(const CloseSessionRequest& request, pb::CloseSessionRequest* pb_request) {
   return Status::OK();
 }
 
 // CloseSessionResult
 
-Status FromProto(const pb::CloseSessionResult& pb_result,
-                 CloseSessionResult* result) {
+Status FromProto(const pb::CloseSessionResult& pb_result, CloseSessionResult* result) {
   result->status = static_cast<CloseSessionStatus>(pb_result.status());
   return Status::OK();
 }
 
-Status ToProto(const CloseSessionResult& result,
-               pb::CloseSessionResult* pb_result) {
-  pb_result->set_status(
-    static_cast<protocol::CloseSessionResult::Status>(
-      result.status));
+Status ToProto(const CloseSessionResult& result, pb::CloseSessionResult* pb_result) {
+  pb_result->set_status(static_cast<protocol::CloseSessionResult::Status>(result.status));
   return Status::OK();
 }
 

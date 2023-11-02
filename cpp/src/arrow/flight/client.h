@@ -383,27 +383,24 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoExchange({}, descriptor);
   }
 
-/// \\brief Set server session option(s) by key/value. Sessions are generally
-/// persisted via HTTP cookies.
-/// \param[in] options Per-RPC options
-/// \param[in] request The server session options to set
-::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
-    const FlightCallOptions& options,
-    const SetSessionOptionsRequest& request);
+  /// \\brief Set server session option(s) by key/value. Sessions are generally
+  /// persisted via HTTP cookies.
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The server session options to set
+  ::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
+      const FlightCallOptions& options, const SetSessionOptionsRequest& request);
 
-/// \\brief Get the current server session options. The session is generally
-/// accessed via an HTTP cookie.
-/// \param[in] options Per-RPC options
-::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
-    const FlightCallOptions& options,
-    const GetSessionOptionsRequest& request);
+  /// \\brief Get the current server session options. The session is generally
+  /// accessed via an HTTP cookie.
+  /// \param[in] options Per-RPC options
+  ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const FlightCallOptions& options, const GetSessionOptionsRequest& request);
 
-/// \\brief Close/invalidate the current server session. The session is generally
-/// accessed via an HTTP cookie.
-/// \param[in] options Per-RPC options
-::arrow::Result<CloseSessionResult> CloseSession(
-    const FlightCallOptions& options,
-    const CloseSessionRequest& request);
+  /// \\brief Close/invalidate the current server session. The session is generally
+  /// accessed via an HTTP cookie.
+  /// \param[in] options Per-RPC options
+  ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options,
+                                                   const CloseSessionRequest& request);
 
   /// \brief Explicitly shut down and clean up the client.
   ///

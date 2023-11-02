@@ -20,11 +20,11 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <map>
 #include <unordered_map>
 
 #include "arrow/flight/server.h"
@@ -606,22 +606,19 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] context  The call context.
   /// \param[in] request  The session options to set.
   virtual arrow::Result<SetSessionOptionsResult> SetSessionOptions(
-      const ServerCallContext& context,
-      const SetSessionOptionsRequest& request);
+      const ServerCallContext& context, const SetSessionOptionsRequest& request);
 
   /// \brief Get server session option(s).
   /// \param[in] context  The call context.
   /// \param[in] request  Request object.
   virtual arrow::Result<GetSessionOptionsResult> GetSessionOptions(
-      const ServerCallContext& context,
-      const GetSessionOptionsRequest& request);
+      const ServerCallContext& context, const GetSessionOptionsRequest& request);
 
   /// \brief Close/invalidate the session.
   /// \param[in] context  The call context.
   /// \param[in] request  Request object.
   virtual arrow::Result<CloseSessionResult> CloseSession(
-      const ServerCallContext& context,
-      const CloseSessionRequest& request);
+      const ServerCallContext& context, const CloseSessionRequest& request);
 
   /// \brief Attempt to explicitly cancel a query.
   ///

@@ -74,10 +74,8 @@ Status FromProto(const pb::GetSessionOptionsRequest& pb_request,
                  GetSessionOptionsRequest* request);
 Status FromProto(const pb::GetSessionOptionsResult& pb_result,
                  GetSessionOptionsResult* result);
-Status FromProto(const pb::CloseSessionRequest& pb_request,
-                 CloseSessionRequest* request);
-Status FromProto(const pb::CloseSessionResult& pb_result,
-                 CloseSessionResult* result);
+Status FromProto(const pb::CloseSessionRequest& pb_request, CloseSessionRequest* request);
+Status FromProto(const pb::CloseSessionResult& pb_result, CloseSessionResult* result);
 
 Status ToProto(const Timestamp& timestamp, google::protobuf::Timestamp* pb_timestamp);
 Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
@@ -105,10 +103,8 @@ Status ToProto(const GetSessionOptionsRequest& request,
                pb::GetSessionOptionsRequest* pb_request);
 Status ToProto(const GetSessionOptionsResult& result,
                pb::GetSessionOptionsResult* pb_result);
-Status ToProto(const CloseSessionRequest& request,
-               pb::CloseSessionRequest* pb_request);
-Status ToProto(const CloseSessionResult& result,
-               pb::CloseSessionResult* pb_result);
+Status ToProto(const CloseSessionRequest& request, pb::CloseSessionRequest* pb_request);
+Status ToProto(const CloseSessionResult& result, pb::CloseSessionResult* pb_result);
 
 Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 

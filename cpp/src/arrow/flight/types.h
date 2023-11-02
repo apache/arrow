@@ -765,8 +765,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
 };
 
 /// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
-using SessionOptionValue = std::variant<
-  std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
+using SessionOptionValue = std::variant<std::string, bool, int32_t, int64_t, float,
+                                        double, std::vector<std::string>>;
 
 /// \brief The result of setting a session option.
 enum class SetSessionOptionStatus : int8_t {
@@ -780,29 +780,13 @@ enum class SetSessionOptionStatus : int8_t {
 std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r);
 
 /// \brief The result of closing a session.
-enum class CloseSessionStatus : int8_t {
-  kUnspecified,
-  kClosed,
-  kClosing,
-  kNotClosable
-};
+enum class CloseSessionStatus : int8_t { kUnspecified, kClosed, kClosing, kNotClosable };
 std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r);
 
 static const char* const SetSessionOptionStatusNames[] = {
-  "Unspecified",
-  "Ok",
-  "OkMapped",
-  "InvalidKey",
-  "InvalidValue",
-  "Error"
-};
-static const char* const CloseSessionStatusNames[] = {
-  "Unspecified",
-  "Closed",
-  "Closing",
-  "NotClosable"
-};
-
+    "Unspecified", "Ok", "OkMapped", "InvalidKey", "InvalidValue", "Error"};
+static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
+                                                      "NotClosable"};
 
 /// \brief A request to set a set of session options by key/value.
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
@@ -824,8 +808,7 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<SetSessionOptionsRequest>
-  Deserialize(std::string_view serialized);
+  static arrow::Result<SetSessionOptionsRequest> Deserialize(std::string_view serialized);
 };
 
 /// \brief The result(s) of setting session option(s).
@@ -848,8 +831,7 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<SetSessionOptionsResult>
-  Deserialize(std::string_view serialized);
+  static arrow::Result<SetSessionOptionsResult> Deserialize(std::string_view serialized);
 };
 
 /// \brief A request to get current session options.
@@ -870,8 +852,7 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest {
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<GetSessionOptionsRequest>
-  Deserialize(std::string_view serialized);
+  static arrow::Result<GetSessionOptionsRequest> Deserialize(std::string_view serialized);
 };
 
 /// \brief The current session options.
@@ -894,12 +875,12 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult {
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<GetSessionOptionsResult>
-  Deserialize(std::string_view serialized);
+  static arrow::Result<GetSessionOptionsResult> Deserialize(std::string_view serialized);
 };
 
 /// \brief A request to close the open client session.
-struct ARROW_FLIGHT_EXPORT CloseSessionRequest {  std::string ToString() const;
+struct ARROW_FLIGHT_EXPORT CloseSessionRequest {
+  std::string ToString() const;
   bool Equals(const CloseSessionRequest& other) const;
 
   friend bool operator==(const CloseSessionRequest& left,
@@ -915,8 +896,7 @@ struct ARROW_FLIGHT_EXPORT CloseSessionRequest {  std::string ToString() const;
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CloseSessionRequest>
-  Deserialize(std::string_view serialized);
+  static arrow::Result<CloseSessionRequest> Deserialize(std::string_view serialized);
 };
 
 /// \brief The result of attempting to close the client session.
@@ -939,8 +919,7 @@ struct ARROW_FLIGHT_EXPORT CloseSessionResult {
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CloseSessionResult>
-  Deserialize(std::string_view serialized);
+  static arrow::Result<CloseSessionResult> Deserialize(std::string_view serialized);
 };
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.

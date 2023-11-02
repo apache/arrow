@@ -101,15 +101,15 @@ TEST(TestStringOps, TestChrBigInt) {
   out = chr_int64(ctx_ptr, -66, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\xBE");
 
-  //€
+  // €
   out = chr_int32(ctx_ptr, 128, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\x80");
 
-  //œ
+  // œ
   out = chr_int64(ctx_ptr, 156, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\x9C");
 
-  //ÿ
+  // ÿ
   out = chr_int32(ctx_ptr, 255, &out_len);
   EXPECT_EQ(std::string(out, out_len), "\xFF");
 

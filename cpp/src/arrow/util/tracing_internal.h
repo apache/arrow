@@ -135,12 +135,11 @@ opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
 opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
     const util::tracing::Span& parent_span);
 
-#define START_SPAN(target_span, ...)                           \
-  auto opentelemetry_scope##__LINE__ =                         \
-      ::arrow::internal::tracing::GetTracer()->WithActiveSpan( \
-          ::arrow::internal::tracing::RewrapSpan(              \
-              target_span.details.get(),                       \
-              ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__)))
+#define START_SPAN(target_span, ...)                                           \
+  auto opentelemetry_scope##__LINE__ = ::arrow::internal::tracing::GetTracer() \
+      -> WithActiveSpan(::arrow::internal::tracing::RewrapSpan(                \
+          target_span.details.get(),                                           \
+          ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__)))
 
 #define START_SCOPED_SPAN(target_span, ...)                    \
   ::arrow::internal::tracing::Scope(                           \

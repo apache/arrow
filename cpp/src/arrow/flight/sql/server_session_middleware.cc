@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <shared_mutex>
 #include "arrow/flight/sql/server_session_middleware.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -56,17 +55,16 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       const std::string_view tok = s.substr(cur, len);
 
       const size_t val_pos = tok.find(pair_sep);
-      result.emplace_back(
-          tok.substr(0, val_pos),
-          tok.substr(val_pos + pair_sep_len, std::string::npos));
+      result.emplace_back(tok.substr(0, val_pos),
+                          tok.substr(val_pos + pair_sep_len, std::string::npos));
     }
 
     return result;
   }
 
  public:
-  Status StartCall(const CallInfo &, const CallHeaders &incoming_headers,
-                   std::shared_ptr<ServerMiddleware> *middleware) {
+  Status StartCall(const CallInfo&, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) {
     std::string session_id;
 
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>&
@@ -79,9 +77,9 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
         if (cookie.first == kSessionCookieName) {
           session_id = cookie.second;
           if (session_id.empty())
-            return Status::Invalid(
-                "Empty " + static_cast<std::string>(kSessionCookieName)
-                + " cookie value.");
+            return Status::Invalid("Empty " +
+                                   static_cast<std::string>(kSessionCookieName) +
+                                   " cookie value.");
         }
       }
       if (!session_id.empty()) break;
@@ -96,12 +94,10 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
         const std::shared_lock<std::shared_mutex> l(session_store_lock_);
         auto session = session_store_.at(session_id);
         *middleware = std::shared_ptr<ServerSessionMiddleware>(
-            new ServerSessionMiddleware(this, incoming_headers,
-                                        session, session_id));
+            new ServerSessionMiddleware(this, incoming_headers, session, session_id));
       } catch (std::out_of_range& e) {
-        return Status::Invalid(
-            "Invalid or expired "
-            + static_cast<std::string>(kSessionCookieName) + " cookie.");
+        return Status::Invalid("Invalid or expired " +
+                               static_cast<std::string>(kSessionCookieName) + " cookie.");
       }
     }
 
@@ -127,42 +123,38 @@ ServerSessionMiddleware::ServerSessionMiddleware(ServerSessionMiddlewareFactory*
 
 ServerSessionMiddleware::ServerSessionMiddleware(
     ServerSessionMiddlewareFactory* factory, const CallHeaders& headers,
-    std::shared_ptr<FlightSqlSession> session,
-    std::string session_id)
-    : factory_(factory), headers_(headers), session_(std::move(session)),
-      session_id_(std::move(session_id)), existing_session(true) {}
+    std::shared_ptr<FlightSqlSession> session, std::string session_id)
+    : factory_(factory),
+      headers_(headers),
+      session_(std::move(session)),
+      session_id_(std::move(session_id)),
+      existing_session(true) {}
 
 void ServerSessionMiddleware::SendingHeaders(AddCallHeaders* addCallHeaders) {
   if (!existing_session && session_) {
     addCallHeaders->AddHeader(
-        "set-cookie",
-        static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
+        "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
   }
 }
 
 void ServerSessionMiddleware::CallCompleted(const Status&) {}
 
-bool ServerSessionMiddleware::HasSession() const {
-  return static_cast<bool>(session_);
-}
+bool ServerSessionMiddleware::HasSession() const { return static_cast<bool>(session_); }
 
 std::shared_ptr<FlightSqlSession> ServerSessionMiddleware::GetSession() {
-  if (!session_)
-    session_ = factory_->GetNewSession(&session_id_);
+  if (!session_) session_ = factory_->GetNewSession(&session_id_);
   return session_;
 }
 
-const CallHeaders& ServerSessionMiddleware::GetCallHeaders() const {
-  return headers_;
-}
+const CallHeaders& ServerSessionMiddleware::GetCallHeaders() const { return headers_; }
 
 std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
   return std::shared_ptr<ServerSessionMiddlewareFactory>(
       new ServerSessionMiddlewareFactory());
 }
 
-::arrow::Result<SessionOptionValue>
-FlightSqlSession::GetSessionOption(const std::string& k) {
+::arrow::Result<SessionOptionValue> FlightSqlSession::GetSessionOption(
+    const std::string& k) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
   try {
     return map_.at(k);
@@ -171,8 +163,8 @@ FlightSqlSession::GetSessionOption(const std::string& k) {
   }
 }
 
-void FlightSqlSession::SetSessionOption(
-    const std::string& k, const SessionOptionValue& v) {
+void FlightSqlSession::SetSessionOption(const std::string& k,
+                                        const SessionOptionValue& v) {
   const std::unique_lock<std::shared_mutex> l(map_lock_);
   map_[k] = v;
 }
@@ -182,6 +174,6 @@ void FlightSqlSession::EraseSessionOption(const std::string& k) {
   map_.erase(k);
 }
 
-} // namespace sql
-} // namespace flight
-} // namespace arrow
+}  // namespace sql
+}  // namespace flight
+}  // namespace arrow
