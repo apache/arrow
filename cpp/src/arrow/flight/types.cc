@@ -514,30 +514,32 @@ std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
   return os;
 }
 
-static bool CompareSessionOptionMaps(
-    const std::map<std::string, SessionOptionValue>& a,
-    const std::map<std::string, SessionOptionValue>& b) {
-  if (a.size() != b.size()) {
-    return false;
+namespace {
+  static bool CompareSessionOptionMaps(
+     const std::map<std::string, SessionOptionValue>& a,
+     const std::map<std::string, SessionOptionValue>& b) {
+   if (a.size() != b.size()) {
+     return false;
+   }
+   for (const auto & [k, v] : a) {
+     if (!b.count(k)) {
+       return false;
+     }
+     try {
+       const auto& b_v = b.at(k);
+       if (v.index() != b_v.index()) {
+         return false;
+       }
+       if (v != b_v) {
+         return false;
+       }
+     } catch ( const std::out_of_range& e ) {
+       return false;
+     }
+   }
+   return true;
   }
-  for (const auto & [k, v] : a) {
-    if (!b.count(k)) {
-      return false;
-    }
-    try {
-      const auto& b_v = b.at(k);
-      if (v.index() != b_v.index()) {
-        return false;
-      }
-      if (v != b_v) {
-        return false;
-      }
-    } catch ( const std::out_of_range& e ) {
-      return false;
-    }
-  }
-  return true;
-}
+} 
 
 // SetSessionOptionsRequest
 
