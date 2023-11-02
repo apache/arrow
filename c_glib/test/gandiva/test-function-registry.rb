@@ -19,9 +19,8 @@ class TestGandivaFunctionRegistry < Test::Unit::TestCase
   include Helper::DataType
 
   def setup
-    omit("Skip Gandiva FunctionRegistry tests because the underlying API is changed")
     omit("Gandiva is required") unless defined?(::Gandiva)
-    @registry = Gandiva::FunctionRegistry.new
+    @registry = Gandiva::FunctionRegistry.default
   end
 
   sub_test_case("lookup") do

@@ -19,9 +19,8 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
   include Helper::DataType
 
   def setup
-    omit("Skip Gandiva NativeFunction tests because the underlying API is changed")
     omit("Gandiva is required") unless defined?(::Gandiva)
-    @registry = Gandiva::FunctionRegistry.new
+    @registry = Gandiva::FunctionRegistry.default
     @not = lookup("not", [boolean_data_type], boolean_data_type)
     @isnull = lookup("isnull", [int8_data_type], boolean_data_type)
   end
