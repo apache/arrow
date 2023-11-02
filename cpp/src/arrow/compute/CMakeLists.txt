@@ -89,9 +89,7 @@ add_arrow_test(internals_test
                kernel_test.cc
                light_array_test.cc
                registry_test.cc
-               key_hash_test.cc
-               EXTRA_LINK_LIBS
-               ${ARROW_GTEST_GMOCK})
+               key_hash_test.cc)
 
 add_arrow_compute_test(expression_test SOURCES expression_test.cc)
 

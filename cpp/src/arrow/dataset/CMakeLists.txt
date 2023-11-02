@@ -113,8 +113,7 @@ if(ARROW_TESTING)
   add_library(arrow_dataset_testing OBJECT test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_dataset_testing ${ARROW_DATASET_TEST_LINK_LIBS})
-  target_link_libraries(arrow_dataset_testing ${ARROW_GTEST_GTEST})
+  target_link_libraries(arrow_dataset_testing PRIVATE ${ARROW_DATASET_TEST_LINK_LIBS})
   list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
 endif()
 
