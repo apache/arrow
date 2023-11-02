@@ -51,7 +51,7 @@ classdef tArray < matlab.unittest.TestCase
         % Verify arrow.array throws an error with the identifier
         % "arrow:array:UnsupportedMATLABType" if the input array is not one
         % we support converting into an Arrow array.
-            matlabArray = {table};
+            matlabArray = calmonths(12);
             fcn = @() arrow.array(matlabArray);
             errID = "arrow:array:UnsupportedMATLABType";
             testCase.verifyError(fcn, errID);
