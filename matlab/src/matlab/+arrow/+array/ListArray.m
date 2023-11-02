@@ -129,12 +129,15 @@ classdef ListArray < arrow.array.Array
 
             numElements = numel(C);
             valid = true([numElements 1]);
+            % All elements before the first non-missing value should be 
+            % treated as null values.
             valid(1:idx-1) = false;
             offsets = zeros([numElements + 1 1], "int32");
 
             for ii = idx:numElements
                 element = C{ii};
                 if isa(element, "missing")
+                    % Treat missing values as null values.
                     valid(ii) = false;
                     offsets(ii + 1) = offsets(ii);
                 else
