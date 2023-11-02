@@ -19,7 +19,7 @@ classdef ListTraits < arrow.type.traits.TypeTraits
         ArrayConstructor = @arrow.array.ListArray
         ArrayClassName = "arrow.array.ListArray"
         ArrayProxyClassName = "arrow.array.proxy.ListArray"
-        ArrayStaticConstructor = missing
+        ArrayStaticConstructor = @arrow.array.ListArray.fromMATLAB
         TypeConstructor = @arrow.type.ListType
         TypeClassName = "arrow.type.ListType"
         TypeProxyClassName = "arrow.type.proxy.ListType"

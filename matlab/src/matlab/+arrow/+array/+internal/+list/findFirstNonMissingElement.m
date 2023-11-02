@@ -13,21 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tListTraits < hTypeTraits
-
-    properties
-        TraitsConstructor = @arrow.type.traits.ListTraits
-        ArrayConstructor = @arrow.array.ListArray
-        ArrayClassName = "arrow.array.ListArray"
-        ArrayProxyClassName = "arrow.array.proxy.ListArray"
-        ArrayStaticConstructor = @arrow.array.ListArray.fromMATLAB
-        TypeConstructor = @arrow.type.ListType
-        TypeClassName = "arrow.type.ListType"
-        TypeProxyClassName = "arrow.type.proxy.ListType"
-        % The cell function works differently than other
-        % "type construction functions" in MATLAB.
-        MatlabConstructor = missing
-        MatlabClassName = "cell"
+function idx = findFirstNonMissingElement(C)
+    idx = -1;
+    for ii=1:numel(C)
+        if ~isa(C{ii}, "missing")
+            idx = ii;
+            return;
+        end
     end
-
 end
