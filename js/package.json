@@ -83,7 +83,7 @@
     "del-cli": "5.1.0",
     "esbuild": "0.19.2",
     "esbuild-plugin-alias": "0.2.1",
-    "eslint": "8.42.0",
+    "eslint": "8.52.0",
     "eslint-plugin-jest": "27.4.2",
     "eslint-plugin-unicorn": "47.0.0",
     "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",
