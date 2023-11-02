@@ -33,8 +33,8 @@
 // cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
 #include <boost/process.hpp>
 
-#include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs.cc"
+#include "arrow/filesystem/azurefs.h"
 
 #include <random>
 #include <string>
@@ -146,7 +146,8 @@ class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
   std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> datalake_service_client_;
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+      datalake_service_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
@@ -254,12 +255,22 @@ class TestAzureHNSFileSystem : public TestAzureFileSystem {
 
 TEST_F(TestAzureFlatFileSystem, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = HierachicalNamespaceDetecter(datalake_service_client_);
-  EXPECT_FALSE(hierarchical_namespace.Enabled(PreexistingContainerName()));
+  ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(TestAzureHNSFileSystem, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = HierachicalNamespaceDetecter(datalake_service_client_);
-  EXPECT_TRUE(hierarchical_namespace.Enabled(PreexistingContainerName()));
+  ASSERT_OK_AND_EQ(true, hierarchical_namespace.Enabled(PreexistingContainerName()));
+}
+
+TEST_F(TestAzureFileSystem, DetectHierarchicalNamespace) {
+  auto hierarchical_namespace = HierachicalNamespaceDetecter(datalake_service_client_);
+  ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
+}
+
+TEST_F(TestAzureFileSystem, DetectHierarchicalNamespaceFailsWithMissingContainer) {
+  auto hierarchical_namespace = HierachicalNamespaceDetecter(datalake_service_client_);
+  ASSERT_NOT_OK(hierarchical_namespace.Enabled("non-existent-container"));
 }
 
 TEST_F(TestAzureFileSystem, GetFileInfoAccount) {

@@ -61,33 +61,62 @@ Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_n
   return Status::OK();
 }
 
+Status ErrorToStatus(const std::string& prefix,
+                     const Azure::Storage::StorageException& exception) {
+  return Status::IOError(prefix, " Azure Error: ", exception.what());
+}
+
 class HierachicalNamespaceDetecter {
  public:
   HierachicalNamespaceDetecter(
       std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
           datalake_service_client)
       : datalake_service_client_(datalake_service_client) {}
-  bool Enabled(const std::string& container) {
+  Result<bool> Enabled(const std::string& container) {
     if (is_hierachical_namespace_enabled_.has_value()) {
       return is_hierachical_namespace_enabled_.value();
     }
+
+    // This approach is inspired by hadoop-azure
+    // https://github.com/apache/hadoop/blob/7c6af6a5f626d18d68b656d085cc23e4c1f7a1ef/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/AzureBlobFileSystemStore.java#L356.
+    // Unfortunately `blob_service_client->GetAccountInfo()` requires significantly
+    // elevated permissions.
+    // https://learn.microsoft.com/en-us/rest/api/storageservices/get-blob-service-properties?tabs=azure-ad#authorization
+    auto filesystem_client = datalake_service_client_->GetFileSystemClient(container);
+    auto directory_client = filesystem_client.GetDirectoryClient("/");
     try {
-      datalake_service_client_->GetFileSystemClient(container)
-          .GetDirectoryClient("/")
-          .GetAccessControlList();
+      directory_client.GetAccessControlList();
       is_hierachical_namespace_enabled_ = true;
     } catch (const Azure::Storage::StorageException& exception) {
+      // GetAccessControlList will fail on storage accounts without hierarchical
+      // namespace enabled.
+
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest ||
           exception.StatusCode == Azure::Core::Http::HttpStatusCode::Conflict) {
-        // GetAccessControlList will fail on storage accounts without hierarchical
-        // namespace enabled. If soft delete blobs is enabled it returns Conflict, 
-        // otherwise it returns BadRequest.
-        // On Azureite it returns NotFound.
+        // Flat namespace storage accounts with soft delete enabled return
+        // Conflict - This endpoint does not support BlobStorageEvents or SoftDelete
+        // otherwise it returns: BadRequest - This operation is only supported on a
+        // hierarchical namespace account.
         is_hierachical_namespace_enabled_ = false;
+      } else if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+        // Azurite returns NotFound.
+        try {
+          // Ensure sure that the directory exists by checking its properties. If it
+          // doesn't then the GetAccessControlList check was invalid and we can't tell
+          // if the storage account has hierachical namespace.
+          filesystem_client.GetProperties();
+          is_hierachical_namespace_enabled_ = false;
+        } catch (const Azure::Storage::StorageException& exception) {
+          return ErrorToStatus(
+              "When getting properties '" + filesystem_client.GetUrl() + "': ",
+              exception);
+        }
       } else {
-        // Something else failed so we can't tell if the storage account has hierachical
+        // Unexpected error so we can't tell if the storage account has hierachical
         // namespace.
-        throw exception;
+        return ErrorToStatus(
+            "When getting access control list '" + directory_client.GetUrl() + "': ",
+            exception);
       }
     }
     return is_hierachical_namespace_enabled_.value();
@@ -183,11 +212,6 @@ Status ValidateFilePath(const AzurePath& path) {
     return NotAFile(path);
   }
   return Status::OK();
-}
-
-Status ErrorToStatus(const std::string& prefix,
-                     const Azure::Storage::StorageException& exception) {
-  return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
 
 bool ContainerOrBlobNotFound(const Azure::Storage::StorageException& exception) {
@@ -568,7 +592,9 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (ContainerOrBlobNotFound(exception)) {
-        if (hierarchical_namespace->Enabled(path.container)) {
+        ARROW_ASSIGN_OR_RAISE(bool hierarchical_namespace_enabled,
+                              hierarchical_namespace->Enabled(path.container));
+        if (hierarchical_namespace_enabled) {
           // If the hierarchical namespace is enabled, then the storage account will have
           // explicit directories. Neither a file nor a directory was found.
           return FileInfo(path.full_path, FileType::NotFound);
