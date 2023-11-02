@@ -203,7 +203,7 @@ export class RecordBatch<T extends TypeMap = any> {
      * Returns a child Vector by index, or null if this Vector has no child at the supplied index.
      * @param index The index of the child to retrieve.
      */
-    public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
+    public getChildAt<R extends T[keyof T] = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
             return new Vector([this.data.children[index]]) as Vector<R>;
         }
