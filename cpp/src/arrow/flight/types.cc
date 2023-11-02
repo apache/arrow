@@ -473,6 +473,16 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
   return out;
 }
 
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r) {
+  os << SetSessionOptionStatusNames[static_cast<int>(r)];
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r) {
+  os << CloseSessionStatusNames[static_cast<int>(r)];
+  return os;
+}
+
 // Helpers for stringifying maps containing various types
 std::ostream& operator<<(std::ostream& os, std::vector<std::string> v) {
   os << '[';
@@ -484,7 +494,13 @@ std::ostream& operator<<(std::ostream& os, std::vector<std::string> v) {
   os << ']';
 
   return os;
+}    
+
+std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
+  std::visit([&](const auto& x) { os << x; }, v);
+  return os;
 }
+
 template <typename T>
 std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
   os << '{';
@@ -497,6 +513,7 @@ std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
 
   return os;
 }
+
 static bool CompareSessionOptionMaps(
     const std::map<std::string, SessionOptionValue>& a,
     const std::map<std::string, SessionOptionValue>& b) {

@@ -767,10 +767,6 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
 /// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
 using SessionOptionValue =
     std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
-std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
-  std::visit([&](const auto& x) { os << x; }, v);
-  return os;
-}
 
 /// \brief The result of setting a session option.
 enum class SetSessionOptionStatus : int8_t {
@@ -781,29 +777,15 @@ enum class SetSessionOptionStatus : int8_t {
   kInvalidValue,
   kError
 };
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r) {
-  switch (r) {
-    case SetSessionOptionStatus::kUnspecified:
-      os << "Unspecified";
-      break;
-    case SetSessionOptionStatus::kOk:
-      os << "Ok";
-      break;
-    case SetSessionOptionStatus::kOkMapped:
-      os << "OkMapped";
-      break;
-    case SetSessionOptionStatus::kInvalidKey:
-      os << "InvalidName";
-      break;
-    case SetSessionOptionStatus::kInvalidValue:
-      os << "InvalidValue";
-      break;
-    case SetSessionOptionStatus::kError:
-      os << "Error";
-      break;
-  }
-  return os;
-}
+static std::string SetSessionOptionStatusNames[] = {
+  "Unspecified",
+  "Ok",
+  "OkMapped",
+  "InvalidKey",
+  "InvalidValue",
+  "Error"
+};
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r);
 
 /// \brief The result of closing a session.
 enum class CloseSessionStatus : int8_t {
@@ -812,23 +794,13 @@ enum class CloseSessionStatus : int8_t {
   kClosing,
   kNotClosable
 };
-std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r) {
-  switch (r) {
-    case CloseSessionStatus::kUnspecified:
-      os << "Unspecified";
-      break; 
-    case CloseSessionStatus::kClosed:
-      os << "Closed";
-      break; 
-    case CloseSessionStatus::kClosing:
-      os << "Closing";
-      break; 
-    case CloseSessionStatus::kNotClosable:
-      os << "NotClosable";
-      break; 
-  }
-  return os;
-}
+static std::string CloseSessionStatusNames[] = {
+  "Unspecified",
+  "Closed",
+  "Closing",
+  "NotClosable"
+};
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r);
 
 /// \brief A request to set a set of session options by key/value.
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
