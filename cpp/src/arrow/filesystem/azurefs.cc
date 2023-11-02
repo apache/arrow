@@ -451,14 +451,15 @@ class ObjectInputFile final : public io::RandomAccessFile {
 class HierachicalNamespaceDetecter {
  public:
   HierachicalNamespaceDetecter(
-      Azure::Storage::Files::DataLake::DataLakeServiceClient datalake_service_client)
+      std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+          datalake_service_client)
       : datalake_service_client_(datalake_service_client) {}
   bool Enabled(const std::string& container) {
     if (is_hierachical_namespace_enabled_.has_value()) {
       return is_hierachical_namespace_enabled_.value();
     }
     try {
-      datalake_service_client_.GetFileSystemClient(container)
+      datalake_service_client_->GetFileSystemClient(container)
           .GetDirectoryClient("/")
           .GetAccessControlList();
       is_hierachical_namespace_enabled_ = true;
@@ -478,7 +479,8 @@ class HierachicalNamespaceDetecter {
   }
 
  private:
-  Azure::Storage::Files::DataLake::DataLakeServiceClient datalake_service_client_;
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+      datalake_service_client_;
   std::optional<bool> is_hierachical_namespace_enabled_;
 };
 
@@ -505,9 +507,8 @@ class AzureFileSystem::Impl {
     datalake_service_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
-    hierarchical_namespace = std::make_shared<HierachicalNamespaceDetecter>(
-        Azure::Storage::Files::DataLake::DataLakeServiceClient(
-            options_.account_dfs_url, options_.storage_credentials_provider));
+    hierarchical_namespace =
+        std::make_shared<HierachicalNamespaceDetecter>(datalake_service_client_);
     return Status::OK();
   }
 
