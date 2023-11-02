@@ -23,7 +23,7 @@ classdef TableValidator < arrow.array.internal.list.ClassTypeValidator
     methods
         function obj = TableValidator(T)
             arguments
-                T table {}
+                T table
             end
             
             numVars = width(T);
