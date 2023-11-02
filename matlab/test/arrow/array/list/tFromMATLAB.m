@@ -104,6 +104,33 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
+        function OnlyEmptyElements(testCase)
+            % Create a ListArray containing only empty elements.
+            import arrow.array.ListArray
+
+            emptyDuration = duration.empty(0, 0);
+
+            C = {emptyDuration, emptyDuration, emptyDuration, emptyDuration};
+            actual = ListArray.fromMATLAB(C);
+
+            values = arrow.array(duration.empty);
+            offsets = arrow.array(int32([0 0 0 0 0]));
+            expected = ListArray.fromArrays(offsets, values);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function ClassTypeMismatchError(testCase)
+            % Verify fromMATLAB throws an error whose identifier is
+            % "arrow:array:list:ClassTypeMismatch" if given a cell array
+            % containing arrays with different class types.
+            import arrow.array.ListArray
+
+            C = {1, [2 3 4], "A", 5};
+            fcn = @() ListArray.fromMATLAB(C);
+            testCase.verifyError(fcn, "arrow:array:list:ClassTypeMismatch");
+        end
+
     end
 
 end
