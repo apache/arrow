@@ -167,10 +167,11 @@ classdef tTableValidator < matlab.unittest.TestCase
 
             % validator expects all table variables that are not tables
             % themselves to be columnar or empty
-             inputTable = table([1 2 3 4], "B", datetime(2023, 10, 31, TimeZone="UTC"), ...
+            nonColumnar = [1 2 3 4];
+            inputTable = table(nonColumnar, "B", datetime(2023, 10, 31, TimeZone="UTC"), ...
                 VariableNames=["Number", "Letter", "Date"]);
-             fcn = @() validator.validateElement(inputTable);
-             testCase.verifyError(fcn, "arrow:array:list:NonTabularVariablesMustBeColumnar");
+            fcn = @() validator.validateElement(inputTable);
+            testCase.verifyError(fcn, "arrow:array:list:NonTabularVariablesMustBeColumnar");
         end
 
         function ValidateElementErrorFromSecondVariable(testCase)
@@ -188,10 +189,11 @@ classdef tTableValidator < matlab.unittest.TestCase
 
             % validator expects all table variables that are not tables
             % themselves to be columnar or empty
-             inputTable = table(2, ["A" "B"], datetime(2023, 10, 31, TimeZone="UTC"), ...
+            nonColumnar = ["A" "B"];
+            inputTable = table(2, nonColumnar, datetime(2023, 10, 31, TimeZone="UTC"), ...
                 VariableNames=["Number", "Letter", "Date"]);
-             fcn = @() validator.validateElement(inputTable);
-             testCase.verifyError(fcn, "arrow:array:list:NonTabularVariablesMustBeColumnar");
+            fcn = @() validator.validateElement(inputTable);
+            testCase.verifyError(fcn, "arrow:array:list:NonTabularVariablesMustBeColumnar");
         end
 
         function ValidateElementErrorFromThirdVariable(testCase)
@@ -215,10 +217,10 @@ classdef tTableValidator < matlab.unittest.TestCase
 
             % validator expects all table variables that are not tables
             % themselves to be columnar or empty
-             inputTable = table(2, "B", datetime(2023, 10, 31, TimeZone="UTC") + days(0:4), ...
-                VariableNames=["Number", "Letter", "Date"]);
-             fcn = @() validator.validateElement(inputTable);
-             testCase.verifyError(fcn, "arrow:array:list:NonTabularVariablesMustBeColumnar");
+            nonColumnar = datetime(2023, 10, 31, TimeZone="UTC") + days(0:4);
+            inputTable = table(2, "B", nonColumnar, VariableNames=["Number", "Letter", "Date"]);
+            fcn = @() validator.validateElement(inputTable);
+            testCase.verifyError(fcn, "arrow:array:list:NonTabularVariablesMustBeColumnar");
         end
 
         function validateElementNoThrow(testCase)
@@ -235,6 +237,7 @@ classdef tTableValidator < matlab.unittest.TestCase
             inputTable = repmat(inputTable, [10 1]);
             validator.validateElement(inputTable);
 
+            % Create a 0x3 table
             inputTable = inputTable(1:0, :);
             validator.validateElement(inputTable);
         end
