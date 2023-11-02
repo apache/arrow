@@ -435,9 +435,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamStringBuffers) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
-  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
-  // fs->GetFileInfo(PreexistingObjectPath()));
-  arrow::fs::FileInfo info(PreexistingObjectPath(), FileType::File);
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
 
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(info));
@@ -465,14 +463,10 @@ TEST_F(TestAzureFileSystem, OpenInputStreamNotFound) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamInfoInvalid) {
-  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
-  // fs->GetFileInfo(PreexistingContainerPath()));
-  arrow::fs::FileInfo info(PreexistingContainerPath(), FileType::Directory);
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingContainerPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info));
 
-  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
-  // fs->GetFileInfo(NotFoundObjectPath()));
-  arrow::fs::FileInfo info2(PreexistingContainerPath(), FileType::NotFound);
+  ASSERT_OK_AND_ASSIGN(auto info2, fs_->GetFileInfo(NotFoundObjectPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info2));
 }
 
@@ -649,9 +643,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputFileInfo) {
-  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
-  // fs->GetFileInfo(PreexistingObjectPath()));
-  arrow::fs::FileInfo info(PreexistingObjectPath(), FileType::File);
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
 
   std::shared_ptr<io::RandomAccessFile> file;
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(info));
@@ -670,14 +662,10 @@ TEST_F(TestAzureFileSystem, OpenInputFileNotFound) {
 }
 
 TEST_F(TestAzureFileSystem, OpenInputFileInfoInvalid) {
-  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
-  // fs->GetFileInfo(PreexistingContainerPath()));
-  arrow::fs::FileInfo info(PreexistingContainerPath(), FileType::File);
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingContainerPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info));
 
-  // TODO(GH-38335): When implemented use ASSERT_OK_AND_ASSIGN(info,
-  // fs->GetFileInfo(NotFoundObjectPath()));
-  arrow::fs::FileInfo info2(NotFoundObjectPath(), FileType::NotFound);
+  ASSERT_OK_AND_ASSIGN(auto info2, fs_->GetFileInfo(NotFoundObjectPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info2));
 }
 
