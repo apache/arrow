@@ -46,13 +46,15 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
   if(ARROW_TEST_LINKAGE STREQUAL "static")
     add_test_case(${REL_TEST_NAME}
                   STATIC_LINK_LIBS
-                  ${PARQUET_STATIC_TEST_LINK_LIBS}
+                  parquet_static
+                  ${PARQUET_TEST_LINK_LIBS}
                   ${TEST_ARGUMENTS}
                   ${ARG_UNPARSED_ARGUMENTS})
   else()
     add_test_case(${REL_TEST_NAME}
                   STATIC_LINK_LIBS
-                  ${PARQUET_SHARED_TEST_LINK_LIBS}
+                  parquet_shared
+                  ${PARQUET_TEST_LINK_LIBS}
                   ${TEST_ARGUMENTS}
                   ${ARG_UNPARSED_ARGUMENTS})
   endif()
@@ -118,27 +120,19 @@ endfunction()
 if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static
-                                       ${ARROW_STATIC_LINK_LIBS})
 else()
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST}
-                          ${ARROW_GTEST_GTEST_MAIN} Boost::headers)
-
+set(PARQUET_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS} thrift::thrift Boost::headers)
 if(APPLE)
-  list(APPEND PARQUET_MIN_TEST_LIBS ${CMAKE_DL_LIBS})
+  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 elseif(NOT MSVC)
-  list(APPEND PARQUET_MIN_TEST_LIBS pthread ${CMAKE_DL_LIBS})
+  if(ARROW_ENABLE_THREADING)
+    list(APPEND PARQUET_TEST_LINK_LIBS Threads::Threads)
+  endif()
+  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
-
-set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
-                                  parquet_shared thrift::thrift)
-
-set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift::thrift
-                                  ${ARROW_LIBRARIES_FOR_STATIC_TESTS})
 
 #
 # Generated Thrift sources
@@ -302,15 +296,16 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
-  set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
-  set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
+  list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
+  list(APPEND PARQUET_LIBRARIES parquet_test_support)
 endif()
 
 if(NOT ARROW_BUILD_SHARED)
-  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS benchmark::benchmark_main
-                                    ${PARQUET_STATIC_TEST_LINK_LIBS})
+  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS parquet_static
+                                    ${PARQUET_TEST_LINK_LIBS} benchmark::benchmark_main)
 else()
-  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS})
+  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared
+                                    ${PARQUET_TEST_LINK_LIBS})
 endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
