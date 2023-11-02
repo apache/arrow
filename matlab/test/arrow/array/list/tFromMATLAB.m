@@ -53,6 +53,22 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
+        function StructList(testCase)
+            import arrow.array.ListArray
+
+            Number = (1:10)';
+            Text = compose("Test%d", (1:10)');
+            Date = datetime(2023, 11, 2) + days(0:9)';
+            T = table(Number, Text, Date);
+            C = {missing, T(1:3, :), T(4, :), T(1:0, :), T(5:10, :), missing};
+            actual = ListArray.fromMATLAB(C);
+
+            values = arrow.array(T);
+            offsets = arrow.array(int32([0 0 3 4 4 10 10]));
+            expected = ListArray.fromArrays(offsets, values, Valid=[2 3 4 5]);
+
+            testCase.verifyEqual(actual, expected);
+        end
 
     end
 
