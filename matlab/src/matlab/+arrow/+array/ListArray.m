@@ -132,7 +132,7 @@ classdef ListArray < arrow.array.Array
             % All elements before the first non-missing value should be 
             % treated as null values.
             valid(1:idx-1) = false;
-            offsets = zeros([numElements + 1 1], "int32");
+            offsets = zeros([numElements + 1, 1], "int32");
 
             for ii = idx:numElements
                 element = C{ii};
