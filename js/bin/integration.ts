@@ -1,4 +1,4 @@
-#! /usr/bin/env node
+#! /usr/bin/env -S node --no-warnings --loader ts-node/esm/transpile-only
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -17,23 +17,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// @ts-nocheck
+import * as fs from 'fs';
+import * as Path from 'path';
+import { glob } from 'glob';
+import { zip } from 'ix/iterable/zip.js';
+import commandLineArgs from 'command-line-args';
+// @ts-ignore
+import { parse as bignumJSONParse } from 'json-bignum';
 
-const fs = require('fs');
-const Path = require('path');
-const { glob } = require('glob');
-const { zip } = require('ix/iterable/zip');
-const { parse: bignumJSONParse } = require('json-bignum');
-const argv = require(`command-line-args`)(cliOpts(), { partial: true });
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
-const {
+import {
     Table,
+    Vector,
+    RecordBatch,
+    ArrowJSONLike,
     RecordBatchReader,
     RecordBatchStreamWriter,
-    util: { createElementComparator }
-} = require(`../index${extension}`);
+    util,
+} from '../index.ts';
 
-const exists = async (p) => {
+const { createElementComparator } = util;
+const argv = commandLineArgs(cliOpts(), { partial: true });
+
+const exists = async (p: string) => {
     try {
         return !!(await fs.promises.stat(p));
     } catch (e) { return false; }
@@ -60,7 +65,7 @@ const exists = async (p) => {
             for (let [jsonPath, arrowPath] of zip(jsonPaths, arrowPaths)) {
                 try {
                     await validate(jsonPath, arrowPath);
-                } catch (e) {
+                } catch (e: any) {
                     threw = true;
                     e && process.stderr.write(`${e?.stack || e}\n`);
                 }
@@ -108,7 +113,7 @@ function print_usage() {
         {
             header: 'Synopsis',
             content: [
-                '$ integration.js -j file.json -a file.arrow --mode validate'
+                '$ integration.ts -j file.json -a file.arrow --mode validate'
             ]
         },
         {
@@ -125,7 +130,7 @@ function print_usage() {
     return 1;
 }
 
-async function validate(jsonPath, arrowPath) {
+async function validate(jsonPath: string, arrowPath: string) {
 
     const files = await Promise.all([
         fs.promises.readFile(arrowPath),
@@ -147,7 +152,7 @@ async function validate(jsonPath, arrowPath) {
     validateTableToBuffersIntegration('binary', 'file')(jsonData, arrowData);
 }
 
-function validateReaderIntegration(jsonData, arrowBuffer) {
+function validateReaderIntegration(jsonData: ArrowJSONLike, arrowBuffer: Uint8Array) {
     const msg = `json and arrow record batches report the same values`;
     try {
         const jsonReader = RecordBatchReader.from(jsonData);
@@ -155,57 +160,57 @@ function validateReaderIntegration(jsonData, arrowBuffer) {
         for (const [jsonRecordBatch, binaryRecordBatch] of zip(jsonReader, binaryReader)) {
             compareTableIsh(jsonRecordBatch, binaryRecordBatch);
         }
-    } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
+    } catch (e: any) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
     process.stdout.write(`${msg}: pass\n`);
 }
 
-function validateTableFromBuffersIntegration(jsonData, arrowBuffer) {
+function validateTableFromBuffersIntegration(jsonData: ArrowJSONLike, arrowBuffer: Uint8Array) {
     const msg = `json and arrow tables report the same values`;
     try {
         const jsonTable = new Table(RecordBatchReader.from(jsonData));
         const binaryTable = new Table(RecordBatchReader.from(arrowBuffer));
         compareTableIsh(jsonTable, binaryTable);
-    } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
+    } catch (e: any) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
     process.stdout.write(`${msg}: pass\n`);
 }
 
-function validateTableToBuffersIntegration(srcFormat, arrowFormat) {
+function validateTableToBuffersIntegration(srcFormat: 'json' | 'binary', arrowFormat: 'file' | 'stream') {
     const refFormat = srcFormat === `json` ? `binary` : `json`;
-    return function testTableToBuffersIntegration(jsonData, arrowBuffer) {
+    return function testTableToBuffersIntegration(jsonData: ArrowJSONLike, arrowBuffer: Uint8Array) {
         const msg = `serialized ${srcFormat} ${arrowFormat} reports the same values as the ${refFormat} ${arrowFormat}`;
         try {
-            const refTable = new Table(RecordBatchReader.from(refFormat === `json` ? jsonData : arrowBuffer));
-            const srcTable = new Table(RecordBatchReader.from(srcFormat === `json` ? jsonData : arrowBuffer));
+            const refTable = new Table(refFormat === `json` ? RecordBatchReader.from(jsonData) : RecordBatchReader.from(arrowBuffer));
+            const srcTable = new Table(srcFormat === `json` ? RecordBatchReader.from(jsonData) : RecordBatchReader.from(arrowBuffer));
             const dstTable = new Table(RecordBatchReader.from(RecordBatchStreamWriter.writeAll(srcTable).toUint8Array(true)));
             compareTableIsh(dstTable, refTable);
-        } catch (e) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
+        } catch (e: any) { throw new Error(`${msg}: fail \n ${e?.stack || e}`); }
         process.stdout.write(`${msg}: pass\n`);
     };
 }
 
-function compareTableIsh(actual, expected) {
-    if (actual.length !== expected.length) {
-        throw new Error(`length: ${actual.length} !== ${expected.length}`);
+function compareTableIsh(actual: Table | RecordBatch, expected: Table | RecordBatch) {
+    if (actual.numRows !== expected.numRows) {
+        throw new Error(`numRows: ${actual.numRows} !== ${expected.numRows}`);
     }
     if (actual.numCols !== expected.numCols) {
         throw new Error(`numCols: ${actual.numCols} !== ${expected.numCols}`);
     }
     (() => {
         for (let i = -1, n = actual.numCols; ++i < n;) {
-            const v1 = actual.getChildAt(i);
-            const v2 = expected.getChildAt(i);
+            const v1 = actual.getChildAt(i)!;
+            const v2 = expected.getChildAt(i)!;
             compareVectors(v1, v2);
         }
     })();
 }
 
-function compareVectors(actual, expected) {
+function compareVectors(actual: Vector, expected: Vector) {
 
     if ((actual == null && expected != null) || (expected == null && actual != null)) {
         throw new Error(`${actual == null ? `actual` : `expected`} is null, was expecting ${actual ?? expected} to be that also`);
     }
 
-    const props = ['type', 'length', 'nullCount'];
+    const props = ['type', 'length', 'nullCount'] as (keyof Vector & string)[];
 
     (() => {
         for (let i = -1, n = props.length; ++i < n;) {
@@ -236,7 +241,7 @@ function compareVectors(actual, expected) {
     })();
 }
 
-async function loadLocalJSONAndArrowPathsForDebugging(jsonPaths, arrowPaths) {
+async function loadLocalJSONAndArrowPathsForDebugging(jsonPaths: string[], arrowPaths: string[]) {
 
     const sourceJSONPaths = await glob(Path.resolve(__dirname, `../test/data/json/`, `*.json`));
 
@@ -254,7 +259,13 @@ async function loadLocalJSONAndArrowPathsForDebugging(jsonPaths, arrowPaths) {
 
     return [jsonPaths, arrowPaths];
 
-    async function loadJSONAndArrowPaths(sourceJSONPaths, jsonPaths, arrowPaths, source, format) {
+    async function loadJSONAndArrowPaths(
+        sourceJSONPaths: string[],
+        jsonPaths: string[],
+        arrowPaths: string[],
+        source: 'cpp' | 'java',
+        format: 'file' | 'stream'
+    ) {
         for (const jsonPath of sourceJSONPaths) {
             const { name } = Path.parse(jsonPath);
             const arrowPath = Path.resolve(__dirname, `../test/data/${source}/${format}/${name}.arrow`);
