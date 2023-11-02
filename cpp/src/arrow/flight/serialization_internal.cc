@@ -442,8 +442,8 @@ Status ToProto(const SessionOptionValue& val,
 
 // map<string, SessionOptionValue>
 
-Status FromProto(const google::protobuf::Map<std::string,                           //PHOXME is this the correct key type given whatever Proto is up to?
-                                             pb::SessionOptionValue>& pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
+Status FromProto(const google::protobuf::Map<std::string,
+                                             pb::SessionOptionValue>& pb_map,
                  std::map<std::string, SessionOptionValue>* map) {
   if (pb_map.size() == 0) {
     return Status::OK();
