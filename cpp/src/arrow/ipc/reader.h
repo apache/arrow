@@ -425,6 +425,14 @@ class ARROW_EXPORT StreamDecoder {
   /// \return Status
   Status Consume(std::shared_ptr<Buffer> buffer);
 
+  /// \brief Reset the internal status.
+  ///
+  /// You can reuse this decoder for new stream after calling
+  /// this.
+  ///
+  /// \return Status
+  Status Reset();
+
   /// \return the shared schema of the record batches in the stream
   std::shared_ptr<Schema> schema() const;
 

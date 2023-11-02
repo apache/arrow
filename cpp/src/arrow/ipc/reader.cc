@@ -932,13 +932,17 @@ class StreamDecoderInternal : public MessageDecoderListener {
     return listener_->OnEOS();
   }
 
+  std::shared_ptr<Listener> listener() const { return listener_; }
+
   Listener* raw_listener() const { return listener_.get(); }
+
+  IpcReadOptions options() const { return options_; }
+
+  State state() const { return state_; }
 
   std::shared_ptr<Schema> schema() const { return filtered_schema_; }
 
   ReadStats stats() const { return stats_; }
-
-  State state() const { return state_; }
 
   int num_required_initial_dictionaries() const {
     return num_required_initial_dictionaries_;
@@ -2039,6 +2043,8 @@ class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
 
   int64_t next_required_size() const { return message_decoder_.next_required_size(); }
 
+  const MessageDecoder* message_decoder() const { return &message_decoder_; }
+
  private:
   MessageDecoder message_decoder_;
 };
@@ -2050,10 +2056,75 @@ StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener, IpcReadOptions 
 StreamDecoder::~StreamDecoder() {}
 
 Status StreamDecoder::Consume(const uint8_t* data, int64_t size) {
-  return impl_->Consume(data, size);
+  while (size > 0) {
+    const auto next_required_size = impl_->next_required_size();
+    if (next_required_size == 0) {
+      break;
+    }
+    if (size < next_required_size) {
+      break;
+    }
+    ARROW_RETURN_NOT_OK(impl_->Consume(data, next_required_size));
+    data += next_required_size;
+    size -= next_required_size;
+  }
+  if (size > 0) {
+    return impl_->Consume(data, size);
+  } else {
+    return arrow::Status::OK();
+  }
 }
+
 Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
-  return impl_->Consume(std::move(buffer));
+  if (buffer->size() == 0) {
+    return arrow::Status::OK();
+  }
+  if (impl_->next_required_size() == 0 || buffer->size() <= impl_->next_required_size()) {
+    return impl_->Consume(std::move(buffer));
+  } else {
+    int64_t offset = 0;
+    while (true) {
+      const auto next_required_size = impl_->next_required_size();
+      if (next_required_size == 0) {
+        break;
+      }
+      if (buffer->size() - offset <= next_required_size) {
+        break;
+      }
+      if (buffer->is_cpu()) {
+        switch (impl_->message_decoder()->state()) {
+          case MessageDecoder::State::INITIAL:
+          case MessageDecoder::State::METADATA_LENGTH:
+            // We don't need to pass a sliced buffer because
+            // MessageDecoder doesn't keep reference of the given
+            // buffer on these states.
+            ARROW_RETURN_NOT_OK(
+                impl_->Consume(buffer->data() + offset, next_required_size));
+            break;
+          default:
+            ARROW_RETURN_NOT_OK(
+                impl_->Consume(SliceBuffer(buffer, offset, next_required_size)));
+            break;
+        }
+      } else {
+        ARROW_RETURN_NOT_OK(
+            impl_->Consume(SliceBuffer(buffer, offset, next_required_size)));
+      }
+      offset += next_required_size;
+    }
+    if (buffer->size() - offset == 0) {
+      return arrow::Status::OK();
+    } else if (offset == 0) {
+      return impl_->Consume(std::move(buffer));
+    } else {
+      return impl_->Consume(SliceBuffer(std::move(buffer), offset));
+    }
+  }
+}
+
+Status StreamDecoder::Reset() {
+  impl_ = std::make_unique<StreamDecoderImpl>(impl_->listener(), impl_->options());
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> StreamDecoder::schema() const { return impl_->schema(); }
