@@ -229,8 +229,8 @@ classdef tTabularDisplay < matlab.unittest.TestCase
 
         function DisplayClassNameWhenDataIsNotArray(testCase, TabularType)
             % Verify that the class name instead of the actual data will be
-            % displayed when the datatype of a tabular variable is not a 
-            % homogeneous array type.
+            % displayed when the datatype of a tabular variable is a nested
+            % array type (e.g. StructArray or ListArray).
             import arrow.internal.test.display.makeLinkString
 
             t = table(datetime(2023,1,[1;2;3]),table([1;2;3],[4;5;6]),seconds([1;2;3]));
