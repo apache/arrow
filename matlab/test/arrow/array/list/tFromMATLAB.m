@@ -131,6 +131,42 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:array:list:ClassTypeMismatch");
         end
 
+        function VariableNamesMismatchError(testCase)
+            % Verify fromMATLAB throws an error whose identifier is
+            % "arrow:array:list:VariableNamesMismatch" if given a cell 
+            % array containing tables whose variable names don't match.
+
+            import arrow.array.ListArray
+
+            C = {table(1, "A"), table(2, "B", VariableNames=["X", "Y"])};
+            fcn = @() ListArray.fromMATLAB(C);
+            testCase.verifyError(fcn, "arrow:array:list:VariableNamesMismatch");
+        end
+
+        function ExpectedZonedDatetimeError(testCase)
+            % Verify fromMATLAB throws an error whose identifier is
+            % "arrow:array:list:ExpectedZonedDatetime" if given a cell 
+            % array containing zoned and unzoned datetimes - in that order.
+
+            import arrow.array.ListArray
+
+            C = {datetime(2023, 11, 1, TimeZone="UTC"), datetime(2023, 11, 2)}; 
+            fcn = @() ListArray.fromMATLAB(C);
+            testCase.verifyError(fcn, "arrow:array:list:ExpectedZonedDatetime");
+        end
+
+        function ExpectedUnzonedDatetimeError(testCase)
+            % Verify fromMATLAB throws an error whose identifier is
+            % "arrow:array:list:ExpectedZonedDatetime" if given a cell 
+            % array containing unzoned and zoned datetimes - in that order.
+
+            import arrow.array.ListArray
+
+            C = {datetime(2023, 11, 1), datetime(2023, 11, 2, TimeZone="UTC")}; 
+            fcn = @() ListArray.fromMATLAB(C);
+            testCase.verifyError(fcn, "arrow:array:list:ExpectedUnzonedDatetime");
+        end
+
     end
 
 end
