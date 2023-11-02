@@ -765,8 +765,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
 };
 
 /// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
-using SessionOptionValue =
-    std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
+using SessionOptionValue = std::variant<
+  std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
 
 /// \brief The result of setting a session option.
 enum class SetSessionOptionStatus : int8_t {
@@ -777,14 +777,6 @@ enum class SetSessionOptionStatus : int8_t {
   kInvalidValue,
   kError
 };
-static std::string SetSessionOptionStatusNames[] = {
-  "Unspecified",
-  "Ok",
-  "OkMapped",
-  "InvalidKey",
-  "InvalidValue",
-  "Error"
-};
 std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r);
 
 /// \brief The result of closing a session.
@@ -794,13 +786,23 @@ enum class CloseSessionStatus : int8_t {
   kClosing,
   kNotClosable
 };
-static std::string CloseSessionStatusNames[] = {
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r);
+
+static const char* const SetSessionOptionStatusNames[] = {
+  "Unspecified",
+  "Ok",
+  "OkMapped",
+  "InvalidKey",
+  "InvalidValue",
+  "Error"
+};
+static const char* const CloseSessionStatusNames[] = {
   "Unspecified",
   "Closed",
   "Closing",
   "NotClosable"
 };
-std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r);
+
 
 /// \brief A request to set a set of session options by key/value.
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {

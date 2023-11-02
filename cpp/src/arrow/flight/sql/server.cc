@@ -1173,13 +1173,13 @@ Status FlightSqlServerBase::EndTransaction(const ServerCallContext& context,
   return Status::NotImplemented("EndTransaction not implemented");
 }
 
-arrow::Result<SetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions (
+arrow::Result<SetSessionOptionsResult> FlightSqlServerBase::SetSessionOptions(
     const ServerCallContext& context,
     const SetSessionOptionsRequest& request) {
   return Status::NotImplemented("SetSessionOptions not implemented");
 }
 
-arrow::Result<GetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions (
+arrow::Result<GetSessionOptionsResult> FlightSqlServerBase::GetSessionOptions(
     const ServerCallContext& context,
     const GetSessionOptionsRequest& request) {
   return Status::NotImplemented("GetSessionOptions not implemented");

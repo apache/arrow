@@ -494,7 +494,7 @@ std::ostream& operator<<(std::ostream& os, std::vector<std::string> v) {
   os << ']';
 
   return os;
-}    
+}
 
 std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
   std::visit([&](const auto& x) { os << x; }, v);
@@ -516,30 +516,30 @@ std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
 
 namespace {
   static bool CompareSessionOptionMaps(
-     const std::map<std::string, SessionOptionValue>& a,
-     const std::map<std::string, SessionOptionValue>& b) {
-   if (a.size() != b.size()) {
-     return false;
-   }
-   for (const auto & [k, v] : a) {
-     if (!b.count(k)) {
-       return false;
-     }
-     try {
-       const auto& b_v = b.at(k);
-       if (v.index() != b_v.index()) {
-         return false;
-       }
-       if (v != b_v) {
-         return false;
-       }
-     } catch ( const std::out_of_range& e ) {
-       return false;
-     }
-   }
-   return true;
+      const std::map<std::string, SessionOptionValue>& a,
+      const std::map<std::string, SessionOptionValue>& b) {
+    if (a.size() != b.size()) {
+      return false;
+    }
+    for (const auto & [k, v] : a) {
+      if (!b.count(k)) {
+        return false;
+      }
+      try {
+        const auto& b_v = b.at(k);
+        if (v.index() != b_v.index()) {
+          return false;
+        }
+        if (v != b_v) {
+          return false;
+        }
+      } catch ( const std::out_of_range& e ) {
+        return false;
+      }
+    }
+    return true;
   }
-} 
+} // namespace
 
 // SetSessionOptionsRequest
 
@@ -674,7 +674,7 @@ GetSessionOptionsRequest::Deserialize(std::string_view serialized) {
 
 std::string GetSessionOptionsResult::ToString() const {
   std::stringstream ss;
-  
+
   ss << "<GetSessionOptionsResult session_options=" << session_options << '>';
 
   return ss.str();

@@ -394,7 +394,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
 /// \\brief Get the current server session options. The session is generally
 /// accessed via an HTTP cookie.
 /// \param[in] options Per-RPC options
-::arrow::Result<GetSessionOptionsResult> GetSessionOptions (
+::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
     const FlightCallOptions& options,
     const GetSessionOptionsRequest& request);
 

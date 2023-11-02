@@ -58,8 +58,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       const size_t val_pos = tok.find(pair_sep);
       result.emplace_back(
           tok.substr(0, val_pos),
-          tok.substr(val_pos + pair_sep_len, std::string::npos)
-      );
+          tok.substr(val_pos + pair_sep_len, std::string::npos));
     }
 
     return result;
@@ -162,7 +161,8 @@ std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
       new ServerSessionMiddlewareFactory());
 }
 
-::arrow::Result<SessionOptionValue> FlightSqlSession::GetSessionOption(const std::string& k) {
+::arrow::Result<SessionOptionValue>
+FlightSqlSession::GetSessionOption(const std::string& k) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
   try {
     return map_.at(k);
@@ -171,7 +171,8 @@ std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
   }
 }
 
-void FlightSqlSession::SetSessionOption(const std::string& k, const SessionOptionValue& v) {
+void FlightSqlSession::SetSessionOption(
+    const std::string& k, const SessionOptionValue& v) {
   const std::unique_lock<std::shared_mutex> l(map_lock_);
   map_[k] = v;
 }
