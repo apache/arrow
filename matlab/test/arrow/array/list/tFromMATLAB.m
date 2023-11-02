@@ -40,16 +40,16 @@ classdef tFromMATLAB < matlab.unittest.TestCase
 
         function AllMissingCellArrayError(testCase)
             % Verify fromMATLAB throws an error whose identifier is
-            % "arrow:array:list:UnsupportedCellArray" if given a cell array
+            % "arrow:array:list:CellArrayAllMissing" if given a cell array
             % containing only missing values.
             import arrow.array.ListArray
 
             C = {missing missing missing};
             fcn = @() ListArray.fromMATLAB(C);
-            testCase.verifyError(fcn, "arrow:array:list:UnsupportedCellArray");
+            testCase.verifyError(fcn, "arrow:array:list:CellArrayAllMissing");
         end
 
-        function ListOfFloat64s(testCase)
+        function ListOfFloat64(testCase)
             % Verify fromMATLAB creates the expected ListArray whose
             % Values property is a Float64Array.
             import arrow.array.ListArray
@@ -64,7 +64,7 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function ListOfStructs(testCase)
+        function ListOfStruct(testCase)
             % Verify fromMATLAB creates the expected ListArray whose
             % Values property is a StructArray.
             import arrow.array.ListArray
@@ -83,7 +83,7 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function ListOfListOfStrings(testCase)
+        function ListOfListOfString(testCase)
             % Verify fromMATLAB creates the expected ListArray whose
             % Values property is a ListArray.
             import arrow.array.ListArray
@@ -104,7 +104,7 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function OnlyEmptyElements(testCase)
+        function OnlyEmptyElement(testCase)
             % Create a ListArray containing only empty elements.
             import arrow.array.ListArray
 
@@ -115,6 +115,39 @@ classdef tFromMATLAB < matlab.unittest.TestCase
 
             values = arrow.array(duration.empty);
             offsets = arrow.array(int32([0 0 0 0 0]));
+            expected = ListArray.fromArrays(offsets, values);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function CellOfEmptyCell(testCase)
+            % Verify fromMATLAB creates a ListArray whose Values property
+            % is StringArray when given a cell array containing just an
+            % empty cell array.
+            import arrow.array.ListArray
+
+            C = {{}};
+            actual = ListArray.fromMATLAB(C);
+
+            values = arrow.array(string.empty);
+            offsets = arrow.array(int32([0 0]));
+            expected = ListArray.fromArrays(offsets, values);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function CellOfMatrices(testCase)
+            % Verify fromMATLAB can handle cell arrays that contain
+            % matrices instead of just vectors - i.e. the matrices are
+            % reshaped as column vectors before they are concatenated
+            % together.
+            import arrow.array.ListArray
+
+            C = {[1 2 3; 4 5 6], [7 8; 9 10], 11};
+            actual = ListArray.fromMATLAB(C);
+
+            values = arrow.array([1 4 2 5 3 6 7 9 8 10 11]);
+            offsets = arrow.array(int32([0 6 10 11]));
             expected = ListArray.fromArrays(offsets, values);
 
             testCase.verifyEqual(actual, expected);
@@ -135,7 +168,6 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             % Verify fromMATLAB throws an error whose identifier is
             % "arrow:array:list:VariableNamesMismatch" if given a cell 
             % array containing tables whose variable names don't match.
-
             import arrow.array.ListArray
 
             C = {table(1, "A"), table(2, "B", VariableNames=["X", "Y"])};
@@ -157,7 +189,7 @@ classdef tFromMATLAB < matlab.unittest.TestCase
 
         function ExpectedUnzonedDatetimeError(testCase)
             % Verify fromMATLAB throws an error whose identifier is
-            % "arrow:array:list:ExpectedZonedDatetime" if given a cell 
+            % "arrow:array:list:ExpectedUnzonedDatetime" if given a cell 
             % array containing unzoned and zoned datetimes - in that order.
 
             import arrow.array.ListArray
@@ -166,6 +198,8 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             fcn = @() ListArray.fromMATLAB(C);
             testCase.verifyError(fcn, "arrow:array:list:ExpectedUnzonedDatetime");
         end
+
+
 
     end
 
