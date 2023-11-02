@@ -26,6 +26,7 @@
 #include "arrow/record_batch.h"  // IWYU pragma: export
 #include "arrow/status.h"        // IWYU pragma: export
 #include "arrow/type.h"          // IWYU pragma: export
+#include "arrow/testing/random.h"
 
 namespace gandiva {
 
@@ -35,6 +36,7 @@ using arrow::FieldVector;
 using arrow::Result;
 using arrow::Status;
 using arrow::StatusCode;
+using arrow::random::GenerateArray;
 
 using ArrayPtr = std::shared_ptr<arrow::Array>;
 using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
