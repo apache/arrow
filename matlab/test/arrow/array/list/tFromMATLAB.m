@@ -122,7 +122,7 @@ classdef tFromMATLAB < matlab.unittest.TestCase
 
         function CellOfEmptyCell(testCase)
             % Verify fromMATLAB creates a ListArray whose Values property
-            % is StringArray when given a cell array containing just an
+            % is a StringArray when given a cell array containing just an
             % empty cell array.
             import arrow.array.ListArray
 
