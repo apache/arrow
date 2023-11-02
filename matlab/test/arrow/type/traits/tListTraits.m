@@ -24,9 +24,7 @@ classdef tListTraits < hTypeTraits
         TypeConstructor = @arrow.type.ListType
         TypeClassName = "arrow.type.ListType"
         TypeProxyClassName = "arrow.type.proxy.ListType"
-        % The cell function works differently than other
-        % "type construction functions" in MATLAB.
-        MatlabConstructor = missing
+        MatlabConstructor = @arrow.array.ListArray.fromMATLAB
         MatlabClassName = "cell"
     end
 
