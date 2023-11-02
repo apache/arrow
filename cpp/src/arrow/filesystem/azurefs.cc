@@ -77,10 +77,12 @@ class HierachicalNamespaceDetecter {
           .GetAccessControlList();
       is_hierachical_namespace_enabled_ = true;
     } catch (const Azure::Storage::StorageException& exception) {
-      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest) {
-        // The container exists, but the access control list (ACL) endpoint responded
-        // bad request because this storage account does not support hierarchical
-        // namespace.
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest ||
+          exception.StatusCode == Azure::Core::Http::HttpStatusCode::Conflict) {
+        // GetAccessControlList will fail on storage accounts without hierarchical
+        // namespace enabled. If soft delete blobs is enabled it returns Conflict, 
+        // otherwise it returns BadRequest.
+        // On Azureite it returns NotFound.
         is_hierachical_namespace_enabled_ = false;
       } else {
         // Something else failed so we can't tell if the storage account has hierachical
