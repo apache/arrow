@@ -162,9 +162,13 @@ std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
       new ServerSessionMiddlewareFactory());
 }
 
-SessionOptionValue FlightSqlSession::GetSessionOption(const std::string& k) {
+::arrow::Result<SessionOptionValue> FlightSqlSession::GetSessionOption(const std::string& k) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
-  return map_.at(k);
+  try {
+    return map_.at(k);
+  } catch (const std::out_of_range& e) {
+    return ::arrow::Status::KeyError("Session option key '" + k + "' not found.");
+  }
 }
 
 void FlightSqlSession::SetSessionOption(const std::string& k, const SessionOptionValue& v) {

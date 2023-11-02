@@ -40,7 +40,7 @@ class FlightSqlSession {
   std::shared_mutex map_lock_;
  public:
   /// \brief Get session option by key
-  SessionOptionValue GetSessionOption(const std::string&);
+  ::arrow::Result<SessionOptionValue> GetSessionOption(const std::string&);
   /// \brief Set session option by key to given value
   void SetSessionOption(const std::string&, const SessionOptionValue&);
   /// \brief Idempotently remove key from this call's Session, if Session & key exist
