@@ -37,7 +37,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/byte_stream_split.h"
+#include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
@@ -850,8 +850,8 @@ std::shared_ptr<Buffer> ByteStreamSplitEncoder<DType>::FlushValues() {
       AllocateBuffer(this->memory_pool(), EstimatedDataEncodedSize());
   uint8_t* output_buffer_raw = output_buffer->mutable_data();
   const uint8_t* raw_values = sink_.data();
-  ::arrow::util::internal::ByteStreamSplitEncode<T>(
-      raw_values, static_cast<size_t>(num_values_in_buffer_), output_buffer_raw);
+  ::arrow::util::internal::ByteStreamSplitEncode<T>(raw_values, num_values_in_buffer_,
+                                                    output_buffer_raw);
   sink_.Reset();
   num_values_in_buffer_ = 0;
   return std::move(output_buffer);
