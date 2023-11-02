@@ -34,6 +34,7 @@
 #include <boost/process.hpp>
 
 #include "arrow/filesystem/azurefs.h"
+#include "arrow/filesystem/azurefs.cc"
 
 #include <random>
 #include <string>
@@ -145,6 +146,7 @@ class TestAzureFileSystem : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
   std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient> datalake_service_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
@@ -166,6 +168,9 @@ class TestAzureFileSystem : public ::testing::Test {
     options_ = MakeOptions();
     blob_service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
+    datalake_service_client_ =
+        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
+            options_.account_dfs_url, options_.storage_credentials_provider);
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
     auto container_client = blob_service_client_->GetBlobContainerClient(container_name_);
     container_client.CreateIfNotExists();
@@ -239,23 +244,23 @@ class TestAzureFlatFileSystem : public TestAzureFileSystem {
 };
 
 class TestAzureHNSFileSystem : public TestAzureFileSystem {
- public:
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-      datalake_service_client_;
   AzureOptions MakeOptions() override {
     AzureOptions options;
     ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
         std::getenv("AZURE_HNS_ACCOUNT_NAME"), std::getenv("AZURE_HNS_ACCOUNT_KEY")));
     return options;
   }
-
-  void SetUp() override {
-    TestAzureFileSystem::SetUp();
-    datalake_service_client_ =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
-            options_.account_dfs_url, options_.storage_credentials_provider);
-  }
 };
+
+TEST_F(TestAzureFlatFileSystem, DetectHierarchicalNamespace) {
+  auto hierarchical_namespace = HierachicalNamespaceDetecter(datalake_service_client_);
+  EXPECT_FALSE(hierarchical_namespace.Enabled(PreexistingContainerName()));
+}
+
+TEST_F(TestAzureHNSFileSystem, DetectHierarchicalNamespace) {
+  auto hierarchical_namespace = HierachicalNamespaceDetecter(datalake_service_client_);
+  EXPECT_TRUE(hierarchical_namespace.Enabled(PreexistingContainerName()));
+}
 
 TEST_F(TestAzureFileSystem, GetFileInfoAccount) {
   arrow::fs::AssertFileInfo(fs_.get(), "", FileType::Directory);

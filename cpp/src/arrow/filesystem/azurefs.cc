@@ -60,6 +60,43 @@ Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_n
   credentials_kind = AzureCredentialsKind::StorageCredentials;
   return Status::OK();
 }
+
+class HierachicalNamespaceDetecter {
+ public:
+  HierachicalNamespaceDetecter(
+      std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+          datalake_service_client)
+      : datalake_service_client_(datalake_service_client) {}
+  bool Enabled(const std::string& container) {
+    if (is_hierachical_namespace_enabled_.has_value()) {
+      return is_hierachical_namespace_enabled_.value();
+    }
+    try {
+      datalake_service_client_->GetFileSystemClient(container)
+          .GetDirectoryClient("/")
+          .GetAccessControlList();
+      is_hierachical_namespace_enabled_ = true;
+    } catch (const Azure::Storage::StorageException& exception) {
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest) {
+        // The container exists, but the access control list (ACL) endpoint responded
+        // bad request because this storage account does not support hierarchical
+        // namespace.
+        is_hierachical_namespace_enabled_ = false;
+      } else {
+        // Something else failed so we can't tell if the storage account has hierachical
+        // namespace.
+        throw exception;
+      }
+    }
+    return is_hierachical_namespace_enabled_.value();
+  }
+
+ private:
+  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+      datalake_service_client_;
+  std::optional<bool> is_hierachical_namespace_enabled_;
+};
+
 namespace {
 
 // An AzureFileSystem represents a single Azure storage account. AzurePath describes a
@@ -447,43 +484,6 @@ class ObjectInputFile final : public io::RandomAccessFile {
   int64_t content_length_ = kNoSize;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
-
-class HierachicalNamespaceDetecter {
- public:
-  HierachicalNamespaceDetecter(
-      std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-          datalake_service_client)
-      : datalake_service_client_(datalake_service_client) {}
-  bool Enabled(const std::string& container) {
-    if (is_hierachical_namespace_enabled_.has_value()) {
-      return is_hierachical_namespace_enabled_.value();
-    }
-    try {
-      datalake_service_client_->GetFileSystemClient(container)
-          .GetDirectoryClient("/")
-          .GetAccessControlList();
-      is_hierachical_namespace_enabled_ = true;
-    } catch (const Azure::Storage::StorageException& exception) {
-      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest) {
-        // The container exists, but the access control list (ACL) endpoint responded
-        // bad request because this storage account does not support hierarchical
-        // namespace.
-        is_hierachical_namespace_enabled_ = false;
-      } else {
-        // Something else failed so we can't tell if the storage account has hierachical
-        // namespace.
-        throw exception;
-      }
-    }
-    return is_hierachical_namespace_enabled_.value();
-  }
-
- private:
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-      datalake_service_client_;
-  std::optional<bool> is_hierachical_namespace_enabled_;
-};
-
 }  // namespace
 
 // -----------------------------------------------------------------------
