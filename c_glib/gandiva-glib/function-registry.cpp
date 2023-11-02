@@ -172,10 +172,8 @@ ggandiva_function_registry_get_native_functions(GGandivaFunctionRegistry *functi
   auto gandiva_function_registry =
     ggandiva_function_registry_get_raw(function_registry);
   GList *native_functions = nullptr;
-  for (auto gandiva_native_function = gandiva_function_registry->begin();
-       gandiva_native_function != gandiva_function_registry->end();
-       ++gandiva_native_function) {
-    auto native_function = ggandiva_native_function_new_raw(gandiva_native_function);
+  for (const auto &gandiva_native_function : *gandiva_function_registry) {
+    auto native_function = ggandiva_native_function_new_raw(&gandiva_native_function);
     native_functions = g_list_prepend(native_functions, native_function);
   }
   return g_list_reverse(native_functions);
