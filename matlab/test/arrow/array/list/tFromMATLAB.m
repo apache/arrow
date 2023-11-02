@@ -19,6 +19,9 @@ classdef tFromMATLAB < matlab.unittest.TestCase
 
     methods (Test)
         function EmptyCellArrayError(testCase)
+            % Verify fromMATLAB throws an error whose identifier is 
+            % "MATLAB:validators:mustBeNonempty" if given an empty cell
+            % array as input.
             import arrow.array.ListArray
 
             fcn = @() ListArray.fromMATLAB({});
@@ -26,6 +29,9 @@ classdef tFromMATLAB < matlab.unittest.TestCase
         end
 
         function MustBeCellArrayError(testCase)
+            % Verify fromMATLAB throws an error whose identifier is
+            % "MATLAB:validation:UnableToConvert" if the input provided is
+            % not a cell array.
             import arrow.array.ListArray
 
             fcn = @() ListArray.fromMATLAB('a');
@@ -33,6 +39,9 @@ classdef tFromMATLAB < matlab.unittest.TestCase
         end
 
         function AllMissingCellArrayError(testCase)
+            % Verify fromMATLAB throws an error whose identifier is
+            % "arrow:array:list:UnsupportedCellArray" if given a cell array
+            % containing only missing values.
             import arrow.array.ListArray
 
             C = {missing missing missing};
@@ -40,7 +49,9 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:array:list:UnsupportedCellArray");
         end
 
-        function Float64List(testCase)
+        function ListOfFloat64s(testCase)
+            % Verify fromMATLAB creates the expected ListArray whose
+            % Values property is a Float64Array.
             import arrow.array.ListArray
 
             C = {[1 2 3], [4 5], missing, [6 7 8], [], [9 10]};
@@ -53,7 +64,9 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function StructList(testCase)
+        function ListOfStructs(testCase)
+            % Verify fromMATLAB creates the expected ListArray whose
+            % Values property is a StructArray.
             import arrow.array.ListArray
 
             Number = (1:10)';
@@ -66,6 +79,27 @@ classdef tFromMATLAB < matlab.unittest.TestCase
             values = arrow.array(T);
             offsets = arrow.array(int32([0 0 3 4 4 10 10]));
             expected = ListArray.fromArrays(offsets, values, Valid=[2 3 4 5]);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function ListOfListOfStrings(testCase)
+            % Verify fromMATLAB creates the expected ListArray whose
+            % Values property is a ListArray.
+            import arrow.array.ListArray
+
+            rowOne = {["A" "B"], ["C" "D" "E"] missing};
+            rowTwo = missing;
+            rowThree = {"F" ["G" "H" "I"]};
+            C = {rowOne, rowTwo rowThree};
+            actual = ListArray.fromMATLAB(C);
+
+            stringValues = arrow.array(["A" "B" "C" "D" "E" "F" "G" "H" "I"]);
+            innerOffsets = arrow.array(int32([0 2 5 5 6 9]));
+            valuesList = ListArray.fromArrays(innerOffsets, stringValues, Valid=[1 2 4 5]);
+
+            outerOffsets = arrow.array(int32([0 3 3 5]));
+            expected = ListArray.fromArrays(outerOffsets, valuesList, Valid=[1 3]);
 
             testCase.verifyEqual(actual, expected);
         end
