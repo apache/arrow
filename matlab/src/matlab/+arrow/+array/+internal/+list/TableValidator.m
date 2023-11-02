@@ -30,7 +30,7 @@ classdef TableValidator < arrow.array.internal.list.ClassTypeValidator
 
             if (numVars == 0)
                 error("arrow:array:list:TableWithZeroVariables", ...
-                    "Expect tables to have at least one variable.");
+                    "Expected table to have at least one variable.");
             end
 
             obj@arrow.array.internal.list.ClassTypeValidator(table);
@@ -51,7 +51,7 @@ classdef TableValidator < arrow.array.internal.list.ClassTypeValidator
             numVars = numel(obj.VariableNames);
             if width(element) ~= numVars
                 id = "arrow:array:list:NumVariablesMismatch";
-                msg = "Expect all tables in the cell array to have " + ...
+                msg = "Expected all tables in the cell array to have " + ...
                     string(numVars) + " variables.";
                 error(id, msg);
             end
@@ -59,7 +59,7 @@ classdef TableValidator < arrow.array.internal.list.ClassTypeValidator
             % Validate element has the expected variable names
             if ~all(obj.VariableNames == string(element.Properties.VariableNames))
                 id = "arrow:array:list:VariableNamesMismatch";
-                msg = "Expect all tables in the cell array to have the " + ...
+                msg = "Expected all tables in the cell array to have the " + ...
                     "same variable names.";
                 error(id, msg);
             end
@@ -71,7 +71,7 @@ classdef TableValidator < arrow.array.internal.list.ClassTypeValidator
                 % all non-tabular variables to be columnar or empty.
                 if ~istable(var) && (~iscolumn(var) && ~isempty(var))
                     id = "arrow:array:list:NonTabularVariablesMustBeColumnar";
-                    msg = "Expect all variables except for nested tables to be columnar.";
+                    msg = "Expected all variables except for nested tables to be columnar.";
                     error(id, msg);
                 end
 
