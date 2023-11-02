@@ -229,6 +229,15 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 };
 
+class TestAzureFlatFileSystem : public TestAzureFileSystem {
+  AzureOptions MakeOptions() override {
+    AzureOptions options;
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
+        std::getenv("AZURE_FLAT_ACCOUNT_NAME"), std::getenv("AZURE_FLAT_ACCOUNT_KEY")));
+    return options;
+  }
+};
+
 class TestAzureHNSFileSystem : public TestAzureFileSystem {
  public:
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
@@ -264,7 +273,7 @@ TEST_F(TestAzureFileSystem, GetFileInfoContainer) {
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
 }
 
-TEST_F(TestAzureFileSystem, GetFileInfoObjectWithNestedStructure) {
+TEST_F(TestAzureFlatFileSystem, GetFileInfoObjectWithNestedStructure) {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
