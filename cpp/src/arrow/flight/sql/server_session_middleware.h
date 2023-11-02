@@ -40,11 +40,11 @@ class FlightSqlSession {
   std::shared_mutex map_lock_;
  public:
   /// \brief Get session option by key
-  SessionOptionValue GetSessionOption(const std::string_view);
+  SessionOptionValue GetSessionOption(const std::string&);
   /// \brief Set session option by key to given value
-  void SetSessionOption(const std::string_view, const SessionOptionValue&);
+  void SetSessionOption(const std::string&, const SessionOptionValue&);
   /// \brief Idempotently remove key from this call's Session, if Session & key exist
-  void EraseSessionOption(const std::string_view);
+  void EraseSessionOption(const std::string&);
 };
 
 /// \brief A middleware to handle Session option persistence and related *Cookie headers.

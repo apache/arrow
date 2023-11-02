@@ -270,17 +270,6 @@ arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
   return result;
 }
 
-arrow::Result<CloseSessionRequest> ParseActionCloseSessionRequest(
-    const google::protobuf::Any& any) {
-  pb::CloseSessionRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack CloseSessionRequest");
-  }
-
-  CloseSessionRequest result;
-  return result;
-}
-
 arrow::Result<ActionCreatePreparedStatementRequest>
 ParseActionCreatePreparedStatementRequest(const google::protobuf::Any& any) {
   pb::sql::ActionCreatePreparedStatementRequest command;
@@ -371,64 +360,6 @@ arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
   return result;
 }
 
-arrow::Result<SetSessionOptionsRequest> ParseActionSetSessionOptionsRequest(
-    const google::protobuf::Any& any) {
-  pb::SetSessionOptionsRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack SetSessionOptionsRequest");
-  }
-
-  SetSessionOptionsRequest result;
-  if (command.session_options_size() > 0) {
-    for (const auto & [name, pb_val] : command.session_options()) {
-      SessionOptionValue val;
-      switch (pb_val.option_value_case()) {
-        case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
-          return Status::Invalid("Unset SessionOptionValue for name '" + name + "'");
-        case pb::SessionOptionValue::kStringValue:
-          val = pb_val.string_value();
-          break;
-        case pb::SessionOptionValue::kBoolValue:
-          val = pb_val.bool_value();
-          break;
-        case pb::SessionOptionValue::kInt32Value:
-          val = pb_val.int32_value();
-          break;
-        case pb::SessionOptionValue::kInt64Value:
-          val = pb_val.int64_value();
-          break;
-        case pb::SessionOptionValue::kFloatValue:
-          val = pb_val.float_value();
-          break;
-        case pb::SessionOptionValue::kDoubleValue:
-          val = pb_val.double_value();
-          break;
-        case pb::SessionOptionValue::kStringListValue:
-          val.emplace<std::vector<std::string>>();
-          std::get<std::vector<std::string>>(val)
-              .reserve(pb_val.string_list_value().values_size());
-          for (const std::string& s : pb_val.string_list_value().values())
-            std::get<std::vector<std::string>>(val).push_back(s);
-          break;
-      }
-      result.session_options[name] = std::move(val);
-    }
-  }
-
-  return result;
-}
-
-arrow::Result<GetSessionOptionsRequest> ParseActionGetSessionOptionsRequest(
-    const google::protobuf::Any& any) {
-  pb::GetSessionOptionsRequest command;
-  if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack GetSessionOptionsRequest");
-  }
-
-  GetSessionOptionsRequest result;
-  return result;
-}
-
 arrow::Result<Result> PackActionResult(const google::protobuf::Message& message) {
   google::protobuf::Any any;
 #if PROTOBUF_VERSION >= 3015000
@@ -511,93 +442,20 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
   return PackActionResult(pb_result);
 }
 
-
-// PHOXME remove code from 3 impls after serde stuff is written and/or *moved*
 arrow::Result<Result> PackActionResult(SetSessionOptionsResult result) {
   ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result(Buffer::FromString(std::move(serialized));
-
-
-  /* pb::SetSessionOptionsResult pb_result;
-  auto* pb_results_map = pb_result.mutable_results();
-  for (const auto& [opt_name, res] : result.results) {
-    pb::ActionSetSessionOptionsResult_SetSessionOptionResult val;
-    switch (res) {
-      case SetSessionOptionResult::kUnspecified:
-        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED;
-        break;
-      case SetSessionOptionResult::kOk:
-        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK;
-        break;
-      case SetSessionOptionResult::kInvalidResult:
-        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE;
-        break;
-      case SetSessionOptionResult::kError:
-        val = pb::SetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR;
-        break;
-    }
-    (*pb_results_map)[opt_name] = val;
-  }
-  return PackActionResult(pb_result); */
+  return Result{Buffer::FromString(std::move(serialized))};
 }
 
 arrow::Result<Result> PackActionResult(GetSessionOptionsResult result) {
   ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result(Buffer::FromString(std::move(serialized));
-
-
-  /* pb::GetSessionOptionsResult pb_result;
-  auto* pb_results = pb_result.mutable_session_options();
-  for (const auto& [name, opt_value] : result.session_options) {
-    pb::SessionOptionValue pb_opt_value;
-
-    if (opt_value.index() == std::variant_npos)
-      return Status::Invalid("Undefined SessionOptionValue type");
-
-    std::visit(overloaded{
-      // TODO move this somewhere common that can have Proto-involved code
-      [&](std::string v) { pb_opt_value.set_string_value(v); },
-      [&](bool v) { pb_opt_value.set_bool_value(v); },
-      [&](int32_t v) { pb_opt_value.set_int32_value(v); },
-      [&](int64_t v) { pb_opt_value.set_int64_value(v); },
-      [&](float v) { pb_opt_value.set_float_value(v); },
-      [&](double v) { pb_opt_value.set_double_value(v); },
-      [&](std::vector<std::string> v) {
-        auto* string_list_value = pb_opt_value.mutable_string_list_value();
-        for (const std::string& s : v)
-          string_list_value->add_values(s);
-      }
-    }, opt_value);
-    (*pb_results)[name] = std::move(pb_opt_value);
-  }
-
-  return PackActionResult(pb_result); */
+  return Result{Buffer::FromString(std::move(serialized))};
 }
 
 arrow::Result<Result> PackActionResult(CloseSessionResult result) {
   ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result(Buffer::FromString(std::move(serialized));
-
-
-  /* pb::ActionCloseSessionResult pb_result;
-  switch (result) {
-    case CloseSessionResult::kUnspecified:
-      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED);
-      break;
-    case CloseSessionResult::kClosed:
-      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSED);
-      break;
-    case CloseSessionResult::kClosing:
-      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSING);
-      break;
-    case CloseSessionResult::kNotClosable:
-      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE);
-      break;
-  }
-  return PackActionResult(pb_result);*/
+  return Result{Buffer::FromString(std::move(serialized))};
 }
-
-// /PHOXME
 
 }  // namespace
 
@@ -961,7 +819,7 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     results.push_back(std::move(packed_result));
   } else if (action.type == ActionType::kGetSessionOptions.type) {
     std::string_view body(*action.body);
-    ARROW_ASSIGN_OR_RAISE(auto request, GetSessionOptionsRequest::Deserialize(body));)
+    ARROW_ASSIGN_OR_RAISE(auto request, GetSessionOptionsRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, GetSessionOptions(context, request));
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 

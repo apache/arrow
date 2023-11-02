@@ -387,23 +387,23 @@ class ARROW_FLIGHT_EXPORT FlightClient {
 /// persisted via HTTP cookies.
 /// \param[in] options Per-RPC options
 /// \param[in] session_options The server session options to set
-::arrow::Result<SetSessionOptionsResult>
-FlightClient::SetSessionOptions(
+::arrow::Result<SetSessionOptionsResult> SetSessionOptions(
     const FlightCallOptions& options,
-    const std::map<std::string, SessionOptionValue>& session_options);
+    const SetSessionOptionsRequest& session_options);
 
 /// \\brief Get the current server session options. The session is generally
 /// accessed via an HTTP cookie.
 /// \param[in] options Per-RPC options
-::arrow::Result<GetSessionOptionsResult>
-FlightClient::GetSessionOptions (
-    const FlightCallOptions& options);
+::arrow::Result<GetSessionOptionsResult> GetSessionOptions (
+    const FlightCallOptions& options,
+    const GetSessionOptionsRequest& request);
 
 /// \\brief Close/invalidate the current server session. The session is generally
 /// accessed via an HTTP cookie.
 /// \param[in] options Per-RPC options
-::arrow::Result<CloseSessionResult> FlightClient::CloseSession(
-    const FlightCallOptions& options);
+::arrow::Result<CloseSessionResult> CloseSession(
+    const FlightCallOptions& options,
+    const CloseSessionRequest& request);
 
   /// \brief Explicitly shut down and clean up the client.
   ///

@@ -388,77 +388,76 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
 
 // SessionOptionValue
 
-Status FromProto(const pb::SessionOptionValue& pb_val
-                                     SessionOptionValue* val) {
-  switch (pb_opt_val.option_value_case()) {
+Status FromProto(const pb::SessionOptionValue& pb_val,
+                 SessionOptionValue* val) {
+  switch (pb_val.option_value_case()) {
     case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
-      return Status::Invalid("Unset option_value for name '" +
-                             pb_opt_name + "'");
+      return Status::Invalid("Unset SessionOptionValue found");
     case pb::SessionOptionValue::kStringValue:
-      val = pb_opt_val.string_value();
+      *val = pb_val.string_value();
       break;
     case pb::SessionOptionValue::kBoolValue:
-      val = pb_opt_val.bool_value();
+      *val = pb_val.bool_value();
       break;
     case pb::SessionOptionValue::kInt32Value:
-      val = pb_opt_val.int32_value();
+      *val = pb_val.int32_value();
       break;
     case pb::SessionOptionValue::kInt64Value:
-      val = pb_opt_val.int64_value();
+      *val = pb_val.int64_value();
       break;
     case pb::SessionOptionValue::kFloatValue:
-      val = pb_opt_val.float_value();
+      *val = pb_val.float_value();
       break;
     case pb::SessionOptionValue::kDoubleValue:
-      val = pb_opt_val.double_value();
+      *val = pb_val.double_value();
       break;
     case pb::SessionOptionValue::kStringListValue:
-      val.emplace<std::vector<std::string>>();
-      std::get<std::vector<std::string>>(val)
-          .reserve(pb_opt_val.string_list_value().values_size());
-      for (const std::string& s : pb_opt_val.string_list_value().values())
-        std::get<std::vector<std::string>>(val).push_back(s);
+      (*val).emplace<std::vector<std::string>>();
+      std::get<std::vector<std::string>>(*val)
+          .reserve(pb_val.string_list_value().values_size());
+      for (const std::string& s : pb_val.string_list_value().values())
+        std::get<std::vector<std::string>>(*val).push_back(s);
       break;
   }
   return Status::OK();
 }
 
-Status ToProto(const SessionOptionValue& val
-                                       pb::SessionOptionValue pb_val) {
+Status ToProto(const SessionOptionValue& val,
+               pb::SessionOptionValue* pb_val) {
   std::visit(overloaded{
-      [&](std::string v) { pb_val.set_string_value(v); },
-      [&](bool v) { pb_val.set_bool_value(v); },
-      [&](int32_t v) { pb_val.set_int32_value(v); },
-      [&](int64_t v) { pb_val.set_int64_value(v); },
-      [&](float v) { pb_val.set_float_value(v); },
-      [&](double v) { pb_val.set_double_value(v); },
+      [&](std::string v) {  pb_val->set_string_value(v); },
+      [&](bool v) { pb_val->set_bool_value(v); },
+      [&](int32_t v) { pb_val->set_int32_value(v); },
+      [&](int64_t v) { pb_val->set_int64_value(v); },
+      [&](float v) { pb_val->set_float_value(v); },
+      [&](double v) { pb_val->set_double_value(v); },
       [&](std::vector<std::string> v) {
-        auto* string_list_value = pb_val.mutable_string_list_value();
+        auto* string_list_value = pb_val->mutable_string_list_value();
         for (const std::string& s : v)
           string_list_value->add_values(s);
       }
-    }, opt_value);
+    }, val);
   return Status::OK();
 }
 
 // map<string, SessionOptionValue>
 
-Status FromProto(const google::protobuf::map<string,
-                                             pb::SessionOptionValue> pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
+Status FromProto(const google::protobuf::Map<std::string,                           //PHOXME is this the correct key type given whatever Proto is up to?
+                                             pb::SessionOptionValue>& pb_map,   //PHOXME maybe need to include google/protobuf/map.h ?  shouldn't this be brought in by other headers?
                  std::map<std::string, SessionOptionValue>* map) {
   if (pb_map.size() == 0) {
     return Status::OK();
   }
-  for (auto& [key, pb_val] : pb_map.session_options()) {
+  for (auto& [key, pb_val] : pb_map) {
     RETURN_NOT_OK(FromProto(pb_val, &(*map)[key]));
   }
   return Status::OK();
 }
 
-Status ToProto(const std::map<std::string, SessionOptionValue> map,
-               google::protobuf::map<string, pb::SessionOptionValue>* pb_map) {
+Status ToProto(const std::map<std::string, SessionOptionValue>& map,
+               google::protobuf::Map<std::string, pb::SessionOptionValue>* pb_map) {
   for (const auto & [key, val] : map) {
-    RETURN_NOT_OK(ToProto(val, &pb_map[key]));
+    RETURN_NOT_OK(ToProto(val, &(*pb_map)[key]));
   }
   return Status::OK();
 }
@@ -466,7 +465,7 @@ Status ToProto(const std::map<std::string, SessionOptionValue> map,
 // SetSessionOptionsRequest
 
 Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
-                 pb::SetSessionOptionsRequest* request) {
+                 SetSessionOptionsRequest* request) {
   RETURN_NOT_OK(FromProto(pb_request.session_options(),
                           &request->session_options));
   return Status::OK();
@@ -493,7 +492,7 @@ Status ToProto(const SetSessionOptionsResult& result,
                pb::SetSessionOptionsResult* pb_result) {
   auto* pb_statuses = pb_result->mutable_statuses();
   for (const auto& [k, v] : result.statuses) {
-    pb_statuses[k] = static_cast<pb::SetSessionOptionsResult::Status>(v);
+    (*pb_statuses)[k] = static_cast<pb::SetSessionOptionsResult::Status>(v);
   }
   return Status::OK();
 }
@@ -516,7 +515,7 @@ Status FromProto(const pb::GetSessionOptionsResult& pb_result,
                  GetSessionOptionsResult* result) {
   RETURN_NOT_OK(FromProto(pb_result.session_options(),
                           &result->session_options));
-  return Status::OK;
+  return Status::OK();
 }
 
 Status ToProto(const GetSessionOptionsResult& result,

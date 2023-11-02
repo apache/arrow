@@ -473,36 +473,49 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
   return out;
 }
 
-// Helper for stringifying maps containing various types
-template <typename T>
-ostream& operator<<(std::map<std::string, T>) {
-  std::stringstream ss;
-
-  ss << '{';
+// Helpers for stringifying maps containing various types
+std::ostream& operator<<(std::ostream& os, std::vector<std::string> v) {
+  os << '[';
   std::string sep = "";
-  for (const auto& [k, v] : session_options) {
-    std::cout << sep << '[' << k << "]: '" << v << "', ";
+  for (const auto& x : v) {
+    os << sep << '"' << x << '"';
     sep = ", ";
   }
-  ss << '}';
+  os << ']';
 
-  return ss.str();
+  return os;
+}
+template <typename T>
+std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
+  os << '{';
+  std::string sep = "";
+  for (const auto& [k, v] : m) {
+    os << sep << '[' << k << "]: '" << v;
+    sep = ", ";
+  }
+  os << '}';
+
+  return os;
 }
 static bool CompareSessionOptionMaps(
     const std::map<std::string, SessionOptionValue>& a,
     const std::map<std::string, SessionOptionValue>& b) {
-  if (a.session_options.size() != b.session_options.size()) {
+  if (a.size() != b.size()) {
     return false;
   }
-  for (const auto & [k, v] : a.session_options) {
-    if (!b.session_options.contains(k)) {
+  for (const auto & [k, v] : a) {
+    if (!b.count(k)) {
       return false;
     }
-    const auto& b_v = b.session_options[k];
-    if (v.index() != b_v.index()) {
-      return false;
-    }
-    if (v != b_v) {
+    try {
+      const auto& b_v = b.at(k);
+      if (v.index() != b_v.index()) {
+        return false;
+      }
+      if (v != b_v) {
+        return false;
+      }
+    } catch ( const std::out_of_range& e ) {
       return false;
     }
   }
@@ -514,8 +527,7 @@ static bool CompareSessionOptionMaps(
 std::string SetSessionOptionsRequest::ToString() const {
   std::stringstream ss;
 
-  ss << "<SetSessionOptionsRequest session_options="
-     << SessionOptionMapToString(session_options); << '>';
+  ss << "<SetSessionOptionsRequest session_options=" << session_options << '>';
 
   return ss.str();
 }

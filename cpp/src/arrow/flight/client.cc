@@ -716,7 +716,7 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
 ::arrow::Result<SetSessionOptionsResult>
 FlightClient::SetSessionOptions(
     const FlightCallOptions& options,
-    const std::map<std::string, SessionOptionValue>& session_options) {
+    const SetSessionOptionsRequest& request) {
   RETURN_NOT_OK(CheckOpen());
   RETURN_NOT_OK(CheckOpen());
   ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
@@ -724,7 +724,7 @@ FlightClient::SetSessionOptions(
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto set_session_options_result,
-                        CloseSessionResult::Deserialize(
+                        SetSessionOptionsResult::Deserialize(
                           std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
   return set_session_options_result;
@@ -732,7 +732,8 @@ FlightClient::SetSessionOptions(
 
 ::arrow::Result<GetSessionOptionsResult>
 FlightClient::GetSessionOptions (
-    const FlightCallOptions& options) {
+    const FlightCallOptions& options,
+    const GetSessionOptionsRequest& request) {
   RETURN_NOT_OK(CheckOpen());
     RETURN_NOT_OK(CheckOpen());
   ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
@@ -740,14 +741,15 @@ FlightClient::GetSessionOptions (
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto get_session_options_result,
-                        CloseSessionResult::Deserialize(
+                        GetSessionOptionsResult::Deserialize(
                           std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
   return get_session_options_result;
 }
 
 ::arrow::Result<CloseSessionResult> FlightClient::CloseSession(
-    const FlightCallOptions& options) {
+    const FlightCallOptions& options,
+    const CloseSessionRequest& request) {
   RETURN_NOT_OK(CheckOpen());
   ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
   Action action{ActionType::kCloseSession.type, Buffer::FromString(body)};

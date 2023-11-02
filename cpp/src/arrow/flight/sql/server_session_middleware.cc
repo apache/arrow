@@ -161,15 +161,15 @@ std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
       new ServerSessionMiddlewareFactory());
 }
 
-SessionOptionValue FlightSqlSession::GetSessionOption(const std::string_view k) {
+SessionOptionValue FlightSqlSession::GetSessionOption(const std::string& k) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
   return map_.at(k);
 }
-void FlightSqlSession::SetSessionOption(const std::string_view, const SessionOptionValue& v) {
+void FlightSqlSession::SetSessionOption(const std::string& k, const SessionOptionValue& v) {
   const std::unique_lock<std::shared_mutex> l(map_lock_);
   map_[k] = v;
 }
-void FlightSqlSession::EraseSessionOption(const std::string_view) {
+void FlightSqlSession::EraseSessionOption(const std::string& k) {
   const std::unique_lock<std::shared_mutex> l(map_lock_);
   map_.erase(k);
 }
