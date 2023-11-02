@@ -448,6 +448,40 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
+class HierachicalNamespaceDetecter {
+ public:
+  HierachicalNamespaceDetecter(
+      Azure::Storage::Files::DataLake::DataLakeServiceClient datalake_service_client)
+      : datalake_service_client_(datalake_service_client) {}
+  bool Enabled(const std::string& container) {
+    if (is_hierachical_namespace_enabled_.has_value()) {
+      return is_hierachical_namespace_enabled_.value();
+    }
+    try {
+      datalake_service_client_.GetFileSystemClient(container)
+          .GetDirectoryClient("/")
+          .GetAccessControlList();
+      is_hierachical_namespace_enabled_ = true;
+    } catch (const Azure::Storage::StorageException& exception) {
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest) {
+        // The container exists, but the access control list (ACL) endpoint responded
+        // bad request because this storage account does not support hierarchical
+        // namespace.
+        is_hierachical_namespace_enabled_ = false;
+      } else {
+        // Something else failed so we can't tell if the storage account has hierachical
+        // namespace.
+        throw exception;
+      }
+    }
+    return is_hierachical_namespace_enabled_.value();
+  }
+
+ private:
+  Azure::Storage::Files::DataLake::DataLakeServiceClient datalake_service_client_;
+  std::optional<bool> is_hierachical_namespace_enabled_;
+};
+
 }  // namespace
 
 // -----------------------------------------------------------------------
@@ -460,12 +494,10 @@ class AzureFileSystem::Impl {
       datalake_service_client_;
   std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
-  std::optional<bool> is_hierarchical_namespace_enabled_;
+  std::shared_ptr<HierachicalNamespaceDetecter> hierarchical_namespace = nullptr;
 
   explicit Impl(AzureOptions options, io::IOContext io_context)
-      : io_context_(io_context),
-        options_(std::move(options)),
-        is_hierarchical_namespace_enabled_(std::nullopt) {}
+      : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
     blob_service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
@@ -473,32 +505,15 @@ class AzureFileSystem::Impl {
     datalake_service_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
+    hierarchical_namespace = std::make_shared<HierachicalNamespaceDetecter>(
+        Azure::Storage::Files::DataLake::DataLakeServiceClient(
+            options_.account_dfs_url, options_.storage_credentials_provider));
     return Status::OK();
   }
 
   const AzureOptions& options() const { return options_; }
 
  public:
-  const bool get_is_hierarchical_namespace_enabled(const std::string& container) {
-    if (!is_hierarchical_namespace_enabled_.has_value()) {
-      try {
-        datalake_service_client_->GetFileSystemClient(container)
-            .GetDirectoryClient("/")
-            .GetAccessControlList();
-        is_hierarchical_namespace_enabled_ = true;
-      } catch (const Azure::Storage::StorageException& exception) {
-        if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest) {
-          // The container exists, but the access control list (ACL) endpoint responded 
-          // bad request because this storage account does not support hierarchical namespace.
-          is_hierarchical_namespace_enabled_ = false;
-        } else {
-          throw exception;
-        }
-      }
-    }
-    return is_hierarchical_namespace_enabled_.value();
-  }
-
   Result<FileInfo> GetFileInfo(const AzurePath& path) {
     FileInfo info;
     info.set_path(path.full_path);
@@ -550,7 +565,7 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (ContainerOrBlobNotFound(exception)) {
-        if (get_is_hierarchical_namespace_enabled(path.container)) {
+        if (hierarchical_namespace->Enabled(path.container)) {
           // If the hierarchical namespace is enabled, then the storage account will have
           // explicit directories. Neither a file nor a directory was found.
           return FileInfo(path.full_path, FileType::NotFound);
