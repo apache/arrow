@@ -76,8 +76,9 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
-        function zeroRowsMultipleColumns(testCase, TabularType)
-            % Test the display of 0xN arrow tabular object.
+        function ZeroRowsMultipleColumns(testCase, TabularType)
+            % Verify that the display of a 0xN arrow tabular object displays
+            % the schema but no rows because there are zero rows.
             import arrow.internal.test.display.makeLinkString
             t = table(Size=[0,6], ...
                       VariableTypes=["double" "single" "int8" "logical" "uint64" "string"], ...
@@ -154,9 +155,10 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
-        function veryWideTabular(testCase, TabularType)
-            % Test tabular object that is wider than the MATLAB Command
-            % Window. In this case, all variables are still displayed.
+        function VeryWideTabular(testCase, TabularType)
+            % Verify that all variables are displayed without any trucation 
+            % even when the tabular object is wider than the MATLAB Command
+            % Window.
             import arrow.internal.test.display.makeLinkString
 
             t = array2table([1:100;101:200],VariableNames="x"+(1:100));
@@ -168,7 +170,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             header = compose("  Arrow %s with %s rows and %s columns:", classNameString, getNumString(2), getNumString(100));
             schemaDisplay = ['    Schema:', newline, newline, '        '];
             dataDisplay   = ['    First Row:', newline, newline, '        '];
-            for i = 1 : width(t)
+            for i = 1:width(t)
                 if i < width(t)
                     schemaDisplay = [schemaDisplay, char(makeFieldString("x"+i, "Float64", "arrow.type.Float64Type")), ' | '];
                     dataDisplay = [dataDisplay, num2str(i), ' | '];
@@ -186,9 +188,10 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
-        function dataContainHyperlink(testCase, TabularType)
-            % No matter whether hotlinks is turned on or off, the data text
-            % containing hyperlink is not impacted and is displayed well.
+        function DataContainsHyperlink(testCase, TabularType)
+            % Verify that the data text containing hyperlink is always
+            % displayed as expected no matter whether hotlinks is turned on
+            % or off.
             import arrow.internal.test.display.makeLinkString
 
             hLink1 = string('<a href="http://www.foo.com">foo</a>');
@@ -196,7 +199,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             t = table(["a";"bcd";missing;""],[hLink1;hLink2;hLink1;hLink2],[NaN;1;2;3],'VariableNames',["Description", "Link_to_doc", "Result"]);
             arrowTabularObj = TabularType.FromTableFcn(t);
 
-            % The display of schema and actual tabular data always contain 
+            % The display of schema and actual tabular data always contains 
             % hyperlinks no matter whether hotlinks is turned on or off
             var1Field = char(makeFieldString("Description", "String" , "arrow.type.StringType"));
             var2Field = char(makeFieldString("Link_to_doc", "String" , "arrow.type.StringType"));
@@ -224,10 +227,10 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifySubstring(actualDisplay, expectedDisplayOfData);
         end
 
-        function displayClassNameWhenDataIsNotArray(testCase, TabularType)
-            % When the datatype of a column is not an homogeneous array
-            % type, the class name instead of the actual data will be
-            % displayed.
+        function DisplayClassNameWhenDataIsNotArray(testCase, TabularType)
+            % Verify that the class name instead of the actual data will be
+            % displayed when the datatype of a tabular variable is not a 
+            % homogeneous array type.
             import arrow.internal.test.display.makeLinkString
 
             t = table(datetime(2023,1,[1;2;3]),table([1;2;3],[4;5;6]),seconds([1;2;3]));
@@ -254,12 +257,12 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
-        function displayInvalidData(testCase, TabularType)
-            % Display "null" for invalid value
+        function DisplayInvalidData(testCase, TabularType)
+            % Verify that "null" is displayed for invalid value.
             import arrow.internal.test.display.makeLinkString
 
             t = table(seconds([NaN;1]), string([missing;"a"]), string(["";"b"]),  [NaN;1], datetime(2023,1,[NaN;2]),...
-                      VariableNames=["durationVar", "stringVar1", "stringVar2", "doubleVar", "datetimeVar"]);
+                VariableNames=["durationVar", "stringVar1", "stringVar2", "doubleVar", "datetimeVar"]);
             arrowTabularObj = TabularType.FromTableFcn(t);
             actualDisplay = evalc('disp(arrowTabularObj)');
 
@@ -285,9 +288,10 @@ classdef tTabularDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
-        function unicodeDisplayWell(testCase, TabularType)
-            % The current display doesn't align anything. So it should work
-            % well with displaying unicode.
+        function Unicode(testCase, TabularType)
+            % Verify that unicode characters are displayed well. The 
+            % current display doesn't align multiple rows vertically. 
+            % Therefore, there is no alignment concern.
             import arrow.internal.test.display.makeLinkString
 
             t = table([0.1;0.2],string(char([26228 22825; 22810 20113])), ["Kevin"; "Lei"],...
