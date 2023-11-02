@@ -119,8 +119,9 @@ classdef ListArray < arrow.array.Array
             idx = findFirstNonMissingElement(C);
 
             if idx == -1
-                id = "arrow:array:list:UnsupportedCellArray";
-                msg = "cell array does not contain a datatype supported for conversion to an Arrow array";
+                id = "arrow:array:list:CellArrayAllMissing";
+                msg = "The input cell array must contain at least one non-missing" + ...
+                    " value to be converted to an Arrow array.";
                 error(id, msg);
             end
 
