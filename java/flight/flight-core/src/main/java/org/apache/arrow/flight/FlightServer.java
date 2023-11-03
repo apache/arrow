@@ -266,6 +266,12 @@ public class FlightServer implements AutoCloseable {
           sslContext = sslContextBuilder.build();
         } catch (SSLException e) {
           throw new RuntimeException(e);
+        } finally {
+          if (mTlsCACert != null) {
+            mTlsCACert.close();
+          }
+          certChain.close();
+          key.close();
         }
 
         builder.sslContext(sslContext);
