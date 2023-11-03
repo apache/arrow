@@ -68,11 +68,8 @@ Status ErrorToStatus(const std::string& prefix,
 
 class HierachicalNamespaceDetecter {
  public:
-  HierachicalNamespaceDetecter(
-      std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-          datalake_service_client)
-      : datalake_service_client_(datalake_service_client) {}
-  Result<bool> Enabled(const std::string& container) {
+  Result<bool> Enabled(
+      Azure::Storage::Files::DataLake::DataLakeFileSystemClient filesystem_client) {
     if (is_hierachical_namespace_enabled_.has_value()) {
       return is_hierachical_namespace_enabled_.value();
     }
@@ -82,7 +79,6 @@ class HierachicalNamespaceDetecter {
     // Unfortunately `blob_service_client->GetAccountInfo()` requires significantly
     // elevated permissions.
     // https://learn.microsoft.com/en-us/rest/api/storageservices/get-blob-service-properties?tabs=azure-ad#authorization
-    auto filesystem_client = datalake_service_client_->GetFileSystemClient(container);
     auto directory_client = filesystem_client.GetDirectoryClient("/");
     try {
       directory_client.GetAccessControlList();
@@ -123,8 +119,6 @@ class HierachicalNamespaceDetecter {
   }
 
  private:
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-      datalake_service_client_;
   std::optional<bool> is_hierachical_namespace_enabled_;
 };
 
@@ -522,7 +516,7 @@ class AzureFileSystem::Impl {
       datalake_service_client_;
   std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
-  std::shared_ptr<HierachicalNamespaceDetecter> hierarchical_namespace = nullptr;
+  HierachicalNamespaceDetecter hierarchical_namespace_;
 
   explicit Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(io_context), options_(std::move(options)) {}
@@ -533,8 +527,6 @@ class AzureFileSystem::Impl {
     datalake_service_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
-    hierarchical_namespace =
-        std::make_shared<HierachicalNamespaceDetecter>(datalake_service_client_);
     return Status::OK();
   }
 
@@ -592,8 +584,10 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (ContainerOrBlobNotFound(exception)) {
-        ARROW_ASSIGN_OR_RAISE(bool hierarchical_namespace_enabled,
-                              hierarchical_namespace->Enabled(path.container));
+        ARROW_ASSIGN_OR_RAISE(
+            bool hierarchical_namespace_enabled,
+            hierarchical_namespace_.Enabled(
+                datalake_service_client_->GetFileSystemClient(path.container)));
         if (hierarchical_namespace_enabled) {
           // If the hierarchical namespace is enabled, then the storage account will have
           // explicit directories. Neither a file nor a directory was found.
