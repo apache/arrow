@@ -267,11 +267,9 @@ public class FlightServer implements AutoCloseable {
         } catch (SSLException e) {
           throw new RuntimeException(e);
         } finally {
-          if (mTlsCACert != null) {
-            mTlsCACert.close();
-          }
-          certChain.close();
-          key.close();
+          closeMTlsCACert();
+          closeCertChain();
+          closeKey();
         }
 
         builder.sslContext(sslContext);
@@ -340,10 +338,40 @@ public class FlightServer implements AutoCloseable {
      * are closed if they are not null
      * @param stream The InputStream to close (if it is not null).
      */
-    private void closeInputStreamIfNotNull(InputStream stream) throws IOException {
+    private void closeInputStreamIfNotNull(InputStream stream) {
       if (stream != null) {
-        stream.close();
+        try {
+          stream.close();
+        } catch (IOException ignored) {
+        }
       }
+    }
+
+    /**
+     * A small utility function to ensure that the certChain attribute
+     * is closed if it is not null.  It then sets the attribute to null.
+     */
+    private void closeCertChain() {
+      closeInputStreamIfNotNull(certChain);
+      certChain = null;
+    }
+
+    /**
+     * A small utility function to ensure that the key attribute
+     * is closed if it is not null.  It then sets the attribute to null.
+     */
+    private void closeKey() {
+      closeInputStreamIfNotNull(key);
+      key = null;
+    }
+
+    /**
+     * A small utility function to ensure that the mTlsCACert attribute
+     * is closed if it is not null.  It then sets the attribute to null.
+     */
+    private void closeMTlsCACert() {
+      closeInputStreamIfNotNull(mTlsCACert);
+      mTlsCACert = null;
     }
 
     /**
@@ -352,10 +380,12 @@ public class FlightServer implements AutoCloseable {
      * @param key The private key to use.
      */
     public Builder useTls(final File certChain, final File key) throws IOException {
-      closeInputStreamIfNotNull(this.certChain);
-      closeInputStreamIfNotNull(this.key);
+      closeCertChain();
       this.certChain = new FileInputStream(certChain);
+
+      closeKey();
       this.key = new FileInputStream(key);
+
       return this;
     }
 
@@ -364,7 +394,7 @@ public class FlightServer implements AutoCloseable {
      * @param mTlsCACert The CA certificate to use for verifying clients.
      */
     public Builder useMTlsClientVerification(final File mTlsCACert) throws IOException {
-      closeInputStreamIfNotNull(this.mTlsCACert);
+      closeMTlsCACert();
       this.mTlsCACert = new FileInputStream(mTlsCACert);
       return this;
     }
@@ -375,10 +405,12 @@ public class FlightServer implements AutoCloseable {
      * @param key The private key to use.
      */
     public Builder useTls(final InputStream certChain, final InputStream key) throws IOException {
-      closeInputStreamIfNotNull(this.certChain);
-      closeInputStreamIfNotNull(this.key);
+      closeCertChain();
       this.certChain = certChain;
+
+      closeKey();
       this.key = key;
+
       return this;
     }
 
@@ -387,7 +419,7 @@ public class FlightServer implements AutoCloseable {
      * @param mTlsCACert The CA certificate to use for verifying clients.
      */
     public Builder useMTlsClientVerification(final InputStream mTlsCACert) throws IOException {
-      closeInputStreamIfNotNull(this.mTlsCACert);
+      closeMTlsCACert();
       this.mTlsCACert = mTlsCACert;
       return this;
     }

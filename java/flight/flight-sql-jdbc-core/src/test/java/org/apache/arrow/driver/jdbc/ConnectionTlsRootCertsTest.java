@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 
 import java.net.URLEncoder;
 import java.sql.Connection;
@@ -114,20 +115,15 @@ public class ConnectionTlsRootCertsTest {
   /**
    * Try to instantiate an encrypted FlightClient providing a bad TLS Root Certs Path. It's expected to
    * receive the SQLException.
-   *
-   * @throws Exception on error.
    */
-  @Test(expected = SQLException.class)
-  public void testGetEncryptedClientWithNoCertificateOnKeyStore() throws Exception {
-    try (ArrowFlightSqlClientHandler ignored =
-             new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-                 .withTlsRootCertificates(badTlsRootCertsPath)
-                 .withBufferAllocator(allocator)
-                 .withEncryption(true)
-                 .build()) {
-      Assert.fail();
-    }
+  @Test
+  public void testGetEncryptedClientWithNoCertificateOnKeyStore() {
+    assertThrows(SQLException.class, () -> new ArrowFlightSqlClientHandler.Builder()
+            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withTlsRootCertificates(badTlsRootCertsPath)
+            .withBufferAllocator(allocator)
+            .withEncryption(true)
+            .build());
   }
 
   /**

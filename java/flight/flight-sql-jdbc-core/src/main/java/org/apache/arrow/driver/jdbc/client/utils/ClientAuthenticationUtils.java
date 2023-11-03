@@ -227,9 +227,8 @@ public final class ClientAuthenticationUtils {
     final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 
     try (final InputStream keyStoreStream = Files
-        .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
-      keyStore.load(keyStoreStream,
-          Preconditions.checkNotNull(keyStorePass).toCharArray());
+        .newInputStream(Paths.get(keyStorePath))) {
+      keyStore.load(keyStoreStream, keyStorePass.toCharArray());
     }
 
     return getSingleCertificateInputStream(keyStore);
@@ -249,7 +248,7 @@ public final class ClientAuthenticationUtils {
     Preconditions.checkNotNull(tlsRootsCertificatesPath, "TLS Root certificates path cannot be null!");
 
     return Files
-      .newInputStream(Paths.get(Preconditions.checkNotNull(tlsRootsCertificatesPath)));
+      .newInputStream(Paths.get(tlsRootsCertificatesPath));
   }
 
   /**
@@ -266,7 +265,7 @@ public final class ClientAuthenticationUtils {
     Preconditions.checkNotNull(clientCertificatePath, "Client certificate path cannot be null!");
 
     return Files
-      .newInputStream(Paths.get(Preconditions.checkNotNull(clientCertificatePath)));
+      .newInputStream(Paths.get(clientCertificatePath));
   }
 
   /**
@@ -283,7 +282,7 @@ public final class ClientAuthenticationUtils {
     Preconditions.checkNotNull(clientKeyPath, "Client key path cannot be null!");
 
     return Files
-      .newInputStream(Paths.get(Preconditions.checkNotNull(clientKeyPath)));
+      .newInputStream(Paths.get(clientKeyPath));
   }
 
   private static InputStream getSingleCertificateInputStream(KeyStore keyStore)

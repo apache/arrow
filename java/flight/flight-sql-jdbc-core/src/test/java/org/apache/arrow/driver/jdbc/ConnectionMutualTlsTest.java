@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 
 import java.io.File;
 import java.net.URLEncoder;
@@ -133,43 +134,35 @@ public class ConnectionMutualTlsTest {
   /**
    * Try to instantiate an encrypted FlightClient providing a bad mTLS Cert Path. It's expected to
    * receive the SQLException.
-   *
-   * @throws Exception on error.
    */
-  @Test(expected = SQLException.class)
-  public void testGetEncryptedClientWithBadMTlsCertPath() throws Exception {
+  @Test
+  public void testGetEncryptedClientWithBadMTlsCertPath() {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
             userTest, passTest);
 
-    try (ArrowFlightSqlClientHandler ignored =
-             new ArrowFlightSqlClientHandler.Builder()
-                     .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-                     .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-                     .withUsername(credentials.getUserName())
-                     .withPassword(credentials.getPassword())
-                     .withTlsRootCertificates(tlsRootCertsPath)
-                     .withClientCertificate(badClientMTlsCertPath)
-                     .withClientKey(clientMTlsKeyPath)
-                     .withBufferAllocator(allocator)
-                     .withEncryption(true)
-                     .build()) {
-      Assert.fail();
-    }
+    assertThrows(SQLException.class, () -> new ArrowFlightSqlClientHandler.Builder()
+            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withUsername(credentials.getUserName())
+            .withPassword(credentials.getPassword())
+            .withTlsRootCertificates(tlsRootCertsPath)
+            .withClientCertificate(badClientMTlsCertPath)
+            .withClientKey(clientMTlsKeyPath)
+            .withBufferAllocator(allocator)
+            .withEncryption(true)
+            .build());
   }
 
   /**
    * Try to instantiate an encrypted FlightClient providing a bad mTLS Key Path. It's expected to
    * receive the SQLException.
-   *
-   * @throws Exception on error.
    */
-  @Test(expected = SQLException.class)
-  public void testGetEncryptedClientWithBadMTlsKeyPath() throws Exception {
+  @Test
+  public void testGetEncryptedClientWithBadMTlsKeyPath() {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
             userTest, passTest);
 
-    try (ArrowFlightSqlClientHandler ignored =
-                 new ArrowFlightSqlClientHandler.Builder()
+    assertThrows(SQLException.class, () -> new ArrowFlightSqlClientHandler.Builder()
                          .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                          .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
                          .withUsername(credentials.getUserName())
@@ -179,9 +172,7 @@ public class ConnectionMutualTlsTest {
                          .withClientKey(badClientMTlsKeyPath)
                          .withBufferAllocator(allocator)
                          .withEncryption(true)
-                         .build()) {
-      Assert.fail();
-    }
+                         .build());
   }
 
   /**
