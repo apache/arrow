@@ -121,5 +121,90 @@ namespace Apache.Arrow.Tests
             }
 #endif
         }
+
+        public class Strings
+        {
+            [Theory]
+            [InlineData(100.12, 10, 2, "100.12")]
+            [InlineData(100.12, 8, 3, "100.120")]
+            [InlineData(100.12, 7, 4, "100.1200")]
+            [InlineData(.12, 6, 3, "0.120")]
+            [InlineData(.0012, 5, 4, "0.0012")]
+            [InlineData(-100.12, 10, 2, "-100.12")]
+            [InlineData(-100.12, 8, 3, "-100.120")]
+            [InlineData(-100.12, 7, 4, "-100.1200")]
+            [InlineData(-.12, 6, 3, "-0.120")]
+            [InlineData(-.0012, 5, 4, "-0.0012")]
+            [InlineData(7.89, 76, 38, "7.89000000000000000000000000000000000000")]
+            public void FromDecimal(decimal d, int precision, int scale, string result)
+            {
+                if (precision <= 38)
+                {
+                    TestFromDecimal(d, precision, scale, 16, result);
+                }
+                TestFromDecimal(d, precision, scale, 32, result);
+            }
+
+            private void TestFromDecimal(decimal d, int precision, int scale, int byteWidth, string result)
+            {
+                var bytes = new byte[byteWidth];
+                DecimalUtility.GetBytes(d, precision, scale, byteWidth, bytes);
+                Assert.Equal(result, DecimalUtility.GetString(new ArrowBuffer(bytes), 0, precision, scale, byteWidth));
+            }
+
+            [Theory]
+            [InlineData("100.12", 10, 2, "100.12")]
+            [InlineData("100.12", 8, 3, "100.120")]
+            [InlineData("100.12", 7, 4, "100.1200")]
+            [InlineData(".12", 6, 3, "0.120")]
+            [InlineData(".0012", 5, 4, "0.0012")]
+            [InlineData("-100.12", 10, 2, "-100.12")]
+            [InlineData("-100.12", 8, 3, "-100.120")]
+            [InlineData("-100.12", 7, 4, "-100.1200")]
+            [InlineData("-.12", 6, 3, "-0.120")]
+            [InlineData("-.0012", 5, 4, "-0.0012")]
+            [InlineData("+.0012", 5, 4, "0.0012")]
+            [InlineData("99999999999999999999999999999999999999", 38, 0, "99999999999999999999999999999999999999")]
+            [InlineData("-99999999999999999999999999999999999999", 38, 0, "-99999999999999999999999999999999999999")]
+            public void FromString(string s, int precision, int scale, string result)
+            {
+                TestFromString(s, precision, scale, 16, result);
+                TestFromString(s, precision, scale, 32, result);
+            }
+
+            [Fact]
+            public void ThroughDecimal256()
+            {
+                var seventysix = new string('9', 76);
+                TestFromString(seventysix, 76, 0, 32, seventysix);
+                TestFromString("0000" + seventysix, 76, 0, 32, seventysix);
+
+                seventysix = "-" + seventysix;
+                TestFromString(seventysix, 76, 0, 32, seventysix);
+
+                var seventyseven = new string('9', 77);
+                Assert.Throws<OverflowException>(() => TestFromString(seventyseven, 76, 0, 32, seventyseven));
+            }
+
+            private void TestFromString(string s, int precision, int scale, int byteWidth, string result)
+            {
+                var bytes = new byte[byteWidth];
+                DecimalUtility.GetBytes(s, precision, scale, byteWidth, bytes);
+                Assert.Equal(result, DecimalUtility.GetString(new ArrowBuffer(bytes), 0, precision, scale, byteWidth));
+            }
+
+            [Theory]
+            [InlineData("", 10, 2, 16, typeof(ArgumentException))]
+            [InlineData("", 10, 2, 32, typeof(ArgumentException))]
+            [InlineData(null, 10, 2, 32, typeof(ArgumentException))]
+            [InlineData("1.23", 10, 1, 16, typeof(OverflowException))]
+            [InlineData("12345678901234567890", 24, 1, 8, typeof(OverflowException))]
+            [InlineData("abc", 24, 1, 8, typeof(ArgumentException))]
+            public void ParseErrors(string s, int precision, int scale, int byteWidth, Type exceptionType)
+            {
+                byte[] bytes = new byte[byteWidth];
+                Assert.Throws(exceptionType, () => DecimalUtility.GetBytes(s, precision, scale, byteWidth, bytes));
+            }
+        }
     }
 }

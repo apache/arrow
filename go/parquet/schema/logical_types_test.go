@@ -19,9 +19,9 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v14/internal/json"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 

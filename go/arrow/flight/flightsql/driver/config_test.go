@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/driver"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/driver"
 )
 
 func TestConfigTLSRegistry(t *testing.T) {

@@ -81,7 +81,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
         new ArrowFlightJdbcVectorSchemaRootResultSet(null, state, signature, resultSetMetaData,
             timeZone, null);
 
-    resultSet.execute(vectorSchemaRoot);
+    resultSet.populateData(vectorSchemaRoot);
     return resultSet;
   }
 
@@ -90,12 +90,11 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     throw new RuntimeException("Can only execute with execute(VectorSchemaRoot)");
   }
 
-  void execute(final VectorSchemaRoot vectorSchemaRoot) {
-    execute(vectorSchemaRoot, vectorSchemaRoot.getSchema());
-    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
+  void populateData(final VectorSchemaRoot vectorSchemaRoot) {
+    populateData(vectorSchemaRoot, null);
   }
 
-  void execute(final VectorSchemaRoot vectorSchemaRoot, final Schema schema) {
+  void populateData(final VectorSchemaRoot vectorSchemaRoot, final Schema schema) {
     Schema currentSchema = schema == null ? vectorSchemaRoot.getSchema() : schema;
     final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(currentSchema.getFields());
     signature.columns.clear();

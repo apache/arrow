@@ -64,6 +64,37 @@ namespace Apache.Arrow
                 return Instance;
             }
 
+            public Builder Append(string value)
+            {
+                if (value == null)
+                {
+                    AppendNull();
+                }
+                else
+                {
+                    Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
+                    DecimalUtility.GetBytes(value, DataType.Precision, DataType.Scale, ByteWidth, bytes);
+                    Append(bytes);
+                }
+
+                return Instance;
+            }
+
+            public Builder AppendRange(IEnumerable<string> values)
+            {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
+                foreach (string s in values)
+                {
+                    Append(s);
+                }
+
+                return Instance;
+            }
+
 #if !NETSTANDARD1_3
             public Builder Append(SqlDecimal value)
             {
@@ -118,6 +149,15 @@ namespace Apache.Arrow
                 return null;
             }
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+        }
+
+        public string GetString(int index)
+        {
+            if (IsNull(index))
+            {
+                return null;
+            }
+            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
         }
 
 #if !NETSTANDARD1_3
