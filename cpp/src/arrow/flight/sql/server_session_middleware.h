@@ -20,8 +20,8 @@
 
 #pragma once
 
-#include <string_view>
 #include <shared_mutex>
+#include <string_view>
 
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/types.h"
