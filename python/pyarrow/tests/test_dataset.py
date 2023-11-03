@@ -3893,7 +3893,7 @@ def test_legacy_write_to_dataset_drops_null(tempdir):
 def _sort_table(tab, sort_col):
     import pyarrow.compute as pc
     sorted_indices = pc.sort_indices(
-        tab, options=pc.SortOptions([(sort_col, 'ascending')]))
+        tab, options=pc.SortOptions([(sort_col, 'ascending', 'at_end')]))
     return pc.take(tab, sorted_indices)
 
 
@@ -5349,7 +5349,7 @@ def test_dataset_sort_by(tempdir, dstype):
         "values": [1, 2, 3, 4, 5]
     }
 
-    assert dt.sort_by([("values", "descending")]).to_table().to_pydict() == {
+    assert dt.sort_by([("values", "descending", "at_end")]).to_table().to_pydict() == {
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
     }
@@ -5367,12 +5367,12 @@ def test_dataset_sort_by(tempdir, dstype):
     ], names=["a", "b"])
     dt = ds.dataset(table)
 
-    sorted_tab = dt.sort_by([("a", "descending")])
+    sorted_tab = dt.sort_by([("a", "descending", "at_end")])
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [35, 7, 7, 5]
     assert sorted_tab_dict["b"] == ["foobar", "car", "bar", "foo"]
 
-    sorted_tab = dt.sort_by([("a", "ascending")])
+    sorted_tab = dt.sort_by([("a", "ascending", "at_end")])
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]

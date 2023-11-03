@@ -402,7 +402,7 @@ class RadixRecordBatchSorter {
         : physical_type(sort_key.type),
           array(sort_key.owned_array),
           order(sort_key.order),
-          null_placement(options.null_placement),
+          null_placement(sort_key.null_placement),
           next_column(next_column) {}
 
     Result<std::unique_ptr<RecordBatchColumnSorter>> MakeColumnSort() {
@@ -462,16 +462,14 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
       : indices_begin_(indices_begin),
         indices_end_(indices_end),
         sort_keys_(std::move(sort_keys)),
-        null_placement_(options.null_placement),
-        comparator_(sort_keys_, null_placement_) {}
+        comparator_(sort_keys_) {}
 
   MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
                                const RecordBatch& batch, const SortOptions& options)
       : indices_begin_(indices_begin),
         indices_end_(indices_end),
         sort_keys_(ResolveSortKeys(batch, options.sort_keys, &status_)),
-        null_placement_(options.null_placement),
-        comparator_(sort_keys_, null_placement_) {}
+        comparator_(sort_keys_) {}
 
   // This is optimized for the first sort key. The first sort key sort
   // is processed in this class. The second and following sort keys
@@ -552,10 +550,10 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     const ArrayType& array =
         ::arrow::internal::checked_cast<const ArrayType&>(first_sort_key.array);
 
-    const auto p = PartitionNullsOnly<StablePartitioner>(indices_begin_, indices_end_,
-                                                         array, 0, null_placement_);
+    const auto p = PartitionNullsOnly<StablePartitioner>(
+        indices_begin_, indices_end_, array, 0, first_sort_key.null_placement);
     const auto q = PartitionNullLikes<ArrayType, StablePartitioner>(
-        p.non_nulls_begin, p.non_nulls_end, array, 0, null_placement_);
+        p.non_nulls_begin, p.non_nulls_end, array, 0, first_sort_key.null_placement);
 
     auto& comparator = comparator_;
     if (q.nulls_begin != q.nulls_end) {
@@ -583,7 +581,6 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   uint64_t* indices_end_;
   Status status_;
   std::vector<ResolvedSortKey> sort_keys_;
-  NullPlacement null_placement_;
   Comparator comparator_;
 };
 
@@ -607,13 +604,12 @@ class TableSorter {
         table_(table),
         batches_(MakeBatches(table, &status_)),
         options_(options),
-        null_placement_(options.null_placement),
         left_resolver_(batches_),
         right_resolver_(batches_),
         sort_keys_(ResolveSortKeys(table, batches_, options.sort_keys, &status_)),
         indices_begin_(indices_begin),
         indices_end_(indices_end),
-        comparator_(sort_keys_, null_placement_) {}
+        comparator_(sort_keys_) {}
 
   // This is optimized for null partitioning and merging along the first sort key.
   // Other sort keys are delegated to the Comparator class.
@@ -711,7 +707,7 @@ class TableSorter {
       MergeNonNulls<Type>(range_begin, range_middle, range_end, temp_indices);
     };
 
-    MergeImpl merge_impl(options_.null_placement, std::move(merge_nulls),
+    MergeImpl merge_impl(sort_keys_[0].null_placement, std::move(merge_nulls),
                          std::move(merge_non_nulls));
     RETURN_NOT_OK(merge_impl.Init(ctx_, table_.num_rows()));
 
@@ -758,7 +754,7 @@ class TableSorter {
                  const auto right_is_null = chunk_right.IsNull();
                  if (left_is_null == right_is_null) {
                    return comparator.Compare(left_loc, right_loc, 1);
-                 } else if (options_.null_placement == NullPlacement::AtEnd) {
+                 } else if (first_sort_key.null_placement == NullPlacement::AtEnd) {
                    return right_is_null;
                  } else {
                    return left_is_null;
@@ -847,7 +843,6 @@ class TableSorter {
   const Table& table_;
   const RecordBatchVector batches_;
   const SortOptions& options_;
-  const NullPlacement null_placement_;
   const ::arrow::internal::ChunkResolver left_resolver_, right_resolver_;
   const std::vector<ResolvedSortKey> sort_keys_;
   uint64_t* indices_begin_;
@@ -936,18 +931,22 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
+    NullPlacement null_placement = NullPlacement::AtEnd;
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
+      null_placement = options.sort_keys[0].null_placement;
     }
-    ArraySortOptions array_options(order, options.null_placement);
+    ArraySortOptions array_options(order, null_placement);
     return CallFunction("array_sort_indices", {values}, &array_options, ctx);
   }
 
   Result<Datum> SortIndices(const ChunkedArray& chunked_array, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
+    NullPlacement null_placement = NullPlacement::AtEnd;
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
+      null_placement = options.sort_keys[0].null_placement;
     }
 
     auto out_type = uint64();
@@ -962,8 +961,8 @@ class SortIndicesMetaFunction : public MetaFunction {
     auto out_end = out_begin + length;
     std::iota(out_begin, out_end, 0);
 
-    RETURN_NOT_OK(SortChunkedArray(ctx, out_begin, out_end, chunked_array, order,
-                                   options.null_placement));
+    RETURN_NOT_OK(
+        SortChunkedArray(ctx, out_begin, out_end, chunked_array, order, null_placement));
     return Datum(out);
   }
 
@@ -1056,7 +1055,7 @@ struct SortFieldPopulator {
                             PrependInvalidColumn(sort_key.target.FindOne(schema)));
       if (seen_.insert(match).second) {
         ARROW_ASSIGN_OR_RAISE(auto schema_field, match.Get(schema));
-        AddField(*schema_field->type(), match, sort_key.order);
+        AddField(*schema_field->type(), match, sort_key.order, sort_key.null_placement);
       }
     }
 
@@ -1064,7 +1063,8 @@ struct SortFieldPopulator {
   }
 
  protected:
-  void AddLeafFields(const FieldVector& fields, SortOrder order) {
+  void AddLeafFields(const FieldVector& fields, SortOrder order,
+                     NullPlacement null_placement) {
     if (fields.empty()) {
       return;
     }
@@ -1073,21 +1073,22 @@ struct SortFieldPopulator {
     for (const auto& f : fields) {
       const auto& type = *f->type();
       if (type.id() == Type::STRUCT) {
-        AddLeafFields(type.fields(), order);
+        AddLeafFields(type.fields(), order, null_placement);
       } else {
-        sort_fields_.emplace_back(FieldPath(tmp_indices_), order, &type);
+        sort_fields_.emplace_back(FieldPath(tmp_indices_), order, &type, null_placement);
       }
       ++tmp_indices_.back();
     }
     tmp_indices_.pop_back();
   }
 
-  void AddField(const DataType& type, const FieldPath& path, SortOrder order) {
+  void AddField(const DataType& type, const FieldPath& path, SortOrder order,
+                NullPlacement null_placement) {
     if (type.id() == Type::STRUCT) {
       tmp_indices_ = path.indices();
-      AddLeafFields(type.fields(), order);
+      AddLeafFields(type.fields(), order, null_placement);
     } else {
-      sort_fields_.emplace_back(path, order, &type);
+      sort_fields_.emplace_back(path, order, &type, null_placement);
     }
   }
 
@@ -1135,10 +1136,9 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
                                  std::move(columns));
 
   auto options = SortOptions::Defaults();
-  options.null_placement = null_placement;
   options.sort_keys.reserve(array.num_fields());
   for (int i = 0; i < array.num_fields(); ++i) {
-    options.sort_keys.push_back(SortKey(FieldRef(i), sort_order));
+    options.sort_keys.push_back(SortKey(FieldRef(i), sort_order, null_placement));
   }
 
   ARROW_ASSIGN_OR_RAISE(auto sort_keys,

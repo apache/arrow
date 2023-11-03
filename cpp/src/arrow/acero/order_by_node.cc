@@ -115,7 +115,7 @@ class OrderByNode : public ExecNode, public TracedNode {
     ARROW_ASSIGN_OR_RAISE(
         auto table,
         Table::FromRecordBatches(output_schema_, std::move(accumulation_queue_)));
-    SortOptions sort_options(ordering_.sort_keys(), ordering_.null_placement());
+    SortOptions sort_options(ordering_.sort_keys());
     ExecContext* ctx = plan_->query_context()->exec_context();
     ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, sort_options, ctx));
     ARROW_ASSIGN_OR_RAISE(Datum sorted,

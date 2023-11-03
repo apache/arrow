@@ -1400,7 +1400,7 @@ TEST(Ordering, IsSuborderOf) {
   Ordering a{{SortKey{3}, SortKey{1}, SortKey{7}}};
   Ordering b{{SortKey{3}, SortKey{1}}};
   Ordering c{{SortKey{1}, SortKey{7}}};
-  Ordering d{{SortKey{1}, SortKey{7}}, NullPlacement::AtEnd};
+  Ordering d{{SortKey{1}, SortKey{7, NullPlacement::AtStart}}};
   Ordering imp = Ordering::Implicit();
   Ordering unordered = Ordering::Unordered();
 

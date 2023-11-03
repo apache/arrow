@@ -293,8 +293,10 @@ class RankMetaFunction : public MetaFunction {
   static Result<Datum> Rank(const T& input, const RankOptions& options,
                             ExecContext* ctx) {
     SortOrder order = SortOrder::Ascending;
+    NullPlacement null_placement = NullPlacement::AtEnd;
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
+      null_placement = options.sort_keys[0].null_placement;
     }
 
     int64_t length = input.length();
@@ -305,8 +307,8 @@ class RankMetaFunction : public MetaFunction {
     std::iota(indices_begin, indices_end, 0);
 
     Datum output;
-    Ranker<T> ranker(ctx, indices_begin, indices_end, input, order,
-                     options.null_placement, options.tiebreaker, &output);
+    Ranker<T> ranker(ctx, indices_begin, indices_end, input, order, null_placement,
+                     options.tiebreaker, &output);
     ARROW_RETURN_NOT_OK(ranker.Run());
     return output;
   }

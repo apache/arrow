@@ -515,7 +515,7 @@ TEST(ExecPlan, ToString) {
   });
   ASSERT_OK_AND_ASSIGN(std::string plan_str, DeclarationToString(declaration));
   EXPECT_EQ(plan_str, R"a(ExecPlan with 6 nodes:
-custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
+custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC AtEnd]}}
   :FilterNode{filter=(sum(multiply(i32, 2)) > 10)}
     :GroupByNode{keys=["bool"], aggregates=[
     	hash_sum(multiply(i32, 2)),

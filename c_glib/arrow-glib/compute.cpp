@@ -2987,6 +2987,7 @@ typedef struct GArrowSortKeyPrivate_ {
 enum {
   PROP_SORT_KEY_TARGET = 1,
   PROP_SORT_KEY_ORDER,
+  PROP_SORT_KEY_NULL_PLACEMENT,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowSortKey,
@@ -3019,6 +3020,10 @@ garrow_sort_key_set_property(GObject *object,
     priv->sort_key.order =
       static_cast<arrow::compute::SortOrder>(g_value_get_enum(value));
     break;
+  case PROP_SORT_KEY_NULL_PLACEMENT:
+    priv->sort_key.null_placement =
+      static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -3046,6 +3051,10 @@ garrow_sort_key_get_property(GObject *object,
     break;
   case PROP_SORT_KEY_ORDER:
     g_value_set_enum(value, static_cast<GArrowSortOrder>(priv->sort_key.order));
+    break;
+  case PROP_SORT_KEY_NULL_PLACEMENT:
+    g_value_set_enum(value,
+                     static_cast<GArrowNullPlacement>(priv->sort_key.null_placement));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -3103,12 +3112,29 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
                            static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                     G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SORT_KEY_ORDER, spec);
+
+  /**
+   * GArrowSortKey::null-placement:
+   *
+   * Whether nulls and NaNs are placed at the start or at the end.
+   *
+   * Since: 15.0.0
+   */
+  spec = g_param_spec_enum("null-placement",
+                           "Null Placement",
+                           "Whether nulls and NaNs are placed at the start or at the end",
+                           GARROW_TYPE_NULL_PLACEMENT,
+                           0,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                    G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SORT_KEY_NULL_PLACEMENT, spec);
 }
 
 /**
  * garrow_sort_key_new:
  * @target: A name or dot path for sort target.
  * @order: How to order by this sort key.
+ * @null_placement: Whether nulls and NaNs are placed at the start or at the end.
  *
  * Returns: A newly created #GArrowSortKey.
  *
@@ -3117,6 +3143,7 @@ garrow_sort_key_class_init(GArrowSortKeyClass *klass)
 GArrowSortKey *
 garrow_sort_key_new(const gchar *target,
                     GArrowSortOrder order,
+                    GArrowNullPlacement null_placement,
                     GError **error)
 {
   auto arrow_reference_result = garrow_field_reference_resolve_raw(target);
@@ -3127,6 +3154,7 @@ garrow_sort_key_new(const gchar *target,
   }
   auto sort_key = g_object_new(GARROW_TYPE_SORT_KEY,
                                "order", order,
+                               "null-placement", null_placement,
                                NULL);
   auto priv = GARROW_SORT_KEY_GET_PRIVATE(sort_key);
   priv->sort_key.target = *arrow_reference_result;
@@ -4461,8 +4489,7 @@ garrow_index_options_new(void)
 
 
 enum {
-  PROP_RANK_OPTIONS_NULL_PLACEMENT = 1,
-  PROP_RANK_OPTIONS_TIEBREAKER,
+  PROP_RANK_OPTIONS_TIEBREAKER = 1,
 };
 
 G_DEFINE_TYPE(GArrowRankOptions,
@@ -4483,10 +4510,6 @@ garrow_rank_options_set_property(GObject *object,
   auto options = garrow_rank_options_get_raw(GARROW_RANK_OPTIONS(object));
 
   switch (prop_id) {
-  case PROP_RANK_OPTIONS_NULL_PLACEMENT:
-    options->null_placement =
-      static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
-    break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     options->tiebreaker =
       static_cast<arrow::compute::RankOptions::Tiebreaker>(
@@ -4507,11 +4530,6 @@ garrow_rank_options_get_property(GObject *object,
   auto options = garrow_rank_options_get_raw(GARROW_RANK_OPTIONS(object));
 
   switch (prop_id) {
-  case PROP_RANK_OPTIONS_NULL_PLACEMENT:
-    g_value_set_enum(
-      value,
-      static_cast<GArrowNullPlacement>(options->null_placement));
-    break;
   case PROP_RANK_OPTIONS_TIEBREAKER:
     g_value_set_enum(
       value,
@@ -4543,25 +4561,6 @@ garrow_rank_options_class_init(GArrowRankOptionsClass *klass)
   auto options = arrow::compute::RankOptions::Defaults();
 
   GParamSpec *spec;
-  /**
-   * GArrowRankOptions:null-placement:
-   *
-   * Whether nulls and NaNs are placed at the start or at the end.
-   *
-   * Since: 12.0.0
-   */
-  spec = g_param_spec_enum("null-placement",
-                           "Null placement",
-                           "Whether nulls and NaNs are placed "
-                           "at the start or at the end.",
-                           GARROW_TYPE_NULL_PLACEMENT,
-                           static_cast<GArrowNullPlacement>(
-                             options.null_placement),
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_RANK_OPTIONS_NULL_PLACEMENT,
-                                  spec);
-
   /**
    * GArrowRankOptions:tiebreaker:
    *
@@ -4612,9 +4611,6 @@ garrow_rank_options_equal(GArrowRankOptions *options,
   auto arrow_other_options = garrow_rank_options_get_raw(other_options);
   if (!garrow_raw_sort_keys_equal(arrow_options->sort_keys,
                                   arrow_other_options->sort_keys)) {
-    return FALSE;
-  }
-  if (arrow_options->null_placement != arrow_other_options->null_placement) {
     return FALSE;
   }
   if (arrow_options->tiebreaker != arrow_other_options->tiebreaker) {
@@ -6434,8 +6430,6 @@ garrow_sort_options_new_raw(
                                      NULL));
   auto arrow_new_options = garrow_sort_options_get_raw(options);
   arrow_new_options->sort_keys = arrow_options->sort_keys;
-  /* TODO: Use property when we add support for null_placement. */
-  arrow_new_options->null_placement = arrow_options->null_placement;
   return options;
 }
 
@@ -6633,7 +6627,6 @@ garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options)
 {
   auto options = GARROW_RANK_OPTIONS(
     g_object_new(GARROW_TYPE_RANK_OPTIONS,
-                 "null-placement", arrow_options->null_placement,
                  "tiebreaker", arrow_options->tiebreaker,
                  nullptr));
   auto arrow_new_options = garrow_rank_options_get_raw(options);

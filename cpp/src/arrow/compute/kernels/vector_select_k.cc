@@ -71,6 +71,120 @@ class SelectKComparator<SortOrder::Descending> {
   }
 };
 
+struct ExtractCounter {
+  int64_t extract_non_null_count;
+  int64_t extract_nan_count;
+  int64_t extract_null_count;
+};
+
+class HeapSorter {
+ public:
+  using HeapPusherFunction =
+      std::function<void(uint64_t*, uint64_t*, uint64_t*, uint64_t*)>;
+
+  HeapSorter(int64_t k, NullPlacement null_placement, MemoryPool* pool)
+      : k_(k), null_placement_(null_placement), pool_(pool) {}
+
+  Result<std::shared_ptr<ArrayData>> HeapSort(HeapPusherFunction heap_pusher,
+                                              NullPartitionResult p,
+                                              NullPartitionResult q) {
+    ExtractCounter counter = ComputeExtractCounter(p, q);
+    return HeapSortInternal(counter, heap_pusher, p, q);
+  }
+
+  ExtractCounter ComputeExtractCounter(NullPartitionResult p, NullPartitionResult q) {
+    int64_t extract_non_null_count = 0;
+    int64_t extract_nan_count = 0;
+    int64_t extract_null_count = 0;
+    int64_t non_null_count = q.non_null_count();
+    int64_t nan_count = q.null_count();
+    int64_t null_count = p.null_count();
+    // non-null nan null
+    if (null_placement_ == NullPlacement::AtEnd) {
+      extract_non_null_count = non_null_count <= k_ ? non_null_count : k_;
+      extract_nan_count = extract_non_null_count >= k_
+                              ? 0
+                              : std::min(nan_count, k_ - extract_non_null_count);
+      extract_null_count = extract_non_null_count + extract_nan_count >= k_
+                               ? 0
+                               : (k_ - (extract_non_null_count + extract_nan_count));
+    } else {  // null nan non-null
+      extract_null_count = null_count <= k_ ? null_count : k_;
+      extract_nan_count =
+          extract_null_count >= k_ ? 0 : std::min(nan_count, k_ - extract_null_count);
+      extract_non_null_count = extract_null_count + extract_nan_count >= k_
+                                   ? 0
+                                   : (k_ - (extract_null_count + extract_nan_count));
+    }
+    return {extract_non_null_count, extract_nan_count, extract_null_count};
+  }
+
+  Result<std::shared_ptr<ArrayData>> HeapSortInternal(ExtractCounter counter,
+                                                      HeapPusherFunction heap_pusher,
+                                                      NullPartitionResult p,
+                                                      NullPartitionResult q) {
+    int64_t out_size = counter.extract_non_null_count + counter.extract_nan_count +
+                       counter.extract_null_count;
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(out_size, pool_));
+    // [extrat_count....extract_nan_count...extract_null_count]
+    if (null_placement_ == NullPlacement::AtEnd) {
+      if (counter.extract_non_null_count) {
+        auto* out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                           counter.extract_non_null_count - 1;
+        auto kth_begin = std::min(q.non_nulls_begin + k_, q.non_nulls_end);
+        heap_pusher(q.non_nulls_begin, kth_begin, q.non_nulls_end, out_cbegin);
+      }
+
+      if (counter.extract_nan_count) {
+        auto* out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                           counter.extract_non_null_count + counter.extract_nan_count - 1;
+        auto kth_begin =
+            std::min(q.nulls_begin + k_ - counter.extract_non_null_count, q.nulls_end);
+        heap_pusher(q.nulls_begin, kth_begin, q.nulls_end, out_cbegin);
+      }
+
+      if (counter.extract_null_count) {
+        auto* out_cbegin =
+            take_indices->template GetMutableValues<uint64_t>(1) + out_size - 1;
+        auto kth_begin = std::min(p.nulls_begin + k_ - counter.extract_non_null_count -
+                                      counter.extract_nan_count,
+                                  p.nulls_end);
+        heap_pusher(p.nulls_begin, kth_begin, p.nulls_end, out_cbegin);
+      }
+    } else {  // [extract_null_count....extract_nan_count...extrat_count]
+      if (counter.extract_null_count) {
+        auto* out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                           counter.extract_null_count - 1;
+        auto kth_begin = std::min(p.nulls_begin + k_, p.nulls_end);
+        heap_pusher(p.nulls_begin, kth_begin, p.nulls_end, out_cbegin);
+      }
+
+      if (counter.extract_nan_count) {
+        auto* out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                           counter.extract_null_count + counter.extract_nan_count - 1;
+        auto kth_begin =
+            std::min(q.nulls_begin + k_ - counter.extract_null_count, q.nulls_end);
+        heap_pusher(q.nulls_begin, kth_begin, q.nulls_end, out_cbegin);
+      }
+
+      if (counter.extract_non_null_count) {
+        auto* out_cbegin =
+            take_indices->template GetMutableValues<uint64_t>(1) + out_size - 1;
+        auto kth_begin = std::min(q.non_nulls_begin + k_ - counter.extract_null_count -
+                                      counter.extract_nan_count,
+                                  q.non_nulls_end);
+        heap_pusher(q.non_nulls_begin, kth_begin, q.non_nulls_end, out_cbegin);
+      }
+    }
+    return take_indices;
+  }
+
+ private:
+  int64_t k_;
+  NullPlacement null_placement_;
+  MemoryPool* pool_;
+};
+
 class ArraySelecter : public TypeVisitor {
  public:
   ArraySelecter(ExecContext* ctx, const Array& array, const SelectKOptions& options,
@@ -80,6 +194,7 @@ class ArraySelecter : public TypeVisitor {
         array_(array),
         k_(options.k),
         order_(options.sort_keys[0].order),
+        null_placement_(options.sort_keys[0].null_placement),
         physical_type_(GetPhysicalType(array.type())),
         output_(output) {}
 
@@ -112,11 +227,10 @@ class ArraySelecter : public TypeVisitor {
       k_ = arr.length();
     }
 
-    const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
-        indices_begin, indices_end, arr, 0, NullPlacement::AtEnd);
-    const auto end_iter = p.non_nulls_end;
-
-    auto kth_begin = std::min(indices_begin + k_, end_iter);
+    const auto p = PartitionNullsOnly<NonStablePartitioner>(indices_begin, indices_end,
+                                                            arr, 0, null_placement_);
+    const auto q = PartitionNullLikes<ArrayType, NonStablePartitioner>(
+        p.non_nulls_begin, p.non_nulls_end, arr, 0, null_placement_);
 
     SelectKComparator<sort_order> comparator;
     auto cmp = [&arr, &comparator](uint64_t left, uint64_t right) {
@@ -126,24 +240,24 @@ class ArraySelecter : public TypeVisitor {
     };
     using HeapContainer =
         std::priority_queue<uint64_t, std::vector<uint64_t>, decltype(cmp)>;
-    HeapContainer heap(indices_begin, kth_begin, cmp);
-    for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
-      uint64_t x_index = *iter;
-      if (cmp(x_index, heap.top())) {
-        heap.pop();
-        heap.push(x_index);
+    auto HeapPusher = [&](uint64_t* indices_begin, uint64_t* kth_begin,
+                          uint64_t* end_iter, uint64_t* out_cbegin) {
+      HeapContainer heap(indices_begin, kth_begin, cmp);
+      for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
+        uint64_t x_index = *iter;
+        if (cmp(x_index, heap.top())) {
+          heap.pop();
+          heap.push(x_index);
+        }
       }
-    }
-    auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices,
-                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
-
-    auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
-    while (heap.size() > 0) {
-      *out_cbegin = heap.top();
-      heap.pop();
-      --out_cbegin;
-    }
+      while (heap.size() > 0) {
+        *out_cbegin = heap.top();
+        heap.pop();
+        --out_cbegin;
+      }
+    };
+    HeapSorter h(k_, null_placement_, ctx_->memory_pool());
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, h.HeapSort(HeapPusher, p, q));
     *output_ = Datum(take_indices);
     return Status::OK();
   }
@@ -152,6 +266,7 @@ class ArraySelecter : public TypeVisitor {
   const Array& array_;
   int64_t k_;
   SortOrder order_;
+  NullPlacement null_placement_;
   const std::shared_ptr<DataType> physical_type_;
   Datum* output_;
 };
@@ -161,6 +276,188 @@ struct TypedHeapItem {
   uint64_t index;
   uint64_t offset;
   ArrayType* array;
+};
+
+template <typename InType, SortOrder sort_order>
+class ChunkedHeapSorter {
+ public:
+  using GetView = GetViewType<InType>;
+  using ArrayType = typename TypeTraits<InType>::ArrayType;
+  using HeapItem = TypedHeapItem<ArrayType>;
+
+  ChunkedHeapSorter(int64_t k, NullPlacement null_placement, MemoryPool* pool)
+      : k_(k), null_placement_(null_placement), pool_(pool) {}
+
+  Result<std::shared_ptr<ArrayData>> HeapSort(const ArrayVector physical_chunks) {
+    std::vector<std::pair<NullPartitionResult, NullPartitionResult>> chunks_null_partions;
+    std::vector<std::shared_ptr<ArrayType>> chunks_holder;
+    std::vector<std::vector<uint64_t>> chunks_indices_holder;
+    chunks_null_partions.reserve(physical_chunks.size());
+    ExtractCounter counter = ComputeExtractCounter(physical_chunks, chunks_null_partions,
+                                                   chunks_holder, chunks_indices_holder);
+    return HeapSortInternal(chunks_holder, counter, chunks_null_partions);
+  }
+
+  // Extract the total count of non-nulls, nans, and nulls for all chunks
+  ExtractCounter ComputeExtractCounter(
+      const ArrayVector physical_chunks,
+      std::vector<std::pair<NullPartitionResult, NullPartitionResult>>&
+          chunks_null_partions,
+      std::vector<std::shared_ptr<ArrayType>>& chunks_holder,
+      std::vector<std::vector<uint64_t>>& chunks_indices_holder) {
+    int64_t all_non_null_count = 0;
+    int64_t all_nan_count = 0;
+    int64_t all_null_count = 0;
+    int64_t extract_non_null_count = 0;
+    int64_t extract_nan_count = 0;
+    int64_t extract_null_count = 0;
+    for (size_t i = 0; i < physical_chunks.size(); i++) {
+      const auto& chunk = physical_chunks[i];
+      if (chunk->length() == 0) continue;
+      chunks_holder.emplace_back(std::make_shared<ArrayType>(chunk->data()));
+      ArrayType& arr = *chunks_holder[chunks_holder.size() - 1];
+      chunks_indices_holder.emplace_back(std::vector<uint64_t>(arr.length()));
+      std::vector<uint64_t>& indices =
+          chunks_indices_holder[chunks_indices_holder.size() - 1];
+      uint64_t* indices_begin = indices.data();
+      uint64_t* indices_end = indices_begin + indices.size();
+      std::iota(indices_begin, indices_end, 0);
+      NullPartitionResult p = PartitionNullsOnly<NonStablePartitioner>(
+          indices_begin, indices_end, arr, 0, null_placement_);
+      NullPartitionResult q = PartitionNullLikes<ArrayType, NonStablePartitioner>(
+          p.non_nulls_begin, p.non_nulls_end, arr, 0, null_placement_);
+      int64_t non_null_count = q.non_null_count();
+      int64_t nan_count = q.null_count();
+      int64_t null_count = p.null_count();
+      all_non_null_count += non_null_count;
+      all_nan_count += nan_count;
+      all_null_count += null_count;
+      chunks_null_partions.emplace_back(p, q);
+    }
+    // non-null nan null
+    if (null_placement_ == NullPlacement::AtEnd) {
+      extract_non_null_count = all_non_null_count <= k_ ? all_non_null_count : k_;
+      extract_nan_count = extract_non_null_count >= k_
+                              ? 0
+                              : std::min(all_nan_count, k_ - extract_non_null_count);
+      extract_null_count = extract_non_null_count + extract_nan_count >= k_
+                               ? 0
+                               : (k_ - (extract_non_null_count + extract_nan_count));
+    } else {  // null nan non-null
+      extract_null_count = all_null_count <= k_ ? all_null_count : k_;
+      extract_nan_count =
+          extract_null_count >= k_ ? 0 : std::min(all_nan_count, k_ - extract_null_count);
+      extract_non_null_count = extract_null_count + extract_nan_count >= k_
+                                   ? 0
+                                   : (k_ - (extract_null_count + extract_nan_count));
+    }
+    return {extract_non_null_count, extract_nan_count, extract_null_count};
+  }
+
+  Result<std::shared_ptr<ArrayData>> HeapSortInternal(
+      const std::vector<std::shared_ptr<ArrayType>>& chunks_holder,
+      ExtractCounter counter,
+      const std::vector<std::pair<NullPartitionResult, NullPartitionResult>>&
+          chunks_null_partions) {
+    std::function<bool(const HeapItem&, const HeapItem&)> cmp;
+    SelectKComparator<sort_order> comparator;
+    cmp = [&comparator](const HeapItem& left, const HeapItem& right) -> bool {
+      const auto lval = GetView::LogicalValue(left.array->GetView(left.index));
+      const auto rval = GetView::LogicalValue(right.array->GetView(right.index));
+      return comparator(lval, rval);
+    };
+    using HeapContainer =
+        std::priority_queue<HeapItem, std::vector<HeapItem>, decltype(cmp)>;
+    HeapContainer non_null_heap(cmp);
+    HeapContainer nan_heap(cmp);
+    HeapContainer null_heap(cmp);
+
+    uint64_t offset = 0;
+    for (size_t i = 0; i < chunks_null_partions.size(); i++) {
+      const auto& null_part_pair = chunks_null_partions[i];
+      const auto& p = null_part_pair.first;
+      const auto& q = null_part_pair.second;
+      ArrayType& arr = *chunks_holder[i];
+
+      auto HeapPusher = [&](HeapContainer& heap, int64_t extract_non_null_count,
+                            uint64_t* indices_begin, uint64_t* kth_begin,
+                            uint64_t* end_iter) {
+        uint64_t* iter = indices_begin;
+        for (; iter != kth_begin &&
+               heap.size() < static_cast<size_t>(extract_non_null_count);
+             ++iter) {
+          heap.push(HeapItem{*iter, offset, &arr});
+        }
+        for (; iter != end_iter && !heap.empty(); ++iter) {
+          uint64_t x_index = *iter;
+          const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
+          auto top_item = heap.top();
+          const auto& top_value =
+              GetView::LogicalValue(top_item.array->GetView(top_item.index));
+          if (comparator(xval, top_value)) {
+            heap.pop();
+            heap.push(HeapItem{x_index, offset, &arr});
+          }
+        }
+      };
+      HeapPusher(
+          non_null_heap, counter.extract_non_null_count, q.non_nulls_begin,
+          std::min(q.non_nulls_begin + counter.extract_non_null_count, q.non_nulls_end),
+          q.non_nulls_end);
+      HeapPusher(nan_heap, counter.extract_nan_count, q.nulls_begin,
+                 std::min(q.nulls_begin + counter.extract_nan_count, q.nulls_end),
+                 q.nulls_end);
+      HeapPusher(null_heap, counter.extract_null_count, p.nulls_begin,
+                 std::min(p.nulls_begin + counter.extract_null_count, p.nulls_end),
+                 p.nulls_end);
+      offset += arr.length();
+    }
+
+    int64_t out_size = counter.extract_non_null_count + counter.extract_nan_count +
+                       counter.extract_null_count;
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(out_size, pool_));
+
+    auto PopHeaper = [&](HeapContainer& heap, uint64_t* out_cbegin) {
+      while (heap.size() > 0) {
+        auto top_item = heap.top();
+        *out_cbegin = top_item.index + top_item.offset;
+        heap.pop();
+        --out_cbegin;
+      }
+    };
+
+    if (null_placement_ == NullPlacement::AtEnd) {
+      // non_null
+      auto* out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                         counter.extract_non_null_count - 1;
+      PopHeaper(non_null_heap, out_cbegin);
+      // nan
+      out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                   counter.extract_non_null_count + counter.extract_nan_count - 1;
+      PopHeaper(nan_heap, out_cbegin);
+      // null
+      out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) + out_size - 1;
+      PopHeaper(null_heap, out_cbegin);
+    } else {
+      // null
+      auto* out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                         counter.extract_null_count - 1;
+      PopHeaper(null_heap, out_cbegin);
+      // nan
+      out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
+                   counter.extract_null_count + counter.extract_nan_count - 1;
+      PopHeaper(nan_heap, out_cbegin);
+      // non_null
+      out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) + out_size - 1;
+      PopHeaper(non_null_heap, out_cbegin);
+    }
+    return take_indices;
+  }
+
+ private:
+  int64_t k_;
+  NullPlacement null_placement_;
+  MemoryPool* pool_;
 };
 
 class ChunkedArraySelecter : public TypeVisitor {
@@ -173,6 +470,7 @@ class ChunkedArraySelecter : public TypeVisitor {
         physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
         k_(options.k),
         order_(options.sort_keys[0].order),
+        null_placement_(options.sort_keys[0].null_placement),
         ctx_(ctx),
         output_(output) {}
 
@@ -191,10 +489,6 @@ class ChunkedArraySelecter : public TypeVisitor {
 
   template <typename InType, SortOrder sort_order>
   Status SelectKthInternal() {
-    using GetView = GetViewType<InType>;
-    using ArrayType = typename TypeTraits<InType>::ArrayType;
-    using HeapItem = TypedHeapItem<ArrayType>;
-
     const auto num_chunks = chunked_array_.num_chunks();
     if (num_chunks == 0) {
       return Status::OK();
@@ -202,63 +496,9 @@ class ChunkedArraySelecter : public TypeVisitor {
     if (k_ > chunked_array_.length()) {
       k_ = chunked_array_.length();
     }
-    std::function<bool(const HeapItem&, const HeapItem&)> cmp;
-    SelectKComparator<sort_order> comparator;
 
-    cmp = [&comparator](const HeapItem& left, const HeapItem& right) -> bool {
-      const auto lval = GetView::LogicalValue(left.array->GetView(left.index));
-      const auto rval = GetView::LogicalValue(right.array->GetView(right.index));
-      return comparator(lval, rval);
-    };
-    using HeapContainer =
-        std::priority_queue<HeapItem, std::vector<HeapItem>, decltype(cmp)>;
-
-    HeapContainer heap(cmp);
-    std::vector<std::shared_ptr<ArrayType>> chunks_holder;
-    uint64_t offset = 0;
-    for (const auto& chunk : physical_chunks_) {
-      if (chunk->length() == 0) continue;
-      chunks_holder.emplace_back(std::make_shared<ArrayType>(chunk->data()));
-      ArrayType& arr = *chunks_holder[chunks_holder.size() - 1];
-
-      std::vector<uint64_t> indices(arr.length());
-      uint64_t* indices_begin = indices.data();
-      uint64_t* indices_end = indices_begin + indices.size();
-      std::iota(indices_begin, indices_end, 0);
-
-      const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
-          indices_begin, indices_end, arr, 0, NullPlacement::AtEnd);
-      const auto end_iter = p.non_nulls_end;
-
-      auto kth_begin = std::min(indices_begin + k_, end_iter);
-      uint64_t* iter = indices_begin;
-      for (; iter != kth_begin && heap.size() < static_cast<size_t>(k_); ++iter) {
-        heap.push(HeapItem{*iter, offset, &arr});
-      }
-      for (; iter != end_iter && !heap.empty(); ++iter) {
-        uint64_t x_index = *iter;
-        const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
-        auto top_item = heap.top();
-        const auto& top_value =
-            GetView::LogicalValue(top_item.array->GetView(top_item.index));
-        if (comparator(xval, top_value)) {
-          heap.pop();
-          heap.push(HeapItem{x_index, offset, &arr});
-        }
-      }
-      offset += chunk->length();
-    }
-
-    auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices,
-                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
-    auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
-    while (heap.size() > 0) {
-      auto top_item = heap.top();
-      *out_cbegin = top_item.index + top_item.offset;
-      heap.pop();
-      --out_cbegin;
-    }
+    ChunkedHeapSorter<InType, sort_order> h(k_, null_placement_, ctx_->memory_pool());
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, h.HeapSort(physical_chunks_));
     *output_ = Datum(take_indices);
     return Status::OK();
   }
@@ -268,6 +508,7 @@ class ChunkedArraySelecter : public TypeVisitor {
   const ArrayVector physical_chunks_;
   int64_t k_;
   SortOrder order_;
+  NullPlacement null_placement_;
   ExecContext* ctx_;
   Datum* output_;
 };
@@ -286,7 +527,7 @@ class RecordBatchSelecter : public TypeVisitor {
         k_(options.k),
         output_(output),
         sort_keys_(ResolveSortKeys(record_batch, options.sort_keys, &status_)),
-        comparator_(sort_keys_, NullPlacement::AtEnd) {}
+        comparator_(sort_keys_) {}
 
   Status Run() {
     RETURN_NOT_OK(status_);
@@ -312,7 +553,7 @@ class RecordBatchSelecter : public TypeVisitor {
         *status = maybe_array.status();
         return {};
       }
-      resolved.emplace_back(*std::move(maybe_array), key.order);
+      resolved.emplace_back(*std::move(maybe_array), key.order, key.null_placement);
     }
     return resolved;
   }
@@ -337,7 +578,9 @@ class RecordBatchSelecter : public TypeVisitor {
     cmp = [&](const uint64_t& left, const uint64_t& right) -> bool {
       const auto lval = GetView::LogicalValue(arr.GetView(left));
       const auto rval = GetView::LogicalValue(arr.GetView(right));
-      if (lval == rval) {
+      const bool is_null_left = arr.IsNull(left);
+      const bool is_null_right = arr.IsNull(right);
+      if ((lval == rval) || (is_null_left && is_null_right)) {
         // If the left value equals to the right value,
         // we need to compare the second and following
         // sort keys.
@@ -353,30 +596,31 @@ class RecordBatchSelecter : public TypeVisitor {
     uint64_t* indices_end = indices_begin + indices.size();
     std::iota(indices_begin, indices_end, 0);
 
-    const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
-        indices_begin, indices_end, arr, 0, NullPlacement::AtEnd);
-    const auto end_iter = p.non_nulls_end;
+    NullPartitionResult p = PartitionNullsOnly<NonStablePartitioner>(
+        indices_begin, indices_end, arr, 0, first_sort_key.null_placement);
+    NullPartitionResult q = PartitionNullLikes<ArrayType, NonStablePartitioner>(
+        p.non_nulls_begin, p.non_nulls_end, arr, 0, first_sort_key.null_placement);
 
-    auto kth_begin = std::min(indices_begin + k_, end_iter);
-
-    HeapContainer heap(indices_begin, kth_begin, cmp);
-    for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
-      uint64_t x_index = *iter;
-      auto top_item = heap.top();
-      if (cmp(x_index, top_item)) {
-        heap.pop();
-        heap.push(x_index);
+    auto HeapPusher = [&](uint64_t* indices_begin, uint64_t* kth_begin,
+                          uint64_t* end_iter, uint64_t* out_cbegin) {
+      HeapContainer heap(indices_begin, kth_begin, cmp);
+      for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
+        uint64_t x_index = *iter;
+        auto top_item = heap.top();
+        if (cmp(x_index, top_item)) {
+          heap.pop();
+          heap.push(x_index);
+        }
       }
-    }
-    auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices,
-                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
-    auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
-    while (heap.size() > 0) {
-      *out_cbegin = heap.top();
-      heap.pop();
-      --out_cbegin;
-    }
+      while (heap.size() > 0) {
+        *out_cbegin = heap.top();
+        heap.pop();
+        --out_cbegin;
+      }
+    };
+
+    HeapSorter h(k_, first_sort_key.null_placement, ctx_->memory_pool());
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, h.HeapSort(HeapPusher, p, q));
     *output_ = Datum(take_indices);
     return Status::OK();
   }
@@ -394,12 +638,13 @@ class TableSelecter : public TypeVisitor {
  private:
   struct ResolvedSortKey {
     ResolvedSortKey(const std::shared_ptr<ChunkedArray>& chunked_array,
-                    const SortOrder order)
+                    const SortOrder order, NullPlacement null_placement)
         : order(order),
           type(GetPhysicalType(chunked_array->type())),
           chunks(GetPhysicalChunks(*chunked_array, type)),
           null_count(chunked_array->null_count()),
-          resolver(GetArrayPointers(chunks)) {}
+          resolver(GetArrayPointers(chunks)),
+          null_placement(null_placement) {}
 
     using LocationType = int64_t;
 
@@ -415,6 +660,7 @@ class TableSelecter : public TypeVisitor {
     const ArrayVector chunks;
     const int64_t null_count;
     const ChunkedArrayResolver resolver;
+    NullPlacement null_placement;
   };
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
@@ -427,7 +673,7 @@ class TableSelecter : public TypeVisitor {
         k_(options.k),
         output_(output),
         sort_keys_(ResolveSortKeys(table, options.sort_keys, &status_)),
-        comparator_(sort_keys_, NullPlacement::AtEnd) {}
+        comparator_(sort_keys_) {}
 
   Status Run() {
     RETURN_NOT_OK(status_);
@@ -454,34 +700,42 @@ class TableSelecter : public TypeVisitor {
         *status = maybe_chunked_array.status();
         return {};
       }
-      resolved.emplace_back(*std::move(maybe_chunked_array), key.order);
+      resolved.emplace_back(*std::move(maybe_chunked_array), key.order,
+                            key.null_placement);
     }
     return resolved;
   }
 
   // Behaves like PartitionNulls() but this supports multiple sort keys.
-  template <typename Type>
   NullPartitionResult PartitionNullsInternal(uint64_t* indices_begin,
                                              uint64_t* indices_end,
                                              const ResolvedSortKey& first_sort_key) {
-    using ArrayType = typename TypeTraits<Type>::ArrayType;
-
     const auto p = PartitionNullsOnly<StablePartitioner>(
         indices_begin, indices_end, first_sort_key.resolver, first_sort_key.null_count,
-        NullPlacement::AtEnd);
+        first_sort_key.null_placement);
     DCHECK_EQ(p.nulls_end - p.nulls_begin, first_sort_key.null_count);
 
+    auto& comparator = comparator_;
+    // Sort all nulls by the second and following sort keys.
+    std::stable_sort(p.nulls_begin, p.nulls_end, [&](uint64_t left, uint64_t right) {
+      return comparator.Compare(left, right, 1);
+    });
+
+    return p;
+  }
+
+  template <typename Type>
+  NullPartitionResult PartitionNaNsInternal(uint64_t* indices_begin,
+                                            uint64_t* indices_end,
+                                            const ResolvedSortKey& first_sort_key) {
+    using ArrayType = typename TypeTraits<Type>::ArrayType;
     const auto q = PartitionNullLikes<ArrayType, StablePartitioner>(
-        p.non_nulls_begin, p.non_nulls_end, first_sort_key.resolver,
-        NullPlacement::AtEnd);
+        indices_begin, indices_end, first_sort_key.resolver,
+        first_sort_key.null_placement);
 
     auto& comparator = comparator_;
     // Sort all NaNs by the second and following sort keys.
     std::stable_sort(q.nulls_begin, q.nulls_end, [&](uint64_t left, uint64_t right) {
-      return comparator.Compare(left, right, 1);
-    });
-    // Sort all nulls by the second and following sort keys.
-    std::stable_sort(p.nulls_begin, p.nulls_end, [&](uint64_t left, uint64_t right) {
       return comparator.Compare(left, right, 1);
     });
 
@@ -510,9 +764,11 @@ class TableSelecter : public TypeVisitor {
     cmp = [&](const uint64_t& left, const uint64_t& right) -> bool {
       auto chunk_left = first_sort_key.template GetChunk<ArrayType>(left);
       auto chunk_right = first_sort_key.template GetChunk<ArrayType>(right);
+      const bool is_null_left = chunk_left.IsNull();
+      const bool is_null_right = chunk_right.IsNull();
       auto value_left = chunk_left.Value();
       auto value_right = chunk_right.Value();
-      if (value_left == value_right) {
+      if ((value_left == value_right) || (is_null_left && is_null_right)) {
         return comparator.Compare(left, right, 1);
       }
       return select_k_comparator(value_left, value_right);
@@ -526,28 +782,30 @@ class TableSelecter : public TypeVisitor {
     std::iota(indices_begin, indices_end, 0);
 
     const auto p =
-        this->PartitionNullsInternal<InType>(indices_begin, indices_end, first_sort_key);
-    const auto end_iter = p.non_nulls_end;
-    auto kth_begin = std::min(indices_begin + k_, end_iter);
+        this->PartitionNullsInternal(indices_begin, indices_end, first_sort_key);
+    const auto q = this->PartitionNaNsInternal<InType>(p.non_nulls_begin, p.non_nulls_end,
+                                                       first_sort_key);
 
-    HeapContainer heap(indices_begin, kth_begin, cmp);
-    for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
-      uint64_t x_index = *iter;
-      uint64_t top_item = heap.top();
-      if (cmp(x_index, top_item)) {
-        heap.pop();
-        heap.push(x_index);
+    auto HeapPusher = [&](uint64_t* indices_begin, uint64_t* kth_begin,
+                          uint64_t* end_iter, uint64_t* out_cbegin) {
+      HeapContainer heap(indices_begin, kth_begin, cmp);
+      for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
+        uint64_t x_index = *iter;
+        uint64_t top_item = heap.top();
+        if (cmp(x_index, top_item)) {
+          heap.pop();
+          heap.push(x_index);
+        }
       }
-    }
-    auto out_size = static_cast<int64_t>(heap.size());
-    ARROW_ASSIGN_OR_RAISE(auto take_indices,
-                          MakeMutableUInt64Array(out_size, ctx_->memory_pool()));
-    auto* out_cbegin = take_indices->GetMutableValues<uint64_t>(1) + out_size - 1;
-    while (heap.size() > 0) {
-      *out_cbegin = heap.top();
-      heap.pop();
-      --out_cbegin;
-    }
+      while (heap.size() > 0) {
+        *out_cbegin = heap.top();
+        heap.pop();
+        --out_cbegin;
+      }
+    };
+
+    HeapSorter h(k_, first_sort_key.null_placement, ctx_->memory_pool());
+    ARROW_ASSIGN_OR_RAISE(auto take_indices, h.HeapSort(HeapPusher, p, q));
     *output_ = Datum(take_indices);
     return Status::OK();
   }

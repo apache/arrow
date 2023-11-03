@@ -105,8 +105,7 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
 
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
-  explicit SortOptions(std::vector<SortKey> sort_keys = {},
-                       NullPlacement null_placement = NullPlacement::AtEnd);
+  explicit SortOptions(std::vector<SortKey> sort_keys = {});
   explicit SortOptions(const Ordering& ordering);
   static constexpr char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
@@ -115,13 +114,11 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   /// Note: Both classes contain the exact same information.  However,
   /// sort_options should only be used in a "function options" context while Ordering
   /// is used more generally.
-  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
-  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
+  Ordering AsOrdering() && { return Ordering(std::move(sort_keys)); }
+  Ordering AsOrdering() const& { return Ordering(sort_keys); }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
-  /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
 };
 
 /// \brief SelectK options
@@ -177,21 +174,18 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   };
 
   explicit RankOptions(std::vector<SortKey> sort_keys = {},
-                       NullPlacement null_placement = NullPlacement::AtEnd,
                        Tiebreaker tiebreaker = RankOptions::First);
   /// Convenience constructor for array inputs
   explicit RankOptions(SortOrder order,
                        NullPlacement null_placement = NullPlacement::AtEnd,
                        Tiebreaker tiebreaker = RankOptions::First)
-      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
+      : RankOptions({SortKey("", order, null_placement)}, tiebreaker) {}
 
   static constexpr char const kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
-  /// Whether nulls and NaNs are placed at the start or at the end
-  NullPlacement null_placement;
   /// Tiebreaker for dealing with equal values in ranks
   Tiebreaker tiebreaker;
 };

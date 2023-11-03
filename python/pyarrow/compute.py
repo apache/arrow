@@ -545,7 +545,7 @@ def fill_null(values, fill_value):
     return call_function("coalesce", [values, fill_value])
 
 
-def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
+def top_k_unstable(values, k, sort_keys=None, null_placements=None, *, memory_pool=None):
     """
     Select the indices of the top-k ordered elements from array- or table-like
     data.
@@ -561,6 +561,9 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         The number of `k` elements to keep.
     sort_keys : List-like
         Column key names to order by when input is table-like data.
+    null_placements : A list of "at_start" or "at_end"
+        Whether nulls and NaNs are placed at the start or at the end.
+        Accepted values are "at_end", "at_start".
     memory_pool : MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
@@ -585,14 +588,15 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     if sort_keys is None:
         sort_keys = []
     if isinstance(values, (pa.Array, pa.ChunkedArray)):
-        sort_keys.append(("dummy", "descending"))
+        sort_keys.append(("dummy", "descending", "at_end"))
     else:
-        sort_keys = map(lambda key_name: (key_name, "descending"), sort_keys)
+        sort_keys = [(sort_key, "descending", null_placement)
+                     for sort_key, null_placement in zip(sort_keys, null_placements)]
     options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
-def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
+def bottom_k_unstable(values, k, sort_keys=None, null_placements=None, *, memory_pool=None):
     """
     Select the indices of the bottom-k ordered elements from
     array- or table-like data.
@@ -608,6 +612,9 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         The number of `k` elements to keep.
     sort_keys : List-like
         Column key names to order by when input is table-like data.
+    null_placements : A list of "at_start" or "at_end"
+        Whether nulls and NaNs are placed at the start or at the end.
+        Accepted values are "at_end", "at_start".
     memory_pool : MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
@@ -632,9 +639,11 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     if sort_keys is None:
         sort_keys = []
     if isinstance(values, (pa.Array, pa.ChunkedArray)):
-        sort_keys.append(("dummy", "ascending"))
+        sort_keys.append(("dummy", "ascending", "at_end"))
     else:
-        sort_keys = map(lambda key_name: (key_name, "ascending"), sort_keys)
+        sort_keys = [(sort_key, "ascending", null_placement)
+                     for sort_key, null_placement in zip(sort_keys, null_placements)]
+
     options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
 

@@ -24,7 +24,8 @@ namespace arrow {
 namespace compute {
 
 bool SortKey::Equals(const SortKey& other) const {
-  return target == other.target && order == other.order;
+  return target == other.target && order == other.order &&
+         null_placement == other.null_placement;
 }
 
 std::string SortKey::ToString() const {
@@ -38,6 +39,15 @@ std::string SortKey::ToString() const {
       ss << "DESC";
       break;
   }
+
+  switch (null_placement) {
+    case NullPlacement::AtStart:
+      ss << " AtStart";
+      break;
+    case NullPlacement::AtEnd:
+      ss << " AtEnd";
+      break;
+  }
   return ss.str();
 }
 
@@ -47,14 +57,11 @@ bool Ordering::IsSuborderOf(const Ordering& other) const {
     // is a subordering of everything
     return !is_implicit_;
   }
-  if (null_placement_ != other.null_placement_) {
-    return false;
-  }
   if (sort_keys_.size() > other.sort_keys_.size()) {
     return false;
   }
   for (std::size_t key_idx = 0; key_idx < sort_keys_.size(); key_idx++) {
-    if (sort_keys_[key_idx] != other.sort_keys_[key_idx]) {
+    if (!sort_keys_[key_idx].Equals(other.sort_keys_[key_idx])) {
       return false;
     }
   }
@@ -62,7 +69,7 @@ bool Ordering::IsSuborderOf(const Ordering& other) const {
 }
 
 bool Ordering::Equals(const Ordering& other) const {
-  return null_placement_ == other.null_placement_ && sort_keys_ == other.sort_keys_;
+  return sort_keys_ == other.sort_keys_;
 }
 
 std::string Ordering::ToString() const {
@@ -78,16 +85,6 @@ std::string Ordering::ToString() const {
     ss << key.ToString();
   }
   ss << "]";
-  switch (null_placement_) {
-    case NullPlacement::AtEnd:
-      ss << " nulls last";
-      break;
-    case NullPlacement::AtStart:
-      ss << " nulls first";
-      break;
-    default:
-      Unreachable();
-  }
   return ss.str();
 }
 

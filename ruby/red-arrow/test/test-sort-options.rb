@@ -25,7 +25,7 @@ class SortOptionsTest < Test::Unit::TestCase
 
     test("-String, Symbol") do
       options = Arrow::SortOptions.new("-count", :age)
-      assert_equal(["-count", "+age"],
+      assert_equal(["-count_at_end", "+age_at_end"],
                    options.sort_keys.collect(&:to_s))
     end
   end
@@ -38,19 +38,19 @@ class SortOptionsTest < Test::Unit::TestCase
     sub_test_case("#add_sort_key") do
       test("-String") do
         @options.add_sort_key("-count")
-        assert_equal(["-count"],
+        assert_equal(["-count_at_end"],
                      @options.sort_keys.collect(&:to_s))
       end
 
       test("-String, Symbol") do
         @options.add_sort_key("-count", :desc)
-        assert_equal(["--count"],
+        assert_equal(["--count_at_end"],
                      @options.sort_keys.collect(&:to_s))
       end
 
       test("SortKey") do
         @options.add_sort_key(Arrow::SortKey.new("-count"))
-        assert_equal(["-count"],
+        assert_equal(["-count_at_end"],
                      @options.sort_keys.collect(&:to_s))
       end
     end

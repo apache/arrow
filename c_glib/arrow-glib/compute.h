@@ -571,6 +571,7 @@ GARROW_AVAILABLE_IN_3_0
 GArrowSortKey *
 garrow_sort_key_new(const gchar *target,
                     GArrowSortOrder order,
+                    GArrowNullPlacement null_placement,
                     GError **error);
 
 GARROW_AVAILABLE_IN_3_0
