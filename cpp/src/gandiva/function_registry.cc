@@ -90,14 +90,13 @@ arrow::Result<std::unique_ptr<llvm::MemoryBuffer>> GetBufferFromFile(
                                   bitcode_file_path +
                                       " Error: " + buffer_or_error.getError().message()));
 
-  auto buffer = std::move(buffer_or_error.get());
-  return std::move(buffer);
+  return std::move(buffer_or_error.get());
 }
 
 Status FunctionRegistry::Register(const std::vector<NativeFunction>& funcs,
                                   const std::string& bitcode_path) {
   ARROW_ASSIGN_OR_RAISE(auto llvm_buffer, GetBufferFromFile(bitcode_path));
-  auto buffer = std::make_unique<LLVMMemoryArrowBuffer>(std::move(llvm_buffer));
+  auto buffer = std::make_shared<LLVMMemoryArrowBuffer>(std::move(llvm_buffer));
   return Register(funcs, std::move(buffer));
 }
 
@@ -129,13 +128,8 @@ arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
 }
 
 std::shared_ptr<FunctionRegistry> default_function_registry() {
-  static auto maybe_default_registry = MakeDefaultFunctionRegistry();
-  if (!maybe_default_registry.ok()) {
-    ARROW_LOG(FATAL) << "Failed to initialize default function registry: "
-                     << maybe_default_registry.status().message();
-    return nullptr;
-  }
-  return *maybe_default_registry;
+  static auto default_registry = *MakeDefaultFunctionRegistry();
+  return default_registry;
 }
 
 }  // namespace gandiva
