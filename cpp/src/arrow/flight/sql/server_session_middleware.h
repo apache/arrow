@@ -32,7 +32,7 @@ namespace sql {
 
 class ServerSessionMiddlewareFactory;
 
-static constexpr char const kSessionCookieName[] = "flight_sql_session_id";
+static constexpr char const kSessionCookieName[] = "arrow_flight_session_id";
 
 class FlightSqlSession {
  protected:

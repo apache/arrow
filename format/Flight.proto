@@ -528,44 +528,9 @@ message PutResult {
 }
 
 /*
- * Request message for the "Close Session" action.
- *
- * The exiting session is referenced via a cookie header.
+ * EXPERIMENTAL: Union of possible value types for a Session Option to be set to.
  */
-message CloseSessionRequest {
-  option (experimental) = true;
-}
-
-/*
- * The result of closing a session.
- *
- * The result should be wrapped in a google.protobuf.Any message.
- */
-message CloseSessionResult {
-  option (experimental) = true;
-
-  enum Status {
-    // The session close status is unknown. Servers should avoid using
-    // this value (send a NOT_FOUND error if the requested query is
-    // not known). Clients can retry the request.
-    CLOSE_RESULT_UNSPECIFIED = 0;
-    // The session close request is complete. Subsequent requests with
-    // a NOT_FOUND error.
-    CLOSE_RESULT_CLOSED = 1;
-    // The session close request is in progress. The client may retry
-    // the close request.
-    CLOSE_RESULT_CLOSING = 2;
-    // The session is not closeable. The client should not retry the
-    // close request.
-    CLOSE_RESULT_NOT_CLOSEABLE = 3;
-  }
-
-  Status status = 1;
-}
-
 message SessionOptionValue {
-  option (experimental) = true;
-
   message StringListValue {
     repeated string values = 1;
   }
@@ -581,15 +546,21 @@ message SessionOptionValue {
   }
 }
 
+/*
+ * EXPERIMENTAL: A request to set session options for an existing or new (implicit)
+ * server session.
+ *
+ * Sessions are persisted and referenced via RFC 6265 HTTP cookies, canonically
+ * 'arrow_flight_session_id', although implementations may freely choose their own name.
+ */
 message SetSessionOptionsRequest {
-  option (experimental) = true;
-
   map<string, SessionOptionValue> session_options = 1;
 }
 
+/*
+ * EXPERIMENTAL: The results (individually) of setting a set of session options.
+ */
 message SetSessionOptionsResult {
-  option (experimental) = true;
-
   enum Status {
     // The status of setting the option is unknown. Servers should avoid using
     // this value (send a NOT_FOUND error if the requested query is
@@ -610,16 +581,49 @@ message SetSessionOptionsResult {
   map<string, Status> statuses = 1;
 }
 
+/*
+ * EXPERIMENTAL: A request to access the session options for the current server session.
+ *
+ * The existing session is referenced via a cookie header; it is an error to make this
+ * request with a missing, invalid, or expired session cookie header.
+ */
 message GetSessionOptionsRequest {
-    option (experimental) = true;
 }
 
+/*
+ * EXPERIMENTAL: The result containing the current server session options.
+ */
 message GetSessionOptionsResult {
-    option (experimental) = true;
-
     map<string, SessionOptionValue> session_options = 1;
 }
 
-extend google.protobuf.MessageOptions {
-  bool experimental = 1000;
+/*
+ * Request message for the "Close Session" action.
+ *
+ * The exiting session is referenced via a cookie header.
+ */
+message CloseSessionRequest {
+}
+
+/*
+ * The result of closing a session.
+ */
+message CloseSessionResult {
+  enum Status {
+    // The session close status is unknown. Servers should avoid using
+    // this value (send a NOT_FOUND error if the requested query is
+    // not known). Clients can retry the request.
+    CLOSE_RESULT_UNSPECIFIED = 0;
+    // The session close request is complete. Subsequent requests with
+    // a NOT_FOUND error.
+    CLOSE_RESULT_CLOSED = 1;
+    // The session close request is in progress. The client may retry
+    // the close request.
+    CLOSE_RESULT_CLOSING = 2;
+    // The session is not closeable. The client should not retry the
+    // close request.
+    CLOSE_RESULT_NOT_CLOSEABLE = 3;
+  }
+
+  Status status = 1;
 }
