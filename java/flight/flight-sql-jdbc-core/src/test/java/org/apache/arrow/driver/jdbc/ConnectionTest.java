@@ -161,6 +161,7 @@ public class ConnectionTest {
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+                 .withEncryption(false)
                  .withUsername(userTest)
                  .withPassword(passTest)
                  .withBufferAllocator(allocator)

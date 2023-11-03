@@ -49,6 +49,7 @@ import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.Meta.StatementType;
@@ -425,21 +426,59 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private final Set<CallOption> options = new HashSet<>();
     private String host;
     private int port;
-    private String username;
-    private String password;
-    private String trustStorePath;
-    private String trustStorePassword;
-    private String token;
-    private boolean useEncryption;
-    private boolean disableCertificateVerification;
-    private boolean useSystemTrustStore;
-    private String tlsRootCertificatesPath;
-    private String clientCertificatePath;
-    private String clientKeyPath;
+
+    @VisibleForTesting
+    String username;
+
+    @VisibleForTesting
+    String password;
+
+    @VisibleForTesting
+    String trustStorePath;
+
+    @VisibleForTesting
+    String trustStorePassword;
+
+    @VisibleForTesting
+    String token;
+
+    @VisibleForTesting
+    boolean useEncryption = true;
+
+    @VisibleForTesting
+    boolean disableCertificateVerification;
+
+    @VisibleForTesting
+    boolean useSystemTrustStore = true;
+
+    @VisibleForTesting
+    String tlsRootCertificatesPath;
+
+    @VisibleForTesting
+    String clientCertificatePath;
+
+    @VisibleForTesting
+    String clientKeyPath;
+
+    @VisibleForTesting
     private BufferAllocator allocator;
 
-    public Builder() {
+    @VisibleForTesting
+    boolean retainCookies = true;
 
+    @VisibleForTesting
+    boolean retainAuth = true;
+
+    // These two middlewares are for internal use within build() and should not be exposed by builder APIs.
+    // Note that these middlewares may not necessarily be registered.
+    @VisibleForTesting
+    ClientIncomingAuthHeaderMiddleware.Factory authFactory
+        = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
+    @VisibleForTesting
+    ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
+
+    public Builder() {
     }
 
     /**
@@ -447,7 +486,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      *
      * @param original The builder to base this copy off of.
      */
-    private Builder(Builder original) {
+    @VisibleForTesting
+    Builder(Builder original) {
       this.middlewareFactories.addAll(original.middlewareFactories);
       this.options.addAll(original.options);
       this.host = original.host;
@@ -464,6 +504,14 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       this.clientCertificatePath = original.clientCertificatePath;
       this.clientKeyPath = original.clientKeyPath;
       this.allocator = original.allocator;
+
+      if (original.retainCookies) {
+        this.cookieFactory = original.cookieFactory;
+      }
+
+      if (original.retainAuth) {
+        this.authFactory = original.authFactory;
+      }
     }
 
     /**
@@ -623,6 +671,28 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
+     * Indicates if cookies should be re-used by connections spawned for getStreams() calls.
+     * @param retainCookies The flag indicating if cookies should be re-used.
+     * @return      this builder instance.
+     */
+    public Builder withRetainCookies(boolean retainCookies) {
+      this.retainCookies = retainCookies;
+      return this;
+    }
+
+    /**
+     * Indicates if bearer tokens negotiated should be re-used by connections
+     * spawned for getStreams() calls.
+     *
+     * @param retainAuth The flag indicating if auth tokens should be re-used.
+     * @return      this builder instance.
+     */
+    public Builder withRetainAuth(boolean retainAuth) {
+      this.retainAuth = retainAuth;
+      return this;
+    }
+
+    /**
      * Adds the provided {@code factories} to the list of {@link #middlewareFactories} of this handler.
      *
      * @param factories the factories to add.
@@ -675,13 +745,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       // Copy middlewares so that the build method doesn't change the state of the builder fields itself.
       Set<FlightClientMiddleware.Factory> buildTimeMiddlewareFactories = new HashSet<>(this.middlewareFactories);
       FlightClient client = null;
+      boolean isUsingUserPasswordAuth = username != null && token == null;
 
       try {
-        ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
         // Token should take priority since some apps pass in a username/password even when a token is provided
-        if (username != null && token == null) {
-          authFactory =
-              new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+        if (isUsingUserPasswordAuth) {
           buildTimeMiddlewareFactories.add(authFactory);
         }
         final FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
@@ -722,10 +790,17 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
         client = clientBuilder.build();
         final ArrayList<CallOption> credentialOptions = new ArrayList<>();
-        if (authFactory != null) {
-          credentialOptions.add(
-              ClientAuthenticationUtils.getAuthenticate(
-                      client, username, password, authFactory, options.toArray(new CallOption[0])));
+        if (isUsingUserPasswordAuth) {
+          // If the authFactory has already been used for a handshake, use the existing token.
+          // This can occur if the authFactory is being re-used for a new connection spawned for getStream().
+          if (authFactory.getCredentialCallOption() != null) {
+            credentialOptions.add(authFactory.getCredentialCallOption());
+          } else {
+            // Otherwise do the handshake and get the token if possible.
+            credentialOptions.add(
+                ClientAuthenticationUtils.getAuthenticate(
+                    client, username, password, authFactory, options.toArray(new CallOption[0])));
+          }
         } else if (token != null) {
           credentialOptions.add(
               ClientAuthenticationUtils.getAuthenticate(

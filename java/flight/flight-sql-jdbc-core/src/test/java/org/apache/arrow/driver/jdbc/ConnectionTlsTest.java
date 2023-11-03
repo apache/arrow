@@ -127,6 +127,7 @@ public class ConnectionTlsTest {
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+                 .withSystemTrustStore(false)
                  .withUsername(credentials.getUserName())
                  .withPassword(credentials.getPassword())
                  .withTrustStorePath(trustStorePath)
@@ -153,6 +154,7 @@ public class ConnectionTlsTest {
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withTrustStorePath(noCertificateKeyStorePath)
                  .withTrustStorePassword(noCertificateKeyStorePassword)
+                 .withSystemTrustStore(false)
                  .withBufferAllocator(allocator)
                  .withEncryption(true)
                  .build()) {
@@ -170,6 +172,7 @@ public class ConnectionTlsTest {
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                 .withSystemTrustStore(false)
                  .withTrustStorePath(trustStorePath)
                  .withTrustStorePassword(trustStorePass)
                  .withBufferAllocator(allocator)
@@ -192,6 +195,7 @@ public class ConnectionTlsTest {
     try (ArrowFlightSqlClientHandler ignored =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                 .withSystemTrustStore(false)
                  .withTrustStorePath(trustStorePath)
                  .withTrustStorePassword(keyStoreBadPassword)
                  .withBufferAllocator(allocator)

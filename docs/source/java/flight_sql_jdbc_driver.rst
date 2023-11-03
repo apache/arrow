@@ -141,6 +141,17 @@ case-sensitive. The supported parameters are:
      - true
      - When TLS is enabled, whether to use the system certificate store
 
+   * - retainCookies
+     - true
+     - Whether to use cookies from the initial connection in subsequent
+       internal connections when retrieving streams from separate endpoints.
+
+   * - retainAuth
+     - true
+     - Whether to use bearer tokens obtained from the initial connection
+       in subsequent internal connections used for retrieving streams
+       from separate endpoints.
+
 Note that URI values must be URI-encoded if they contain characters such
 as !, @, $, etc.
 
