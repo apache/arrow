@@ -57,7 +57,6 @@ find_latest_nightly <- function(description_version,
       description_version_major <- as.integer(description_version[1, 1])
       matching_major <- major_versions == description_version_major
       if (!any(matching_major)) {
-        warning("just for the stack trace")
         lg(
           "No nightly binaries were found for version %s: falling back to libarrow build from source",
           description_version
