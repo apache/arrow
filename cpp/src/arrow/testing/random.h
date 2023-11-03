@@ -158,6 +158,11 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                                int64_t alignment = kDefaultBufferAlignment,
                                MemoryPool* memory_pool = default_memory_pool());
 
+  std::shared_ptr<Array> Int32String(int64_t size, int32_t min, int32_t max,
+                                     double null_probability = 0,
+                                     int64_t alignment = kDefaultBufferAlignment,
+                                     MemoryPool* memory_pool = default_memory_pool());
+
   /// \brief Generate a random UInt64Array
   ///
   /// \param[in] size the size of the array to generate
@@ -234,6 +239,12 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                                  double null_probability = 0, double nan_probability = 0,
                                  int64_t alignment = kDefaultBufferAlignment,
                                  MemoryPool* memory_pool = default_memory_pool());
+
+  std::shared_ptr<Array> Float32String(int64_t size, float min, float max,
+                                       double null_probability = 0,
+                                       double nan_probability = 0,
+                                       int64_t alignment = kDefaultBufferAlignment,
+                                       MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Date64Array
   ///

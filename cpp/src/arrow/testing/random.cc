@@ -33,6 +33,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/cast.h"
 #include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
@@ -54,6 +55,8 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
+
+using compute::Cast;
 
 namespace random {
 
@@ -229,6 +232,23 @@ PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
 // Generate 16bit values for half-float
 PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
+std::shared_ptr<Array> RandomArrayGenerator::Int32String(int64_t size, int32_t min,
+                                                         int32_t max,
+                                                         double null_probability,
+                                                         int64_t alignment,
+                                                         MemoryPool* memory_pool) {
+  using OptionType = GenerateOptions<int32_t, std::uniform_int_distribution<int32_t>>;
+  OptionType options(seed(), min, max, null_probability);
+  std::shared_ptr<Array> int32_array =
+      GenerateNumericArray<Int32Type, OptionType>(size, options, alignment, memory_pool);
+
+  // convert to string array
+  auto cast_options = compute::CastOptions::Safe();
+  auto string_array = Cast(*int32_array, utf8(), cast_options);
+
+  return string_array.ValueOrDie();
+}
+
 std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
                                                     int64_t max, double null_probability,
                                                     int64_t alignment,
@@ -249,6 +269,22 @@ std::shared_ptr<Array> RandomArrayGenerator::Float32(int64_t size, float min, fl
   OptionType options(seed(), min, max, null_probability, nan_probability);
   return GenerateNumericArray<FloatType, OptionType>(size, options, alignment,
                                                      memory_pool);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Float32String(
+    int64_t size, float min, float max, double null_probability, double nan_probability,
+    int64_t alignment, MemoryPool* memory_pool) {
+  using OptionType =
+      GenerateOptions<float, ::arrow::random::uniform_real_distribution<float>>;
+  OptionType options(seed(), min, max, null_probability, nan_probability);
+  std::shared_ptr<Array> float32_array =
+      GenerateNumericArray<FloatType, OptionType>(size, options, alignment, memory_pool);
+
+  // convert to string array
+  auto cast_options = compute::CastOptions::Safe();
+  auto string_array = Cast(*float32_array, utf8(), cast_options);
+
+  return string_array.ValueOrDie();
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Float64(int64_t size, double min, double max,

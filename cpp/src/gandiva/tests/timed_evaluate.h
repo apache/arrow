@@ -73,37 +73,6 @@ class FilterEvaluator : public BaseEvaluator {
 };
 
 template <typename TYPE, typename C_TYPE>
-Status TimedEvaluateRecordBatch(SchemaPtr schema, BaseEvaluator& evaluator,
-                                std::shared_ptr<arrow::RecordBatch> batches[],
-                                arrow::MemoryPool* pool, int num_records, int batch_size,
-                                benchmark::State& state) {
-  int num_remaining;
-  int num_calls = 0;
-  Status status;
-
-  for (auto _ : state) {
-    int num_in_batch = batch_size;
-    num_remaining = num_records;
-    while (num_remaining > 0) {
-      if (batch_size > num_remaining) {
-        num_in_batch = num_remaining;
-      }
-
-      status = evaluator.Evaluate(*(batches[num_calls % NUM_BATCHES]), pool);
-      if (!status.ok()) {
-        state.SkipWithError("Evaluation of the batch failed");
-        return status;
-      }
-
-      num_calls++;
-      num_remaining -= num_in_batch;
-    }
-  }
-
-  return Status::OK();
-}
-
-template <typename TYPE, typename C_TYPE>
 Status TimedEvaluate(SchemaPtr schema, BaseEvaluator& evaluator,
                      std::shared_ptr<ArrayPtr> arrays[], arrow::MemoryPool* pool,
                      int num_records, int batch_size, benchmark::State& state) {
