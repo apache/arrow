@@ -18,7 +18,6 @@
 
 syntax = "proto3";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/descriptor.proto";
 
 option java_package = "org.apache.arrow.flight.impl";
 option go_package = "github.com/apache/arrow/go/arrow/flight/gen/flight";
