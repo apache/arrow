@@ -36,9 +36,6 @@ ENV R_PRUNE_DEPS=${r_prune_deps}
 ARG r_custom_ccache=false
 ENV R_CUSTOM_CCACHE=${r_custom_ccache}
 
-ARG r_libarrow_binary=FALSE
-ENV LIBARROW_BINARY=${r_libarrow_binary}
-
 ARG tz="UTC"
 ENV TZ=${tz}
 

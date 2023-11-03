@@ -883,6 +883,8 @@ build_ok <- !env_is("LIBARROW_BUILD", "false")
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
 download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
 
+download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
+
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
 # manually before running make build.
@@ -920,7 +922,7 @@ if (!test_mode && !file.exists(api_h)) {
       lg("File not found: %s ($ARROW_DOWNLOADED_BINARIES)", bin_zip)
       bin_file <- NULL
     }
-  } else if (download_ok) {
+  } else if (download_libarrow_ok) {
     binary_flavor <- identify_binary()
     if (!is.null(binary_flavor)) {
       # The env vars say we can, and we've determined a lib that should work
