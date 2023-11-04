@@ -20,14 +20,26 @@ package org.apache.arrow.driver.jdbc;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.flight.sql.FlightSqlUtils;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -74,6 +86,39 @@ public class ArrowFlightPreparedStatementTest {
   }
 
   @Test
+  public void testQueryWithParameterBinding() throws SQLException {
+    final String query = "Fake query with parameters";
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("", Types.MinorType.INT.getType())));
+    PRODUCER.addSelectQuery(query, schema,
+            Collections.singletonList(listener -> {
+              try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+                   final VectorSchemaRoot root = VectorSchemaRoot.create(schema,
+                           allocator)) {
+                ((IntVector) root.getVector(0)).setSafe(0, 10);
+                root.setRowCount(1);
+                listener.start(root);
+                listener.putNext();
+              } catch (final Throwable throwable) {
+                listener.error(throwable);
+              } finally {
+                listener.completed();
+              }
+            }));
+
+    PRODUCER.addExpectedParameters(query,
+            new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
+            Collections.singletonList(Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8)))));
+    try (final PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+      preparedStatement.setString(1, "foo");
+      try (final ResultSet resultSet = preparedStatement.executeQuery()) {
+        resultSet.next();
+        assert true;
+      }
+    }
+  }
+
+
+  @Test
   @Ignore("https://github.com/apache/arrow/issues/34741: flaky test")
   public void testPreparedStatementExecutionOnce() throws SQLException {
     final PreparedStatement statement = connection.prepareStatement(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
@@ -105,6 +150,41 @@ public class ArrowFlightPreparedStatementTest {
     try (final PreparedStatement stmt = connection.prepareStatement(query)) {
       int updated = stmt.executeUpdate();
       assertEquals(42, updated);
+    }
+  }
+
+  @Test
+  public void testUpdateQueryWithParameters() throws SQLException {
+    String query = "Fake update with parameters";
+    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
+    PRODUCER.addExpectedParameters(query,
+        new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
+        Collections.singletonList(Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8)))));
+    try (final PreparedStatement stmt = connection.prepareStatement(query)) {
+      // TODO: make sure this is validated on the server too
+      stmt.setString(1, "foo");
+      int updated = stmt.executeUpdate();
+      assertEquals(42, updated);
+    }
+  }
+
+  @Test
+  public void testUpdateQueryWithBatchedParameters() throws SQLException {
+    String query = "Fake update with batched parameters";
+    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
+    PRODUCER.addExpectedParameters(query,
+            new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
+            Arrays.asList(
+                    Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8))),
+                    Collections.singletonList(new Text("bar".getBytes(StandardCharsets.UTF_8)))));
+    try (final PreparedStatement stmt = connection.prepareStatement(query)) {
+      // TODO: make sure this is validated on the server too
+      stmt.setString(1, "foo");
+      stmt.addBatch();
+      stmt.setString(1, "bar");
+      stmt.addBatch();
+      int[] updated = stmt.executeBatch();
+      assertEquals(42, updated[0]);
     }
   }
 }

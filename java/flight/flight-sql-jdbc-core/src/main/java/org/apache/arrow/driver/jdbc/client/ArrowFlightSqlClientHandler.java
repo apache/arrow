@@ -49,6 +49,7 @@ import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.Meta.StatementType;
 import org.slf4j.Logger;
@@ -206,6 +207,15 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      */
     Schema getDataSetSchema();
 
+    /**
+     * Gets the {@link Schema} of the parameters for this {@link PreparedStatement}.
+     *
+     * @return {@link Schema}.
+     */
+    Schema getParameterSchema();
+
+    void setParameters(VectorSchemaRoot parameters);
+
     @Override
     void close();
   }
@@ -239,6 +249,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       @Override
       public Schema getDataSetSchema() {
         return preparedStatement.getResultSetSchema();
+      }
+
+      @Override
+      public Schema getParameterSchema() {
+        return preparedStatement.getParameterSchema();
+      }
+
+      @Override
+      public void setParameters(VectorSchemaRoot parameters) {
+        preparedStatement.setParameters(parameters);
       }
 
       @Override
