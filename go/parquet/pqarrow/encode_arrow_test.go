@@ -145,10 +145,12 @@ func TestWriteArrowCols(t *testing.T) {
 	srgw := writer.AppendRowGroup()
 	ctx := pqarrow.NewArrowWriteContext(context.TODO(), nil)
 
+	colIdx := 0
 	for i := int64(0); i < tbl.NumCols(); i++ {
-		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, int(i))
+		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, colIdx)
 		require.NoError(t, err)
 		require.NoError(t, acw.Write(ctx))
+		colIdx = colIdx + acw.LeafCount()
 	}
 	require.NoError(t, srgw.Close())
 	require.NoError(t, writer.Close())
@@ -249,10 +251,12 @@ func TestWriteArrowInt96(t *testing.T) {
 	srgw := writer.AppendRowGroup()
 	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
 
+	colIdx := 0
 	for i := int64(0); i < tbl.NumCols(); i++ {
-		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, int(i))
+		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, colIdx)
 		require.NoError(t, err)
 		require.NoError(t, acw.Write(ctx))
+		colIdx += acw.LeafCount()
 	}
 	require.NoError(t, srgw.Close())
 	require.NoError(t, writer.Close())
@@ -306,11 +310,13 @@ func writeTableToBuffer(t *testing.T, mem memory.Allocator, tbl arrow.Table, row
 	for offset < tbl.NumRows() {
 		sz := utils.Min(rowGroupSize, tbl.NumRows()-offset)
 		srgw := writer.AppendRowGroup()
+		colIdx := 0
 		for i := 0; i < int(tbl.NumCols()); i++ {
 			col := tbl.Column(i)
-			acw, err := pqarrow.NewArrowColumnWriter(col.Data(), offset, sz, manifest, srgw, i)
+			acw, err := pqarrow.NewArrowColumnWriter(col.Data(), offset, sz, manifest, srgw, colIdx)
 			require.NoError(t, err)
 			require.NoError(t, acw.Write(ctx))
+			colIdx = colIdx + acw.LeafCount()
 		}
 		srgw.Close()
 		offset += sz
