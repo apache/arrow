@@ -434,6 +434,14 @@ struct ARROW_EXPORT ArraySpan {
     return GetValues<T>(i, this->offset);
   }
 
+  // Access a buffer's data as a span
+  template <typename T>
+  util::span<const T> GetSpan(int i) const {
+    return util::span(buffers[i].data_as<T>(),
+                      static_cast<size_t>(buffers[i].size) / sizeof(T))
+        .subspan(offset);
+  }
+
   inline bool IsNull(int64_t i) const { return !IsValid(i); }
 
   inline bool IsValid(int64_t i) const {
