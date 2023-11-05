@@ -152,20 +152,27 @@ class AzureFileSystemTest : public ::testing::Test {
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
+  bool suite_skipped_ = false;
 
   AzureFileSystemTest() : generator_(std::random_device()()) {}
 
-  virtual AzureOptions MakeOptions() = 0;
+  virtual Result<AzureOptions> MakeOptions() = 0;
+  virtual void Skip(){};
 
   void SetUp() override {
+    auto options = MakeOptions();
+    if (options.ok()) {
+      options_ = options.ValueOrDie();
+    } else {
+      suite_skipped_ = true;
+      GTEST_SKIP() << options.status().message();
+    }
     container_name_ = RandomChars(32);
-    options_ = MakeOptions();
     blob_service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
     datalake_service_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
-    GTEST_SKIP();
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
     auto container_client = blob_service_client_->GetBlobContainerClient(container_name_);
     container_client.CreateIfNotExists();
@@ -176,11 +183,13 @@ class AzureFileSystemTest : public ::testing::Test {
   }
 
   void TearDown() override {
+    if (!suite_skipped_) {
     auto containers = blob_service_client_->ListBlobContainers();
     for (auto container : containers.BlobContainers) {
       auto container_client =
           blob_service_client_->GetBlobContainerClient(container.Name);
       container_client.DeleteIfExists();
+      }
     }
   }
 
@@ -230,7 +239,7 @@ class AzureFileSystemTest : public ::testing::Test {
 };
 
 class AzuriteFileSystemTest : public AzureFileSystemTest {
-  AzureOptions MakeOptions() {
+  Result<AzureOptions> MakeOptions() {
     EXPECT_THAT(GetAzuriteEnv(), NotNull());
     ARROW_EXPECT_OK(GetAzuriteEnv()->status());
     AzureOptions options;
@@ -242,20 +251,32 @@ class AzuriteFileSystemTest : public AzureFileSystemTest {
 };
 
 class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
-  AzureOptions MakeOptions() override {
+  Result<AzureOptions> MakeOptions() override {
     AzureOptions options;
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
-        std::getenv("AZURE_FLAT_ACCOUNT_NAME"), std::getenv("AZURE_FLAT_ACCOUNT_KEY")));
+    if (char* account_name = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME")) {
+      char* account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
+      EXPECT_THAT(account_key, NotNull());
+      ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
     return options;
+    }
+    return Status::Cancelled(
+        "Connection details not provided for a real flat namespace "
+        "account.");
   }
 };
 
 class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
-  AzureOptions MakeOptions() override {
+  Result<AzureOptions> MakeOptions() override {
     AzureOptions options;
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
-        std::getenv("AZURE_HNS_ACCOUNT_NAME"), std::getenv("AZURE_HNS_ACCOUNT_KEY")));
+    if (char* account_name = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME")) {
+      char* account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
+      EXPECT_THAT(account_key, NotNull());
+      ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
     return options;
+    }
+    return Status::Cancelled(
+        "Connection details not provided for a real hierachical namespace "
+        "account.");
   }
 };
 
