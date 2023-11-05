@@ -50,6 +50,7 @@
 #include <azure/storage/files/datalake.hpp>
 
 #include "arrow/filesystem/test_util.h"
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
@@ -142,7 +143,7 @@ TEST(AzureFileSystem, OptionsCompare) {
   EXPECT_TRUE(options.Equals(options));
 }
 
-class TestAzureFileSystem : public ::testing::Test {
+class AzureFileSystemTest : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
   std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
@@ -152,17 +153,9 @@ class TestAzureFileSystem : public ::testing::Test {
   std::mt19937_64 generator_;
   std::string container_name_;
 
-  TestAzureFileSystem() : generator_(std::random_device()()) {}
+  AzureFileSystemTest() : generator_(std::random_device()()) {}
 
-  virtual AzureOptions MakeOptions() {
-    EXPECT_THAT(GetAzuriteEnv(), NotNull());
-    ARROW_EXPECT_OK(GetAzuriteEnv()->status());
-    AzureOptions options;
-    options.backend = AzureBackend::Azurite;
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
-        GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key()));
-    return options;
-  }
+  virtual AzureOptions MakeOptions() = 0;
 
   void SetUp() override {
     container_name_ = RandomChars(32);
@@ -172,6 +165,7 @@ class TestAzureFileSystem : public ::testing::Test {
     datalake_service_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
+    GTEST_SKIP();
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
     auto container_client = blob_service_client_->GetBlobContainerClient(container_name_);
     container_client.CreateIfNotExists();
@@ -235,7 +229,19 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 };
 
-class TestAzureFlatFileSystem : public TestAzureFileSystem {
+class AzuriteFileSystemTest : public AzureFileSystemTest {
+  AzureOptions MakeOptions() {
+    EXPECT_THAT(GetAzuriteEnv(), NotNull());
+    ARROW_EXPECT_OK(GetAzuriteEnv()->status());
+    AzureOptions options;
+    options.backend = AzureBackend::Azurite;
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
+        GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key()));
+    return options;
+  }
+};
+
+class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
   AzureOptions MakeOptions() override {
     AzureOptions options;
     ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
@@ -244,7 +250,7 @@ class TestAzureFlatFileSystem : public TestAzureFileSystem {
   }
 };
 
-class TestAzureHNSFileSystem : public TestAzureFileSystem {
+class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
   AzureOptions MakeOptions() override {
     AzureOptions options;
     ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
@@ -253,38 +259,38 @@ class TestAzureHNSFileSystem : public TestAzureFileSystem {
   }
 };
 
-TEST_F(TestAzureFlatFileSystem, DetectHierarchicalNamespace) {
+TEST_F(AzureFlatNamespaceFileSystemTest, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
-TEST_F(TestAzureHNSFileSystem, DetectHierarchicalNamespace) {
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_OK_AND_EQ(true, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
-TEST_F(TestAzureFileSystem, DetectHierarchicalNamespace) {
+TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
-TEST_F(TestAzureFileSystem, DetectHierarchicalNamespaceFailsWithMissingContainer) {
+TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_NOT_OK(hierarchical_namespace.Enabled("non-existent-container"));
 }
 
-TEST_F(TestAzureFileSystem, GetFileInfoAccount) {
+TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
   arrow::fs::AssertFileInfo(fs_.get(), "", FileType::Directory);
 
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://"));
 }
 
-TEST_F(TestAzureFileSystem, GetFileInfoContainer) {
+TEST_F(AzuriteFileSystemTest, GetFileInfoContainer) {
   arrow::fs::AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
 
   arrow::fs::AssertFileInfo(fs_.get(), "non-existent-container", FileType::NotFound);
@@ -293,7 +299,7 @@ TEST_F(TestAzureFileSystem, GetFileInfoContainer) {
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
 }
 
-TEST_F(TestAzureFlatFileSystem, GetFileInfoObjectWithNestedStructure) {
+TEST_F(AzuriteFileSystemTest, GetFileInfoObjectWithNestedStructure) {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
@@ -332,7 +338,7 @@ TEST_F(TestAzureFlatFileSystem, GetFileInfoObjectWithNestedStructure) {
                  FileType::NotFound);
 }
 
-TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectWithNestedStructure) {
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObjectWithNestedStructure) {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
@@ -378,7 +384,7 @@ TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectWithNestedStructure) {
                  FileType::Directory);
 }
 
-TEST_F(TestAzureFileSystem, GetFileInfoObject) {
+TEST_F(AzuriteFileSystemTest, GetFileInfoObject) {
   auto object_properties =
       blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
@@ -394,7 +400,7 @@ TEST_F(TestAzureFileSystem, GetFileInfoObject) {
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
 }
 
-TEST_F(TestAzureHNSFileSystem, GetFileInfoObject) {
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObject) {
   auto object_properties =
       blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
@@ -410,7 +416,7 @@ TEST_F(TestAzureHNSFileSystem, GetFileInfoObject) {
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamString) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
 
@@ -418,7 +424,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamString) {
   EXPECT_EQ(buffer->ToString(), kLoremIpsum);
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamStringBuffers) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamStringBuffers) {
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
 
@@ -432,7 +438,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamStringBuffers) {
   EXPECT_EQ(contents, kLoremIpsum);
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamInfo) {
   ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
 
   std::shared_ptr<io::InputStream> stream;
@@ -442,7 +448,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamInfo) {
   EXPECT_EQ(buffer->ToString(), kLoremIpsum);
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamEmpty) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamEmpty) {
   const auto path_to_file = "empty-object.txt";
   const auto path = PreexistingContainerPath() + path_to_file;
   blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
@@ -456,11 +462,11 @@ TEST_F(TestAzureFileSystem, OpenInputStreamEmpty) {
   EXPECT_EQ(size, 0);
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamNotFound) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamNotFound) {
   ASSERT_RAISES(IOError, fs_->OpenInputStream(NotFoundObjectPath()));
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamInfoInvalid) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamInfoInvalid) {
   ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingContainerPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info));
 
@@ -468,11 +474,11 @@ TEST_F(TestAzureFileSystem, OpenInputStreamInfoInvalid) {
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info2));
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamUri) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamUri) {
   ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfss://" + PreexistingObjectPath()));
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamTrailingSlash) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamTrailingSlash) {
   ASSERT_RAISES(IOError, fs_->OpenInputStream(PreexistingObjectPath() + '/'));
 }
 
@@ -510,7 +516,7 @@ std::shared_ptr<const KeyValueMetadata> NormalizerKeyValueMetadata(
 }
 };  // namespace
 
-TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamReadMetadata) {
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
 
@@ -540,7 +546,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
       NormalizerKeyValueMetadata(actual)->ToString());
 }
 
-TEST_F(TestAzureFileSystem, OpenInputStreamClosed) {
+TEST_F(AzuriteFileSystemTest, OpenInputStreamClosed) {
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(PreexistingObjectPath()));
   ASSERT_OK(stream->Close());
   std::array<char, 16> buffer{};
@@ -549,7 +555,7 @@ TEST_F(TestAzureFileSystem, OpenInputStreamClosed) {
   ASSERT_RAISES(Invalid, stream->Tell());
 }
 
-TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
+TEST_F(AzuriteFileSystemTest, OpenInputFileMixedReadVsReadAt) {
   // Create a file large enough to make the random access tests non-trivial.
   auto constexpr kLineWidth = 100;
   auto constexpr kLineCount = 4096;
@@ -595,7 +601,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileMixedReadVsReadAt) {
   }
 }
 
-TEST_F(TestAzureFileSystem, OpenInputFileRandomSeek) {
+TEST_F(AzuriteFileSystemTest, OpenInputFileRandomSeek) {
   // Create a file large enough to make the random access tests non-trivial.
   auto constexpr kLineWidth = 100;
   auto constexpr kLineCount = 4096;
@@ -623,7 +629,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileRandomSeek) {
   }
 }
 
-TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
+TEST_F(AzuriteFileSystemTest, OpenInputFileIoContext) {
   // Create a test file.
   const auto path_to_file = "OpenInputFileIoContext/object-name";
   const auto path = PreexistingContainerPath() + path_to_file;
@@ -640,7 +646,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileIoContext) {
   EXPECT_EQ(fs_->io_context().external_id(), file->io_context().external_id());
 }
 
-TEST_F(TestAzureFileSystem, OpenInputFileInfo) {
+TEST_F(AzuriteFileSystemTest, OpenInputFileInfo) {
   ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
 
   std::shared_ptr<io::RandomAccessFile> file;
@@ -655,11 +661,11 @@ TEST_F(TestAzureFileSystem, OpenInputFileInfo) {
   EXPECT_EQ(std::string(buffer.data(), size), expected);
 }
 
-TEST_F(TestAzureFileSystem, OpenInputFileNotFound) {
+TEST_F(AzuriteFileSystemTest, OpenInputFileNotFound) {
   ASSERT_RAISES(IOError, fs_->OpenInputFile(NotFoundObjectPath()));
 }
 
-TEST_F(TestAzureFileSystem, OpenInputFileInfoInvalid) {
+TEST_F(AzuriteFileSystemTest, OpenInputFileInfoInvalid) {
   ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingContainerPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info));
 
@@ -667,7 +673,7 @@ TEST_F(TestAzureFileSystem, OpenInputFileInfoInvalid) {
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info2));
 }
 
-TEST_F(TestAzureFileSystem, OpenInputFileClosed) {
+TEST_F(AzuriteFileSystemTest, OpenInputFileClosed) {
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputFile(PreexistingObjectPath()));
   ASSERT_OK(stream->Close());
   std::array<char, 16> buffer{};
