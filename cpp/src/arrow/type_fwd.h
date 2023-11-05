@@ -442,7 +442,7 @@ ARROW_EXPORT std::vector<Type::type> AllTypeIds();
 
 /// \defgroup type-factories Factory functions for creating data types
 ///
-/// Factory functions for creating data types
+/// Factory functions for creating data types 参考 TYPE_FACTORY(NAME, KLASS) 
 /// @{
 
 /// \brief Return a NullType instance

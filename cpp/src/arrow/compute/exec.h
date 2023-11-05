@@ -170,7 +170,45 @@ constexpr int64_t kUnsequencedIndex = -1;
 
 /// \addtogroup acero-internals
 /// @{
+/*
+ExecBatch 是一种类似于 RecordBatch 的二维数据结构。它可以拥有零个或多个列，并且所有的列必须
+具有相同的长度。与 RecordBatch 类似，ExecBatch 用于在计算引擎中处理和传递数据。它通常被用作执
+行计划中的中间结果或者是计算操作的输入和输出。
 
+以下是关于 ExecBatch 的特性和约束：
+  列数：ExecBatch 可以包含任意数量的列，从零列到多列都可以。
+  列类型：每个列可以有不同的数据类型，例如整数、浮点数、字符串等。
+  列长度：所有的列必须具有相同的长度，这是 ExecBatch 的一个重要约束条件。换句话说，所有
+         的列在维度上必须对齐，以保持数据的一致性和正确性。
+  数据存储：ExecBatch 中的数据通常以列式存储（columnar storage）的方式进行组织，这有助
+          于高效的数据处理和查询操作。
+
+ExecBatch没有自己的模式声明（schema）。这是因为假设ExecBatch是批量数据流的一部分，并且该数据
+流具有一致的模式声明。因此，ExecBatch的模式通常存储在ExecNode中。
+
+ExecBatch中的列可以是Array（数组）或Scalar（标量）。当列是Scalar时，意味着当前列中的每一行
+的值都是同一个。ExecBatch还具有一个长度属性，用于描述批次中的行数。因此，可以将Scalar视为具有
+长度元素的常量数组。
+
+ExecBatch包含执行计划所使用的附加信息。例如，索引可用于描述批次在有序数据流中的位置。我们预计
+ExecBatch还将发展出包含其他字段的形式，比如选择向量（selection vector）。
+
+当将RecordBatch转换为ExecBatch时，它们共享相同的底层数组，没有发生实际的数据复制。这意味着对
+RecordBatch 或 ExecBatch 进行更改时，它们之间的数据是共享的。
+
+然而，将 ExecBatch 转换回 RecordBatch 时情况会有所不同。如果 ExecBatch 中存在标量列，那么转
+换过程将包括创建新的数组，并将标量值复制到这些新数组中。这是因为 RecordBatch 和 ExecBatch 在内
+部存储数据的方式不同，后者允许标量存在，而前者不允许。
+
+因此，在将 ExecBatch 转换回 RecordBatch 时，只有当 ExecBatch 中不存在标量列时，转换才能保持
+零拷贝。如果存在标量列，将需要额外的内存分配和数据复制操作。
+
+总结起来，将 RecordBatch 转换为 ExecBatch 始终是零拷贝的，因为它们共享相同的底层数组。将
+ExecBatch 转换为 RecordBatch 只有在无标量列的情况下才是零拷贝的。在存在标量列的情况下，将涉
+及到额外的内存分配和数据复制。
+
+参考: https://arrow.apache.org/docs/cpp/acero/overview.html
+*/
 struct ARROW_EXPORT ExecBatch {
   ExecBatch() = default;
   ExecBatch(std::vector<Datum> values, int64_t length)

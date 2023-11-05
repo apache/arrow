@@ -211,16 +211,16 @@ struct ARROW_EXPORT Aggregate {
                   /*target=*/std::vector<FieldRef>{}, std::move(name)) {}
 
   /// the name of the aggregation function
-  std::string function;
+  std::string function; // agg 函数名
 
   /// options for the aggregation function
   std::shared_ptr<FunctionOptions> options;
 
   /// zero or more fields to which aggregations will be applied
-  std::vector<FieldRef> target;
+  std::vector<FieldRef> target; // agg 函数对哪些列进行计算
 
   /// optional output field name for aggregations
-  std::string name;
+  std::string name; // agg 输出列的名字
 };
 
 /// @}

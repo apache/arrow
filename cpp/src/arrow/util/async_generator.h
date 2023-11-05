@@ -970,6 +970,7 @@ AsyncGenerator<T> MakeVectorGenerator(std::vector<T> vec) {
   auto state = std::make_shared<State>(std::move(vec));
   return [state]() {
     auto idx = state->vec_idx.fetch_add(1);
+    // 是否为空
     if (idx >= state->vec.size()) {
       // Eagerly return memory
       state->vec.clear();

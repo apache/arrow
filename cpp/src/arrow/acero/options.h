@@ -340,10 +340,12 @@ class ARROW_ACERO_EXPORT AggregateNodeOptions : public ExecNodeOptions {
         segment_keys(std::move(segment_keys)) {}
 
   // aggregations which will be applied to the targeted fields
-  std::vector<Aggregate> aggregates;
+  std::vector<Aggregate> aggregates; // aggregate 算子，以使用各种内置的聚合函数，如 SUM、COUNT、AVG 等
   // keys by which aggregations will be grouped (optional)
-  std::vector<FieldRef> keys;
+  std::vector<FieldRef> keys; // group by 的列
   // keys by which aggregations will be segmented (optional)
+  // 指定用于分段聚合的列名。分段聚合允许在处理每个分段时部分地计算聚合结果。这对于大型数据
+  // 集和有序数据的聚合特别有用
   std::vector<FieldRef> segment_keys;
 };
 

@@ -73,6 +73,7 @@ struct ExecPlanImpl : public ExecPlan {
 
   const NodeVector& nodes() const { return node_ptrs_; }
 
+  // 往整个 plan tree 中 add node 进来，返回的是新加入 node 的 pointer
   ExecNode* AddNode(std::unique_ptr<ExecNode> node) {
     if (node->label().empty()) {
       node->SetLabel(ToChars(auto_label_counter_++));
@@ -125,6 +126,7 @@ struct ExecPlanImpl : public ExecPlan {
     // part of StartProducing) then the plan may be finished before we return from this
     // call.
     auto scope = START_SCOPED_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
+    // Make 完成时，已经调用了第一个参数注册的 lambda 表达式
     Future<> scheduler_finished = arrow::util::AsyncTaskScheduler::Make(
         [this](arrow::util::AsyncTaskScheduler* async_scheduler) {
           QueryContext* ctx = query_context();
@@ -141,6 +143,7 @@ struct ExecPlanImpl : public ExecPlan {
                           });
           }
 #endif
+          // 所有 node 的 初始化
           for (auto& n : nodes_) {
             RETURN_NOT_OK(n->Init());
           }
@@ -162,7 +165,7 @@ struct ExecPlanImpl : public ExecPlan {
               },
               /*concurrent_tasks=*/2 * num_threads, sync_execution));
 
-          // producers precede consumers
+          // producers precede consumers, 后续遍历
           sorted_nodes_ = TopoSort();
 
           Status st = Status::OK();
@@ -236,6 +239,7 @@ struct ExecPlanImpl : public ExecPlan {
     }
   }
 
+  // 就是一个 后续遍历
   NodeVector TopoSort() const {
     struct Impl {
       const std::vector<std::unique_ptr<ExecNode>>& nodes;
@@ -568,20 +572,56 @@ std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
   return out;
 }
 
+/*
+std::variant 和 std::optional 都是C++标准库中的类模板，用于处理值的可选性或多态性。
+
+std::variant 是一种代表多个可能类型的变体类型。它可以在创建时指定一组可能的值类型，并且只
+能同时存储其中一种类型的值。这使得 std::variant 类似于一个联合（union），但提供了更好的类
+型安全性和灵活性。可以使用 std::visit 和 std::get 等函数来访问和操作 std::variant 中的值。
+
+std::optional 是一种表示可选值的类型。它可以包含一个值或者没有值。如果 std::optional 对象包
+含值，则可以使用解引用操作符(*)或成员访问操作符(->)来访问该值。如果 std::optional 对象没有
+值，则可以使用 std::nullopt 表示。
+
+这两个类模板的主要区别在于它们的目的和用途：
+
+std::variant 旨在支持多态性，即一个对象可以具有多个可能的类型。它适用于需要在给定时间点上
+可变地存储不同类型的值的场景，例如在解析不同类型的数据时。
+
+std::optional 旨在表示一个可选的或可能缺失的值。它适用于那些可能返回空结果的函数或方法，以
+及在某些条件下可能没有值的情况。通过使用 std::optional，代码可以更清晰地表达某个值是否存
+在，并避免了使用特殊值（如null）来表示缺少值的问题。
+
+总结起来，std::variant 用于表示多个可能类型的值，并支持多态性，而 std::optional 用于表示
+可选的或可能缺失的值。它们都是非常有用的工具，可以帮助在编写C++代码时更好地处理值的可选性和多态性。
+*/
 Result<ExecNode*> Declaration::AddToPlan(ExecPlan* plan,
                                          ExecFactoryRegistry* registry) const {
   std::vector<ExecNode*> inputs(this->inputs.size());
 
   size_t i = 0;
+  // inputs 连接的是下层的 node，可以参考下面的图
   for (const Input& input : this->inputs) {
+    // std::get_i 用于从std::variant或std::optional等类型的对象中获取特定类型的值或指针，
+    // 如果容器中的值类型与T匹配，则返回一个指向该值的指针；否则返回空指针
+    // 如果通过 Declaration::Sequence 进来的，inputs 的类型默认会是 Declaration 不会是
+    // ExecNode*。
+    // 一旦当前 node 的 inputs 下的 node 都调用了 AddToPlan，则当前 node 的 inputs 将会变成
+    // ExecNode* 。所以如果发现当前 node 的 inputs 是 ExecNode* 的类型，则不需要再次调用对应
+    // node 的 AddToPlan 了
     if (auto node = std::get_if<ExecNode*>(&input)) {
       inputs[i++] = *node;
       continue;
     }
+    // 通过这里将下面的 this 切换到了 input 指向的 node
     ARROW_ASSIGN_OR_RAISE(inputs[i++],
                           std::get<Declaration>(input).AddToPlan(plan, registry));
   }
 
+  // 这里直接调用的是 internal::RegisterSourceNode, RegisterFetchNode, RegisterFilterNode
+  // RegisterOrderByNode, RegisterPivotLongerNode, RegisterProjectNode,
+  // RegisterUnionNode, RegisterAggregateNode, RegisterSinkNode, RegisterHashJoinNode,
+  // RegisterAsofJoinNode 这些注册进来的每个具体 node 的 Make 函数
   ARROW_ASSIGN_OR_RAISE(
       auto node, MakeExecNode(this->factory_name, plan, std::move(inputs), *this->options,
                               registry));
@@ -589,6 +629,29 @@ Result<ExecNode*> Declaration::AddToPlan(ExecPlan* plan,
   return node;
 }
 
+/*
+                    │
+  ┌─────────────┐   │
+  │   front     │   │
+  │             │   │
+  │    ...      │   │
+  │             │   │ ┌─────────────────────────────────────────┐
+  ├─────────────┤   │ │                                         │
+  │             │   │ │                                         ▼
+  │   Node 2    ├───┼─┘     ┌─────────┐                     ┌─────────┐
+  │             │   │       │         │                     │         │
+  ├─────────────┤   │       │         │                     │         │
+  │             │   │       │ Node 1  │                     │ Node 2  │
+  │   Node 1    ├───┼───────┤         │    ┌────────┐       │         │    ┌────────┐
+  │    back     │   │       │         ├───►│        ├──────►│         ├───►│        │
+  └─────────────┘   │       └─────────┘    └────────┘       └─────────┘    └────────┘
+     decls          │      Declaration 1    Inputs         Declaration 2      Inputs
+                    │
+                    │
+
+利用 Sequence 生成 plan 的时候，输入应该从底层 node 到顶层 node
+decls = {source, join, aggregate, ...}
+*/
 Declaration Declaration::Sequence(std::vector<Declaration> decls) {
   DCHECK(!decls.empty());
 
@@ -1128,9 +1191,12 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterPivotLongerNode(this);
       internal::RegisterProjectNode(this);
       internal::RegisterUnionNode(this);
+      // 注册 ScalarAggregateNode::Make 或者 GroupByNode::Make
       internal::RegisterAggregateNode(this);
       internal::RegisterSinkNode(this);
+      // 注册 HashJoinNode::Make
       internal::RegisterHashJoinNode(this);
+      // 注册 AsofJoinNode::Make
       internal::RegisterAsofJoinNode(this);
     }
 

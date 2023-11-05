@@ -79,6 +79,7 @@ using ::arrow::internal::checked_cast;
 namespace internal {
 namespace {
 using ::arrow::internal::DataMember;
+// 函数的 options
 static auto kScalarAggregateOptionsType = GetFunctionOptionsType<ScalarAggregateOptions>(
     DataMember("skip_nulls", &ScalarAggregateOptions::skip_nulls),
     DataMember("min_count", &ScalarAggregateOptions::min_count));

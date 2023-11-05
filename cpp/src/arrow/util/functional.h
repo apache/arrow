@@ -93,6 +93,15 @@ struct call_traits {
 
   /// If F is not overloaded, the argument types of its call operator can be
   /// extracted via call_traits::argument_type<Index, F>
+  /*
+  std::decay
+  用于获取类型的衰减类型（decay type）。衰减类型是指将数组类型转换为指针类型、将函数类型转换
+  为函数指针类型，并移除引用修饰符和顶层 const 修饰符的结果类型
+  template <class T>
+  struct decay {
+      using type = typename std::remove_reference<T>::type;
+  };
+  */
   template <std::size_t I, typename F>
   using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
 

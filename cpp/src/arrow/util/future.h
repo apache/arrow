@@ -50,9 +50,64 @@ struct is_future : std::false_type {};
 template <typename T>
 struct is_future<Future<T>> : std::true_type {};
 
+// 这里定义了通用版本的 struct result_of;
 template <typename Signature, typename Enable = void>
 struct result_of;
+/*
+std::declval 主要用于在编译时获取一个类型的临时值，即使该类型没有默认构造函数或不可复制。它不
+会创建对象，只是返回一个 T 类型的右值引用。
+由于 std::declval 是一个右值引用，因此它适用于需要右值引用的上下文，例如在模板中推断返回类
+型和进行类型转换
+std::declval<Fn>() 利用 std::declval<Fn> 生成一个 Fn 的匿名对象，并调用Fn 的 operator()(arg)
+函数。因此 result_of 的功能是返回 Fn operator()(arg) 返回值的类型
 
+下面的是特化了 typename... A 的模板
+
+模板特化:
+1. 类模板的部分特化：
+// 通用的类模板定义
+template <typename T, typename U>
+struct MyTemplate {
+    void print() {
+        std::cout << "General template" << std::endl;
+    }
+};
+
+// 针对特定类型的部分特化
+template <typename T>
+struct MyTemplate<T, int> {
+    void print() {
+        std::cout << "Specialized template for int" << std::endl;
+    }
+};
+
+2. 函数模板的重载特化：
+// 通用的函数模板定义
+template <typename T>
+void myFunction(T t) {
+    std::cout << "General template" << std::endl;
+}
+
+// 针对特定类型的重载特化
+template <>
+void myFunction<int>(int t) {
+    std::cout << "Specialized template for int" << std::endl;
+}
+
+折叠表达式（Fold Expressions）：
+// C++11 通过递归展开模板参数
+template<typename... Args>
+void printValues(Args... args) {
+    (std::cout << ... << args) << std::endl;
+}
+
+// C++17 使用折叠表达式展开模板参数
+template<typename... Args>
+void printValues(Args... args) {
+    ((std::cout << args), ...);
+    std::cout << std::endl;
+}
+*/
 template <typename Fn, typename... A>
 struct result_of<Fn(A...),
                  internal::void_t<decltype(std::declval<Fn>()(std::declval<A>()...))>> {
@@ -124,6 +179,23 @@ struct ContinueFuture {
   template <typename Signature>
   using ForSignature = ForReturn<result_of_t<Signature>>;
 
+  /*
+   std::is_void 接受一个类型 T 作为模板参数，并提供了一个静太成员常量 value，该常量表示
+   类型 T 是否为 void。如果 value 为 true，则说明 T 是 void 类型；如果 value 为 false，
+   则说明 T 不是 void 类型
+
+  std::enable_if 用于在编译时根据条件来启用或禁用函数重载
+    template <bool B, class T = void> // 通用版本的模板
+    struct enable_if {};
+
+    template <class T> // 特化版本的模板
+    struct enable_if<true, T> {
+        using type = T;
+    };
+    std::enable_if 通过模板特化实现了条件分支。当 B 的值为 true 时，
+    std::enable_if<B, T>::type 将是类型 T；
+    当 B 的值为 false 时，std::enable_if<B, T> 不提供 type 成员
+  */
   // If the callback returns void then we return Future<> that always finishes OK.
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
@@ -314,6 +386,8 @@ class ARROW_EXPORT FutureImpl : public std::enable_shared_from_this<FutureImpl> 
 ///
 /// The consumer API allows querying a Future's current state, wait for it
 /// to complete, and composing futures with callbacks.
+// Future<> 表示一个未指定类型参数的模板类，而 Future<T> 则表示一个具有指定类型
+// 参数 T 的模板类。Future<> 可以用于表示任意类型的异步结果
 template <typename T>
 class [[nodiscard]] Future {
  public:

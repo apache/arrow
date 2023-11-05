@@ -493,6 +493,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     const int64_t* other_counts = other->counts_.data();
     const uint8_t* other_no_nulls = other->no_nulls_.data();
 
+    // 这的 group_id_mapping.length 应该是由多少个 group 组
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
@@ -645,6 +646,7 @@ struct GroupedReducingFactory {
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
     GroupedReducingFactory<Impl, kFriendlyName, NullImpl> factory;
     factory.argument_type = type->id();
+    // 调用的就是上面定义的 Visit
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
   }

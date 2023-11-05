@@ -159,6 +159,8 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
       std::move(kernel_intypes),     std::move(states)};
 }
 
+// 由 Declaration::AddToPlan -> MakeExecNode -> Make
+// plan 是由最上层调用时生成的例如: plan = ExecPlan::Make()
 Result<ExecNode*> ScalarAggregateNode::Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                             const ExecNodeOptions& options) {
   RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "ScalarAggregateNode"));

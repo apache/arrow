@@ -71,6 +71,7 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
     const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
     ExecContext* ctx, const bool is_cpu_parallel) {
   // Find input field indices for key fields
+  // group by 的 key 在 下层 node 输出的 列号
   std::vector<int> key_field_ids(keys.size());
   for (size_t i = 0; i < keys.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto match, keys[i].FindOne(*input_schema));
@@ -78,6 +79,7 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   }
 
   // Find input field indices for segment key fields
+  // segment key 在 下层 node 输出的 列号
   std::vector<int> segment_key_field_ids(segment_keys.size());
   for (size_t i = 0; i < segment_keys.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(auto match, segment_keys[i].FindOne(*input_schema));
@@ -85,6 +87,7 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   }
 
   // Check key fields and segment key fields are disjoint
+  // group by 和  segment key 不能有交集
   std::unordered_set<int> key_field_id_set(key_field_ids.begin(), key_field_ids.end());
   for (const auto& segment_key_field_id : segment_key_field_ids) {
     if (key_field_id_set.find(segment_key_field_id) != key_field_id_set.end()) {
@@ -95,16 +98,19 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   }
 
   // Find input field indices for aggregates
+  // 找到 aggregate 计算时需要的下层 node 输出的列的 idx
   std::vector<std::vector<int>> agg_src_fieldsets(aggs.size());
   for (size_t i = 0; i < aggs.size(); ++i) {
     const auto& target_fieldset = aggs[i].target;
     for (const auto& target : target_fieldset) {
       ARROW_ASSIGN_OR_RAISE(auto match, target.FindOne(*input_schema));
+      // 一个 aggregate 可能包含多个列，如果 aggregate 的参数是一个表达式呢？？？
       agg_src_fieldsets[i].push_back(match[0]);
     }
   }
 
   // Build vector of aggregate source field data types
+  // 找到 aggregate 计算时需要的下层 node 输出的列的 type
   std::vector<std::vector<TypeHolder>> agg_src_types(aggs.size());
   for (size_t i = 0; i < aggs.size(); ++i) {
     for (const auto& agg_src_field_id : agg_src_fieldsets[i]) {
@@ -113,6 +119,7 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   }
 
   // Build vector of segment key field data types
+  // segment key 在 下层 node 输出的列的 type
   std::vector<TypeHolder> segment_key_types(segment_keys.size());
   for (size_t i = 0; i < segment_keys.size(); ++i) {
     auto segment_key_field_id = segment_key_field_ids[i];
@@ -152,16 +159,21 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   // First output is segment keys, followed by keys, followed by aggregates themselves
   // This matches the behavior described by Substrait and also tends to be the behavior
   // in SQL engines
+  // 输出的格式是: segment keys + group by keys + aggregate 结果
+
+  // 首先填充的是 segment keys 的列的数据
   for (size_t i = 0; i < segment_keys.size(); ++i) {
     int segment_key_field_id = segment_key_field_ids[i];
     output_fields[i] = input_schema->field(segment_key_field_id);
   }
   size_t base = segment_keys.size();
+  // 这里填充的是 group by 的列的数据
   for (size_t i = 0; i < keys.size(); ++i) {
     int key_field_id = key_field_ids[i];
     output_fields[base + i] = input_schema->field(key_field_id);
   }
   base += keys.size();
+  // 接下来填充的是 agg 的结果数据，结果是按照 group by 分组了的
   for (size_t i = 0; i < aggs.size(); ++i) {
     output_fields[base + i] = agg_result_fields[i]->WithName(aggs[i].name);
   }
@@ -245,6 +257,7 @@ Status GroupByNode::Consume(ExecSpan batch) {
     }
     column_values.emplace_back(*id_batch.array());
     ExecSpan agg_batch(std::move(column_values), batch.length);
+    // 这里应该调用的是 GroupedAggregator 基类，具体的实现参考 hash_aggregate.cc
     RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state->grouper->num_groups()));
     RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
   }

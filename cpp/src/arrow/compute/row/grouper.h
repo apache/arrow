@@ -117,6 +117,22 @@ class ARROW_EXPORT Grouper {
                                 int64_t length = -1) = 0;
 
   /// Get current unique keys. May be called multiple times.
+  // 就是按照 group by 的 key 来去重，保持 group key 的唯一
+  /*
+  原始数据:
+     a 
+    ["x"]
+    ["y"]
+    ["y"]
+    ["z"]
+    ["z"]
+
+  group by a 后
+      a  
+    ["x"]
+    ["y"]
+    ["z"]
+  */
   virtual Result<ExecBatch> GetUniques() = 0;
 
   /// Get the current number of groups.
@@ -148,6 +164,10 @@ class ARROW_EXPORT Grouper {
   ///       [],
   ///       []
   ///   ]
+  /*
+                                                0  1    2          3    4   5       6   7 
+   MakeGroupings 将数组 [2, 2, 5, 5, 2, 3] 变成 [[], [], [0, 1, 4], [5], [], [2, 3], [], []] 
+  */
   static Result<std::shared_ptr<ListArray>> MakeGroupings(
       const UInt32Array& ids, uint32_t num_groups,
       ExecContext* ctx = default_exec_context());
@@ -175,6 +195,14 @@ class ARROW_EXPORT Grouper {
   ///       [],
   ///       []
   ///   ]
+  /*
+  ApplyGroupings 将
+   0   1   2          3    4   5       6   7 
+  [[], [], [0, 1, 4], [5], [], [2, 3], [], []] 和 [2, 2, 5, 5, 2, 3] 变成
+  
+  [         2          3        5            ] 也就是 [2, 2, 5, 5, 2, 3] 的 group 分组
+  [[], [], [2, 2, 2], [3], [], [5, 5], [], []]
+  */
   static Result<std::shared_ptr<ListArray>> ApplyGroupings(
       const ListArray& groupings, const Array& array,
       ExecContext* ctx = default_exec_context());

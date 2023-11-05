@@ -50,7 +50,30 @@ namespace acero {
 
 /// \addtogroup acero-internals
 /// @{
+/*
+ExecPlan（执行计划）表示一个 ExecNode 对象的图形结构。一个有效的 ExecPlan 必须至少有一个
+源节点(source node)，但它在技术上不需要有一个终止节点（sink node）。ExecPlan 包含所有节
+点共享的资源，并提供实用函数来控制节点的启动和停止执行。ExecPlan 和 ExecNode 都与单个执行
+的生命周期相关联。它们具有状态，并且不可重新启动。
 
+ExecPlan 负责管理整个执行计划，以及与执行计划相关的资源和操作。它可以看作是一个图形的容器，其
+中每个节点代表一个特定的操作或计算步骤。
+
+ExecNode 是执行计划中的节点，代表着一个特定的操作或计算任务。每个节点都有自己的输入和输出，它
+们被链接在一起以形成执行计划的流程图。在执行过程中，每个节点会根据输入数据进行计算，并生成相应的
+输出。
+
+ExecPlan 和 ExecNode 都具有状态，这意味着它们会记录执行过程中的信息和进展。它们通常不可重新启
+动，也就是说，一旦执行完成或被停止，它们的生命周期就会结束。
+
+总结一下，ExecPlan 表示一个 ExecNode 对象的图形结构，负责管理执行计划的资源和操作。ExecPlan 必
+须至少包含一个源节点，但不需要终止节点。ExecPlan 和 ExecNode 都具有状态，并与单个执行的生命周
+期相关联，不可重新启动。
+
+具体参考 ExecPlanImpl 的实现
+
+https://arrow.apache.org/docs/cpp/acero/overview.html
+*/
 class ARROW_ACERO_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
  public:
   // This allows operators to rely on signed 16-bit indices
@@ -81,6 +104,7 @@ class ARROW_ACERO_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan
       ExecContext* exec_context,
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
+  // 调用 ExecPlanImpl::AddNode 函数
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
   template <typename Node, typename... Args>
@@ -339,7 +363,7 @@ class ARROW_ACERO_EXPORT ExecNode {
   virtual std::string ToStringExtra(int indent = 0) const;
 
   std::atomic<bool> stopped_;
-  ExecPlan* plan_;
+  ExecPlan* plan_; // 整个执行时候的 plan tree，还是当前 node 以及下层 node 组成的 plan tree？？？
   std::string label_;
 
   NodeVector inputs_;
@@ -378,6 +402,7 @@ inline Result<ExecNode*> MakeExecNode(
     const ExecNodeOptions& options,
     ExecFactoryRegistry* registry = default_exec_factory_registry()) {
   ARROW_ASSIGN_OR_RAISE(auto factory, registry->GetFactory(factory_name));
+  // factory 参考 DefaultRegistry() 内注册的函数，其实也是调用各种 node 的 make 函数
   return factory(plan, std::move(inputs), options);
 }
 
@@ -469,6 +494,56 @@ struct ARROW_ACERO_EXPORT Declaration {
   ///         {"n2", N2Opts{}},
   ///         {"n3", N3Opts{}},
   ///     });
+
+/*
+如果 node 有一个输出的时候
+                  │
+┌─────────────┐   │
+│             │   │
+│             │   │
+│    ...      │   │
+│             │   │ ┌─────────────────────────────────────────┐
+├─────────────┤   │ │                                         │
+│             │   │ │                                         ▼
+│   Node 2    ├───┼─┘     ┌─────────┐                     ┌─────────┐
+│             │   │       │         │                     │         │
+├─────────────┤   │       │         │                     │         │
+│             │   │       │ Node 1  │                     │ Node 2  │
+│   Node 1    ├───┼───────┤         │    ┌────────┐       │         │    ┌────────┐
+│             │   │       │         ├───►│        ├──────►│         ├───►│        │
+└─────────────┘   │       └─────────┘    └────────┘       └─────────┘    └────────┘
+   decls          │      Declaration 1    Inputs         Declaration 2      Inputs
+                  │
+                  │
+
+如果 node 有多个输出的时候
+                                                           ┌─────────┐
+                                                           │         │
+                                                           │ Node j  │    ┌────────┐
+                                                         ┌►│         ├───►│        │
+                                                         │ │         │    └────────┘
+    ┌─────────────┐                                      │ └─────────┘       Inputs
+    │    front    │                                      │ Declaration 3
+    │             │                                      │
+    ├─────────────┤                                      │
+    │             │                                      │
+    │    Node 2   │           ┌─────────┐                │
+┌───┤             │           │         │                │
+│   ├─────────────┤           │         │    ┌────────┐  │
+│   │             │           │ Node 1  │    │        ├──┘
+│   │   Node 1    ├──────────►│         │    ├────────┤
+│   │    back     │           │         ├───►│        │────┐
+│   └─────────────┘           └─────────┘    └────────┘    |
+│      decls                 Declaration 1    Inputs       |
+│                                                          ▼
+|                                                     ┌─────────┐
+│                                                     │         │
+│                                                     │ Node 2  │
+│                                                     │         │
+└────────────────────────────────────────────────────►│         │
+                                                      └─────────┘
+                                                     Declaration 2
+*/
   static Declaration Sequence(std::vector<Declaration> decls);
 
   /// \brief add the declaration to an already created execution plan
