@@ -118,7 +118,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
   auto external_registry = std::make_shared<FunctionRegistry>();
   auto config_with_func_registry =
-      TestConfigurationWithFunctionRegistry(std::move(external_registry));
+      TestConfigWithFunctionRegistry(std::move(external_registry));
 
   std::unique_ptr<LLVMGenerator> generator;
   ASSERT_OK(LLVMGenerator::Make(config_with_func_registry, false, &generator));

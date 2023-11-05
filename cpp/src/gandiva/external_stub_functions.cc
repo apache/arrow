@@ -48,37 +48,45 @@ static arrow::Result<llvm::Type*> AsLLVMType(const DataTypePtr& from_type,
   }
 }
 
+// map from a NativeFunction's signature to the corresponding LLVM signature
+static arrow::Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignature(
+    const FunctionSignature& sig, const NativeFunction& func, LLVMTypes* types) {
+  std::vector<llvm::Type*> args;
+  args.reserve(sig.param_types().size());
+  if (func.NeedsContext()) {
+    args.emplace_back(types->i64_type());
+  }
+  if (func.NeedsFunctionHolder()) {
+    args.emplace_back(types->i64_type());
+  }
+  for (auto const& arg : sig.param_types()) {
+    if (arg->id() == arrow::Type::STRING) {
+      args.emplace_back(types->i8_ptr_type());
+      args.emplace_back(types->i32_type());
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto arg_llvm_type, AsLLVMType(arg, types));
+      args.emplace_back(arg_llvm_type);
+    }
+  }
+  llvm::Type* ret_llvm_type;
+  if (sig.ret_type()->id() == arrow::Type::STRING) {
+    // for string output, the last arg is the output length
+    args.emplace_back(types->i32_ptr_type());
+    ret_llvm_type = types->i8_ptr_type();
+  } else {
+    ARROW_ASSIGN_OR_RAISE(ret_llvm_type, AsLLVMType(sig.ret_type(), types));
+  }
+  auto return_type = AsLLVMType(sig.ret_type(), types);
+  return std::make_pair(args, ret_llvm_type);
+}
+
 arrow::Status ExternalStubFunctions::AddMappings(Engine* engine) const {
   auto external_stub_funcs = function_registry_->GetStubFunctions();
   auto types = engine->types();
   for (auto& [func, func_ptr] : external_stub_funcs) {
-    for (auto& sig : func.signatures()) {
-      std::vector<llvm::Type*> args;
-      args.reserve(sig.param_types().size());
-      if (func.NeedsContext()) {
-        args.emplace_back(types->i64_type());
-      }
-      if (func.NeedsFunctionHolder()) {
-        args.emplace_back(types->i64_type());
-      }
-      for (auto const& arg : sig.param_types()) {
-        if (arg->id() == arrow::Type::STRING) {
-          args.emplace_back(types->i8_ptr_type());
-          args.emplace_back(types->i32_type());
-        } else {
-          ARROW_ASSIGN_OR_RAISE(auto arg_llvm_type, AsLLVMType(arg, types));
-          args.emplace_back(arg_llvm_type);
-        }
-      }
-      llvm::Type* ret_llvm_type;
-      if (sig.ret_type()->id() == arrow::Type::STRING) {
-        // for string output, the last arg is the output length
-        args.emplace_back(types->i32_ptr_type());
-        ret_llvm_type = types->i8_ptr_type();
-      } else {
-        ARROW_ASSIGN_OR_RAISE(ret_llvm_type, AsLLVMType(sig.ret_type(), types));
-      }
-      auto return_type = AsLLVMType(sig.ret_type(), types);
+    for (auto const& sig : func.signatures()) {
+      ARROW_ASSIGN_OR_RAISE(auto llvm_signature, MapToLLVMSignature(sig, func, types));
+      auto& [args, ret_llvm_type] = llvm_signature;
       engine->AddGlobalMappingForFunc(func.pc_name(), ret_llvm_type, args, func_ptr);
     }
   }
