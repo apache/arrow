@@ -491,13 +491,14 @@ class AzureFileSystem::Impl {
           blob_service_client_->GetBlobContainerClient(path.container);
       try {
         auto properties = container_client.GetProperties();
-        auto info = FileInfo(path.full_path, FileType::Directory);
+        info.set_type(FileType::Directory);
         info.set_mtime(
             std::chrono::system_clock::time_point(properties.Value.LastModified));
         return info;
       } catch (const Azure::Storage::StorageException& exception) {
         if (ContainerOrBlobNotFound(exception)) {
-          return FileInfo(path.full_path, FileType::NotFound);
+          info.set_type(FileType::NotFound);
+          return info;
         }
         return internal::ErrorToStatus(
             "When fetching properties for '" + container_client.GetUrl() + "': ",
@@ -508,7 +509,6 @@ class AzureFileSystem::Impl {
                            .GetFileClient(path.path_to_file);
     try {
       auto properties = file_client.GetProperties();
-      auto info = FileInfo(path.full_path, FileType::File);
       if (properties.Value.IsDirectory) {
         info.set_type(FileType::Directory);
       } else if (internal::HasTrailingSlash(path.path_to_file)) {
@@ -528,7 +528,8 @@ class AzureFileSystem::Impl {
         if (hierarchical_namespace_enabled) {
           // If the hierarchical namespace is enabled, then the storage account will have
           // explicit directories. Neither a file nor a directory was found.
-          return FileInfo(path.full_path, FileType::NotFound);
+          info.set_type(FileType::NotFound);
+          return info;
         }
         // On flat namespace accounts there are no real directories. Directories are only
         // implied by using `/` in the blob name.
@@ -547,9 +548,11 @@ class AzureFileSystem::Impl {
               blob_service_client_->GetBlobContainerClient(path.container)
                   .ListBlobs(list_blob_options);
           if (paged_list_result.Blobs.size() > 0) {
-            return FileInfo(path.full_path, FileType::Directory);
+            info.set_type(FileType::Directory); 
+            return info;
           } else {
-            return FileInfo(path.full_path, FileType::NotFound);
+            info.set_type(FileType::NotFound);
+            return info;
           }
         } catch (const Azure::Storage::StorageException& exception) {
           return internal::ErrorToStatus("When listing blobs for '" + prefix + "': ",
