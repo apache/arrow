@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <azure/storage/files/datalake.hpp>
 
 #include "arrow/result.h"
