@@ -320,7 +320,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
         return PathNotFound(path_);
       }
       return internal::ErrorToStatus(
-          "When fetching properties for '" + blob_client_->GetUrl() + "': ", exception);
+          "GetProperties failed for '" + blob_client_->GetUrl() +
+              "' with an unexpected Azure error. Can not initialise an ObjectInputFile "
+              "without knowing the file size. ",
+          exception);
     }
   }
 
@@ -397,9 +400,11 @@ class ObjectInputFile final : public io::RandomAccessFile {
           ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
           .Value.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
-      return internal::ErrorToStatus("When reading from '" + blob_client_->GetUrl() +
+      return internal::ErrorToStatus("DownloadTo from '" + blob_client_->GetUrl() +
                                          "' at position " + std::to_string(position) +
-                                         " for " + std::to_string(nbytes) + " bytes: ",
+                                         " for " + std::to_string(nbytes) +
+                                         " bytes failed with an Azure error. ReadAt "
+                                         "failed to read the required byte range.",
                                      exception);
     }
   }
