@@ -255,29 +255,26 @@ class TestAzureHNSFileSystem : public TestAzureFileSystem {
 
 TEST_F(TestAzureFlatFileSystem, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
-  ASSERT_OK_AND_EQ(
-      false, hierarchical_namespace.Enabled(datalake_service_client_->GetFileSystemClient(
-                 PreexistingContainerName())));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(TestAzureHNSFileSystem, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
-  ASSERT_OK_AND_EQ(
-      true, hierarchical_namespace.Enabled(datalake_service_client_->GetFileSystemClient(
-                PreexistingContainerName())));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_OK_AND_EQ(true, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(TestAzureFileSystem, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
-  ASSERT_OK_AND_EQ(
-      false, hierarchical_namespace.Enabled(datalake_service_client_->GetFileSystemClient(
-                 PreexistingContainerName())));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(TestAzureFileSystem, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
-  ASSERT_NOT_OK(hierarchical_namespace.Enabled(
-      datalake_service_client_->GetFileSystemClient("non-existent-container")));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_NOT_OK(hierarchical_namespace.Enabled("non-existent-container"));
 }
 
 TEST_F(TestAzureFileSystem, GetFileInfoAccount) {

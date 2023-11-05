@@ -13,8 +13,17 @@ Status ErrorToStatus(const std::string& prefix,
   return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
 
-Result<bool> HierachicalNamespaceDetecter::Enabled(
-    Azure::Storage::Files::DataLake::DataLakeFileSystemClient filesystem_client) {
+Status HierachicalNamespaceDetecter::Init(
+    std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+        datalake_service_client) {
+  datalake_service_client_ = datalake_service_client;
+  return Status::OK();
+};
+
+Result<bool> HierachicalNamespaceDetecter::Enabled(const std::string& container_name) {
+  // Hierarchical namespace can't easily be changed after the storage account is created
+  // and its common across all containers in the storage account. Do nothing until we've
+  // checked for a cached result.
   if (is_hierachical_namespace_enabled_.has_value()) {
     return is_hierachical_namespace_enabled_.value();
   }
@@ -24,6 +33,7 @@ Result<bool> HierachicalNamespaceDetecter::Enabled(
   // Unfortunately `blob_service_client->GetAccountInfo()` requires significantly
   // elevated permissions.
   // https://learn.microsoft.com/en-us/rest/api/storageservices/get-blob-service-properties?tabs=azure-ad#authorization
+  auto filesystem_client = datalake_service_client_->GetFileSystemClient(container_name);
   auto directory_client = filesystem_client.GetDirectoryClient("/");
   try {
     directory_client.GetAccessControlList();

@@ -467,6 +467,7 @@ class AzureFileSystem::Impl {
     datalake_service_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
+    RETURN_NOT_OK(hierarchical_namespace_.Init(datalake_service_client_));
     return Status::OK();
   }
 
@@ -522,10 +523,8 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (ContainerOrBlobNotFound(exception)) {
-        ARROW_ASSIGN_OR_RAISE(
-            bool hierarchical_namespace_enabled,
-            hierarchical_namespace_.Enabled(
-                datalake_service_client_->GetFileSystemClient(path.container)));
+        ARROW_ASSIGN_OR_RAISE(bool hierarchical_namespace_enabled,
+                              hierarchical_namespace_.Enabled(path.container));
         if (hierarchical_namespace_enabled) {
           // If the hierarchical namespace is enabled, then the storage account will have
           // explicit directories. Neither a file nor a directory was found.
