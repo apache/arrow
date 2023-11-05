@@ -157,7 +157,6 @@ class AzureFileSystemTest : public ::testing::Test {
   AzureFileSystemTest() : generator_(std::random_device()()) {}
 
   virtual Result<AzureOptions> MakeOptions() = 0;
-  virtual void Skip(){};
 
   void SetUp() override {
     auto options = MakeOptions();
