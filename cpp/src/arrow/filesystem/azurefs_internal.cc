@@ -69,20 +69,19 @@ Result<bool> HierarchicalNamespaceDetector::Enabled(const std::string& container
     } else if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
       // Azurite returns NotFound.
       try {
-        // Ensure sure that the directory exists by checking its properties. If it
-        // doesn't then the GetAccessControlList check was invalid and we can't tell
-        // if the storage account has hierachical namespace.
         filesystem_client.GetProperties();
         is_hierarchical_namespace_enabled_ = false;
       } catch (const Azure::Storage::StorageException& exception) {
-        return ErrorToStatus(
-            "When getting properties '" + filesystem_client.GetUrl() + "': ", exception);
+        return ErrorToStatus("Failed to confirm '" + filesystem_client.GetUrl() +
+                                 "' is an accessible container. Therefore the "
+                                 "hierarchical namespace check was invalid.",
+                             exception);
       }
     } else {
-      // Unexpected error so we can't tell if the storage account has hierachical
-      // namespace.
       return ErrorToStatus(
-          "When getting access control list '" + directory_client.GetUrl() + "': ",
+          "GetAccessControlList for '" + directory_client.GetUrl() +
+              "' failed with an unexpected Azure error, while checking "
+              "whether the storage account has hierarchical namespace enabled.",
           exception);
     }
   }

@@ -501,7 +501,9 @@ class AzureFileSystem::Impl {
           return info;
         }
         return internal::ErrorToStatus(
-            "When fetching properties for '" + container_client.GetUrl() + "': ",
+            "GetProperties for '" + container_client.GetUrl() +
+                "' failed with an unexpected Azure error. GetFileInfo is unable to "
+                "determine whether the container exists.",
             exception);
       }
     }
@@ -512,6 +514,9 @@ class AzureFileSystem::Impl {
       if (properties.Value.IsDirectory) {
         info.set_type(FileType::Directory);
       } else if (internal::HasTrailingSlash(path.path_to_file)) {
+        // For a path with a trailing slash a hierarchical namespace may return a blob
+        // with that trailing slash removed. For consistency with flat namespace and
+        // other filesystems we chose to return NotFound.
         info.set_type(FileType::NotFound);
         return info;
       } else {
@@ -548,19 +553,25 @@ class AzureFileSystem::Impl {
               blob_service_client_->GetBlobContainerClient(path.container)
                   .ListBlobs(list_blob_options);
           if (paged_list_result.Blobs.size() > 0) {
-            info.set_type(FileType::Directory); 
+            info.set_type(FileType::Directory);
             return info;
           } else {
             info.set_type(FileType::NotFound);
             return info;
           }
         } catch (const Azure::Storage::StorageException& exception) {
-          return internal::ErrorToStatus("When listing blobs for '" + prefix + "': ",
-                                         exception);
+          return internal::ErrorToStatus(
+              "ListBlobs for '" + prefix +
+                  "' failed with an unexpected Azure error. GetFileInfo is unable to "
+                  "determine whether the path should be considered an implied directory.",
+              exception);
         }
       }
       return internal::ErrorToStatus(
-          "When fetching properties for '" + file_client.GetUrl() + "': ", exception);
+          "GetProperties for '" + file_client.GetUrl() +
+              "' failed with an unexpected "
+              "Azure error. GetFileInfo is unable to determine whether the path exists.",
+          exception);
     }
   }
 
