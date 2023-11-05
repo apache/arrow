@@ -236,6 +236,9 @@ class AzureFileSystemTest : public ::testing::Test {
     blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()),
                            total_size);
   }
+
+  void RunGetFileInfoObjectWithNestedStructureTest();
+  void RunGetFileInfoObjectTest();
 };
 
 class AzuriteFileSystemTest : public AzureFileSystemTest {
@@ -320,7 +323,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoContainer) {
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
 }
 
-TEST_F(AzuriteFileSystemTest, GetFileInfoObjectWithNestedStructure) {
+void AzureFileSystemTest::RunGetFileInfoObjectWithNestedStructureTest() {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
@@ -359,53 +362,21 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoObjectWithNestedStructure) {
                  FileType::NotFound);
 }
 
+TEST_F(AzuriteFileSystemTest, GetFileInfoObjectWithNestedStructure) {
+  RunGetFileInfoObjectWithNestedStructureTest();
+}
+
 TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObjectWithNestedStructure) {
-  // Adds detailed tests to handle cases of different edge cases
-  // with directory naming conventions (e.g. with and without slashes).
-  constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
-  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-      .GetBlockBlobClient(kObjectName)
-      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
-
-  // 0 is immediately after "/" lexicographically, ensure that this doesn't
-  // cause unexpected issues.
-  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-      .GetBlockBlobClient("test-object-dir/some_other_dir0")
-      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
-
-  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-      .GetBlockBlobClient(std::string(kObjectName) + "0")
-      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
-
+  RunGetFileInfoObjectWithNestedStructureTest();
   datalake_service_client_->GetFileSystemClient(PreexistingContainerName())
       .GetDirectoryClient("test-empty-object-dir")
       .Create();
-
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName + "/",
-                 FileType::NotFound);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir",
-                 FileType::Directory);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/",
-                 FileType::Directory);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_dir",
-                 FileType::Directory);
-  AssertFileInfo(fs_.get(),
-                 PreexistingContainerPath() + "test-object-dir/some_other_dir/",
-                 FileType::Directory);
-
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-di",
-                 FileType::NotFound);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_di",
-                 FileType::NotFound);
 
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-empty-object-dir",
                  FileType::Directory);
 }
 
-TEST_F(AzuriteFileSystemTest, GetFileInfoObject) {
+void AzureFileSystemTest::RunGetFileInfoObjectTest() {
   auto object_properties =
       blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
@@ -421,20 +392,10 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoObject) {
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
 }
 
+TEST_F(AzuriteFileSystemTest, GetFileInfoObject) { RunGetFileInfoObjectTest(); }
+
 TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObject) {
-  auto object_properties =
-      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-          .GetBlobClient(PreexistingObjectName())
-          .GetProperties()
-          .Value;
-
-  arrow::fs::AssertFileInfo(
-      fs_.get(), PreexistingObjectPath(), FileType::File,
-      std::chrono::system_clock::time_point(object_properties.LastModified),
-      static_cast<int64_t>(object_properties.BlobSize));
-
-  // URI
-  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
+  RunGetFileInfoObjectTest();
 }
 
 TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {
