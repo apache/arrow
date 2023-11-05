@@ -250,6 +250,5 @@ namespace Apache.Arrow
             }
 
         }
-
     }
 }
