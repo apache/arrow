@@ -542,8 +542,6 @@ class AzureFileSystem::Impl {
                                           // but not path_to_file.
       // path must refer to the root of the Azure storage account. This is a directory,
       // and there isn't any extra metadata to fetch.
-      // TODO: Confirm if we need to check that the storage account exists. I think there
-      // would have been an earlier failure.
       return FileInfo(path.full_path, FileType::Directory);
     }
     if (path.path_to_file.empty()) {

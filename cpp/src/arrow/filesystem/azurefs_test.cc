@@ -379,15 +379,9 @@ TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectWithNestedStructure) {
 
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-empty-object-dir",
                  FileType::Directory);
-
-  // TODO: Add an assert that it did not use ListBlobs to detect directories.
 }
 
-// TODO: Add ADLS Gen2 directory tests.
-
-// TODO: Check I haven't accidentally changed the purpose of this test. The name seems a
-// bit strange.
-TEST_F(TestAzureFileSystem, GetFileInfoObjectNoExplicitObject) {
+TEST_F(TestAzureFileSystem, GetFileInfoObject) {
   auto object_properties =
       blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
@@ -403,7 +397,7 @@ TEST_F(TestAzureFileSystem, GetFileInfoObjectNoExplicitObject) {
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
 }
 
-TEST_F(TestAzureHNSFileSystem, GetFileInfoObjectNoExplicitObject) {
+TEST_F(TestAzureHNSFileSystem, GetFileInfoObject) {
   auto object_properties =
       blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlobClient(PreexistingObjectName())
