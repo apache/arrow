@@ -35,7 +35,7 @@ Status HierarchicalNamespaceDetector::Init(
         datalake_service_client) {
   datalake_service_client_ = datalake_service_client;
   return Status::OK();
-};
+}
 
 Result<bool> HierarchicalNamespaceDetector::Enabled(const std::string& container_name) {
   // Hierarchical namespace can't easily be changed after the storage account is created
