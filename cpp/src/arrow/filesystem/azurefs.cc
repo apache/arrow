@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/filesystem/azurefs.h"
+#include "arrow/filesystem/azurefs_internal.h"
 
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/files/datalake.hpp>
@@ -60,67 +61,6 @@ Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_n
   credentials_kind = AzureCredentialsKind::StorageCredentials;
   return Status::OK();
 }
-
-Status ErrorToStatus(const std::string& prefix,
-                     const Azure::Storage::StorageException& exception) {
-  return Status::IOError(prefix, " Azure Error: ", exception.what());
-}
-
-class HierachicalNamespaceDetecter {
- public:
-  Result<bool> Enabled(
-      Azure::Storage::Files::DataLake::DataLakeFileSystemClient filesystem_client) {
-    if (is_hierachical_namespace_enabled_.has_value()) {
-      return is_hierachical_namespace_enabled_.value();
-    }
-
-    // This approach is inspired by hadoop-azure
-    // https://github.com/apache/hadoop/blob/7c6af6a5f626d18d68b656d085cc23e4c1f7a1ef/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/AzureBlobFileSystemStore.java#L356.
-    // Unfortunately `blob_service_client->GetAccountInfo()` requires significantly
-    // elevated permissions.
-    // https://learn.microsoft.com/en-us/rest/api/storageservices/get-blob-service-properties?tabs=azure-ad#authorization
-    auto directory_client = filesystem_client.GetDirectoryClient("/");
-    try {
-      directory_client.GetAccessControlList();
-      is_hierachical_namespace_enabled_ = true;
-    } catch (const Azure::Storage::StorageException& exception) {
-      // GetAccessControlList will fail on storage accounts without hierarchical
-      // namespace enabled.
-
-      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::BadRequest ||
-          exception.StatusCode == Azure::Core::Http::HttpStatusCode::Conflict) {
-        // Flat namespace storage accounts with soft delete enabled return
-        // Conflict - This endpoint does not support BlobStorageEvents or SoftDelete
-        // otherwise it returns: BadRequest - This operation is only supported on a
-        // hierarchical namespace account.
-        is_hierachical_namespace_enabled_ = false;
-      } else if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
-        // Azurite returns NotFound.
-        try {
-          // Ensure sure that the directory exists by checking its properties. If it
-          // doesn't then the GetAccessControlList check was invalid and we can't tell
-          // if the storage account has hierachical namespace.
-          filesystem_client.GetProperties();
-          is_hierachical_namespace_enabled_ = false;
-        } catch (const Azure::Storage::StorageException& exception) {
-          return ErrorToStatus(
-              "When getting properties '" + filesystem_client.GetUrl() + "': ",
-              exception);
-        }
-      } else {
-        // Unexpected error so we can't tell if the storage account has hierachical
-        // namespace.
-        return ErrorToStatus(
-            "When getting access control list '" + directory_client.GetUrl() + "': ",
-            exception);
-      }
-    }
-    return is_hierachical_namespace_enabled_.value();
-  }
-
- private:
-  std::optional<bool> is_hierachical_namespace_enabled_;
-};
 
 namespace {
 
@@ -379,7 +319,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       if (ContainerOrBlobNotFound(exception)) {
         return PathNotFound(path_);
       }
-      return ErrorToStatus(
+      return internal::ErrorToStatus(
           "When fetching properties for '" + blob_client_->GetUrl() + "': ", exception);
     }
   }
@@ -457,10 +397,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
           ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
           .Value.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
-      return ErrorToStatus("When reading from '" + blob_client_->GetUrl() +
-                               "' at position " + std::to_string(position) + " for " +
-                               std::to_string(nbytes) + " bytes: ",
-                           exception);
+      return internal::ErrorToStatus("When reading from '" + blob_client_->GetUrl() +
+                                         "' at position " + std::to_string(position) +
+                                         " for " + std::to_string(nbytes) + " bytes: ",
+                                     exception);
     }
   }
 
@@ -516,7 +456,7 @@ class AzureFileSystem::Impl {
       datalake_service_client_;
   std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
-  HierachicalNamespaceDetecter hierarchical_namespace_;
+  internal::HierachicalNamespaceDetecter hierarchical_namespace_;
 
   explicit Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(io_context), options_(std::move(options)) {}
@@ -558,7 +498,7 @@ class AzureFileSystem::Impl {
         if (ContainerOrBlobNotFound(exception)) {
           return FileInfo(path.full_path, FileType::NotFound);
         }
-        return ErrorToStatus(
+        return internal::ErrorToStatus(
             "When fetching properties for '" + container_client.GetUrl() + "': ",
             exception);
       }
@@ -613,10 +553,11 @@ class AzureFileSystem::Impl {
             return FileInfo(path.full_path, FileType::NotFound);
           }
         } catch (const Azure::Storage::StorageException& exception) {
-          return ErrorToStatus("When listing blobs for '" + prefix + "': ", exception);
+          return internal::ErrorToStatus("When listing blobs for '" + prefix + "': ",
+                                         exception);
         }
       }
-      return ErrorToStatus(
+      return internal::ErrorToStatus(
           "When fetching properties for '" + file_client.GetUrl() + "': ", exception);
     }
   }
