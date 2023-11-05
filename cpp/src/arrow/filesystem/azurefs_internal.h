@@ -10,7 +10,7 @@ namespace internal {
 Status ErrorToStatus(const std::string& prefix,
                      const Azure::Storage::StorageException& exception);
 
-class HierachicalNamespaceDetecter {
+class HierarchicalNamespaceDetector {
  public:
   Status Init(std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
                   datalake_service_client);
@@ -19,7 +19,7 @@ class HierachicalNamespaceDetecter {
  private:
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
       datalake_service_client_;
-  std::optional<bool> is_hierachical_namespace_enabled_;
+  std::optional<bool> is_hierarchical_namespace_enabled_;
 };
 
 }  // namespace internal

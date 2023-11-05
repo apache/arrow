@@ -13,19 +13,19 @@ Status ErrorToStatus(const std::string& prefix,
   return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
 
-Status HierachicalNamespaceDetecter::Init(
+Status HierarchicalNamespaceDetector::Init(
     std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
         datalake_service_client) {
   datalake_service_client_ = datalake_service_client;
   return Status::OK();
 };
 
-Result<bool> HierachicalNamespaceDetecter::Enabled(const std::string& container_name) {
+Result<bool> HierarchicalNamespaceDetector::Enabled(const std::string& container_name) {
   // Hierarchical namespace can't easily be changed after the storage account is created
   // and its common across all containers in the storage account. Do nothing until we've
   // checked for a cached result.
-  if (is_hierachical_namespace_enabled_.has_value()) {
-    return is_hierachical_namespace_enabled_.value();
+  if (is_hierarchical_namespace_enabled_.has_value()) {
+    return is_hierarchical_namespace_enabled_.value();
   }
 
   // This approach is inspired by hadoop-azure
@@ -37,7 +37,7 @@ Result<bool> HierachicalNamespaceDetecter::Enabled(const std::string& container_
   auto directory_client = filesystem_client.GetDirectoryClient("/");
   try {
     directory_client.GetAccessControlList();
-    is_hierachical_namespace_enabled_ = true;
+    is_hierarchical_namespace_enabled_ = true;
   } catch (const Azure::Storage::StorageException& exception) {
     // GetAccessControlList will fail on storage accounts without hierarchical
     // namespace enabled.
@@ -48,7 +48,7 @@ Result<bool> HierachicalNamespaceDetecter::Enabled(const std::string& container_
       // Conflict - This endpoint does not support BlobStorageEvents or SoftDelete
       // otherwise it returns: BadRequest - This operation is only supported on a
       // hierarchical namespace account.
-      is_hierachical_namespace_enabled_ = false;
+      is_hierarchical_namespace_enabled_ = false;
     } else if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
       // Azurite returns NotFound.
       try {
@@ -56,7 +56,7 @@ Result<bool> HierachicalNamespaceDetecter::Enabled(const std::string& container_
         // doesn't then the GetAccessControlList check was invalid and we can't tell
         // if the storage account has hierachical namespace.
         filesystem_client.GetProperties();
-        is_hierachical_namespace_enabled_ = false;
+        is_hierarchical_namespace_enabled_ = false;
       } catch (const Azure::Storage::StorageException& exception) {
         return ErrorToStatus(
             "When getting properties '" + filesystem_client.GetUrl() + "': ", exception);
@@ -69,7 +69,7 @@ Result<bool> HierachicalNamespaceDetecter::Enabled(const std::string& container_
           exception);
     }
   }
-  return is_hierachical_namespace_enabled_.value();
+  return is_hierarchical_namespace_enabled_.value();
 }
 
 }  // namespace internal

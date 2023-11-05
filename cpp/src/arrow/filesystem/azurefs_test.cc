@@ -184,11 +184,11 @@ class AzureFileSystemTest : public ::testing::Test {
 
   void TearDown() override {
     if (!suite_skipped_) {
-    auto containers = blob_service_client_->ListBlobContainers();
-    for (auto container : containers.BlobContainers) {
-      auto container_client =
-          blob_service_client_->GetBlobContainerClient(container.Name);
-      container_client.DeleteIfExists();
+      auto containers = blob_service_client_->ListBlobContainers();
+      for (auto container : containers.BlobContainers) {
+        auto container_client =
+            blob_service_client_->GetBlobContainerClient(container.Name);
+        container_client.DeleteIfExists();
       }
     }
   }
@@ -257,7 +257,7 @@ class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
       char* account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
       EXPECT_THAT(account_key, NotNull());
       ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
-    return options;
+      return options;
     }
     return Status::Cancelled(
         "Connection details not provided for a real flat namespace "
@@ -272,7 +272,7 @@ class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
       char* account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
       EXPECT_THAT(account_key, NotNull());
       ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
-    return options;
+      return options;
     }
     return Status::Cancelled(
         "Connection details not provided for a real hierachical namespace "
@@ -281,25 +281,25 @@ class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
 };
 
 TEST_F(AzureFlatNamespaceFileSystemTest, DetectHierarchicalNamespace) {
-  auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
+  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(AzureHierarchicalNamespaceFileSystemTest, DetectHierarchicalNamespace) {
-  auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
+  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_OK_AND_EQ(true, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespace) {
-  auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
+  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
-  auto hierarchical_namespace = internal::HierachicalNamespaceDetecter();
+  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
   ASSERT_NOT_OK(hierarchical_namespace.Enabled("non-existent-container"));
 }
