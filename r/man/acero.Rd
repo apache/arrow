@@ -156,6 +156,7 @@ Consider using the lubridate specialised parsing functions \code{ymd()}, \code{y
 \item \code{\link[base:paste]{paste0()}}: the \code{collapse} argument is not yet supported
 \item \code{\link[base:Extremes]{pmax()}}
 \item \code{\link[base:Extremes]{pmin()}}
+\item \code{\link[base:prod]{prod()}}
 \item \code{\link[base:Round]{round()}}
 \item \code{\link[base:sign]{sign()}}
 \item \code{\link[base:Trig]{sin()}}

@@ -167,6 +167,7 @@
 #' * [`paste0()`][base::paste0()]: the `collapse` argument is not yet supported
 #' * [`pmax()`][base::pmax()]
 #' * [`pmin()`][base::pmin()]
+#' * [`prod()`][base::prod()]
 #' * [`round()`][base::round()]
 #' * [`sign()`][base::sign()]
 #' * [`sin()`][base::sin()]
