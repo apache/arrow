@@ -17,8 +17,8 @@
 package internal
 
 import (
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
 )
 
 const CurMetadataVersion = flatbuf.MetadataVersionV5

@@ -1,4 +1,4 @@
-#! /usr/bin/env node
+#! /usr/bin/env -S node --no-warnings --loader ts-node/esm/transpile-only
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -17,16 +17,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// @ts-check
+import * as fs from 'fs';
+import * as Path from 'path';
+import commandLineArgs from 'command-line-args';
+import { finished as eos } from 'stream/promises';
+// @ts-ignore
+import { parse as bignumJSONParse } from 'json-bignum';
+import { RecordBatchReader, RecordBatchFileWriter, RecordBatchStreamWriter } from '../index.ts';
 
-const fs = require('fs');
-const Path = require('path');
-const { parse } = require('json-bignum');
-const eos = require('util').promisify(require('stream').finished);
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
-const argv = require(`command-line-args`)(cliOpts(), { partial: true });
-const { RecordBatchReader, RecordBatchFileWriter, RecordBatchStreamWriter } = require(`../index${extension}`);
-
+const argv = commandLineArgs(cliOpts(), { partial: true });
 const jsonPaths = [...(argv.json || [])];
 const arrowPaths = [...(argv.arrow || [])];
 
@@ -42,7 +41,7 @@ const arrowPaths = [...(argv.arrow || [])];
             ? RecordBatchFileWriter
             : RecordBatchStreamWriter;
 
-        const reader = RecordBatchReader.from(parse(
+        const reader = RecordBatchReader.from(bignumJSONParse(
             await fs.promises.readFile(Path.resolve(path), 'utf8')));
 
         const jsonToArrow = reader
@@ -50,8 +49,9 @@ const arrowPaths = [...(argv.arrow || [])];
             .pipe(fs.createWriteStream(arrowPaths[i]));
 
         await eos(jsonToArrow);
-
     }));
+
+    return undefined;
 })()
     .then((x) => x ?? 0, (e) => {
         e && process.stderr.write(`${e}`);
@@ -90,7 +90,7 @@ function print_usage() {
         {
             header: 'Synopsis',
             content: [
-                '$ json-to-arrow.js -j in.json -a out.arrow -f stream'
+                '$ json-to-arrow.ts -j in.json -a out.arrow -f stream'
             ]
         },
         {

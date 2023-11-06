@@ -19,9 +19,9 @@
 package utils
 
 import (
-	"github.com/apache/arrow/go/v14/internal/bitutils"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
 	"golang.org/x/xerrors"
 )
 
