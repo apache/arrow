@@ -459,7 +459,7 @@ class AzureFileSystem::Impl {
   io::IOContext io_context_;
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
       datalake_service_client_;
-  std::shared_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
+  std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
   internal::HierarchicalNamespaceDetector hierarchical_namespace_;
 
@@ -467,7 +467,7 @@ class AzureFileSystem::Impl {
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
-    blob_service_client_ = std::make_shared<Azure::Storage::Blobs::BlobServiceClient>(
+    blob_service_client_ = std::make_unique<Azure::Storage::Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
     datalake_service_client_ =
         std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
