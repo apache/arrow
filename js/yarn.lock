@@ -1195,9 +1195,9 @@
   integrity sha512-rVCCileCU5NhP9Ix1e03sIn4gd0mpjh7VNULVQAxzF+9vddk6A5QAHzp2h5kXH8pkv1Ow45fUf3QP3wOEiISvA==
 
 "@types/command-line-args@^5.2.1":
-  version "5.2.1"
-  resolved "https://registry.npmjs.org/@types/command-line-args/-/command-line-args-5.2.1.tgz#233bd1ba687e84ecbec0388e09f9ec9ebf63c55b"
-  integrity sha512-U2OcmS2tj36Yceu+mRuPyUV0ILfau/h5onStcSCzqTENsq0sBiAp2TmaXu1k8fY4McLcPKSYl9FRzn2hx5bI+w==
+  version "5.2.2"
+  resolved "https://registry.yarnpkg.com/@types/command-line-args/-/command-line-args-5.2.2.tgz#ca93ae7045305a2b7c60936bfcb1ebc897b42270"
+  integrity sha512-9aZ7KzLDOBYyqH5J2bvB9edvsMXusX+H/aS8idAJOpWNmscZG5RqO1CVJPFa4Q0/1xKgvxcweXunFVx2l/dYFA==
 
 "@types/command-line-usage@^5.0.2":
   version "5.0.2"
