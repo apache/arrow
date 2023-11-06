@@ -568,7 +568,7 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
 util::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const {
   DCHECK(HasVariadicBuffers());
   return {buffers[2].data_as<std::shared_ptr<Buffer>>(),
-          buffers[2].size / sizeof(std::shared_ptr<Buffer>)};
+          static_cast<size_t>(buffers[2].size) / sizeof(std::shared_ptr<Buffer>)};
 }
 
 bool ArraySpan::HasVariadicBuffers() const {
