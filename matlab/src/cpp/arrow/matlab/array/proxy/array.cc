@@ -38,7 +38,7 @@ namespace arrow::matlab::array::proxy {
         REGISTER_METHOD(Array, getValid);
         REGISTER_METHOD(Array, getType);
         REGISTER_METHOD(Array, isEqual);
-
+        REGISTER_METHOD(Array, slice);
     }
 
     std::shared_ptr<arrow::Array> Array::unwrap() {
@@ -143,5 +143,9 @@ namespace arrow::matlab::array::proxy {
         }
         mda::ArrayFactory factory;
         context.outputs[0] = factory.createScalar(is_equal);
+    }
+
+    void Array::slice(libmexclass::proxy::method::Context& context) {
+        // TODO: Implement
     }
 }
