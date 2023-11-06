@@ -679,6 +679,58 @@ class ARROW_ACERO_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   bool disable_bloom_filter = false;
 };
 
+/// \brief Make a node which implements join operation using nested loop join strategy.
+class ARROW_ACERO_EXPORT NestedLoopJoinNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr const char* default_output_suffix_for_left = "";
+  static constexpr const char* default_output_suffix_for_right = "";
+  NestedLoopJoinNodeOptions(
+      JoinType in_join_type, Expression filter = literal(true),
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
+      : join_type(in_join_type),
+        output_all(true),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
+        filter(std::move(filter)) {}
+
+  NestedLoopJoinNodeOptions(
+      JoinType join_type, std::vector<FieldRef> left_output,
+      std::vector<FieldRef> right_output, Expression filter = literal(true),
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
+      : join_type(join_type),
+        output_all(false),
+        left_output(std::move(left_output)),
+        right_output(std::move(right_output)),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
+        filter(std::move(filter)) {}
+
+  NestedLoopJoinNodeOptions() = default;
+
+  // type of join (inner, left, semi...)
+  JoinType join_type = JoinType::INNER;
+  // if set all valid fields from both left and right input will be output
+  // (and field ref vectors for output fields will be ignored)
+  bool output_all = false;
+  // output fields passed from left input
+  std::vector<FieldRef> left_output;
+  // output fields passed from right input
+  std::vector<FieldRef> right_output;
+  // suffix added to names of output fields coming from left input (used to distinguish,
+  // if necessary, between fields of the same name in left and right input and can be left
+  // empty if there are no name collisions)
+  std::string output_suffix_for_left;
+  // suffix added to names of output fields coming from right input
+  std::string output_suffix_for_right;
+  // residual filter which is applied to matching rows.  Rows that do not match
+  // the filter are not included.  The filter is applied against the
+  // concatenated input schema (left fields then right fields) and can reference
+  // fields that are not included in the output.
+  Expression filter = literal(true);
+};
+
 /// \brief a node which implements the asof join operation
 ///
 /// Note, this API is experimental and will change in the future
