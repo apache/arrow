@@ -18,6 +18,7 @@
 #include "arrow/util/utf8.h"
 
 #include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/bit/unpack.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/type/proxy/wrap.h"
@@ -146,6 +147,33 @@ namespace arrow::matlab::array::proxy {
     }
 
     void Array::slice(libmexclass::proxy::method::Context& context) {
-        // TODO: Implement
+        namespace mda = ::matlab::data;
+
+        mda::StructArray opts = context.inputs[0];
+        const mda::TypedArray<int64_t> offset_mda = opts[0]["Offset"];
+        const mda::TypedArray<int64_t> length_mda = opts[0]["Length"];
+
+        const auto matlab_offset = int64_t(offset_mda[0]);
+        if (matlab_offset < 1) {
+            context.error = libmexclass::error::Error{"arrow:array:slice:NonpositiveOffset", "Offset must be positive"};
+        }
+
+        // Note: MATLAB uses 1-based indexing, so subtract 1.
+        const int64_t offset = matlab_offset - 1;
+        const int64_t length = int64_t(length_mda[0]);
+
+        auto sliced_array = array->Slice(offset, length);
+        const auto type_id = static_cast<int32_t>(sliced_array->type_id());
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto sliced_array_proxy,
+                                            array::proxy::wrap(sliced_array),
+                                            context,
+                                            "arrow:array:FailedToCreateArrayProxy");
+        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(sliced_array_proxy);
+
+        mda::ArrayFactory factory;
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(proxy_id);
+        output[0]["TypeID"] = factory.createScalar(type_id);
+        context.outputs[0] = output;
     }
 }
