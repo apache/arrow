@@ -255,8 +255,8 @@ class AzuriteFileSystemTest : public AzureFileSystemTest {
 class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
   Result<AzureOptions> MakeOptions() override {
     AzureOptions options;
-    if (char* account_name = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME")) {
-      char* account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
+    if (const auto account_name = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME")) {
+      const auto account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
       EXPECT_THAT(account_key, NotNull());
       ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
       return options;
@@ -270,8 +270,8 @@ class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
 class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
   Result<AzureOptions> MakeOptions() override {
     AzureOptions options;
-    if (char* account_name = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME")) {
-      char* account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
+    if (const auto account_name = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME")) {
+      const auto account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
       EXPECT_THAT(account_key, NotNull());
       ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
       return options;
@@ -307,16 +307,16 @@ TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContain
 }
 
 TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
-  arrow::fs::AssertFileInfo(fs_.get(), "", FileType::Directory);
+  AssertFileInfo(fs_.get(), "", FileType::Directory);
 
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://"));
 }
 
 TEST_F(AzuriteFileSystemTest, GetFileInfoContainer) {
-  arrow::fs::AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
+  AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
 
-  arrow::fs::AssertFileInfo(fs_.get(), "non-existent-container", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "non-existent-container", FileType::NotFound);
 
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
@@ -382,7 +382,7 @@ void AzureFileSystemTest::RunGetFileInfoObjectTest() {
           .GetProperties()
           .Value;
 
-  arrow::fs::AssertFileInfo(
+  AssertFileInfo(
       fs_.get(), PreexistingObjectPath(), FileType::File,
       std::chrono::system_clock::time_point(object_properties.LastModified),
       static_cast<int64_t>(object_properties.BlobSize));
