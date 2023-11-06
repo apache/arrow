@@ -186,7 +186,7 @@ std::shared_ptr<const KeyValueMetadata> PropertiesToMetadata(
   }
   metadata->Append("Content-Type", properties.HttpHeaders.ContentType);
   metadata->Append("Content-Encoding", properties.HttpHeaders.ContentEncoding);
-  metadata->Append("Content-Language", properties.HttpHeaders.ContentEncoding);
+  metadata->Append("Content-Language", properties.HttpHeaders.ContentLanguage);
   const auto& content_hash = properties.HttpHeaders.ContentHash.Value;
   metadata->Append("Content-Hash", HexEncode(content_hash.data(), content_hash.size()));
   metadata->Append("Content-Disposition", properties.HttpHeaders.ContentDisposition);
