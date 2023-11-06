@@ -104,9 +104,8 @@ public class FlightEndpointDataQueue implements AutoCloseable {
       futures.remove(future);
       try {
         final CloseableEndpointStreamPair endpoint = future.get();
-        // Get the next FlightStream with content.
-        // The stream is non-empty.
-        if (endpoint.getStream().getRoot().getRowCount() > 0) {
+        // Get the next FlightStream that has a root with content.
+        if (endpoint != null) {
           return endpoint;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
@@ -178,8 +177,12 @@ public class FlightEndpointDataQueue implements AutoCloseable {
     endpointsToClose.add(endpointRequest);
     futures.add(completionService.submit(() -> {
       // `FlightStream#next` will block until new data can be read or stream is over.
-      endpointRequest.getStream().next();
-      return endpointRequest;
+      while (endpointRequest.getStream().next()) {
+        if (endpointRequest.getStream().getRoot().getRowCount() > 0) {
+          return endpointRequest;
+        }
+      }
+      return null;
     }));
   }
 
