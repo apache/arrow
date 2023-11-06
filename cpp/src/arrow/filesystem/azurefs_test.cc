@@ -161,7 +161,7 @@ class AzureFileSystemTest : public ::testing::Test {
   void SetUp() override {
     auto options = MakeOptions();
     if (options.ok()) {
-      options_ = options.ValueOrDie();
+      options_ = *options;
     } else {
       suite_skipped_ = true;
       GTEST_SKIP() << options.status().message();
@@ -255,10 +255,10 @@ class AzuriteFileSystemTest : public AzureFileSystemTest {
 class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
   Result<AzureOptions> MakeOptions() override {
     AzureOptions options;
-    if (const auto account_name = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME")) {
-      const auto account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
-      EXPECT_THAT(account_key, NotNull());
-      ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
+    const auto account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
+    const auto account_name = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME");
+    if (account_key && account_name) {
+      RETURN_NOT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
       return options;
     }
     return Status::Cancelled(
@@ -270,14 +270,14 @@ class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
 class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
   Result<AzureOptions> MakeOptions() override {
     AzureOptions options;
-    if (const auto account_name = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME")) {
-      const auto account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
-      EXPECT_THAT(account_key, NotNull());
-      ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
+    const auto account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
+    const auto account_name = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME");
+    if (account_key && account_name) {
+      RETURN_NOT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
       return options;
     }
     return Status::Cancelled(
-        "Connection details not provided for a real hierachical namespace "
+        "Connection details not provided for a real hierarchical namespace "
         "account.");
   }
 };
@@ -382,10 +382,9 @@ void AzureFileSystemTest::RunGetFileInfoObjectTest() {
           .GetProperties()
           .Value;
 
-  AssertFileInfo(
-      fs_.get(), PreexistingObjectPath(), FileType::File,
-      std::chrono::system_clock::time_point(object_properties.LastModified),
-      static_cast<int64_t>(object_properties.BlobSize));
+  AssertFileInfo(fs_.get(), PreexistingObjectPath(), FileType::File,
+                 std::chrono::system_clock::time_point(object_properties.LastModified),
+                 static_cast<int64_t>(object_properties.BlobSize));
 
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
