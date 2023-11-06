@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 14.0.0
+# arrow 14.0.1
 
 ## New features
 

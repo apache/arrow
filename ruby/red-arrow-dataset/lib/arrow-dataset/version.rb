@@ -16,7 +16,7 @@
 # under the License.
 
 module ArrowDataset
-  VERSION = "14.0.0"
+  VERSION = "14.0.1"
 
   module Version
     numbers, TAG = VERSION.split("-")
