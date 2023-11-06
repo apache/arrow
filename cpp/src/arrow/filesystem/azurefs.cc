@@ -319,10 +319,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
       if (ContainerOrBlobNotFound(exception)) {
         return PathNotFound(path_);
       }
-      return internal::ErrorToStatus(
+      return internal::ExceptionToStatus(
           "GetProperties failed for '" + blob_client_->GetUrl() +
               "' with an unexpected Azure error. Can not initialise an ObjectInputFile "
-              "without knowing the file size. ",
+              "without knowing the file size.",
           exception);
     }
   }
@@ -400,12 +400,12 @@ class ObjectInputFile final : public io::RandomAccessFile {
           ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
           .Value.ContentRange.Length.Value();
     } catch (const Azure::Storage::StorageException& exception) {
-      return internal::ErrorToStatus("DownloadTo from '" + blob_client_->GetUrl() +
-                                         "' at position " + std::to_string(position) +
-                                         " for " + std::to_string(nbytes) +
-                                         " bytes failed with an Azure error. ReadAt "
-                                         "failed to read the required byte range.",
-                                     exception);
+      return internal::ExceptionToStatus("DownloadTo from '" + blob_client_->GetUrl() +
+                                             "' at position " + std::to_string(position) +
+                                             " for " + std::to_string(nbytes) +
+                                             " bytes failed with an Azure error. ReadAt "
+                                             "failed to read the required byte range.",
+                                         exception);
     }
   }
 
@@ -488,7 +488,8 @@ class AzureFileSystem::Impl {
                                           // but not path_to_file.
       // path must refer to the root of the Azure storage account. This is a directory,
       // and there isn't any extra metadata to fetch.
-      return FileInfo(path.full_path, FileType::Directory);
+      info.set_type(FileType::Directory);
+      return info;
     }
     if (path.path_to_file.empty()) {
       // path refers to a container. This is a directory if it exists.
@@ -505,7 +506,7 @@ class AzureFileSystem::Impl {
           info.set_type(FileType::NotFound);
           return info;
         }
-        return internal::ErrorToStatus(
+        return internal::ExceptionToStatus(
             "GetProperties for '" + container_client.GetUrl() +
                 "' failed with an unexpected Azure error. GetFileInfo is unable to "
                 "determine whether the container exists.",
@@ -565,14 +566,14 @@ class AzureFileSystem::Impl {
             return info;
           }
         } catch (const Azure::Storage::StorageException& exception) {
-          return internal::ErrorToStatus(
+          return internal::ExceptionToStatus(
               "ListBlobs for '" + prefix +
                   "' failed with an unexpected Azure error. GetFileInfo is unable to "
                   "determine whether the path should be considered an implied directory.",
               exception);
         }
       }
-      return internal::ErrorToStatus(
+      return internal::ExceptionToStatus(
           "GetProperties for '" + file_client.GetUrl() +
               "' failed with an unexpected "
               "Azure error. GetFileInfo is unable to determine whether the path exists.",

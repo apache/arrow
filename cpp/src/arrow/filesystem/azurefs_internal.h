@@ -23,12 +23,10 @@
 
 #include "arrow/result.h"
 
-namespace arrow {
-namespace fs {
-namespace internal {
+namespace arrow::fs::internal {
 
-Status ErrorToStatus(const std::string& prefix,
-                     const Azure::Storage::StorageException& exception);
+Status ExceptionToStatus(const std::string& prefix,
+                         const Azure::Storage::StorageException& exception);
 
 class HierarchicalNamespaceDetector {
  public:
@@ -39,9 +37,7 @@ class HierarchicalNamespaceDetector {
  private:
   std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
       datalake_service_client_;
-  std::optional<bool> is_hierarchical_namespace_enabled_;
+  std::optional<bool> enabled_;
 };
 
-}  // namespace internal
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs::internal
