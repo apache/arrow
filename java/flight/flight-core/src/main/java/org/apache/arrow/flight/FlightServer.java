@@ -34,6 +34,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import javax.net.ssl.SSLException;
+
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthInterceptor;
 import org.apache.arrow.flight.auth2.Auth2Constants;
@@ -49,9 +51,14 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
+import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
+import io.netty.handler.ssl.ClientAuth;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+
 
 /**
  * Generic server of flight data that is customized via construction with delegate classes for the
@@ -172,6 +179,8 @@ public class FlightServer implements AutoCloseable {
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
     private InputStream certChain;
     private InputStream key;
+    private InputStream mTlsCACert;
+    private SslContext sslContext;
     private final List<KeyFactory<?>> interceptors;
     // Keep track of inserted interceptors
     private final Set<String> interceptorKeys;
@@ -245,7 +254,25 @@ public class FlightServer implements AutoCloseable {
       }
 
       if (certChain != null) {
-        builder.useTransportSecurity(certChain, key);
+        SslContextBuilder sslContextBuilder = GrpcSslContexts
+                .forServer(certChain, key);
+
+        if (mTlsCACert != null) {
+          sslContextBuilder
+                  .clientAuth(ClientAuth.REQUIRE)
+                  .trustManager(mTlsCACert);
+        }
+        try {
+          sslContext = sslContextBuilder.build();
+        } catch (SSLException e) {
+          throw new RuntimeException(e);
+        } finally {
+          closeMTlsCACert();
+          closeCertChain();
+          closeKey();
+        }
+
+        builder.sslContext(sslContext);
       }
 
       // Share one executor between the gRPC service, DoPut, and Handshake
@@ -307,13 +334,68 @@ public class FlightServer implements AutoCloseable {
     }
 
     /**
+     * A small utility function to ensure that InputStream attributes.
+     * are closed if they are not null
+     * @param stream The InputStream to close (if it is not null).
+     */
+    private void closeInputStreamIfNotNull(InputStream stream) {
+      if (stream != null) {
+        try {
+          stream.close();
+        } catch (IOException ignored) {
+        }
+      }
+    }
+
+    /**
+     * A small utility function to ensure that the certChain attribute
+     * is closed if it is not null.  It then sets the attribute to null.
+     */
+    private void closeCertChain() {
+      closeInputStreamIfNotNull(certChain);
+      certChain = null;
+    }
+
+    /**
+     * A small utility function to ensure that the key attribute
+     * is closed if it is not null.  It then sets the attribute to null.
+     */
+    private void closeKey() {
+      closeInputStreamIfNotNull(key);
+      key = null;
+    }
+
+    /**
+     * A small utility function to ensure that the mTlsCACert attribute
+     * is closed if it is not null.  It then sets the attribute to null.
+     */
+    private void closeMTlsCACert() {
+      closeInputStreamIfNotNull(mTlsCACert);
+      mTlsCACert = null;
+    }
+
+    /**
      * Enable TLS on the server.
      * @param certChain The certificate chain to use.
      * @param key The private key to use.
      */
     public Builder useTls(final File certChain, final File key) throws IOException {
+      closeCertChain();
       this.certChain = new FileInputStream(certChain);
+
+      closeKey();
       this.key = new FileInputStream(key);
+
+      return this;
+    }
+
+    /**
+     * Enable Client Verification via mTLS on the server.
+     * @param mTlsCACert The CA certificate to use for verifying clients.
+     */
+    public Builder useMTlsClientVerification(final File mTlsCACert) throws IOException {
+      closeMTlsCACert();
+      this.mTlsCACert = new FileInputStream(mTlsCACert);
       return this;
     }
 
@@ -322,9 +404,23 @@ public class FlightServer implements AutoCloseable {
      * @param certChain The certificate chain to use.
      * @param key The private key to use.
      */
-    public Builder useTls(final InputStream certChain, final InputStream key) {
+    public Builder useTls(final InputStream certChain, final InputStream key) throws IOException {
+      closeCertChain();
       this.certChain = certChain;
+
+      closeKey();
       this.key = key;
+
+      return this;
+    }
+
+    /**
+     * Enable mTLS on the server.
+     * @param mTlsCACert The CA certificate to use for verifying clients.
+     */
+    public Builder useMTlsClientVerification(final InputStream mTlsCACert) throws IOException {
+      closeMTlsCACert();
+      this.mTlsCACert = mTlsCACert;
       return this;
     }
 

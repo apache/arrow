@@ -433,6 +433,9 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private boolean useEncryption;
     private boolean disableCertificateVerification;
     private boolean useSystemTrustStore;
+    private String tlsRootCertificatesPath;
+    private String clientCertificatePath;
+    private String clientKeyPath;
     private BufferAllocator allocator;
 
     public Builder() {
@@ -457,6 +460,9 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       this.useEncryption = original.useEncryption;
       this.disableCertificateVerification = original.disableCertificateVerification;
       this.useSystemTrustStore = original.useSystemTrustStore;
+      this.tlsRootCertificatesPath = original.tlsRootCertificatesPath;
+      this.clientCertificatePath = original.clientCertificatePath;
+      this.clientKeyPath = original.clientKeyPath;
       this.allocator = original.allocator;
     }
 
@@ -560,7 +566,42 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Sets the token used in the token authetication.
+     * Sets the TLS root certificate path as an alternative to using the System
+     * or other Trust Store.  The path must contain a valid PEM file.
+     *
+     * @param tlsRootCertificatesPath the TLS root certificate path (if TLS is required).
+     * @return this instance.
+     */
+    public Builder withTlsRootCertificates(final String tlsRootCertificatesPath) {
+      this.tlsRootCertificatesPath = tlsRootCertificatesPath;
+      return this;
+    }
+
+    /**
+     * Sets the mTLS client certificate path (if mTLS is required).
+     *
+     * @param clientCertificatePath the mTLS client certificate path (if mTLS is required).
+     * @return this instance.
+     */
+    public Builder withClientCertificate(final String clientCertificatePath) {
+      this.clientCertificatePath = clientCertificatePath;
+      return this;
+    }
+
+    /**
+     * Sets the mTLS client certificate private key path (if mTLS is required).
+     *
+     * @param clientKeyPath the mTLS client certificate private key path (if mTLS is required).
+     * @return this instance.
+     */
+    public Builder withClientKey(final String clientKeyPath) {
+      this.clientKeyPath = clientKeyPath;
+      return this;
+    }
+    
+    /**
+     * Sets the token used in the token authentication.
+     *
      * @param token the token value.
      * @return      this builder instance.
      */
@@ -660,13 +701,22 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           if (disableCertificateVerification) {
             clientBuilder.verifyServer(false);
           } else {
-            if (useSystemTrustStore) {
+            if (tlsRootCertificatesPath != null) {
+              clientBuilder.trustedCertificates(
+                      ClientAuthenticationUtils.getTlsRootCertificatesStream(tlsRootCertificatesPath));
+            } else if (useSystemTrustStore) {
               clientBuilder.trustedCertificates(
                   ClientAuthenticationUtils.getCertificateInputStreamFromSystem(trustStorePassword));
             } else if (trustStorePath != null) {
               clientBuilder.trustedCertificates(
                   ClientAuthenticationUtils.getCertificateStream(trustStorePath, trustStorePassword));
             }
+          }
+
+          if (clientCertificatePath != null && clientKeyPath != null) {
+            clientBuilder.clientCertificate(
+                ClientAuthenticationUtils.getClientCertificateStream(clientCertificatePath),
+                ClientAuthenticationUtils.getClientKeyStream(clientKeyPath));
           }
         }
 

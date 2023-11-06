@@ -114,6 +114,21 @@ case-sensitive. The supported parameters are:
      - null
      - When TLS is enabled, the password for the certificate store
 
+   * - tlsRootCerts
+     - null
+     - Path to PEM-encoded root certificates for TLS - use this as
+       an alternative to ``trustStore``
+
+   * - clientCertificate
+     - null
+     - Path to PEM-encoded client mTLS certificate when the Flight
+       SQL server requires client verification.
+
+   * - clientKey
+     - null
+     - Path to PEM-encoded client mTLS key when the Flight
+       SQL server requires client verification.
+
    * - useEncryption
      - true
      - Whether to use TLS (the default is an encrypted connection)
