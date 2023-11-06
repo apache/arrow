@@ -455,4 +455,17 @@ public class ResultSetTest {
       }
     }
   }
+
+  @Test
+  public void testShouldRunSelectQueryWithEmptyVectorsEmbedded() throws Exception {
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_WITH_EMPTY_SQL_CMD)) {
+      long rowCount = 0;
+      while (resultSet.next()) {
+        ++rowCount;
+      }
+      assertEquals(2, rowCount);
+    }
+  }
 }
