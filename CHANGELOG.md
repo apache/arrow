@@ -1,4 +1,13 @@
 
+# Apache Arrow 14.0.1 (2023-11-06)
+
+## Bug Fixes
+
+* [GH-38431](https://github.com/apache/arrow/issues/38431) - [Python][CI] Update fs.type_name checks for s3fs tests (#38455)
+* [GH-38607](https://github.com/apache/arrow/issues/38607) - [Python] Disable PyExtensionType autoload (#38608)
+
+
+
 # Apache Arrow 14.0.0 (2023-10-19)
 
 ## Bug Fixes
