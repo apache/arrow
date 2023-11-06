@@ -1089,17 +1089,19 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   }
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
-    RETURN_NOT_OK(this->InitValueState());
-
-    const auto& other = checked_cast<const ThisType&>(src);
+    auto&& other = checked_cast<ThisType&&>(src);
     this->has_nulls |= other.has_nulls;
     this->count += other.count;
     if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
       return Status::OK();
     }
 
-    RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->value_state.get())
-                      ->MergeFrom(nullptr, std::move(*other.value_state)));
+    if (this->value_state == nullptr) {
+      this->value_state.reset(other.value_state.release());
+    } else {
+      RETURN_NOT_OK(checked_cast<ScalarAggregator*>(this->value_state.get())
+                        ->MergeFrom(nullptr, std::move(*other.value_state)));
+    }
     return Status::OK();
   }
 
