@@ -1437,7 +1437,10 @@ cdef class ExtensionType(BaseExtensionType):
     Parameters
     ----------
     storage_type : DataType
+        The underlying storage type for the extension type.
     extension_name : str
+        A unique name distinguishing this extension type. The name will be
+        used when deserializing IPC data.
 
     Examples
     --------
@@ -1671,60 +1674,22 @@ cdef class FixedShapeTensorType(BaseExtensionType):
                                     self.dim_names, self.permutation)
 
 
+_py_extension_type_auto_load = False
+
+
 cdef class PyExtensionType(ExtensionType):
     """
     Concrete base class for Python-defined extension types based on pickle
     for (de)serialization.
 
+    .. warning::
+       This class is deprecated and its deserialization is disabled by default.
+       :class:`ExtensionType` is recommended instead.
+
     Parameters
     ----------
     storage_type : DataType
         The storage type for which the extension is built.
-
-    Examples
-    --------
-    Define a UuidType extension type subclassing PyExtensionType:
-
-    >>> import pyarrow as pa
-    >>> class UuidType(pa.PyExtensionType):
-    ...     def __init__(self):
-    ...         pa.PyExtensionType.__init__(self, pa.binary(16))
-    ...     def __reduce__(self):
-    ...         return UuidType, ()
-    ...
-
-    Create an instance of UuidType extension type:
-
-    >>> uuid_type = UuidType() # doctest: +SKIP
-    >>> uuid_type # doctest: +SKIP
-    UuidType(FixedSizeBinaryType(fixed_size_binary[16]))
-
-    Inspect the extension type:
-
-    >>> uuid_type.extension_name # doctest: +SKIP
-    'arrow.py_extension_type'
-    >>> uuid_type.storage_type # doctest: +SKIP
-    FixedSizeBinaryType(fixed_size_binary[16])
-
-    Wrap an array as an extension array:
-
-    >>> import uuid
-    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)],
-    ...                          pa.binary(16)) # doctest: +SKIP
-    >>> uuid_type.wrap_array(storage_array) # doctest: +SKIP
-    <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
-
-    Or do the same with creating an ExtensionArray:
-
-    >>> pa.ExtensionArray.from_storage(uuid_type,
-    ...                                storage_array) # doctest: +SKIP
-    <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
     """
 
     def __cinit__(self):
@@ -1733,6 +1698,12 @@ cdef class PyExtensionType(ExtensionType):
                             "PyExtensionType")
 
     def __init__(self, DataType storage_type):
+        warnings.warn(
+            "pyarrow.PyExtensionType is deprecated "
+            "and will refuse deserialization by default. "
+            "Instead, please derive from pyarrow.ExtensionType and implement "
+            "your own serialization mechanism.",
+            FutureWarning)
         ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
 
     def __reduce__(self):
@@ -1744,6 +1715,17 @@ cdef class PyExtensionType(ExtensionType):
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        if not _py_extension_type_auto_load:
+            warnings.warn(
+                "pickle-based deserialization of pyarrow.PyExtensionType subclasses "
+                "is disabled by default; if you only ingest "
+                "trusted data files, you may re-enable this using "
+                "`pyarrow.PyExtensionType.set_auto_load(True)`.\n"
+                "In the future, Python-defined extension subclasses should "
+                "derive from pyarrow.ExtensionType (not pyarrow.PyExtensionType) "
+                "and implement their own serialization mechanism.\n",
+                RuntimeWarning)
+            return UnknownExtensionType(storage_type, serialized)
         try:
             ty = pickle.loads(serialized)
         except Exception:
@@ -1758,6 +1740,22 @@ cdef class PyExtensionType(ExtensionType):
             raise TypeError("Expected storage type {0} but got {1}"
                             .format(ty.storage_type, storage_type))
         return ty
+
+    # XXX Cython marks extension types as immutable, so cannot expose this
+    # as a writable class attribute.
+    @classmethod
+    def set_auto_load(cls, value):
+        """
+        Enable or disable auto-loading of serialized PyExtensionType instances.
+
+        Parameters
+        ----------
+        value : bool
+            Whether to enable auto-loading.
+        """
+        global _py_extension_type_auto_load
+        assert isinstance(value, bool)
+        _py_extension_type_auto_load = value
 
 
 cdef class UnknownExtensionType(PyExtensionType):

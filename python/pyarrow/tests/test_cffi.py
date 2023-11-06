@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import ctypes
 import gc
 
@@ -51,18 +52,33 @@ def PyCapsule_IsValid(capsule, name):
     return ctypes.pythonapi.PyCapsule_IsValid(ctypes.py_object(capsule), name) == 1
 
 
-class ParamExtType(pa.PyExtensionType):
+@contextlib.contextmanager
+def registered_extension_type(ext_type):
+    pa.register_extension_type(ext_type)
+    try:
+        yield
+    finally:
+        pa.unregister_extension_type(ext_type.extension_name)
+
+
+class ParamExtType(pa.ExtensionType):
 
     def __init__(self, width):
         self._width = width
-        pa.PyExtensionType.__init__(self, pa.binary(width))
+        super().__init__(pa.binary(width),
+                         "pyarrow.tests.test_cffi.ParamExtType")
 
     @property
     def width(self):
         return self._width
 
-    def __reduce__(self):
-        return ParamExtType, (self.width,)
+    def __arrow_ext_serialize__(self):
+        return str(self.width).encode()
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        width = int(serialized.decode())
+        return cls(width)
 
 
 def make_schema():
@@ -72,6 +88,12 @@ def make_schema():
 
 def make_extension_schema():
     return pa.schema([('ext', ParamExtType(3))],
+                     metadata={b'key1': b'value1'})
+
+
+def make_extension_storage_schema():
+    # Should be kept in sync with make_extension_schema
+    return pa.schema([('ext', ParamExtType(3).storage_type)],
                      metadata={b'key1': b'value1'})
 
 
@@ -204,7 +226,10 @@ def test_export_import_array():
         pa.Array._import_from_c(ptr_array, ptr_schema)
 
 
-def check_export_import_schema(schema_factory):
+def check_export_import_schema(schema_factory, expected_schema_factory=None):
+    if expected_schema_factory is None:
+        expected_schema_factory = schema_factory
+
     c_schema = ffi.new("struct ArrowSchema*")
     ptr_schema = int(ffi.cast("uintptr_t", c_schema))
 
@@ -215,7 +240,7 @@ def check_export_import_schema(schema_factory):
     assert pa.total_allocated_bytes() > old_allocated
     # Delete and recreate C++ object from exported pointer
     schema_new = pa.Schema._import_from_c(ptr_schema)
-    assert schema_new == schema_factory()
+    assert schema_new == expected_schema_factory()
     assert pa.total_allocated_bytes() == old_allocated
     del schema_new
     assert pa.total_allocated_bytes() == old_allocated
@@ -240,7 +265,13 @@ def test_export_import_schema():
 
 @needs_cffi
 def test_export_import_schema_with_extension():
-    check_export_import_schema(make_extension_schema)
+    # Extension type is unregistered => the storage type is imported
+    check_export_import_schema(make_extension_schema,
+                               make_extension_storage_schema)
+
+    # Extension type is registered => the extension type is imported
+    with registered_extension_type(ParamExtType(1)):
+        check_export_import_schema(make_extension_schema)
 
 
 @needs_cffi
@@ -319,7 +350,8 @@ def test_export_import_batch():
 
 @needs_cffi
 def test_export_import_batch_with_extension():
-    check_export_import_batch(make_extension_batch)
+    with registered_extension_type(ParamExtType(1)):
+        check_export_import_batch(make_extension_batch)
 
 
 def _export_import_batch_reader(ptr_stream, reader_factory):
