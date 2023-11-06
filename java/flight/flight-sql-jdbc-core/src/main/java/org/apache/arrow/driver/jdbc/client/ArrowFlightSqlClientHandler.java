@@ -460,6 +460,9 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       this.useEncryption = original.useEncryption;
       this.disableCertificateVerification = original.disableCertificateVerification;
       this.useSystemTrustStore = original.useSystemTrustStore;
+      this.tlsRootCertificatesPath = original.tlsRootCertificatesPath;
+      this.clientCertificatePath = original.clientCertificatePath;
+      this.clientKeyPath = original.clientKeyPath;
       this.allocator = original.allocator;
     }
 
