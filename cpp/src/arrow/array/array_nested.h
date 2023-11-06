@@ -137,12 +137,11 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   /// the offsets contain any nulls). If the offsets do not have nulls, they
   /// are assumed to be well-formed.
   ///
-  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets' or
-  /// sizes' null bitmap. Only one of these two is allowed to have a null bitmap. But if a
-  /// null_bitmap is provided, the offsets array and the sizes array can't have nulls.
+  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets'
+  /// null bitmap. But if a null_bitmap is provided, the offsets array can't have nulls.
   ///
-  /// And when a null_bitmap is provided, neither the offsets or sizes array can be a
-  /// slice (i.e. an array with offset() > 0).
+  /// And when a null_bitmap is provided, the offsets array cannot be a slice (i.e. an
+  /// array with offset() > 0).
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
   /// size. Must be of int32 type
@@ -202,11 +201,10 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// the offsets contain any nulls). If the offsets do not have nulls, they
   /// are assumed to be well-formed.
   ///
-  /// If a null_bitmap is not provided, the nulls will be inferred from the
-  /// offsets's null bitmap. But if a null_bitmap is provided, the offsets array
-  /// can't have nulls.
+  /// If a null_bitmap is not provided, the nulls will be inferred from the offsets'
+  /// null bitmap. But if a null_bitmap is provided, the offsets array can't have nulls.
   ///
-  /// If a null_bitmap is provided, the offsets array can't be a slice (i.e. an
+  /// And when a null_bitmap is provided, the offsets array cannot be a slice (i.e. an
   /// array with offset() > 0).
   ///
   /// \param[in] offsets Array containing n + 1 offsets encoding length and
@@ -295,8 +293,8 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
   /// offsets's null bitmap. But if a null_bitmap is provided, the offsets array
   /// can't have nulls.
   ///
-  /// If a null_bitmap is provided, the offsets array can't be a slice (i.e. an
-  /// array with offset() > 0).
+  /// And when a null_bitmap is provided, neither the offsets or sizes array can be a
+  /// slice (i.e. an array with offset() > 0).
   ///
   /// \param[in] offsets An array of int32 offsets into the values array. NULL values are
   /// supported if the corresponding values in sizes is NULL or 0.
