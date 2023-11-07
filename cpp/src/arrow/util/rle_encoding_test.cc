@@ -33,8 +33,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding.h"
 
-#include <stdio.h>
-
 namespace arrow {
 namespace util {
 
@@ -217,8 +215,10 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
                  uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
 #ifdef EMSCRIPTEN
-  // on Emscripten, this buffer won't fit in the stack
-  static uint8_t buffer[len];
+  // don't make this on the stack as it is 
+  // too big for emscripten
+  std::vector<uint8_t> buffer_vec((size_t)len);
+  uint8_t *buffer = buffer_vec.data();
 #else
   uint8_t buffer[len];
 #endif
@@ -263,8 +263,10 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   const int len = 64 * 1024;
 #ifdef EMSCRIPTEN
-  // on Emscripten, this buffer won't fit in the stack
-  static uint8_t buffer[len];
+  // don't make this on the stack as it is 
+  // too big for emscripten
+  std::vector<uint8_t> buffer_vec((size_t)len);
+  uint8_t *buffer = buffer_vec.data();
 #else
   uint8_t buffer[len];
 #endif
@@ -311,7 +313,6 @@ TEST(Rle, SpecificSequences) {
   std::vector<int> values;
 
   // Test 50 0' followed by 50 1's
-
   values.resize(100);
   for (int i = 0; i < 50; ++i) {
     values[i] = 0;
@@ -343,7 +344,6 @@ TEST(Rle, SpecificSequences) {
   for (int i = 1; i <= 100 / 8; ++i) {
     expected_buffer[i] = 0xAA /* 0b10101010 */;
   }
-
   // Values for the last 4 0 and 1's. The upper 4 bits should be padded to 0.
   expected_buffer[100 / 8 + 1] = 0x0A /* 0b00001010 */;
 
@@ -380,7 +380,6 @@ TEST(Rle, SpecificSequences) {
   for (int i = 16; i < 28; ++i) {
     values[i] = 0x5aaaa555;
   }
-
   expected_buffer[0] = (16 << 1);
   expected_buffer[1] = 0xa5;
   expected_buffer[2] = 0xaa;

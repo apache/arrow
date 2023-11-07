@@ -750,11 +750,4 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     set(CMAKE_EXE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_LINKER_FLAGS}  -sALLOW_MEMORY_GROWTH")
   endif()
 
-  # limit debug info because building with DWARF debug info requires
-  # absolutely tons of memory
-  # https://github.com/WebAssembly/binaryen/issues/4261
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    string(APPEND CMAKE_CXX_FLAGS_DEBUG " -g2")
-  endif()
-
 endif()
