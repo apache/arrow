@@ -140,17 +140,21 @@ public class ConnectionMutualTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
             userTest, passTest);
 
-    assertThrows(SQLException.class, () -> new ArrowFlightSqlClientHandler.Builder()
-            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-            .withUsername(credentials.getUserName())
-            .withPassword(credentials.getPassword())
-            .withTlsRootCertificates(tlsRootCertsPath)
-            .withClientCertificate(badClientMTlsCertPath)
-            .withClientKey(clientMTlsKeyPath)
-            .withBufferAllocator(allocator)
-            .withEncryption(true)
-            .build());
+    assertThrows(SQLException.class, () -> {
+      try (ArrowFlightSqlClientHandler handler = new ArrowFlightSqlClientHandler.Builder()
+          .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+          .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+          .withUsername(credentials.getUserName())
+          .withPassword(credentials.getPassword())
+          .withTlsRootCertificates(tlsRootCertsPath)
+          .withClientCertificate(badClientMTlsCertPath)
+          .withClientKey(clientMTlsKeyPath)
+          .withBufferAllocator(allocator)
+          .withEncryption(true)
+          .build()) {
+        Assert.fail();
+      }
+    });
   }
 
   /**
@@ -162,17 +166,21 @@ public class ConnectionMutualTlsTest {
     final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
             userTest, passTest);
 
-    assertThrows(SQLException.class, () -> new ArrowFlightSqlClientHandler.Builder()
-                         .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-                         .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-                         .withUsername(credentials.getUserName())
-                         .withPassword(credentials.getPassword())
-                         .withTlsRootCertificates(tlsRootCertsPath)
-                         .withClientCertificate(clientMTlsCertPath)
-                         .withClientKey(badClientMTlsKeyPath)
-                         .withBufferAllocator(allocator)
-                         .withEncryption(true)
-                         .build());
+    assertThrows(SQLException.class, () -> {
+      try (ArrowFlightSqlClientHandler handler = new ArrowFlightSqlClientHandler.Builder()
+          .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+          .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+          .withUsername(credentials.getUserName())
+          .withPassword(credentials.getPassword())
+          .withTlsRootCertificates(tlsRootCertsPath)
+          .withClientCertificate(clientMTlsCertPath)
+          .withClientKey(badClientMTlsKeyPath)
+          .withBufferAllocator(allocator)
+          .withEncryption(true)
+          .build()) {
+        Assert.fail();
+      }
+    });
   }
 
   /**
@@ -222,7 +230,7 @@ public class ConnectionMutualTlsTest {
     final ArrowFlightJdbcDataSource dataSource =
         ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
-      assert connection.isValid(300);
+      Assert.assertTrue(connection.isValid(300));
     }
   }
 
@@ -245,7 +253,7 @@ public class ConnectionMutualTlsTest {
 
     final ArrowFlightJdbcDataSource dataSource = ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
-      assert connection.isValid(300);
+      Assert.assertTrue(connection.isValid(300));
     }
   }
 

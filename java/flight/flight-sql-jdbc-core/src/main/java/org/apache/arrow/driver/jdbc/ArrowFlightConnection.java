@@ -109,6 +109,8 @@ public final class ArrowFlightConnection extends AvaticaConnection {
           .withDisableCertificateVerification(config.getDisableCertificateVerification())
           .withToken(config.getToken())
           .withCallOptions(config.toCallOption())
+          .withRetainCookies(config.retainCookies())
+          .withRetainAuth(config.retainAuth())
           .build();
     } catch (final SQLException e) {
       try {
