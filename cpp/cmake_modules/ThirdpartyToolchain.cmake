@@ -1826,7 +1826,7 @@ macro(build_protobuf)
   endif()
   set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS} SOURCE_SUBDIR
                                          "cmake")
-                                         
+
   externalproject_add(protobuf_ep
                       ${EP_COMMON_OPTIONS} ${PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS}
                       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
@@ -2521,16 +2521,18 @@ macro(build_zlib)
     if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
       execute_process(COMMAND embuilder --pic --force build zlib)
     endif()
-    set(ZLIB_STATIC_LIB ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
-    set(ZLIB_LIBRARIES ${ZLIB_LIBRARY})
-    #    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-
-    add_library(ZLIB::ZLIB STATIC IMPORTED)
-    set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
-    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-    set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
-    #    target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
-
+    add_library(ZLIB::ZLIB INTERFACE IMPORTED)
+    # We need -sMAIN_MODULE=1 (for executable) or -sSIDE_MODULE=1 (for
+    # library) in target_compile_options() too. If we don't have
+    # -sMAIN_MODULE=1 nor -sSIDE_MODULE=1 here, Emscripten tries
+    # finding no-PIC libz.a.  We can use -sRELOCATABLE=1 for this but
+    # it seems that RELOCATABLE isn't public setting. Emscripten
+    # document doesn't mention RELOCATABLE. (MAIN_MODULE/SIDE_MODULE
+    # are mentioned.)
+    target_compile_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1
+      "$<IF:$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>,-sMAIN_MODULE=1,-sSIDE_MODULE=1>")
+    target_link_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1
+      "$<IF:$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>,-sMAIN_MODULE=1,-sSIDE_MODULE=1>")
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     if(MSVC)
@@ -2562,10 +2564,10 @@ macro(build_zlib)
 
     add_dependencies(toolchain zlib_ep)
     add_dependencies(ZLIB::ZLIB zlib_ep)
-  endif()
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
+    endif()
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
-  set(ZLIB_VENDORED TRUE)
+    set(ZLIB_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZLIB)
