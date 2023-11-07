@@ -237,6 +237,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
   if (expected_encoding != NULL && encoded_len == expected_len) {
     EXPECT_EQ(memcmp(buffer, expected_encoding, encoded_len), 0);
   }
+  
   // Verify read
   {
     RleDecoder decoder(buffer, len, bit_width);
