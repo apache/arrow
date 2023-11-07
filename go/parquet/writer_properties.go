@@ -17,8 +17,8 @@
 package parquet
 
 import (
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet/compress"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet/compress"
 )
 
 // Constants for default property values used for the default reader, writer and column props.
@@ -46,7 +46,7 @@ const (
 	DefaultStatsEnabled = true
 	// If the stats are larger than 4K the writer will skip writing them out anyways.
 	DefaultMaxStatsSize int64 = 4096
-	DefaultCreatedBy          = "parquet-go version 14.0.0-SNAPSHOT"
+	DefaultCreatedBy          = "parquet-go version 15.0.0-SNAPSHOT"
 	DefaultRootName           = "schema"
 )
 

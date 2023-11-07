@@ -23,6 +23,7 @@ classdef tListArray < matlab.unittest.TestCase
 
     properties (TestParameter)
         TestArrowArray
+        TestValidationModeArray
     end
 
     methods (TestParameterDefinition, Static)
@@ -113,6 +114,29 @@ classdef tListArray < matlab.unittest.TestCase
             );
         end
 
+        function TestValidationModeArray = initializeTestValidationModeArray()
+            %% Valid ListArray
+            Offsets = arrow.array(int32([0, 1, 2, 3]));
+            Values = arrow.array([1, 2, 3]);
+
+            TestValidationModeArray.ValidList = struct( ...
+                Offsets=Offsets, ...
+                Values=Values, ...
+                Valid=true ...
+            );
+
+            %% Invalid ListArray
+            % Incorrect number of offsets (length should be 1 more than the number of Values).
+            Offsets = arrow.array(int32([0, 1, 2, 3, 4, 5]));
+            Values = arrow.array([1, 2, 3]);
+
+            TestValidationModeArray.InvalidList = struct( ...
+                Offsets=Offsets, ...
+                Values=Values, ...
+                Valid=false ...
+            );
+        end
+
     end
 
     methods (Test)
@@ -158,6 +182,87 @@ classdef tListArray < matlab.unittest.TestCase
             values = arrow.array([1, 2, 3]);
             fcn = @() arrow.array.ListArray.fromArrays(offsets, values);
             testCase.verifyError(fcn, "arrow:array:ListArrayFromArraysFailed");
+        end
+
+        function TestValidationModeDefault(testCase, TestValidationModeArray)
+            % Verify that the default ValidationMode value for the
+            % arrow.array.ListArray.fromArrays method is
+            % arrow.array.ValidationMode.Minimal.
+            offsets = TestValidationModeArray.Offsets;
+            values = TestValidationModeArray.Values;
+            valid = TestValidationModeArray.Valid;
+            fcn = @() arrow.array.ListArray.fromArrays(offsets, values);
+            if valid
+                testCase.verifyWarningFree(fcn);
+            else
+                testCase.verifyError(fcn, "arrow:array:ValidateMinimalFailed");
+            end
+        end
+
+        function TestValidationModeNone(testCase, TestValidationModeArray)
+            % Verify that no error is thrown when supplying the
+            % ValidatationMode name-value pair, with a value of
+            % arrow.array.ValidationMode.None, to the
+            % arrow.array.ListArray.fromArrays method.
+            offsets = TestValidationModeArray.Offsets;
+            values = TestValidationModeArray.Values;
+            validationMode = arrow.array.ValidationMode.None;
+            fcn = @() arrow.array.ListArray.fromArrays(offsets, values, ValidationMode=validationMode);
+            testCase.verifyWarningFree(fcn);
+        end
+
+        function TestValidationModeMinimal(testCase, TestValidationModeArray)
+            % Verify that an error of type arrow:array:ValidateMinimalFailed
+            % is thrown when supplying the ValidatationMode name-value pair,
+            % with a value of arrow.array.ValidationMode.Minimal, to the
+            % arrow.array.ListArray.fromArrays method, if the provided offsets
+            % and values arrays are invalid.
+            offsets = TestValidationModeArray.Offsets;
+            values = TestValidationModeArray.Values;
+            valid = TestValidationModeArray.Valid;
+            validationMode = arrow.array.ValidationMode.Minimal;
+            fcn = @() arrow.array.ListArray.fromArrays(offsets, values, ValidationMode=validationMode);
+            if valid
+                testCase.verifyWarningFree(fcn);
+            else
+                testCase.verifyError(fcn, "arrow:array:ValidateMinimalFailed");
+            end
+        end
+
+        function TestValidationModeFull(testCase, TestValidationModeArray)
+            % Verify that an error of type arrow:array:ValidateFullFailed
+            % is thrown when supplying the ValidatationMode name-value pair,
+            % with a value of arrow.array.ValidationMode.Full, to the
+            % arrow.array.ListArray.fromArrays method, if the provided offsets
+            % and values arrays are invalid.
+            offsets = TestValidationModeArray.Offsets;
+            values = TestValidationModeArray.Values;
+            validationMode = arrow.array.ValidationMode.Full;
+            valid = TestValidationModeArray.Valid;
+            fcn = @() arrow.array.ListArray.fromArrays(offsets, values, ValidationMode=validationMode);
+            if valid
+                testCase.verifyWarningFree(fcn);
+            else
+                testCase.verifyError(fcn, "arrow:array:ValidateFullFailed");
+            end
+        end
+
+        function TestValidationModeUnsupportedEnum(testCase)
+            % Verify that an error of type arrow:array:ValidateUnsupportedEnum
+            % is thrown when an unsupported integer enumeration value is
+            % supplied for the ValidatationMode parameter to the internal
+            % C++ ListArray Proxy validate method.
+            offsets = arrow.array.Int32Array.fromMATLAB(int32([0, 1, 2]));
+            values = arrow.array.Float64Array.fromMATLAB([1, 2, 3]);
+            array = arrow.array.ListArray.fromArrays(offsets, values);
+            % Get the underlying Proxy instance from the ListArray.
+            proxy = array.Proxy;
+            % Call the internal Proxy method "validate" with an unsupported
+            % integer ValidationMode value.
+            validationMode = uint8(3);
+            args = struct(ValidationMode=validationMode);
+            fcn = @() proxy.validate(args);
+            testCase.verifyError(fcn, "arrow:array:ValidateUnsupportedEnum");
         end
 
     end

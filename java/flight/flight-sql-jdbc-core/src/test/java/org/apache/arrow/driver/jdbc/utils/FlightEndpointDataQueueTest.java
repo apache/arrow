@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletionService;
 
-import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.driver.jdbc.client.CloseableEndpointStreamPair;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -33,20 +33,20 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 /**
- * Tests for {@link FlightStreamQueue}.
+ * Tests for {@link FlightEndpointDataQueue}.
  */
 @RunWith(MockitoJUnitRunner.class)
-public class FlightStreamQueueTest {
+public class FlightEndpointDataQueueTest {
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   @Mock
-  private CompletionService<FlightStream> mockedService;
-  private FlightStreamQueue queue;
+  private CompletionService<CloseableEndpointStreamPair> mockedService;
+  private FlightEndpointDataQueue queue;
 
   @Before
   public void setUp() {
-    queue = new FlightStreamQueue(mockedService);
+    queue = new FlightEndpointDataQueue(mockedService);
   }
 
   @Test
@@ -64,7 +64,7 @@ public class FlightStreamQueueTest {
   public void testEnqueueShouldThrowExceptionUponClose() throws Exception {
     queue.close();
     ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class,
-        () -> queue.enqueue(mock(FlightStream.class)));
+        () -> queue.enqueue(mock(CloseableEndpointStreamPair.class)));
   }
 
   @Test

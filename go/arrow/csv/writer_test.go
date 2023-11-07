@@ -25,14 +25,14 @@ import (
 	"log"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/csv"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/float16"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/csv"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/types"
 	"github.com/google/uuid"
 )
 
