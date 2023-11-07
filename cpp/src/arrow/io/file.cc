@@ -397,7 +397,7 @@ class MemoryMappedFile::MemoryMap
 
     ~Region() {
       if (data_ != nullptr) {
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
         int result = munmap(data(), static_cast<size_t>(size_));
         // emscripten erroneously reports failures in munmap
         // https://github.com/emscripten-core/emscripten/issues/20459

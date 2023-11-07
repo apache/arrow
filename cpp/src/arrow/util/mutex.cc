@@ -35,7 +35,7 @@ struct Mutex::Impl {
 
 Mutex::Guard::Guard(Mutex* locked)
     : locked_(locked, [](Mutex* locked) {
-#if !defined(EMSCRIPTEN) || defined(ARROW_ENABLE_THREADING)
+#if !defined(__EMSCRIPTEN__) || defined(ARROW_ENABLE_THREADING)
         DCHECK(!locked->impl_->mutex_.try_lock());
 #endif
         locked->impl_->mutex_.unlock();

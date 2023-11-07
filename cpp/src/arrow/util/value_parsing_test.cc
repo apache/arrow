@@ -794,7 +794,7 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   if (!kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
   GTEST_SKIP() << "Test temporarily disabled due to emscripten bug "
                   "https://github.com/emscripten-core/emscripten/issues/20467 ";
 #endif

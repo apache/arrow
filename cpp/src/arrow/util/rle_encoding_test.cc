@@ -214,7 +214,7 @@ TEST(BitUtil, RoundTripIntValues) {
 void ValidateRle(const std::vector<int>& values, int bit_width,
                  uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
   // don't make this on the stack as it is 
   // too big for emscripten
   std::vector<uint8_t> buffer_vec((size_t)len);
@@ -262,7 +262,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 // the returned values are not all the same
 bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   const int len = 64 * 1024;
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
   // don't make this on the stack as it is 
   // too big for emscripten
   std::vector<uint8_t> buffer_vec((size_t)len);

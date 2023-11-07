@@ -1859,7 +1859,7 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
   GTEST_SKIP() << "Skipping some strptime tests due to emscripten bug "
                   "https://github.com/emscripten-core/emscripten/issues/20466";
 #endif
@@ -1896,7 +1896,7 @@ TYPED_TEST(TestStringKernels, Strptime) {
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
   GTEST_SKIP()
       << "Emscripten bug https://github.com/emscripten-core/emscripten/issues/20467 ";
 #endif

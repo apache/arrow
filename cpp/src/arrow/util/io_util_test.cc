@@ -147,7 +147,7 @@ TEST(MemoryAdviseWillNeed, Basics) {
 
   // Should probably fail
   // (but on Windows or Emscripten, MemoryAdviseWillNeed can be a no-op)
-#if !defined(_WIN32) && !defined(EMSCRIPTEN)
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
   ASSERT_RAISES(IOError,
                 MemoryAdviseWillNeed({{nullptr, std::numeric_limits<size_t>::max()}}));
 #endif

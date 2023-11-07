@@ -2143,7 +2143,7 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 #ifdef _WIN32
   GTEST_SKIP() << "There is a known bug in strftime for locales on Windows (ARROW-15922)";
-#elif defined(EMSCRIPTEN)
+#elif defined(__EMSCRIPTEN__)
   GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
 #endif
 
@@ -2161,7 +2161,7 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
   GTEST_SKIP() << "Emscripten doesn't build with multiple locales as default";
 #endif
   auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "non-existent");

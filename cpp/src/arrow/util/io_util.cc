@@ -1476,7 +1476,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 }
 
 Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
-#ifndef EMSCRIPTEN
+#ifndef __EMSCRIPTEN__
   const auto page_size = static_cast<size_t>(GetPageSize());
   DCHECK_GT(page_size, 0);
   const size_t page_mask = ~(page_size - 1);
