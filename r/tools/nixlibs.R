@@ -198,7 +198,11 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
         errs <- compile_test_program(test_program)
         openssl_version <- determine_binary_from_stderr(errs)
         arch <- ifelse(identical(os, "darwin"), paste0("-", arch, "-"), "-")
-        ifelse(is.null(openssl_version), NULL, paste0(os, arch, openssl_version))
+        if (is.null(openssl_version)) {
+          NULL
+        } else {
+          paste0(os, arch, openssl_version)
+        }
       },
       error = function(e) {
         lg("Unable to find libcurl and openssl")
@@ -210,7 +214,7 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
     lg("Building on %s %s", os, arch)
     binary <- NULL
   }
-  return(binary)
+  binary
 }
 
 # This tests that curl and OpenSSL are present (bc we can include their headers)
@@ -268,7 +272,7 @@ get_macos_openssl_dir <- function() {
       openssl_root_dir <- "/usr/local"
     }
   }
-  return(openssl_root_dir)
+  openssl_root_dir
 }
 
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
@@ -828,10 +832,10 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 not_cran <- env_is("NOT_CRAN", "true")
 
-if (is_release) {
+if (is_release & !test_mode) {
   VERSION <- VERSION[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
-} else {
+} else if(!test_mode) {
   not_cran <- TRUE
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
   VERSION <- find_latest_nightly(VERSION)

@@ -27,7 +27,7 @@ pushd ${source_dir}
 printenv
 
 # Run the nixlibs.R test suite, which is not included in the installed package
-${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+${R_BIN} -e 'setwd("tools"); testthat::test_dir(".", stop_on_warning = TRUE)'
 
 # Before release, we always copy the relevant parts of the cpp source into the
 # package. In some CI checks, we will use this version of the source:
