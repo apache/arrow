@@ -485,7 +485,8 @@ std::shared_ptr<const KeyValueMetadata> NormalizerKeyValueMetadata(
         value = "2023-10-31T08:15:20Z";
       }
     } else if (key == "ETag") {
-      if (arrow::internal::StartsWith(value, "\"") && arrow::internal::EndsWith(value, "\"")) {
+      if (arrow::internal::StartsWith(value, "\"") &&
+          arrow::internal::EndsWith(value, "\"")) {
         // Valid value
         value = "\"ETagValue\"";
       }
