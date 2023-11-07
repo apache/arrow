@@ -2522,17 +2522,10 @@ macro(build_zlib)
       execute_process(COMMAND embuilder --pic --force build zlib)
     endif()
     add_library(ZLIB::ZLIB INTERFACE IMPORTED)
-    # We need -sMAIN_MODULE=1 (for executable) or -sSIDE_MODULE=1 (for
-    # library) in target_compile_options() too. If we don't have
-    # -sMAIN_MODULE=1 nor -sSIDE_MODULE=1 here, Emscripten tries
-    # finding no-PIC libz.a.  We can use -sRELOCATABLE=1 for this but
-    # it seems that RELOCATABLE isn't public setting. Emscripten
-    # document doesn't mention RELOCATABLE. (MAIN_MODULE/SIDE_MODULE
-    # are mentioned.)
-    target_compile_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1
-      "$<IF:$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>,-sMAIN_MODULE=1,-sSIDE_MODULE=1>")
-    target_link_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1
-      "$<IF:$<STREQUAL:$<TARGET_PROPERTY:TYPE>,EXECUTABLE>,-sMAIN_MODULE=1,-sSIDE_MODULE=1>")
+    # We need -fPIC in target_compile_options() too
+    # to stop it using non-PIC libz.a in linking.
+    target_compile_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -fPIC)
+    target_link_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -fPIC)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     if(MSVC)

@@ -21,16 +21,9 @@
 # Define arrow_compute_testing object library for common test files
 if(ARROW_TESTING)
   add_library(arrow_compute_kernels_testing OBJECT test_util.cc)
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # because gtest is statically linked on emscripten 
-    # so we can't link to it twice or else duplicate symbols happen
-    get_target_property(MOCK_INCLUDES ${ARROW_GTEST_GMOCK} INCLUDE_DIRECTORIES)
-    target_include_directories(arrow_compute_kernels_testing PRIVATE ${MOCK_INCLUDES})
-  else()
-    # Even though this is still just an object library we still need to "link" our
-    # dependencies so that include paths are configured correctly
-    target_link_libraries(arrow_compute_kernels_testing PRIVATE ${ARROW_GTEST_GMOCK})
-  endif()
+  # Even though this is still just an object library we still need to "link" our
+  # dependencies so that include paths are configured correctly
+  target_link_libraries(arrow_compute_kernels_testing PRIVATE ${ARROW_GTEST_GMOCK})
 endif()
 
 add_arrow_test(scalar_cast_test
