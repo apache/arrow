@@ -51,6 +51,8 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/string.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 using internal::TemporaryDir;
@@ -296,21 +298,68 @@ TEST_F(TestAzureFileSystem, OpenInputStreamTrailingSlash) {
   ASSERT_RAISES(IOError, fs_->OpenInputStream(PreexistingObjectPath() + '/'));
 }
 
+namespace {
+std::shared_ptr<const KeyValueMetadata> NormalizerKeyValueMetadata(
+    std::shared_ptr<const KeyValueMetadata> metadata) {
+  auto normalized = std::make_shared<KeyValueMetadata>();
+  for (int64_t i = 0; i < metadata->size(); ++i) {
+    auto key = metadata->key(i);
+    auto value = metadata->value(i);
+    if (key == "Content-Hash") {
+      std::vector<uint8_t> output;
+      output.reserve(value.size() / 2);
+      if (ParseHexValues(value, output.data()).ok()) {
+        // Valid value
+        value = std::string(value.size(), 'F');
+      }
+    } else if (key == "Last-Modified" || key == "Created-On" ||
+               key == "Access-Tier-Changed-On") {
+      auto parser = TimestampParser::MakeISO8601();
+      int64_t output;
+      if ((*parser)(value.data(), value.size(), TimeUnit::NANO, &output)) {
+        // Valid value
+        value = "2023-10-31T08:15:20Z";
+      }
+    } else if (key == "ETag") {
+      if (internal::StartsWith(value, "\"") && internal::EndsWith(value, "\"")) {
+        // Valid value
+        value = "\"ETagValue\"";
+      }
+    }
+    normalized->Append(key, value);
+  }
+  return normalized;
+}
+};  // namespace
+
 TEST_F(TestAzureFileSystem, OpenInputStreamReadMetadata) {
-  const std::string object_name = "OpenInputStreamMetadataTest/simple.txt";
-
-  service_client_->GetBlobContainerClient(PreexistingContainerName())
-      .GetBlobClient(PreexistingObjectName())
-      .SetMetadata(Azure::Storage::Metadata{{"key0", "value0"}});
-
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
 
   std::shared_ptr<const KeyValueMetadata> actual;
   ASSERT_OK_AND_ASSIGN(actual, stream->ReadMetadata());
-  // TODO(GH-38330): This is asserting that the user defined metadata is returned but this
-  // is probably not the correct behaviour.
-  ASSERT_OK_AND_EQ("value0", actual->Get("key0"));
+  ASSERT_EQ(
+      "\n"
+      "-- metadata --\n"
+      "Content-Type: application/octet-stream\n"
+      "Content-Encoding: \n"
+      "Content-Language: \n"
+      "Content-Hash: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF\n"
+      "Content-Disposition: \n"
+      "Cache-Control: \n"
+      "Last-Modified: 2023-10-31T08:15:20Z\n"
+      "Created-On: 2023-10-31T08:15:20Z\n"
+      "Blob-Type: BlockBlob\n"
+      "Lease-State: available\n"
+      "Lease-Status: unlocked\n"
+      "Content-Length: 447\n"
+      "ETag: \"ETagValue\"\n"
+      "IsServerEncrypted: true\n"
+      "Access-Tier: Hot\n"
+      "Is-Access-Tier-Inferred: true\n"
+      "Access-Tier-Changed-On: 2023-10-31T08:15:20Z\n"
+      "Has-Legal-Hold: false",
+      NormalizerKeyValueMetadata(actual)->ToString());
 }
 
 TEST_F(TestAzureFileSystem, OpenInputStreamClosed) {
