@@ -118,12 +118,16 @@ public class ConnectionTlsRootCertsTest {
    */
   @Test
   public void testGetEncryptedClientWithNoCertificateOnKeyStore() {
-    assertThrows(SQLException.class, () -> new ArrowFlightSqlClientHandler.Builder()
-            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-            .withTlsRootCertificates(badTlsRootCertsPath)
-            .withBufferAllocator(allocator)
-            .withEncryption(true)
-            .build());
+    assertThrows(SQLException.class, () -> {
+      try (ArrowFlightSqlClientHandler handler = new ArrowFlightSqlClientHandler.Builder()
+          .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+          .withTlsRootCertificates(badTlsRootCertsPath)
+          .withBufferAllocator(allocator)
+          .withEncryption(true)
+          .build()) {
+        Assert.fail();
+      }
+    });
   }
 
   /**
@@ -167,7 +171,7 @@ public class ConnectionTlsRootCertsTest {
     final ArrowFlightJdbcDataSource dataSource =
         ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
-      assert connection.isValid(300);
+      Assert.assertTrue(connection.isValid(300));
     }
   }
 
@@ -188,7 +192,7 @@ public class ConnectionTlsRootCertsTest {
 
     final ArrowFlightJdbcDataSource dataSource = ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
-      assert connection.isValid(300);
+      Assert.assertTrue(connection.isValid(300));
     }
   }
 
@@ -203,7 +207,7 @@ public class ConnectionTlsRootCertsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
                 "&useEncryption=true&%s=%s",
@@ -211,9 +215,9 @@ public class ConnectionTlsRootCertsTest {
             userTest,
             passTest,
             ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(),
-            URLEncoder.encode(tlsRootCertsPath, "UTF-8")));
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            URLEncoder.encode(tlsRootCertsPath, "UTF-8")))) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -235,13 +239,13 @@ public class ConnectionTlsRootCertsTest {
     properties.setProperty(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
     properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "true");
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -263,13 +267,13 @@ public class ConnectionTlsRootCertsTest {
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), true);
     properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -284,7 +288,7 @@ public class ConnectionTlsRootCertsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
                 "&useEncryption=1&useSystemTrustStore=0&%s=%s",
@@ -292,9 +296,9 @@ public class ConnectionTlsRootCertsTest {
             userTest,
             passTest,
             ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(),
-            URLEncoder.encode(tlsRootCertsPath, "UTF-8")));
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            URLEncoder.encode(tlsRootCertsPath, "UTF-8")))) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -316,11 +320,11 @@ public class ConnectionTlsRootCertsTest {
     properties.setProperty(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
     properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "1");
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -342,11 +346,11 @@ public class ConnectionTlsRootCertsTest {
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), 1);
     properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format("jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 }

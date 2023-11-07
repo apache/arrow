@@ -237,16 +237,17 @@ public class ResultSetTest {
    */
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletionWithMaxRowsLimit() throws Exception {
-    Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
-    final long maxRowsLimit = 3;
-    statement.setLargeMaxRows(maxRowsLimit);
-    statement.closeOnCompletion();
+      final long maxRowsLimit = 3;
+      statement.setLargeMaxRows(maxRowsLimit);
+      statement.closeOnCompletion();
 
-    resultSetNextUntilDone(resultSet);
+      resultSetNextUntilDone(resultSet);
 
-    collector.checkThat(statement.isClosed(), is(true));
+      collector.checkThat(statement.isClosed(), is(true));
+    }
   }
 
   /**

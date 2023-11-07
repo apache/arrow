@@ -144,6 +144,22 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   }
 
   /**
+   * Indicates if sub-connections created for stream retrieval
+   * should reuse cookies from the main connection.
+   */
+  public boolean retainCookies() {
+    return ArrowFlightConnectionProperty.RETAIN_COOKIES.getBoolean(properties);
+  }
+
+  /**
+   * Indicates if sub-connections created for stream retrieval
+   * should reuse bearer tokens created from the main connection.
+   */
+  public boolean retainAuth() {
+    return ArrowFlightConnectionProperty.RETAIN_AUTH.getBoolean(properties);
+  }
+
+  /**
    * Gets the {@link CallOption}s from this {@link ConnectionConfig}.
    *
    * @return the call options.
@@ -191,7 +207,9 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     CLIENT_CERTIFICATE("clientCertificate", null, Type.STRING, false),
     CLIENT_KEY("clientKey", null, Type.STRING, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
-    TOKEN("token", null, Type.STRING, false);
+    TOKEN("token", null, Type.STRING, false),
+    RETAIN_COOKIES("retainCookies", true, Type.BOOLEAN, false),
+    RETAIN_AUTH("retainAuth", true, Type.BOOLEAN, false);
 
     private final String camelName;
     private final Object defaultValue;
