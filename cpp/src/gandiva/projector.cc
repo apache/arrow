@@ -87,7 +87,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Return if any of the expression is invalid since
   // we will not be able to process further.
   if (!is_cached) {
-    ExprValidator expr_validator(llvm_gen->types(), schema);
+    ExprValidator expr_validator(llvm_gen->types(), schema,
+                                 configuration->function_registry());
     for (auto& expr : exprs) {
       ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
     }

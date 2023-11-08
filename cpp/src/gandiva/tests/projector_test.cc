@@ -26,6 +26,7 @@
 #include <cmath>
 
 #include "arrow/memory_pool.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/tests/test_util.h"
@@ -3579,6 +3580,31 @@ TEST_F(TestProjector, TestSqrtFloat64) {
   arrow::ArrayVector outs;
   ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
 
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedFunctions) {
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  // the multiply_by_two function is only available in the external function's IR bitcode
+  auto multiply =
+      TreeExprBuilder::MakeExpression("multiply_by_two", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigurationWithFunctionRegistry(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({2, 4, 6, 8}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
