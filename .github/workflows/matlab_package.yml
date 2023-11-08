@@ -15,10 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{% import 'macros.jinja' as macros with context %}
-
-{{ macros.github_header() }}
-
 name: MATLAB Packaging
 
 on:
@@ -179,7 +175,6 @@ jobs:
             - macos
             - windows
         steps:
-          {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
           - name: Download Artifacts
             uses: actions/download-artifact@v3
             with:
@@ -203,4 +198,3 @@ jobs:
             uses: matlab-actions/run-command@v1
             with:
                 command: packageMatlabInterface
-           {{ macros.github_upload_releases(["artifacts/arrow_matlab.mltbx"])|indent }}
