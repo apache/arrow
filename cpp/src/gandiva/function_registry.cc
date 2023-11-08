@@ -128,8 +128,8 @@ const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeB
   return bitcode_memory_buffers_;
 }
 
-const std::vector<std::pair<NativeFunction, void*>>& FunctionRegistry::GetCInterfaceFunctions()
-    const {
+const std::vector<std::pair<NativeFunction, void*>>&
+FunctionRegistry::GetCInterfaceFunctions() const {
   return c_interface_functions_;
 }
 

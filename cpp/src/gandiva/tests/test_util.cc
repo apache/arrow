@@ -89,7 +89,7 @@ std::shared_ptr<Configuration> TestConfigWithFunctionRegistry(
 
 class MultiplyHolder : public FunctionHolder {
  public:
-  explicit MultiplyHolder(int32_t num) : num_(num){};
+  explicit MultiplyHolder(int32_t num) : num_(num) {}
 
   static Status Make(const FunctionNode& node, std::shared_ptr<MultiplyHolder>* holder) {
     ARROW_RETURN_IF(node.children().size() != 2,
