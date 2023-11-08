@@ -2062,7 +2062,7 @@ Status SendSignal(int signum) {
 }
 
 Status SendSignalToThread(int signum, uint64_t thread_id) {
-#if !ARROW_ENABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   return Status::NotImplemented("Can't send signal with no threads");
 #elif _WIN32
   return Status::NotImplemented("Cannot send signal to specific thread on Windows");
