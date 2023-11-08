@@ -24,6 +24,7 @@
 #include <atomic>
 #endif
 
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

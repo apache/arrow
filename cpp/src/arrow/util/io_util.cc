@@ -95,6 +95,7 @@
 #include "arrow/result.h"
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
