@@ -24,8 +24,11 @@ import Arrow
 
 public class FlightClient {
     let client: Arrow_Flight_Protocol_FlightServiceAsyncClient
-    public init(channel: GRPCChannel) {
+    let allowReadingUnalignedBuffers: Bool
+
+    public init(channel: GRPCChannel, allowReadingUnalignedBuffers: Bool = false ) {
         client = Arrow_Flight_Protocol_FlightServiceAsyncClient(channel: channel)
+        self.allowReadingUnalignedBuffers = allowReadingUnalignedBuffers
     }
 
     private func readMessages(
@@ -34,7 +37,11 @@ public class FlightClient {
         let reader = ArrowReader()
         let arrowResult = ArrowReader.makeArrowReaderResult()
         for try await data in responseStream {
-            switch reader.fromMessage(data.dataHeader, dataBody: data.dataBody, result: arrowResult) {
+            switch reader.fromMessage(
+                data.dataHeader,
+                dataBody: data.dataBody,
+                result: arrowResult,
+                useUnalignedBuffers: allowReadingUnalignedBuffers) {
             case .success:
                 continue
             case .failure(let error):
