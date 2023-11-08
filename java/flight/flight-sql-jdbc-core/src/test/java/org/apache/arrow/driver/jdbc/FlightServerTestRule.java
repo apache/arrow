@@ -55,6 +55,9 @@ import org.slf4j.LoggerFactory;
  * and interact with it.
  */
 public class FlightServerTestRule implements TestRule, AutoCloseable {
+  public static final String DEFAULT_USER = "flight-test-user";
+  public static final String DEFAULT_PASSWORD = "flight-test-password";
+
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
 
   private final Properties properties;
@@ -92,7 +95,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   public static FlightServerTestRule createStandardTestRule(final FlightSqlProducer producer) {
     UserPasswordAuthentication authentication =
         new UserPasswordAuthentication.Builder()
-            .user("flight-test-user", "flight-test-password")
+            .user(DEFAULT_USER, DEFAULT_PASSWORD)
             .build();
 
     return new Builder()
