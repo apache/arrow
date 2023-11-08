@@ -20,13 +20,13 @@ name: MATLAB Packaging Workflow
 on:
   push:
     paths:
-      - '.github/workflows/matlab.yml'
+      - '.github/workflows/matlab_package.yml'
       - 'ci/scripts/matlab*.sh'
       - 'matlab/**'
       - 'cpp/src/arrow/**'
   pull_request:
     paths:
-      - '.github/workflows/matlab.yml'
+      - '.github/workflows/matlab_package.yml'
       - 'ci/scripts/matlab*.sh'
       - 'matlab/**'
       - 'cpp/src/arrow/**'
