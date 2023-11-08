@@ -146,11 +146,6 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
 
 Status Engine::Init() {
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
-  bool result = ExportedFuncsRegistry::Register(
-      std::make_shared<ExternalCInterfaceFunctions>(function_registry_));
-  if (!result) {
-    return Status::CodeGenError("Failed to register external stub functions");
-  }
   // Add mappings for global functions that can be accessed from LLVM/IR module.
   ARROW_RETURN_NOT_OK(AddGlobalMappings());
 
@@ -452,7 +447,11 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   execution_engine_->addGlobalMapping(fn, function_ptr);
 }
 
-arrow::Status Engine::AddGlobalMappings() { return ExportedFuncsRegistry::AddMappings(this); }
+arrow::Status Engine::AddGlobalMappings() {
+  ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
+  ExternalCInterfaceFunctions c_interface_funcs(function_registry_);
+  return c_interface_funcs.AddMappings(this);
+}
 
 std::string Engine::DumpIR() {
   std::string ir;

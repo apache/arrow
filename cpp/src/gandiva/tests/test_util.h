@@ -105,7 +105,7 @@ std::shared_ptr<Configuration> TestConfigWithFunctionRegistry(
 
 // helper function to create a Configuration with an external stub function registered to
 // the given function registry
-std::shared_ptr<Configuration> TestConfigWithStubFunction(
+std::shared_ptr<Configuration> TestConfigWithCInterfaceFunction(
     std::shared_ptr<FunctionRegistry> registry);
 
 // helper function to create a Configuration with an external function registered

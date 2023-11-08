@@ -3618,7 +3618,7 @@ TEST_F(TestProjector, TestExtendedCInterfaceFunctions) {
   std::shared_ptr<Projector> projector;
   auto external_registry = std::make_shared<FunctionRegistry>();
   auto config_with_func_registry =
-      TestConfigWithStubFunction(std::move(external_registry));
+      TestConfigWithCInterfaceFunction(std::move(external_registry));
   ARROW_EXPECT_OK(
       Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
 

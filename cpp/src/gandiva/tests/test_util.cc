@@ -48,7 +48,7 @@ NativeFunction GetTestExternalFunction() {
   return multiply_by_two_func;
 }
 
-static NativeFunction GetTestExternalStubFunction() {
+static NativeFunction GetTestExternalCInterfaceFunction() {
   NativeFunction multiply_by_three_func(
       "multiply_by_three", {}, {arrow::int32()}, arrow::int64(),
       ResultNullableType::kResultNullIfNull, "multiply_by_three_int32");
@@ -89,7 +89,7 @@ std::shared_ptr<Configuration> TestConfigWithFunctionRegistry(
 
 class MultiplyHolder : public FunctionHolder {
  public:
-  MultiplyHolder(int32_t num) : num_(num){};
+  explicit MultiplyHolder(int32_t num) : num_(num){};
 
   static Status Make(const FunctionNode& node, std::shared_ptr<MultiplyHolder>* holder) {
     ARROW_RETURN_IF(node.children().size() != 2,
@@ -112,7 +112,7 @@ class MultiplyHolder : public FunctionHolder {
     return Status::OK();
   }
 
-  int32_t operator()() { return num_; }
+  int32_t operator()() const { return num_; }
 
  private:
   int32_t num_;
@@ -125,7 +125,7 @@ static int64_t multiply_by_three(int32_t value) { return value * 3; }
 
 // this function requires a function holder
 static int64_t multiply_by_n(int64_t holder_ptr, int32_t value) {
-  MultiplyHolder* holder = reinterpret_cast<MultiplyHolder*>(holder_ptr);
+  auto* holder = reinterpret_cast<MultiplyHolder*>(holder_ptr);
   return value * (*holder)();
 }
 
@@ -145,10 +145,10 @@ static const char* multiply_by_two_formula(int64_t ctx, const char* value,
 }
 }
 
-std::shared_ptr<Configuration> TestConfigWithStubFunction(
+std::shared_ptr<Configuration> TestConfigWithCInterfaceFunction(
     std::shared_ptr<FunctionRegistry> registry) {
   return BuildConfigurationWithRegistry(std::move(registry), [](auto reg) {
-    return reg->Register(GetTestExternalStubFunction(),
+    return reg->Register(GetTestExternalCInterfaceFunction(),
                          reinterpret_cast<void*>(multiply_by_three));
   });
 }
