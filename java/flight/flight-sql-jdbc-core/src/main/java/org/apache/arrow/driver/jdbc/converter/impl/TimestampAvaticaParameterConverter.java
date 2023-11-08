@@ -41,7 +41,6 @@ public class TimestampAvaticaParameterConverter extends BaseAvaticaParameterConv
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
-    // FIXME: how should we handle TZ? Do we need to convert the value to the TZ on the vector?
     long value = (long) typedValue.toLocal();
     if (vector instanceof TimeStampSecVector) {
       ((TimeStampSecVector) vector).setSafe(index, value);
