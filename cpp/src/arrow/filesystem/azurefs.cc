@@ -148,10 +148,6 @@ Status ValidateFilePath(const AzurePath& path) {
   return Status::OK();
 }
 
-bool ContainerOrBlobNotFound(const Azure::Storage::StorageException& exception) {
-  return exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound;
-}
-
 template <typename ArrowType>
 std::string FormatValue(typename TypeTraits<ArrowType>::CType value) {
   struct StringAppender {
@@ -316,7 +312,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       metadata_ = PropertiesToMetadata(properties.Value);
       return Status::OK();
     } catch (const Azure::Storage::StorageException& exception) {
-      if (ContainerOrBlobNotFound(exception)) {
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
         return PathNotFound(path_);
       }
       return internal::ExceptionToStatus(
@@ -502,7 +498,7 @@ class AzureFileSystem::Impl {
             std::chrono::system_clock::time_point(properties.Value.LastModified));
         return info;
       } catch (const Azure::Storage::StorageException& exception) {
-        if (ContainerOrBlobNotFound(exception)) {
+        if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
           info.set_type(FileType::NotFound);
           return info;
         }
@@ -533,7 +529,7 @@ class AzureFileSystem::Impl {
           std::chrono::system_clock::time_point(properties.Value.LastModified));
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
-      if (ContainerOrBlobNotFound(exception)) {
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
         ARROW_ASSIGN_OR_RAISE(bool hierarchical_namespace_enabled,
                               hierarchical_namespace_.Enabled(path.container));
         if (hierarchical_namespace_enabled) {
@@ -560,11 +556,10 @@ class AzureFileSystem::Impl {
                   .ListBlobs(list_blob_options);
           if (paged_list_result.Blobs.size() > 0) {
             info.set_type(FileType::Directory);
-            return info;
           } else {
             info.set_type(FileType::NotFound);
-            return info;
           }
+            return info;
         } catch (const Azure::Storage::StorageException& exception) {
           return internal::ExceptionToStatus(
               "ListBlobs for '" + prefix +
