@@ -47,6 +47,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+#include "arrow/visit_array_inline.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -164,6 +165,150 @@ struct GetViewType<Decimal256Type> {
   static T LogicalValue(T value) { return value; }
 };
 
+// template <>
+// struct GetViewType<DictionaryType> {
+//   using T = std::string_view;
+//   using PhysicalType = std::string_view;
+//
+//   static T LogicalValue(PhysicalType value) { return value; }
+// };
+
+// template <>
+// struct GetViewType<DictionaryType> {
+//   using T = std::variant<std::string_view, uint32_t, int32_t>;
+//   using PhysicalType = T;
+//   using ViewType = T;
+//   ViewType view;
+//
+//   Status Visit(const arrow::StringType& type) {
+//     // 여기에 StringType에 대한 실제 논리적 값을 설정하는 로직을 구현합니다.
+//     view = std::string_view();  // 예시를 위한 코드
+//     return Status::OK();
+//   }
+//
+//   Status Visit(const arrow::UInt32Type& type) {
+//     // 여기에 UInt32Type에 대한 실제 논리적 값을 설정하는 로직을 구현합니다.
+//     view = static_cast<uint32_t>(0);  // 예시를 위한 코드
+//     return Status::OK();
+//   }
+//
+//   Status Visit(const arrow::Int32Type& type) {
+//     // 여기에 Int32Type에 대한 실제 논리적 값을 설정하는 로직을 구현합니다.
+//     view = static_cast<int32_t>(0);  // 예시를 위한 코드
+//     return Status::OK();
+//   }
+//
+//   Status Visit(const DataType& type) {
+//     return Status::TypeError("View not supported for type ", type.ToString());
+//   }
+//
+//   static Result<ViewType> MakeViewType(const std::shared_ptr<DictionaryType>& dict) {
+//     GetViewType<DictionaryType> getter;
+//     // dict의 value_type에 따라 적절한 Visit 메소드를 호출합니다.
+//     ARROW_RETURN_NOT_OK(VisitTypeInline(*dict->value_type(), &getter));
+//     // view가 설정되었는지 확인합니다.
+//     //    DCHECK(getter.view);
+//     return getter.view;
+//   }
+//
+//   // 이전의 LogicalValue 함수는 삭제하거나 수정합니다.
+//   // GetViewType 구조체 내부
+//
+//   // ...
+//
+//   static T LogicalValue(PhysicalType value) {
+//     GetViewType<DictionaryType> getter;
+//     getter.view = value;
+//     // Assuming dict_type is the dictionary type
+//     return getter.MakeViewType(getter.view);
+//   }
+// };
+
+template <>
+struct GetViewType<DictionaryType> {
+  using T = std::variant<std::string_view, int32_t>;
+  using PhysicalType = T;
+
+  using ViewType = T;
+
+  ViewType view;
+
+  Status Visit(const arrow::StringType& type) {
+    view = std::string_view();
+    return Status::OK();
+  }
+
+  Status Visit(const arrow::Int32Type& type) {
+    view = int32_t();
+    return Status::OK();
+  }
+
+  //  Status Visit(const arrow::Int32Type& type) {
+  //    view = int32_t();
+  //    return Status::OK();
+  //  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("View not supported for type ", type.ToString());
+  }
+
+  static T LogicalValue(PhysicalType value) {
+    GetViewType<DictionaryType> getter;
+    getter.view = value;
+    // Assuming dict_type is the dictionary type
+    return getter.view;
+  }
+};
+
+// template <>
+// struct GetViewType<DictionaryType> {
+//   using T = DataType;
+//   using PhysicalType = T;
+//
+//
+//   Status Visit(const DataType& type) {
+//     return Status::TypeError("GetViewType not supported for type ", type.ToString());
+//   }
+//
+//   template <typename T>
+//   Status Visit(const T& type) {
+//     view = type.dictionary()->type();
+//     return Status::OK();
+//   }
+//
+//   static T LogicalValue(PhysicalType value) {
+//
+//
+//   }
+// };
+
+// template <>
+// struct GetViewType<DictionaryType> : public TypeVisitor {
+//   using T = std::variant<std::string_view, uint64_t>;
+//   using PhysicalType = std::variant<std::string, uint64_t>;
+//
+//   T view;
+//   PhysicalType value;
+//
+//   arrow::Status Visit(const StringType& type) override {
+//     view = std::get<std::string>(value);
+//     return Status::OK();
+//   }
+//
+//   arrow::Status Visit(const UInt64Type& type) override {
+//     view = std::get<uint64_t>(value);
+//     return Status::OK();
+//   }
+//
+//   static T LogicalValue(PhysicalType value) {
+//     GetViewType<DictionaryType> visitor;
+//     visitor.value = std::move(value);
+//     // Assuming dict_type is the dictionary type
+//     dict_type->dictionary()->type()->Accept(&visitor);
+//     return visitor.view;
+//   }
+// };
+
 template <typename Type, typename Enable = void>
 struct GetOutputType;
 
@@ -185,14 +330,6 @@ struct GetOutputType<Decimal128Type> {
 template <>
 struct GetOutputType<Decimal256Type> {
   using T = Decimal256;
-};
-
-template <>
-struct GetViewType<DictionaryType> {
-  using T = std::string_view;
-  using PhysicalType = std::string_view;
-
-  static T LogicalValue(PhysicalType value) { return value; }
 };
 
 // ----------------------------------------------------------------------
