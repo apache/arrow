@@ -21,6 +21,7 @@
 #include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/bit/unpack.h"
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/index/validate.h"
 #include "arrow/matlab/type/proxy/wrap.h"
 #include "arrow/pretty_print.h"
 #include "arrow/type_traits.h"
@@ -154,20 +155,24 @@ namespace arrow::matlab::array::proxy {
         const mda::TypedArray<int64_t> length_mda = opts[0]["Length"];
 
         const auto matlab_offset = int64_t(offset_mda[0]);
-        if (matlab_offset < 1) {
-            context.error = libmexclass::error::Error{"arrow:array:slice:NonpositiveOffset", "Offset must be positive"};
-        }
+        
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(arrow::matlab::index::validateSliceOffset(matlab_offset),
+                                            context, "arrow:array:slice:NonPositiveOffset");
+                                            
 
         // Note: MATLAB uses 1-based indexing, so subtract 1.
         const int64_t offset = matlab_offset - 1;
         const int64_t length = int64_t(length_mda[0]);
 
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(arrow::matlab::index::validateSliceLength(length),
+                                            context, "arrow:array:slice:NegativeLength");
+
         auto sliced_array = array->Slice(offset, length);
         const auto type_id = static_cast<int32_t>(sliced_array->type_id());
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto sliced_array_proxy,
                                             array::proxy::wrap(sliced_array),
-                                            context,
-                                            "arrow:array:FailedToCreateArrayProxy");
+                                            context, "arrow:array:FailedToCreateArrayProxy");
+
         const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(sliced_array_proxy);
 
         mda::ArrayFactory factory;
