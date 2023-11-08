@@ -215,10 +215,10 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
                  uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
 #ifdef __EMSCRIPTEN__
-  // don't make this on the stack as it is 
+  // don't make this on the stack as it is
   // too big for emscripten
   std::vector<uint8_t> buffer_vec((size_t)len);
-  uint8_t *buffer = buffer_vec.data();
+  uint8_t* buffer = buffer_vec.data();
 #else
   uint8_t buffer[len];
 #endif
@@ -237,7 +237,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
   if (expected_encoding != NULL && encoded_len == expected_len) {
     EXPECT_EQ(memcmp(buffer, expected_encoding, encoded_len), 0);
   }
-  
+
   // Verify read
   {
     RleDecoder decoder(buffer, len, bit_width);
@@ -264,10 +264,10 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   const int len = 64 * 1024;
 #ifdef __EMSCRIPTEN__
-  // don't make this on the stack as it is 
+  // don't make this on the stack as it is
   // too big for emscripten
   std::vector<uint8_t> buffer_vec((size_t)len);
-  uint8_t *buffer = buffer_vec.data();
+  uint8_t* buffer = buffer_vec.data();
 #else
   uint8_t buffer[len];
 #endif

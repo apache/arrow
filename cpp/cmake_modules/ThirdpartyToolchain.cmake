@@ -2558,9 +2558,9 @@ macro(build_zlib)
     add_dependencies(toolchain zlib_ep)
     add_dependencies(ZLIB::ZLIB zlib_ep)
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
-    endif()
+  endif()
 
-    set(ZLIB_VENDORED TRUE)
+  set(ZLIB_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZLIB)
