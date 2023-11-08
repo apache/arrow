@@ -97,5 +97,19 @@ classdef tSlice < matlab.unittest.TestCase
             expected.text(1) = missing;
             testCase.verifyEqual(toMATLAB(slice), expected);
         end
+
+        function NonPositiveOffsetError(testCase)
+            array = arrow.array(1:10);
+            fcn = @() array.slice(int64(0), int64(2));
+            testCase.verifyError(fcn, "arrow:array:slice:NonPositiveOffset");
+            fcn = @() array.slice(int64(-1), int64(2));
+            testCase.verifyError(fcn, "arrow:array:slice:NonPositiveOffset");
+        end
+
+        function NegativeLengthError(testCase)
+            array = arrow.array(1:10);
+            fcn = @() array.slice(int64(1), int64(-1));
+            testCase.verifyError(fcn, "arrow:array:slice:NegativeLength");
+        end
     end    
 end
