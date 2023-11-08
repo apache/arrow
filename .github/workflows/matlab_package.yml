@@ -167,34 +167,34 @@ jobs:
           name: arrow-matlab-windows.tar.gz
           path: arrow-matlab-windows.tar.gz
 
-    package-mltbx:
-        name: Package MATLAB Toolbox (MLTBX) Files
-        runs-on: ubuntu-latest
-        needs:
-            - ubuntu
-            - macos
-            - windows
-        steps:
-          - name: Download Artifacts
-            uses: actions/download-artifact@v3
-            with:
-                path: artifacts-downloaded
-          - name: Decompress Artifacts
-            run: |
-                mv artifacts-downloaded/*/*.tar.gz .
-                tar -xzvf arrow-matlab-ubuntu.tar.gz
-                tar -xzvf arrow-matlab-macos.tar.gz
-                tar -xzvf arrow-matlab-windows.tar.gz
-          - name: Install MATLAB
-            uses: matlab-actions/setup-matlab@v1
-            with:
-                release: R2023a
-          - name: Run commands
-            env:
-                MATLABPATH: matlab/tools
-                ARROW_MATLAB_TOOLBOX_FOLDER: .
-                ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts
-                ARROW_MATLAB_TOOLBOX_VERSION: 15.0.0
-            uses: matlab-actions/run-command@v1
-            with:
-                command: packageMatlabInterface
+  package-mltbx:
+    name: Package MATLAB Toolbox (MLTBX) Files
+    runs-on: ubuntu-latest
+    needs:
+      - ubuntu
+      - macos
+      - windows
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+            path: artifacts-downloaded
+      - name: Decompress Artifacts
+        run: |
+            mv artifacts-downloaded/*/*.tar.gz .
+            tar -xzvf arrow-matlab-ubuntu.tar.gz
+            tar -xzvf arrow-matlab-macos.tar.gz
+            tar -xzvf arrow-matlab-windows.tar.gz
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v1
+        with:
+            release: R2023a
+      - name: Run commands
+        env:
+            MATLABPATH: matlab/tools
+            ARROW_MATLAB_TOOLBOX_FOLDER: .
+            ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts
+            ARROW_MATLAB_TOOLBOX_VERSION: 15.0.0
+        uses: matlab-actions/run-command@v1
+        with:
+            command: packageMatlabInterface
