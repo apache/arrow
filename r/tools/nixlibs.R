@@ -36,7 +36,8 @@ exit <- function(..., .status = 1) {
 
 # checks the nightly repo for the latest nightly version X.Y.Z.100<dev>
 find_latest_nightly <- function(description_version,
-                                list_uri = "https://nightlies.apache.org/arrow/r/src/contrib/PACKAGES") {
+                                list_uri = "https://nightlies.apache.org/arrow/r/src/contrib/PACKAGES",
+                                hush = quietly) {
   if (!startsWith(arrow_repo, "https://nightlies.apache.org/arrow/r")) {
     lg("Detected non standard dev repo: %s, not checking latest nightly version.", arrow_repo)
     return(description_version)
@@ -68,7 +69,7 @@ find_latest_nightly <- function(description_version,
       versions <- versions[matching_major]
       versions[[length(versions)]]
     },
-    silent = quietly
+    silent = hush
   )
 
   if (inherits(res, "try-error")) {
@@ -848,16 +849,19 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 not_cran <- env_is("NOT_CRAN", "true")
 
-if (is_release & !test_mode) {
+if (is_release) {
   VERSION <- VERSION[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
-} else if(!test_mode) {
+} else {
   not_cran <- TRUE
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
+
+if (!is_release && !test_mode) {
   VERSION <- find_latest_nightly(VERSION)
 }
 
-# To collect dirs to rm on exit, use del() to add dirs
+# To collect dirs to rm on exit, use cleanup() to add dirs
 # we reset it to avoid errors on reruns in the same session.
 options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)

@@ -211,7 +211,8 @@ test_that("find_latest_nightly()", {
       suppressWarnings(
         find_latest_nightly(
           package_version("15.0.0.9000"),
-          list_uri = "this is not a URI"
+          list_uri = "this is not a URI",
+          hush = TRUE
         )
       ),
       package_version("15.0.0.9000")
