@@ -35,7 +35,7 @@ typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 
 class TestLLVMGenerator : public ::testing::Test {
  protected:
-  FunctionRegistry registry_;
+  std::shared_ptr<FunctionRegistry> registry_ = default_function_registry();
 };
 
 // Verify that a valid pc function exists for every function in the registry.
@@ -45,7 +45,7 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 
   llvm::Module* module = generator->module();
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
-  for (auto& iter : registry_) {
+  for (auto& iter : *registry_) {
     EXPECT_NE(module->getFunction(iter.pc_name()), nullptr);
   }
 }
@@ -73,7 +73,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   FunctionSignature signature(func_desc->name(), func_desc->params(),
                               func_desc->return_type());
   const NativeFunction* native_func =
-      generator->function_registry_.LookupSignature(signature);
+      generator->function_registry_->LookupSignature(signature);
 
   std::vector<ValueValidityPairPtr> pairs{pair0, pair1};
   auto func_dex = std::make_shared<NonNullableFuncDex>(
@@ -113,6 +113,19 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 
   EXPECT_THAT(out, testing::ElementsAre(6, 8, 10, 12));
   EXPECT_EQ(out_bitmap, 0ULL);
+}
+
+TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigurationWithFunctionRegistry(std::move(external_registry));
+
+  std::unique_ptr<LLVMGenerator> generator;
+  ASSERT_OK(LLVMGenerator::Make(config_with_func_registry, false, &generator));
+
+  auto module = generator->module();
+  ASSERT_OK(generator->engine_->LoadFunctionIRs());
+  EXPECT_NE(module->getFunction("multiply_by_two_int32"), nullptr);
 }
 
 }  // namespace gandiva

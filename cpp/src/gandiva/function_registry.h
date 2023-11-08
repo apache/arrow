@@ -17,7 +17,12 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
 #include <vector>
+
+#include "arrow/buffer.h"
+#include "arrow/status.h"
 #include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
@@ -30,18 +35,41 @@ class GANDIVA_EXPORT FunctionRegistry {
  public:
   using iterator = const NativeFunction*;
 
+  FunctionRegistry();
+  FunctionRegistry(const FunctionRegistry&) = delete;
+  FunctionRegistry& operator=(const FunctionRegistry&) = delete;
+
   /// Lookup a pre-compiled function by its signature.
   const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
+
+  /// \brief register a set of functions into the function registry from a given bitcode
+  /// file
+  arrow::Status Register(const std::vector<NativeFunction>& funcs,
+                         const std::string& bitcode_path);
+
+  /// \brief register a set of functions into the function registry from a given bitcode
+  /// buffer
+  arrow::Status Register(const std::vector<NativeFunction>& funcs,
+                         std::shared_ptr<arrow::Buffer> bitcode_buffer);
+
+  /// \brief get a list of bitcode memory buffers saved in the registry
+  const std::vector<std::shared_ptr<arrow::Buffer>>& GetBitcodeBuffers() const;
 
   iterator begin() const;
   iterator end() const;
   iterator back() const;
 
- private:
-  static SignatureMap InitPCMap();
+  friend arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry();
 
-  static std::vector<NativeFunction> pc_registry_;
-  static SignatureMap pc_registry_map_;
+ private:
+  std::vector<NativeFunction> pc_registry_;
+  SignatureMap pc_registry_map_;
+  std::vector<std::shared_ptr<arrow::Buffer>> bitcode_memory_buffers_;
+
+  Status Add(NativeFunction func);
 };
+
+/// \brief get the default function registry
+GANDIVA_EXPORT std::shared_ptr<FunctionRegistry> default_function_registry();
 
 }  // namespace gandiva

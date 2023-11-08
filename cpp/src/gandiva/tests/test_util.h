@@ -96,9 +96,12 @@ static inline ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>
   EXPECT_TRUE((a)->Equals(b)) << "expected type: " << (a)->ToString() \
                               << " actual type: " << (b)->ToString()
 
-static inline std::shared_ptr<Configuration> TestConfiguration() {
-  auto builder = ConfigurationBuilder();
-  return builder.DefaultConfiguration();
-}
+std::shared_ptr<Configuration> TestConfiguration();
+
+std::shared_ptr<Configuration> TestConfigurationWithFunctionRegistry(
+    std::shared_ptr<FunctionRegistry> registry);
+
+std::string GetTestFunctionLLVMIRPath();
+NativeFunction GetTestExternalFunction();
 
 }  // namespace gandiva

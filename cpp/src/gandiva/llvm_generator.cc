@@ -36,11 +36,16 @@ namespace gandiva {
     AddTrace(__VA_ARGS__); \
   }
 
-LLVMGenerator::LLVMGenerator(bool cached) : cached_(cached), enable_ir_traces_(false) {}
+LLVMGenerator::LLVMGenerator(bool cached,
+                             std::shared_ptr<FunctionRegistry> function_registry)
+    : cached_(cached),
+      function_registry_(std::move(function_registry)),
+      enable_ir_traces_(false) {}
 
-Status LLVMGenerator::Make(std::shared_ptr<Configuration> config, bool cached,
+Status LLVMGenerator::Make(const std::shared_ptr<Configuration>& config, bool cached,
                            std::unique_ptr<LLVMGenerator>* llvm_generator) {
-  std::unique_ptr<LLVMGenerator> llvmgen_obj(new LLVMGenerator(cached));
+  std::unique_ptr<LLVMGenerator> llvmgen_obj(
+      new LLVMGenerator(cached, config->function_registry()));
 
   ARROW_RETURN_NOT_OK(Engine::Make(config, cached, &(llvmgen_obj->engine_)));
   *llvm_generator = std::move(llvmgen_obj);
@@ -64,7 +69,7 @@ void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
   // decompose the expression to separate out value and validities.
-  ExprDecomposer decomposer(function_registry_, annotator_);
+  ExprDecomposer decomposer(*function_registry_, annotator_);
   ValueValidityPairPtr value_validity;
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
   // Generate the IR function for the decomposed expression.

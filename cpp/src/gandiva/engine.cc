@@ -141,7 +141,8 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       module_(module),
       types_(*context_),
       optimize_(conf->optimize()),
-      cached_(cached) {}
+      cached_(cached),
+      function_registry_(conf->function_registry()) {}
 
 Status Engine::Init() {
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
@@ -155,6 +156,7 @@ Status Engine::LoadFunctionIRs() {
   if (!functions_loaded_) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
+    ARROW_RETURN_NOT_OK(LoadExternalPreCompiledIR());
     functions_loaded_ = true;
   }
   return Status::OK();
@@ -236,7 +238,38 @@ static void SetDataLayout(llvm::Module* module) {
 
   module->setDataLayout(machine->createDataLayout());
 }
-// end of the mofified method from MLIR
+// end of the modified method from MLIR
+
+template <typename T>
+static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected) {
+  if (!expected) {
+    std::string str;
+    llvm::raw_string_ostream stream(str);
+    stream << expected.takeError();
+    return Status::CodeGenError(stream.str());
+  }
+  return std::move(expected.get());
+}
+
+static arrow::Status VerifyAndLinkModule(
+    llvm::Module* dest_module,
+    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
+  ARROW_ASSIGN_OR_RAISE(auto src_ir_module, AsArrowResult(src_module_or_error));
+
+  // set dataLayout
+  SetDataLayout(src_ir_module.get());
+
+  std::string error_info;
+  llvm::raw_string_ostream error_stream(error_info);
+  ARROW_RETURN_IF(
+      llvm::verifyModule(*src_ir_module, &error_stream),
+      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
+
+  ARROW_RETURN_IF(llvm::Linker::linkModules(*dest_module, std::move(src_ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
+
+  return Status::OK();
+}
 
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
@@ -256,23 +289,25 @@ Status Engine::LoadPreCompiledIR() {
   /// Parse the IR module.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
       llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
-  if (!module_or_error) {
-    // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
-    // (ARROW-5148)
-    std::string str;
-    llvm::raw_string_ostream stream(str);
-    stream << module_or_error.takeError();
-    return Status::CodeGenError(stream.str());
+  // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
+  // (ARROW-5148)
+  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
+  return Status::OK();
+}
+
+static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
+  auto data = reinterpret_cast<const char*>(arrow_buffer.data());
+  auto size = arrow_buffer.size();
+  return llvm::MemoryBufferRef(llvm::StringRef(data, size), "external_bitcode");
+}
+
+Status Engine::LoadExternalPreCompiledIR() {
+  auto const& buffers = function_registry_->GetBitcodeBuffers();
+  for (auto const& buffer : buffers) {
+    auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
+    auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
+    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
   }
-  std::unique_ptr<llvm::Module> ir_module = std::move(module_or_error.get());
-
-  // set dataLayout
-  SetDataLayout(ir_module.get());
-
-  ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
-                  Status::CodeGenError("verify of IR Module failed"));
-  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
-                  Status::CodeGenError("failed to link IR Modules"));
 
   return Status::OK();
 }

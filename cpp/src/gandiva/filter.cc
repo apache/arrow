@@ -71,7 +71,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   if (!is_cached) {
     // Run the validation on the expression.
     // Return if the expression is invalid since we will not be able to process further.
-    ExprValidator expr_validator(llvm_gen->types(), schema);
+    ExprValidator expr_validator(llvm_gen->types(), schema,
+                                 configuration->function_registry());
     ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
   }
 
