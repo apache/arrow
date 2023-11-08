@@ -318,7 +318,7 @@ static void TimedTestAllocs(benchmark::State& state) {
   for (int i = 0; i < NUM_BATCHES; i++) {
     for (int col = 0; col < num_fields; col++) {
       arrays[col * NUM_BATCHES + i] =
-          std::make_shared<ArrayPtr>(rag.String(num_batches, 0, 64, 0));
+          std::make_shared<ArrayPtr>(rag.String(num_batches, 64, 64, 0));
     }
   }
 
@@ -351,7 +351,7 @@ static void TimedTestOutputStringAllocs(benchmark::State& state) {
   for (int i = 0; i < NUM_BATCHES; i++) {
     for (int col = 0; col < num_fields; col++) {
       arrays[col * NUM_BATCHES + i] =
-          std::make_shared<ArrayPtr>(rag.String(num_batches, 0, 64, 0));
+          std::make_shared<ArrayPtr>(rag.String(num_batches, 64, 64, 0));
     }
   }
 
