@@ -147,7 +147,7 @@ class AzureFileSystemTest : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
   std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+  std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
       datalake_service_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
@@ -170,7 +170,7 @@ class AzureFileSystemTest : public ::testing::Test {
     blob_service_client_ = std::make_unique<Azure::Storage::Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
     datalake_service_client_ =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
+        std::make_unique<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
     auto container_client = blob_service_client_->GetBlobContainerClient(container_name_);
@@ -284,25 +284,25 @@ class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
 
 TEST_F(AzureFlatNamespaceFileSystemTest, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
   ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(AzureHierarchicalNamespaceFileSystemTest, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
   ASSERT_OK_AND_EQ(true, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespace) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
   ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_));
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
   ASSERT_NOT_OK(hierarchical_namespace.Enabled("non-existent-container"));
 }
 

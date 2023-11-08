@@ -453,7 +453,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
 class AzureFileSystem::Impl {
  public:
   io::IOContext io_context_;
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+  std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
       datalake_service_client_;
   std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
@@ -466,9 +466,9 @@ class AzureFileSystem::Impl {
     blob_service_client_ = std::make_unique<Azure::Storage::Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
     datalake_service_client_ =
-        std::make_shared<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
+        std::make_unique<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
-    RETURN_NOT_OK(hierarchical_namespace_.Init(datalake_service_client_));
+    RETURN_NOT_OK(hierarchical_namespace_.Init(datalake_service_client_.get()));
     return Status::OK();
   }
 
@@ -559,7 +559,7 @@ class AzureFileSystem::Impl {
           } else {
             info.set_type(FileType::NotFound);
           }
-            return info;
+          return info;
         } catch (const Azure::Storage::StorageException& exception) {
           return internal::ExceptionToStatus(
               "ListBlobs for '" + prefix +

@@ -30,13 +30,12 @@ Status ExceptionToStatus(const std::string& prefix,
 
 class HierarchicalNamespaceDetector {
  public:
-  Status Init(std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-                  datalake_service_client);
+  Status Init(
+      Azure::Storage::Files::DataLake::DataLakeServiceClient* datalake_service_client);
   Result<bool> Enabled(const std::string& container_name);
 
  private:
-  std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-      datalake_service_client_;
+  Azure::Storage::Files::DataLake::DataLakeServiceClient* datalake_service_client_;
   std::optional<bool> enabled_;
 };
 

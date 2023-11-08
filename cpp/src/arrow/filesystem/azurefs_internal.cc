@@ -29,8 +29,7 @@ Status ExceptionToStatus(const std::string& prefix,
 }
 
 Status HierarchicalNamespaceDetector::Init(
-    std::shared_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-        datalake_service_client) {
+    Azure::Storage::Files::DataLake::DataLakeServiceClient* datalake_service_client) {
   datalake_service_client_ = datalake_service_client;
   return Status::OK();
 }
