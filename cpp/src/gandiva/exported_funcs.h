@@ -63,9 +63,9 @@ class ExportedHashFunctions : public ExportedFuncsBase {
   arrow::Status AddMappings(Engine* engine) const override;
 };
 
-class ExternalStubFunctions : public ExportedFuncsBase {
+class ExternalCInterfaceFunctions : public ExportedFuncsBase {
  public:
-  ExternalStubFunctions(std::shared_ptr<FunctionRegistry> function_registry)
+  ExternalCInterfaceFunctions(std::shared_ptr<FunctionRegistry> function_registry)
       : function_registry_(std::move(function_registry)) {}
 
   arrow::Status AddMappings(Engine* engine) const override;

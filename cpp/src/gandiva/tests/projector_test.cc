@@ -3608,7 +3608,7 @@ TEST_F(TestProjector, TestExtendedFunctions) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestExtendedStubFunctions) {
+TEST_F(TestProjector, TestExtendedCInterfaceFunctions) {
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::int64());
@@ -3632,7 +3632,7 @@ TEST_F(TestProjector, TestExtendedStubFunctions) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestExtendedStubFunctionsWithFunctionHolder) {
+TEST_F(TestProjector, TestExtendedCInterfaceFunctionsWithFunctionHolder) {
   auto multiple = TreeExprBuilder::MakeLiteral(5);
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
@@ -3660,7 +3660,7 @@ TEST_F(TestProjector, TestExtendedStubFunctionsWithFunctionHolder) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestExtendedStubFunctionThatNeedsContext) {
+TEST_F(TestProjector, TestExtendedCInterfaceFunctionThatNeedsContext) {
   auto in_field = field("in", arrow::utf8());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::utf8());

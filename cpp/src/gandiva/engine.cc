@@ -147,7 +147,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
 Status Engine::Init() {
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
   bool result = ExportedFuncsRegistry::Register(
-      std::make_shared<ExternalStubFunctions>(function_registry_));
+      std::make_shared<ExternalCInterfaceFunctions>(function_registry_));
   if (!result) {
     return Status::CodeGenError("Failed to register external stub functions");
   }

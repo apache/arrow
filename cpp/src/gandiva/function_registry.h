@@ -58,21 +58,21 @@ class GANDIVA_EXPORT FunctionRegistry {
   arrow::Status Register(const std::vector<NativeFunction>& funcs,
                          std::shared_ptr<arrow::Buffer> bitcode_buffer);
 
-  /// \brief register a stub function into the function registry
+  /// \brief register a C interface function into the function registry
   /// @param func the registered function's metadata
-  /// @param stub_function_ptr the function pointer to the
+  /// @param c_interface_function_ptr the function pointer to the
   /// registered function's implementation
   /// @param function_holder_maker this will be used as the function holder if the
   /// function requires a function holder
   arrow::Status Register(
-      NativeFunction func, void* stub_function_ptr,
+      NativeFunction func, void* c_interface_function_ptr,
       std::optional<FunctionHolderMaker> function_holder_maker = std::nullopt);
 
   /// \brief get a list of bitcode memory buffers saved in the registry
   const std::vector<std::shared_ptr<arrow::Buffer>>& GetBitcodeBuffers() const;
 
-  /// \brief get a list of stub functions saved in the registry
-  const std::vector<std::pair<NativeFunction, void*>>& GetStubFunctions() const;
+  /// \brief get a list of C interface functions saved in the registry
+  const std::vector<std::pair<NativeFunction, void*>>& GetCInterfaceFunctions() const;
 
   const FunctionHolderMakerRegistry& GetFunctionHolderMakerRegistry() const;
 
@@ -86,7 +86,7 @@ class GANDIVA_EXPORT FunctionRegistry {
   std::vector<NativeFunction> pc_registry_;
   SignatureMap pc_registry_map_;
   std::vector<std::shared_ptr<arrow::Buffer>> bitcode_memory_buffers_;
-  std::vector<std::pair<NativeFunction, void*>> stub_functions_;
+  std::vector<std::pair<NativeFunction, void*>> c_interface_functions_;
   FunctionHolderMakerRegistry holder_maker_registry_;
 
   Status Add(NativeFunction func);

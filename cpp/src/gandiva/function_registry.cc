@@ -118,7 +118,7 @@ arrow::Status FunctionRegistry::Register(
     ARROW_RETURN_NOT_OK(holder_maker_registry_.Register(
         func_base_name, std::move(function_holder_maker.value())));
   }
-  stub_functions_.emplace_back(func, stub_function_ptr);
+  c_interface_functions_.emplace_back(func, stub_function_ptr);
   ARROW_RETURN_NOT_OK(FunctionRegistry::Add(std::move(func)));
   return Status::OK();
 }
@@ -128,9 +128,9 @@ const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeB
   return bitcode_memory_buffers_;
 }
 
-const std::vector<std::pair<NativeFunction, void*>>& FunctionRegistry::GetStubFunctions()
+const std::vector<std::pair<NativeFunction, void*>>& FunctionRegistry::GetCInterfaceFunctions()
     const {
-  return stub_functions_;
+  return c_interface_functions_;
 }
 
 const FunctionHolderMakerRegistry& FunctionRegistry::GetFunctionHolderMakerRegistry()

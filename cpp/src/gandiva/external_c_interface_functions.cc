@@ -80,10 +80,10 @@ static arrow::Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVM
   return std::make_pair(args, ret_llvm_type);
 }
 
-arrow::Status ExternalStubFunctions::AddMappings(Engine* engine) const {
-  auto external_stub_funcs = function_registry_->GetStubFunctions();
+arrow::Status ExternalCInterfaceFunctions::AddMappings(Engine* engine) const {
+  auto const& c_interface_funcs = function_registry_->GetCInterfaceFunctions();
   auto types = engine->types();
-  for (auto& [func, func_ptr] : external_stub_funcs) {
+  for (auto& [func, func_ptr] : c_interface_funcs) {
     for (auto const& sig : func.signatures()) {
       ARROW_ASSIGN_OR_RAISE(auto llvm_signature, MapToLLVMSignature(sig, func, types));
       auto& [args, ret_llvm_type] = llvm_signature;

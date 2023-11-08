@@ -62,7 +62,7 @@ set(SRC_FILES
     expression_registry.cc
     exported_funcs_registry.cc
     exported_funcs.cc
-    external_stub_functions.cc
+    external_c_interface_functions.cc
     filter.cc
     function_ir_builder.cc
     function_holder_maker_registry.cc
