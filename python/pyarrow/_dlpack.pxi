@@ -124,3 +124,46 @@ cpdef object to_dlpack(Array arr) except *:
     dlm_tensor.deleter = deleter
 
     return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
+
+
+cpdef object fixed_shape_tensor_to_dlpack(Array arr) except *:
+    cdef DLManagedTensor* dlm_tensor = <DLManagedTensor*> malloc(sizeof(DLManagedTensor))
+
+    cdef DLTensor* dl_tensor = &dlm_tensor.dl_tensor
+    cdef intptr_t data_ptr = arr.buffers()[2].address
+    dl_tensor.data = <void*> data_ptr
+
+    cdef size_t ndim = len(arr)
+    dl_tensor.ndim = ndim
+
+    cdef int64_t* shape = <int64_t*> malloc(ndim * sizeof(int64_t) * 2)
+    shape[0] = ndim
+    for n in range(ndim-1):
+        shape[n+1] = arr.type.shape[n]
+    dl_tensor.shape = shape
+
+    dl_tensor.strides = NULL
+    dl_tensor.byte_offset = 0
+
+    cdef DLDevice* device = &dl_tensor.device
+    device.device_type = kDLCPU
+    device.device_id = 0
+
+    cdef DLDataType* dtype = &dl_tensor.dtype
+    if arr.type.value_type in [uint8(), uint16(), uint32(), uint64()]:
+        dtype.code = kDLUInt
+    elif arr.type.value_type in [int8(), int16(), int32(), int64()]:
+        dtype.code = kDLInt
+    elif arr.type.value_type in [float16(), float32(), float64()]:
+        dtype.code = kDLFloat
+    elif arr.type.value_type == bool_():
+        dtype.code = kDLBool
+
+    dtype.lanes = <uint16_t>1
+    dtype.bits = <uint8_t>arr.type.value_type.bit_width
+
+    dlm_tensor.manager_ctx = <void*>arr
+    cpython.Py_INCREF(arr)
+    dlm_tensor.deleter = deleter
+
+    return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
