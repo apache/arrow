@@ -93,6 +93,9 @@ class GANDIVA_EXPORT Engine {
   /// the main module.
   Status LoadPreCompiledIR();
 
+  // load external pre-compiled bitcodes into module
+  Status LoadExternalPreCompiledIR();
+
   // Create and add mappings for cpp functions that can be accessed from LLVM.
   void AddGlobalMappings();
 
@@ -111,6 +114,7 @@ class GANDIVA_EXPORT Engine {
   bool module_finalized_ = false;
   bool cached_;
   bool functions_loaded_ = false;
+  std::shared_ptr<FunctionRegistry> function_registry_;
 };
 
 }  // namespace gandiva
