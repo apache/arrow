@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v15/parquet/internal/bmi"
 	"github.com/stretchr/testify/assert"
 )
 

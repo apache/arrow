@@ -36,6 +36,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.arrow.driver.jdbc.client.CloseableEndpointStreamPair;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
@@ -55,28 +56,28 @@ import org.slf4j.LoggerFactory;
  *   <li>Repeat from (3) until <code>next()</code> returns null.</li>
  * </ol>
  */
-public class FlightStreamQueue implements AutoCloseable {
-  private static final Logger LOGGER = LoggerFactory.getLogger(FlightStreamQueue.class);
-  private final CompletionService<FlightStream> completionService;
-  private final Set<Future<FlightStream>> futures = synchronizedSet(new HashSet<>());
-  private final Set<FlightStream> allStreams = synchronizedSet(new HashSet<>());
+public class FlightEndpointDataQueue implements AutoCloseable {
+  private static final Logger LOGGER = LoggerFactory.getLogger(FlightEndpointDataQueue.class);
+  private final CompletionService<CloseableEndpointStreamPair> completionService;
+  private final Set<Future<CloseableEndpointStreamPair>> futures = synchronizedSet(new HashSet<>());
+  private final Set<CloseableEndpointStreamPair> endpointsToClose = synchronizedSet(new HashSet<>());
   private final AtomicBoolean closed = new AtomicBoolean();
 
   /**
    * Instantiate a new FlightStreamQueue.
    */
-  protected FlightStreamQueue(final CompletionService<FlightStream> executorService) {
+  protected FlightEndpointDataQueue(final CompletionService<CloseableEndpointStreamPair> executorService) {
     completionService = checkNotNull(executorService);
   }
 
   /**
-   * Creates a new {@link FlightStreamQueue} from the provided {@link ExecutorService}.
+   * Creates a new {@link FlightEndpointDataQueue} from the provided {@link ExecutorService}.
    *
    * @param service the service from which to create a new queue.
    * @return a new queue.
    */
-  public static FlightStreamQueue createNewQueue(final ExecutorService service) {
-    return new FlightStreamQueue(new ExecutorCompletionService<>(service));
+  public static FlightEndpointDataQueue createNewQueue(final ExecutorService service) {
+    return new FlightEndpointDataQueue(new ExecutorCompletionService<>(service));
   }
 
   /**
@@ -92,19 +93,20 @@ public class FlightStreamQueue implements AutoCloseable {
    * Auxiliary functional interface for getting ready-to-consume FlightStreams.
    */
   @FunctionalInterface
-  interface FlightStreamSupplier {
-    Future<FlightStream> get() throws SQLException;
+  interface EndpointStreamSupplier {
+    Future<CloseableEndpointStreamPair> get() throws SQLException;
   }
 
-  private FlightStream next(final FlightStreamSupplier flightStreamSupplier) throws SQLException {
+  private CloseableEndpointStreamPair next(final EndpointStreamSupplier endpointStreamSupplier) throws SQLException {
     checkOpen();
     while (!futures.isEmpty()) {
-      final Future<FlightStream> future = flightStreamSupplier.get();
+      final Future<CloseableEndpointStreamPair> future = endpointStreamSupplier.get();
       futures.remove(future);
       try {
-        final FlightStream stream = future.get();
-        if (stream.getRoot().getRowCount() > 0) {
-          return stream;
+        final CloseableEndpointStreamPair endpoint = future.get();
+        // Get the next FlightStream that has a root with content.
+        if (endpoint != null) {
+          return endpoint;
         }
       } catch (final ExecutionException | InterruptedException | CancellationException e) {
         throw AvaticaConnection.HELPER.wrap(e.getMessage(), e);
@@ -120,11 +122,11 @@ public class FlightStreamQueue implements AutoCloseable {
    * @param timeoutUnit  the timeoutValue time unit
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
-  public FlightStream next(final long timeoutValue, final TimeUnit timeoutUnit)
+  public CloseableEndpointStreamPair next(final long timeoutValue, final TimeUnit timeoutUnit)
       throws SQLException {
     return next(() -> {
       try {
-        final Future<FlightStream> future = completionService.poll(timeoutValue, timeoutUnit);
+        final Future<CloseableEndpointStreamPair> future = completionService.poll(timeoutValue, timeoutUnit);
         if (future != null) {
           return future;
         }
@@ -142,7 +144,7 @@ public class FlightStreamQueue implements AutoCloseable {
    *
    * @return a FlightStream that is ready to consume or null if all FlightStreams are ended.
    */
-  public FlightStream next() throws SQLException {
+  public CloseableEndpointStreamPair next() throws SQLException {
     return next(() -> {
       try {
         return completionService.take();
@@ -162,21 +164,25 @@ public class FlightStreamQueue implements AutoCloseable {
   /**
    * Readily adds given {@link FlightStream}s to the queue.
    */
-  public void enqueue(final Collection<FlightStream> flightStreams) {
-    flightStreams.forEach(this::enqueue);
+  public void enqueue(final Collection<CloseableEndpointStreamPair> endpointRequests) {
+    endpointRequests.forEach(this::enqueue);
   }
 
   /**
    * Adds given {@link FlightStream} to the queue.
    */
-  public synchronized void enqueue(final FlightStream flightStream) {
-    checkNotNull(flightStream);
+  public synchronized void enqueue(final CloseableEndpointStreamPair endpointRequest) {
+    checkNotNull(endpointRequest);
     checkOpen();
-    allStreams.add(flightStream);
+    endpointsToClose.add(endpointRequest);
     futures.add(completionService.submit(() -> {
       // `FlightStream#next` will block until new data can be read or stream is over.
-      flightStream.next();
-      return flightStream;
+      while (endpointRequest.getStream().next()) {
+        if (endpointRequest.getStream().getRoot().getRowCount() > 0) {
+          return endpointRequest;
+        }
+      }
+      return null;
     }));
   }
 
@@ -187,14 +193,15 @@ public class FlightStreamQueue implements AutoCloseable {
 
   @Override
   public synchronized void close() throws SQLException {
-    final Set<SQLException> exceptions = new HashSet<>();
     if (isClosed()) {
       return;
     }
+
+    final Set<SQLException> exceptions = new HashSet<>();
     try {
-      for (final FlightStream flightStream : allStreams) {
+      for (final CloseableEndpointStreamPair endpointToClose : endpointsToClose) {
         try {
-          flightStream.cancel("Cancelling this FlightStream.", null);
+          endpointToClose.getStream().cancel("Cancelling this FlightStream.", null);
         } catch (final Exception e) {
           final String errorMsg = "Failed to cancel a FlightStream.";
           LOGGER.error(errorMsg, e);
@@ -214,9 +221,9 @@ public class FlightStreamQueue implements AutoCloseable {
           }
         }
       });
-      for (final FlightStream flightStream : allStreams) {
+      for (final CloseableEndpointStreamPair endpointToClose : endpointsToClose) {
         try {
-          flightStream.close();
+          endpointToClose.close();
         } catch (final Exception e) {
           final String errorMsg = "Failed to close a FlightStream.";
           LOGGER.error(errorMsg, e);
@@ -224,7 +231,7 @@ public class FlightStreamQueue implements AutoCloseable {
         }
       }
     } finally {
-      allStreams.clear();
+      endpointsToClose.clear();
       futures.clear();
       closed.set(true);
     }

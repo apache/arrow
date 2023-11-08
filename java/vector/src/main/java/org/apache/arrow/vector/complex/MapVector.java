@@ -147,6 +147,11 @@ public class MapVector extends ListVector {
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new TransferImpl(field, allocator, callBack);
+  }
+
+  @Override
   public TransferPair makeTransferPair(ValueVector target) {
     return new MapVector.TransferImpl((MapVector) target);
   }

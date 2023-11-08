@@ -1,4 +1,4 @@
-#! /usr/bin/env node
+#! /usr/bin/env -S node --no-warnings --loader ts-node/esm/transpile-only
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -17,19 +17,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// @ts-check
-
-const fs = require('fs');
-const path = require('path');
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
-const { VectorLoader } = process.env.ARROW_JS_DEBUG
-    ? require(`../src/visitor/vectorloader${extension}`)
-    : require(`../targets/apache-arrow/visitor/vectorloader`);
-const { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } = require(`../index${extension}`);
+import * as fs from 'fs';
+import * as Path from 'path';
+import { VectorLoader } from '../src/visitor/vectorloader.ts';
+import { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } from '../index.ts';
 
 (async () => {
 
-    const readable = process.argv.length < 3 ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
+    const readable = process.argv.length < 3 ? process.stdin : fs.createReadStream(Path.resolve(process.argv[2]));
     const reader = new AsyncMessageReader(readable);
 
     let schema, metadataLength, message;
@@ -38,10 +33,13 @@ const { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } = req
     let dictionaryBatchCount = 0;
 
     while (1) {
+        // @ts-ignore
         if ((metadataLength = (await reader.readMetadataLength())).done) { break; }
         if (metadataLength.value === -1) {
+            // @ts-ignore
             if ((metadataLength = (await reader.readMetadataLength())).done) { break; }
         }
+        // @ts-ignore
         if ((message = (await reader.readMetadata(metadataLength.value))).done) { break; }
 
         if (message.value.isSchema()) {
@@ -74,7 +72,7 @@ const { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } = req
         } else if (message.value.isDictionaryBatch()) {
             const header = message.value.header();
             const bufferRegions = header.data.buffers;
-            const type = schema.dictionaries.get(header.id);
+            const type = schema!.dictionaries.get(header.id);
             const body = await reader.readMessageBody(message.value.bodyLength);
             const recordBatch = loadDictionaryBatch(header.data, body, type);
             console.log(
@@ -98,7 +96,7 @@ const { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } = req
 
 })().catch((e) => { console.error(e); process.exit(1); });
 
-function loadRecordBatch(schema, header, body) {
+function loadRecordBatch(schema: any, header: any, body: any) {
     const children = new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany(schema.fields);
     return new RecordBatch(
         schema,
@@ -110,7 +108,7 @@ function loadRecordBatch(schema, header, body) {
     );
 }
 
-function loadDictionaryBatch(header, body, dictionaryType) {
+function loadDictionaryBatch(header: any, body: any, dictionaryType: any) {
     const schema = new Schema([new Field('', dictionaryType)]);
     const children = new VectorLoader(body, header.nodes, header.buffers, new Map()).visitMany([dictionaryType]);
     return new RecordBatch(

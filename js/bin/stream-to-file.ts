@@ -1,4 +1,4 @@
-#! /usr/bin/env node
+#! /usr/bin/env -S node --no-warnings --loader ts-node/esm/transpile-only
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -17,13 +17,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// @ts-check
-
-const fs = require('fs');
-const path = require('path');
-const eos = require('util').promisify(require('stream').finished);
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
-const { RecordBatchReader, RecordBatchFileWriter } = require(`../index${extension}`);
+import * as fs from 'fs';
+import * as path from 'path';
+import { finished as eos } from 'stream/promises';
+import { RecordBatchReader, RecordBatchFileWriter } from '../index.ts';
 
 (async () => {
 
