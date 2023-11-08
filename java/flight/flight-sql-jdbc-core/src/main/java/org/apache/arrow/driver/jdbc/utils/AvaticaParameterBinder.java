@@ -102,12 +102,18 @@ public class AvaticaParameterBinder {
    */
   private void bind(FieldVector vector, TypedValue typedValue, int index) {
     try {
-      if (!vector.getField().getType().accept(new BinderVisitor(vector, typedValue, index))) {
-        throw new RuntimeException(
+      if (typedValue.value == null) {
+        if (vector.getField().isNullable()) {
+          vector.setNull(index);
+        } else {
+          throw new UnsupportedOperationException("Can't set null on non-nullable parameter");
+        }
+      } else if (!vector.getField().getType().accept(new BinderVisitor(vector, typedValue, index))) {
+        throw new UnsupportedOperationException(
                 String.format("Binding to vector type %s is not yet supported", vector.getClass()));
       }
     } catch (ClassCastException e) {
-      throw new RuntimeException(
+      throw new UnsupportedOperationException(
               String.format("Binding value of type %s is not yet supported for expected Arrow type %s",
                       typedValue.type, vector.getField().getType()));
     }
