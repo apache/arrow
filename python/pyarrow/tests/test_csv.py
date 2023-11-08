@@ -1405,33 +1405,36 @@ class BaseCSVTableRead(BaseTestCSV):
             print("workload size:", workload_size)
             large_csv = b"a,b,c\n" + b"1,2,3\n" * workload_size
             exc_info = None
-            # the signal above may either be posted as a KeyboardInterrupt
-            # or handled by arrow and passed on as type pyarrow.ArrowCancelled
+
             try:
-                try:
-                    t = threading.Thread(target=signal_from_thread)
-                    t.start()
-                    t1 = time.time()
-                    self.read_bytes(large_csv)
-                except BaseException as e:
-                    exc_info = e
-                finally:
-                    last_duration = time.time() - t1
-                    # make sure signal is sent before we exit the 
-                    # keyboardinterrupt handler below
-                    t.join()
+                # We use a signal fd to reliably ensure that the signal
+                # has been delivered to Python, regardless of how exactly
+                # it was caught.
+                with util.signal_wakeup_fd() as sigfd:
+                    try:
+                        t = threading.Thread(target=signal_from_thread)
+                        t.start()
+                        t1 = time.time()
+                        try:
+                            self.read_bytes(large_csv)
+                        except KeyboardInterrupt as e:
+                            exc_info = e
+                            last_duration = time.time() - t1
+                    finally:
+                        # Wait for signal to arrive if it didn't already,
+                        # to avoid getting a KeyboardInterrupt after the
+                        # `except` block below.
+                        select.select([sigfd], [], [sigfd], 10.0)
+
             except KeyboardInterrupt:
                 # KeyboardInterrupt didn't interrupt `read_bytes` above.
-                # because it didn't take long enough
                 pass
 
             if exc_info is not None:
-                # If we managed to get `self.read_bytes` interrupted, see if it
+                # We managed to get `self.read_bytes` interrupted, see if it
                 # was actually interrupted inside Arrow C++ or in the Python
                 # scaffolding.
-                if not isinstance(exc_info,KeyboardInterrupt) and not isinstance(exc_info, pa.ArrowCancelled):
-                    pytest.fail(f"Unexpected exception {exc_info} ({type(exc_info)}) thrown in read csv")
-                elif exc_info.__context__ is not None or type(exc_info)==pa.ArrowCancelled:
+                if exc_info.__context__ is not None:
                     # Interrupted inside Arrow C++, we're satisfied now
                     break
 
@@ -1443,10 +1446,7 @@ class BaseCSVTableRead(BaseTestCSV):
 
         # Interruption should have arrived timely
         assert last_duration <= 1.0
-        if isinstance(exc_info,pa.ArrowCancelled):
-            e= exc_info
-        else:
-            e = exc_info.__context__
+        e = exc_info.__context__
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signum
 
