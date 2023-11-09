@@ -164,9 +164,6 @@ jobs:
             tar -xzvf arrow-matlab-ubuntu.tar.gz
             tar -xzvf arrow-matlab-macos.tar.gz
             tar -xzvf arrow-matlab-windows.tar.gz
-      - name: Print Current Directory
-        run: |
-            pwd && ls && tree /
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v1
         with:
