@@ -95,6 +95,9 @@ ARROW_EXPORT
 Status AssertNoTrailingSlash(std::string_view s);
 
 ARROW_EXPORT
+bool HasTrailingSlash(std::string_view s);
+
+ARROW_EXPORT
 bool HasLeadingSlash(std::string_view s);
 
 ARROW_EXPORT
