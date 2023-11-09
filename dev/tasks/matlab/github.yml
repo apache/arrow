@@ -86,8 +86,8 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v3
         with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**') }}
+          path: {% raw %} ${{ steps.ccache-info.outputs.cache-dir }} {% endraw %}
+          key: {% raw %} matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**') }} {% endraw %}
           restore-keys: matlab-ccache-macos-
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
@@ -128,8 +128,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-windows-${{ hashFiles('cpp/**', 'matlab/**') }}
+            {% raw %} ${{ steps.ccache-info.outputs.cache-dir }} {% endraw %}
+          key: {% raw %} matlab-ccache-windows-${{ hashFiles('cpp/**', 'matlab/**') }} {% endraw %}
           restore-keys: matlab-ccache-windows-
       - name: Build MATLAB Interface
         shell: cmd
