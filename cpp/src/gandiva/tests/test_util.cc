@@ -48,7 +48,7 @@ NativeFunction GetTestExternalFunction() {
   return multiply_by_two_func;
 }
 
-static NativeFunction GetTestExternalCInterfaceFunction() {
+static NativeFunction GetTestExternalCFunction() {
   NativeFunction multiply_by_three_func(
       "multiply_by_three", {}, {arrow::int32()}, arrow::int64(),
       ResultNullableType::kResultNullIfNull, "multiply_by_three_int32");
@@ -91,7 +91,7 @@ class MultiplyHolder : public FunctionHolder {
  public:
   explicit MultiplyHolder(int32_t num) : num_(num) {}
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<MultiplyHolder>* holder) {
+  static arrow::Result<std::shared_ptr<MultiplyHolder>> Make(const FunctionNode& node) {
     ARROW_RETURN_IF(node.children().size() != 2,
                     Status::Invalid("'multiply_by_n' function requires two parameters"));
 
@@ -107,9 +107,8 @@ class MultiplyHolder : public FunctionHolder {
         Status::Invalid(
             "'multiply_by_n' function requires an int32 literal as the 2nd parameter"));
 
-    *holder = std::make_shared<MultiplyHolder>(
+    return std::make_shared<MultiplyHolder>(
         literal->is_null() ? 0 : std::get<int32_t>(literal->holder()));
-    return Status::OK();
   }
 
   int32_t operator()() const { return num_; }
@@ -119,7 +118,7 @@ class MultiplyHolder : public FunctionHolder {
 };
 
 extern "C" {
-// this function is used as an external stub function for testing so it has to be declared
+// this function is used as an external C function for testing so it has to be declared
 // with extern C
 static int64_t multiply_by_three(int32_t value) { return value * 3; }
 
@@ -145,10 +144,10 @@ static const char* multiply_by_two_formula(int64_t ctx, const char* value,
 }
 }
 
-std::shared_ptr<Configuration> TestConfigWithCInterfaceFunction(
+std::shared_ptr<Configuration> TestConfigWithCFunction(
     std::shared_ptr<FunctionRegistry> registry) {
   return BuildConfigurationWithRegistry(std::move(registry), [](auto reg) {
-    return reg->Register(GetTestExternalCInterfaceFunction(),
+    return reg->Register(GetTestExternalCFunction(),
                          reinterpret_cast<void*>(multiply_by_three));
   });
 }
@@ -158,11 +157,7 @@ std::shared_ptr<Configuration> TestConfigWithHolderFunction(
   return BuildConfigurationWithRegistry(std::move(registry), [](auto reg) {
     return reg->Register(
         GetTestFunctionWithFunctionHolder(), reinterpret_cast<void*>(multiply_by_n),
-        [](const FunctionNode& node) -> arrow::Result<FunctionHolderPtr> {
-          std::shared_ptr<MultiplyHolder> derived_instance;
-          ARROW_RETURN_NOT_OK(MultiplyHolder::Make(node, &derived_instance));
-          return derived_instance;
-        });
+        [](const FunctionNode& node) { return MultiplyHolder::Make(node); });
   });
 }
 

@@ -51,39 +51,38 @@ static arrow::Result<llvm::Type*> AsLLVMType(const DataTypePtr& from_type,
 // map from a NativeFunction's signature to the corresponding LLVM signature
 static arrow::Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignature(
     const FunctionSignature& sig, const NativeFunction& func, LLVMTypes* types) {
-  std::vector<llvm::Type*> args;
-  args.reserve(sig.param_types().size());
+  std::vector<llvm::Type*> arg_llvm_types;
+  arg_llvm_types.reserve(sig.param_types().size());
   if (func.NeedsContext()) {
-    args.emplace_back(types->i64_type());
+    arg_llvm_types.emplace_back(types->i64_type());
   }
   if (func.NeedsFunctionHolder()) {
-    args.emplace_back(types->i64_type());
+    arg_llvm_types.emplace_back(types->i64_type());
   }
   for (auto const& arg : sig.param_types()) {
     if (arg->id() == arrow::Type::STRING) {
-      args.emplace_back(types->i8_ptr_type());
-      args.emplace_back(types->i32_type());
+      arg_llvm_types.emplace_back(types->i8_ptr_type());
+      arg_llvm_types.emplace_back(types->i32_type());
     } else {
       ARROW_ASSIGN_OR_RAISE(auto arg_llvm_type, AsLLVMType(arg, types));
-      args.emplace_back(arg_llvm_type);
+      arg_llvm_types.emplace_back(arg_llvm_type);
     }
   }
   llvm::Type* ret_llvm_type;
   if (sig.ret_type()->id() == arrow::Type::STRING) {
     // for string output, the last arg is the output length
-    args.emplace_back(types->i32_ptr_type());
+    arg_llvm_types.emplace_back(types->i32_ptr_type());
     ret_llvm_type = types->i8_ptr_type();
   } else {
     ARROW_ASSIGN_OR_RAISE(ret_llvm_type, AsLLVMType(sig.ret_type(), types));
   }
-  auto return_type = AsLLVMType(sig.ret_type(), types);
-  return std::make_pair(args, ret_llvm_type);
+  return std::make_pair(std::move(arg_llvm_types), ret_llvm_type);
 }
 
-arrow::Status ExternalCInterfaceFunctions::AddMappings(Engine* engine) const {
-  auto const& c_interface_funcs = function_registry_->GetCInterfaceFunctions();
+arrow::Status ExternalCFunctions::AddMappings(Engine* engine) const {
+  auto const& c_funcs = function_registry_->GetCFunctions();
   auto types = engine->types();
-  for (auto& [func, func_ptr] : c_interface_funcs) {
+  for (auto& [func, func_ptr] : c_funcs) {
     for (auto const& sig : func.signatures()) {
       ARROW_ASSIGN_OR_RAISE(auto llvm_signature, MapToLLVMSignature(sig, func, types));
       auto& [args, ret_llvm_type] = llvm_signature;

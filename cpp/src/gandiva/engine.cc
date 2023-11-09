@@ -449,8 +449,8 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
 
 arrow::Status Engine::AddGlobalMappings() {
   ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
-  ExternalCInterfaceFunctions c_interface_funcs(function_registry_);
-  return c_interface_funcs.AddMappings(this);
+  ExternalCFunctions c_funcs(function_registry_);
+  return c_funcs.AddMappings(this);
 }
 
 std::string Engine::DumpIR() {

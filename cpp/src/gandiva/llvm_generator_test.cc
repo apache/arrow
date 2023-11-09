@@ -139,9 +139,9 @@ TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
   });
 }
 
-TEST_F(TestLLVMGenerator, VerifyExtendedCInterfaceFunctions) {
+TEST_F(TestLLVMGenerator, VerifyExtendedCFunctions) {
   VerifyFunctionMapping("multiply_by_three_int32", [](auto registry) {
-    return TestConfigWithCInterfaceFunction(std::move(registry));
+    return TestConfigWithCFunction(std::move(registry));
   });
 
   VerifyFunctionMapping("multiply_by_n_int32_int32", [](auto registry) {

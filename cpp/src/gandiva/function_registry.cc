@@ -110,7 +110,7 @@ arrow::Status FunctionRegistry::Register(const std::vector<NativeFunction>& func
 }
 
 arrow::Status FunctionRegistry::Register(
-    NativeFunction func, void* stub_function_ptr,
+    NativeFunction func, void* c_function_ptr,
     std::optional<FunctionHolderMaker> function_holder_maker) {
   if (function_holder_maker.has_value()) {
     // all signatures should have the same base name, use the first signature's base name
@@ -118,7 +118,7 @@ arrow::Status FunctionRegistry::Register(
     ARROW_RETURN_NOT_OK(holder_maker_registry_.Register(
         func_base_name, std::move(function_holder_maker.value())));
   }
-  c_interface_functions_.emplace_back(func, stub_function_ptr);
+  c_functions_.emplace_back(func, c_function_ptr);
   ARROW_RETURN_NOT_OK(FunctionRegistry::Add(std::move(func)));
   return Status::OK();
 }
@@ -128,9 +128,9 @@ const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeB
   return bitcode_memory_buffers_;
 }
 
-const std::vector<std::pair<NativeFunction, void*>>&
-FunctionRegistry::GetCInterfaceFunctions() const {
-  return c_interface_functions_;
+const std::vector<std::pair<NativeFunction, void*>>& FunctionRegistry::GetCFunctions()
+    const {
+  return c_functions_;
 }
 
 const FunctionHolderMakerRegistry& FunctionRegistry::GetFunctionHolderMakerRegistry()

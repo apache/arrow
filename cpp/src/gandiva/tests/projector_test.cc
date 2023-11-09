@@ -3608,7 +3608,7 @@ TEST_F(TestProjector, TestExtendedFunctions) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestExtendedCInterfaceFunctions) {
+TEST_F(TestProjector, TestExtendedCFunctions) {
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::int64());
@@ -3617,8 +3617,7 @@ TEST_F(TestProjector, TestExtendedCInterfaceFunctions) {
 
   std::shared_ptr<Projector> projector;
   auto external_registry = std::make_shared<FunctionRegistry>();
-  auto config_with_func_registry =
-      TestConfigWithCInterfaceFunction(std::move(external_registry));
+  auto config_with_func_registry = TestConfigWithCFunction(std::move(external_registry));
   ARROW_EXPECT_OK(
       Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
 
@@ -3632,7 +3631,7 @@ TEST_F(TestProjector, TestExtendedCInterfaceFunctions) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestExtendedCInterfaceFunctionsWithFunctionHolder) {
+TEST_F(TestProjector, TestExtendedCFunctionsWithFunctionHolder) {
   auto multiple = TreeExprBuilder::MakeLiteral(5);
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
@@ -3660,7 +3659,7 @@ TEST_F(TestProjector, TestExtendedCInterfaceFunctionsWithFunctionHolder) {
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 
-TEST_F(TestProjector, TestExtendedCInterfaceFunctionThatNeedsContext) {
+TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
   auto in_field = field("in", arrow::utf8());
   auto schema = arrow::schema({in_field});
   auto out_field = field("out", arrow::utf8());
