@@ -19,4 +19,5 @@ arrow_install_all_headers("arrow/testing")
 
 if(ARROW_BUILD_TESTS)
   add_arrow_test(random_test)
+  add_arrow_test(gtest_util_test)
 endif()
