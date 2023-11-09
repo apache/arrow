@@ -46,10 +46,6 @@ namespace arrow {
 using internal::BitsetStack;
 using internal::checked_cast;
 
-static const char* kEnvJsonMaxNumRows = "ARROW_JSON_MAX_NUM_ROWS";
-// default value is kMaxParserNumRows(100000), see: parser.h
-// unlimited(2147483647 std::numeric_limits<int32_t>::max()) when the value <=0.
-
 namespace json {
 
 namespace rj = arrow::rapidjson;
@@ -774,7 +770,7 @@ class HandlerBase : public BlockParser,
 
     rj::Reader reader;
 
-    for (; num_rows_ < max_num_rows_; ++num_rows_) {
+    for (; num_rows_ < kMaxParserNumRows; ++num_rows_) {
       auto ok = reader.Parse<parse_flags>(json, handler);
       switch (ok.Code()) {
         case rj::kParseErrorNone:
@@ -932,21 +928,6 @@ class HandlerBase : public BlockParser,
     return scalar_values_builder_.ReserveData(size - available_storage);
   }
 
-  int32_t MaxNumRows(){
-    int32_t max_num_rows_;
-    char* env_max_rows = std::getenv(kEnvJsonMaxNumRows);
-    std::string max_rows = env_max_rows ? std::string(env_max_rows) : "";
-
-    if (max_rows.empty()) {
-      max_num_rows_ = kMaxParserNumRows;
-    } else {
-      max_num_rows_ = std::stoi(max_rows);
-      if (max_num_rows_ <= 0 || max_num_rows_ > std::numeric_limits<int32_t>::max()) {
-        max_num_rows_ = std::numeric_limits<int32_t>::max();
-      }
-    }
-    return max_num_rows_;
-  }
   Status status_;
   RawBuilderSet builder_set_;
   BuilderPtr builder_;
@@ -960,10 +941,6 @@ class HandlerBase : public BlockParser,
   // top of this stack == field_index_
   std::vector<int> field_index_stack_;
   StringBuilder scalar_values_builder_;
-
-  // The maximum number of rows to parse from a block
-  int32_t max_num_rows_ = MaxNumRows();
-
 };
 
 template <UnexpectedFieldBehavior>

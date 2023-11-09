@@ -323,30 +323,6 @@ class BaseTestJSONRead:
                         # Better error output
                         assert table.to_pydict() == expected.to_pydict()
 
-    def test_max_num_rows(self):
-        data, expected = make_random_json(num_cols=2, num_rows=10)
-        table = self.read_bytes(data)
-        assert table.num_rows == 10
-        with pytest.raises(pa.ArrowInvalid, match="Exceeded maximum rows"):
-            os.environ['ARROW_JSON_MAX_NUM_ROWS'] = '5'
-            table = self.read_bytes(data)
-
-        os.environ['ARROW_JSON_MAX_NUM_ROWS'] = '0'
-        table = self.read_bytes(data)
-        assert table.num_rows == 10
-
-        os.environ['ARROW_JSON_MAX_NUM_ROWS'] = '-1'
-        table = self.read_bytes(data)
-        assert table.num_rows == 10
-
-        with pytest.raises(pa.ArrowInvalid, match="Exceeded maximum rows"):
-            os.environ['ARROW_JSON_MAX_NUM_ROWS'] = '10'
-            table = self.read_bytes(data)
-
-        del os.environ['ARROW_JSON_MAX_NUM_ROWS']
-        table = self.read_bytes(data)
-        assert table.num_rows == 10
-
 
 class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):
 
