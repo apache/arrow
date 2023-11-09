@@ -19,29 +19,6 @@
 
 {{ macros.github_header() }}
 
-name: MATLAB Packaging Workflow
-
-on:
-  push:
-    paths:
-      - '.github/workflows/matlab_package.yml'
-      - 'ci/scripts/matlab*.sh'
-      - 'matlab/**'
-      - 'cpp/src/arrow/**'
-  pull_request:
-    paths:
-      - '.github/workflows/matlab_package.yml'
-      - 'ci/scripts/matlab*.sh'
-      - 'matlab/**'
-      - 'cpp/src/arrow/**'
-
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-
 jobs:
 
   ubuntu:
@@ -206,4 +183,4 @@ jobs:
         uses: matlab-actions/run-command@v1
         with:
             command: packageMatlabInterface
-           {{ macros.github_upload_releases(["artifacts/matlab-arrow-15.0.0.mltbx"])|indent }}
+           {{ macros.github_upload_releases(["artifacts/matlab-arrow-$ARROW_MATLAB_TOOLBOX_VERSION.mltbx"])|indent }}
