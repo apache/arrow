@@ -389,13 +389,16 @@ class NullArrayFactory {
     enable_if_var_size_list<T, Status> Visit(const T& type) {
       // values array may be empty, but there must be at least one offset of 0
       RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * (length_ + 1)));
+      // XXX(felipec): reviewers, is this correct?
       RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
       return Status::OK();
     }
 
     template <typename T>
-    enable_if_list_view<T, Status> Visit(const T&) {
-      buffer_length_ = length_ * sizeof(typename T::offset_type);
+    enable_if_list_view<T, Status> Visit(const T& type) {
+      RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * length_));
+      // XXX(felipec): reviewers, is this correct?
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
       return Status::OK();
     }
 
@@ -727,10 +730,10 @@ class RepeatedArrayFactory {
     auto value = checked_cast<const ScalarType&>(scalar_).value;
 
     auto size = static_cast<typename T::offset_type>(value->length());
-    std::shared_ptr<Buffer> offsets_buffer;
-    std::shared_ptr<Buffer> sizes_buffer;
-    RETURN_NOT_OK(CreateIntBuffer<typename T::offset_type>(0, &offsets_buffer));
-    RETURN_NOT_OK(CreateIntBuffer<typename T::offset_type>(size, &sizes_buffer));
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
+                          CreateIntBuffer<typename T::offset_type>(0));
+    ARROW_ASSIGN_OR_RAISE(auto sizes_buffer,
+                          CreateIntBuffer<typename T::offset_type>(size));
     out_ = std::make_shared<ArrayType>(scalar_.type, length_, std::move(offsets_buffer),
                                        std::move(sizes_buffer), value);
     return Status::OK();
@@ -886,10 +889,12 @@ class RepeatedArrayFactory {
   }
 
   template <typename IntType>
-  Status CreateIntBuffer(IntType value, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> CreateIntBuffer(IntType value) {
+    std::shared_ptr<Buffer> buffer;
     TypedBufferBuilder<IntType> builder(pool_);
     RETURN_NOT_OK(builder.Append(/*num_copies=*/length_, value));
-    return builder.Finish(out);
+    RETURN_NOT_OK(builder.Finish(&buffer));
+    return buffer;
   }
 
   Status CreateBufferOf(const void* data, size_t data_length,
