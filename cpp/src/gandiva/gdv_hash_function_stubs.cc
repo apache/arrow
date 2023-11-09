@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// #pragma once
+//#pragma once
 
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
