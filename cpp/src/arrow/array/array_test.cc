@@ -693,9 +693,7 @@ TEST_F(TestArray, TestMakeArrayFromScalarOverflow) {
   auto array_result = MakeArrayFromScalar(*scalar, length);
 
   std::string err_msg = "offset overflow in repeated array construction";
-  ASSERT_FALSE(array_result.ok());
-  ASSERT_EQ(array_result.status().code(), StatusCode::Invalid);
-  ASSERT_EQ(array_result.status().message().substr(0, err_msg.length()), err_msg);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg), array_result);
 }
 
 TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
