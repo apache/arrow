@@ -685,14 +685,47 @@ TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   }
 }
 
-TEST_F(TestArray, TestMakeArrayFromScalarOverflow) {
+TEST_F(TestArray, TestMakeArrayFromScalarStringOverflow) {
   auto scalar = std::make_shared<StringScalar>("aa");
+
+  // Use a length that will cause an overflow when multiplied by the size of the string
+  int64_t length = static_cast<int32_t>(std::numeric_limits<int32_t>::max()) / 2 + 1;
+  auto array_result = MakeArrayFromScalar(*scalar, length);
+
+  std::string err_msg = "offset overflow in repeated array construction";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg), array_result);
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalarStringLengthOverflow) {
+  auto scalar = std::make_shared<StringScalar>("a");
+
+  // Use a length that exceeds the storage capacity of offset_type (assumed int32_t).
+  int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+  auto array_result = MakeArrayFromScalar(*scalar, length);
+
+  std::string err_msg = "length exceeds the maximum value of offset_type";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg), array_result);
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalarLargeStringOverflow) {
+  auto scalar = std::make_shared<LargeStringScalar>("aa");
 
   // Use a length that will cause an overflow when multiplied by the size of the string
   int64_t length = static_cast<int64_t>(std::numeric_limits<int64_t>::max()) / 2 + 1;
   auto array_result = MakeArrayFromScalar(*scalar, length);
 
   std::string err_msg = "offset overflow in repeated array construction";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg), array_result);
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalarNegative) {
+  auto scalar = std::make_shared<StringScalar>("a");
+
+  // Use a negative length
+  int64_t length = -1;
+  auto array_result = MakeArrayFromScalar(*scalar, length);
+
+  std::string err_msg = "length cannot be negative";
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg), array_result);
 }
 

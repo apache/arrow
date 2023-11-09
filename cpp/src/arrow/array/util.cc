@@ -673,8 +673,19 @@ class RepeatedArrayFactory {
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;
     auto size = static_cast<typename T::offset_type>(value->size());
 
-    int64_t total_size;
-    if (MultiplyWithOverflow(size, length_, &total_size)) {
+    typename T::offset_type length_casted;
+    if (length_ < 0) {
+      return Status::Invalid("length cannot be negative: " + std::to_string(length_));
+    } else if (length_ > std::numeric_limits<typename T::offset_type>::max()) {
+      return Status::Invalid(
+          "length exceeds the maximum value of offset_type: " + std::to_string(length_) +
+          " is greater than " +
+          std::to_string(std::numeric_limits<typename T::offset_type>::max()));
+    }
+    length_casted = static_cast<typename T::offset_type>(length_);
+
+    typename T::offset_type total_size;
+    if (MultiplyWithOverflow(size, length_casted, &total_size)) {
       return Status::Invalid("offset overflow in repeated array construction");
     }
 
