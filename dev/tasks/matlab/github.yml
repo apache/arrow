@@ -157,24 +157,24 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v3
         with:
-            path: artifacts-downloaded
+          path: artifacts-downloaded
       - name: Decompress Artifacts
         run: |
-            mv artifacts-downloaded/*/*.tar.gz .
-            tar -xzvf arrow-matlab-ubuntu.tar.gz
-            tar -xzvf arrow-matlab-macos.tar.gz
-            tar -xzvf arrow-matlab-windows.tar.gz
+          mv artifacts-downloaded/*/*.tar.gz .
+          tar -xzvf arrow-matlab-ubuntu.tar.gz
+          tar -xzvf arrow-matlab-macos.tar.gz
+          tar -xzvf arrow-matlab-windows.tar.gz
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v1
         with:
-            release: R2023a
+          release: R2023a
       - name: Run commands
         env:
-            MATLABPATH: arrow/matlab/tools
-            ARROW_MATLAB_TOOLBOX_FOLDER: matlab/install/arrow_matlab
-            ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts
-            ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_version }}
+          MATLABPATH: arrow/matlab/tools
+          ARROW_MATLAB_TOOLBOX_FOLDER: matlab/install/arrow_matlab
+          ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts
+          ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_version }}
         uses: matlab-actions/run-command@v1
         with:
-            command: packageMatlabInterface
-           {{ macros.github_upload_releases(["artifacts/matlab-arrow-$ARROW_MATLAB_TOOLBOX_VERSION.mltbx"])|indent }}
+          command: packageMatlabInterface
+      {{ macros.github_upload_releases(["artifacts/matlab-arrow-$ARROW_MATLAB_TOOLBOX_VERSION.mltbx"])|indent }}
