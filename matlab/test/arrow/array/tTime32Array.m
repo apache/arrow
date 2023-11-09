@@ -30,6 +30,14 @@ classdef tTime32Array < matlab.unittest.TestCase
             times = seconds(1:4);
             array = tc.ArrowArrayConstructorFcn(times);
             tc.verifyInstanceOf(array, "arrow.array.Time32Array");
+            tc.verifyEqual(array.toMATLAB, times');
+        end
+
+        function TimeUnitDefaultValue(tc)
+            % Verify that the default value of "TimeUnit" is "second".
+            times = seconds([1.2 1.3 1.4 1.5 1.7]);
+            array = tc.ArrowArrayConstructorFcn(times);
+            tc.verifyEqual(array.toMATLAB, seconds([1;1;1;2;2]));
         end
 
         function TypeIsTime32(tc)
@@ -273,6 +281,22 @@ classdef tTime32Array < matlab.unittest.TestCase
 
             % arrays are not equal
             tc.verifyFalse(isequal(array1, array2));
+        end
+
+        function RoundTimeBySpecifyTimeUnit(tc)
+            % Verify that the input parameter "TimeUnit" is used to specify
+            % the time resolution. The value is rounded off based on the
+            % specified "TimeUnit".
+
+            % TimeUnit="Second"
+            matlabTimes = seconds([1.1, 1.4, 1.5, 1.9, 2.001]);
+            arrowTimes = tc.ArrowArrayConstructorFcn(matlabTimes, TimeUnit="Second");
+            tc.verifyEqual(arrowTimes.toMATLAB(),seconds([1, 1, 2, 2, 2])');
+
+            % TimeUnit="Millisecond"
+            matlabTimes = seconds([1.1, 1.99, 1.001, 1.0004, 1.0005, 2.001]);
+            arrowTimes = tc.ArrowArrayConstructorFcn(matlabTimes, TimeUnit="Millisecond");
+            tc.verifyEqual(arrowTimes.toMATLAB(),seconds([1.1, 1.99, 1.001, 1, 1.001, 2.001])','AbsTol',seconds(1e-15));
         end
     end
 
