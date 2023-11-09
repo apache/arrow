@@ -892,7 +892,6 @@ struct ValidateArrayImpl {
     const bool non_empty = data.length > 0;
     if constexpr (is_list_view) {
       if (!IsBufferValid(1)) {
-        // For length 0, an empty offsets buffer is accepted (ARROW-544).
         return Status::Invalid("offsets buffer is null");
       }
       if (!IsBufferValid(2)) {
