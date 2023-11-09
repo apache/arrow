@@ -206,4 +206,4 @@ jobs:
         uses: matlab-actions/run-command@v1
         with:
             command: packageMatlabInterface
-           {{ macros.github_upload_releases(["artifacts/matlab-arrow-$ARROW_MATLAB_TOOLBOX_VERSION.mltbx"])|indent }}
+           {{ macros.github_upload_releases(["artifacts/matlab-arrow-15.0.0.mltbx"])|indent }}
