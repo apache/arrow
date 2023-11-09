@@ -363,6 +363,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \brief Gets current session options.
   ///
   /// \param[in] options            RPC-layer hints for this call.
+  /// \param[in] request            The (empty) GetSessionOptions request object.
   ::arrow::Result<GetSessionOptionsResult> GetSessionOptions(
       const FlightCallOptions& options, const GetSessionOptionsRequest& request) {
     return impl_->GetSessionOptions(options, request);
@@ -371,6 +372,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \brief Explicitly closes the session if applicable.
   ///
   /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The (empty) CloseSession request object.
   ::arrow::Result<CloseSessionResult> CloseSession(const FlightCallOptions& options,
                                                    const CloseSessionRequest& request) {
     return impl_->CloseSession(options, request);
