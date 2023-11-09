@@ -54,7 +54,7 @@ public class TestSimpleWriter {
     try (VarBinaryVector vector = new VarBinaryVector("test", allocator);
          VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
-      writer.writeToVarBinary(input);
+      writer.writeVarBinary(input);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(input, result);
     }
@@ -65,7 +65,7 @@ public class TestSimpleWriter {
     try (VarBinaryVector vector = new VarBinaryVector("test", allocator);
          VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
-      writer.writeToVarBinary(input, 1, 1);
+      writer.writeVarBinary(input, 1, 1);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(new byte[] { 0x02 }, result);
     }
@@ -77,7 +77,7 @@ public class TestSimpleWriter {
          VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
       ByteBuffer buffer = ByteBuffer.wrap(input);
-      writer.writeToVarBinary(buffer);
+      writer.writeVarBinary(buffer);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(input, result);
     }
@@ -89,7 +89,7 @@ public class TestSimpleWriter {
          VarBinaryWriter writer = new VarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
       ByteBuffer buffer = ByteBuffer.wrap(input);
-      writer.writeToVarBinary(buffer, 1, 1);
+      writer.writeVarBinary(buffer, 1, 1);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(new byte[] { 0x02 }, result);
     }
@@ -100,7 +100,7 @@ public class TestSimpleWriter {
     try (LargeVarBinaryVector vector = new LargeVarBinaryVector("test", allocator);
          LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
-      writer.writeToLargeVarBinary(input);
+      writer.writeLargeVarBinary(input);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(input, result);
     }
@@ -111,7 +111,7 @@ public class TestSimpleWriter {
     try (LargeVarBinaryVector vector = new LargeVarBinaryVector("test", allocator);
          LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
-      writer.writeToLargeVarBinary(input, 1, 1);
+      writer.writeLargeVarBinary(input, 1, 1);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(new byte[] { 0x02 }, result);
     }
@@ -123,7 +123,7 @@ public class TestSimpleWriter {
          LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
       ByteBuffer buffer = ByteBuffer.wrap(input);
-      writer.writeToLargeVarBinary(buffer);
+      writer.writeLargeVarBinary(buffer);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(input, result);
     }
@@ -135,7 +135,7 @@ public class TestSimpleWriter {
          LargeVarBinaryWriter writer = new LargeVarBinaryWriterImpl(vector)) {
       byte[] input = new byte[] { 0x01, 0x02 };
       ByteBuffer buffer = ByteBuffer.wrap(input);
-      writer.writeToLargeVarBinary(buffer, 1, 1);
+      writer.writeLargeVarBinary(buffer, 1, 1);
       byte[] result = vector.get(0);
       Assert.assertArrayEquals(new byte[] { 0x02 }, result);
     }
