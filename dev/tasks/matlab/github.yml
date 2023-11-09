@@ -24,7 +24,6 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu 20.04 MATLAB
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -64,7 +63,6 @@ jobs:
   macos:
     name: AMD64 macOS 11 MATLAB
     runs-on: macos-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -104,7 +102,6 @@ jobs:
   windows:
     name: AMD64 Windows 2022 MATLAB
     runs-on: windows-2022
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository        
         uses: actions/checkout@v4
