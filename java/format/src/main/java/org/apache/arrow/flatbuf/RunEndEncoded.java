@@ -25,32 +25,22 @@ import com.google.flatbuffers.*;
 
 @SuppressWarnings("unused")
 /**
- * Date is either a 32-bit or 64-bit signed integer type representing an
- * elapsed time since UNIX epoch (1970-01-01), stored in either of two units:
- *
- * * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no
- *   leap seconds), where the values are evenly divisible by 86400000
- * * Days (32 bits) since the UNIX epoch
+ * Contains two child arrays, run_ends and values.
+ * The run_ends child array must be a 16/32/64-bit integer array
+ * which encodes the indices at which the run with the value in 
+ * each corresponding index in the values child array ends.
+ * Like list/struct types, the value array can be of any type.
  */
-public final class Date extends Table {
+public final class RunEndEncoded extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
-  public static Date getRootAsDate(ByteBuffer _bb) { return getRootAsDate(_bb, new Date()); }
-  public static Date getRootAsDate(ByteBuffer _bb, Date obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static RunEndEncoded getRootAsRunEndEncoded(ByteBuffer _bb) { return getRootAsRunEndEncoded(_bb, new RunEndEncoded()); }
+  public static RunEndEncoded getRootAsRunEndEncoded(ByteBuffer _bb, RunEndEncoded obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
-  public Date __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+  public RunEndEncoded __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public short unit() { int o = __offset(4); return o != 0 ? bb.getShort(o + bb_pos) : 1; }
 
-  public static int createDate(FlatBufferBuilder builder,
-      short unit) {
-    builder.startTable(1);
-    Date.addUnit(builder, unit);
-    return Date.endDate(builder);
-  }
-
-  public static void startDate(FlatBufferBuilder builder) { builder.startTable(1); }
-  public static void addUnit(FlatBufferBuilder builder, short unit) { builder.addShort(0, unit, 1); }
-  public static int endDate(FlatBufferBuilder builder) {
+  public static void startRunEndEncoded(FlatBufferBuilder builder) { builder.startTable(0); }
+  public static int endRunEndEncoded(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
   }
@@ -58,8 +48,8 @@ public final class Date extends Table {
   public static final class Vector extends BaseVector {
     public Vector __assign(int _vector, int _element_size, ByteBuffer _bb) { __reset(_vector, _element_size, _bb); return this; }
 
-    public Date get(int j) { return get(new Date(), j); }
-    public Date get(Date obj, int j) {  return obj.__assign(__indirect(__element(j), bb), bb); }
+    public RunEndEncoded get(int j) { return get(new RunEndEncoded(), j); }
+    public RunEndEncoded get(RunEndEncoded obj, int j) {  return obj.__assign(__indirect(__element(j), bb), bb); }
   }
 }
 

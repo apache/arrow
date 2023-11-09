@@ -25,32 +25,24 @@ import com.google.flatbuffers.*;
 
 @SuppressWarnings("unused")
 /**
- * Date is either a 32-bit or 64-bit signed integer type representing an
- * elapsed time since UNIX epoch (1970-01-01), stored in either of two units:
+ * Logically the same as Utf8, but the internal representation uses a view
+ * struct that contains the string length and either the string's entire data
+ * inline (for small strings) or an inlined prefix, an index of another buffer,
+ * and an offset pointing to a slice in that buffer (for non-small strings).
  *
- * * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no
- *   leap seconds), where the values are evenly divisible by 86400000
- * * Days (32 bits) since the UNIX epoch
+ * Since it uses a variable number of data buffers, each Field with this type
+ * must have a corresponding entry in `variadicBufferCounts`.
  */
-public final class Date extends Table {
+public final class Utf8View extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
-  public static Date getRootAsDate(ByteBuffer _bb) { return getRootAsDate(_bb, new Date()); }
-  public static Date getRootAsDate(ByteBuffer _bb, Date obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static Utf8View getRootAsUtf8View(ByteBuffer _bb) { return getRootAsUtf8View(_bb, new Utf8View()); }
+  public static Utf8View getRootAsUtf8View(ByteBuffer _bb, Utf8View obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
-  public Date __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+  public Utf8View __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public short unit() { int o = __offset(4); return o != 0 ? bb.getShort(o + bb_pos) : 1; }
 
-  public static int createDate(FlatBufferBuilder builder,
-      short unit) {
-    builder.startTable(1);
-    Date.addUnit(builder, unit);
-    return Date.endDate(builder);
-  }
-
-  public static void startDate(FlatBufferBuilder builder) { builder.startTable(1); }
-  public static void addUnit(FlatBufferBuilder builder, short unit) { builder.addShort(0, unit, 1); }
-  public static int endDate(FlatBufferBuilder builder) {
+  public static void startUtf8View(FlatBufferBuilder builder) { builder.startTable(0); }
+  public static int endUtf8View(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
   }
@@ -58,8 +50,8 @@ public final class Date extends Table {
   public static final class Vector extends BaseVector {
     public Vector __assign(int _vector, int _element_size, ByteBuffer _bb) { __reset(_vector, _element_size, _bb); return this; }
 
-    public Date get(int j) { return get(new Date(), j); }
-    public Date get(Date obj, int j) {  return obj.__assign(__indirect(__element(j), bb), bb); }
+    public Utf8View get(int j) { return get(new Utf8View(), j); }
+    public Utf8View get(Utf8View obj, int j) {  return obj.__assign(__indirect(__element(j), bb), bb); }
   }
 }
 

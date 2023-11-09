@@ -67,27 +67,54 @@ public final class RecordBatch extends Table {
    */
   public org.apache.arrow.flatbuf.BodyCompression compression() { return compression(new org.apache.arrow.flatbuf.BodyCompression()); }
   public org.apache.arrow.flatbuf.BodyCompression compression(org.apache.arrow.flatbuf.BodyCompression obj) { int o = __offset(10); return o != 0 ? obj.__assign(__indirect(o + bb_pos), bb) : null; }
+  /**
+   * Some types such as Utf8View are represented using a variable number of buffers.
+   * For each such Field in the pre-ordered flattened logical schema, there will be
+   * an entry in variadicBufferCounts to indicate the number of number of variadic
+   * buffers which belong to that Field in the current RecordBatch.
+   *
+   * For example, the schema
+   *     col1: Struct<alpha: Int32, beta: BinaryView, gamma: Float64>
+   *     col2: Utf8View
+   * contains two Fields with variadic buffers so variadicBufferCounts will have
+   * two entries, the first counting the variadic buffers of `col1.beta` and the
+   * second counting `col2`'s.
+   *
+   * This field may be omitted if and only if the schema contains no Fields with
+   * a variable number of buffers, such as BinaryView and Utf8View.
+   */
+  public long variadicBufferCounts(int j) { int o = __offset(12); return o != 0 ? bb.getLong(__vector(o) + j * 8) : 0; }
+  public int variadicBufferCountsLength() { int o = __offset(12); return o != 0 ? __vector_len(o) : 0; }
+  public LongVector variadicBufferCountsVector() { return variadicBufferCountsVector(new LongVector()); }
+  public LongVector variadicBufferCountsVector(LongVector obj) { int o = __offset(12); return o != 0 ? obj.__assign(__vector(o), bb) : null; }
+  public ByteBuffer variadicBufferCountsAsByteBuffer() { return __vector_as_bytebuffer(12, 8); }
+  public ByteBuffer variadicBufferCountsInByteBuffer(ByteBuffer _bb) { return __vector_in_bytebuffer(_bb, 12, 8); }
 
   public static int createRecordBatch(FlatBufferBuilder builder,
       long length,
       int nodesOffset,
       int buffersOffset,
-      int compressionOffset) {
-    builder.startTable(4);
+      int compressionOffset,
+      int variadicBufferCountsOffset) {
+    builder.startTable(5);
     RecordBatch.addLength(builder, length);
+    RecordBatch.addVariadicBufferCounts(builder, variadicBufferCountsOffset);
     RecordBatch.addCompression(builder, compressionOffset);
     RecordBatch.addBuffers(builder, buffersOffset);
     RecordBatch.addNodes(builder, nodesOffset);
     return RecordBatch.endRecordBatch(builder);
   }
 
-  public static void startRecordBatch(FlatBufferBuilder builder) { builder.startTable(4); }
+  public static void startRecordBatch(FlatBufferBuilder builder) { builder.startTable(5); }
   public static void addLength(FlatBufferBuilder builder, long length) { builder.addLong(0, length, 0L); }
   public static void addNodes(FlatBufferBuilder builder, int nodesOffset) { builder.addOffset(1, nodesOffset, 0); }
   public static void startNodesVector(FlatBufferBuilder builder, int numElems) { builder.startVector(16, numElems, 8); }
   public static void addBuffers(FlatBufferBuilder builder, int buffersOffset) { builder.addOffset(2, buffersOffset, 0); }
   public static void startBuffersVector(FlatBufferBuilder builder, int numElems) { builder.startVector(16, numElems, 8); }
   public static void addCompression(FlatBufferBuilder builder, int compressionOffset) { builder.addOffset(3, compressionOffset, 0); }
+  public static void addVariadicBufferCounts(FlatBufferBuilder builder, int variadicBufferCountsOffset) { builder.addOffset(4, variadicBufferCountsOffset, 0); }
+  public static int createVariadicBufferCountsVector(FlatBufferBuilder builder, long[] data) { builder.startVector(8, data.length, 8); for (int i = data.length - 1; i >= 0; i--) builder.addLong(data[i]); return builder.endVector(); }
+  public static void startVariadicBufferCountsVector(FlatBufferBuilder builder, int numElems) { builder.startVector(8, numElems, 8); }
   public static int endRecordBatch(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
