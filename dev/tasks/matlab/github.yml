@@ -35,21 +35,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
-      - name: Install ccache
-        run: sudo apt-get install ccache
-      - name: Setup ccache
-        shell: bash
-        run: ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v3
-        with:
-          path: ${{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
-          key: matlab-ccache-ubuntu-${{ '{{' }} hashFiles('cpp/**', 'matlab/**') {{ '}}' }}
-          restore-keys: matlab-ccache-ubuntu-
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Compress into single artifact to keep directory structure
@@ -74,21 +59,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
-      - name: Install ccache
-        run: brew install ccache
-      - name: Setup ccache
-        shell: bash
-        run: ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v3
-        with:
-          path: ${{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
-          key: matlab-ccache-macos-${{ '{{' }} hashFiles('cpp/**', 'matlab/**') {{ '}}' }}
-          restore-keys: matlab-ccache-macos-
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Compress into single artifact to keep directory structure
@@ -111,26 +81,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
-      - name: Install ccache
-        shell: bash
-        run: ci/scripts/install_ccache.sh 4.6.3 /usr
-      - name: Setup ccache
-        shell: bash
-        run: ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
-          key: matlab-ccache-windows-${{ '{{' }} hashFiles('cpp/**', 'matlab/**') {{ '}}' }}
-          restore-keys: matlab-ccache-windows-
       - name: Build MATLAB Interface
         shell: cmd
         run: |
