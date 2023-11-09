@@ -49,8 +49,8 @@ env:
 
 jobs:
 
-  debian:
-    name: ${{ matrix.title }}
+  ubuntu:
+    name: AMD64 Ubuntu 22.04 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
@@ -58,23 +58,8 @@ jobs:
       fail-fast: false
       matrix:
         jdk: [8, 11, 17, 21]
-        include:
-        - jdk: 8
-          title: AMD64 Debian 9 Java JDK 8 Maven 3.5.4
-          maven: 3.5.4
-          image: debian-java
-        - jdk: 11
-          title: AMD64 Debian 9 Java JDK 11 Maven 3.6.2
-          maven: 3.6.2
-          image: debian-java
-        - jdk: 17
-          title: AMD64 Ubuntu 22.04 Java JDK 17 Maven 3.9.4
-          maven: 3.9.4
-          image: eclipse-java
-        - jdk: 21
-          title: AMD64 Ubuntu 22.04 Java JDK 21 Maven 3.9.4
-          maven: 3.9.4
-          image: eclipse-java
+        maven: [3.9.5]
+        image: [java]
     env:
       JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}

@@ -76,7 +76,7 @@ Docker compose
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
-    $ docker-compose run debian-java
+    $ docker-compose run java
 
 Archery
 ~~~~~~~
@@ -86,7 +86,7 @@ Archery
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
-    $ archery docker run debian-java
+    $ archery docker run java
 
 Building JNI Libraries (\*.dylib / \*.so / \*.dll)
 --------------------------------------------------
