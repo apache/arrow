@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._compute import (  # noqa
+from pyarrow.lib import (  # noqa
     Function,
     FunctionOptions,
     FunctionRegistry,

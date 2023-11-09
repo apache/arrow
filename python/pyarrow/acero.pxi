@@ -22,17 +22,6 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_acero cimport *
-# from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
-                          #RecordBatchReader)
-# from pyarrow.lib import frombytes, tobytes
-from pyarrow._compute cimport (
-    Expression, FunctionOptions, _ensure_field_ref, _true,
-    unwrap_null_placement, unwrap_sort_order
-)
-
 
 cdef class ExecNodeOptions(_Weakrefable):
     """

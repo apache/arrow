@@ -195,13 +195,15 @@ class build_ext(_build_ext):
         '_fs',
         '_csv',
         '_json',
-        '_compute',
+        # nocommit
+        # '_compute',
         '_cuda',
         '_flight',
         '_dataset',
         '_dataset_orc',
         '_dataset_parquet',
-        '_acero',
+        # nocommit
+        # '_acero',
         '_feather',
         '_parquet',
         '_parquet_encryption',

@@ -537,7 +537,6 @@ endif()
 
 set(CYTHON_EXTENSIONS
     lib
-    _compute
     _csv
     _feather
     _fs
@@ -588,7 +587,9 @@ if(PYARROW_BUILD_ACERO)
   endif()
 
   set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
-  # NOCOMMIT
+  # NOCOMMIT - do we need to remove?
+  message("ADDING _acero to extension")
+  message("SKIP")
   # list(APPEND CYTHON_EXTENSIONS _acero)
 endif()
 
@@ -794,10 +795,14 @@ if(PYARROW_BUILD_SUBSTRAIT)
   target_link_libraries(_substrait PRIVATE ${SUBSTRAIT_LINK_LIBS})
 endif()
 
-# NOCOMMIT
-# if(PYARROW_BUILD_ACERO)
-#   target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
-# endif()
+# NOCOMMIT - do we need to remove?
+if(PYARROW_BUILD_ACERO)
+  message("LINKING WITH ${ACERO_LINK_LIBS}")
+  #target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
+  target_link_libraries(lib PRIVATE ${ACERO_LINK_LIBS})
+else()
+    message("NO LINK")
+endif()
 
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})

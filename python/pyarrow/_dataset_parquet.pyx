@@ -33,7 +33,6 @@ from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._fs cimport FileSystem
 
-from pyarrow._compute cimport Expression, _bind
 from pyarrow._dataset cimport (
     _make_file_source,
     DatasetFactory,
@@ -53,6 +52,7 @@ from pyarrow._parquet cimport (
 )
 
 
+<<<<<<< HEAD
 try:
     from pyarrow._dataset_parquet_encryption import (
         set_encryption_config, set_decryption_config
@@ -261,7 +261,7 @@ cdef class ParquetFileFormat(FileFormat):
             vector[int] c_row_groups
 
         if partition_expression is None:
-            partition_expression = _true
+            partition_expression = Expression.wrap(_true)
 
         if row_groups is None:
             return super().make_fragment(file, filesystem,
