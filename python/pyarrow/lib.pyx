@@ -185,5 +185,8 @@ include "ipc.pxi"
 # Micro-benchmark routines
 include "benchmark.pxi"
 
+# Acero Declaration
+include "acero.pxi"
+
 # Public API
 include "public-api.pxi"

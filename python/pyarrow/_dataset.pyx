@@ -29,7 +29,6 @@ import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pac
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow._acero cimport ExecNodeOptions
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._compute import _forbid_instantiation
 from pyarrow._fs cimport FileSystem, FileSelector

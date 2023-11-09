@@ -20,11 +20,11 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/array.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
@@ -52,48 +52,52 @@ int import_pyarrow() {
 #define DEFINE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                                   \
   bool is_##FUNC_SUFFIX(PyObject* obj) { return ::pyarrow_is_##FUNC_SUFFIX(obj) != 0; } \
                                                                                         \
-  PyObject* wrap_##FUNC_SUFFIX(const std::shared_ptr<TYPE_NAME>& src) {                 \
+  PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME& src) {                                  \
     return ::pyarrow_wrap_##FUNC_SUFFIX(src);                                           \
   }                                                                                     \
-  Result<std::shared_ptr<TYPE_NAME>> unwrap_##FUNC_SUFFIX(PyObject* obj) {              \
+  Result<TYPE_NAME> unwrap_##FUNC_SUFFIX(PyObject* obj) {                               \
     auto out = ::pyarrow_unwrap_##FUNC_SUFFIX(obj);                                     \
-    if (out) {                                                                          \
+    if (IS_VALID(out)) {                                                                \
       return std::move(out);                                                            \
     } else {                                                                            \
       return UnwrapError(obj, #TYPE_NAME);                                              \
     }                                                                                   \
   }
 
-DEFINE_WRAP_FUNCTIONS(buffer, Buffer)
+#define IS_VALID(OUT) OUT
 
-DEFINE_WRAP_FUNCTIONS(data_type, DataType)
-DEFINE_WRAP_FUNCTIONS(field, Field)
-DEFINE_WRAP_FUNCTIONS(schema, Schema)
+DEFINE_WRAP_FUNCTIONS(buffer, std::shared_ptr<Buffer>)
 
-DEFINE_WRAP_FUNCTIONS(scalar, Scalar)
+DEFINE_WRAP_FUNCTIONS(data_type, std::shared_ptr<DataType>)
+DEFINE_WRAP_FUNCTIONS(field, std::shared_ptr<Field>)
+DEFINE_WRAP_FUNCTIONS(schema, std::shared_ptr<Schema>)
 
-DEFINE_WRAP_FUNCTIONS(array, Array)
-DEFINE_WRAP_FUNCTIONS(chunked_array, ChunkedArray)
+DEFINE_WRAP_FUNCTIONS(scalar, std::shared_ptr<Scalar>)
 
-DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, SparseCOOTensor)
-DEFINE_WRAP_FUNCTIONS(sparse_csc_matrix, SparseCSCMatrix)
-DEFINE_WRAP_FUNCTIONS(sparse_csf_tensor, SparseCSFTensor)
-DEFINE_WRAP_FUNCTIONS(sparse_csr_matrix, SparseCSRMatrix)
-DEFINE_WRAP_FUNCTIONS(tensor, Tensor)
+DEFINE_WRAP_FUNCTIONS(array, std::shared_ptr<Array>)
+DEFINE_WRAP_FUNCTIONS(chunked_array, std::shared_ptr<ChunkedArray>)
 
-DEFINE_WRAP_FUNCTIONS(batch, RecordBatch)
-DEFINE_WRAP_FUNCTIONS(table, Table)
+DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, std::shared_ptr<SparseCOOTensor>)
+DEFINE_WRAP_FUNCTIONS(sparse_csc_matrix, std::shared_ptr<SparseCSCMatrix>)
+DEFINE_WRAP_FUNCTIONS(sparse_csf_tensor, std::shared_ptr<SparseCSFTensor>)
+DEFINE_WRAP_FUNCTIONS(sparse_csr_matrix, std::shared_ptr<SparseCSRMatrix>)
+DEFINE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>)
+
+DEFINE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>)
+DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
+
+#undef IS_VALID
+#define IS_VALID(OUT) OUT.IsValid()
+
+DEFINE_WRAP_FUNCTIONS(declaration, acero::Declaration)
+
+#undef IS_VALID
 
 #undef DEFINE_WRAP_FUNCTIONS
 
 namespace internal {
 
 int check_status(const Status& status) { return ::pyarrow_internal_check_status(status); }
-
-PyObject* convert_status(const Status& status) {
-  DCHECK(!status.ok());
-  return ::pyarrow_internal_convert_status(status);
-}
 
 }  // namespace internal
 }  // namespace py

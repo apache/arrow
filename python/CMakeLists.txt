@@ -588,7 +588,8 @@ if(PYARROW_BUILD_ACERO)
   endif()
 
   set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
-  list(APPEND CYTHON_EXTENSIONS _acero)
+  # NOCOMMIT
+  # list(APPEND CYTHON_EXTENSIONS _acero)
 endif()
 
 # Dataset
@@ -793,9 +794,10 @@ if(PYARROW_BUILD_SUBSTRAIT)
   target_link_libraries(_substrait PRIVATE ${SUBSTRAIT_LINK_LIBS})
 endif()
 
-if(PYARROW_BUILD_ACERO)
-  target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
-endif()
+# NOCOMMIT
+# if(PYARROW_BUILD_ACERO)
+#   target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
+# endif()
 
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})

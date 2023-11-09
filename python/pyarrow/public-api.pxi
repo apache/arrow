@@ -21,6 +21,7 @@ from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
                                         CTable, CTensor,
                                         CSparseCOOTensor, CSparseCSRMatrix,
                                         CSparseCSCMatrix, CSparseCSFTensor)
+from pyarrow.includes.libarrow_acero cimport CDeclaration
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
@@ -409,7 +410,6 @@ cdef api object pyarrow_wrap_table(const shared_ptr[CTable]& ctable):
 cdef api bint pyarrow_is_batch(object batch):
     return isinstance(batch, RecordBatch)
 
-
 cdef api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
     cdef RecordBatch bat
     if pyarrow_is_batch(batch):
@@ -418,9 +418,28 @@ cdef api shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch):
 
     return shared_ptr[CRecordBatch]()
 
-
 cdef api object pyarrow_wrap_batch(
         const shared_ptr[CRecordBatch]& cbatch):
     cdef RecordBatch batch = RecordBatch.__new__(RecordBatch)
     batch.init(cbatch)
     return batch
+
+
+cdef api bint pyarrow_is_declaration(object declaration):
+    return isinstance(declaration, Declaration)
+
+cdef api CDeclaration pyarrow_unwrap_declaration(object declaration):
+    cdef Declaration d
+    if pyarrow_is_declaration(declaration):
+        d = <Declaration>(declaration)
+        return d.decl
+
+    return CDeclaration()
+
+cdef api object pyarrow_wrap_declaration(
+        const CDeclaration& declaration):
+    cdef Declaration decl = Declaration.__new__(Declaration)
+    decl.init(declaration)
+    return decl
+
+

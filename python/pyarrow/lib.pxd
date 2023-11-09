@@ -21,9 +21,12 @@ from cpython cimport PyObject
 from libcpp cimport nullptr, bool as c_bool
 from libcpp.cast cimport dynamic_cast
 from libcpp.memory cimport dynamic_pointer_cast
+from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
+from pyarrow.includes.libarrow_acero cimport *
+
 
 # Will be available in Cython 3, not backported
 # ref: https://github.com/cython/cython/issues/3293#issuecomment-1223058101
@@ -567,6 +570,29 @@ cdef class Codec(_Weakrefable):
     cdef inline CCodec* unwrap(self) nogil
 
 
+cdef class ExecNodeOptions(_Weakrefable):
+    cdef:
+        shared_ptr[CExecNodeOptions] wrapped
+    cdef void init(self, const shared_ptr[CExecNodeOptions]& sp)
+
+    cdef inline shared_ptr[CExecNodeOptions] unwrap(self) nogil
+
+
+cdef class Declaration(_Weakrefable):
+
+    cdef:
+        CDeclaration decl
+
+    cdef void init(self, const CDeclaration& c_decl)
+
+    @staticmethod
+    cdef wrap(const CDeclaration& c_decl)
+
+    cdef inline CDeclaration unwrap(self) nogil
+
+
+
+
 # This class is only used internally for now
 cdef class StopToken:
     cdef:
@@ -638,6 +664,8 @@ cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 
+cdef public object pyarrow_wrap_declaration(const CDeclaration& declaration)
+
 # Unwrapping Python -> C++
 
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
@@ -664,3 +692,5 @@ cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
 
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
+
+cdef public CDeclaration pyarrow_unwrap_declaration(object declaration)
