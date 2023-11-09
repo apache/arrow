@@ -135,11 +135,10 @@ x-hierarchy:
   - debian-go:
     - debian-go-cgo
     - debian-go-cgo-python
-  - debian-java
   - debian-js
-  - eclipse-java
   - fedora-cpp:
     - fedora-python
+  - java
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -1674,14 +1673,14 @@ services:
 
   ################################ Java #######################################
 
-  debian-java:
+  java:
     # Usage:
-    #   docker-compose build debian-java
-    #   docker-compose run debian-java
+    #   docker-compose build java
+    #   docker-compose run java
     # Parameters:
-    #   MAVEN: 3.5.4, 3.6.2
-    #   JDK: 8, 11
-    image: ${ARCH}/maven:${MAVEN}-jdk-${JDK}
+    #   MAVEN: 3.9.5
+    #   JDK: 8, 11, 17, 21
+    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
@@ -1690,18 +1689,6 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
-
-  eclipse-java:
-    # Usage:
-    #   docker-compose build eclipse-java
-    #   docker-compose run eclipse-java
-    # Parameters:
-    #   MAVEN: 3.9.4
-    #   JDK: 17, 21
-    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
-    shm_size: *shm-size
-    volumes: *java-volumes
-    command: *java-command
 
   ############################## Integration ##################################
 
