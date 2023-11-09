@@ -49,11 +49,7 @@ find_latest_nightly <- function(description_version,
       urls <- readLines(list_uri)
       versions <- grep("Version:\\s*.*?", urls, value = TRUE)
       versions <- sort(package_version(sub("Version:\\s*", "\\1", versions)))
-      major_versions <- vapply(
-        versions,
-        function(x) as.integer(x[[c(1, 1)]]),
-        integer(1)
-      )
+      major_versions <- versions$major
 
       description_version_major <- as.integer(description_version[1, 1])
       matching_major <- major_versions == description_version_major
@@ -67,7 +63,7 @@ find_latest_nightly <- function(description_version,
       }
 
       versions <- versions[matching_major]
-      versions[[length(versions)]]
+      max(versions)
     },
     silent = hush
   )
