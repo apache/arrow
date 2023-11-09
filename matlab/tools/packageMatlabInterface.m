@@ -20,5 +20,5 @@ opts.SupportedPlatforms.MatlabOnline = true;
 opts.MinimumMatlabRelease = "R2023a";
 opts.MaximumMatlabRelease = "";
 
-opts.OutputFile = fullfile(outputFolder, "arrow_matlab.mltbx");
+opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersion));
 matlab.addons.toolbox.packageToolbox(opts);
