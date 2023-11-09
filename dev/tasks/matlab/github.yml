@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
 name: MATLAB Packaging Workflow
 
 on:
@@ -175,6 +179,7 @@ jobs:
       - macos
       - windows
     steps:
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Artifacts
         uses: actions/download-artifact@v3
         with:
@@ -194,10 +199,11 @@ jobs:
             release: R2023a
       - name: Run commands
         env:
-            MATLABPATH: matlab/tools
-            ARROW_MATLAB_TOOLBOX_FOLDER: .
+            MATLABPATH: arrow/matlab/tools
+            ARROW_MATLAB_TOOLBOX_FOLDER: matlab/install/arrow_matlab
             ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts
-            ARROW_MATLAB_TOOLBOX_VERSION: 15.0.0
+            ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_version }}
         uses: matlab-actions/run-command@v1
         with:
             command: packageMatlabInterface
+           {{ macros.github_upload_releases(["artifacts/matlab-arrow-$ARROW_MATLAB_TOOLBOX_VERSION.mltbx"])|indent }}
