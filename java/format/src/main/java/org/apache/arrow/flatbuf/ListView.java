@@ -25,32 +25,20 @@ import com.google.flatbuffers.*;
 
 @SuppressWarnings("unused")
 /**
- * Date is either a 32-bit or 64-bit signed integer type representing an
- * elapsed time since UNIX epoch (1970-01-01), stored in either of two units:
- *
- * * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no
- *   leap seconds), where the values are evenly divisible by 86400000
- * * Days (32 bits) since the UNIX epoch
+ * Represents the same logical types that List can, but contains offsets and
+ * sizes allowing for writes in any order and sharing of child values among
+ * list values.
  */
-public final class Date extends Table {
+public final class ListView extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
-  public static Date getRootAsDate(ByteBuffer _bb) { return getRootAsDate(_bb, new Date()); }
-  public static Date getRootAsDate(ByteBuffer _bb, Date obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
+  public static ListView getRootAsListView(ByteBuffer _bb) { return getRootAsListView(_bb, new ListView()); }
+  public static ListView getRootAsListView(ByteBuffer _bb, ListView obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
-  public Date __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
+  public ListView __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
-  public short unit() { int o = __offset(4); return o != 0 ? bb.getShort(o + bb_pos) : 1; }
 
-  public static int createDate(FlatBufferBuilder builder,
-      short unit) {
-    builder.startTable(1);
-    Date.addUnit(builder, unit);
-    return Date.endDate(builder);
-  }
-
-  public static void startDate(FlatBufferBuilder builder) { builder.startTable(1); }
-  public static void addUnit(FlatBufferBuilder builder, short unit) { builder.addShort(0, unit, 1); }
-  public static int endDate(FlatBufferBuilder builder) {
+  public static void startListView(FlatBufferBuilder builder) { builder.startTable(0); }
+  public static int endListView(FlatBufferBuilder builder) {
     int o = builder.endTable();
     return o;
   }
@@ -58,8 +46,8 @@ public final class Date extends Table {
   public static final class Vector extends BaseVector {
     public Vector __assign(int _vector, int _element_size, ByteBuffer _bb) { __reset(_vector, _element_size, _bb); return this; }
 
-    public Date get(int j) { return get(new Date(), j); }
-    public Date get(Date obj, int j) {  return obj.__assign(__indirect(__element(j), bb), bb); }
+    public ListView get(int j) { return get(new ListView(), j); }
+    public ListView get(ListView obj, int j) {  return obj.__assign(__indirect(__element(j), bb), bb); }
   }
 }
 
