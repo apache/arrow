@@ -671,8 +671,8 @@ if(NOT MSVC)
     if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
       # with -g it uses DWARF debug info, which is really slow to build
       # on emscripten (and uses tons of memory)
-      string(REPLACE "-g" " " CMAKE_CXX_FLAGS_DEBUG  ${CMAKE_CXX_FLAGS_DEBUG} )
-      string(REPLACE "-g" " " CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG} )
+      string(REPLACE "-g" " " CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+      string(REPLACE "-g" " " CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
       string(APPEND C_DEBUG_FLAGS " -g2")
       string(APPEND CXX_DEBUG_FLAGS " -g2")
       string(APPEND C_RELWITHDEBINFO_FLAGS " -g2")
@@ -700,7 +700,7 @@ if(NOT MSVC)
       endif()
 
     endif()
-    
+
   endif()
 
   string(APPEND CMAKE_C_FLAGS_RELEASE "${C_RELEASE_FLAGS} ${ARROW_C_FLAGS_RELEASE}")
