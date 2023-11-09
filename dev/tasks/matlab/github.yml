@@ -36,7 +36,7 @@ jobs:
         with:
           release: R2023a
       - name: Build MATLAB Interface
-        run: ci/scripts/matlab_build.sh $(pwd)
+        run: arrow/ci/scripts/matlab_build.sh $(pwd)
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-matlab-ubuntu.tar.gz matlab/install/arrow_matlab
       - name: Upload artifacts
@@ -60,7 +60,7 @@ jobs:
         with:
           release: R2023a
       - name: Build MATLAB Interface
-        run: ci/scripts/matlab_build.sh $(pwd)
+        run: arrow/ci/scripts/matlab_build.sh $(pwd)
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-matlab-macos.tar.gz matlab/install/arrow_matlab
       - name: Upload artifacts
@@ -85,7 +85,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/matlab_build.sh $(pwd)"
+          bash -c "arrow/ci/scripts/matlab_build.sh $(pwd)"
       - name: Compress into single artifact to keep directory structure
         shell: bash
         run: tar -cvzf arrow-matlab-windows.tar.gz matlab/install/arrow_matlab
