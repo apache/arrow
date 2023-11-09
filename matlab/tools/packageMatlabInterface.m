@@ -19,6 +19,9 @@ toolboxFolder = string(getenv("ARROW_MATLAB_TOOLBOX_FOLDER"));
 outputFolder = string(getenv("ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER"));
 toolboxVersionRaw = string(getenv("ARROW_MATLAB_TOOLBOX_VERSION"));
 
+% Output folder must exist.
+mkdir(outputFolder);
+
 % Note: This string processing heuristic may not be robust to future
 % changes in the Arrow versioning scheme.
 dotIdx = strfind(toolboxVersionRaw, ".");
