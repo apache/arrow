@@ -128,7 +128,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            %{{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
+            ${{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
           key: matlab-ccache-windows-${{ '{{' }} hashFiles('cpp/**', 'matlab/**') {{ '}}' }}
           restore-keys: matlab-ccache-windows-
       - name: Build MATLAB Interface
