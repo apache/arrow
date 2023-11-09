@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <unordered_map>
 #include <unordered_set>
 
 #include "arrow/compute/function.h"
@@ -182,44 +181,6 @@ class ChunkedArraySorter : public TypeVisitor {
     }
     // Copy back temp area into main buffer
     std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
-  }
-
-  // Duplicate of ArrayCompareSorter
-  static Result<std::shared_ptr<Array>> RanksWithNulls(
-      const std::shared_ptr<Array>& array) {
-    // Notes:
-    // * The order is always ascending here, since the goal is to produce
-    //   an exactly-equivalent-order of the dictionary values.
-    // * We're going to re-emit nulls in the output, so we can just always consider
-    //   them "at the end".  Note that choosing AtStart would merely shift other
-    //   ranks by 1 if there are any nulls...
-    RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
-                             RankOptions::Dense);
-
-    auto data = array->data();
-    std::shared_ptr<Buffer> null_bitmap;
-    if (array->null_count() > 0) {
-      null_bitmap = array->null_bitmap();
-      data = array->data()->Copy();
-      if (data->offset > 0) {
-        ARROW_ASSIGN_OR_RAISE(
-            null_bitmap,
-            arrow::internal::CopyBitmap(arrow::default_memory_pool(), null_bitmap->data(),
-                                        data->offset, data->length));
-      }
-      data->buffers[0] = nullptr;
-      data->null_count = 0;
-    }
-    ARROW_ASSIGN_OR_RAISE(auto rank_datum,
-                          CallFunction("rank", {std::move(data)}, &rank_options));
-    auto rank_data = rank_datum.array();
-    DCHECK_EQ(rank_data->GetNullCount(), 0);
-    // If there were nulls in the input, paste them in the output
-    if (null_bitmap) {
-      rank_data->buffers[0] = std::move(null_bitmap);
-      rank_data->null_count = array->null_count();
-    }
-    return MakeArray(rank_data);
   }
 
   uint64_t* indices_begin_;
