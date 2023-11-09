@@ -25,10 +25,7 @@ jobs:
     name: AMD64 Ubuntu 20.04 MATLAB
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
@@ -49,10 +46,7 @@ jobs:
     name: AMD64 macOS 11 MATLAB
     runs-on: macos-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
         run: brew install ninja
       - name: Install MATLAB
@@ -73,10 +67,7 @@ jobs:
     name: AMD64 Windows 2022 MATLAB
     runs-on: windows-2022
     steps:
-      - name: Check out repository        
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      {{ macros.github_checkout_arrow()|indent }}
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v1
         with:
