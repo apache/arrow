@@ -35,7 +35,7 @@ jobs:
       - name: Build MATLAB Interface
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-matlab-ubuntu.tar.gz matlab/install/arrow_matlab
+        run: tar -cvzf arrow-matlab-ubuntu.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -56,7 +56,7 @@ jobs:
       - name: Build MATLAB Interface
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-matlab-macos.tar.gz matlab/install/arrow_matlab
+        run: tar -cvzf arrow-matlab-macos.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -79,7 +79,7 @@ jobs:
           bash -c "arrow/ci/scripts/matlab_build.sh $(pwd)/arrow"
       - name: Compress into single artifact to keep directory structure
         shell: bash
-        run: tar -cvzf arrow-matlab-windows.tar.gz matlab/install/arrow_matlab
+        run: tar -cvzf arrow-matlab-windows.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -112,7 +112,7 @@ jobs:
       - name: Run commands
         env:
           MATLABPATH: arrow/matlab/tools
-          ARROW_MATLAB_TOOLBOX_FOLDER: matlab/install/arrow_matlab
+          ARROW_MATLAB_TOOLBOX_FOLDER: arrow/matlab/install/arrow_matlab
           ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts
           ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_version }}
         uses: matlab-actions/run-command@v1
