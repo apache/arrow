@@ -1,4 +1,5 @@
-%TSLICE Unit tests for the slice method of arrow.array.Array
+%TSLICE Unit tests verifying the behavior of arrow.array.Array's slice
+%method.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
