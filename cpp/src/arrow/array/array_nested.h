@@ -334,8 +334,8 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
   /// \brief Return list-view sizes as an Int32Array
   ///
   /// The returned array will not have a validity bitmap, so you cannot expect
-  /// to pass it to ListArray::FromArrays() and get back the same list array
-  /// if the original one has nulls.
+  /// to pass it to ListViewArray::FromArrays() and get back the same list
+  /// array if the original one has nulls.
   std::shared_ptr<Array> sizes() const;
 
  protected:
@@ -405,9 +405,17 @@ class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewTy
       MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list-view offsets as an Int64Array
+  ///
+  /// The returned array will not have a validity bitmap, so you cannot expect
+  /// to pass it to LargeListArray::FromArrays() and get back the same list array
+  /// if the original one has nulls.
   std::shared_ptr<Array> offsets() const;
 
   /// \brief Return list-view sizes as an Int64Array
+  ///
+  /// The returned array will not have a validity bitmap, so you cannot expect
+  /// to pass it to LargeListViewArray::FromArrays() and get back the same list
+  /// array if the original one has nulls.
   std::shared_ptr<Array> sizes() const;
 
  protected:
