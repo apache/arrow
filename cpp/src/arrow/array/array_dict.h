@@ -22,6 +22,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/array/data.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -59,7 +60,6 @@ using ViewType = std::variant<std::string_view, int32_t>;
 class ARROW_EXPORT DictionaryArray : public Array {
  public:
   using TypeClass = DictionaryType;
-//  using ViewType = std::variant<std::string_view, int32_t>;
 
   explicit DictionaryArray(const std::shared_ptr<ArrayData>& data);
 
@@ -145,21 +145,12 @@ class GetViewVisitor : public TypeVisitor {
     return Status::OK();
   }
 
-//  Status Visit(const Int32Type& type) override {
-//    const auto& dict =
-//        internal::checked_cast<const Int32Type&>(*dict_array_.dictionary());
-//    view_ = dict.GetView(index_);
-//    return Status::OK();
-//  }
-
-//    Status Visit(const Int32Type& type) {
-//      const auto& dict =
-//          internal::checked_cast<const Int32Array&>(*dict_array_.dictionary());
-//      view_ = dict.GetView(index_);
-//      return Status::OK();
-//    }
-
-  // Add more types as needed...
+  Status Visit(const Int32Type& type) override {
+    const auto& array =
+        internal::checked_cast<const Int32Array&>(*dict_array_.dictionary());
+    view_ = array.GetView(index_);
+    return Status::OK();
+  }
 
   ViewType view() const { return view_; }
 
@@ -168,13 +159,6 @@ class GetViewVisitor : public TypeVisitor {
   const DictionaryArray& dict_array_;
   ViewType view_;
 };
-
-// ViewType DictionaryArray::GetView(int64_t i) const {
-//   const auto index = GetValueIndex(i);
-//   GetViewVisitor visitor(index, *this);
-//   ARROW_CHECK_OK(dictionary()->type()->Accept(&visitor));
-//   return visitor.view();
-// }
 
 /// \brief Helper class for incremental dictionary unification
 class ARROW_EXPORT DictionaryUnifier {

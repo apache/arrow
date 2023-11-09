@@ -1109,9 +1109,7 @@ TYPED_TEST(TestChunkedArraySortIndicesForDecimal, Basics) {
 template <typename ArrayType>
 class TestChunkedArraySortIndicesForString : public TestChunkedArraySortIndices {
  protected:
-  std::shared_ptr<DataType> GetType() {
-    return utf8();
-  }
+  std::shared_ptr<DataType> GetType() { return utf8(); }
 };
 
 TYPED_TEST_SUITE(TestChunkedArraySortIndicesForString, StringArrowTypes);
@@ -1150,6 +1148,34 @@ TYPED_TEST(TestChunkedArraySortIndicesForDictionary, Basics) {
                                                       R"([null, "e", "a"])",
                                                       R"(["d", null, "b"])",
                                                       R"(["c", "a"])",
+                                                  });
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtEnd,
+                    "[2, 7, 5, 6, 3, 1, 0, 4]");
+  AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtStart,
+                    "[0, 4, 2, 7, 5, 6, 3, 1]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtEnd,
+                    "[1, 3, 6, 5, 2, 7, 0, 4]");
+  AssertSortIndices(chunked_array, SortOrder::Descending, NullPlacement::AtStart,
+                    "[0, 4, 1, 3, 6, 5, 2, 7]");
+}
+
+template <typename ArrayType>
+class TestChunkedArraySortIndicesForDictionaryNumber
+    : public TestChunkedArraySortIndices {
+ protected:
+  std::shared_ptr<DataType> GetType() {
+    return dictionary(int8(), int32(), /*ordered=*/false);
+  }
+};
+
+TYPED_TEST_SUITE(TestChunkedArraySortIndicesForDictionaryNumber, DictionaryArrowTypes);
+
+TYPED_TEST(TestChunkedArraySortIndicesForDictionaryNumber, Basics) {
+  auto type = this->GetType();
+  auto chunked_array = ChunkedArrayFromJSON(type, {
+                                                      R"([null, 5, 1])",
+                                                      R"([4, null, 2])",
+                                                      R"([3, 1])",
                                                   });
   AssertSortIndices(chunked_array, SortOrder::Ascending, NullPlacement::AtEnd,
                     "[2, 7, 5, 6, 3, 1, 0, 4]");
