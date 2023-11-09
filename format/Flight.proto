@@ -571,9 +571,9 @@ message SetSessionOptionsResult {
     SET_SESSION_OPTION_RESULT_OK_MAPPED = 2;
     // The given session option name is invalid.
     SET_SESSION_OPTION_RESULT_INVALID_NAME = 3;
-    // The session cannot be set to the given value.
+    // The session name is invalid or unsupported by the server.
     SET_SESSION_OPTION_RESULT_INVALID_VALUE = 4;
-    // The session cannot be set.
+    // The session option cannot be set.
     SET_SESSION_OPTION_RESULT_ERROR = 5;
   }
 
@@ -614,7 +614,7 @@ message CloseSessionResult {
     // not known). Clients can retry the request.
     CLOSE_RESULT_UNSPECIFIED = 0;
     // The session close request is complete. Subsequent requests with
-    // a NOT_FOUND error.
+    // the same session produce a NOT_FOUND error.
     CLOSE_RESULT_CLOSED = 1;
     // The session close request is in progress. The client may retry
     // the close request.
