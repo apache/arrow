@@ -305,6 +305,15 @@ class BaseTestJSONRead:
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
+
+    def test_load_large_json(self):
+        data, expected = make_random_json(num_cols=2, num_rows=100100)
+        read_options = ReadOptions(block_size = 1024*1024*10) # 10MB
+        table = self.read_bytes(data, read_options=read_options)
+        print(table.num_rows)
+        assert table.num_rows == 100100
+        assert expected.num_rows == 100100
+
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         data_base, expected = make_random_json(num_cols=2, num_rows=100)
