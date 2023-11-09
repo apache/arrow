@@ -530,7 +530,7 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
-        ARROW_ASSIGN_OR_RAISE(bool hierarchical_namespace_enabled,
+        ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
                               hierarchical_namespace_.Enabled(path.container));
         if (hierarchical_namespace_enabled) {
           // If the hierarchical namespace is enabled, then the storage account will have
