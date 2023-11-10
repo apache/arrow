@@ -38,11 +38,12 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
                    std::shared_ptr<ServerMiddleware>* middleware);
 
   /// \brief Get a new, empty session option map and its id key.
-  std::shared_ptr<FlightSqlSession> GetNewSession(std::string* session_id);
+  std::pair<std::string, std::shared_ptr<FlightSqlSession>> GetNewSession();
 };
 
 class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
  protected:
+ std::shared_mutex lock_;
   ServerSessionMiddlewareFactory* factory_;
   const CallHeaders& headers_;
   std::shared_ptr<FlightSqlSession> session_;
@@ -75,8 +76,12 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   bool HasSession() const override { return static_cast<bool>(session_); }
 
   std::shared_ptr<FlightSqlSession> GetSession() override {
-    if (!session_)
-      session_ = factory_->GetNewSession(&session_id_);
+    const std::shared_lock<std::shared_mutex> l(lock_);
+    if (!session_) {
+      auto [id, s] = factory_->GetNewSession();
+      session_ = std::move(s);
+      session_id_ = std::move(id);
+    }
     return session_;
   }
 
@@ -157,16 +162,15 @@ Status ServerSessionMiddlewareFactory::StartCall(
 }
 
 /// \brief Get a new, empty session option map and its id key.
-std::shared_ptr<FlightSqlSession>
-ServerSessionMiddlewareFactory::GetNewSession(std::string* session_id) {
+std::pair<std::string, std::shared_ptr<FlightSqlSession>>
+ServerSessionMiddlewareFactory::GetNewSession() {
   std::string new_id = id_generator_();
-  *session_id = new_id;
   auto session = std::make_shared<FlightSqlSession>();
 
   const std::unique_lock<std::shared_mutex> l(session_store_lock_);
   session_store_[new_id] = session;
 
-  return session;
+  return {new_id, session};
 }
 
 std::shared_ptr<ServerMiddlewareFactory>
