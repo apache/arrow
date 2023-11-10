@@ -524,16 +524,16 @@ static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionVa
     if (!b.count(k)) {
       return false;
     }
-    try {
-      const auto& b_v = b.at(k);
+    if (const auto it = b.find(k); it == b.end()) {
+      return false;
+    } else {
+      const auto& b_v = it->second;
       if (v.index() != b_v.index()) {
         return false;
       }
-      if (v != b_v) {
+     if (v != b_v) {
         return false;
       }
-    } catch (const std::out_of_range& e) {
-      return false;
     }
   }
   return true;
