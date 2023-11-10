@@ -91,7 +91,7 @@ issue you want to create. Add a meaningful title prefixed with **`[R]`**
 followed by a space, the issue summary and select component **R** from the
 dropdown list. For more information, see the **Report bugs and propose
 features** section of the [Contributing to Apache
-Arrow](https://arrow.apache.org/docs/developers/contributing.html) page
+Arrow](https://arrow.apache.org/docs/developers/#contributing) page
 in the Arrow developer documentation.
 
 ## Code of Conduct
