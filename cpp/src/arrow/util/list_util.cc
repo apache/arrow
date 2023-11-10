@@ -92,27 +92,16 @@ std::optional<int64_t> MinViewOffset(const ArraySpan& input) {
 /// \param input A LIST_VIEW or LARGE_LIST_VIEW array
 template <typename offset_type>
 int64_t MaxViewEnd(const ArraySpan& input) {
-  constexpr auto kInt64Max = std::numeric_limits<int64_t>::max();
   const auto values_length = input.child_data[0].length;
 
   const uint8_t* validity = input.buffers[0].data;
   const auto* offsets = input.GetValues<offset_type>(1);
   const auto* sizes = input.GetValues<offset_type>(2);
 
-  // Early-exit: 64-bit overflow detected. This is not possible on a valid list-view,
-  // but we return the maximum possible value to avoid undefined behavior.
-#define MAX_VIEW_END_OVERFLOW_CHECK(offset, size)             \
-  if constexpr (sizeof(offset_type) == sizeof(int64_t)) {     \
-    if (ARROW_PREDICT_FALSE((offset) > kInt64Max - (size))) { \
-      return kInt64Max;                                       \
-    }                                                         \
-  }
-
 #define MAXIMIZE_MAX_VIEW_END(i)                        \
   const auto offset = static_cast<int64_t>(offsets[i]); \
   const offset_type size = sizes[i];                    \
   if (size > 0) {                                       \
-    MAX_VIEW_END_OVERFLOW_CHECK(offset, size);          \
     const int64_t end = offset + size;                  \
     if (end > max_end) {                                \
       if (end == values_length) {                       \
@@ -141,7 +130,6 @@ int64_t MaxViewEnd(const ArraySpan& input) {
   }
   return max_end;
 
-#undef MAX_VIEW_END_OVERFLOW_CHECK
 #undef MAXIMIZE_MAX_VIEW_END
 }
 
