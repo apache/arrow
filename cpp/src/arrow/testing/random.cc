@@ -635,27 +635,27 @@ enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metad
 /// \param[in] seed The seed for the random number generator
 /// \param[in,out] data The array to shuffle
 template <typename ListViewType>
-void ShuffleListViewDataInPlace(SeedType seed, ArrayData& data) {
-  DCHECK_EQ(data.type->id(), ListViewType::type_id);
+void ShuffleListViewDataInPlace(SeedType seed, ArrayData* data) {
+  DCHECK_EQ(data->type->id(), ListViewType::type_id);
   using offset_type = typename ListViewType::offset_type;
 
-  auto* validity = data.GetMutableValues<uint8_t>(0, 0);
-  auto* offsets = data.GetMutableValues<offset_type>(1);
-  auto* sizes = data.GetMutableValues<offset_type>(2);
+  auto* validity = data->GetMutableValues<uint8_t>(0, 0);
+  auto* offsets = data->GetMutableValues<offset_type>(1);
+  auto* sizes = data->GetMutableValues<offset_type>(2);
 
   pcg32_fast rng(seed);
   using UniformDist = std::uniform_int_distribution<int64_t>;
   UniformDist dist;
-  for (int64_t i = data.length - 1; i > 0; --i) {
+  for (int64_t i = data->length - 1; i > 0; --i) {
     const auto j = dist(rng, UniformDist::param_type(0, i));
     if (ARROW_PREDICT_TRUE(i != j)) {
       // Swap validity bits
       if (validity) {
-        const bool valid_i = bit_util::GetBit(validity, data.offset + i);
-        const bool valid_j = bit_util::GetBit(validity, data.offset + i);
+        const bool valid_i = bit_util::GetBit(validity, data->offset + i);
+        const bool valid_j = bit_util::GetBit(validity, data->offset + i);
         if (valid_i != valid_j) {
-          bit_util::SetBitTo(validity, data.offset + i, valid_j);
-          bit_util::SetBitTo(validity, data.offset + j, valid_i);
+          bit_util::SetBitTo(validity, data->offset + i, valid_j);
+          bit_util::SetBitTo(validity, data->offset + j, valid_i);
         }
       }
       // Swap offsets and sizes
@@ -764,8 +764,8 @@ Result<std::shared_ptr<Array>> ArrayOfListView(RAG& self, const Field& field,
 
   ARROW_ASSIGN_OR_RAISE(auto list_view_array,
                         ArrayType::FromArrays(field.type(), *offsets, *lengths, *values));
-  ShuffleListViewDataInPlace<TypeClass>(self.seed(),
-                                        const_cast<ArrayData&>(*list_view_array->data()));
+  ShuffleListViewDataInPlace<TypeClass>(
+      self.seed(), const_cast<ArrayData*>(list_view_array->data().get()));
   return list_view_array;
 }
 
@@ -816,8 +816,8 @@ Result<std::shared_ptr<Array>> RandomListView(RAG& self, const Array& values,
   ARROW_ASSIGN_OR_RAISE(
       auto list_view_array,
       ArrayType::FromArrays(*offsets_array, *sizes_array, values, memory_pool));
-  ShuffleListViewDataInPlace<TypeClass>(self.seed(),
-                                        const_cast<ArrayData&>(*list_view_array->data()));
+  ShuffleListViewDataInPlace<TypeClass>(
+      self.seed(), const_cast<ArrayData*>(list_view_array->data().get()));
   return list_view_array;
 }
 
