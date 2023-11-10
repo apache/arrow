@@ -55,6 +55,10 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       const std::string_view tok = s.substr(cur, len);
 
       const size_t val_pos = tok.find(pair_sep);
+      if (val_pos == std::string::npos) {
+        // The cookie header is somewhat malformed; ignore the key and continue parsing
+        continue;
+      }
       result.emplace_back(tok.substr(0, val_pos),
                           tok.substr(val_pos + pair_sep_len, std::string::npos));
     }
