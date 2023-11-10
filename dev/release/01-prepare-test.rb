@@ -246,11 +246,33 @@ class PrepareTest < Test::Unit::TestCase
             ]
           ],
         },
+        {
+          path: "r/pkgdown/assets/versions.html",
+          hunks: [
+            [
+              "-    <p><a href="../r/">14.0.0 (release)</a>",
+              "+        \"name\": \"#{@previous_r_version}\",",
+              "+        \"version\": \"#{@previous_compatible_version}/\"",
+              "+    },",
+            ]
+          ],
+        },
       ]
     else
       expected_changes += [
         {
           path: "r/pkgdown/assets/versions.json",
+          hunks: [
+            [
+              "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+              "+        \"name\": \"#{@release_version}.9000 (dev)\",",
+              "-        \"name\": \"#{@previous_r_version} (release)\",",
+              "+        \"name\": \"#{@release_version} (release)\",",
+            ]
+          ],
+        },
+        {
+          path: "r/pkgdown/assets/versions.html",
           hunks: [
             [
               "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
