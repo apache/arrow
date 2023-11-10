@@ -22,6 +22,8 @@ toolboxVersionRaw = string(getenv("ARROW_MATLAB_TOOLBOX_VERSION"));
 % Output folder must exist.
 mkdir(outputFolder);
 
+disp("Output Folder: " + outputFolder);
+
 % Note: This string processing heuristic may not be robust to future
 % changes in the Arrow versioning scheme.
 dotIdx = strfind(toolboxVersionRaw, ".");
@@ -51,4 +53,7 @@ opts.MinimumMatlabRelease = "R2023a";
 opts.MaximumMatlabRelease = "";
 
 opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
+disp("Output File: " + opts.OutputFile);
 matlab.addons.toolbox.packageToolbox(opts);
+
+disp("Is File " + isfile(opts.OutputFile));
