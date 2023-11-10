@@ -250,10 +250,11 @@ class PrepareTest < Test::Unit::TestCase
           path: "r/pkgdown/assets/versions.html",
           hunks: [
             [
-              "-    <p><a href="../r/">14.0.0 (release)</a>",
-              "+        \"name\": \"#{@previous_r_version}\",",
-              "+        \"version\": \"#{@previous_compatible_version}/\"",
-              "+    },",
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
+              "+<p><a href=\"../14.0/r/\">14.0.0</a></p>"
             ]
           ],
         },
@@ -275,10 +276,10 @@ class PrepareTest < Test::Unit::TestCase
           path: "r/pkgdown/assets/versions.html",
           hunks: [
             [
-              "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-              "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-              "-        \"name\": \"#{@previous_r_version} (release)\",",
-              "+        \"name\": \"#{@release_version} (release)\",",
+              "-<body><p><a href=\"../dev/r/\">#{@previous_version}.9000 (dev)</a></p>",
+              "-<p><a href=\"../r/\">#{@previous_version} (release)</a></p>",
+              "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
+              "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>"
             ]
           ],
         },
