@@ -790,7 +790,7 @@ class HandlerBase : public BlockParser,
           return ParseError(rj::GetParseError_En(ok.Code()), " in row ", num_rows_);
       }
     }
-    return Status::Invalid("Exceeded maximum rows");
+    return Status::Invalid("Row count overflowed int32_t");
   }
 
   template <typename Handler>
