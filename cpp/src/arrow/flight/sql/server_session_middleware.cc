@@ -21,6 +21,8 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+using namespace std::string_literals;
+
 namespace arrow {
 namespace flight {
 namespace sql {
@@ -80,7 +82,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       for (const std::pair<std::string, std::string>& cookie : cookies) {
         if (cookie.first == kSessionCookieName) {
           if (cookie.second.empty())
-            return Status::Invalid("Empty " +
+            return Status::Invalid("Empty "s +
                                    static_cast<std::string>(kSessionCookieName) +
                                    " cookie value.");
           session_id = std::move(cookie.second);
