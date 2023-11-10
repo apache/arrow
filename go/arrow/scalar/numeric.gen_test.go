@@ -21,8 +21,8 @@ package scalar_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/scalar"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 )
 

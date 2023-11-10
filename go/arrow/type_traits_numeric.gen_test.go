@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v15/arrow"
 )
 
 func TestInt64Traits(t *testing.T) {

@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/memory/mallocator"
+	"github.com/apache/arrow/go/v15/arrow/memory/mallocator"
 	"github.com/stretchr/testify/assert"
 )
 

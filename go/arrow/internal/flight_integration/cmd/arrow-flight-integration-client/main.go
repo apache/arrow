@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/flight_integration"
+	"github.com/apache/arrow/go/v15/arrow/internal/flight_integration"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

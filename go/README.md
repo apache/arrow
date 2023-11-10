@@ -20,7 +20,7 @@
 Apache Arrow for Go
 ===================
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/apache/arrow/go/v14.svg)](https://pkg.go.dev/github.com/apache/arrow/go/v14)
+[![Go Reference](https://pkg.go.dev/badge/github.com/apache/arrow/go/v15.svg)](https://pkg.go.dev/github.com/apache/arrow/go/v15)
 
 [Apache Arrow][arrow] is a cross-language development platform for in-memory
 data. It specifies a standardized language-independent columnar memory format

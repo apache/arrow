@@ -22,14 +22,14 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/debug"
-	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata statistics_types.gen.go.tmpl

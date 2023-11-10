@@ -22,8 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
 	"github.com/stretchr/testify/suite"
 )
 

@@ -20,9 +20,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
-	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/internal/utils"
 	"github.com/stretchr/testify/suite"
 )
 

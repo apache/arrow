@@ -23,7 +23,7 @@ import (
 	"github.com/klauspost/cpuid/v2"
 	// import for side effect of initializing feature flags
 	// based on ARM_ENABLE_EXT env var
-	_ "github.com/apache/arrow/go/v14/parquet/internal/bmi"
+	_ "github.com/apache/arrow/go/v15/parquet/internal/bmi"
 )
 
 func init() {

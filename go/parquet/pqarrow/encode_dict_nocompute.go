@@ -21,8 +21,8 @@ package pqarrow
 import (
 	"errors"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/parquet/file"
 )
 
 func writeDictionaryArrow(*arrowWriteContext, file.ColumnChunkWriter, arrow.Array, []int16, []int16, bool) (err error) {
