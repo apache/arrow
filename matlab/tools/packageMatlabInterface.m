@@ -41,13 +41,8 @@ disp("Toolbox Version:" + toolboxVersion);
 identifier = "ARROW-MATLAB-TOOLBOX";
 
 opts = matlab.addons.toolbox.ToolboxOptions(toolboxFolder, identifier);
-disp("ToolboxMatlabPath Post Construction: " + opts.ToolboxMatlabPath);
-
 opts.ToolboxName = "MATLAB Interface to Arrow";
 opts.ToolboxVersion = toolboxVersion;
-opts.ToolboxMatlabPath = toolboxFolder;
-
-disp("ToolboxMatlabPath Post Set: " + opts.ToolboxMatlabPath);
 
 % Set the SupportedPlatforms
 opts.SupportedPlatforms.Win64 = true;
