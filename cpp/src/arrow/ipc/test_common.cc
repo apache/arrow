@@ -196,7 +196,8 @@ Status MakeRandomListViewArray(const std::shared_ptr<Array>& child_array, int nu
   random::RandomArrayGenerator rand(seed);
 
   const double null_probability = include_nulls ? 0.5 : 0.0;
-  *out = rand.ListView(*child_array, num_lists, null_probability, false, 0.9,
+  *out = rand.ListView(*child_array, /*length=*/num_lists, null_probability,
+                       /*force_empty_nulls=*/false, /*coverage=*/0.9,
                        kDefaultBufferAlignment, pool);
   return Status::OK();
 }
@@ -208,8 +209,9 @@ Status MakeRandomLargeListViewArray(const std::shared_ptr<Array>& child_array,
   random::RandomArrayGenerator rand(seed);
 
   const double null_probability = include_nulls ? 0.5 : 0.0;
-  *out = rand.LargeListView(*child_array, num_lists, null_probability, false, 0.9,
-                            kDefaultBufferAlignment, pool);
+  *out = rand.LargeListView(*child_array, /*length=*/num_lists, null_probability,
+                            /*force_empty_nulls=*/false,
+                            /*force_empty_nulls=*/0.9, kDefaultBufferAlignment, pool);
   return Status::OK();
 }
 
