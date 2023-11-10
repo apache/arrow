@@ -27,7 +27,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
-        run: sudo apt-get update && apt-get install ninja-build
+        run: sudo apt-get update && sudo apt-get install ninja-build
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v1
         with:
