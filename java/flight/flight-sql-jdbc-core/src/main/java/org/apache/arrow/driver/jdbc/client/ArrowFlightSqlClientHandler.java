@@ -49,6 +49,8 @@ import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.Meta.StatementType;
 import org.slf4j.Logger;
@@ -206,6 +208,15 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      */
     Schema getDataSetSchema();
 
+    /**
+     * Gets the {@link Schema} of the parameters for this {@link PreparedStatement}.
+     *
+     * @return {@link Schema}.
+     */
+    Schema getParameterSchema();
+
+    void setParameters(VectorSchemaRoot parameters);
+
     @Override
     void close();
   }
@@ -239,6 +250,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       @Override
       public Schema getDataSetSchema() {
         return preparedStatement.getResultSetSchema();
+      }
+
+      @Override
+      public Schema getParameterSchema() {
+        return preparedStatement.getParameterSchema();
+      }
+
+      @Override
+      public void setParameters(VectorSchemaRoot parameters) {
+        preparedStatement.setParameters(parameters);
       }
 
       @Override
@@ -405,18 +426,59 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private final Set<CallOption> options = new HashSet<>();
     private String host;
     private int port;
-    private String username;
-    private String password;
-    private String trustStorePath;
-    private String trustStorePassword;
-    private String token;
-    private boolean useEncryption;
-    private boolean disableCertificateVerification;
-    private boolean useSystemTrustStore;
+
+    @VisibleForTesting
+    String username;
+
+    @VisibleForTesting
+    String password;
+
+    @VisibleForTesting
+    String trustStorePath;
+
+    @VisibleForTesting
+    String trustStorePassword;
+
+    @VisibleForTesting
+    String token;
+
+    @VisibleForTesting
+    boolean useEncryption = true;
+
+    @VisibleForTesting
+    boolean disableCertificateVerification;
+
+    @VisibleForTesting
+    boolean useSystemTrustStore = true;
+
+    @VisibleForTesting
+    String tlsRootCertificatesPath;
+
+    @VisibleForTesting
+    String clientCertificatePath;
+
+    @VisibleForTesting
+    String clientKeyPath;
+
+    @VisibleForTesting
     private BufferAllocator allocator;
 
-    public Builder() {
+    @VisibleForTesting
+    boolean retainCookies = true;
 
+    @VisibleForTesting
+    boolean retainAuth = true;
+
+    // These two middlewares are for internal use within build() and should not be exposed by builder APIs.
+    // Note that these middlewares may not necessarily be registered.
+    @VisibleForTesting
+    ClientIncomingAuthHeaderMiddleware.Factory authFactory
+        = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+
+    @VisibleForTesting
+    ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
+
+    public Builder() {
     }
 
     /**
@@ -424,7 +486,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      *
      * @param original The builder to base this copy off of.
      */
-    private Builder(Builder original) {
+    @VisibleForTesting
+    Builder(Builder original) {
       this.middlewareFactories.addAll(original.middlewareFactories);
       this.options.addAll(original.options);
       this.host = original.host;
@@ -437,7 +500,18 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       this.useEncryption = original.useEncryption;
       this.disableCertificateVerification = original.disableCertificateVerification;
       this.useSystemTrustStore = original.useSystemTrustStore;
+      this.tlsRootCertificatesPath = original.tlsRootCertificatesPath;
+      this.clientCertificatePath = original.clientCertificatePath;
+      this.clientKeyPath = original.clientKeyPath;
       this.allocator = original.allocator;
+
+      if (original.retainCookies) {
+        this.cookieFactory = original.cookieFactory;
+      }
+
+      if (original.retainAuth) {
+        this.authFactory = original.authFactory;
+      }
     }
 
     /**
@@ -540,7 +614,42 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Sets the token used in the token authetication.
+     * Sets the TLS root certificate path as an alternative to using the System
+     * or other Trust Store.  The path must contain a valid PEM file.
+     *
+     * @param tlsRootCertificatesPath the TLS root certificate path (if TLS is required).
+     * @return this instance.
+     */
+    public Builder withTlsRootCertificates(final String tlsRootCertificatesPath) {
+      this.tlsRootCertificatesPath = tlsRootCertificatesPath;
+      return this;
+    }
+
+    /**
+     * Sets the mTLS client certificate path (if mTLS is required).
+     *
+     * @param clientCertificatePath the mTLS client certificate path (if mTLS is required).
+     * @return this instance.
+     */
+    public Builder withClientCertificate(final String clientCertificatePath) {
+      this.clientCertificatePath = clientCertificatePath;
+      return this;
+    }
+
+    /**
+     * Sets the mTLS client certificate private key path (if mTLS is required).
+     *
+     * @param clientKeyPath the mTLS client certificate private key path (if mTLS is required).
+     * @return this instance.
+     */
+    public Builder withClientKey(final String clientKeyPath) {
+      this.clientKeyPath = clientKeyPath;
+      return this;
+    }
+    
+    /**
+     * Sets the token used in the token authentication.
+     *
      * @param token the token value.
      * @return      this builder instance.
      */
@@ -558,6 +667,28 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     public Builder withBufferAllocator(final BufferAllocator allocator) {
       this.allocator = allocator
           .newChildAllocator("ArrowFlightSqlClientHandler", 0, allocator.getLimit());
+      return this;
+    }
+
+    /**
+     * Indicates if cookies should be re-used by connections spawned for getStreams() calls.
+     * @param retainCookies The flag indicating if cookies should be re-used.
+     * @return      this builder instance.
+     */
+    public Builder withRetainCookies(boolean retainCookies) {
+      this.retainCookies = retainCookies;
+      return this;
+    }
+
+    /**
+     * Indicates if bearer tokens negotiated should be re-used by connections
+     * spawned for getStreams() calls.
+     *
+     * @param retainAuth The flag indicating if auth tokens should be re-used.
+     * @return      this builder instance.
+     */
+    public Builder withRetainAuth(boolean retainAuth) {
+      this.retainAuth = retainAuth;
       return this;
     }
 
@@ -614,13 +745,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       // Copy middlewares so that the build method doesn't change the state of the builder fields itself.
       Set<FlightClientMiddleware.Factory> buildTimeMiddlewareFactories = new HashSet<>(this.middlewareFactories);
       FlightClient client = null;
+      boolean isUsingUserPasswordAuth = username != null && token == null;
 
       try {
-        ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
         // Token should take priority since some apps pass in a username/password even when a token is provided
-        if (username != null && token == null) {
-          authFactory =
-              new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+        if (isUsingUserPasswordAuth) {
           buildTimeMiddlewareFactories.add(authFactory);
         }
         final FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
@@ -640,7 +769,10 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           if (disableCertificateVerification) {
             clientBuilder.verifyServer(false);
           } else {
-            if (useSystemTrustStore) {
+            if (tlsRootCertificatesPath != null) {
+              clientBuilder.trustedCertificates(
+                      ClientAuthenticationUtils.getTlsRootCertificatesStream(tlsRootCertificatesPath));
+            } else if (useSystemTrustStore) {
               clientBuilder.trustedCertificates(
                   ClientAuthenticationUtils.getCertificateInputStreamFromSystem(trustStorePassword));
             } else if (trustStorePath != null) {
@@ -648,14 +780,27 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
                   ClientAuthenticationUtils.getCertificateStream(trustStorePath, trustStorePassword));
             }
           }
+
+          if (clientCertificatePath != null && clientKeyPath != null) {
+            clientBuilder.clientCertificate(
+                ClientAuthenticationUtils.getClientCertificateStream(clientCertificatePath),
+                ClientAuthenticationUtils.getClientKeyStream(clientKeyPath));
+          }
         }
 
         client = clientBuilder.build();
         final ArrayList<CallOption> credentialOptions = new ArrayList<>();
-        if (authFactory != null) {
-          credentialOptions.add(
-              ClientAuthenticationUtils.getAuthenticate(
-                      client, username, password, authFactory, options.toArray(new CallOption[0])));
+        if (isUsingUserPasswordAuth) {
+          // If the authFactory has already been used for a handshake, use the existing token.
+          // This can occur if the authFactory is being re-used for a new connection spawned for getStream().
+          if (authFactory.getCredentialCallOption() != null) {
+            credentialOptions.add(authFactory.getCredentialCallOption());
+          } else {
+            // Otherwise do the handshake and get the token if possible.
+            credentialOptions.add(
+                ClientAuthenticationUtils.getAuthenticate(
+                    client, username, password, authFactory, options.toArray(new CallOption[0])));
+          }
         } else if (token != null) {
           credentialOptions.add(
               ClientAuthenticationUtils.getAuthenticate(

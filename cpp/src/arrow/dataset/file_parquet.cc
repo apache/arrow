@@ -504,11 +504,6 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                                                          default_fragment_scan_options));
   auto properties = MakeReaderProperties(*this, parquet_scan_options.get(), source.path(),
                                          source.filesystem(), options->pool);
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
-  auto reader_fut = parquet::ParquetFileReader::OpenAsync(
-      std::move(input), std::move(properties), metadata);
-  auto path = source.path();
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
 
   return source.OpenAsync().Then(
