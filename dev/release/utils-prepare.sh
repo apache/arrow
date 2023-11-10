@@ -171,5 +171,6 @@ update_versions() {
                      "${next_version}"
   git add docs/source/_static/versions.json
   git add r/pkgdown/assets/versions.json
+  git add r/pkgdown/assets/versions.html
   popd
 }
