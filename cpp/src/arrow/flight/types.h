@@ -771,11 +771,20 @@ using SessionOptionValue = std::variant<std::string, bool, int32_t, int64_t, flo
 
 /// \brief The result of setting a session option.
 enum class SetSessionOptionStatus : int8_t {
+  /// \brief The status of setting the option is unknown.
+  ///
+  /// Servers should avoid using this value (send a NOT_FOUND error if the requested
+  /// query is not known). Clients can retry the request.
   kUnspecified,
+  // The session option setting completed successfully.
   kOk,
+  /// \brief The given session option name was an alias for another option name.
   kOkMapped,
+  /// \brief The given session option name is invalid.
   kInvalidKey,
+  /// \brief The session option value is invalid.
   kInvalidValue,
+  /// \brief The session option cannot be set.
   kError
 };
 std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r);
