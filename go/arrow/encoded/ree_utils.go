@@ -20,7 +20,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v15/arrow"
 )
 
 // FindPhysicalIndex performs a binary search on the run-ends to return
