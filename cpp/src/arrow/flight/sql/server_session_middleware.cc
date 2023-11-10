@@ -190,9 +190,9 @@ MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen) {
 }
 
 void FlightSqlSession::SetSessionOption(const std::string& k,
-                                        const SessionOptionValue& v) {
+                                        const SessionOptionValue v) {
   const std::unique_lock<std::shared_mutex> l(map_lock_);
-  map_[k] = v;
+  map_[k] = std::move(v);
 }
 
 void FlightSqlSession::EraseSessionOption(const std::string& k) {
