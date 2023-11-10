@@ -220,7 +220,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
               "-<p><a href=\"../r/\">#{@previous_version} (release)</a></p>",
               "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
               "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
-              "+<p><a href=\"../14.0/r/\">14.0.0</a></p>"
+              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_version}</a></p>"
             ]
           ],
         },
