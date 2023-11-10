@@ -21,8 +21,6 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
-using namespace std::string_literals;
-
 namespace arrow {
 namespace flight {
 namespace sql {
