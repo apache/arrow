@@ -2558,7 +2558,8 @@ def test_partition_nth_null_placement():
 
 
 def test_select_k_array():
-    def validate_select_k(select_k_indices, arr, order, null_placement="at_end", stable_sort=False):
+    def validate_select_k(select_k_indices, arr, order, null_placement="at_end",
+                          stable_sort=False):
         sorted_indices = pc.sort_indices(
             arr, sort_keys=[("dummy", order, null_placement)])
         head_k_indices = sorted_indices.slice(0, len(select_k_indices))
@@ -2618,9 +2619,11 @@ def test_select_k_table():
         validate_select_k(result, table, sort_keys=[("a", "ascending", "at_end")])
 
         result = pc.select_k_unstable(
-            table, k=k, sort_keys=[(pc.field("a"), "ascending", "at_end"), ("b", "ascending", "at_end")])
+            table, k=k, sort_keys=[(pc.field("a"), "ascending", "at_end"),
+                                   ("b", "ascending", "at_end")])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending", "at_end"), ("b", "ascending", "at_end")])
+            result, table, sort_keys=[("a", "ascending", "at_end"),
+                                      ("b", "ascending", "at_end")])
 
         result = pc.top_k_unstable(table, k=k, sort_keys=[
                                    "a"], null_placements=["at_end"])
@@ -2629,7 +2632,8 @@ def test_select_k_table():
         result = pc.bottom_k_unstable(
             table, k=k, sort_keys=["a", "b"], null_placements=["at_end", "at_start"])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending", "at_end"), ("b", "ascending", "at_start")])
+            result, table, sort_keys=[("a", "ascending", "at_end"), ("b", "ascending",
+                                                                     "at_start")])
 
     with pytest.raises(
             ValueError,
@@ -2710,7 +2714,8 @@ def test_sort_indices_table():
     )
     assert result.to_pylist() == [1, 0, 3, 2]
     result = pc.sort_indices(
-        table, sort_keys=[("a", "descending", "at_start"), ("b", "ascending", "at_start")])
+        table, sort_keys=[("a", "descending", "at_start"), ("b", "ascending",
+                                                            "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
     # Positional `sort_keys`
     result = pc.sort_indices(

@@ -5453,10 +5453,10 @@ TEST(Substrait, MixedSort) {
   auto test_schema = schema({field("A", int32()), field("B", int32())});
 
   auto input_table = TableFromJSON(test_schema, {R"([
-      [null, null],
+      [null, 10],
       [5, 8],
       [null, null],
-      [null, null],
+      [null, 3],
       [3, 4],
       [9, 6],
       [4, 5]
@@ -5475,6 +5475,18 @@ TEST(Substrait, MixedSort) {
   ASSERT_OK_AND_ASSIGN(
       auto plan_info, DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
                                       conversion_options));
+  ASSERT_OK_AND_ASSIGN(auto result_table,
+                       DeclarationToTable(std::move(plan_info.root.declaration)));
+  auto expected_table = TableFromJSON(test_schema, {R"([
+      [null, 3],
+      [null, 10],
+      [null, null],
+      [3, 4],
+      [4, 5],
+      [5, 8],
+      [9, 6]
+  ])"});
+  AssertTablesEqual(*result_table, *expected_table);
 }
 
 TEST(Substrait, PlanWithExtension) {

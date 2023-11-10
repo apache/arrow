@@ -65,6 +65,7 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
 
 class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
  public:
+  /// DEPRECATED(null_placement has been removed, please use SortKey.null_placement)
   explicit Ordering(std::vector<SortKey> sort_keys) : sort_keys_(std::move(sort_keys)) {}
   /// true if data ordered by other is also ordered by this
   ///

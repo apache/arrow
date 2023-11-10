@@ -545,7 +545,8 @@ def fill_null(values, fill_value):
     return call_function("coalesce", [values, fill_value])
 
 
-def top_k_unstable(values, k, sort_keys=None, null_placements=None, *, memory_pool=None):
+def top_k_unstable(
+        values, k, sort_keys=None, null_placements=None, *, memory_pool=None):
     """
     Select the indices of the top-k ordered elements from array- or table-like
     data.
@@ -596,7 +597,8 @@ def top_k_unstable(values, k, sort_keys=None, null_placements=None, *, memory_po
     return call_function("select_k_unstable", [values], options, memory_pool)
 
 
-def bottom_k_unstable(values, k, sort_keys=None, null_placements=None, *, memory_pool=None):
+def bottom_k_unstable(
+        values, k, sort_keys=None, null_placements=None, *, memory_pool=None):
     """
     Select the indices of the bottom-k ordered elements from
     array- or table-like data.

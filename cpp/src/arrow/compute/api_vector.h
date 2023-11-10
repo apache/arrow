@@ -105,6 +105,7 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
 
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
+  /// DEPRECATED(null_placement has been removed, please use SortKey.null_placement)
   explicit SortOptions(std::vector<SortKey> sort_keys = {});
   explicit SortOptions(const Ordering& ordering);
   static constexpr char const kTypeName[] = "SortOptions";
@@ -173,6 +174,7 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     Dense
   };
 
+  /// DEPRECATED(null_placement has been removed, please use SortKey.null_placement)
   explicit RankOptions(std::vector<SortKey> sort_keys = {},
                        Tiebreaker tiebreaker = RankOptions::First);
   /// Convenience constructor for array inputs
