@@ -26,16 +26,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/float16"
-	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/float16"
+	"github.com/apache/arrow/go/v14/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 type Schema struct {
