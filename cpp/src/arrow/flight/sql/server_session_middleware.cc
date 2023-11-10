@@ -35,6 +35,59 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
   boost::uuids::random_generator uuid_generator_;
 
   std::vector<std::pair<std::string, std::string>> ParseCookieString(
+      const std::string_view& s);
+
+ public:
+  Status StartCall(const CallInfo&, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware);
+
+  /// \brief Get a new, empty session option map and its id key.
+  std::shared_ptr<FlightSqlSession> GetNewSession(std::string* session_id);
+};
+
+class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
+ protected:
+  ServerSessionMiddlewareFactory* factory_;
+  const CallHeaders& headers_;
+  std::shared_ptr<FlightSqlSession> session_;
+  std::string session_id_;
+  const bool existing_session;
+
+ public:
+  ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
+      const CallHeaders& headers)
+      : factory_(factory), headers_(headers), existing_session(false) {}
+
+  ServerSessionMiddlewareImpl(
+      ServerSessionMiddlewareFactory* factory, const CallHeaders& headers,
+      std::shared_ptr<FlightSqlSession> session, std::string session_id)
+      : factory_(factory),
+        headers_(headers),
+        session_(std::move(session)),
+        session_id_(std::move(session_id)),
+        existing_session(true) {}
+
+  void SendingHeaders(AddCallHeaders* add_call_headers) override {
+    if (!existing_session && session_) {
+     add_call_headers->AddHeader(
+         "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
+    }
+  }
+
+  void CallCompleted(const Status&) override {}
+
+  bool HasSession() const override { return static_cast<bool>(session_); }
+
+  std::shared_ptr<FlightSqlSession> GetSession() override {
+    if (!session_)
+      session_ = factory_->GetNewSession(&session_id_);
+    return session_;
+  }
+
+  const CallHeaders& GetCallHeaders() const override { return headers_; }
+};
+
+  std::vector<std::pair<std::string, std::string>> ServerSessionMiddlewareFactory::ParseCookieString(
       const std::string_view& s) {
     const std::string list_sep = "; ";
     const std::string pair_sep = "=";
@@ -68,8 +121,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
     return result;
   }
 
- public:
-  Status StartCall(const CallInfo&, const CallHeaders& incoming_headers,
+  Status ServerSessionMiddlewareFactory::StartCall(const CallInfo&, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware) {
     std::string session_id;
 
@@ -82,7 +134,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       for (const std::pair<std::string, std::string>& cookie : cookies) {
         if (cookie.first == kSessionCookieName) {
           if (cookie.second.empty())
-            return Status::Invalid("Empty "s + kSessionCookieName + " cookie value.");
+            return Status::Invalid("Empty ", kSessionCookieName, " cookie value.");
           session_id = std::move(cookie.second);
         }
       }
@@ -91,16 +143,15 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
 
     if (session_id.empty()) {
       // No cookie was found
-      *middleware = std::shared_ptr<ServerSessionMiddleware>(  // PHOXME needs to be properly pimpl w/ public constructor to make_shared (then fix that)
-          new ServerSessionMiddleware(this, incoming_headers));
+      *middleware = std::make_shared<ServerSessionMiddlewareImpl>(this, incoming_headers);
     } else {
-      try {
-        const std::shared_lock<std::shared_mutex> l(session_store_lock_);
+      const std::shared_lock<std::shared_mutex> l(session_store_lock_);
+      if (!session_store_.count(session_id)) {
+        return Status::Invalid("Invalid or expired ", kSessionCookieName, " cookie.");
+      } else {
         auto session = session_store_.at(session_id);
-        *middleware = std::shared_ptr<ServerSessionMiddleware>(
-            new ServerSessionMiddleware(this, incoming_headers, session, session_id));
-      } catch (std::out_of_range& e) {
-        return Status::Invalid("Invalid or expired "s + kSessionCookieName + " cookie.");
+        *middleware = std::make_shared<ServerSessionMiddlewareImpl>(
+          this, incoming_headers, std::move(session), session_id);
       }
     }
 
@@ -108,7 +159,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
   }
 
   /// \brief Get a new, empty session option map and its id key.
-  std::shared_ptr<FlightSqlSession> GetNewSession(std::string* session_id) {
+  std::shared_ptr<FlightSqlSession> ServerSessionMiddlewareFactory::GetNewSession(std::string* session_id) {
     std::string new_id = boost::lexical_cast<std::string>(uuid_generator_());
     *session_id = new_id;
     auto session = std::make_shared<FlightSqlSession>();
@@ -118,50 +169,19 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
 
     return session;
   }
-};
 
-ServerSessionMiddleware::ServerSessionMiddleware(ServerSessionMiddlewareFactory* factory,
-                                                 const CallHeaders& headers)
-    : factory_(factory), headers_(headers), existing_session(false) {}
-
-ServerSessionMiddleware::ServerSessionMiddleware(
-    ServerSessionMiddlewareFactory* factory, const CallHeaders& headers,
-    std::shared_ptr<FlightSqlSession> session, std::string session_id)
-    : factory_(factory),
-      headers_(headers),
-      session_(std::move(session)),
-      session_id_(std::move(session_id)),
-      existing_session(true) {}
-
-void ServerSessionMiddleware::SendingHeaders(AddCallHeaders* add_call_headers) {
-  if (!existing_session && session_) {
-    add_call_headers->AddHeader(
-        "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
-  }
-}
-
-void ServerSessionMiddleware::CallCompleted(const Status&) {}
-
-bool ServerSessionMiddleware::HasSession() const { return static_cast<bool>(session_); }
-
-std::shared_ptr<FlightSqlSession> ServerSessionMiddleware::GetSession() {
-  if (!session_) session_ = factory_->GetNewSession(&session_id_);
-  return session_;
-}
-
-const CallHeaders& ServerSessionMiddleware::GetCallHeaders() const { return headers_; }
 
 std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
   return std::make_shared<ServerSessionMiddlewareFactory>();
 }
 
-::arrow::Result<SessionOptionValue> FlightSqlSession::GetSessionOption(
+::arrow::Result<std::optional<SessionOptionValue>> FlightSqlSession::GetSessionOption(
     const std::string& k) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
-  try {
+  if (map_.count(k)) {
     return map_.at(k);
-  } catch (const std::out_of_range& e) {
-    return ::arrow::Status::KeyError("Session option key '" + k + "' not found.");
+  } else {
+    return std::nullopt;
   }
 }
 
