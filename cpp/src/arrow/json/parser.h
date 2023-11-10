@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <limits>
 
 #include "arrow/json/options.h"
 #include "arrow/status.h"
