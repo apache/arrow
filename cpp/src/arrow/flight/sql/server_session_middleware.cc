@@ -91,7 +91,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
 
     if (session_id.empty()) {
       // No cookie was found
-      *middleware = std::shared_ptr<ServerSessionMiddleware>(
+      *middleware = std::shared_ptr<ServerSessionMiddleware>(  // PHOXME needs to be properly pimpl w/ public constructor to make_shared (then fix that)
           new ServerSessionMiddleware(this, incoming_headers));
     } else {
       try {
@@ -152,8 +152,7 @@ std::shared_ptr<FlightSqlSession> ServerSessionMiddleware::GetSession() {
 const CallHeaders& ServerSessionMiddleware::GetCallHeaders() const { return headers_; }
 
 std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
-  return std::shared_ptr<ServerSessionMiddlewareFactory>(
-      new ServerSessionMiddlewareFactory());
+  return std::make_shared<ServerSessionMiddlewareFactory>();
 }
 
 ::arrow::Result<SessionOptionValue> FlightSqlSession::GetSessionOption(
