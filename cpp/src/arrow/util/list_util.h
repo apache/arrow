@@ -25,10 +25,6 @@
 
 namespace arrow {
 namespace list_util {
-
-/// \brief Get the child array holding the values from a List or ListView array
-inline const ArraySpan& ValuesArray(const ArraySpan& span) { return span.child_data[0]; }
-
 namespace internal {
 
 /// \brief Calculate the smallest continuous range of values used by the
