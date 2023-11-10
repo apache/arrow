@@ -15,73 +15,54 @@
 // specific language governing permissions and limitations
 // under the License
 
-#include "llvm/IR/Type.h"
+#include <llvm/IR/Type.h>
 
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 
 namespace gandiva {
-static arrow::Result<llvm::Type*> AsLLVMType(const DataTypePtr& from_type,
-                                             LLVMTypes* types) {
-  switch (from_type->id()) {
-    case arrow::Type::BOOL:
-      return types->i1_type();
-    case arrow::Type::INT8:
-    case arrow::Type::UINT8:
-      return types->i8_type();
-    case arrow::Type::INT16:
-    case arrow::Type::UINT16:
-      return types->i16_type();
-    case arrow::Type::INT32:
-    case arrow::Type::UINT32:
-      return types->i32_type();
-    case arrow::Type::INT64:
-    case arrow::Type::UINT64:
-      return types->i64_type();
-    case arrow::Type::FLOAT:
-      return types->float_type();
-    case arrow::Type::DOUBLE:
-      return types->double_type();
-    default:
-      return Status::NotImplemented("Unsupported arrow data type: " +
-                                    from_type->ToString());
+// calculate the number of arguments for a function signature
+static size_t GetNumArgs(const FunctionSignature& sig, const NativeFunction& func) {
+  auto num_args = 0;
+  num_args += func.NeedsContext() ? 1 : 0;
+  num_args += func.NeedsFunctionHolder() ? 1 : 0;
+  for (auto const& arg : sig.param_types()) {
+    num_args += arg->id() == arrow::Type::STRING ? 2 : 1;
   }
+  num_args += sig.ret_type()->id() == arrow::Type::STRING ? 1 : 0;
+  return num_args;
 }
 
 // map from a NativeFunction's signature to the corresponding LLVM signature
-static arrow::Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignature(
+static Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignature(
     const FunctionSignature& sig, const NativeFunction& func, LLVMTypes* types) {
   std::vector<llvm::Type*> arg_llvm_types;
-  arg_llvm_types.reserve(sig.param_types().size());
+  arg_llvm_types.reserve(GetNumArgs(sig, func));
+
   if (func.NeedsContext()) {
-    arg_llvm_types.emplace_back(types->i64_type());
+    arg_llvm_types.push_back(types->i64_type());
   }
   if (func.NeedsFunctionHolder()) {
-    arg_llvm_types.emplace_back(types->i64_type());
+    arg_llvm_types.push_back(types->i64_type());
   }
   for (auto const& arg : sig.param_types()) {
+    arg_llvm_types.push_back(types->IRType(arg->id()));
     if (arg->id() == arrow::Type::STRING) {
-      arg_llvm_types.emplace_back(types->i8_ptr_type());
-      arg_llvm_types.emplace_back(types->i32_type());
-    } else {
-      ARROW_ASSIGN_OR_RAISE(auto arg_llvm_type, AsLLVMType(arg, types));
-      arg_llvm_types.emplace_back(arg_llvm_type);
+      // string type needs an additional length argument
+      arg_llvm_types.push_back(types->i32_type());
     }
   }
-  llvm::Type* ret_llvm_type;
   if (sig.ret_type()->id() == arrow::Type::STRING) {
     // for string output, the last arg is the output length
-    arg_llvm_types.emplace_back(types->i32_ptr_type());
-    ret_llvm_type = types->i8_ptr_type();
-  } else {
-    ARROW_ASSIGN_OR_RAISE(ret_llvm_type, AsLLVMType(sig.ret_type(), types));
+    arg_llvm_types.push_back(types->i32_ptr_type());
   }
+  auto ret_llvm_type = types->IRType(sig.ret_type()->id());
   return std::make_pair(std::move(arg_llvm_types), ret_llvm_type);
 }
 
 arrow::Status ExternalCFunctions::AddMappings(Engine* engine) const {
   auto const& c_funcs = function_registry_->GetCFunctions();
-  auto types = engine->types();
+  auto const types = engine->types();
   for (auto& [func, func_ptr] : c_funcs) {
     for (auto const& sig : func.signatures()) {
       ARROW_ASSIGN_OR_RAISE(auto llvm_signature, MapToLLVMSignature(sig, func, types));

@@ -64,7 +64,7 @@ FunctionRegistry::iterator FunctionRegistry::back() const {
 
 const NativeFunction* FunctionRegistry::LookupSignature(
     const FunctionSignature& signature) const {
-  auto got = pc_registry_map_.find(&signature);
+  auto const got = pc_registry_map_.find(&signature);
   return got == pc_registry_map_.end() ? nullptr : got->second;
 }
 
@@ -116,11 +116,10 @@ arrow::Status FunctionRegistry::Register(
     // all signatures should have the same base name, use the first signature's base name
     auto const& func_base_name = func.signatures().begin()->base_name();
     ARROW_RETURN_NOT_OK(holder_maker_registry_.Register(
-        func_base_name, std::move(function_holder_maker.value())));
+        func_base_name, std::move(function_holder_maker).value()));
   }
   c_functions_.emplace_back(func, c_function_ptr);
-  ARROW_RETURN_NOT_OK(FunctionRegistry::Add(std::move(func)));
-  return Status::OK();
+  return FunctionRegistry::Add(std::move(func));
 }
 
 const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeBuffers()
