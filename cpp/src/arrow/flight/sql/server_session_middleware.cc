@@ -82,9 +82,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       for (const std::pair<std::string, std::string>& cookie : cookies) {
         if (cookie.first == kSessionCookieName) {
           if (cookie.second.empty())
-            return Status::Invalid("Empty "s +
-                                   static_cast<std::string>(kSessionCookieName) +
-                                   " cookie value.");
+            return Status::Invalid("Empty "s + kSessionCookieName + " cookie value.");
           session_id = std::move(cookie.second);
         }
       }
@@ -102,8 +100,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
         *middleware = std::shared_ptr<ServerSessionMiddleware>(
             new ServerSessionMiddleware(this, incoming_headers, session, session_id));
       } catch (std::out_of_range& e) {
-        return Status::Invalid("Invalid or expired " +
-                               static_cast<std::string>(kSessionCookieName) + " cookie.");
+        return Status::Invalid("Invalid or expired "s + kSessionCookieName + " cookie.");
       }
     }
 
