@@ -79,11 +79,11 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
           ParseCookieString(cookie_header);
       for (const std::pair<std::string, std::string>& cookie : cookies) {
         if (cookie.first == kSessionCookieName) {
-          session_id = cookie.second;
-          if (session_id.empty())
+          if (cookie.second.empty())
             return Status::Invalid("Empty " +
                                    static_cast<std::string>(kSessionCookieName) +
                                    " cookie value.");
+          session_id = std::move(cookie.second);
         }
       }
       if (!session_id.empty()) break;
