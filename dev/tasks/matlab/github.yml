@@ -32,22 +32,9 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
-      - name: Install ccache
-        run: sudo apt-get install ccache
-      - name: Setup ccache
-        shell: bash
-        run: arrow/ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v3
-        with:
-          path: ${{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
-          key: matlab-ccache-ubuntu-${{ '{{' }} hashFiles('arrow/cpp/**', 'arrow/matlab/**') {{ '}}' }}
-          restore-keys: matlab-ccache-ubuntu-
       - name: Build MATLAB Interface
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-matlab-ubuntu.tar.gz arrow/matlab/install/arrow_matlab
@@ -68,22 +55,9 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
-      - name: Install ccache
-        run: brew install ccache
-      - name: Setup ccache
-        shell: bash
-        run: arrow/ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v3
-        with:
-          path: ${{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
-          key: matlab-ccache-macos-${{ '{{' }} hashFiles('arrow/cpp/**', 'arrow/matlab/**') {{ '}}' }}
-          restore-keys: matlab-ccache-macos-
       - name: Build MATLAB Interface
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-matlab-macos.tar.gz arrow/matlab/install/arrow_matlab
@@ -105,25 +79,13 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: arrow/ci/scripts/download_tz_database.sh
-      - name: Install ccache
+      - name: Install sccache
         shell: bash
-        run: arrow/ci/scripts/install_ccache.sh 4.6.3 /usr
-      - name: Setup ccache
-        shell: bash
-        run: arrow/ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ${{ '{{' }} steps.ccache-info.outputs.cache-dir {{ '}}' }}
-          key: matlab-ccache-windows-${{ '{{' }} hashFiles('arrow/cpp/**', 'arrow/matlab/**') {{ '}}' }}
-          restore-keys: matlab-ccache-windows-
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
       - name: Build MATLAB Interface
         shell: cmd
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "arrow/ci/scripts/matlab_build.sh $(pwd)/arrow"
