@@ -1701,7 +1701,7 @@ struct ArrayImporter {
     RETURN_NOT_OK(CheckNumBuffers(3));
     RETURN_NOT_OK(AllocateArrayData());
     RETURN_NOT_OK(ImportNullBitmap());
-    RETURN_NOT_OK((ImportOffsetsBuffer<offset_type, false>(1)));
+    RETURN_NOT_OK((ImportOffsetsBuffer<offset_type, /*with_extra_offset=*/false>(1)));
     RETURN_NOT_OK(ImportSizesBuffer<offset_type>(2));
     return Status::OK();
   }

@@ -2426,6 +2426,18 @@ static const int64_t large_list_offsets_buffer1[] = {0, 2, 2, 5, 6, 8};
 static const void* large_list_buffers_no_nulls1[2] = {nullptr,
                                                       large_list_offsets_buffer1};
 
+static const int32_t list_view_offsets_buffer1[] = {0, 2, 2, 5, 6};
+static const int32_t list_view_sizes_buffer1[] = {2, 0, 3, 1, 2};
+static const void* list_view_buffers_no_nulls1[3] = {nullptr, list_view_offsets_buffer1,
+                                                     list_view_sizes_buffer1};
+static const void* list_view_buffers_nulls1[3] = {bits_buffer1, list_view_offsets_buffer1,
+                                                  list_view_sizes_buffer1};
+
+static const int64_t large_list_view_offsets_buffer1[] = {0, 2, 2, 5, 6};
+static const int64_t large_list_view_sizes_buffer1[] = {2, 0, 3, 1, 2};
+static const void* large_list_view_buffers_no_nulls1[3] = {
+    nullptr, large_list_view_offsets_buffer1, large_list_view_sizes_buffer1};
+
 static const int8_t type_codes_buffer1[] = {42, 42, 43, 43, 42};
 static const int32_t union_offsets_buffer1[] = {0, 1, 0, 1, 2};
 static const void* sparse_union_buffers1_legacy[2] = {nullptr, type_codes_buffer1};
@@ -2508,6 +2520,17 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(1, c);
   }
 
+  void FillListView(struct ArrowArray* c, int64_t length, int64_t null_count,
+                    int64_t offset, const void** buffers) {
+    c->length = length;
+    c->null_count = null_count;
+    c->offset = offset;
+    c->n_buffers = 3;
+    c->buffers = buffers;
+    c->n_children = 1;
+    c->children = NLastChildren(1, c);
+  }
+
   void FillFixedSizeListLike(struct ArrowArray* c, int64_t length, int64_t null_count,
                              int64_t offset, const void** buffers) {
     c->length = length;
@@ -2562,6 +2585,11 @@ class TestArrayImport : public ::testing::Test {
   void FillListLike(int64_t length, int64_t null_count, int64_t offset,
                     const void** buffers) {
     FillListLike(&c_struct_, length, null_count, offset, buffers);
+  }
+
+  void FillListView(int64_t length, int64_t null_count, int64_t offset,
+                    const void** buffers) {
+    FillListView(&c_struct_, length, null_count, offset, buffers);
   }
 
   void FillFixedSizeListLike(int64_t length, int64_t null_count, int64_t offset,
@@ -2921,6 +2949,53 @@ TEST_F(TestArrayImport, ListWithOffset) {
                             "[[6, 7, 8], [9, 10, 11], [12, 13, 14]]"));
 }
 
+TEST_F(TestArrayImport, ListView) {
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(5, 0, 0, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[1, 2], [], [3, 4, 5], [6], [7, 8]]"));
+  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
+  FillListView(3, 1, 0, list_view_buffers_nulls1);
+  CheckImport(
+      ArrayFromJSON(list_view(int16()), "[[513, 1027], null, [1541, 2055, 2569]]"));
+
+  // Large list-view
+  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
+  FillListView(3, 0, 0, large_list_view_buffers_no_nulls1);
+  CheckImport(
+      ArrayFromJSON(large_list_view(int16()), "[[513, 1027], [], [1541, 2055, 2569]]"));
+}
+
+TEST_F(TestArrayImport, NestedListView) {
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(AddChild(), 5, 0, 0, list_view_buffers_no_nulls1);
+  FillListView(3, 0, 0, large_list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(large_list_view(list_view(int8())),
+                            "[[[1, 2], []], [], [[3, 4, 5], [6], [7, 8]]]"));
+
+  FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1_8);
+  FillFixedSizeListLike(AddChild(), 2, 0, 0, buffers_no_nulls_no_data);
+  FillListView(2, 0, 0, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(fixed_size_list(int8(), 3)),
+                            "[[[1, 2, 3], [4, 5, 6]], []]"));
+}
+
+TEST_F(TestArrayImport, ListViewWithOffset) {
+  // Offset in child
+  FillPrimitive(AddChild(), 8, 0, 1, primitive_buffers_no_nulls1_8);
+  FillListView(5, 0, 0, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[2, 3], [], [4, 5, 6], [7], [8, 9]]"));
+
+  // Offset in parent
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(4, 0, 1, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[], [3, 4, 5], [6], [7, 8]]"));
+
+  // Both
+  FillPrimitive(AddChild(), 8, 0, 2, primitive_buffers_no_nulls1_8);
+  FillListView(4, 0, 1, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[], [5, 6, 7], [8], [9, 10]]"));
+}
+
 TEST_F(TestArrayImport, Struct) {
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_16);
@@ -3218,6 +3293,17 @@ TEST_F(TestArrayImport, ListError) {
   CheckImportError(list(int8()));
 }
 
+TEST_F(TestArrayImport, ListViewNoError) {
+  // Unlike with lists, importing a length-0 list-view with all buffers ommitted is
+  // not an error. List-views don't need an extra offset value, so an empty offsets
+  // buffer is valid in this case.
+
+  // Null offsets pointer
+  FillPrimitive(AddChild(), 0, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(0, 0, 0, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[]"));
+}
+
 TEST_F(TestArrayImport, MapError) {
   // Bad number of (struct) children in map child
   FillStringLike(AddChild(), 5, 0, 0, string_buffers_no_nulls1);
@@ -3469,6 +3555,12 @@ TEST_F(TestSchemaRoundtrip, List) {
   TestWithTypeFactory([]() { return large_list(list(utf8())); });
   TestWithTypeFactory([]() { return fixed_size_list(utf8(), 5); });
   TestWithTypeFactory([]() { return list(fixed_size_list(utf8(), 5)); });
+}
+
+TEST_F(TestSchemaRoundtrip, ListView) {
+  TestWithTypeFactory([]() { return list_view(utf8()); });
+  TestWithTypeFactory([]() { return large_list_view(list_view(utf8())); });
+  TestWithTypeFactory([]() { return list_view(fixed_size_list(utf8(), 5)); });
 }
 
 TEST_F(TestSchemaRoundtrip, Struct) {
@@ -3730,6 +3822,13 @@ TEST_F(TestArrayRoundtrip, List) {
 
   TestWithJSONSliced(list(int32()), "[[4, 5], [6, null], null]");
   TestWithJSONSliced(fixed_size_list(int32(), 3), "[[4, 5, 6], null, [7, 8, null]]");
+}
+
+TEST_F(TestArrayRoundtrip, ListView) {
+  TestWithJSON(list_view(int32()), "[]");
+  TestWithJSON(list_view(int32()), "[[4, 5], [6, null], null]");
+
+  TestWithJSONSliced(list_view(int32()), "[[4, 5], [6, null], null]");
 }
 
 TEST_F(TestArrayRoundtrip, Struct) {
