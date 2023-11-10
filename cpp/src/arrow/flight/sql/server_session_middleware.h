@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <functional>
 #include <optional>
 #include <shared_mutex>
 #include <string_view>
@@ -43,9 +44,9 @@ class FlightSqlSession {
   ::arrow::Result<std::optional<SessionOptionValue>>
   GetSessionOption(const std::string&);
   /// \brief Set session option by key to given value
-  void SetSessionOption(const std::string&, const SessionOptionValue&);
+  void SetSessionOption(const std::string& key, const SessionOptionValue& v);
   /// \brief Idempotently remove key from this call's Session, if Session & key exist
-  void EraseSessionOption(const std::string&);
+  void EraseSessionOption(const std::string& key);
 };
 
 /// \brief A middleware to handle Session option persistence and related *Cookie headers.
@@ -67,8 +68,9 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
 };
 
 /// \brief Returns a ServerMiddlewareFactory that handles Session option storage.
+/// \param[in] id_gen A generator function for unique session id strings.
 ARROW_FLIGHT_SQL_EXPORT std::shared_ptr<ServerMiddlewareFactory>
-MakeServerSessionMiddlewareFactory();
+MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen);
 
 }  // namespace sql
 }  // namespace flight

@@ -16,10 +16,6 @@
 // under the License.
 
 #include "arrow/flight/sql/server_session_middleware.h"
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 
 namespace arrow {
 namespace flight {
@@ -30,12 +26,14 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
  protected:
   std::map<std::string, std::shared_ptr<FlightSqlSession>> session_store_;
   std::shared_mutex session_store_lock_;
-  boost::uuids::random_generator uuid_generator_;
+  std::function<std::string()> id_generator_;
 
   std::vector<std::pair<std::string, std::string>> ParseCookieString(
       const std::string_view& s);
 
  public:
+  ServerSessionMiddlewareFactory(std::function<std::string()> id_gen)
+      : id_generator_(id_gen) {}
   Status StartCall(const CallInfo&, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware);
 
@@ -85,7 +83,8 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   const CallHeaders& GetCallHeaders() const override { return headers_; }
 };
 
-std::vector<std::pair<std::string, std::string>> ServerSessionMiddlewareFactory::ParseCookieString(
+std::vector<std::pair<std::string, std::string>>
+ServerSessionMiddlewareFactory::ParseCookieString(
     const std::string_view& s) {
   const std::string list_sep = "; ";
   const std::string pair_sep = "=";
@@ -119,7 +118,8 @@ std::vector<std::pair<std::string, std::string>> ServerSessionMiddlewareFactory:
   return result;
 }
 
-Status ServerSessionMiddlewareFactory::StartCall(const CallInfo&, const CallHeaders& incoming_headers,
+Status ServerSessionMiddlewareFactory::StartCall(
+                 const CallInfo&, const CallHeaders& incoming_headers,
                  std::shared_ptr<ServerMiddleware>* middleware) {
   std::string session_id;
 
@@ -157,8 +157,9 @@ Status ServerSessionMiddlewareFactory::StartCall(const CallInfo&, const CallHead
 }
 
 /// \brief Get a new, empty session option map and its id key.
-std::shared_ptr<FlightSqlSession> ServerSessionMiddlewareFactory::GetNewSession(std::string* session_id) {
-  std::string new_id = boost::lexical_cast<std::string>(uuid_generator_());
+std::shared_ptr<FlightSqlSession>
+ServerSessionMiddlewareFactory::GetNewSession(std::string* session_id) {
+  std::string new_id = id_generator_();
   *session_id = new_id;
   auto session = std::make_shared<FlightSqlSession>();
 
@@ -168,8 +169,9 @@ std::shared_ptr<FlightSqlSession> ServerSessionMiddlewareFactory::GetNewSession(
   return session;
 }
 
-std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
-  return std::make_shared<ServerSessionMiddlewareFactory>();
+std::shared_ptr<ServerMiddlewareFactory>
+MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen) {
+  return std::make_shared<ServerSessionMiddlewareFactory>(std::move(id_gen));
 }
 
 ::arrow::Result<std::optional<SessionOptionValue>> FlightSqlSession::GetSessionOption(
