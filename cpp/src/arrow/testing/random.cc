@@ -1295,6 +1295,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
 #undef GENERATE_INTEGRAL_CASE
 #undef GENERATE_FLOATING_CASE
 #undef GENERATE_LIST_CASE
+#undef GENERATE_LIST_VIEW_CASE
 #undef VALIDATE_RANGE
 #undef VALIDATE_MIN_MAX
 
