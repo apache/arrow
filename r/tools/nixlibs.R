@@ -35,7 +35,9 @@ exit <- function(..., .status = 1) {
 
 
 # checks the nightly repo for the latest nightly version X.Y.Z.100<dev>
-find_latest_nightly <- function(description_version) {
+find_latest_nightly <- function(description_version,
+                                list_uri = "https://nightlies.apache.org/arrow/r/src/contrib/PACKAGES",
+                                hush = quietly) {
   if (!startsWith(arrow_repo, "https://nightlies.apache.org/arrow/r")) {
     lg("Detected non standard dev repo: %s, not checking latest nightly version.", arrow_repo)
     return(description_version)
@@ -44,17 +46,28 @@ find_latest_nightly <- function(description_version) {
   res <- try(
     {
       # Binaries are only uploaded if all jobs pass so can just look at the source versions.
-      urls <- readLines("https://nightlies.apache.org/arrow/r/src/contrib")
-      versions <- grep("arrow_.*\\.tar\\.gz", urls, value = TRUE)
-      versions <- sub(".*arrow_(.*)\\.tar\\.gz.*", "\\1", x = versions)
-      versions <- sapply(versions, package_version)
-      versions <- data.frame(do.call(rbind, versions))
-      matching_major <- versions[versions$X1 == description_version[1, 1], ]
-      latest <- matching_major[which.max(matching_major$X4), ]
-      package_version(paste0(latest, collapse = "."))
+      urls <- readLines(list_uri)
+      versions <- grep("Version:\\s*.*?", urls, value = TRUE)
+      versions <- sort(package_version(sub("Version:\\s*", "\\1", versions)))
+      major_versions <- versions$major
+
+      description_version_major <- as.integer(description_version[1, 1])
+      matching_major <- major_versions == description_version_major
+      if (!any(matching_major)) {
+        lg(
+          "No nightly binaries were found for version %s: falling back to libarrow build from source",
+          description_version
+        )
+
+        return(description_version)
+      }
+
+      versions <- versions[matching_major]
+      max(versions)
     },
-    silent = quietly
+    silent = hush
   )
+
   if (inherits(res, "try-error")) {
     lg("Failed to find latest nightly for %s", description_version)
     latest <- description_version
@@ -832,16 +845,19 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 not_cran <- env_is("NOT_CRAN", "true")
 
-if (is_release & !test_mode) {
+if (is_release) {
   VERSION <- VERSION[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
-} else if(!test_mode) {
+} else {
   not_cran <- TRUE
   arrow_repo <- paste0(getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r"), "/libarrow/")
+}
+
+if (!is_release && !test_mode) {
   VERSION <- find_latest_nightly(VERSION)
 }
 
-# To collect dirs to rm on exit, use del() to add dirs
+# To collect dirs to rm on exit, use cleanup() to add dirs
 # we reset it to avoid errors on reruns in the same session.
 options(.arrow.cleanup = character())
 on.exit(unlink(getOption(".arrow.cleanup"), recursive = TRUE), add = TRUE)
@@ -866,6 +882,8 @@ build_ok <- !env_is("LIBARROW_BUILD", "false")
 # (Note that cmake will still be downloaded if necessary
 #  https://arrow.apache.org/docs/developers/cpp/building.html#offline-builds)
 download_ok <- !test_mode && !env_is("TEST_OFFLINE_BUILD", "true")
+
+download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
 
 # This "tools/thirdparty_dependencies" path, within the tar file, might exist if
 # create_package_with_all_dependencies() was run, or if someone has created it
@@ -904,7 +922,7 @@ if (!test_mode && !file.exists(api_h)) {
       lg("File not found: %s ($ARROW_DOWNLOADED_BINARIES)", bin_zip)
       bin_file <- NULL
     }
-  } else if (download_ok) {
+  } else if (download_libarrow_ok) {
     binary_flavor <- identify_binary()
     if (!is.null(binary_flavor)) {
       # The env vars say we can, and we've determined a lib that should work
