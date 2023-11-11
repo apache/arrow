@@ -19,6 +19,7 @@ package avro
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -41,6 +42,10 @@ type dataLoader struct {
 	fields     []*fieldPos
 	children   []*dataLoader
 }
+
+var (
+	NullStructData = errors.New("null struct data")
+)
 
 func newDataLoader() *dataLoader { return &dataLoader{idx: 0, depth: 0} }
 
@@ -81,15 +86,27 @@ func (d *dataLoader) drawTree(field *fieldPos) {
 	}
 }
 
+// loadDatum loads decoded Avro data to the schema fields' builder functions.
+// Since array.StructBuilder.AppendNull() will recursively append null to all of the
+// struct's fields, in the case of nil being passed to a struct's builderFunc it will
+// return a NullStructData error to signal that all its sub-fields can be skipped.
 func (d *dataLoader) loadDatum(data any) error {
 	if d.list == nil && d.mapField == nil {
 		if d.mapValue != nil {
 			d.mapValue.appendFunc(data)
 		}
+		var NullParent *fieldPos
 		for _, f := range d.fields {
+			if f.parent == NullParent {
+				continue
+			}
 			if d.mapValue == nil {
 				err := f.appendFunc(f.getValue(data))
 				if err != nil {
+					if err == NullStructData {
+						NullParent = f
+						continue
+					}
 					return err
 				}
 			} else {
@@ -97,6 +114,10 @@ func (d *dataLoader) loadDatum(data any) error {
 				case nil:
 					err := f.appendFunc(dt)
 					if err != nil {
+						if err == NullStructData {
+							NullParent = f
+							continue
+						}
 						return err
 					}
 				case []any:
@@ -104,6 +125,10 @@ func (d *dataLoader) loadDatum(data any) error {
 						for _, e := range dt {
 							err := f.appendFunc(e)
 							if err != nil {
+								if err == NullStructData {
+									NullParent = f
+									continue
+								}
 								return err
 							}
 						}
@@ -115,6 +140,10 @@ func (d *dataLoader) loadDatum(data any) error {
 				case map[string]any:
 					err := f.appendFunc(f.getValue(dt))
 					if err != nil {
+						if err == NullStructData {
+							NullParent = f
+							continue
+						}
 						return err
 					}
 				}
@@ -147,9 +176,17 @@ func (d *dataLoader) loadDatum(data any) error {
 					if d.item != nil {
 						d.item.appendFunc(e)
 					}
+					var NullParent *fieldPos
 					for _, f := range d.fields {
+						if f.parent == NullParent {
+							continue
+						}
 						err := f.appendFunc(f.getValue(e))
 						if err != nil {
+							if err == NullStructData {
+								NullParent = f
+								continue
+							}
 							return err
 						}
 					}
@@ -168,9 +205,17 @@ func (d *dataLoader) loadDatum(data any) error {
 					if d.item != nil {
 						d.item.appendFunc(e)
 					}
+					var NullParent *fieldPos
 					for _, f := range d.fields {
+						if f.parent == NullParent {
+							continue
+						}
 						err := f.appendFunc(f.getValue(e))
 						if err != nil {
+							if err == NullStructData {
+								NullParent = f
+								continue
+							}
 							return err
 						}
 					}
@@ -188,6 +233,7 @@ func (d *dataLoader) loadDatum(data any) error {
 			case nil:
 				d.mapField.appendFunc(dt)
 			case map[string]any:
+
 				d.mapField.appendFunc(dt)
 				for k, v := range dt {
 					d.mapKey.appendFunc(k)
@@ -197,7 +243,6 @@ func (d *dataLoader) loadDatum(data any) error {
 						d.children[0].loadDatum(v)
 					}
 				}
-
 			}
 		}
 	}
@@ -511,8 +556,9 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			switch data.(type) {
 			case nil:
 				bt.AppendNull()
+				return NullStructData
 			default:
-				appendStructData(bt, data)
+				bt.Append(true)
 			}
 			return nil
 		}
@@ -826,14 +872,5 @@ func appendTimestampData(b *array.TimestampBuilder, data interface{}) {
 		case int64:
 			b.Append(arrow.Timestamp(v))
 		}
-	}
-}
-
-func appendStructData(b *array.StructBuilder, data interface{}) {
-	switch data.(type) {
-	case nil:
-		b.AppendNull()
-	default:
-		b.Append(true)
 	}
 }
