@@ -26,7 +26,7 @@ from pyarrow.lib import Table
 from pyarrow.compute import Expression, field
 
 try:
-    from pyarrow.lib import (  # noqa
+    from pyarrow._acero import (  # noqa
         Declaration,
         ExecNodeOptions,
         TableSourceNodeOptions,

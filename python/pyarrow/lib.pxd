@@ -25,7 +25,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport *
-from pyarrow.includes.libarrow_acero cimport *
 
 
 # Will be available in Cython 3, not backported
@@ -570,79 +569,6 @@ cdef class Codec(_Weakrefable):
     cdef inline CCodec* unwrap(self) nogil
 
 
-##### BEGIN JERAGUILON
-
-cdef class ExecNodeOptions(_Weakrefable):
-    cdef:
-        shared_ptr[CExecNodeOptions] wrapped
-    cdef void init(self, const shared_ptr[CExecNodeOptions]& sp)
-
-    cdef inline shared_ptr[CExecNodeOptions] unwrap(self) nogil
-
-cdef class Declaration(_Weakrefable):
-
-    cdef:
-        CDeclaration decl
-
-    cdef void init(self, const CDeclaration& c_decl)
-
-    @staticmethod
-    cdef wrap(const CDeclaration& c_decl)
-
-    cdef inline CDeclaration unwrap(self) nogil
-
-
-cdef class UdfContext(_Weakrefable):
-    cdef:
-        CUdfContext c_context
-
-    cdef void init(self, const CUdfContext& c_context)
-
-
-cdef class FunctionOptions(_Weakrefable):
-    cdef:
-        shared_ptr[CFunctionOptions] wrapped
-
-    cdef const CFunctionOptions* get_options(self) except NULL
-    cdef void init(self, const shared_ptr[CFunctionOptions]& sp)
-
-    cdef inline shared_ptr[CFunctionOptions] unwrap(self)
-
-
-cdef class _SortOptions(FunctionOptions):
-    pass
-
-
-cdef CExpression _bind(Expression filter, Schema schema) except *
-
-
-cdef class Expression(_Weakrefable):
-
-    cdef:
-        CExpression expr
-
-    cdef void init(self, const CExpression& sp)
-
-    @staticmethod
-    cdef wrap(const CExpression& sp)
-
-    cdef inline CExpression unwrap(self)
-
-    @staticmethod
-    cdef Expression _expr_or_scalar(object expr)
-
-
-cdef CExpression _true
-
-cdef CFieldRef _ensure_field_ref(value) except *
-
-cdef CSortOrder unwrap_sort_order(order) except *
-
-cdef CNullPlacement unwrap_null_placement(null_placement) except *
-
-
-##### END JERAGUILON
-
 # This class is only used internally for now
 cdef class StopToken:
     cdef:
@@ -714,8 +640,6 @@ cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 
-cdef public object pyarrow_wrap_declaration(const CDeclaration& declaration)
-
 # Unwrapping Python -> C++
 
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
@@ -742,5 +666,3 @@ cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
 
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
-
-cdef public CDeclaration pyarrow_unwrap_declaration(object declaration)

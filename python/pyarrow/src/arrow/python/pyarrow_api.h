@@ -16,4 +16,10 @@
 // under the License.
 
 // For backward compatibility.
+#include "arrow/util/config.h"
+
+#ifdef ARROW_ACERO
+#include "arrow/python/lib_acero_api.h"
+#endif
+
 #include "arrow/python/lib_api.h"

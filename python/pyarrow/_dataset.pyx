@@ -29,7 +29,8 @@ import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pac, _forbid_instantiation
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport Expression, _bind
+from pyarrow._compute cimport Expression, _bind
+from pyarrow._acero cimport ExecNodeOptions
 from pyarrow._fs cimport FileSystem, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
@@ -143,6 +144,7 @@ cdef str _wrap_segment_encoding(CSegmentEncoding segment_encoding):
     raise ValueError("Unknown segment encoding")
 
 
+cdef Expression _true = Expression._scalar(True)
 
 cdef class Dataset(_Weakrefable):
     """
@@ -1008,7 +1010,7 @@ cdef class FileSystemDataset(Dataset):
             shared_ptr[CFileSystem] c_filesystem
 
         if root_partition is None:
-            root_partition = Expression.wrap(_true)
+            root_partition = _true
         elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
@@ -1094,7 +1096,7 @@ cdef class FileSystemDataset(Dataset):
             The top-level partition of the DataDataset.
         """
         if root_partition is None:
-            root_partition = Expression.wrap(_true)
+            root_partition = _true
 
         for arg, class_, name in [
             (schema, Schema, 'schema'),
@@ -1108,7 +1110,7 @@ cdef class FileSystemDataset(Dataset):
                     "got {2})".format(name, class_.__name__, type(arg))
                 )
 
-        partitions = partitions or [Expression.wrap(_true)] * len(paths)
+        partitions = partitions or [_true] * len(paths)
 
         if len(paths) != len(partitions):
             raise ValueError(
@@ -1255,7 +1257,7 @@ cdef class FileFormat(_Weakrefable):
             The file fragment
         """
         if partition_expression is None:
-            partition_expression = Expression.wrap(_true)
+            partition_expression = _true
 
         c_source = _make_file_source(file, filesystem)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(

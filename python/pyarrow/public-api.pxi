@@ -424,22 +424,3 @@ cdef api object pyarrow_wrap_batch(
     batch.init(cbatch)
     return batch
 
-
-cdef api bint pyarrow_is_declaration(object declaration):
-    return isinstance(declaration, Declaration)
-
-cdef api CDeclaration pyarrow_unwrap_declaration(object declaration):
-    cdef Declaration d
-    if pyarrow_is_declaration(declaration):
-        d = <Declaration>(declaration)
-        return d.decl
-
-    return CDeclaration()
-
-cdef api object pyarrow_wrap_declaration(
-        const CDeclaration& declaration):
-    cdef Declaration decl = Declaration.__new__(Declaration)
-    decl.init(declaration)
-    return decl
-
-

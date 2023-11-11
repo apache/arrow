@@ -22,12 +22,15 @@
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/array.h"
+#include "arrow/python/lib_api.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/util/config.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/datetime.h"
+
 namespace {
 #include "arrow/python/pyarrow_api.h"
 }
@@ -87,10 +90,9 @@ DEFINE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>)
 DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
 
 #undef IS_VALID
+
 #define IS_VALID(OUT) OUT.IsValid()
-
-DEFINE_WRAP_FUNCTIONS(declaration, acero::Declaration)
-
+// DEFINE_WRAP_FUNCTIONS(declaration, acero::Declaration)
 #undef IS_VALID
 
 #undef DEFINE_WRAP_FUNCTIONS

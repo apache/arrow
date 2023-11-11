@@ -537,6 +537,8 @@ endif()
 
 set(CYTHON_EXTENSIONS
     lib
+    lib_acero
+    _compute
     _csv
     _feather
     _fs
@@ -589,8 +591,7 @@ if(PYARROW_BUILD_ACERO)
   set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
   # NOCOMMIT - do we need to remove?
   message("ADDING _acero to extension")
-  message("SKIP")
-  # list(APPEND CYTHON_EXTENSIONS _acero)
+  list(APPEND CYTHON_EXTENSIONS _acero)
 endif()
 
 # Dataset
@@ -781,6 +782,23 @@ add_dependencies(arrow_python cython_api_headers)
 install(FILES "${ARROW_PYTHON_BINARY_DIR}/lib_api.h" "${ARROW_PYTHON_BINARY_DIR}/lib.h"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
 
+# NEW
+set(ARROW_PYTHON_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src/arrow/python")
+file(MAKE_DIRECTORY ${ARROW_PYTHON_BINARY_DIR})
+add_custom_command(OUTPUT "${ARROW_PYTHON_BINARY_DIR}/lib_acero_api.h"
+                          "${ARROW_PYTHON_BINARY_DIR}/lib_acero.h"
+                   COMMAND ${CMAKE_COMMAND} -E copy
+                           "${CMAKE_CURRENT_BINARY_DIR}/lib_acero_api.h"
+                           "${CMAKE_CURRENT_BINARY_DIR}/lib_acero.h"
+                           "${ARROW_PYTHON_BINARY_DIR}/"
+                   DEPENDS lib_acero_pyx)
+add_custom_target(cython_api_headers_acero DEPENDS "${ARROW_PYTHON_BINARY_DIR}/lib_acero_api.h"
+                                             "${ARROW_PYTHON_BINARY_DIR}/lib_acero.h")
+add_dependencies(arrow_python cython_api_headers_acero)
+install(FILES "${ARROW_PYTHON_BINARY_DIR}/lib_acero_api.h" "${ARROW_PYTHON_BINARY_DIR}/lib_acero.h"
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
+
+
 # Additional link libraries
 
 if(PYARROW_BUILD_CUDA)
@@ -797,9 +815,9 @@ endif()
 
 # NOCOMMIT - do we need to remove?
 if(PYARROW_BUILD_ACERO)
-  message("LINKING WITH ${ACERO_LINK_LIBS}")
-  #target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
-  target_link_libraries(lib PRIVATE ${ACERO_LINK_LIBS})
+  message("LINKING _acero WITH ${ACERO_LINK_LIBS}")
+  target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
+  #target_link_libraries(lib PRIVATE ${ACERO_LINK_LIBS})
 else()
     message("NO LINK")
 endif()
