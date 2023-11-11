@@ -674,12 +674,10 @@ class RepeatedArrayFactory {
     auto size = static_cast<typename T::offset_type>(value->size());
 
     typename T::offset_type length_casted;
-    if (length_ < 0) {
-      return Status::Invalid("length cannot be negative: " + std::to_string(length_));
-    } else if (length_ > std::numeric_limits<typename T::offset_type>::max()) {
+    if (length_ > std::numeric_limits<typename T::offset_type>::max()) {
       return Status::Invalid(
-          "length exceeds the maximum value of offset_type: " + std::to_string(length_) +
-          " is greater than " +
+          "length exceeds the maximum value of offset_type: ", std::to_string(length_),
+          " is greater than ",
           std::to_string(std::numeric_limits<typename T::offset_type>::max()));
     }
     length_casted = static_cast<typename T::offset_type>(length_);
@@ -907,6 +905,10 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
+  if (length < 0) {
+    return Status::Invalid("length cannot be negative: ", std::to_string(length));
+  }
+
   // Null union scalars still have a type code associated
   if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
