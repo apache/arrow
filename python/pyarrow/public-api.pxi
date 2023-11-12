@@ -20,8 +20,9 @@ from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
                                         CRecordBatch, CSchema,
                                         CTable, CTensor,
                                         CSparseCOOTensor, CSparseCSRMatrix,
-                                        CSparseCSCMatrix, CSparseCSFTensor)
+                                        CSparseCSCMatrix, CSparseCSFTensor, CExpression)
 from pyarrow.includes.libarrow_acero cimport CDeclaration
+from pyarrow._compute cimport Expression
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
@@ -423,4 +424,22 @@ cdef api object pyarrow_wrap_batch(
     cdef RecordBatch batch = RecordBatch.__new__(RecordBatch)
     batch.init(cbatch)
     return batch
+
+
+cdef api bint pyarrow_is_expression(object expression):
+    return isinstance(expression, Expression)
+
+cdef api CExpression pyarrow_unwrap_expression(object expression):
+    cdef Expression e
+    if pyarrow_is_expression(expression):
+        e = <Expression>(expression)
+        return e.expr
+
+    return CExpression()
+
+cdef api object pyarrow_wrap_expression(
+        const CExpression& cexpr):
+    cdef Expression expr = Expression.__new__(Expression)
+    expr.init(cexpr)
+    return expr
 

@@ -17,10 +17,6 @@
 
 # cython: language_level = 3
 
-from pyarrow.lib cimport *
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.libarrow_acero cimport *
 
 cdef public object pyarrow_wrap_exec_node_options(const shared_ptr[CExecNodeOptions]& options)

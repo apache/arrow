@@ -21,6 +21,7 @@ from pyarrow.includes.libarrow cimport (CArray, CBuffer, CDataType,
                                         CTable, CTensor, CSparseCOOTensor,
                                         CSparseCSRMatrix, CSparseCSCMatrix,
                                         CSparseCSFTensor, CDeclaration)
+from pyarrow.includes.libarrow_acero cimport CDeclaration
 
 cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
     cdef int import_pyarrow() except -1
@@ -40,4 +41,6 @@ cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
         const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor)
     cdef object wrap_table(const shared_ptr[CTable]& ctable)
     cdef object wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
-    cdef object wrap_declaration(const CDeclaration& cbatch)
+
+cdef extern from "arrow/python/pyarrow_acero.h" namespace "arrow::py":
+    cdef object wrap_declaration(const CDeclaration& declaration)

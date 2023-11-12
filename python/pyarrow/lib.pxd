@@ -640,6 +640,8 @@ cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 
+cdef public object pyarrow_wrap_expression(const CExpression& expr)
+
 # Unwrapping Python -> C++
 
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
@@ -663,6 +665,8 @@ cdef public shared_ptr[CSparseCSFTensor] pyarrow_unwrap_sparse_csf_tensor(
 cdef public shared_ptr[CSparseCSRMatrix] pyarrow_unwrap_sparse_csr_matrix(
     object sparse_tensor)
 cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
-
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
+
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
+
+cdef public CExpression pyarrow_unwrap_expression(object expr)

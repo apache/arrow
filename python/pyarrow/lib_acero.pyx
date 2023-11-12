@@ -21,6 +21,8 @@
 
 from pyarrow._acero cimport Declaration, ExecNodeOptions
 
+import_pyarrow_acero()
+
 cdef api bint pyarrow_is_exec_node_options(object options):
     return isinstance(options, ExecNodeOptions)
 
@@ -31,7 +33,6 @@ cdef api shared_ptr[CExecNodeOptions] pyarrow_unwrap_exec_node_options(object op
         return d.wrapped
 
     return shared_ptr[CExecNodeOptions]()
-
 
 cdef api object pyarrow_wrap_exec_node_options(
         const shared_ptr[CExecNodeOptions]& options):
@@ -50,7 +51,6 @@ cdef api CDeclaration pyarrow_unwrap_declaration(object declaration):
         return d.decl
 
     return CDeclaration()
-
 
 cdef api object pyarrow_wrap_declaration(
         const CDeclaration& declaration):
