@@ -52,21 +52,6 @@ int import_pyarrow() {
   return ::import_pyarrow__lib();
 }
 
-#define DEFINE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                                   \
-  bool is_##FUNC_SUFFIX(PyObject* obj) { return ::pyarrow_is_##FUNC_SUFFIX(obj) != 0; } \
-                                                                                        \
-  PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME& src) {                                  \
-    return ::pyarrow_wrap_##FUNC_SUFFIX(src);                                           \
-  }                                                                                     \
-  Result<TYPE_NAME> unwrap_##FUNC_SUFFIX(PyObject* obj) {                               \
-    auto out = ::pyarrow_unwrap_##FUNC_SUFFIX(obj);                                     \
-    if (IS_VALID(out)) {                                                                \
-      return std::move(out);                                                            \
-    } else {                                                                            \
-      return UnwrapError(obj, #TYPE_NAME);                                              \
-    }                                                                                   \
-  }
-
 #define IS_VALID(OUT) OUT
 
 DEFINE_WRAP_FUNCTIONS(buffer, std::shared_ptr<Buffer>)

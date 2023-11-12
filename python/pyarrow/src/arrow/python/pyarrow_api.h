@@ -16,6 +16,4 @@
 // under the License.
 
 // For backward compatibility.
-#include "arrow/util/config.h"
-
 #include "arrow/python/lib_api.h"

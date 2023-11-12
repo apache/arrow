@@ -18,31 +18,19 @@
 #pragma once
 
 #include "arrow/python/platform.h"
+#include "arrow/python/wrapping.h"
 
 #include <memory>
-
-#include "arrow/python/visibility.h"
-
-#include "arrow/sparse_tensor.h"
 
 // Work around ARROW-2317 (C linkage warning from Cython)
 extern "C++" {
 
 namespace arrow {
 
-class Array;
-class Buffer;
-class DataType;
-class Field;
-class RecordBatch;
-class Schema;
-class Status;
-class Table;
-class Tensor;
-
 namespace acero {
 struct Declaration;
-}
+struct ExecNodeOptions;
+}  // namespace acero
 
 namespace py {
 
@@ -55,6 +43,7 @@ ARROW_PYTHON_EXPORT int import_pyarrow_acero();
   ARROW_PYTHON_EXPORT PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME&);
 
 DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
+DECLARE_WRAP_FUNCTIONS(declaration, std::shared_ptr<acero::ExecNodeOptions>)
 
 #undef DECLARE_WRAP_FUNCTIONS
 
