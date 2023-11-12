@@ -640,7 +640,8 @@ cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 
-cdef public object pyarrow_wrap_expression(const CExpression& expr)
+# TODO: extract
+# cdef public object pyarrow_wrap_expression(const CExpression& expr)
 
 # Unwrapping Python -> C++
 
@@ -669,4 +670,5 @@ cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
 
-cdef public CExpression pyarrow_unwrap_expression(object expr)
+# TODO: extract
+# cdef public CExpression pyarrow_unwrap_expression(object expr)

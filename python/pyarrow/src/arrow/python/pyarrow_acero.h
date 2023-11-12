@@ -43,9 +43,7 @@ ARROW_PYTHON_EXPORT int import_pyarrow_acero();
   ARROW_PYTHON_EXPORT PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME&);
 
 DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
-DECLARE_WRAP_FUNCTIONS(declaration, std::shared_ptr<acero::ExecNodeOptions>)
-
-#undef DECLARE_WRAP_FUNCTIONS
+DECLARE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
 
 }  // namespace py
 }  // namespace arrow

@@ -20,6 +20,7 @@
 # distutils: language = c++
 
 from pyarrow._acero cimport Declaration, ExecNodeOptions
+from pyarrow.lib cimport *
 
 import_pyarrow_acero()
 

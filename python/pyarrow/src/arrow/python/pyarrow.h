@@ -66,8 +66,6 @@ DECLARE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>)
 DECLARE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>)
 DECLARE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
 
-#undef DECLARE_WRAP_FUNCTIONS
-
 namespace internal {
 
 // If status is ok, return 0.

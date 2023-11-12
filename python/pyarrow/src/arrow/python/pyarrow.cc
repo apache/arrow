@@ -14,21 +14,22 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
-#include "arrow/python/pyarrow.h"
-
 #include <memory>
 #include <utility>
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/array.h"
-#include "arrow/python/lib_api.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/config.h"
+#include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/lib_api.h"
+#include "arrow/python/pyarrow.h"
+#include "arrow/python/unwrapping.h"
+
 #include "arrow/python/datetime.h"
 
 namespace {
@@ -37,11 +38,6 @@ namespace {
 
 namespace arrow {
 namespace py {
-
-static Status UnwrapError(PyObject* obj, const char* expected_type) {
-  return Status::TypeError("Could not unwrap ", expected_type,
-                           " from Python object of type '", Py_TYPE(obj)->tp_name, "'");
-}
 
 int import_pyarrow() {
 #ifdef PYPY_VERSION
@@ -62,7 +58,7 @@ DEFINE_WRAP_FUNCTIONS(schema, std::shared_ptr<Schema>)
 
 DEFINE_WRAP_FUNCTIONS(scalar, std::shared_ptr<Scalar>)
 
-DEFINE_WRAP_FUNCTIONS(array, std::shared_ptr<Array>)
+DEFINE_WRAP_FUNCTIONS(array, std::shared_ptr<arrow::Array>)
 DEFINE_WRAP_FUNCTIONS(chunked_array, std::shared_ptr<ChunkedArray>)
 
 DEFINE_WRAP_FUNCTIONS(sparse_coo_tensor, std::shared_ptr<SparseCOOTensor>)
@@ -76,16 +72,16 @@ DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
 
 #undef IS_VALID
 
-// #define IS_VALID(OUT) OUT.IsValid()
-// DEFINE_WRAP_FUNCTIONS(declaration, acero::Declaration)
-// #undef IS_VALID
-
-#undef DEFINE_WRAP_FUNCTIONS
-
 namespace internal {
 
 int check_status(const Status& status) { return ::pyarrow_internal_check_status(status); }
 
+PyObject* convert_status(const Status& status) {
+  DCHECK(!status.ok());
+  return ::pyarrow_internal_convert_status(status);
+}
+
 }  // namespace internal
+
 }  // namespace py
 }  // namespace arrow

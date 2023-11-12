@@ -17,36 +17,7 @@
 
 #pragma once
 
-#include "arrow/python/common.h"
-#include "arrow/status.h"
-
-namespace arrow {
-
-namespace py {
-
-static Status UnwrapError(PyObject* obj, const char* expected_type) {
-  return Status::TypeError("Could not unwrap ", expected_type,
-                           " from Python object of type '", Py_TYPE(obj)->tp_name, "'");
-}
-
 #define DECLARE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                   \
   ARROW_PYTHON_EXPORT bool is_##FUNC_SUFFIX(PyObject*);                  \
   ARROW_PYTHON_EXPORT Result<TYPE_NAME> unwrap_##FUNC_SUFFIX(PyObject*); \
   ARROW_PYTHON_EXPORT PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME&);
-
-#define DEFINE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                                   \
-  bool is_##FUNC_SUFFIX(PyObject* obj) { return ::pyarrow_is_##FUNC_SUFFIX(obj) != 0; } \
-                                                                                        \
-  PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME& src) {                                  \
-    return ::pyarrow_wrap_##FUNC_SUFFIX(src);                                           \
-  }                                                                                     \
-  Result<TYPE_NAME> unwrap_##FUNC_SUFFIX(PyObject* obj) {                               \
-    auto out = ::pyarrow_unwrap_##FUNC_SUFFIX(obj);                                     \
-    if (IS_VALID(out)) {                                                                \
-      return std::move(out);                                                            \
-    } else {                                                                            \
-      return UnwrapError(obj, #TYPE_NAME);                                              \
-    }                                                                                   \
-  }
-}  // namespace py
-}  // namespace arrow

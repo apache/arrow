@@ -19,8 +19,8 @@
 
 from pyarrow.includes.libarrow_acero cimport *
 
-cdef public object pyarrow_wrap_exec_node_options(const shared_ptr[CExecNodeOptions]& options)
 cdef public shared_ptr[CExecNodeOptions] pyarrow_unwrap_exec_node_options(object options)
+cdef public object pyarrow_wrap_exec_node_options(const shared_ptr[CExecNodeOptions]& options)
 
 cdef public object pyarrow_wrap_declaration(const CDeclaration& declaration)
 cdef public CDeclaration pyarrow_unwrap_declaration(object declaration)
