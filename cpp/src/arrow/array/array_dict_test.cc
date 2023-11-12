@@ -1428,6 +1428,47 @@ TEST(TestDictionary, IndicesArray) {
   ASSERT_OK(arr->indices()->ValidateFull());
 }
 
+void CheckDictionaryComputeNullValues(const std::shared_ptr<DataType>& dict_type,
+                                      const std::string& input_dictionary_json,
+                                      const std::string& input_index_json,
+                                      const int64_t& expected_null_count) {
+  auto input = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
+  const DictionaryArray& input_ref = checked_cast<const DictionaryArray&>(*input);
+
+  ASSERT_OK_AND_ASSIGN(int64_t actual, input_ref.CountNullValues());
+  ASSERT_EQ(expected_null_count, actual);
+}
+
+TEST(TestDictionary, ComputeNullValues) {
+  std::shared_ptr<arrow::DataType> type;
+  std::shared_ptr<arrow::DataType> dict_type;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    type = boolean();
+    dict_type = dictionary(index_type, type);
+
+    // no null value
+    CheckDictionaryComputeNullValues(dict_type, "[]", "[]", 0);
+    CheckDictionaryComputeNullValues(dict_type, "[true, false]", "[0, 1, 0]", 0);
+
+    // only indices contain null value
+    CheckDictionaryComputeNullValues(dict_type, "[true, false]", "[null, 0, 1]", 1);
+    CheckDictionaryComputeNullValues(dict_type, "[true, false]", "[null, null]", 2);
+
+    // only dictionary contains null value
+    CheckDictionaryComputeNullValues(dict_type, "[null, true]", "[]", 0);
+    CheckDictionaryComputeNullValues(dict_type, "[null, true, false]", "[0, 1, 0]", 2);
+
+    // both indices and dictionary contain null value
+    CheckDictionaryComputeNullValues(dict_type, "[null, true, false]", "[0, 1, 0, null]",
+                                     3);
+    CheckDictionaryComputeNullValues(dict_type, "[null, true, null, false]",
+                                     "[null, 1, 0, 2, 3]", 3);
+  }
+}
+
 void CheckDictionaryCompact(const std::shared_ptr<DataType>& dict_type,
                             const std::string& input_dictionary_json,
                             const std::string& input_index_json,
