@@ -5225,6 +5225,9 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
 
   // Operations on closed writer are incorrect. However, should not segfault
   ASSERT_OK(writer->Close());
+
+  ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
+  ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
   EXPECT_THROW_THAT([&]() { ASSERT_OK(writer->WriteTable(*table, 1)); }, ParquetException,
                     ::testing::Property(
                         &ParquetException::what,

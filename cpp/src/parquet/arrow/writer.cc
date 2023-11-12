@@ -306,6 +306,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status NewRowGroup(int64_t chunk_size) override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -321,6 +322,13 @@ class FileWriterImpl : public FileWriter {
         PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
       }
       PARQUET_CATCH_NOT_OK(writer_->Close());
+    }
+    return Status::OK();
+  }
+
+  Status CheckClosed() const {
+    if (closed_) {
+      return Status::Invalid("Operation on closed file");
     }
     return Status::OK();
   }
@@ -392,6 +400,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status NewBufferedRowGroup() override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
