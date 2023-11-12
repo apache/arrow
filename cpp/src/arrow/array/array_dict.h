@@ -96,6 +96,15 @@ class ARROW_EXPORT DictionaryArray : public Array {
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
       const int32_t* transpose_map, MemoryPool* pool = default_memory_pool()) const;
 
+  /// \brief Count the number of null values as the dictionary array is decoded.
+  Result<int64_t> CountNullValues() const;
+
+  /// \brief Compat this DictionaryArray
+  ///
+  /// This method returns a compacted dictionary array. All the
+  /// values in the dictionary are referenced by indices.
+  ///
+  /// \param[in] pool a pool to allocate the array data from
   Result<std::shared_ptr<Array>> Compact(MemoryPool* pool = default_memory_pool()) const;
 
   /// \brief Determine whether dictionary arrays may be compared without unification
