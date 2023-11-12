@@ -1428,7 +1428,7 @@ TEST(TestDictionary, IndicesArray) {
   ASSERT_OK(arr->indices()->ValidateFull());
 }
 
-void CheckDictionaryComputeNullValues(const std::shared_ptr<DataType>& dict_type,
+void CheckDictionaryCountNullValues(const std::shared_ptr<DataType>& dict_type,
                                       const std::string& input_dictionary_json,
                                       const std::string& input_index_json,
                                       const int64_t& expected_null_count) {
@@ -1439,7 +1439,7 @@ void CheckDictionaryComputeNullValues(const std::shared_ptr<DataType>& dict_type
   ASSERT_EQ(expected_null_count, actual);
 }
 
-TEST(TestDictionary, ComputeNullValues) {
+TEST(TestDictionary, CountNullValues) {
   std::shared_ptr<arrow::DataType> type;
   std::shared_ptr<arrow::DataType> dict_type;
 
@@ -1450,21 +1450,21 @@ TEST(TestDictionary, ComputeNullValues) {
     dict_type = dictionary(index_type, type);
 
     // no null value
-    CheckDictionaryComputeNullValues(dict_type, "[]", "[]", 0);
-    CheckDictionaryComputeNullValues(dict_type, "[true, false]", "[0, 1, 0]", 0);
+    CheckDictionaryCountNullValues(dict_type, "[]", "[]", 0);
+    CheckDictionaryCountNullValues(dict_type, "[true, false]", "[0, 1, 0]", 0);
 
     // only indices contain null value
-    CheckDictionaryComputeNullValues(dict_type, "[true, false]", "[null, 0, 1]", 1);
-    CheckDictionaryComputeNullValues(dict_type, "[true, false]", "[null, null]", 2);
+    CheckDictionaryCountNullValues(dict_type, "[true, false]", "[null, 0, 1]", 1);
+    CheckDictionaryCountNullValues(dict_type, "[true, false]", "[null, null]", 2);
 
     // only dictionary contains null value
-    CheckDictionaryComputeNullValues(dict_type, "[null, true]", "[]", 0);
-    CheckDictionaryComputeNullValues(dict_type, "[null, true, false]", "[0, 1, 0]", 2);
+    CheckDictionaryCountNullValues(dict_type, "[null, true]", "[]", 0);
+    CheckDictionaryCountNullValues(dict_type, "[null, true, false]", "[0, 1, 0]", 2);
 
     // both indices and dictionary contain null value
-    CheckDictionaryComputeNullValues(dict_type, "[null, true, false]", "[0, 1, 0, null]",
+    CheckDictionaryCountNullValues(dict_type, "[null, true, false]", "[0, 1, 0, null]",
                                      3);
-    CheckDictionaryComputeNullValues(dict_type, "[null, true, null, false]",
+    CheckDictionaryCountNullValues(dict_type, "[null, true, null, false]",
                                      "[null, 1, 0, 2, 3]", 3);
   }
 }
