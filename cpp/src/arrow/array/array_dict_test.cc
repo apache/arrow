@@ -1429,9 +1429,9 @@ TEST(TestDictionary, IndicesArray) {
 }
 
 void CheckDictionaryCountNullValues(const std::shared_ptr<DataType>& dict_type,
-                                      const std::string& input_dictionary_json,
-                                      const std::string& input_index_json,
-                                      const int64_t& expected_null_count) {
+                                    const std::string& input_dictionary_json,
+                                    const std::string& input_index_json,
+                                    const int64_t& expected_null_count) {
   auto input = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
   const DictionaryArray& input_ref = checked_cast<const DictionaryArray&>(*input);
 
@@ -1463,9 +1463,9 @@ TEST(TestDictionary, CountNullValues) {
 
     // both indices and dictionary contain null value
     CheckDictionaryCountNullValues(dict_type, "[null, true, false]", "[0, 1, 0, null]",
-                                     3);
+                                   3);
     CheckDictionaryCountNullValues(dict_type, "[null, true, null, false]",
-                                     "[null, 1, 0, 2, 3]", 3);
+                                   "[null, 1, 0, 2, 3]", 3);
   }
 }
 
