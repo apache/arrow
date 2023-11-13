@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
 	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -1629,7 +1630,11 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteDictIndices(indices arrow.Arra
 func (w *FixedLenByteArrayColumnChunkWriter) writeValues(values []parquet.FixedLenByteArray, numNulls int64) {
 	w.currentEncoder.(encoding.FixedLenByteArrayEncoder).Put(values)
 	if w.pageStatistics != nil {
-		w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).Update(values, numNulls)
+		if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
+			w.pageStatistics.(*metadata.Float16Statistics).Update(values, numNulls)
+		} else {
+			w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).Update(values, numNulls)
+		}
 	}
 }
 
@@ -1641,7 +1646,11 @@ func (w *FixedLenByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []pa
 	}
 	if w.pageStatistics != nil {
 		nulls := numValues - numRead
-		w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
+			w.pageStatistics.(*metadata.Float16Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		} else {
+			w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		}
 	}
 }
 

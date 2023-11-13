@@ -636,6 +636,10 @@ func TestPanicSchemaNodeCreation(t *testing.T) {
 	}, "incompatible primitive length")
 
 	assert.Panics(t, func() {
+		schema.MustPrimitive(schema.NewPrimitiveNodeLogical("float16" /* name */, parquet.Repetitions.Required, schema.Float16LogicalType{}, parquet.Types.FixedLenByteArray, 4 /* type len */, -1 /* fieldID */))
+	}, "incompatible primitive length")
+
+	assert.Panics(t, func() {
 		schema.MustPrimitive(schema.NewPrimitiveNodeLogical("negative_len" /* name */, parquet.Repetitions.Required, schema.NoLogicalType{}, parquet.Types.FixedLenByteArray, -16 /* type len */, -1 /* fieldID */))
 	}, "non-positive length for fixed length binary")
 
