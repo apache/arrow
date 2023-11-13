@@ -16,11 +16,13 @@
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Apache.Arrow
 {
-    public class BooleanArray: Array
+    public class BooleanArray: Array, IReadOnlyList<bool?>
     {
         public class Builder : IArrowArrayBuilder<bool, BooleanArray, Builder>
         {
@@ -190,5 +192,13 @@ namespace Apache.Arrow
                 ? (bool?)null
                 : BitUtility.GetBit(ValueBuffer.Span, index + Offset);
         }
+
+        int IReadOnlyCollection<bool?>.Count => Length;
+
+        bool? IReadOnlyList<bool?>.this[int index] => GetValue(index);
+
+        IEnumerator<bool?> IEnumerable<bool?>.GetEnumerator() => Enumerable.Range(0, Length).Select(GetValue).GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => Enumerable.Range(0, Length).Select(GetValue).GetEnumerator();
     }
 }

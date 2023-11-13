@@ -18,10 +18,12 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
+using System.Collections;
+using System.Linq;
 
 namespace Apache.Arrow
 {
-    public class BinaryArray : Array
+    public class BinaryArray : Array, IReadOnlyList<byte[]>
     {
         public class Builder : BuilderBase<BinaryArray, Builder>
         {
@@ -366,5 +368,12 @@ namespace Apache.Arrow
 
             return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
         }
+
+        int IReadOnlyCollection<byte[]>.Count => Length;
+        byte[] IReadOnlyList<byte[]>.this[int index] => GetBytes(index).ToArray();
+
+        IEnumerator<byte[]> IEnumerable<byte[]>.GetEnumerator() => Enumerable.Range(0, Length).Select(x => GetBytes(x).ToArray()).GetEnumerator();
+
+        IEnumerator IEnumerable.GetEnumerator() => Enumerable.Range(0, Length).Select(x => GetBytes(x).ToArray()).GetEnumerator();
     }
 }

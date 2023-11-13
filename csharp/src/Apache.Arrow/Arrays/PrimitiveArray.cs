@@ -68,8 +68,8 @@ namespace Apache.Arrow
             return list;
         }
 
-        T? IReadOnlyList<T?>.this[int index] => GetValue(index);
         int IReadOnlyCollection<T?>.Count => Length;
+        T? IReadOnlyList<T?>.this[int index] => GetValue(index);
 
         IEnumerator<T?> IEnumerable<T?>.GetEnumerator()
         {
