@@ -88,7 +88,7 @@ func (sh *ViewHeader) BufferOffset() int32 {
 }
 
 func (sh *ViewHeader) InlineBytes() (data []byte) {
-	debug.Assert(sh.IsInline(), "calling InlineBytes on non-inline StringHeader")
+	debug.Assert(sh.IsInline(), "calling InlineBytes on non-inline ViewHeader")
 	return sh.data[:sh.size]
 }
 
