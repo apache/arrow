@@ -1,9 +1,5 @@
 # arrow <img src="https://arrow.apache.org/img/arrow-logo_hex_black-txt_white-bg.png" align="right" alt="" width="120" />
 
-[![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
-[![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amain+event%3Apush)
-[![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
-
 [Apache Arrow](https://arrow.apache.org/) is a cross-language
 development platform for in-memory and larger-than-memory data. It specifies a standardized
 language-independent columnar memory format for flat and hierarchical
@@ -99,9 +95,7 @@ example on [GitHub issues](https://github.com/apache/arrow/issues).
 Log in to your GitHub account, click on **New issue** and select the type of
 issue you want to create. Add a meaningful title prefixed with **`[R]`**
 followed by a space, the issue summary and select component **R** from the
-dropdown list. For more information, see the **Report bugs and propose
-features** section of the [Contributing to Apache
-Arrow](https://arrow.apache.org/docs/developers/contributing.html) page
+dropdown list. For more information, see the [**Bug reports and feature requests** page](https://arrow.apache.org/docs/developers/bug_reports.html)
 in the Arrow developer documentation.
 
 We welcome questions, discussion, and contributions from users of the
