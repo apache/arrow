@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/bitutil"
 	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/float16"
 	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/apache/arrow/go/v15/parquet"
 	"github.com/apache/arrow/go/v15/parquet/pqarrow"
@@ -369,6 +370,17 @@ func randFloat64(r *rand.Rand) float64 {
 	}
 }
 
+// randFloat16 creates a random float value with a normal distribution
+// to better spread the values out and ensure we do not return any NaN or Inf values.
+func randFloat16(r *rand.Rand) float16.Num {
+	for {
+		f := float16.FromBits(uint16(r.Uint64n(math.MaxUint16 + 1)))
+		if !f.IsNaN() {
+			return f
+		}
+	}
+}
+
 // FillRandomFloat32 populates out with random float32 values using seed as the random
 // seed for the generator to allow consistency for testing.
 func FillRandomFloat32(seed uint64, out []float32) {
@@ -384,6 +396,15 @@ func FillRandomFloat64(seed uint64, out []float64) {
 	r := rand.New(rand.NewSource(seed))
 	for idx := range out {
 		out[idx] = randFloat64(r)
+	}
+}
+
+// FillRandomFloat16 populates out with random float64 values using seed as the random
+// seed for the generator to allow consistency for testing.
+func FillRandomFloat16(seed uint64, out []float16.Num) {
+	r := rand.New(rand.NewSource(seed))
+	for idx := range out {
+		out[idx] = randFloat16(r)
 	}
 }
 
@@ -456,6 +477,8 @@ func InitValues(values interface{}, heap *memory.Buffer) {
 		FillRandomFloat32(0, arr)
 	case []float64:
 		FillRandomFloat64(0, arr)
+	case []float16.Num:
+		FillRandomFloat16(0, arr)
 	case []parquet.Int96:
 		FillRandomInt96(0, arr)
 	case []parquet.ByteArray:

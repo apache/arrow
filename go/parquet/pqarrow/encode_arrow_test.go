@@ -495,6 +495,8 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 		return schema.DateLogicalType{}
 	case arrow.DATE64:
 		return schema.DateLogicalType{}
+	case arrow.FLOAT16:
+		return schema.Float16LogicalType{}
 	case arrow.TIMESTAMP:
 		ts := typ.(*arrow.TimestampType)
 		adjustedUTC := len(ts.TimeZone) == 0
@@ -541,6 +543,8 @@ func getPhysicalType(typ arrow.DataType) parquet.Type {
 		return parquet.Types.Float
 	case arrow.FLOAT64:
 		return parquet.Types.Double
+	case arrow.FLOAT16:
+		return parquet.Types.FixedLenByteArray
 	case arrow.BINARY, arrow.LARGE_BINARY, arrow.STRING, arrow.LARGE_STRING:
 		return parquet.Types.ByteArray
 	case arrow.FIXED_SIZE_BINARY, arrow.DECIMAL:
@@ -600,6 +604,8 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 		byteWidth = int32(typ.ByteWidth)
 	case arrow.DecimalType:
 		byteWidth = pqarrow.DecimalSize(typ.GetPrecision())
+	case *arrow.Float16Type:
+		byteWidth = int32(typ.Bytes())
 	case *arrow.DictionaryType:
 		valuesType := typ.ValueType
 		switch dt := valuesType.(type) {
@@ -607,6 +613,8 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 			byteWidth = int32(dt.ByteWidth)
 		case arrow.DecimalType:
 			byteWidth = pqarrow.DecimalSize(dt.GetPrecision())
+		case *arrow.Float16Type:
+			byteWidth = int32(typ.Bytes())
 		}
 	}
 
@@ -1113,6 +1121,7 @@ var fullTypeList = []arrow.DataType{
 	arrow.FixedWidthTypes.Date32,
 	arrow.PrimitiveTypes.Float32,
 	arrow.PrimitiveTypes.Float64,
+	arrow.FixedWidthTypes.Float16,
 	arrow.BinaryTypes.String,
 	arrow.BinaryTypes.Binary,
 	&arrow.FixedSizeBinaryType{ByteWidth: 10},
