@@ -261,6 +261,13 @@ cdef extern from "arrow/python/common.h" namespace "arrow::py":
     void RestorePyError(const CStatus& status) except *
 
 
+cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
+    cdef cppclass SharedPtrNoGIL[T](shared_ptr[T]):
+        pass
+    cdef cppclass UniquePtrNoGIL[T, DELETER=*](unique_ptr[T, DELETER]):
+        pass
+
+
 cdef extern from "arrow/python/inference.h" namespace "arrow::py":
     c_bool IsPyBool(object o)
     c_bool IsPyInt(object o)
