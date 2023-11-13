@@ -129,19 +129,6 @@
               <reportNameSuffix>netty</reportNameSuffix>
             </configuration>
           </execution>
-          <execution>
-            <id>run-unsafe2</id>
-            <phase>test</phase>
-            <goals>
-              <goal>test</goal>
-            </goals>
-            <configuration>
-              <classpathDependencyExcludes>
-                <classpathDependencyExclude>org.apache.arrow:arrow-memory-ffm</classpathDependencyExclude>
-              </classpathDependencyExcludes>
-              <reportNameSuffix>ffm</reportNameSuffix>
-            </configuration>
-          </execution>
         </executions>
       </plugin>
       <plugin>
