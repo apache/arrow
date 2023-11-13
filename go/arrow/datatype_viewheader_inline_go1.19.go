@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 func (sh *ViewHeader) InlineString() (data string) {
