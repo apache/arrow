@@ -63,8 +63,7 @@ target environment.**
       :class-card: contrib-card
       :shadow: none
 
-      Find documentation on our development process including our guide for new
-      contributors, how to build the libraries from source, how to build the
+      Find documentation on building the libraries from source, building the
       documentation, conducting code reviews, continuous integration,
       benchmarking, and the release process.
 
