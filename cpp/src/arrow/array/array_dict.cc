@@ -218,9 +218,9 @@ struct CountDictionaryNullValuesVistor {
 
   template <typename IndexArrowType>
   Status CountDictionaryNullValuesImpl() {
-    int64_t index_length = data->length;
-    int64_t dict_length = data->dictionary->length;
-    const uint8_t* dictionary_null_bit_map = data->dictionary->GetValues<uint8_t>(0);
+    auto index_length = data->length;
+    auto dict_length = data->dictionary->length;
+    const auto* dictionary_null_bit_map = data->dictionary->GetValues<uint8_t>(0);
 
     using CType = typename IndexArrowType::c_type;
     const CType* indices_data = data->GetValues<CType>(1);
