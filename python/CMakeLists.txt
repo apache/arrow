@@ -596,8 +596,6 @@ if(PYARROW_BUILD_ACERO)
   endif()
 
   set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
-  # NOCOMMIT - do we need to remove?
-  message("ADDING _acero to extension")
   list(APPEND CYTHON_EXTENSIONS _acero)
   list(APPEND CYTHON_EXTENSIONS lib_acero)
 endif()
