@@ -64,7 +64,7 @@ target environment.**
       :shadow: none
 
       Find documentation on building the libraries from source, building the
-      documentation, conducting code reviews, continuous integration,
+      documentation, contributing and code reviews, continuous integration,
       benchmarking, and the release process.
 
       +++
