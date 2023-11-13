@@ -20,9 +20,10 @@
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 
-namespace gandiva {
+namespace {
 // calculate the number of arguments for a function signature
-static size_t GetNumArgs(const FunctionSignature& sig, const NativeFunction& func) {
+size_t GetNumArgs(const gandiva::FunctionSignature& sig,
+                  const gandiva::NativeFunction& func) {
   auto num_args = 0;
   num_args += func.NeedsContext() ? 1 : 0;
   num_args += func.NeedsFunctionHolder() ? 1 : 0;
@@ -34,8 +35,9 @@ static size_t GetNumArgs(const FunctionSignature& sig, const NativeFunction& fun
 }
 
 // map from a NativeFunction's signature to the corresponding LLVM signature
-static Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignature(
-    const FunctionSignature& sig, const NativeFunction& func, LLVMTypes* types) {
+arrow::Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignature(
+    const gandiva::FunctionSignature& sig, const gandiva::NativeFunction& func,
+    gandiva::LLVMTypes* types) {
   std::vector<llvm::Type*> arg_llvm_types;
   arg_llvm_types.reserve(GetNumArgs(sig, func));
 
@@ -59,8 +61,10 @@ static Result<std::pair<std::vector<llvm::Type*>, llvm::Type*>> MapToLLVMSignatu
   auto ret_llvm_type = types->IRType(sig.ret_type()->id());
   return std::make_pair(std::move(arg_llvm_types), ret_llvm_type);
 }
+}  // namespace
 
-arrow::Status ExternalCFunctions::AddMappings(Engine* engine) const {
+namespace gandiva {
+Status ExternalCFunctions::AddMappings(Engine* engine) const {
   auto const& c_funcs = function_registry_->GetCFunctions();
   auto const types = engine->types();
   for (auto& [func, func_ptr] : c_funcs) {
@@ -70,6 +74,6 @@ arrow::Status ExternalCFunctions::AddMappings(Engine* engine) const {
       engine->AddGlobalMappingForFunc(func.pc_name(), ret_llvm_type, args, func_ptr);
     }
   }
-  return arrow::Status::OK();
+  return Status::OK();
 }
 }  // namespace gandiva
