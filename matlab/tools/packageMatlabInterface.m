@@ -54,19 +54,78 @@ opts.SupportedPlatforms.MatlabOnline = true;
 opts.MinimumMatlabRelease = "R2023a";
 opts.MaximumMatlabRelease = "";
 
-opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", "test"));
+opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
 disp("Output File: " + opts.OutputFile);
 matlab.addons.toolbox.packageToolbox(opts);
 
 % Copy symlinks to package.
 dylib = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.dylib");
-so = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.so*.");
-%tmpFolder = fullfile(tempdir, "arrow-matlab");
-%cmd = compose("pushd %s; zip -u %s %s; popd", 
+so = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.so");
 
-%sharedLibraryTargetFolder = fullfile(tmpFolder, "fsroot", "+libmexclass", "+proxy");
-%copyfile(dylib, sharedLibraryTargetFolder);
-%copyfile(so,  sharedLibraryTargetFolder);
+% Get the filenames and file paths of all dylibs within +proxy
+dylibFiles = dir(dylib);
+dylibFileNames = convertCharsToStrings({dylibFiles.name});
+dylibFilePaths = fullfile({dylibFiles.folder}, dylibFileNames);
 
-%system(compose("zip %s zip(opts.OutputFile, fullfile(tmpFolder, "/"));
-%movefile(opts.OutputFile + ".zip", opts.OutputFile);
+% Get the filenames and file paths of all sos within +proxy
+soFiles = dir(so);
+soFileNames = convertCharsToStrings({soFiles.name});
+soFilePaths = fullfile({soFiles.folder}, soFileNames);
+
+sharedLibFileNames = [dylibFileNames soFileNames];
+sharedLibFilePaths = [dylibFilePaths soFilePaths];
+
+% Determine which dylibs and sos were not included in the MLTBX file
+[~, name, ext] = fileparts(opts.ToolboxFiles);
+idx = ~ismember(sharedLibFileNames, name + ext);
+sharedLibrariesToCopy = sharedLibFilePaths(idx);
+
+tmpFolder = fullfile(tempdir, "arrow-matlab");
+unzip(opts.OutputFile, tmpFolder);
+
+% Get top-level directories and files
+dirContents = dir(tmpFolder);
+dotOrDotDotIdx = ismember({dirContents.name}, [".", ".."]);
+dirContents(dotOrDotDotIdx) = [];
+rootPaths = fullfile(tmpFolder, {dirContents.name});
+
+delete(opts.OutputFile);
+
+% Copy missing shared libraries to the proper subfolder within fsroot 
+sharedLibraryTargetFolder = fullfile(tmpFolder, "fsroot", "+libmexclass", "+proxy");
+for ii = 1:numel(sharedLibrariesToCopy)
+    copyfile(sharedLibrariesToCopy(ii), sharedLibraryTargetFolder);
+end
+
+manifestFilename = fullfile(tmpFolder, "metadata", "filesystemManifest.xml"); 
+parser = matlab.io.xml.dom.Parser;
+manifestXDoc = parser.parseFile(manifestFilename);
+
+fileEntriesNode = manifestXDoc.Children;
+date = datetime("now", TimeZone="UTC", Format="yyyy-MM-dd'T'hh:mm:ss");
+date = string(date) + "Z";
+permissions = "0644";
+
+% Use the first element as a template for the new nodes
+firstElement = fileEntriesNode.getFirstElementChild;
+
+for ii = 1:numel(sharedLibrariesToCopy)
+    % Clone the first node because of handle copy-semantics
+    fileEntryNode = firstElement.cloneNode(false);
+    nameAttributeValue = extractAfter(sharedLibrariesToCopy(ii), toolboxFolder);
+    contentAttributeValue = fullfile("/fsroot", nameAttributeValue);
+    fileEntryNode.setAttribute("name", nameAttributeValue);
+    fileEntryNode.setAttribute("content", contentAttributeValue);
+    fileEntryNode.setAttribute("date", date);
+    fileEntryNode.setAttribute("permissions", permissions);
+    fileEntryNode.setAttribute("type", "File");
+    fileEntriesNode.appendChild(fileEntryNode);
+end
+
+% Export the updated DOM to an XML file
+writer = matlab.io.xml.dom.DOMWriter;
+writeToFile(writer, manifestXDoc, manifestFilename);
+
+% Re-zip the MLTBX source files and remove ".zip" from the archive filename
+zip(opts.OutputFile, rootPaths);
+movefile(opts.OutputFile + ".zip", opts.OutputFile);
