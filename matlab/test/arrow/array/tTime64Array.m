@@ -42,6 +42,7 @@ classdef tTime64Array < matlab.unittest.TestCase
                                    4.1234566; ...
                                    5.000000123]);
             arrowArray = tc.ArrowArrayConstructorFcn(matlabTimes);
+            tc.verifyEqual(arrowArray.Type.TimeUnit, arrow.type.TimeUnit.Microsecond);
             tc.verifyEqual(arrowArray.toMATLAB(), ...
                            seconds([1;...
                                     0.001; ...
@@ -356,6 +357,18 @@ classdef tTime64Array < matlab.unittest.TestCase
                                     1.123456790, ...
                                     1.123456789])',...
                           'AbsTol',seconds(1e-15));
+        end
+
+        function TimeUnitIsReadOnly(tc)
+            % Verify that arrowArray.Type.TimeUnit cannot be changed.
+
+            matlabTimes = seconds([1.000001, 2.999999, 0.0002004]);
+            arrowArray = tc.ArrowArrayConstructorFcn(matlabTimes);
+            tc.verifyError(@()setTimeUnit(arrowArray),'MATLAB:class:SetProhibited');
+
+            function setTimeUnit(arrowTime)
+                arrowTime.Type.TimeUnit = "Nanosecond";
+            end
         end
     end
 

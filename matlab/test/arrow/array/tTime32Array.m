@@ -37,6 +37,7 @@ classdef tTime32Array < matlab.unittest.TestCase
             % Verify that the default value of "TimeUnit" is "second".
             times = seconds([1.2 1.3 1.4 1.5 1.7]);
             array = tc.ArrowArrayConstructorFcn(times);
+            tc.verifyEqual(array.Type.TimeUnit, arrow.type.TimeUnit.Second);
             tc.verifyEqual(array.toMATLAB, seconds([1;1;1;2;2]));
         end
 
@@ -297,6 +298,18 @@ classdef tTime32Array < matlab.unittest.TestCase
             matlabTimes = seconds([1.1, 1.99, 1.001, 1.0004, 1.0005, 2.001]);
             arrowTimes = tc.ArrowArrayConstructorFcn(matlabTimes, TimeUnit="Millisecond");
             tc.verifyEqual(arrowTimes.toMATLAB(),seconds([1.1, 1.99, 1.001, 1, 1.001, 2.001])','AbsTol',seconds(1e-15));
+        end
+
+        function TimeUnitIsReadOnly(tc)
+            % Verify that arrowArray.Type.TimeUnit cannot be changed.
+
+            matlabTimes = seconds([1.1, 1.4, 1.5, 1.9, 2.001]);
+            arrowArray = tc.ArrowArrayConstructorFcn(matlabTimes);
+            tc.verifyError(@()setTimeUnit(arrowArray),'MATLAB:class:SetProhibited');
+
+            function setTimeUnit(arrowTime)
+                arrowTime.Type.TimeUnit = "millisecond";
+            end
         end
     end
 
