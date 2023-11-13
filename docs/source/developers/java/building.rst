@@ -35,7 +35,7 @@ Building requires:
 * JDK 8+
 * Maven 3+
 
-Note: CI tests all supported JDK LTS versions, plus the latest non-LTS version.
+Note: CI will test all supported JDK LTS versions, plus the latest non-LTS version.
 
 Building
 ========
