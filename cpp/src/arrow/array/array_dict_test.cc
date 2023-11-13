@@ -1433,7 +1433,7 @@ void CheckDictionaryCountNullValues(const std::shared_ptr<DataType>& dict_type,
                                     const std::string& input_index_json,
                                     const int64_t& expected_null_count) {
   auto input = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
-  const DictionaryArray& input_ref = checked_cast<const DictionaryArray&>(*input);
+  const auto& input_ref = checked_cast<const DictionaryArray&>(*input);
 
   ASSERT_OK_AND_ASSIGN(int64_t actual, input_ref.CountNullValues());
   ASSERT_EQ(expected_null_count, actual);
