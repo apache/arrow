@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/acero/asof_join_node.h"
+#include "arrow/acero/backpressure_handler.h"
+#include "arrow/acero/concurrent_queue_internal.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -30,6 +32,7 @@
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
+#include "arrow/acero/unmaterialized_table.h"
 #ifndef NDEBUG
 #include "arrow/acero/options_internal.h"
 #endif
@@ -41,6 +44,7 @@
 #ifndef NDEBUG
 #include "arrow/compute/function_internal.h"
 #endif
+#include "arrow/acero/time_series_util.h"
 #include "arrow/compute/key_hash.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/record_batch.h"
@@ -122,91 +126,11 @@ struct TolType {
 typedef uint64_t row_index_t;
 typedef int col_index_t;
 
-// normalize the value to 64-bits while preserving ordering of values
-template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
-static inline uint64_t time_value(T t) {
-  uint64_t bias = std::is_signed<T>::value ? (uint64_t)1 << (8 * sizeof(T) - 1) : 0;
-  return t < 0 ? static_cast<uint64_t>(t + bias) : static_cast<uint64_t>(t);
-}
-
 // indicates normalization of a key value
 template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
 static inline uint64_t key_value(T t) {
   return static_cast<uint64_t>(t);
 }
-
-/**
- * Simple implementation for an unbound concurrent queue
- */
-template <class T>
-class ConcurrentQueue {
- public:
-  T Pop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    cond_.wait(lock, [&] { return !queue_.empty(); });
-    return PopUnlocked();
-  }
-
-  T PopUnlocked() {
-    auto item = queue_.front();
-    queue_.pop();
-    return item;
-  }
-
-  void Push(const T& item) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return PushUnlocked(item);
-  }
-
-  void PushUnlocked(const T& item) {
-    queue_.push(item);
-    cond_.notify_one();
-  }
-
-  void Clear() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ClearUnlocked();
-  }
-
-  void ClearUnlocked() { queue_ = std::queue<T>(); }
-
-  std::optional<T> TryPop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return TryPopUnlocked();
-  }
-
-  std::optional<T> TryPopUnlocked() {
-    // Try to pop the oldest value from the queue (or return nullopt if none)
-    if (queue_.empty()) {
-      return std::nullopt;
-    } else {
-      auto item = queue_.front();
-      queue_.pop();
-      return item;
-    }
-  }
-
-  bool Empty() const {
-    std::unique_lock<std::mutex> lock(mutex_);
-    return queue_.empty();
-  }
-
-  // Un-synchronized access to front
-  // For this to be "safe":
-  // 1) the caller logically guarantees that queue is not empty
-  // 2) pop/try_pop cannot be called concurrently with this
-  const T& UnsyncFront() const { return queue_.front(); }
-
-  size_t UnsyncSize() const { return queue_.size(); }
-
- protected:
-  std::mutex& GetMutex() { return mutex_; }
-
- private:
-  std::queue<T> queue_;
-  mutable std::mutex mutex_;
-  std::condition_variable cond_;
-};
 
 class AsofJoinNode;
 
@@ -547,104 +471,6 @@ class BackpressureController : public BackpressureControl {
   std::atomic<int32_t>& backpressure_counter_;
 };
 
-class BackpressureHandler {
- private:
-  BackpressureHandler(ExecNode* input, size_t low_threshold, size_t high_threshold,
-                      std::unique_ptr<BackpressureControl> backpressure_control)
-      : input_(input),
-        low_threshold_(low_threshold),
-        high_threshold_(high_threshold),
-        backpressure_control_(std::move(backpressure_control)) {}
-
- public:
-  static Result<BackpressureHandler> Make(
-      ExecNode* input, size_t low_threshold, size_t high_threshold,
-      std::unique_ptr<BackpressureControl> backpressure_control) {
-    if (low_threshold >= high_threshold) {
-      return Status::Invalid("low threshold (", low_threshold,
-                             ") must be less than high threshold (", high_threshold, ")");
-    }
-    if (backpressure_control == NULLPTR) {
-      return Status::Invalid("null backpressure control parameter");
-    }
-    BackpressureHandler backpressure_handler(input, low_threshold, high_threshold,
-                                             std::move(backpressure_control));
-    return std::move(backpressure_handler);
-  }
-
-  void Handle(size_t start_level, size_t end_level) {
-    if (start_level < high_threshold_ && end_level >= high_threshold_) {
-      backpressure_control_->Pause();
-    } else if (start_level > low_threshold_ && end_level <= low_threshold_) {
-      backpressure_control_->Resume();
-    }
-  }
-
-  Status ForceShutdown() {
-    // It may be unintuitive to call Resume() here, but this is to avoid a deadlock.
-    // Since acero's executor won't terminate if any one node is paused, we need to
-    // force resume the node before stopping production.
-    backpressure_control_->Resume();
-    return input_->StopProducing();
-  }
-
- private:
-  ExecNode* input_;
-  size_t low_threshold_;
-  size_t high_threshold_;
-  std::unique_ptr<BackpressureControl> backpressure_control_;
-};
-
-template <typename T>
-class BackpressureConcurrentQueue : public ConcurrentQueue<T> {
- private:
-  struct DoHandle {
-    explicit DoHandle(BackpressureConcurrentQueue& queue)
-        : queue_(queue), start_size_(queue_.UnsyncSize()) {}
-
-    ~DoHandle() {
-      size_t end_size = queue_.UnsyncSize();
-      queue_.handler_.Handle(start_size_, end_size);
-    }
-
-    BackpressureConcurrentQueue& queue_;
-    size_t start_size_;
-  };
-
- public:
-  explicit BackpressureConcurrentQueue(BackpressureHandler handler)
-      : handler_(std::move(handler)) {}
-
-  T Pop() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::PopUnlocked();
-  }
-
-  void Push(const T& item) {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    ConcurrentQueue<T>::PushUnlocked(item);
-  }
-
-  void Clear() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    ConcurrentQueue<T>::ClearUnlocked();
-  }
-
-  std::optional<T> TryPop() {
-    std::unique_lock<std::mutex> lock(ConcurrentQueue<T>::GetMutex());
-    DoHandle do_handle(*this);
-    return ConcurrentQueue<T>::TryPopUnlocked();
-  }
-
-  Status ForceShutdown() { return handler_.ForceShutdown(); }
-
- private:
-  BackpressureHandler handler_;
-};
-
 class InputState {
   // InputState correponds to an input
   // Input record batches are queued up in InputState until processed and
@@ -783,29 +609,8 @@ class InputState {
   }
 
   inline OnType GetLatestTime() const {
-    return GetTime(GetLatestBatch().get(), latest_ref_row_);
-  }
-
-  inline ByType GetTime(const RecordBatch* batch, row_index_t row) const {
-    auto data = batch->column_data(time_col_index_);
-    switch (time_type_id_) {
-      LATEST_VAL_CASE(INT8, time_value)
-      LATEST_VAL_CASE(INT16, time_value)
-      LATEST_VAL_CASE(INT32, time_value)
-      LATEST_VAL_CASE(INT64, time_value)
-      LATEST_VAL_CASE(UINT8, time_value)
-      LATEST_VAL_CASE(UINT16, time_value)
-      LATEST_VAL_CASE(UINT32, time_value)
-      LATEST_VAL_CASE(UINT64, time_value)
-      LATEST_VAL_CASE(DATE32, time_value)
-      LATEST_VAL_CASE(DATE64, time_value)
-      LATEST_VAL_CASE(TIME32, time_value)
-      LATEST_VAL_CASE(TIME64, time_value)
-      LATEST_VAL_CASE(TIMESTAMP, time_value)
-      default:
-        DCHECK(false);
-        return 0;  // cannot happen
-    }
+    return GetTime(GetLatestBatch().get(), time_type_id_, time_col_index_,
+                   latest_ref_row_);
   }
 
 #undef LATEST_VAL_CASE
@@ -832,7 +637,9 @@ class InputState {
         have_active_batch &= !queue_.TryPop();
         if (have_active_batch) {
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
-          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), 0));  // time changed
+          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), time_type_id_,
+                                   time_col_index_,
+                                   0));  // time changed
         }
       }
     }
@@ -988,35 +795,25 @@ class InputState {
   std::vector<std::optional<col_index_t>> src_to_dst_;
 };
 
+/// Wrapper around UnmaterializedCompositeTable that knows how to emplace
+/// the join row-by-row
 template <size_t MAX_TABLES>
-struct CompositeReferenceRow {
-  struct Entry {
-    arrow::RecordBatch* batch;  // can be NULL if there's no value
-    row_index_t row;
-  };
-  Entry refs[MAX_TABLES];
-};
+class CompositeTableBuilder {
+  using SliceBuilder = UnmaterializedSliceBuilder<MAX_TABLES>;
+  using CompositeTable = UnmaterializedCompositeTable<MAX_TABLES>;
 
-// A table of composite reference rows.  Rows maintain pointers to the
-// constituent record batches, but the overall table retains shared_ptr
-// references to ensure memory remains resident while the table is live.
-//
-// The main reason for this is that, especially for wide tables, joins
-// are effectively row-oriented, rather than column-oriented.  Separating
-// the join part from the columnar materialization part simplifies the
-// logic around data types and increases efficiency.
-//
-// We don't put the shared_ptr's into the rows for efficiency reasons.
-template <size_t MAX_TABLES>
-class CompositeReferenceTable {
  public:
-  NDEBUG_EXPLICIT CompositeReferenceTable(DEBUG_ADD(size_t n_tables, AsofJoinNode* node))
-      : DEBUG_ADD(n_tables_(n_tables), node_(node)) {
+  NDEBUG_EXPLICIT CompositeTableBuilder(
+      const std::vector<std::unique_ptr<InputState>>& inputs,
+      const std::shared_ptr<Schema>& schema, arrow::MemoryPool* pool,
+      DEBUG_ADD(size_t n_tables, AsofJoinNode* node))
+      : unmaterialized_table(InitUnmaterializedTable(schema, inputs, pool)),
+        DEBUG_ADD(n_tables_(n_tables), node_(node)) {
     DCHECK_GE(n_tables_, 1);
     DCHECK_LE(n_tables_, MAX_TABLES);
   }
 
-  size_t n_rows() const { return rows_.size(); }
+  size_t n_rows() const { return unmaterialized_table.Size(); }
 
   // Adds the latest row from the input state as a new composite reference row
   // - LHS must have a valid key,timestep,and latest rows
@@ -1037,14 +834,16 @@ class CompositeReferenceTable {
       // On the first row of the batch, we resize the destination.
       // The destination size is dictated by the size of the LHS batch.
       row_index_t new_batch_size = lhs_latest_batch->num_rows();
-      row_index_t new_capacity = rows_.size() + new_batch_size;
-      if (rows_.capacity() < new_capacity) rows_.reserve(new_capacity);
+      row_index_t new_capacity = unmaterialized_table.Size() + new_batch_size;
+      if (unmaterialized_table.capacity() < new_capacity) {
+        unmaterialized_table.reserve(new_capacity);
+      }
     }
-    rows_.resize(rows_.size() + 1);
-    auto& row = rows_.back();
-    row.refs[0].batch = lhs_latest_batch.get();
-    row.refs[0].row = lhs_latest_row;
-    AddRecordBatchRef(lhs_latest_batch);
+
+    SliceBuilder new_row{&unmaterialized_table};
+
+    // Each item represents a portion of the columns of the output table
+    new_row.AddEntry(lhs_latest_batch, lhs_latest_row, lhs_latest_row + 1);
 
     DEBUG_SYNC(node_, "Emplace: key=", key, " lhs_latest_row=", lhs_latest_row,
                " lhs_latest_time=", lhs_latest_time, DEBUG_MANIP(std::endl));
@@ -1068,100 +867,25 @@ class CompositeReferenceTable {
         if (tolerance.Accepts(lhs_latest_time, (*opt_entry)->time)) {
           // Have a valid entry
           const MemoStore::Entry* entry = *opt_entry;
-          row.refs[i].batch = entry->batch.get();
-          row.refs[i].row = entry->row;
-          AddRecordBatchRef(entry->batch);
+          new_row.AddEntry(entry->batch, entry->row, entry->row + 1);
           continue;
         }
       }
-      row.refs[i].batch = NULL;
-      row.refs[i].row = 0;
+      new_row.AddEntry(nullptr, 0, 1);
     }
+    new_row.Finalize();
   }
 
   // Materializes the current reference table into a target record batch
-  Result<std::shared_ptr<RecordBatch>> Materialize(
-      MemoryPool* memory_pool, const std::shared_ptr<arrow::Schema>& output_schema,
-      const std::vector<std::unique_ptr<InputState>>& state) {
-    DCHECK_EQ(state.size(), n_tables_);
-
-    // Don't build empty batches
-    size_t n_rows = rows_.size();
-    if (!n_rows) return NULLPTR;
-
-    // Build the arrays column-by-column from the rows
-    std::vector<std::shared_ptr<arrow::Array>> arrays(output_schema->num_fields());
-    for (size_t i_table = 0; i_table < n_tables_; ++i_table) {
-      int n_src_cols = state.at(i_table)->get_schema()->num_fields();
-      {
-        for (col_index_t i_src_col = 0; i_src_col < n_src_cols; ++i_src_col) {
-          std::optional<col_index_t> i_dst_col_opt =
-              state[i_table]->MapSrcToDst(i_src_col);
-          if (!i_dst_col_opt) continue;
-          col_index_t i_dst_col = *i_dst_col_opt;
-          const auto& src_field = state[i_table]->get_schema()->field(i_src_col);
-          const auto& dst_field = output_schema->field(i_dst_col);
-          DCHECK(src_field->type()->Equals(dst_field->type()));
-          DCHECK_EQ(src_field->name(), dst_field->name());
-          const auto& field_type = src_field->type();
-
-#define ASOFJOIN_MATERIALIZE_CASE(id)                                       \
-  case Type::id: {                                                          \
-    using T = typename TypeIdTraits<Type::id>::Type;                        \
-    ARROW_ASSIGN_OR_RAISE(                                                  \
-        arrays.at(i_dst_col),                                               \
-        MaterializeColumn<T>(memory_pool, field_type, i_table, i_src_col)); \
-    break;                                                                  \
-  }
-
-          switch (field_type->id()) {
-            ASOFJOIN_MATERIALIZE_CASE(BOOL)
-            ASOFJOIN_MATERIALIZE_CASE(INT8)
-            ASOFJOIN_MATERIALIZE_CASE(INT16)
-            ASOFJOIN_MATERIALIZE_CASE(INT32)
-            ASOFJOIN_MATERIALIZE_CASE(INT64)
-            ASOFJOIN_MATERIALIZE_CASE(UINT8)
-            ASOFJOIN_MATERIALIZE_CASE(UINT16)
-            ASOFJOIN_MATERIALIZE_CASE(UINT32)
-            ASOFJOIN_MATERIALIZE_CASE(UINT64)
-            ASOFJOIN_MATERIALIZE_CASE(FLOAT)
-            ASOFJOIN_MATERIALIZE_CASE(DOUBLE)
-            ASOFJOIN_MATERIALIZE_CASE(DATE32)
-            ASOFJOIN_MATERIALIZE_CASE(DATE64)
-            ASOFJOIN_MATERIALIZE_CASE(TIME32)
-            ASOFJOIN_MATERIALIZE_CASE(TIME64)
-            ASOFJOIN_MATERIALIZE_CASE(TIMESTAMP)
-            ASOFJOIN_MATERIALIZE_CASE(STRING)
-            ASOFJOIN_MATERIALIZE_CASE(LARGE_STRING)
-            ASOFJOIN_MATERIALIZE_CASE(BINARY)
-            ASOFJOIN_MATERIALIZE_CASE(LARGE_BINARY)
-            default:
-              return Status::Invalid("Unsupported data type ",
-                                     src_field->type()->ToString(), " for field ",
-                                     src_field->name());
-          }
-
-#undef ASOFJOIN_MATERIALIZE_CASE
-        }
-      }
-    }
-
-    // Build the result
-    DCHECK_LE(n_rows, (uint64_t)std::numeric_limits<int64_t>::max());
-    std::shared_ptr<arrow::RecordBatch> r =
-        arrow::RecordBatch::Make(output_schema, (int64_t)n_rows, arrays);
-    return r;
+  Result<std::optional<std::shared_ptr<RecordBatch>>> Materialize() {
+    return unmaterialized_table.Materialize();
   }
 
   // Returns true if there are no rows
-  bool empty() const { return rows_.empty(); }
+  bool empty() const { return unmaterialized_table.Empty(); }
 
  private:
-  // Contains shared_ptr refs for all RecordBatches referred to by the contents of rows_
-  std::unordered_map<uintptr_t, std::shared_ptr<RecordBatch>> _ptr2ref;
-
-  // Row table references
-  std::vector<CompositeReferenceRow<MAX_TABLES>> rows_;
+  CompositeTable unmaterialized_table;
 
   // Total number of tables in the composite table
   size_t n_tables_;
@@ -1171,70 +895,20 @@ class CompositeReferenceTable {
   AsofJoinNode* node_;
 #endif
 
-  // Adds a RecordBatch ref to the mapping, if needed
-  void AddRecordBatchRef(const std::shared_ptr<RecordBatch>& ref) {
-    if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
-  }
-
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_boolean<Type, Status> static BuilderAppend(
-      Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
-    if (source->IsNull(row)) {
-      builder.UnsafeAppendNull();
-      return Status::OK();
-    }
-    builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
-    return Status::OK();
-  }
-
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
-              Status> static BuilderAppend(Builder& builder,
-                                           const std::shared_ptr<ArrayData>& source,
-                                           row_index_t row) {
-    if (source->IsNull(row)) {
-      builder.UnsafeAppendNull();
-      return Status::OK();
-    }
-    using CType = typename TypeTraits<Type>::CType;
-    builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
-    return Status::OK();
-  }
-
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_base_binary<Type, Status> static BuilderAppend(
-      Builder& builder, const std::shared_ptr<ArrayData>& source, row_index_t row) {
-    if (source->IsNull(row)) {
-      return builder.AppendNull();
-    }
-    using offset_type = typename Type::offset_type;
-    const uint8_t* data = source->buffers[2]->data();
-    const offset_type* offsets = source->GetValues<offset_type>(1);
-    const offset_type offset0 = offsets[row];
-    const offset_type offset1 = offsets[row + 1];
-    return builder.Append(data + offset0, offset1 - offset0);
-  }
-
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  Result<std::shared_ptr<Array>> MaterializeColumn(MemoryPool* memory_pool,
-                                                   const std::shared_ptr<DataType>& type,
-                                                   size_t i_table, col_index_t i_col) {
-    ARROW_ASSIGN_OR_RAISE(auto a_builder, MakeBuilder(type, memory_pool));
-    Builder& builder = *checked_cast<Builder*>(a_builder.get());
-    ARROW_RETURN_NOT_OK(builder.Reserve(rows_.size()));
-    for (row_index_t i_row = 0; i_row < rows_.size(); ++i_row) {
-      const auto& ref = rows_[i_row].refs[i_table];
-      if (ref.batch) {
-        Status st =
-            BuilderAppend<Type, Builder>(builder, ref.batch->column_data(i_col), ref.row);
-        ARROW_RETURN_NOT_OK(st);
-      } else {
-        builder.UnsafeAppendNull();
+  static CompositeTable InitUnmaterializedTable(
+      const std::shared_ptr<Schema>& schema,
+      const std::vector<std::unique_ptr<InputState>>& inputs, arrow::MemoryPool* pool) {
+    std::unordered_map<int, std::pair<int, int>> dst_to_src;
+    for (size_t i = 0; i < inputs.size(); i++) {
+      auto& input = inputs[i];
+      for (int src = 0; src < input->get_schema()->num_fields(); src++) {
+        auto dst = input->MapSrcToDst(src);
+        if (dst.has_value()) {
+          dst_to_src[dst.value()] = std::make_pair(static_cast<int>(i), src);
+        }
       }
     }
-    std::shared_ptr<Array> result;
-    ARROW_RETURN_NOT_OK(builder.Finish(&result));
-    return result;
+    return CompositeTable{schema, inputs.size(), dst_to_src, pool};
   }
 };
 
@@ -1279,7 +953,9 @@ class AsofJoinNode : public ExecNode {
     auto& lhs = *state_.at(0);
 
     // Construct new target table if needed
-    CompositeReferenceTable<MAX_JOIN_TABLES> dst(DEBUG_ADD(state_.size(), this));
+    CompositeTableBuilder<MAX_JOIN_TABLES> dst(state_, output_schema_,
+                                               plan()->query_context()->memory_pool(),
+                                               DEBUG_ADD(state_.size(), this));
 
     // Generate rows into the dst table until we either run out of data or hit the row
     // limit, or run out of input
@@ -1318,8 +994,8 @@ class AsofJoinNode : public ExecNode {
     if (dst.empty()) {
       return NULLPTR;
     } else {
-      return dst.Materialize(plan()->query_context()->memory_pool(), output_schema(),
-                             state_);
+      ARROW_ASSIGN_OR_RAISE(auto out, dst.Materialize());
+      return out.has_value() ? out.value() : NULLPTR;
     }
   }
 

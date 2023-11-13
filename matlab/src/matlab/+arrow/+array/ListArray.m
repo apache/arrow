@@ -79,8 +79,9 @@ classdef ListArray < arrow.array.Array
                 offsets (1, 1) arrow.array.Int32Array
                 values (1, 1) arrow.array.Array
                 opts.Valid
+                opts.ValidationMode (1, 1) arrow.array.ValidationMode = arrow.array.ValidationMode.Minimal
             end
-            
+
             import arrow.internal.validate.parseValid
 
             if nargin < 2
@@ -100,12 +101,68 @@ classdef ListArray < arrow.array.Array
                 ValuesProxyID=valuesProxyID, ...
                 Valid=validElements ...
             );
+
+            proxyName = "arrow.array.proxy.ListArray";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            % Validate the provided offsets and values.
+            proxy.validate(struct(ValidationMode=uint8(opts.ValidationMode)));
+            array = arrow.array.ListArray(proxy);
+        end
+
+        function array = fromMATLAB(C)
+            arguments
+                C(:, 1) cell {mustBeNonempty}
+            end
+            import arrow.array.internal.list.findFirstNonMissingElement
+            import arrow.array.internal.list.createValidator
+
+            idx = findFirstNonMissingElement(C);
+
+            if idx == -1
+                id = "arrow:array:list:CellArrayAllMissing";
+                msg = "The input cell array must contain at least one non-missing" + ...
+                    " value to be converted to an Arrow array.";
+                error(id, msg);
+            end
+
+            validator = createValidator(C{idx});
+
+            numElements = numel(C);
+            valid = true([numElements 1]);
+            % All elements before the first non-missing value should be 
+            % treated as null values.
+            valid(1:idx-1) = false;
+            offsets = zeros([numElements + 1, 1], "int32");
+
+            for ii = idx:numElements
+                element = C{ii};
+                if isa(element, "missing")
+                    % Treat missing values as null values.
+                    valid(ii) = false;
+                    offsets(ii + 1) = offsets(ii);
+                else
+                    validator.validateElement(element);
+                    length = validator.getElementLength(element);
+                    offsets(ii + 1) = offsets(ii) + length;
+                end
+            end
+
+            offsetArray = arrow.array(offsets);
+
+            validValueCellArray = validator.reshapeCellElements(C(valid));
+            values = vertcat(validValueCellArray{:});
+            valueArray = arrow.array(values);
+
+            args = struct(...
+                OffsetsProxyID=offsetArray.Proxy.ID, ...
+                ValuesProxyID=valueArray.Proxy.ID, ...
+                Valid=valid ...
+            );
             
             proxyName = "arrow.array.proxy.ListArray";
             proxy = arrow.internal.proxy.create(proxyName, args);
             array = arrow.array.ListArray(proxy);
         end
-
     end
 
 end

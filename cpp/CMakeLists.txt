@@ -71,7 +71,7 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-set(ARROW_VERSION "14.0.0-SNAPSHOT")
+set(ARROW_VERSION "15.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -889,8 +889,8 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers ${ARROW_GTEST_GTEST_MAIN}
-                              ${ARROW_GTEST_GTEST} ${ARROW_GTEST_GMOCK})
+set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers ${ARROW_GTEST_GMOCK}
+                              ${ARROW_GTEST_GTEST_MAIN})
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
@@ -909,7 +909,7 @@ set(ARROW_TEST_SHARED_LINK_LIBS arrow_testing_shared arrow_shared
                                 ${ARROW_SHARED_LINK_LIBS} ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(NOT MSVC)
-  set(ARROW_TEST_SHARED_LINK_LIBS ${ARROW_TEST_SHARED_LINK_LIBS} ${CMAKE_DL_LIBS})
+  list(APPEND ARROW_TEST_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
 if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
