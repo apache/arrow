@@ -60,7 +60,7 @@ matlab.addons.toolbox.packageToolbox(opts);
 
 % Copy symlinks to package.
 dylib = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.dylib");
-so = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.so");
+so = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.so*");
 
 % Get the filenames and file paths of all dylibs within +proxy
 dylibFiles = dir(dylib);
