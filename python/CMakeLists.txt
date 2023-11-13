@@ -425,6 +425,11 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                PROPERTY COMPILE_FLAGS -Wno-parentheses-equality)
 endif()
 
+configure_file(
+    "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h.cmake"
+    "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
+    ESCAPE_QUOTES
+)
 install(DIRECTORY ${PYARROW_CPP_SOURCE_DIR}/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python
         FILES_MATCHING
@@ -539,6 +544,7 @@ endif()
 
 set(CYTHON_EXTENSIONS
     lib
+    lib_compute
     _compute
     _csv
     _feather
@@ -769,38 +775,29 @@ foreach(module ${CYTHON_EXTENSIONS})
   endforeach()
 endforeach()
 
-if(PYARROW_BUILD_ACERO)
+function(install_wrapper_lib lib_module)
     set(ARROW_PYTHON_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src/arrow/python")
     file(MAKE_DIRECTORY ${ARROW_PYTHON_BINARY_DIR})
-    add_custom_command(OUTPUT "${ARROW_PYTHON_BINARY_DIR}/lib_acero_api.h"
-                              "${ARROW_PYTHON_BINARY_DIR}/lib_acero.h"
+    add_custom_command(OUTPUT "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h"
+                              "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h"
                        COMMAND ${CMAKE_COMMAND} -E copy
-                               "${CMAKE_CURRENT_BINARY_DIR}/lib_acero_api.h"
-                               "${CMAKE_CURRENT_BINARY_DIR}/lib_acero.h"
+                               "${CMAKE_CURRENT_BINARY_DIR}/${lib_module}_api.h"
+                               "${CMAKE_CURRENT_BINARY_DIR}/${lib_module}.h"
                                "${ARROW_PYTHON_BINARY_DIR}/"
-                       DEPENDS lib_acero_pyx)
-    add_custom_target(cython_api_headers_acero DEPENDS "${ARROW_PYTHON_BINARY_DIR}/lib_acero_api.h"
-                                                 "${ARROW_PYTHON_BINARY_DIR}/lib_acero.h")
-    add_dependencies(arrow_python cython_api_headers_acero)
-    install(FILES "${ARROW_PYTHON_BINARY_DIR}/lib_acero_api.h" "${ARROW_PYTHON_BINARY_DIR}/lib_acero.h"
+                       DEPENDS ${lib_module}_pyx)
+    add_custom_target(cython_api_headers_${lib_module} DEPENDS "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h"
+                                                 "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h")
+    add_dependencies(arrow_python cython_api_headers_${lib_module})
+    install(FILES "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h" "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h"
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
+endfunction()
+
+# These libraries provide interops between arrow C++ and pyarrow
+if(PYARROW_BUILD_ACERO)
+    install_wrapper_lib(lib_acero)
 endif()
-
-
-set(ARROW_PYTHON_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src/arrow/python")
-file(MAKE_DIRECTORY ${ARROW_PYTHON_BINARY_DIR})
-add_custom_command(OUTPUT "${ARROW_PYTHON_BINARY_DIR}/lib_api.h"
-                          "${ARROW_PYTHON_BINARY_DIR}/lib.h"
-                   COMMAND ${CMAKE_COMMAND} -E copy
-                           "${CMAKE_CURRENT_BINARY_DIR}/lib_api.h"
-                           "${CMAKE_CURRENT_BINARY_DIR}/lib.h"
-                           "${ARROW_PYTHON_BINARY_DIR}/"
-                   DEPENDS lib_pyx)
-add_custom_target(cython_api_headers DEPENDS "${ARROW_PYTHON_BINARY_DIR}/lib_api.h"
-                                             "${ARROW_PYTHON_BINARY_DIR}/lib.h")
-add_dependencies(arrow_python cython_api_headers)
-install(FILES "${ARROW_PYTHON_BINARY_DIR}/lib_api.h" "${ARROW_PYTHON_BINARY_DIR}/lib.h"
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
+install_wrapper_lib(lib_compute)
+install_wrapper_lib(lib)
 
 
 # Additional link libraries
@@ -817,13 +814,9 @@ if(PYARROW_BUILD_SUBSTRAIT)
   target_link_libraries(_substrait PRIVATE ${SUBSTRAIT_LINK_LIBS})
 endif()
 
-# NOCOMMIT - do we need to remove?
 if(PYARROW_BUILD_ACERO)
-  message("LINKING _acero WITH ${ACERO_LINK_LIBS}")
   target_link_libraries(_acero PRIVATE ${ACERO_LINK_LIBS})
-  #target_link_libraries(lib PRIVATE ${ACERO_LINK_LIBS})
-else()
-    message("NO LINK")
+  target_link_libraries(lib_acero PRIVATE ${ACERO_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_DATASET)

@@ -17,28 +17,7 @@
 
 # cython: language_level = 3
 
-from pyarrow.lib cimport *
-from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_acero cimport CExecNodeOptions, CDeclaration
 
-
-cdef class ExecNodeOptions(_Weakrefable):
-    cdef:
-        shared_ptr[CExecNodeOptions] wrapped
-
-    cdef void init(self, const shared_ptr[CExecNodeOptions]& sp)
-    cdef inline shared_ptr[CExecNodeOptions] unwrap(self) nogil
-
-
-cdef class Declaration(_Weakrefable):
-
-    cdef:
-        CDeclaration decl
-
-    cdef void init(self, const CDeclaration& c_decl)
-
-    @staticmethod
-    cdef wrap(const CDeclaration& c_decl)
-
-    cdef inline CDeclaration unwrap(self) nogil
+cdef public object pyarrow_wrap_expression(const CExpression& expr)
+cdef public CExpression pyarrow_unwrap_expression(object expr)

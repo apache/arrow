@@ -15,30 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cython: language_level = 3
+# cython: profile = False
+# cython: nonecheck = True
+# distutils: language = c++
 
 from pyarrow.lib cimport *
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_acero cimport CExecNodeOptions, CDeclaration
+from pyarrow._compute cimport Expression
 
+cdef api bint pyarrow_is_expression(object expression):
+    return isinstance(expression, Expression)
 
-cdef class ExecNodeOptions(_Weakrefable):
-    cdef:
-        shared_ptr[CExecNodeOptions] wrapped
+cdef api CExpression pyarrow_unwrap_expression(object expression):
+    cdef Expression e
+    if pyarrow_is_expression(expression):
+        e = <Expression>(expression)
+        return e.expr
 
-    cdef void init(self, const shared_ptr[CExecNodeOptions]& sp)
-    cdef inline shared_ptr[CExecNodeOptions] unwrap(self) nogil
+    return CExpression()
 
+cdef api object pyarrow_wrap_expression(
+        const CExpression& cexpr):
+    cdef Expression expr = Expression.__new__(Expression)
+    expr.init(cexpr)
+    return expr
 
-cdef class Declaration(_Weakrefable):
-
-    cdef:
-        CDeclaration decl
-
-    cdef void init(self, const CDeclaration& c_decl)
-
-    @staticmethod
-    cdef wrap(const CDeclaration& c_decl)
-
-    cdef inline CDeclaration unwrap(self) nogil

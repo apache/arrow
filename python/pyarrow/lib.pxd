@@ -669,6 +669,3 @@ cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
-
-# TODO: extract
-# cdef public CExpression pyarrow_unwrap_expression(object expr)

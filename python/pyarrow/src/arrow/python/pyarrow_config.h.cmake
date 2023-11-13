@@ -15,26 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include "arrow/python/visibility.h"
-
-// Work around ARROW-2317 (C linkage warning from Cython)
-extern "C++" {
-
-namespace arrow {
-
-// Forward declarations. Actual wrappers/unwrappers are in pyarrow.{h,cc}
-namespace acero {
-struct Declaration;
-class ExecNodeOptions;
-}  // namespace acero
-
-namespace py {
-
-ARROW_PYTHON_EXPORT int import_pyarrow_acero();
-
-}  // namespace py
-}  // namespace arrow
-
-}  // extern "C++"
+#cmakedefine PYARROW_BUILD_ACERO
+#cmakedefine PYARROW_BUILD_CUDA 
+#cmakedefine PYARROW_BUILD_DATASET 
+#cmakedefine PYARROW_BUILD_FLIGHT 
+#cmakedefine PYARROW_BUILD_GANDIVA 
+#cmakedefine PYARROW_BUILD_ORC 
+#cmakedefine PYARROW_BUILD_PARQUET 
+#cmakedefine PYARROW_BUILD_PARQUET_ENCRYPTION

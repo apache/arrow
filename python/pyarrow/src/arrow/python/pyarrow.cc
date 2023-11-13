@@ -17,13 +17,18 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/acero/exec_plan.h"
+#include "arrow/python/pyarrow_config.h"
+
 #include "arrow/array.h"
+#include "arrow/compute/expression.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
-#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
+
+#ifdef PYARROW_BUILD_ACERO
+#include "arrow/acero/exec_plan.h"
+#endif
 
 #include "arrow/python/common.h"
 #include "arrow/python/lib_api.h"
@@ -45,7 +50,7 @@ int import_pyarrow() {
 #else
   internal::InitDatetime();
 #endif
-  return ::import_pyarrow__lib();
+  return ::import_pyarrow__lib() && ::import_pyarrow__lib_compute();
 }
 
 #define IS_VALID(OUT) OUT
@@ -70,7 +75,21 @@ DEFINE_WRAP_FUNCTIONS(tensor, std::shared_ptr<Tensor>)
 DEFINE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>)
 DEFINE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
 
+#ifdef PYARROW_BUILD_ACERO
+DEFINE_WRAP_FUNCTIONS(exec_node_options, std::shared_ptr<acero::ExecNodeOptions>)
+#endif
+
 #undef IS_VALID
+
+#define IS_VALID(OUT) OUT.is_valid()
+DEFINE_WRAP_FUNCTIONS(expression, compute::Expression)
+#undef IS_VALID
+
+#ifdef PYARROW_BUILD_ACERO
+#define IS_VALID(OUT) OUT.IsValid()
+DEFINE_WRAP_FUNCTIONS(declaration, acero::Declaration)
+#undef IS_VALID
+#endif
 
 namespace internal {
 
