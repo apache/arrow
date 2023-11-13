@@ -44,6 +44,8 @@ class Array : public libmexclass::proxy::Proxy {
 
         void isEqual(libmexclass::proxy::method::Context& context);
 
+        void slice(libmexclass::proxy::method::Context& context);
+
         std::shared_ptr<arrow::Array> array;
 };
 
