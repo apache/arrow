@@ -22,7 +22,6 @@
 
   <modules>
     <module>memory-core</module>
-    <module>memory-ffm</module>
     <module>memory-unsafe</module>
     <module>memory-netty</module>
   </modules>

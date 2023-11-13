@@ -77,6 +77,9 @@ groups:
   c-glib:
     - test-*c-glib*
 
+  java:
+    - "*java*"
+
   python:
     - test-*python*
 
@@ -861,13 +864,6 @@ tasks:
       - arrow-memory-unsafe-{no_rc_snapshot_version}-tests.jar
       - arrow-memory-unsafe-{no_rc_snapshot_version}.jar
       - arrow-memory-unsafe-{no_rc_snapshot_version}.pom
-      - arrow-memory-ffm-{no_rc_snapshot_version}-cyclonedx.json
-      - arrow-memory-ffm-{no_rc_snapshot_version}-cyclonedx.xml
-      - arrow-memory-ffm-{no_rc_snapshot_version}-javadoc.jar
-      - arrow-memory-ffm-{no_rc_snapshot_version}-sources.jar
-      - arrow-memory-ffm-{no_rc_snapshot_version}-tests.jar
-      - arrow-memory-ffm-{no_rc_snapshot_version}.jar
-      - arrow-memory-ffm-{no_rc_snapshot_version}.pom
       - arrow-memory-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-memory-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-{no_rc_snapshot_version}.pom

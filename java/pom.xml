@@ -1226,6 +1226,17 @@
       </build>
     </profile>
 
+    <profile>
+      <!-- Experimental JDK 21+ features -->
+      <id>jdk21+</id>
+      <activation>
+        <jdk>[21,]</jdk>
+      </activation>
+      <modules>
+        <module>memory/memory-ffm</module>
+      </modules>
+    </profile>
+
   </profiles>
 
 </project>

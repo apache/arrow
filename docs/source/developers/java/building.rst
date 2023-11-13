@@ -32,8 +32,10 @@ Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
-* JDK 8, 9, 10, 11, 17, or 18, but only JDK 8, 11 and 17 are tested in CI.
+* JDK 8+
 * Maven 3+
+
+Note: CI tests all supported JDK LTS versions, plus the latest non-LTS version.
 
 Building
 ========

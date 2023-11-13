@@ -62,10 +62,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory-ffm</artifactId>
-      <scope>test</scope>
-    </dependency>
       <groupId>com.google.flatbuffers</groupId>
       <artifactId>flatbuffers-java</artifactId>
       <version>${dep.fbs.version}</version>
