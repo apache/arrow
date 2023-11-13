@@ -54,6 +54,19 @@ opts.SupportedPlatforms.MatlabOnline = true;
 opts.MinimumMatlabRelease = "R2023a";
 opts.MaximumMatlabRelease = "";
 
-opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
+opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", "test"));
 disp("Output File: " + opts.OutputFile);
 matlab.addons.toolbox.packageToolbox(opts);
+
+% Copy symlinks to package.
+dylib = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.dylib");
+so = fullfile(toolboxFolder, "+libmexclass", "+proxy", "*.so*.");
+%tmpFolder = fullfile(tempdir, "arrow-matlab");
+%cmd = compose("pushd %s; zip -u %s %s; popd", 
+
+%sharedLibraryTargetFolder = fullfile(tmpFolder, "fsroot", "+libmexclass", "+proxy");
+%copyfile(dylib, sharedLibraryTargetFolder);
+%copyfile(so,  sharedLibraryTargetFolder);
+
+%system(compose("zip %s zip(opts.OutputFile, fullfile(tmpFolder, "/"));
+%movefile(opts.OutputFile + ".zip", opts.OutputFile);
