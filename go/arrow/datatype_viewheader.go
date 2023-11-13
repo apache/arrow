@@ -26,12 +26,12 @@ import (
 )
 
 const (
-	StringViewPrefixLen  = 4
-	stringViewInlineSize = 12
+	ViewPrefixLen  = 4
+	viewInlineSize = 12
 )
 
 func IsViewInline(length int) bool {
-	return length < stringViewInlineSize
+	return length < viewInlineSize
 }
 
 // ViewHeader is a variable length string (utf8) or byte slice with
@@ -67,24 +67,24 @@ type ViewHeader struct {
 	// if size > StringHeaderInlineSize, the next 8 bytes are 2 uint32
 	// values which are the buffer index and offset in that buffer
 	// containing the full string.
-	data [stringViewInlineSize]byte
+	data [viewInlineSize]byte
 }
 
 func (sh *ViewHeader) IsInline() bool {
-	return sh.size <= int32(stringViewInlineSize)
+	return sh.size <= int32(viewInlineSize)
 }
 
 func (sh *ViewHeader) Len() int { return int(sh.size) }
-func (sh *ViewHeader) Prefix() [StringViewPrefixLen]byte {
+func (sh *ViewHeader) Prefix() [ViewPrefixLen]byte {
 	return *(*[4]byte)(unsafe.Pointer(&sh.data))
 }
 
 func (sh *ViewHeader) BufferIndex() int32 {
-	return int32(endian.Native.Uint32(sh.data[StringViewPrefixLen:]))
+	return int32(endian.Native.Uint32(sh.data[ViewPrefixLen:]))
 }
 
 func (sh *ViewHeader) BufferOffset() int32 {
-	return int32(endian.Native.Uint32(sh.data[StringViewPrefixLen+4:]))
+	return int32(endian.Native.Uint32(sh.data[ViewPrefixLen+4:]))
 }
 
 func (sh *ViewHeader) InlineBytes() (data []byte) {
@@ -109,8 +109,8 @@ func (sh *ViewHeader) SetString(data string) int {
 }
 
 func (sh *ViewHeader) SetIndexOffset(bufferIndex, offset int32) {
-	endian.Native.PutUint32(sh.data[StringViewPrefixLen:], uint32(bufferIndex))
-	endian.Native.PutUint32(sh.data[StringViewPrefixLen+4:], uint32(offset))
+	endian.Native.PutUint32(sh.data[ViewPrefixLen:], uint32(bufferIndex))
+	endian.Native.PutUint32(sh.data[ViewPrefixLen+4:], uint32(offset))
 }
 
 func (sh *ViewHeader) Equals(buffers []*memory.Buffer, other *ViewHeader, otherBuffers []*memory.Buffer) bool {
