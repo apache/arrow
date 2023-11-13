@@ -121,6 +121,7 @@ func (fw *Writer) AppendRowGroup() SerialRowGroupWriter {
 
 func (fw *Writer) appendRowGroup(buffered bool) *rowGroupWriter {
 	if fw.rowGroupWriter != nil {
+		fw.nrows += fw.rowGroupWriter.nrows
 		fw.rowGroupWriter.Close()
 	}
 	fw.rowGroups++
