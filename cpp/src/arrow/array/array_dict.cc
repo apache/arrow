@@ -146,7 +146,7 @@ bool DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
 }
 
 // ----------------------------------------------------------------------
-// Dictionary transposition
+// Dictionary transposition, count null values, compact
 
 namespace {
 
@@ -212,12 +212,12 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
-struct CountDictionaryNullValuesVistor {
+struct CountDictionaryArrayNullValuesVistor {
   const std::shared_ptr<ArrayData>& data;
   int64_t& out_null_count;
 
   template <typename IndexArrowType>
-  Status CountDictionaryNullValuesImpl() {
+  Status CountDictionaryArrayNullValuesImpl() {
     auto index_length = data->length;
     auto dict_length = data->dictionary->length;
     const auto* dictionary_null_bit_map = data->dictionary->GetValues<uint8_t>(0);
@@ -227,6 +227,7 @@ struct CountDictionaryNullValuesVistor {
     CType dict_len = static_cast<CType>(dict_length);
     for (int64_t i = 0; i < index_length; i++) {
       if (data->IsNull(i)) {
+        out_null_count++;
         continue;
       }
 
@@ -245,20 +246,20 @@ struct CountDictionaryNullValuesVistor {
 
   template <typename Type>
   enable_if_integer<Type, Status> Visit(const Type&) {
-    return CountDictionaryNullValuesImpl<Type>();
+    return CountDictionaryArrayNullValuesImpl<Type>();
   }
 
   Status Visit(const DataType& type) {
-    return Status::TypeError("Expected an Index Type of Int or UInt: ", type);
+    return Status::TypeError("Expected an Index Type of Int or UInt, but got a type:",
+                             type);
   }
 };
 
-Result<int64_t> CountDictionaryNullValues(const std::shared_ptr<ArrayData>& data) {
+Result<int64_t> CountDictionaryArrayNullValues(const std::shared_ptr<ArrayData>& data) {
   int64_t out_null_count = 0;
   const auto& dict_type = checked_cast<const DictionaryType&>(*data->type);
-  CountDictionaryNullValuesVistor vistor{data, out_null_count};
+  CountDictionaryArrayNullValuesVistor vistor{data, out_null_count};
   RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &vistor));
-
   return out_null_count;
 }
 
@@ -378,8 +379,8 @@ Result<int64_t> DictionaryArray::CountNullValues() const {
     return this->indices()->null_count();
   }
 
-  ARROW_ASSIGN_OR_RAISE(int64_t dictionary_null_count, CountDictionaryNullValues(data_));
-  return dictionary_null_count + this->indices()->null_count();
+  ARROW_ASSIGN_OR_RAISE(int64_t null_count, CountDictionaryArrayNullValues(data_));
+  return null_count;
 }
 
 Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
