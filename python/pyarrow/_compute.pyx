@@ -1682,6 +1682,9 @@ class StrptimeOptions(_StrptimeOptions):
     ----------
     format : str
         Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+        Note that the semantics of the format follow the C/C++ strptime, not the Python one.
+        There are differences in behavior, for example how the "%y" placeholder
+        handles years with less than four digits.
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
