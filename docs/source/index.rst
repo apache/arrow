@@ -46,8 +46,8 @@ target environment.**
       :class-card: contrib-card
       :shadow: none
 
-      Read about the Apache Arrow format
-      specifications and Protocols.
+      Read about the Apache Arrow format and its related specifications and
+      protocols.
 
       +++
 
@@ -57,17 +57,16 @@ target environment.**
          :color: primary
          :expand:
 
-         To the Specifications
+         To Specifications
 
    .. grid-item-card:: Development
       :class-card: contrib-card
       :shadow: none
 
-      Find the documentation on the topic of
-      contributions, reviews, building of the libraries
-      from source, building of the documentation, 
-      continuous integration, benchmarks and the
-      release process.
+      Find documentation on our development process including our guide for new
+      contributors, how to build the libraries from source, how to build the
+      documentation, conducting code reviews, continuous integration,
+      benchmarking, and the release process.
 
       +++
 
@@ -77,7 +76,7 @@ target environment.**
          :color: primary
          :expand:
 
-         To the Development
+         To Development
 
 .. _toc.columnar:
 
