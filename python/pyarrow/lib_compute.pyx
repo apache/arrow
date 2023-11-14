@@ -38,4 +38,3 @@ cdef api object pyarrow_wrap_expression(
     cdef Expression expr = Expression.__new__(Expression)
     expr.init(cexpr)
     return expr
-

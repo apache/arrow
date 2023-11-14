@@ -24,7 +24,6 @@ cdef extern from "arrow/python/pyarrow_acero.h" namespace "arrow::py":
     int import_pyarrow_acero() except -1
 
 
-
 cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
     cdef enum CJoinType "arrow::acero::JoinType":
         CJoinType_LEFT_SEMI "arrow::acero::JoinType::LEFT_SEMI"

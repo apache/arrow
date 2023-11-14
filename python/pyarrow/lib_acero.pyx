@@ -58,5 +58,3 @@ cdef api object pyarrow_wrap_declaration(
     cdef Declaration decl = Declaration.__new__(Declaration)
     decl.init(declaration)
     return decl
-
-
