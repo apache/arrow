@@ -31,12 +31,14 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
+import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
@@ -52,6 +54,8 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -155,6 +159,61 @@ public class TestDefaultVectorComparator {
           assertEquals(comparator.compare(0, 0), copyComparator.compare(0, 0));
         }
       }
+    }
+  }
+
+  private FixedSizeListVector createFixedSizeListVector(int count) {
+    FixedSizeListVector listVector = FixedSizeListVector.empty("list vector", count, allocator);
+    Types.MinorType type = Types.MinorType.INT;
+    listVector.addOrGetVector(FieldType.nullable(type.getType()));
+    listVector.allocateNew();
+
+    IntVector dataVector = (IntVector) listVector.getDataVector();
+
+    for (int i = 0; i < count; i++) {
+      dataVector.set(i, i);
+    }
+    dataVector.setValueCount(count);
+
+    listVector.setNotNull(0);
+    listVector.setValueCount(1);
+
+    return listVector;
+  }
+
+  @Test
+  public void testCompareFixedSizeLists() {
+    try (FixedSizeListVector listVector1 = createFixedSizeListVector(10);
+         FixedSizeListVector listVector2 = createFixedSizeListVector(11)) {
+      VectorValueComparator<FixedSizeListVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(listVector1);
+      comparator.attachVectors(listVector1, listVector2);
+
+      // prefix is smaller
+      assertTrue(comparator.compare(0, 0) < 0);
+    }
+
+    try (FixedSizeListVector listVector1 = createFixedSizeListVector(11);
+         FixedSizeListVector listVector2 = createFixedSizeListVector(11)) {
+      ((IntVector) listVector2.getDataVector()).set(10, 110);
+
+      VectorValueComparator<FixedSizeListVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(listVector1);
+      comparator.attachVectors(listVector1, listVector2);
+
+      // breaking tie by the last element
+      assertTrue(comparator.compare(0, 0) < 0);
+    }
+
+    try (FixedSizeListVector listVector1 = createFixedSizeListVector(10);
+         FixedSizeListVector listVector2 = createFixedSizeListVector(10)) {
+
+      VectorValueComparator<FixedSizeListVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(listVector1);
+      comparator.attachVectors(listVector1, listVector2);
+
+      // list vector elements equal
+      assertTrue(comparator.compare(0, 0) == 0);
     }
   }
 
@@ -846,6 +905,65 @@ public class TestDefaultVectorComparator {
   }
 
   @Test
+  public void testCompareFixedSizeBinary() {
+    try (FixedSizeBinaryVector vector1 = new FixedSizeBinaryVector("test1", allocator, 2);
+         FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
+      vector1.allocateNew();
+      vector2.allocateNew();
+      vector1.set(0, new byte[] {1, 1});
+      vector2.set(0, new byte[] {1, 1, 0});
+      VectorValueComparator<FixedSizeBinaryVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vector1);
+      comparator.attachVectors(vector1, vector2);
+
+      // prefix is smaller
+      assertTrue(comparator.compare(0, 0) < 0);
+    }
+
+    try (FixedSizeBinaryVector vector1 = new FixedSizeBinaryVector("test1", allocator, 3);
+         FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
+      vector1.allocateNew();
+      vector2.allocateNew();
+      vector1.set(0, new byte[] {1, 1, 0});
+      vector2.set(0, new byte[] {1, 1, 1});
+      VectorValueComparator<FixedSizeBinaryVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vector1);
+      comparator.attachVectors(vector1, vector2);
+
+      // breaking tie by the last element
+      assertTrue(comparator.compare(0, 0) < 0);
+    }
+
+    try (FixedSizeBinaryVector vector1 = new FixedSizeBinaryVector("test1", allocator, 3);
+         FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
+      vector1.allocateNew();
+      vector2.allocateNew();
+      vector1.set(0, new byte[] {1, 1, 1});
+      vector2.set(0, new byte[] {1, 1, 1});
+      VectorValueComparator<FixedSizeBinaryVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vector1);
+      comparator.attachVectors(vector1, vector2);
+
+      // list vector elements equal
+      assertTrue(comparator.compare(0, 0) == 0);
+    }
+  }
+
+  @Test
+  public void testCompareNull() {
+    try (NullVector vec = new NullVector("test",
+        FieldType.notNullable(new ArrowType.Int(32, false)))) {
+      vec.setValueCount(2);
+
+      VectorValueComparator<NullVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
+      comparator.attachVector(vec);
+      assertEquals(DefaultVectorComparators.NullComparator.class, comparator.getClass());
+      assertEquals(0, comparator.compare(0, 1));
+    }
+  }
+
+  @Test
   public void testCheckNullsOnCompareIsFalseForNonNullableVector() {
     try (IntVector vec = new IntVector("not nullable",
             FieldType.notNullable(new ArrowType.Int(32, false)), allocator)) {
@@ -936,5 +1054,19 @@ public class TestDefaultVectorComparator {
   private static <V extends ValueVector> void verifyVariableWidthComparatorReturned(V vec) {
     VectorValueComparator<V> comparator = DefaultVectorComparators.createDefaultComparator(vec);
     assertEquals(DefaultVectorComparators.VariableWidthComparator.class, comparator.getClass());
+  }
+
+  @Test
+  public void testRepeatedDefaultComparators() {
+    final FieldType type = FieldType.nullable(Types.MinorType.INT.getType());
+    try (final LargeListVector vector = new LargeListVector("list", allocator, type, null)) {
+      vector.addOrGetVector(FieldType.nullable(type.getType()));
+      verifyRepeatedComparatorReturned(vector);
+    }
+  }
+
+  private static <V extends ValueVector> void verifyRepeatedComparatorReturned(V vec) {
+    VectorValueComparator<V> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+    assertEquals(DefaultVectorComparators.RepeatedValueComparator.class, comparator.getClass());
   }
 }
