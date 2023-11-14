@@ -263,9 +263,10 @@ cdef extern from "arrow/python/common.h" namespace "arrow::py":
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     cdef cppclass SharedPtrNoGIL[T](shared_ptr[T]):
-        pass
+        # This looks like the only way to satsify both Cython 2 and Cython 3
+        SharedPtrNoGIL& operator=(...)
     cdef cppclass UniquePtrNoGIL[T, DELETER=*](unique_ptr[T, DELETER]):
-        pass
+        UniquePtrNoGIL& operator=(...)
 
 
 cdef extern from "arrow/python/inference.h" namespace "arrow::py":
