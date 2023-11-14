@@ -44,6 +44,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Strings;
@@ -158,7 +159,7 @@ public class TestBasicAuth2 {
     testValidAuthWithMultipleClientsWithDifferentCredentials(client, client2);
   }
 
-  @Test
+  @RepeatedTest(10)
   public void asyncCall() throws Exception {
     final CredentialCallOption bearerToken = client
         .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
