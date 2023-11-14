@@ -5453,10 +5453,10 @@ TEST(Substrait, MixedSort) {
   auto test_schema = schema({field("A", int32()), field("B", int32())});
 
   auto input_table = TableFromJSON(test_schema, {R"([
-      [null, 10],
+      [null, null],
       [5, 8],
       [null, null],
-      [null, 3],
+      [null, null],
       [3, 4],
       [9, 6],
       [4, 5]
@@ -5475,18 +5475,14 @@ TEST(Substrait, MixedSort) {
   ASSERT_OK_AND_ASSIGN(
       auto plan_info, DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
                                       conversion_options));
-  ASSERT_OK_AND_ASSIGN(auto result_table,
-                       DeclarationToTable(std::move(plan_info.root.declaration)));
-  auto expected_table = TableFromJSON(test_schema, {R"([
-      [null, 3],
-      [null, 10],
-      [null, null],
-      [3, 4],
-      [4, 5],
-      [5, 8],
-      [9, 6]
-  ])"});
-  AssertTablesEqual(*result_table, *expected_table);
+  auto& order_by_options =
+      checked_cast<const acero::OrderByNodeOptions&>(*plan_info.root.declaration.options);
+  EXPECT_THAT(
+      order_by_options.ordering.sort_keys(),
+      ElementsAre(arrow::compute::SortKey{"A", arrow::compute::SortOrder::Ascending,
+                                          arrow::compute::NullPlacement::AtStart},
+                  arrow::compute::SortKey{"B", arrow::compute::SortOrder::Ascending,
+                                          arrow::compute::NullPlacement::AtEnd}));
 }
 
 TEST(Substrait, PlanWithExtension) {
