@@ -379,27 +379,19 @@ if(NOT PYARROW_CPP_LINK_LIBS)
   endif()
 endif()
 
-# Configure the config
+# Code generate the pyarrow config so build flags are known
 configure_file(
     "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h.cmake"
     "${PROJECT_SOURCE_DIR}/${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
     ESCAPE_QUOTES
 )
-message("   Source dir ${PYARROW_CPP_SOURCE_DIR}")
-message("   Include dir ${CMAKE_INSTALL_INCLUDEDIR}")
 install(FILES "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
 
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
-message("PYARROW CPP SOURCE DIR ${PYARROW_CPP_SOURCE_DIR}")
-message("PYARROW CPP SOURCES ${PYARROW_CPP_SRCS}")
-message("PYARROW CPP ROOT DIR ${PYARROW_CPP_ROOT_DIR}")
-message("CMAKE CURRENT DIR ${CMAKE_CURRENT_BINARY_DIR}")
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_BINARY_DIR}/**/*")
-message("Source files: ${SOURCES}")
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
-                                               ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src
-                           )
+                                               ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
 
 
 if(NOT CMAKE_VERSION VERSION_LESS 3.16)
@@ -444,6 +436,12 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                APPEND_STRING
                PROPERTY COMPILE_FLAGS -Wno-parentheses-equality)
 endif()
+
+install(DIRECTORY ${PYARROW_CPP_SOURCE_DIR}/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python
+        FILES_MATCHING
+        PATTERN "*internal.h" EXCLUDE
+        PATTERN "*.h")
 
 function(bundle_arrow_lib library_path)
   set(options)
@@ -850,8 +848,3 @@ if(PYARROW_BUILD_PARQUET)
     target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
   endif()
 endif()
-
-get_target_property(SOURCES arrow_python SOURCES)
-get_target_property(INCLUDE_DIRS arrow_python INCLUDE_DIRECTORIES)
-message("Source files for target ${your_target}: ${SOURCES}")
-message("Include directories for target ${your_target}: ${INCLUDE_DIRS}")
