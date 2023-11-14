@@ -232,6 +232,12 @@ func Equal(left, right arrow.Array) bool {
 	case *LargeString:
 		r := right.(*LargeString)
 		return arrayEqualLargeString(l, r)
+	case *BinaryView:
+		r := right.(*BinaryView)
+		return arrayEqualBinaryView(l, r)
+	case *StringView:
+		r := right.(*StringView)
+		return arrayEqualStringView(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -482,6 +488,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *LargeString:
 		r := right.(*LargeString)
 		return arrayEqualLargeString(l, r)
+	case *BinaryView:
+		r := right.(*BinaryView)
+		return arrayEqualBinaryView(l, r)
+	case *StringView:
+		r := right.(*StringView)
+		return arrayEqualStringView(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)

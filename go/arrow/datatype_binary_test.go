@@ -81,3 +81,33 @@ func TestLargeStringType(t *testing.T) {
 		t.Fatalf("invalid string type stringer. got=%v, want=%v", got, want)
 	}
 }
+
+func TestBinaryViewType(t *testing.T) {
+	var nt *arrow.BinaryViewType
+	if got, want := nt.ID(), arrow.BINARY_VIEW; got != want {
+		t.Fatalf("invalid string type id. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.Name(), "binary_view"; got != want {
+		t.Fatalf("invalid string type name. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.String(), "binary_view"; got != want {
+		t.Fatalf("invalid string type stringer. got=%v, want=%v", got, want)
+	}
+}
+
+func TestStringViewType(t *testing.T) {
+	var nt *arrow.StringViewType
+	if got, want := nt.ID(), arrow.STRING_VIEW; got != want {
+		t.Fatalf("invalid string type id. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.Name(), "string_view"; got != want {
+		t.Fatalf("invalid string type name. got=%v, want=%v", got, want)
+	}
+
+	if got, want := nt.String(), "string_view"; got != want {
+		t.Fatalf("invalid string type stringer. got=%v, want=%v", got, want)
+	}
+}
