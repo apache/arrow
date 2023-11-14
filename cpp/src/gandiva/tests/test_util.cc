@@ -17,12 +17,12 @@
 
 #include "gandiva/tests/test_util.h"
 
-#include <filesystem>
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 
 namespace gandiva {
 std::shared_ptr<Configuration> TestConfiguration() {
-  auto builder = ConfigurationBuilder();
-  return builder.DefaultConfiguration();
+  return ConfigurationBuilder::DefaultConfiguration();
 }
 
 #ifndef GANDIVA_EXTENSION_TEST_DIR
@@ -30,9 +30,10 @@ std::shared_ptr<Configuration> TestConfiguration() {
 #endif
 
 std::string GetTestFunctionLLVMIRPath() {
-  std::filesystem::path base(GANDIVA_EXTENSION_TEST_DIR);
-  std::filesystem::path ir_file = base / "multiply_by_two.bc";
-  return ir_file.string();
+  const auto base =
+      arrow::internal::PlatformFilename::FromString(GANDIVA_EXTENSION_TEST_DIR);
+  DCHECK(base.ok());
+  return base->Join("multiply_by_two.bc")->ToString();
 }
 
 NativeFunction GetTestExternalFunction() {
