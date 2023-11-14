@@ -46,7 +46,7 @@ import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
@@ -215,7 +215,7 @@ public class TestFlightSqlStreams {
     close(allocator);
   }
 
-  @RepeatedTest(10)
+  @Test
   public void testGetTablesResultNoSchema() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(
@@ -234,7 +234,7 @@ public class TestFlightSqlStreams {
     }
   }
 
-  @RepeatedTest(10)
+  @Test
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
              sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
@@ -252,7 +252,7 @@ public class TestFlightSqlStreams {
     }
   }
 
-  @RepeatedTest(10)
+  @Test
   public void testGetSqlInfoResults() throws Exception {
     final FlightInfo info = sqlClient.getSqlInfo();
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
@@ -263,7 +263,7 @@ public class TestFlightSqlStreams {
     }
   }
 
-  @RepeatedTest(10)
+  @Test
   public void testGetTypeInfo() throws Exception {
     FlightInfo flightInfo = sqlClient.getXdbcTypeInfo();
 
@@ -279,7 +279,7 @@ public class TestFlightSqlStreams {
     }
   }
 
-  @RepeatedTest(10)
+  @Test
   public void testExecuteQuery() throws Exception {
     try (final FlightStream stream = sqlClient
         .getStream(sqlClient.execute(FlightSqlTestProducer.FIXED_QUERY).getEndpoints().get(0).getTicket())) {

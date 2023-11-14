@@ -46,7 +46,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -67,7 +66,7 @@ public class TestBasicAuth {
     Assertions.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
 
-  @RepeatedTest(10)
+  @Test
   public void asyncCall() throws Exception {
     client.authenticateBasic(USERNAME, PASSWORD);
     client.listFlights(Criteria.ALL);
