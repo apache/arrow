@@ -38,6 +38,7 @@
 #include "arrow/util/ree_util.h"
 #include "arrow/util/slice_util_internal.h"
 #include "arrow/util/union_util.h"
+#include "arrow/util/dict_util.h"
 
 namespace arrow {
 
@@ -519,6 +520,9 @@ int64_t ArraySpan::ComputeLogicalNullCount() const {
   }
   if (t == Type::RUN_END_ENCODED) {
     return ree_util::LogicalNullCount(*this);
+  }
+  if(t == Type::DICTIONARY){
+    return dict_util::LogicalNullCount(*this);
   }
   return GetNullCount();
 }
