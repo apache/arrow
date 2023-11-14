@@ -171,6 +171,8 @@ func addComputeDataPrealloc(dt arrow.DataType, widths []bufferPrealloc) []buffer
 		return append(widths, bufferPrealloc{bitWidth: 32, addLen: 1})
 	case arrow.LARGE_BINARY, arrow.LARGE_STRING, arrow.LARGE_LIST:
 		return append(widths, bufferPrealloc{bitWidth: 64, addLen: 1})
+	case arrow.STRING_VIEW, arrow.BINARY_VIEW:
+		return append(widths, bufferPrealloc{bitWidth: arrow.ViewHeaderSizeBytes * 8})
 	}
 	return widths
 }
@@ -1007,9 +1009,10 @@ func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	case <-ctx.Done():
 		return nil
 	case output = <-out:
-		if output == nil {
+		if output == nil || ctx.Err() != nil {
 			return nil
 		}
+
 		// if the inputs contained at least one chunked array
 		// then we want to return chunked output
 		if hasChunked {

@@ -178,7 +178,8 @@ func init() {
 		arrow.RUN_END_ENCODED:         func(data arrow.ArrayData) arrow.Array { return NewRunEndEncodedData(data) },
 		arrow.LIST_VIEW:               func(data arrow.ArrayData) arrow.Array { return NewListViewData(data) },
 		arrow.LARGE_LIST_VIEW:         func(data arrow.ArrayData) arrow.Array { return NewLargeListViewData(data) },
-
+		arrow.BINARY_VIEW:             func(data arrow.ArrayData) arrow.Array { return NewBinaryViewData(data) },
+		arrow.STRING_VIEW:             func(data arrow.ArrayData) arrow.Array { return NewStringViewData(data) },
 		// invalid data types to fill out array to size 2^6 - 1
 		63: invalidDataType,
 	}
