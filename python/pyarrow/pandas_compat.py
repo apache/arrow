@@ -721,9 +721,6 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
-    elif 'object' in item:
-        block = _int.make_block(pickle.loads(block_arr),
-                                placement=placement)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
