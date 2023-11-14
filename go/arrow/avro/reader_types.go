@@ -44,7 +44,7 @@ type dataLoader struct {
 }
 
 var (
-	NullStructData = errors.New("null struct data")
+	ErrNullStructData = errors.New("null struct data")
 )
 
 func newDataLoader() *dataLoader { return &dataLoader{idx: 0, depth: 0} }
@@ -89,7 +89,7 @@ func (d *dataLoader) drawTree(field *fieldPos) {
 // loadDatum loads decoded Avro data to the schema fields' builder functions.
 // Since array.StructBuilder.AppendNull() will recursively append null to all of the
 // struct's fields, in the case of nil being passed to a struct's builderFunc it will
-// return a NullStructData error to signal that all its sub-fields can be skipped.
+// return a ErrNullStructData error to signal that all its sub-fields can be skipped.
 func (d *dataLoader) loadDatum(data any) error {
 	if d.list == nil && d.mapField == nil {
 		if d.mapValue != nil {
@@ -103,7 +103,7 @@ func (d *dataLoader) loadDatum(data any) error {
 			if d.mapValue == nil {
 				err := f.appendFunc(f.getValue(data))
 				if err != nil {
-					if err == NullStructData {
+					if err == ErrNullStructData {
 						NullParent = f
 						continue
 					}
@@ -114,7 +114,7 @@ func (d *dataLoader) loadDatum(data any) error {
 				case nil:
 					err := f.appendFunc(dt)
 					if err != nil {
-						if err == NullStructData {
+						if err == ErrNullStructData {
 							NullParent = f
 							continue
 						}
@@ -125,7 +125,7 @@ func (d *dataLoader) loadDatum(data any) error {
 						for _, e := range dt {
 							err := f.appendFunc(e)
 							if err != nil {
-								if err == NullStructData {
+								if err == ErrNullStructData {
 									NullParent = f
 									continue
 								}
@@ -140,7 +140,7 @@ func (d *dataLoader) loadDatum(data any) error {
 				case map[string]any:
 					err := f.appendFunc(f.getValue(dt))
 					if err != nil {
-						if err == NullStructData {
+						if err == ErrNullStructData {
 							NullParent = f
 							continue
 						}
@@ -183,7 +183,7 @@ func (d *dataLoader) loadDatum(data any) error {
 						}
 						err := f.appendFunc(f.getValue(e))
 						if err != nil {
-							if err == NullStructData {
+							if err == ErrNullStructData {
 								NullParent = f
 								continue
 							}
@@ -212,7 +212,7 @@ func (d *dataLoader) loadDatum(data any) error {
 						}
 						err := f.appendFunc(f.getValue(e))
 						if err != nil {
-							if err == NullStructData {
+							if err == ErrNullStructData {
 								NullParent = f
 								continue
 							}
@@ -556,7 +556,7 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			switch data.(type) {
 			case nil:
 				bt.AppendNull()
-				return NullStructData
+				return ErrNullStructData
 			default:
 				bt.Append(true)
 			}
