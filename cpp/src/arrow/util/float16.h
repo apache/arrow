@@ -106,7 +106,8 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Copy the value's bytes in little-endian byte order
   void ToLittleEndian(uint8_t* dest) const {
-    FromBits(::arrow::bit_util::ToLittleEndian(bits_)).ToBytes(dest);
+    const auto bytes = ToLittleEndian();
+    std::memcpy(dest, bytes.data(), bytes.size());
   }
   /// \brief Return the value's bytes in little-endian byte order
   constexpr std::array<uint8_t, 2> ToLittleEndian() const {
@@ -119,7 +120,8 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Copy the value's bytes in big-endian byte order
   void ToBigEndian(uint8_t* dest) const {
-    FromBits(::arrow::bit_util::ToBigEndian(bits_)).ToBytes(dest);
+    const auto bytes = ToBigEndian();
+    std::memcpy(dest, bytes.data(), bytes.size());
   }
   /// \brief Return the value's bytes in big-endian byte order
   constexpr std::array<uint8_t, 2> ToBigEndian() const {
