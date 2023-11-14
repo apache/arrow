@@ -611,6 +611,110 @@ class AzureFileSystem::Impl {
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
+
+  Status CreateDir(const AzurePath& path) {
+    if (path.container.empty()) {
+      return Status::Invalid("Cannot create an empty container");
+    }
+
+    if (path.path_to_file.empty()) {
+      auto container_client =
+          blob_service_client_->GetBlobContainerClient(path.container);
+      try {
+        auto response = container_client.Create();
+        if (response.Value.Created) {
+          return Status::OK();
+        } else {
+          const auto& body = response.RawResponse->GetBody();
+          std::string_view body_text(reinterpret_cast<const char*>(body.data()),
+                                     body.size());
+          return Status::IOError("Failed to create a container: ", path.container, " (",
+                                 container_client.GetUrl(),
+                                 "): ", response.RawResponse->GetReasonPhrase(), " (",
+                                 static_cast<int>(response.RawResponse->GetStatusCode()),
+                                 "): ", body_text);
+        }
+      } catch (const Azure::Storage::StorageException& exception) {
+        return internal::ExceptionToStatus(
+            "Failed to create a container: " + path.container + " (" +
+                container_client.GetUrl() + ")",
+            exception);
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
+                          hierarchical_namespace_.Enabled(path.container));
+    if (!hierarchical_namespace_enabled) {
+      return Status::NotImplemented(
+          "Cannot create a directory without hierarchical namespace: ", path.full_path);
+    }
+    auto directory_client = datalake_service_client_->GetFileSystemClient(path.container)
+                                .GetDirectoryClient(path.path_to_file);
+    try {
+      auto response = directory_client.Create();
+      if (response.Value.Created) {
+        return Status::OK();
+      } else {
+        const auto& body = response.RawResponse->GetBody();
+        std::string_view body_text(reinterpret_cast<const char*>(body.data()),
+                                   body.size());
+        return Status::IOError("Failed to create a directory: ", path.path_to_file, " (",
+                               directory_client.GetUrl(),
+                               "): ", response.RawResponse->GetReasonPhrase(), " (",
+                               static_cast<int>(response.RawResponse->GetStatusCode()),
+                               "): ", body_text);
+      }
+    } catch (const Azure::Storage::StorageException& exception) {
+      return internal::ExceptionToStatus(
+          "Failed to create a directory: " + path.path_to_file + " (" +
+              directory_client.GetUrl() + ")",
+          exception);
+    }
+  }
+
+  Status CreateDirRecursive(const AzurePath& path) {
+    if (path.container.empty()) {
+      return Status::Invalid("Cannot create an empty container");
+    }
+
+    auto container_client = blob_service_client_->GetBlobContainerClient(path.container);
+    try {
+      container_client.CreateIfNotExists();
+    } catch (const Azure::Storage::StorageException& exception) {
+      return internal::ExceptionToStatus(
+          "Failed to create a container: " + path.container + " (" +
+              container_client.GetUrl() + ")",
+          exception);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
+                          hierarchical_namespace_.Enabled(path.container));
+    if (!hierarchical_namespace_enabled) {
+      return Status::NotImplemented(
+          "Cannot create a directory without hierarchical namespace: ", path.full_path);
+    }
+
+    std::string current_path;
+    for (const auto& part : path.path_to_file_parts) {
+      if (!current_path.empty()) {
+        current_path += internal::kSep;
+      }
+      current_path += part;
+      auto directory_client =
+          datalake_service_client_->GetFileSystemClient(path.container)
+              .GetDirectoryClient(current_path);
+      try {
+        directory_client.CreateIfNotExists();
+      } catch (const Azure::Storage::StorageException& exception) {
+        return internal::ExceptionToStatus(
+            "Failed to create a directory: " + current_path + " (" +
+                directory_client.GetUrl() + ")",
+            exception);
+      }
+    }
+
+    return Status::OK();
+  }
 };
 
 const AzureOptions& AzureFileSystem::options() const { return impl_->options(); }
@@ -636,7 +740,12 @@ Result<FileInfoVector> AzureFileSystem::GetFileInfo(const FileSelector& select) 
 }
 
 Status AzureFileSystem::CreateDir(const std::string& path, bool recursive) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto p, AzurePath::FromString(path));
+  if (recursive) {
+    return impl_->CreateDirRecursive(p);
+  } else {
+    return impl_->CreateDir(p);
+  }
 }
 
 Status AzureFileSystem::DeleteDir(const std::string& path) {

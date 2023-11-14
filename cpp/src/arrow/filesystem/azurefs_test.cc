@@ -49,6 +49,7 @@
 #include <azure/storage/common/storage_credential.hpp>
 #include <azure/storage/files/datalake.hpp>
 
+#include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
@@ -225,6 +226,10 @@ class AzureFileSystemTest : public ::testing::Test {
     return s;
   }
 
+  std::string RandomContainerName() { return RandomChars(32); }
+
+  std::string RandomDirectoryName() { return RandomChars(32); }
+
   void UploadLines(const std::vector<std::string>& lines, const char* path_to_file,
                    int total_size) {
     // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
@@ -396,6 +401,84 @@ TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObject) {
   RunGetFileInfoObjectTest();
 }
 
+TEST_F(AzuriteFileSystemTest, CreateDirFailureNoContainer) {
+  ASSERT_RAISES(Invalid, fs_->CreateDir("", false));
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirSuccessContainerOnly) {
+  auto container_name = RandomContainerName();
+  ASSERT_OK(fs_->CreateDir(container_name, false));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirFailureContainerAndDirectory) {
+  const auto path = PreexistingContainerPath() + RandomDirectoryName();
+  // Can't create a directory without hierarchical namespace support.
+  ASSERT_RAISES(NotImplemented, fs_->CreateDir(path, false));
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirSuccessContainerAndDirectory) {
+  const auto path = PreexistingContainerPath() + RandomDirectoryName();
+  ASSERT_OK(fs_->CreateDir(path, false));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirFailureDirectoryWithMissingContainer) {
+  const auto path = std::string("not-a-container/new-directory");
+  ASSERT_RAISES(IOError, fs_->CreateDir(path, false));
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureNoContainer) {
+  ASSERT_RAISES(Invalid, fs_->CreateDir("", true));
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirRecursiveSuccessContainerOnly) {
+  auto container_name = RandomContainerName();
+  ASSERT_OK(fs_->CreateDir(container_name, true));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureContainerOnly) {
+  auto container_name = RandomContainerName();
+  ASSERT_RAISES(NotImplemented, fs_->CreateDir(container_name, true));
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirRecursiveSuccessDirectoryOnly) {
+  const auto parent = PreexistingContainerPath() + RandomDirectoryName();
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
+  ASSERT_OK(fs_->CreateDir(path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureDirectoryOnly) {
+  const auto parent = PreexistingContainerPath() + RandomDirectoryName();
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
+  ASSERT_RAISES(NotImplemented, fs_->CreateDir(path, true));
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest,
+       CreateDirRecursiveSuccessContainerAndDirectory) {
+  auto container_name = RandomContainerName();
+  const auto parent = internal::ConcatAbstractPath(container_name, RandomDirectoryName());
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
+  ASSERT_OK(fs_->CreateDir(path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureContainerAndDirectory) {
+  auto container_name = RandomContainerName();
+  const auto parent = internal::ConcatAbstractPath(container_name, RandomDirectoryName());
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
+  ASSERT_RAISES(NotImplemented, fs_->CreateDir(path, true));
+}
+
+TEST_F(AzuriteFileSystemTest, CreateDirUri) {
+  ASSERT_RAISES(Invalid, fs_->CreateDir("abfs://" + RandomContainerName(), true));
+}
+
 TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
@@ -455,7 +538,7 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamInfoInvalid) {
 }
 
 TEST_F(AzuriteFileSystemTest, OpenInputStreamUri) {
-  ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfss://" + PreexistingObjectPath()));
+  ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfs://" + PreexistingObjectPath()));
 }
 
 TEST_F(AzuriteFileSystemTest, OpenInputStreamTrailingSlash) {
