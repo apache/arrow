@@ -27,8 +27,8 @@ namespace {
 
 template <typename IndexArrowType>
 int64_t LogicalNullCount(const ArraySpan& span) {
-  const auto* dictionary_null_bit_map = span.dictionary().GetValues<uint8_t>(0);
   const auto* indices_null_bit_map = span.GetValues<uint8_t>(0);
+  const auto* dictionary_null_bit_map = span.dictionary().GetValues<uint8_t>(0);
 
   using CType = typename IndexArrowType::c_type;
   const CType* indices_data = span.GetValues<CType>(1);
