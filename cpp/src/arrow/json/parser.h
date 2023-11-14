@@ -19,7 +19,6 @@
 
 #include <memory>
 #include <string>
-#include <limits>
 
 #include "arrow/json/options.h"
 #include "arrow/status.h"
@@ -56,9 +55,6 @@ struct Kind {
 
   static Status ForType(const DataType& type, Kind::type* kind);
 };
-
-/// Set the max parse row is 2147483647.
-constexpr int32_t kMaxParserNumRows = std::numeric_limits<int32_t>::max();
 
 /// \class BlockParser
 /// \brief A reusable block-based parser for JSON data

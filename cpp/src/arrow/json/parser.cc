@@ -769,8 +769,8 @@ class HandlerBase : public BlockParser,
                                  rj::kParseNumbersAsStringsFlag;
 
     rj::Reader reader;
-
-    for (; num_rows_ < kMaxParserNumRows; ++num_rows_) {
+    // ensure that the loop can exit when the block too large.
+    for (; num_rows_ < std::numeric_limits<int32_t>::max(); ++num_rows_) {
       auto ok = reader.Parse<parse_flags>(json, handler);
       switch (ok.Code()) {
         case rj::kParseErrorNone:
