@@ -5228,10 +5228,7 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
 
   ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
   ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
-  EXPECT_THROW_THAT([&]() { ASSERT_OK(writer->WriteTable(*table, 1)); }, ParquetException,
-                    ::testing::Property(
-                        &ParquetException::what,
-                        ::testing::HasSubstr("Cannot get properties from closed file")));
+  ASSERT_RAISES(Invalid, writer->WriteTable(*table, 1));
 }
 
 namespace {

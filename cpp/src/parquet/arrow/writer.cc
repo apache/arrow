@@ -364,6 +364,7 @@ class FileWriterImpl : public FileWriter {
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
   Status WriteTable(const Table& table, int64_t chunk_size) override {
+    RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(table.Validate());
 
     if (chunk_size <= 0 && table.num_rows() > 0) {
