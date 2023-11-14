@@ -5477,12 +5477,14 @@ TEST(Substrait, MixedSort) {
                                       conversion_options));
   auto& order_by_options =
       checked_cast<const acero::OrderByNodeOptions&>(*plan_info.root.declaration.options);
+
   EXPECT_THAT(
       order_by_options.ordering.sort_keys(),
-      ElementsAre(arrow::compute::SortKey{"A", arrow::compute::SortOrder::Ascending,
-                                          arrow::compute::NullPlacement::AtStart},
-                  arrow::compute::SortKey{"B", arrow::compute::SortOrder::Ascending,
-                                          arrow::compute::NullPlacement::AtEnd}));
+      ElementsAre(
+          arrow::compute::SortKey{FieldPath({0}), arrow::compute::SortOrder::Ascending,
+                                  arrow::compute::NullPlacement::AtStart},
+          arrow::compute::SortKey{FieldPath({1}), arrow::compute::SortOrder::Ascending,
+                                  arrow::compute::NullPlacement::AtEnd}));
 }
 
 TEST(Substrait, PlanWithExtension) {
