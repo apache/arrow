@@ -34,7 +34,7 @@ rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-${arch}"
-export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.14}
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 
 if [ $arch = "arm64" ]; then

@@ -81,7 +81,7 @@ jobs:
           - { runs_on: ["macos-latest"], arch: "x86_64"}
           - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      MACOSX_DEPLOYMENT_TARGET: "10.15"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
