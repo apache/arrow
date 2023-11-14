@@ -27,10 +27,11 @@ from libcpp cimport bool
 
 import pyarrow as pa
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pac, _forbid_instantiation
+from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pac
 from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow._compute cimport Expression, _bind
 from pyarrow._acero cimport ExecNodeOptions
+from pyarrow._compute cimport Expression, _bind
+from pyarrow._compute import _forbid_instantiation
 from pyarrow._fs cimport FileSystem, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
@@ -145,6 +146,7 @@ cdef str _wrap_segment_encoding(CSegmentEncoding segment_encoding):
 
 
 cdef Expression _true = Expression._scalar(True)
+
 
 cdef class Dataset(_Weakrefable):
     """

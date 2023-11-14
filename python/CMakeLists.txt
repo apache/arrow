@@ -385,14 +385,10 @@ configure_file(
     "${PROJECT_SOURCE_DIR}/${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
     ESCAPE_QUOTES
 )
-# install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
-#         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
 message("   Source dir ${PYARROW_CPP_SOURCE_DIR}")
 message("   Include dir ${CMAKE_INSTALL_INCLUDEDIR}")
 install(FILES "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
-
-# message(FATAL_ERROR "DONE")
 
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
 message("PYARROW CPP SOURCE DIR ${PYARROW_CPP_SOURCE_DIR}")

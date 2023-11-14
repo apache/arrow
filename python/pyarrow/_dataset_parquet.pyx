@@ -52,6 +52,7 @@ from pyarrow._parquet cimport (
     FileMetaData,
 )
 
+
 try:
     from pyarrow._dataset_parquet_encryption import (
         set_encryption_config, set_decryption_config
