@@ -98,4 +98,14 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             tf = obj.Proxy.isEqual(proxyIDs);
         end
     end
+
+    methods (Hidden)
+        function array = slice(obj, offset, length)
+            sliceStruct = struct(Offset=offset, Length=length);
+            arrayStruct = obj.Proxy.slice(sliceStruct);
+            traits = arrow.type.traits.traits(arrow.type.ID(arrayStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=arrayStruct.ProxyID);
+            array = traits.ArrayConstructor(proxy);
+        end
+    end
 end

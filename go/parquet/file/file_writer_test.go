@@ -97,6 +97,8 @@ func (t *SerializeTestSuite) fileSerializeTest(codec compress.Compression, expec
 	writer.Close()
 
 	nrows := t.numRowGroups * t.rowsPerRG
+	t.EqualValues(nrows, writer.NumRows())
+
 	reader, err := file.NewParquetReader(bytes.NewReader(sink.Bytes()))
 	t.NoError(err)
 	t.Equal(t.numCols, reader.MetaData().Schema.NumColumns())
