@@ -5226,7 +5226,8 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
 
     if "promote" in kwargs:
         warnings.warn(
-            "promote has been superseded by mode='default'.", FutureWarning, stacklevel=2)
+            "promote has been superseded by promote_options='default'.",
+            FutureWarning, stacklevel=2)
         if kwargs['promote'] is True:
             promote_options = "default"
 
