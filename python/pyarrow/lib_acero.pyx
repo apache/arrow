@@ -28,10 +28,10 @@ cdef api bint pyarrow_is_exec_node_options(object options):
     return isinstance(options, ExecNodeOptions)
 
 cdef api shared_ptr[CExecNodeOptions] pyarrow_unwrap_exec_node_options(object options):
-    cdef ExecNodeOptions e
+    cdef ExecNodeOptions o
     if pyarrow_is_exec_node_options(options):
-        d = <ExecNodeOptions>(options)
-        return d.wrapped
+        o = <ExecNodeOptions>(options)
+        return o.wrapped
 
     return shared_ptr[CExecNodeOptions]()
 
