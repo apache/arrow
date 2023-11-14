@@ -729,6 +729,16 @@ TEST_F(TestArray, TestMakeArrayFromScalarNegative) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg), array_result);
 }
 
+TEST_F(TestArray, TestMakeArrayFromScalarEmptyString) {
+  auto scalar = std::make_shared<StringScalar>("");
+
+  int64_t length = static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1;
+  auto array_result = MakeArrayFromScalar(*scalar, length);
+
+  std::string err_msg = "length exceeds the maximum value of offset_type";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(err_msg), array_result);
+}
+
 TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   auto dictionary = ArrayFromJSON(utf8(), R"(["foo", "bar", "baz"])");
   auto type = std::make_shared<DictionaryType>(int8(), utf8());
