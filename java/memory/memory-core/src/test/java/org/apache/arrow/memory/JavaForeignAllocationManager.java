@@ -23,7 +23,7 @@ import java.lang.foreign.MemorySegment;
 /**
  * Allocation manager based on java.lang.foreign API.
  */
-public final class FfmAllocationManager extends AllocationManager {
+public final class JavaForeignAllocationManager extends AllocationManager {
 
   private static final ArrowBuf EMPTY = new ArrowBuf(ReferenceManager.NO_OP,
       null,
@@ -34,7 +34,7 @@ public final class FfmAllocationManager extends AllocationManager {
   public static final AllocationManager.Factory FACTORY = new Factory() {
     @Override
     public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-      return new FfmAllocationManager(accountingAllocator, size);
+      return new JavaForeignAllocationManager(accountingAllocator, size);
     }
 
     @Override
@@ -51,7 +51,7 @@ public final class FfmAllocationManager extends AllocationManager {
 
   private final long allocatedAddress;
 
-  FfmAllocationManager(BufferAllocator accountingAllocator, long requestedSize) {
+  JavaForeignAllocationManager(BufferAllocator accountingAllocator, long requestedSize) {
     super(accountingAllocator);
     arena = Arena.ofShared();
     allocatedMemorySegment = arena.allocate(requestedSize, /*byteAlignment*/ 8);

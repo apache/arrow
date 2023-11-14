@@ -22,6 +22,7 @@
 
   <modules>
     <module>memory-core</module>
+    <module>memory-foreign</module>
     <module>memory-unsafe</module>
     <module>memory-netty</module>
   </modules>

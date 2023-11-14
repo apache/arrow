@@ -17,8 +17,8 @@
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>arrow-memory-ffm</artifactId>
-  <name>Arrow Memory - FFM</name>
+  <artifactId>arrow-memory-foreign</artifactId>
+  <name>Arrow Memory - Foreign</name>
   <description>Allocator and utils for allocating memory in Arrow based on java.lang.foreign</description>
 
   <dependencies>

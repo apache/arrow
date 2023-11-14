@@ -34,10 +34,6 @@ public class DefaultAllocationManagerOption {
    */
   public static final String ALLOCATION_MANAGER_TYPE_PROPERTY_NAME = "arrow.allocation.manager.type";
 
-  // Java 1.8, 9, 11, 17, 21 becomes 1, 9, 11, 17, and 21.
-  private static final int majorVersion =
-      Integer.parseInt(System.getProperty("java.specification.version").split("\\D+")[0]);
-
   static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DefaultAllocationManagerOption.class);
 
   /**
@@ -60,9 +56,9 @@ public class DefaultAllocationManagerOption {
     Unsafe,
 
     /**
-     * (Experimental) FFM based allocation manager.
+     * (Experimental) java.lang.foreign based allocation manager.
      */
-    FFM,
+    Foreign,
 
     /**
      * Unknown type.
@@ -102,8 +98,8 @@ public class DefaultAllocationManagerOption {
       case Unsafe:
         DEFAULT_ALLOCATION_MANAGER_FACTORY = getUnsafeFactory();
         break;
-      case FFM:
-        DEFAULT_ALLOCATION_MANAGER_FACTORY = getFfmFactory();
+      case Foreign:
+        DEFAULT_ALLOCATION_MANAGER_FACTORY = getForeignFactory();
         break;
       case Unknown:
         LOGGER.info("allocation manager type not specified, using netty as the default type");
@@ -143,17 +139,12 @@ public class DefaultAllocationManagerOption {
     }
   }
 
-  private static AllocationManager.Factory getFfmFactory() {
+  private static AllocationManager.Factory getForeignFactory() {
     try {
-      return getFactory("org.apache.arrow.memory.FfmAllocationManager");
+      return getFactory("org.apache.arrow.memory.JavaForeignAllocationManager");
     } catch (RuntimeException e) {
-      if (majorVersion < 21) {
-        throw new RuntimeException("arrow-memory-ffm requires JDK 21+, current JDK version: " +
-            majorVersion);
-      } else {
-        throw new RuntimeException("Please add arrow-memory-ffm to your classpath," +
-            " No DefaultAllocationManager found to instantiate an FfmAllocationManager", e);
-      }
+      throw new RuntimeException("Please add arrow-memory-foreign to your classpath," +
+          " No DefaultAllocationManager found to instantiate an JavaForeignAllocationManager", e);
     }
   }
 }

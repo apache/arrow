@@ -354,6 +354,10 @@
                 <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
                 <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
               </ignoredDependencies>
+              <ignoredNonTestScopedDependencies>
+                <ignoredNonTestScopedDependency>com.google.guava:*</ignoredNonTestScopedDependency>
+                <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:*</ignoredNonTestScopedDependency>
+              </ignoredNonTestScopedDependencies>
             </configuration>
           </execution>
         </executions>
@@ -361,7 +365,7 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.6</version>
+        <version>2.7.10</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -378,7 +382,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
-          <version>3.0.1</version>
+          <version>3.6.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
@@ -1229,12 +1233,55 @@
     <profile>
       <!-- Experimental JDK 21+ features -->
       <id>jdk21+</id>
-      <activation>
-        <jdk>[21,]</jdk>
-      </activation>
-      <modules>
-        <module>memory/memory-ffm</module>
-      </modules>
+      <!-- <modules>
+        <module>memory/memory-foreign</module>
+      </modules> -->
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <source>21</source>
+              <target>21</target>
+              <encoding>UTF-8</encoding>
+              <compilerArgs combine.children="append">
+                <arg>-XDcompilePolicy=simple</arg>
+                <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-sources)/.*</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+                <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+                <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+                <arg>--enable-preview</arg>
+              </compilerArgs>
+              <annotationProcessorPaths combine.children="append">
+                <path>
+                  <groupId>com.google.errorprone</groupId>
+                  <artifactId>error_prone_core</artifactId>
+                  <version>${error_prone_core.version}</version>
+                </path>
+              </annotationProcessorPaths>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+              <argLine>--enable-preview</argLine>
+              <systemPropertyVariables>
+                <arrow.allocation.manager.type>Foreign</arrow.allocation.manager.type>
+              </systemPropertyVariables>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
 
   </profiles>

@@ -23,12 +23,13 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * Test cases for {@link FfmAllocationManager}.
+ * Test cases for {@link JavaForeignAllocationManager}.
  */
-public class TestFfmAllocationManager {
+public class TestJavaForeignAllocationManager {
 
-  private BaseAllocator createFfmAllocator() {
-    return new RootAllocator(BaseAllocator.configBuilder().allocationManagerFactory(FfmAllocationManager.FACTORY)
+  private BaseAllocator createJavaForeignAllocator() {
+    return new RootAllocator(BaseAllocator.configBuilder()
+        .allocationManagerFactory(JavaForeignAllocationManager.FACTORY)
         .build());
   }
 
@@ -46,22 +47,22 @@ public class TestFfmAllocationManager {
   }
 
   /**
-   * Test the memory allocation for {@link FfmAllocationManager}.
+   * Test the memory allocation for {@link JavaForeignAllocationManager}.
    */
   @Test
   public void testBufferAllocation() {
     final long bufSize = 4096L;
-    try (BaseAllocator allocator = createFfmAllocator();
+    try (BaseAllocator allocator = createJavaForeignAllocator();
          ArrowBuf buffer = allocator.buffer(bufSize)) {
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
-      // make sure we are using FFM allocation manager
+      // make sure we are using the Java Foreign allocation manager
       AllocationManager allocMgr = bufferLedger.getAllocationManager();
-      assertTrue(allocMgr instanceof FfmAllocationManager);
-      FfmAllocationManager ffmMgr = (FfmAllocationManager) allocMgr;
+      assertTrue(allocMgr instanceof JavaForeignAllocationManager);
+      JavaForeignAllocationManager mgr = (JavaForeignAllocationManager) allocMgr;
 
-      assertEquals(bufSize, ffmMgr.getSize());
+      assertEquals(bufSize, mgr.getSize());
       readWriteArrowBuf(buffer);
     }
   }

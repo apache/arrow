@@ -17,25 +17,21 @@
 
 package org.apache.arrow.memory;
 
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-
 /**
- * Test cases for {@link AllocationManager}.
+ * The default Allocation Manager Factory for a module.
+ *
  */
-public class TestAllocationManagerFfm {
+public class DefaultAllocationManagerFactory implements AllocationManager.Factory {
 
-  @Test
-  public void testAllocationManagerType() {
+  public static final AllocationManager.Factory FACTORY = JavaForeignAllocationManager.FACTORY;
 
-    // test FFM allocation manager type
-    System.setProperty(
-        DefaultAllocationManagerOption.ALLOCATION_MANAGER_TYPE_PROPERTY_NAME, "FFM");
-    DefaultAllocationManagerOption.AllocationManagerType mgrType =
-        DefaultAllocationManagerOption.getDefaultAllocationManagerType();
+  @Override
+  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+    return FACTORY.create(accountingAllocator, size);
+  }
 
-    assertEquals(DefaultAllocationManagerOption.AllocationManagerType.FFM, mgrType);
-
+  @Override
+  public ArrowBuf empty() {
+    return FACTORY.empty();
   }
 }
