@@ -646,7 +646,7 @@ call ``get_next`` from several threads should ensure those calls are
 serialized.
 
 Interoperability with other interchange formats
------------------------------------------------
+===============================================
 
 Other interchange APIs, such as the `CUDA Array Interface`_, include
 members to pass the shape and the data types of the data buffers being
@@ -657,7 +657,7 @@ should utilize the existing ``ArrowSchema`` structure to pass any data
 type and shape information.
 
 Updating this specification
----------------------------
+===========================
 
 .. note::
     Since this specification is still considered experimental, there is the
