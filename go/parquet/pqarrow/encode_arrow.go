@@ -25,16 +25,16 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
 )
 
 // get the count of the number of leaf arrays for the type
@@ -578,6 +578,31 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				for idx := range data {
 					if arr.IsValid(idx) {
 						data[idx] = fixDecimalEndianness(arr.Value(idx))
+					}
+				}
+				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
+			}
+		case *arrow.Float16Type:
+			typeLen := wr.Descr().TypeLength()
+			if typeLen != arrow.Float16SizeBytes {
+				return fmt.Errorf("%w: invalid FixedLenByteArray length to write from float16 column: %d", arrow.ErrInvalid, typeLen)
+			}
+
+			arr := leafArr.(*array.Float16)
+			rawValues := arrow.Float16Traits.CastToBytes(arr.Values())
+			data := make([]parquet.FixedLenByteArray, arr.Len())
+
+			if arr.NullN() == 0 {
+				for idx := range data {
+					offset := idx * typeLen
+					data[idx] = rawValues[offset : offset+typeLen]
+				}
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
+			} else {
+				for idx := range data {
+					if arr.IsValid(idx) {
+						offset := idx * typeLen
+						data[idx] = rawValues[offset : offset+typeLen]
 					}
 				}
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))

@@ -189,7 +189,7 @@ class FlightPerfServer : public FlightServerBase {
       (void)token.SerializeToString(&tmp_ticket.ticket);
 
       // All endpoints same location for now
-      endpoints.push_back(FlightEndpoint{tmp_ticket, {location_}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{tmp_ticket, {location_}, std::nullopt, ""});
     }
 
     uint64_t total_records =

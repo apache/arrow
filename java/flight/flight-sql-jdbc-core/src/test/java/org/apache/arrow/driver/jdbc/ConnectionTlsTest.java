@@ -127,6 +127,7 @@ public class ConnectionTlsTest {
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+                 .withSystemTrustStore(false)
                  .withUsername(credentials.getUserName())
                  .withPassword(credentials.getPassword())
                  .withTrustStorePath(trustStorePath)
@@ -153,6 +154,7 @@ public class ConnectionTlsTest {
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withTrustStorePath(noCertificateKeyStorePath)
                  .withTrustStorePassword(noCertificateKeyStorePassword)
+                 .withSystemTrustStore(false)
                  .withBufferAllocator(allocator)
                  .withEncryption(true)
                  .build()) {
@@ -170,6 +172,7 @@ public class ConnectionTlsTest {
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                 .withSystemTrustStore(false)
                  .withTrustStorePath(trustStorePath)
                  .withTrustStorePassword(trustStorePass)
                  .withBufferAllocator(allocator)
@@ -192,6 +195,7 @@ public class ConnectionTlsTest {
     try (ArrowFlightSqlClientHandler ignored =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                 .withSystemTrustStore(false)
                  .withTrustStorePath(trustStorePath)
                  .withTrustStorePassword(keyStoreBadPassword)
                  .withBufferAllocator(allocator)
@@ -225,7 +229,7 @@ public class ConnectionTlsTest {
     final ArrowFlightJdbcDataSource dataSource =
         ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
-      assert connection.isValid(300);
+      Assert.assertTrue(connection.isValid(300));
     }
   }
 
@@ -276,7 +280,7 @@ public class ConnectionTlsTest {
 
     final ArrowFlightJdbcDataSource dataSource = ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
-      assert connection.isValid(300);
+      Assert.assertTrue(connection.isValid(300));
     }
   }
 
@@ -291,7 +295,7 @@ public class ConnectionTlsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
                 "&useEncryption=true&useSystemTrustStore=false&%s=%s&%s=%s",
@@ -301,9 +305,9 @@ public class ConnectionTlsTest {
             ArrowFlightConnectionProperty.TRUST_STORE.camelName(),
             URLEncoder.encode(trustStorePath, "UTF-8"),
             ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(),
-            URLEncoder.encode(trustStorePass, "UTF-8")));
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            URLEncoder.encode(trustStorePass, "UTF-8")))) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -327,13 +331,13 @@ public class ConnectionTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "true");
     properties.setProperty(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), "false");
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -357,13 +361,13 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -378,7 +382,7 @@ public class ConnectionTlsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format(
             "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
                 "&useEncryption=1&useSystemTrustStore=0&%s=%s&%s=%s",
@@ -388,9 +392,9 @@ public class ConnectionTlsTest {
             ArrowFlightConnectionProperty.TRUST_STORE.camelName(),
             URLEncoder.encode(trustStorePath, "UTF-8"),
             ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(),
-            URLEncoder.encode(trustStorePass, "UTF-8")));
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+            URLEncoder.encode(trustStorePass, "UTF-8")))) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -414,11 +418,11 @@ public class ConnectionTlsTest {
     properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "1");
     properties.setProperty(ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.camelName(), "0");
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 
   /**
@@ -442,11 +446,11 @@ public class ConnectionTlsTest {
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE.camelName(), trustStorePath);
     properties.put(ArrowFlightConnectionProperty.TRUST_STORE_PASSWORD.camelName(), trustStorePass);
 
-    final Connection connection = DriverManager.getConnection(
+    try (final Connection connection = DriverManager.getConnection(
         String.format("jdbc:arrow-flight-sql://localhost:%s",
             FLIGHT_SERVER_TEST_RULE.getPort()),
-        properties);
-    Assert.assertTrue(connection.isValid(0));
-    connection.close();
+        properties)) {
+      Assert.assertTrue(connection.isValid(0));
+    }
   }
 }

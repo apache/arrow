@@ -30,7 +30,7 @@ The :ref:`C data interface <c-data-interface>` and
 different implementations of Arrow. However, these interfaces don't specify how
 Python libraries should expose these structs to other libraries. Prior to this,
 many libraries simply provided export to PyArrow data structures, using the
-``_import_from_c`` and ``_export_from_c`` methods. However, this always required
+``_import_from_c`` and ``_export_to_c`` methods. However, this always required
 PyArrow to be installed. In addition, those APIs could cause memory leaks if
 handled improperly.
 

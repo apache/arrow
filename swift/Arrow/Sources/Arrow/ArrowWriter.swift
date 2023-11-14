@@ -23,7 +23,7 @@ public protocol DataWriter {
     func append(_ data: Data)
 }
 
-public class ArrowWriter {
+public class ArrowWriter { // swiftlint:disable:this type_body_length
     public class InMemDataWriter: DataWriter {
         public private(set) var data: Data
         public var count: Int { return data.count }
@@ -110,12 +110,15 @@ public class ArrowWriter {
                                                          endianness: .little,
                                                          fieldsVectorOffset: fieldsOffset)
         return .success(schemaOffset)
+
     }
 
-    private func writeRecordBatches(_ writer: inout DataWriter,
-                                    batches: [RecordBatch]
+    private func writeRecordBatches(
+        _ writer: inout DataWriter,
+        batches: [RecordBatch]
     ) -> Result<[org_apache_arrow_flatbuf_Block], ArrowError> {
         var rbBlocks = [org_apache_arrow_flatbuf_Block]()
+
         for batch in batches {
             let startIndex = writer.count
             switch writeRecordBatch(batch: batch) {
@@ -141,7 +144,6 @@ public class ArrowWriter {
 
     private func writeRecordBatch(batch: RecordBatch) -> Result<(Data, Offset), ArrowError> {
         let schema = batch.schema
-        var output = Data()
         var fbb = FlatBufferBuilder()
 
         // write out field nodes
@@ -156,6 +158,7 @@ public class ArrowWriter {
         }
 
         let nodeOffset = fbb.endVector(len: schema.fields.count)
+
         // write out buffers
         var buffers = [org_apache_arrow_flatbuf_Buffer]()
         var bufferOffset = Int(0)
@@ -179,16 +182,17 @@ public class ArrowWriter {
         let startRb = org_apache_arrow_flatbuf_RecordBatch.startRecordBatch(&fbb)
         org_apache_arrow_flatbuf_RecordBatch.addVectorOf(nodes: nodeOffset, &fbb)
         org_apache_arrow_flatbuf_RecordBatch.addVectorOf(buffers: batchBuffersOffset, &fbb)
+        org_apache_arrow_flatbuf_RecordBatch.add(length: Int64(batch.length), &fbb)
         let recordBatchOffset = org_apache_arrow_flatbuf_RecordBatch.endRecordBatch(&fbb, start: startRb)
         let bodySize = Int64(bufferOffset)
         let startMessage = org_apache_arrow_flatbuf_Message.startMessage(&fbb)
+        org_apache_arrow_flatbuf_Message.add(version: .max, &fbb)
         org_apache_arrow_flatbuf_Message.add(bodyLength: Int64(bodySize), &fbb)
         org_apache_arrow_flatbuf_Message.add(headerType: .recordbatch, &fbb)
         org_apache_arrow_flatbuf_Message.add(header: recordBatchOffset, &fbb)
         let messageOffset = org_apache_arrow_flatbuf_Message.endMessage(&fbb, start: startMessage)
         fbb.finish(offset: messageOffset)
-        output.append(fbb.data)
-        return .success((output, Offset(offset: UInt32(output.count))))
+        return .success((fbb.data, Offset(offset: UInt32(fbb.data.count))))
     }
 
     private func writeRecordBatchData(_ writer: inout DataWriter, batch: RecordBatch) -> Result<Bool, ArrowError> {
@@ -297,5 +301,46 @@ public class ArrowWriter {
         }
 
         return .success(true)
+    }
+
+    public func toMessage(_ batch: RecordBatch) -> Result<[Data], ArrowError> {
+        var writer: any DataWriter = InMemDataWriter()
+        switch writeRecordBatch(batch: batch) {
+        case .success(let message):
+            writer.append(message.0)
+            addPadForAlignment(&writer)
+            var dataWriter: any DataWriter = InMemDataWriter()
+            switch writeRecordBatchData(&dataWriter, batch: batch) {
+            case .success:
+                return .success([
+                    (writer as! InMemDataWriter).data, // swiftlint:disable:this force_cast
+                    (dataWriter as! InMemDataWriter).data // swiftlint:disable:this force_cast
+                ])
+            case .failure(let error):
+                return .failure(error)
+            }
+        case .failure(let error):
+            return .failure(error)
+        }
+    }
+
+    public func toMessage(_ schema: ArrowSchema) -> Result<Data, ArrowError> {
+        var schemaSize: Int32 = 0
+        var fbb = FlatBufferBuilder()
+        switch writeSchema(&fbb, schema: schema) {
+        case .success(let schemaOffset):
+            schemaSize = Int32(schemaOffset.o)
+        case .failure(let error):
+            return .failure(error)
+        }
+
+        let startMessage = org_apache_arrow_flatbuf_Message.startMessage(&fbb)
+        org_apache_arrow_flatbuf_Message.add(bodyLength: Int64(0), &fbb)
+        org_apache_arrow_flatbuf_Message.add(headerType: .schema, &fbb)
+        org_apache_arrow_flatbuf_Message.add(header: Offset(offset: UOffset(schemaSize)), &fbb)
+        org_apache_arrow_flatbuf_Message.add(version: .max, &fbb)
+        let messageOffset = org_apache_arrow_flatbuf_Message.endMessage(&fbb, start: startMessage)
+        fbb.finish(offset: messageOffset)
+        return .success(fbb.data)
     }
 }

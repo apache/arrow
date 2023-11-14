@@ -258,7 +258,7 @@ current:
   number: '${version}'
   pinned_number: '${pinned_version}'
   major_number: '${major_version}'
-  date: '${release_date_iso8601}'
+  date: ${release_date_iso8601}
   git-tag: '${git_tag_hash}'
   github-tag-link: 'https://github.com/apache/arrow/releases/tag/${git_tag}'
   release-notes: 'https://arrow.apache.org/release/${version}.html'

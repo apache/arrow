@@ -188,7 +188,12 @@ class ARROW_PYTHON_EXPORT OwnedRef {
     return *this;
   }
 
-  ~OwnedRef() { reset(); }
+  ~OwnedRef() {
+    // GH-38626: destructor may be called after the Python interpreter is finalized.
+    if (Py_IsInitialized()) {
+      reset();
+    }
+  }
 
   void reset(PyObject* obj) {
     Py_XDECREF(obj_);
@@ -225,13 +230,11 @@ class ARROW_PYTHON_EXPORT OwnedRefNoGIL : public OwnedRef {
   explicit OwnedRefNoGIL(PyObject* obj) : OwnedRef(obj) {}
 
   ~OwnedRefNoGIL() {
-    // This destructor may be called after the Python interpreter is finalized.
-    // At least avoid spurious attempts to take the GIL when not necessary.
-    if (obj() == NULLPTR) {
-      return;
+    // GH-38626: destructor may be called after the Python interpreter is finalized.
+    if (Py_IsInitialized() && obj() != NULLPTR) {
+      PyAcquireGIL lock;
+      reset();
     }
-    PyAcquireGIL lock;
-    reset();
   }
 };
 

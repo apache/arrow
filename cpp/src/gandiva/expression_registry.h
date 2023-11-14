@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "gandiva/arrow.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/function_signature.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/visibility.h"
@@ -37,7 +38,8 @@ class GANDIVA_EXPORT ExpressionRegistry {
  public:
   using native_func_iterator_type = const NativeFunction*;
   using func_sig_iterator_type = const FunctionSignature*;
-  ExpressionRegistry();
+  explicit ExpressionRegistry(std::shared_ptr<FunctionRegistry> function_registry =
+                                  gandiva::default_function_registry());
   ~ExpressionRegistry();
   static DataTypeVector supported_types() { return supported_types_; }
   class GANDIVA_EXPORT FunctionSignatureIterator {
@@ -62,7 +64,7 @@ class GANDIVA_EXPORT ExpressionRegistry {
 
  private:
   static DataTypeVector supported_types_;
-  std::unique_ptr<FunctionRegistry> function_registry_;
+  std::shared_ptr<FunctionRegistry> function_registry_;
 };
 
 /// \brief Get the list of all function signatures.

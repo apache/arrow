@@ -253,6 +253,14 @@ BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4_FRAME);
 BENCHMARK_TEMPLATE(ReferenceCompression, Compression::LZ4_FRAME);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4_FRAME);
 BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::LZ4_FRAME);
+
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::LZ4);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::LZ4);
+#endif
+
+#ifdef ARROW_WITH_SNAPPY
+BENCHMARK_TEMPLATE(ReferenceCompression, Compression::SNAPPY);
+BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::SNAPPY);
 #endif
 
 #endif

@@ -23,15 +23,18 @@ public class FlightData {
         return flightData.hasFlightDescriptor ? FlightDescriptor(flightData.flightDescriptor) : nil
     }
 
+    public var dataHeader: Data { flightData.dataHeader }
+
     public var dataBody: Data { flightData.dataBody }
 
     init(_ flightData: Arrow_Flight_Protocol_FlightData) {
         self.flightData = flightData
     }
 
-    public init(_ dataBody: Data, flightDescriptor: FlightDescriptor? = nil) {
+    public init(_ dataHeader: Data, dataBody: Data, flightDescriptor: FlightDescriptor? = nil) {
         if flightDescriptor != nil {
             self.flightData = Arrow_Flight_Protocol_FlightData.with {
+                $0.dataHeader = dataHeader
                 $0.dataBody = dataBody
                 $0.flightDescriptor = flightDescriptor!.toProtocol()
             }

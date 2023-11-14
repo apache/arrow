@@ -22,15 +22,15 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
-	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -1225,6 +1225,8 @@ func (boolEncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.
 	switch e {
 	case format.Encoding_PLAIN:
 		return &PlainBooleanEncoder{encoder: newEncoderBase(e, descr, mem)}
+	case format.Encoding_RLE:
+		return &RleBooleanEncoder{encoder: newEncoderBase(e, descr, mem)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1248,6 +1250,8 @@ func (boolDecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useDi
 	switch e {
 	case parquet.Encodings.Plain:
 		return &PlainBooleanDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+	case parquet.Encodings.RLE:
+		return &RleBooleanDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}

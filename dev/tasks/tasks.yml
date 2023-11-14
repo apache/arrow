@@ -487,7 +487,7 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-{% for macos_version, macos_codename in [("10.14", "mojave")] %}
+{% for macos_version, macos_codename in [("10.15", "catalina")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -557,7 +557,8 @@ tasks:
                   "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
-                  "ubuntu-lunar"] %}
+                  "ubuntu-lunar",
+                  "ubuntu-mantic"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     ci: github
@@ -594,59 +595,59 @@ tasks:
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-acero1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-acero1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-acero1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-acero1500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib1500_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset1500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib1500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql1400_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib1500_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql1500_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight1500_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib1500_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow1500_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib1500_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva1500_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib1500_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet1500_{no_rc_version}-1_[a-z0-9]+.deb
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib1500_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda1500-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda1500_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
   {% endfor %}
 {% endfor %}
@@ -1182,12 +1183,12 @@ tasks:
       image: debian-cpp
 {% endfor %}
 
-  test-fedora-35-cpp:
+  test-fedora-38-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 35
+        FEDORA: 38
       image: fedora-cpp
 
 {% for cpp_standard in [20] %}
@@ -1295,12 +1296,12 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-python
 
-  test-fedora-35-python-3:
+  test-fedora-38-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        FEDORA: 35
+        FEDORA: 38
       image: fedora-python
 
   test-r-linux-valgrind:

@@ -24,10 +24,10 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -37,13 +37,13 @@ const (
 	MaxValuesPerLiteralRun = (1 << 6) * 8
 )
 
-func MinBufferSize(bitWidth int) int {
+func MinRLEBufferSize(bitWidth int) int {
 	maxLiteralRunSize := 1 + bitutil.BytesForBits(int64(MaxValuesPerLiteralRun*bitWidth))
 	maxRepeatedRunSize := binary.MaxVarintLen32 + bitutil.BytesForBits(int64(bitWidth))
 	return int(utils.Max(maxLiteralRunSize, maxRepeatedRunSize))
 }
 
-func MaxBufferSize(width, numValues int) int {
+func MaxRLEBufferSize(width, numValues int) int {
 	bytesPerRun := width
 	numRuns := int(bitutil.BytesForBits(int64(numValues)))
 	literalMaxSize := numRuns + (numRuns * bytesPerRun)

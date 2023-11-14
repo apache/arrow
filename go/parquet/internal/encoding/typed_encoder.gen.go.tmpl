@@ -17,13 +17,13 @@
 package encoding
 
 import (
-  "github.com/apache/arrow/go/v14/parquet"
-  "github.com/apache/arrow/go/v14/parquet/schema"
-  format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
-  "github.com/apache/arrow/go/v14/arrow"
-  "github.com/apache/arrow/go/v14/parquet/internal/utils"
-  shared_utils "github.com/apache/arrow/go/v14/internal/utils"
-  "github.com/apache/arrow/go/v14/internal/bitutils"
+  "github.com/apache/arrow/go/v15/parquet"
+  "github.com/apache/arrow/go/v15/parquet/schema"
+  format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+  "github.com/apache/arrow/go/v15/arrow"
+  "github.com/apache/arrow/go/v15/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+  "github.com/apache/arrow/go/v15/internal/bitutils"
 )
 
 // fully typed encoder interfaces to enable writing against encoder/decoders
@@ -73,6 +73,10 @@ func ({{.lower}}EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *s
   switch e {
   case format.Encoding_PLAIN:
     return &Plain{{.Name}}Encoder{encoder: newEncoderBase(e, descr, mem)}
+{{- if eq .Name "Boolean" }}
+  case format.Encoding_RLE:
+    return &RleBooleanEncoder{encoder: newEncoderBase(e, descr, mem)}
+{{- end}}
 {{- if or (eq .Name "Int32") (eq .Name "Int64")}}
   case format.Encoding_DELTA_BINARY_PACKED:
     return DeltaBitPack{{.Name}}Encoder{&deltaBitPackEncoder{
@@ -117,6 +121,10 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
   switch e {
   case parquet.Encodings.Plain:
     return &Plain{{.Name}}Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+{{- if eq .Name "Boolean" }}
+  case parquet.Encodings.RLE:
+    return &RleBooleanDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+{{- end}}
 {{- if or (eq .Name "Int32") (eq .Name "Int64")}}
   case parquet.Encodings.DeltaBinaryPacked:
     if mem == nil {

@@ -23,11 +23,11 @@ import (
 	"math/bits"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -48,7 +48,7 @@ func LevelEncodingMaxBufferSize(encoding parquet.Encoding, maxLvl int16, nbuffer
 	nbytes := 0
 	switch encoding {
 	case parquet.Encodings.RLE:
-		nbytes = utils.MaxBufferSize(bitWidth, nbuffered) + utils.MinBufferSize(bitWidth)
+		nbytes = utils.MaxRLEBufferSize(bitWidth, nbuffered) + utils.MinRLEBufferSize(bitWidth)
 	case parquet.Encodings.BitPacked:
 		nbytes = int(bitutil.BytesForBits(int64(nbuffered * bitWidth)))
 	default:
