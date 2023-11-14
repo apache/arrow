@@ -379,9 +379,33 @@ if(NOT PYARROW_CPP_LINK_LIBS)
   endif()
 endif()
 
+# Configure the config
+configure_file(
+    "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h.cmake"
+    "${PROJECT_SOURCE_DIR}/${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
+    ESCAPE_QUOTES
+)
+# install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
+#         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
+message("   Source dir ${PYARROW_CPP_SOURCE_DIR}")
+message("   Include dir ${CMAKE_INSTALL_INCLUDEDIR}")
+install(FILES "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/python")
+
+# message(FATAL_ERROR "DONE")
+
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
+message("PYARROW CPP SOURCE DIR ${PYARROW_CPP_SOURCE_DIR}")
+message("PYARROW CPP SOURCES ${PYARROW_CPP_SRCS}")
+message("PYARROW CPP ROOT DIR ${PYARROW_CPP_ROOT_DIR}")
+message("CMAKE CURRENT DIR ${CMAKE_CURRENT_BINARY_DIR}")
+file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_BINARY_DIR}/**/*")
+message("Source files: ${SOURCES}")
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
-                                               ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
+                                               ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src
+                           )
+
+
 if(NOT CMAKE_VERSION VERSION_LESS 3.16)
   target_precompile_headers(arrow_python PUBLIC
                             "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
@@ -424,17 +448,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                APPEND_STRING
                PROPERTY COMPILE_FLAGS -Wno-parentheses-equality)
 endif()
-
-configure_file(
-    "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h.cmake"
-    "${PYARROW_CPP_SOURCE_DIR}/pyarrow_config.h"
-    ESCAPE_QUOTES
-)
-install(DIRECTORY ${PYARROW_CPP_SOURCE_DIR}/
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python
-        FILES_MATCHING
-        PATTERN "*internal.h" EXCLUDE
-        PATTERN "*.h")
 
 function(bundle_arrow_lib library_path)
   set(options)
@@ -783,8 +796,12 @@ function(install_wrapper_lib lib_module)
                                "${CMAKE_CURRENT_BINARY_DIR}/${lib_module}.h"
                                "${ARROW_PYTHON_BINARY_DIR}/"
                        DEPENDS ${lib_module}_pyx)
-    add_custom_target(cython_api_headers_${lib_module} DEPENDS "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h"
-                                                 "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h")
+    add_custom_target(
+        cython_api_headers_${lib_module}
+        DEPENDS
+            "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h"
+            "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h"
+    )
     add_dependencies(arrow_python cython_api_headers_${lib_module})
     install(FILES "${ARROW_PYTHON_BINARY_DIR}/${lib_module}_api.h" "${ARROW_PYTHON_BINARY_DIR}/${lib_module}.h"
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/arrow/python)
@@ -837,3 +854,8 @@ if(PYARROW_BUILD_PARQUET)
     target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
   endif()
 endif()
+
+get_target_property(SOURCES arrow_python SOURCES)
+get_target_property(INCLUDE_DIRS arrow_python INCLUDE_DIRECTORIES)
+message("Source files for target ${your_target}: ${SOURCES}")
+message("Include directories for target ${your_target}: ${INCLUDE_DIRS}")

@@ -17,8 +17,9 @@
 
 #pragma once
 
+#include "arrow/python/pyarrow_config.h"
+
 #include "arrow/python/platform.h"
-#include "arrow/python/wrapping.h"
 
 #include <memory>
 
@@ -45,10 +46,20 @@ namespace compute {
 class Expression;
 }
 
+namespace acero {
+struct Declaration;
+class ExecNodeOption;
+}  // namespace acero
+
 namespace py {
 
 // Returns 0 on success, -1 on error.
 ARROW_PYTHON_EXPORT int import_pyarrow();
+
+#define DECLARE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                   \
+  ARROW_PYTHON_EXPORT bool is_##FUNC_SUFFIX(PyObject*);                  \
+  ARROW_PYTHON_EXPORT Result<TYPE_NAME> unwrap_##FUNC_SUFFIX(PyObject*); \
+  ARROW_PYTHON_EXPORT PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME&);
 
 DECLARE_WRAP_FUNCTIONS(buffer, std::shared_ptr<Buffer>)
 
@@ -71,6 +82,11 @@ DECLARE_WRAP_FUNCTIONS(batch, std::shared_ptr<RecordBatch>)
 DECLARE_WRAP_FUNCTIONS(table, std::shared_ptr<Table>)
 
 DECLARE_WRAP_FUNCTIONS(expression, compute::Expression)
+
+#ifdef ARROW_WITH_ACERO
+DECLARE_WRAP_FUNCTIONS(declaration, acero::Declaration)
+DECLARE_WRAP_FUNCTIONS(declaration, std::shared_ptr<acero::ExecNodeOptions>)
+#endif
 
 namespace internal {
 

@@ -17,7 +17,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/python/pyarrow_config.h"
+#include "pyarrow_config.h"
 
 #include "arrow/array.h"
 #include "arrow/compute/expression.h"
@@ -31,11 +31,9 @@
 #endif
 
 #include "arrow/python/common.h"
+#include "arrow/python/datetime.h"
 #include "arrow/python/lib_api.h"
 #include "arrow/python/pyarrow.h"
-#include "arrow/python/unwrapping.h"
-
-#include "arrow/python/datetime.h"
 
 namespace {
 #include "arrow/python/pyarrow_api.h"
@@ -52,6 +50,23 @@ int import_pyarrow() {
 #endif
   return ::import_pyarrow__lib() && ::import_pyarrow__lib_compute();
 }
+
+#define DEFINE_WRAP_FUNCTIONS(FUNC_SUFFIX, TYPE_NAME)                                   \
+  bool is_##FUNC_SUFFIX(PyObject* obj) { return ::pyarrow_is_##FUNC_SUFFIX(obj) != 0; } \
+                                                                                        \
+  PyObject* wrap_##FUNC_SUFFIX(const TYPE_NAME& src) {                                  \
+    return ::pyarrow_wrap_##FUNC_SUFFIX(src);                                           \
+  }                                                                                     \
+  Result<TYPE_NAME> unwrap_##FUNC_SUFFIX(PyObject* obj) {                               \
+    auto out = ::pyarrow_unwrap_##FUNC_SUFFIX(obj);                                     \
+    if (IS_VALID(out)) {                                                                \
+      return std::move(out);                                                            \
+    } else {                                                                            \
+      return Status::TypeError("Could not unwrap ", #TYPE_NAME,                         \
+                               " from Python object of type '", Py_TYPE(obj)->tp_name,  \
+                               "'");                                                    \
+    }                                                                                   \
+  }
 
 #define IS_VALID(OUT) OUT
 
