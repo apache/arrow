@@ -132,28 +132,24 @@ func TestWriteArrowCols(t *testing.T) {
 	tbl := makeDateTimeTypesTable(mem, false, false)
 	defer tbl.Release()
 
-	psc, err := pqarrow.ToParquet(tbl.Schema(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
-	require.NoError(t, err)
-
-	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
-	require.NoError(t, err)
-
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
-	writer := file.NewParquetWriter(sink, psc.Root(), file.WithWriterProps(parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_4))))
 
-	srgw := writer.AppendRowGroup()
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), nil)
+	fileWriter, err := pqarrow.NewFileWriter(
+		tbl.Schema(),
+		sink,
+		parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_4)),
+		pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)),
+	)
+	require.NoError(t, err)
 
-	colIdx := 0
+	fileWriter.NewRowGroup()
 	for i := int64(0); i < tbl.NumCols(); i++ {
-		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, colIdx)
+		colChunk := tbl.Column(int(i)).Data()
+		err := fileWriter.WriteColumnChunked(colChunk, 0, int64(colChunk.Len()))
 		require.NoError(t, err)
-		require.NoError(t, acw.Write(ctx))
-		colIdx = colIdx + acw.LeafCount()
 	}
-	require.NoError(t, srgw.Close())
-	require.NoError(t, writer.Close())
+	require.NoError(t, fileWriter.Close())
 
 	expected := makeDateTimeTypesTable(mem, true, false)
 	defer expected.Release()
@@ -235,31 +231,24 @@ func TestWriteArrowInt96(t *testing.T) {
 	tbl := makeDateTimeTypesTable(mem, false, false)
 	defer tbl.Release()
 
-	props := pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true), pqarrow.WithAllocator(mem))
-
-	psc, err := pqarrow.ToParquet(tbl.Schema(), nil, props)
-	require.NoError(t, err)
-
-	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
-	require.NoError(t, err)
-
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
 
-	writer := file.NewParquetWriter(sink, psc.Root(), file.WithWriterProps(parquet.NewWriterProperties(parquet.WithAllocator(mem))))
+	fileWriter, err := pqarrow.NewFileWriter(
+		tbl.Schema(),
+		sink,
+		parquet.NewWriterProperties(parquet.WithAllocator(mem)),
+		pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true), pqarrow.WithAllocator(mem)),
+	)
+	require.NoError(t, err)
 
-	srgw := writer.AppendRowGroup()
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
-
-	colIdx := 0
+	fileWriter.NewRowGroup()
 	for i := int64(0); i < tbl.NumCols(); i++ {
-		acw, err := pqarrow.NewArrowColumnWriter(tbl.Column(int(i)).Data(), 0, tbl.NumRows(), manifest, srgw, colIdx)
+		colChunk := tbl.Column(int(i)).Data()
+		err := fileWriter.WriteColumnChunked(colChunk, 0, int64(colChunk.Len()))
 		require.NoError(t, err)
-		require.NoError(t, acw.Write(ctx))
-		colIdx += acw.LeafCount()
 	}
-	require.NoError(t, srgw.Close())
-	require.NoError(t, writer.Close())
+	require.NoError(t, fileWriter.Close())
 
 	expected := makeDateTimeTypesTable(mem, false, false)
 	defer expected.Release()
@@ -296,33 +285,28 @@ func TestWriteArrowInt96(t *testing.T) {
 func writeTableToBuffer(t *testing.T, mem memory.Allocator, tbl arrow.Table, rowGroupSize int64, props pqarrow.ArrowWriterProperties) *memory.Buffer {
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
-	wrprops := parquet.NewWriterProperties(parquet.WithVersion(parquet.V1_0))
-	psc, err := pqarrow.ToParquet(tbl.Schema(), wrprops, props)
-	require.NoError(t, err)
 
-	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
+	fileWriter, err := pqarrow.NewFileWriter(
+		tbl.Schema(),
+		sink,
+		parquet.NewWriterProperties(parquet.WithVersion(parquet.V1_0)),
+		props,
+	)
 	require.NoError(t, err)
-
-	writer := file.NewParquetWriter(sink, psc.Root(), file.WithWriterProps(wrprops))
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
 
 	offset := int64(0)
 	for offset < tbl.NumRows() {
 		sz := utils.Min(rowGroupSize, tbl.NumRows()-offset)
-		srgw := writer.AppendRowGroup()
-		colIdx := 0
+		fileWriter.NewRowGroup()
 		for i := 0; i < int(tbl.NumCols()); i++ {
-			col := tbl.Column(i)
-			acw, err := pqarrow.NewArrowColumnWriter(col.Data(), offset, sz, manifest, srgw, colIdx)
+			colChunk := tbl.Column(i).Data()
+			err := fileWriter.WriteColumnChunked(colChunk, 0, int64(colChunk.Len()))
 			require.NoError(t, err)
-			require.NoError(t, acw.Write(ctx))
-			colIdx = colIdx + acw.LeafCount()
 		}
-		srgw.Close()
 		offset += sz
 	}
-	writer.Close()
 
+	require.NoError(t, fileWriter.Close())
 	return sink.Finish()
 }
 
