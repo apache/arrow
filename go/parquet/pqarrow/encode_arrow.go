@@ -81,7 +81,7 @@ type ArrowColumnWriter struct {
 //
 // Using an arrow column writer is a convenience to avoid having to process the arrow array yourself
 // and determine the correct definition and repetition levels manually.
-func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, col int) (ArrowColumnWriter, error) {
+func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, leafColIdx int) (ArrowColumnWriter, error) {
 	if data.Len() == 0 {
 		return ArrowColumnWriter{leafCount: calcLeafCount(data.DataType()), rgw: rgw}, nil
 	}
@@ -118,7 +118,7 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 	// which is the one this instance will start writing for
 	// colIdx := rgw.CurrentColumn() + 1
 
-	schemaField, err := manifest.GetColumnField(col)
+	schemaField, err := manifest.GetColumnField(leafColIdx)
 	if err != nil {
 		return ArrowColumnWriter{}, err
 	}
@@ -153,7 +153,11 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 		values += chunkWriteSize
 	}
 
-	return ArrowColumnWriter{builders: builders, leafCount: leafCount, rgw: rgw, colIdx: col}, nil
+	return ArrowColumnWriter{builders: builders, leafCount: leafCount, rgw: rgw, colIdx: leafColIdx}, nil
+}
+
+func (acw *ArrowColumnWriter) LeafCount() int {
+	return acw.leafCount
 }
 
 func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
