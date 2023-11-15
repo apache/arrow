@@ -673,22 +673,14 @@ class RepeatedArrayFactory {
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;
     auto size = static_cast<typename T::offset_type>(value->size());
 
-    typename T::offset_type length_casted;
-    if (length_ > std::numeric_limits<typename T::offset_type>::max()) {
-      return Status::Invalid(
-          "length exceeds the maximum value of offset_type: ", std::to_string(length_),
-          " is greater than ",
-          std::to_string(std::numeric_limits<typename T::offset_type>::max()));
-    }
-    length_casted = static_cast<typename T::offset_type>(length_);
-
     typename T::offset_type total_size;
-    if (MultiplyWithOverflow(size, length_casted, &total_size)) {
+    if (MultiplyWithOverflow(size, static_cast<typename T::offset_type>(length_),
+                             &total_size)) {
       return Status::Invalid("offset overflow in repeated array construction");
     }
 
-    RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
     RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
+    RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
 
     out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(length_, offsets_buffer,
                                                                values_buffer);
@@ -862,6 +854,12 @@ class RepeatedArrayFactory {
 
   template <typename OffsetType>
   Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
+    if (length_ > std::numeric_limits<OffsetType>::max()) {
+      return Status::Invalid(
+          "length exceeds the maximum value of offset_type: ", std::to_string(length_),
+          " is greater than ", std::to_string(std::numeric_limits<OffsetType>::max()));
+    }
+
     TypedBufferBuilder<OffsetType> builder(pool_);
     RETURN_NOT_OK(builder.Resize(length_ + 1));
     OffsetType offset = 0;
