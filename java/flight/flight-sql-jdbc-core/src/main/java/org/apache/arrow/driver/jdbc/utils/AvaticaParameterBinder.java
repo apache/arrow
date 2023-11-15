@@ -119,11 +119,21 @@ public class AvaticaParameterBinder {
     }
   }
 
+  /**
+   * ArrowTypeVisitor that binds Avatica TypedValues to the given FieldVector at the specified index.
+   */
   public static class BinderVisitor implements ArrowType.ArrowTypeVisitor<Boolean> {
     private final FieldVector vector;
     private final TypedValue typedValue;
     private final int index;
 
+    /**
+     * Instantiate a new BinderVisitor.
+     *
+     * @param vector FieldVector to bind values to.
+     * @param value TypedValue to bind.
+     * @param index Vector index (0-based) to bind the value to.
+     */
     public BinderVisitor(FieldVector vector, TypedValue value, int index) {
       this.vector = vector;
       this.typedValue = value;

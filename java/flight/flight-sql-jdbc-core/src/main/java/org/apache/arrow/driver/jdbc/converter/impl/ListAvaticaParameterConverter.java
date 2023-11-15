@@ -46,7 +46,8 @@ public class ListAvaticaParameterConverter extends BaseAvaticaParameterConverter
       int startPos = listVector.startNewValue(index);
       for (int i = 0; i < values.size(); i++) {
         childVector.getField().getType().accept(
-                new AvaticaParameterBinder.BinderVisitor(childVector, TypedValue.ofSerial(typedValue.componentType, values.get(i)), startPos + i));
+                new AvaticaParameterBinder.BinderVisitor(
+                        childVector, TypedValue.ofSerial(typedValue.componentType, values.get(i)), startPos + i));
       }
       listVector.endValue(index, values.size());
       listVector.setValueCount(index + 1);
