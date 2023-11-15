@@ -623,7 +623,6 @@ class TestListArray : public ::testing::Test {
   void TestBulkAppendInvalid() {
     std::vector<int16_t> values = {0, 1, 2, 3, 4, 5, 6};
     std::vector<uint8_t> is_valid = {1, 0, 1};
-    // Should be {0, 3, 3} given the is_valid array
     std::vector<offset_type> offsets = {0, 2, 4};
     std::vector<offset_type> sizes = {2, 2, 4};
 
