@@ -74,14 +74,6 @@ jobs:
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
         env:
-          # libarrow.so requires a more recent version of libstdc++.so
-          # than is bundled with MATLAB under <matlabroot>/sys/os/glnxa64.
-          # Therefore, if a MEX function that depends on libarrow.so
-          # is executed within the MATLAB address space, runtime linking
-          # errors will occur. To work around this issue, we can explicitly
-          # force MATLAB to use the system libstdc++.so via LD_PRELOAD.
-          LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
-
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
