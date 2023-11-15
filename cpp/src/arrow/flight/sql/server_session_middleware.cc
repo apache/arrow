@@ -178,7 +178,7 @@ MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen) {
   return std::make_shared<ServerSessionMiddlewareFactory>(std::move(id_gen));
 }
 
-::arrow::Result<std::optional<SessionOptionValue>> FlightSqlSession::GetSessionOption(
+std::optional<SessionOptionValue> FlightSqlSession::GetSessionOption(
     const std::string& k) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
   auto it = map_.find(k);
