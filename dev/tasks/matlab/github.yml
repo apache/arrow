@@ -34,9 +34,9 @@ jobs:
           release: R2023a
       - name: find system libstdc++
         run: |
-          popd /usr/lib/
+          pushd /usr/lib/
           ls */**
-          pushd
+          popd
       - name: Build MATLAB Interface
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
