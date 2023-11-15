@@ -854,7 +854,10 @@ class DelayedBufferReader : public ::arrow::io::BufferReader {
   std::atomic<int> read_async_count{0};
 };
 
-TEST_F(TestParquetFileFormat, MultithreadedScanUnsafe) {
+TEST_F(TestParquetFileFormat, MultithreadedScanRegression) {
+  // GH-38438: This test is similar to MultithreadedScan, but it try to use self
+  // designed Executor and DelayedBufferReader to mock async execution to make
+  // the state machine more complex.
   auto reader = MakeGeneratedRecordBatch(schema({field("utf8", utf8())}), 10000, 100);
 
   ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
@@ -878,7 +881,6 @@ TEST_F(TestParquetFileFormat, MultithreadedScanUnsafe) {
       fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
 
       options->fragment_scan_options = fragment_scan_options;
-      options->use_threads = true;
       ScannerBuilder builder(ArithmeticDatasetFixture::schema(), fragment, options);
 
       ASSERT_OK(builder.UseThreads(true));
