@@ -32,14 +32,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
-      - name: find system libstdc++
-        run: |
-          pushd /usr/lib/
-          ls -la x86_64-linux-gnu/libstdc++*
-          ls -la x86_64-linux-gnu/libc.*
-          strings x86_64-linux-gnu/libstdc++.so.6 | grep -i GLIBC
-          strings x86_64-linux-gnu/libc.so | grep -i GLIBC
-          popd
       - name: Build MATLAB Interface
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
