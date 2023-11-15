@@ -782,11 +782,11 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
               FlightSqlServerBase::kCreatePreparedStatementActionType,
               FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
               FlightSqlServerBase::kClosePreparedStatementActionType,
-              FlightSqlServerBase::kCloseSessionActionType,
               FlightSqlServerBase::kEndSavepointActionType,
               FlightSqlServerBase::kEndTransactionActionType,
-              FlightSqlServerBase::kSetSessionOptionsActionType,
-              FlightSqlServerBase::kGetSessionOptionsActionType};
+              ActionType::kSetSessionOptions,
+              ActionType::kGetSessionOptions,
+              ActionType::kCloseSession};
   return Status::OK();
 }
 

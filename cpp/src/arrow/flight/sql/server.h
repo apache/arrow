@@ -701,11 +701,6 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
                  "Closes a reusable prepared statement resource on the server.\n"
                  "Request Message: ActionClosePreparedStatementRequest\n"
                  "Response Message: N/A"};
-  const ActionType kCloseSessionActionType =
-      ActionType{"CloseSession",
-                 "Explicitly close an open session.\n"
-                 "Request Message: CloseSessionRequest\n"
-                 "Response Message: ActionCloseSessionResult"};
   const ActionType kEndSavepointActionType =
       ActionType{"EndSavepoint",
                  "End a savepoint.\n"
@@ -716,16 +711,6 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
                  "End a savepoint.\n"
                  "Request Message: ActionEndTransactionRequest\n"
                  "Response Message: N/A"};
-  const ActionType kSetSessionOptionsActionType =
-      ActionType{"SetSessionOptions",
-                 "Set a series of session options.\n"
-                 "Request Message: SetSessionOptionsRequest\n"
-                 "Response Message: SetSessionOptionsResult"};
-  const ActionType kGetSessionOptionsActionType =
-      ActionType{"GetSessionOption",
-                 "Get a series of session options.\n"
-                 "Request Message: ActionGetSessionOptionRequest\n"
-                 "Response Message: ActionGetSessionOptionResult"};
 
   Status ListActions(const ServerCallContext& context,
                      std::vector<ActionType>* actions) final;
