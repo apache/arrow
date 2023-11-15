@@ -212,56 +212,6 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
-struct CompactDictionaryNullValuesVistor {
-  const std::shared_ptr<ArrayData>& data;
-  int64_t& out_null_count;
-
-  template <typename IndexArrowType>
-  Status CompactDictionaryNullValuesImpl() {
-    int64_t index_length = data->length;
-    int64_t dict_length = data->dictionary->length;
-    const uint8_t* dictionary_null_bit_map = data->dictionary->GetValues<uint8_t>(0);
-
-    using CType = typename IndexArrowType::c_type;
-    const CType* indices_data = data->GetValues<CType>(1);
-    CType dict_len = static_cast<CType>(dict_length);
-    for (int64_t i = 0; i < index_length; i++) {
-      if (data->IsNull(i)) {
-        continue;
-      }
-
-      CType current_index = indices_data[i];
-      if (current_index < 0 || current_index >= dict_len) {
-        return Status::IndexError(
-            "Index out of bounds while counting dictionary array: ", current_index,
-            "(dictionary is ", dict_length, " long) at position ", i);
-      }
-      if (!bit_util::GetBit(dictionary_null_bit_map, current_index)) {
-        out_null_count++;
-      }
-    }
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_integer<Type, Status> Visit(const Type&) {
-    return CompactDictionaryNullValuesImpl<Type>();
-  }
-
-  Status Visit(const DataType& type) {
-    return Status::TypeError("Expected an Index Type of Int or UInt");
-  }
-};
-
-Result<int64_t> CompactDictionaryNullValues(const std::shared_ptr<ArrayData>& data) {
-  int64_t out_null_count = 0;
-  const auto& dict_type = checked_cast<const DictionaryType&>(*data->type);
-  CompactDictionaryNullValuesVistor vistor{data, out_null_count};
-  RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &vistor));
-
-  return out_null_count;
-}
-
 struct CompactTransposeMapVistor {
   const std::shared_ptr<ArrayData>& data;
   arrow::MemoryPool* pool;
@@ -371,16 +321,6 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
                         TransposeDictIndices(data_, data_->type, type, dictionary->data(),
                                              transpose_map, pool));
   return MakeArray(std::move(transposed));
-}
-
-Result<int64_t> DictionaryArray::CountNullValues() const {
-  if (this->dictionary()->null_count() == 0 || this->indices()->null_count() == 0) {
-    return this->indices()->null_count();
-  }
-
-  ARROW_ASSIGN_OR_RAISE(int64_t dictionary_null_count,
-                        CompactDictionaryNullValues(data_));
-  return dictionary_null_count + this->indices()->null_count();
 }
 
 Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
