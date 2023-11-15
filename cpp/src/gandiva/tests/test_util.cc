@@ -32,7 +32,7 @@ std::shared_ptr<Configuration> TestConfiguration() {
 std::string GetTestFunctionLLVMIRPath() {
   const auto base =
       arrow::internal::PlatformFilename::FromString(GANDIVA_EXTENSION_TEST_DIR);
-  DCHECK(base.ok());
+  DCHECK_OK(base);
   return base->Join("multiply_by_two.bc")->ToString();
 }
 
