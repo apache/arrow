@@ -42,7 +42,7 @@ jobs:
 
   ubuntu:
     name: AMD64 Ubuntu 20.04 MATLAB
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
