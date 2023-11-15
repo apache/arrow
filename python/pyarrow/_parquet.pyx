@@ -24,6 +24,7 @@ import warnings
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
@@ -1165,7 +1166,7 @@ cdef class ParquetReader(_Weakrefable):
     cdef:
         object source
         CMemoryPool* pool
-        unique_ptr[FileReader] reader
+        UniquePtrNoGIL[FileReader] reader
         FileMetaData _metadata
         shared_ptr[CRandomAccessFile] rd_handle
 
@@ -1334,7 +1335,7 @@ cdef class ParquetReader(_Weakrefable):
             vector[int] c_row_groups
             vector[int] c_column_indices
             shared_ptr[CRecordBatch] record_batch
-            unique_ptr[CRecordBatchReader] recordbatchreader
+            UniquePtrNoGIL[CRecordBatchReader] recordbatchreader
 
         self.set_batch_size(batch_size)
 
@@ -1366,7 +1367,6 @@ cdef class ParquetReader(_Weakrefable):
                 check_status(
                     recordbatchreader.get().ReadNext(&record_batch)
                 )
-
             if record_batch.get() == NULL:
                 break
 
