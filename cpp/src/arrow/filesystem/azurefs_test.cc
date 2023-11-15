@@ -647,6 +647,130 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamClosed) {
   ASSERT_RAISES(Invalid, stream->Tell());
 }
 
+
+TEST_F(GcsIntegrationTest, TestWriteWithDefaults) {
+  auto options = TestGcsOptions();
+  options.default_bucket_location = "utopia";
+  options.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
+  auto fs = GcsFileSystem::Make(options);
+  std::string bucket = "new_bucket_with_default_location";
+  auto file_name = "object_with_defaults";
+  ASSERT_OK(fs->CreateDir(bucket, /*recursive=*/false));
+  const auto path = bucket + "/" + file_name;
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, /*metadata=*/{}));
+  const auto expected = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+
+  // Verify we can read the object back.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs->OpenInputStream(path));
+
+  std::array<char, 1024> inbuf{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+
+  EXPECT_EQ(std::string(inbuf.data(), size), expected);
+  auto object = GcsClient().GetObjectMetadata(bucket, file_name);
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  EXPECT_EQ(object->mutable_metadata()["foo"], "bar");
+  auto bucket_info = GcsClient().GetBucketMetadata(bucket);
+  ASSERT_TRUE(bucket_info.ok()) << "status=" << object.status();
+  EXPECT_EQ(bucket_info->location(), "utopia");
+
+  // Check that explicit metadata overrides the defaults.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs->OpenOutputStream(
+                  path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+  object = GcsClient().GetObjectMetadata(bucket, file_name);
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  EXPECT_EQ(object->mutable_metadata()["bar"], "foo");
+  // Defaults are overwritten and not merged.
+  EXPECT_FALSE(object->has_metadata("foo"));
+}
+
+TEST_F(GcsIntegrationTest, OpenOutputStreamSmall) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  const auto path = PreexistingBucketPath() + "test-write-object";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  const auto expected = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+
+  // Verify we can read the object back.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs->OpenInputStream(path));
+
+  std::array<char, 1024> inbuf{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+
+  EXPECT_EQ(std::string(inbuf.data(), size), expected);
+}
+
+TEST_F(GcsIntegrationTest, OpenOutputStreamLarge) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  const auto path = PreexistingBucketPath() + "test-write-object";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  // These buffer sizes are intentionally not multiples of the upload quantum (256 KiB).
+  std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
+  std::array<std::string, 3> buffers{
+      std::string(sizes[0], 'A'),
+      std::string(sizes[1], 'B'),
+      std::string(sizes[2], 'C'),
+  };
+  auto expected = std::int64_t{0};
+  for (auto i = 0; i != 3; ++i) {
+    ASSERT_OK(output->Write(buffers[i].data(), buffers[i].size()));
+    expected += sizes[i];
+    ASSERT_EQ(output->Tell(), expected);
+  }
+  ASSERT_OK(output->Close());
+
+  // Verify we can read the object back.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs->OpenInputStream(path));
+
+  std::string contents;
+  std::shared_ptr<Buffer> buffer;
+  do {
+    ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
+    ASSERT_TRUE(buffer);
+    contents.append(buffer->ToString());
+  } while (buffer->size() != 0);
+
+  EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
+}
+
+TEST_F(GcsIntegrationTest, OpenOutputStreamClosed) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  const auto path = internal::ConcatAbstractPath(PreexistingBucketName(),
+                                                 "open-output-stream-closed.txt");
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  ASSERT_OK(output->Close());
+  ASSERT_RAISES(Invalid, output->Write(kLoremIpsum, std::strlen(kLoremIpsum)));
+  ASSERT_RAISES(Invalid, output->Flush());
+  ASSERT_RAISES(Invalid, output->Tell());
+}
+
+TEST_F(GcsIntegrationTest, OpenOutputStreamUri) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  const auto path =
+      internal::ConcatAbstractPath(PreexistingBucketName(), "open-output-stream-uri.txt");
+  ASSERT_RAISES(Invalid, fs->OpenInputStream("gs://" + path));
+}
+
+
 TEST_F(AzuriteFileSystemTest, OpenInputFileMixedReadVsReadAt) {
   // Create a file large enough to make the random access tests non-trivial.
   auto constexpr kLineWidth = 100;
