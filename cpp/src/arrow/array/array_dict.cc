@@ -249,7 +249,7 @@ struct CountDictionaryNullValuesVistor {
   }
 
   Status Visit(const DataType& type) {
-    return Status::TypeError("Expected an Index Type of Int or UInt: ", type);
+    return Status::TypeError("Expected an Index Type of Int or UInt");
   }
 };
 
