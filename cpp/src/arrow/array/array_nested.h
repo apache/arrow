@@ -321,6 +321,11 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
   /// Note that it's different from `values()` in that it takes into
   /// consideration this array's offsets (which can be in any order)
   /// and sizes. Nulls are skipped.
+  ///
+  /// This function invokes Concatenate() if list-views are non-contiguous. It
+  /// will try to minimize the number of array slices passed to Concatenate() by
+  /// maximizing the size of each slice (containing as many contiguous
+  /// list-views as possible).
   Result<std::shared_ptr<Array>> Flatten(
       MemoryPool* memory_pool = default_memory_pool()) const;
 
