@@ -212,12 +212,12 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
-struct CountDictionaryNullValuesVistor {
+struct CompactDictionaryNullValuesVistor {
   const std::shared_ptr<ArrayData>& data;
   int64_t& out_null_count;
 
   template <typename IndexArrowType>
-  Status CountDictionaryNullValuesImpl() {
+  Status CompactDictionaryNullValuesImpl() {
     int64_t index_length = data->length;
     int64_t dict_length = data->dictionary->length;
     const uint8_t* dictionary_null_bit_map = data->dictionary->GetValues<uint8_t>(0);
@@ -245,7 +245,7 @@ struct CountDictionaryNullValuesVistor {
 
   template <typename Type>
   enable_if_integer<Type, Status> Visit(const Type&) {
-    return CountDictionaryNullValuesImpl<Type>();
+    return CompactDictionaryNullValuesImpl<Type>();
   }
 
   Status Visit(const DataType& type) {
@@ -253,10 +253,10 @@ struct CountDictionaryNullValuesVistor {
   }
 };
 
-Result<int64_t> CountDictionaryNullValues(const std::shared_ptr<ArrayData>& data) {
+Result<int64_t> CompactDictionaryNullValues(const std::shared_ptr<ArrayData>& data) {
   int64_t out_null_count = 0;
   const auto& dict_type = checked_cast<const DictionaryType&>(*data->type);
-  CountDictionaryNullValuesVistor vistor{data, out_null_count};
+  CompactDictionaryNullValuesVistor vistor{data, out_null_count};
   RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &vistor));
 
   return out_null_count;
@@ -374,11 +374,12 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
 }
 
 Result<int64_t> DictionaryArray::CountNullValues() const {
-  if (this->dictionary()->null_count() == 0 || this->indices()->length() == 0) {
+  if (this->dictionary()->null_count() == 0 || this->indices()->null_count() == 0) {
     return this->indices()->null_count();
   }
 
-  ARROW_ASSIGN_OR_RAISE(int64_t dictionary_null_count, CountDictionaryNullValues(data_));
+  ARROW_ASSIGN_OR_RAISE(int64_t dictionary_null_count,
+                        CompactDictionaryNullValues(data_));
   return dictionary_null_count + this->indices()->null_count();
 }
 
