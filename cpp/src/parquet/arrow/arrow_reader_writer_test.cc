@@ -5222,11 +5222,14 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   // Should be ok
   ASSERT_OK(writer->WriteTable(*table, 1));
 
-  // Operations on closed writer are incorrect. However, should not segfault
+  // Operations on closed writer are invalid
   ASSERT_OK(writer->Close());
 
-  ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
   ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
+  ASSERT_RAISES(Invalid, writer->WriteColumnChunk(table->column(0), 0, 1));
+  ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
+  ASSERT_OK_AND_ASSIGN(auto record_batch, table->CombineChunksToBatch());
+  ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*record_batch));
   ASSERT_RAISES(Invalid, writer->WriteTable(*table, 1));
 }
 

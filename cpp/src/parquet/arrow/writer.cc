@@ -342,6 +342,7 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
+    RETURN_NOT_OK(CheckClosed());
     if (arrow_properties_->engine_version() == ArrowWriterProperties::V2 ||
         arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
       if (row_group_writer_->buffered()) {
@@ -410,6 +411,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
+    RETURN_NOT_OK(CheckClosed());
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
