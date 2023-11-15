@@ -60,10 +60,12 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: change shared library install name
-        env: 
-          TEST_VERSION: {{ arrow.version }}
-          TEST_R_VERSION: {{ arrow.r_version }}
-        run: install_name_tool -change @rpath/libarrow.$TEST_VERSION.dylib @rpath/libarrow.$TEST_R_VERSION.dylib arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/libarrowproxy.dylib
+        run: |
+           pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
+           SYMLINK_ARROW_LIB="$(find . -regex "./libarrow.[0-9][0-9][0-9][0-9].dylib" | xargs basename)"
+           REGULAR_ARROW_LIB="$(find . -regex "./libarrow.[0-9][0-9][0-9][0-9].[0-9].[0-9].dylib" | xargs basename)"
+           install_name_tool -change @rpath/$SYMLINK_ARROW_LIB @rpath/$REGULAR_ARROW_LIB libarrowproxy.dylib
+           popd
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-matlab-macos.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
