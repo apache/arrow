@@ -301,13 +301,15 @@ class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
 
   Status AppendValues(const offset_type* offsets, const offset_type* sizes,
                       int64_t length, const uint8_t* valid_bytes) final {
-    // offsets are assumed to be valid, but the first length-1 sizes have to be
-    // consistent with the offsets to rule out the possibility that the caller
-    // is passing sizes that could work if building a list-view, but don't work
-    // on building a list that requires offsets to be non-decreasing.
+    // Offsets are assumed to be valid, but the first length-1 sizes have to be
+    // consistent with the offsets to partially rule out the possibility that the
+    // caller is passing sizes that could work if building a list-view, but don't
+    // work on building a list that requires offsets to be non-decreasing.
+    //
     // CAUTION: the last size element (`sizes[length - 1]`) is not
     // validated and could be inconsistent with the offsets given in a
     // subsequent call to AppendValues.
+#ifndef NDEBUG
     if (sizes) {
       for (int64_t i = 0; i < length - 1; ++i) {
         if (ARROW_PREDICT_FALSE(offsets[i] != offsets[i + 1] - sizes[i])) {
@@ -318,6 +320,7 @@ class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
         }
       }
     }
+#endif
     return AppendValues(offsets, length, valid_bytes);
   }
 
