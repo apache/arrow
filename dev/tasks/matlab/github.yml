@@ -35,7 +35,10 @@ jobs:
       - name: find system libstdc++
         run: |
           pushd /usr/lib/
-          ls */**
+          ls -la x86_64-linux-gnu/libstdc++*
+          ls -la x86_64-linux-gnu/libc.*
+          strings x86_64-linux-gnu/libstdc++.so.6 | grep -i GLIBC
+          strings x86_64-linux-gnu/libc.so | grep -i GLIBC
           popd
       - name: Build MATLAB Interface
         env:
