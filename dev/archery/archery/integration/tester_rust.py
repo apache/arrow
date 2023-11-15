@@ -16,15 +16,19 @@
 # under the License.
 
 import contextlib
+import functools
 import os
 import subprocess
 
-from .tester import Tester
+from . import cdata
+from .tester import Tester, CDataExporter, CDataImporter
 from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
 
 
-_EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, "rust/target/debug")
+_EXE_PATH = os.environ.get(
+    "ARROW_RUST_EXE_PATH", os.path.join(ARROW_ROOT_DEFAULT, "rust/target/debug")
+)
 _INTEGRATION_EXE = os.path.join(_EXE_PATH, "arrow-json-integration-test")
 _STREAM_TO_FILE = os.path.join(_EXE_PATH, "arrow-stream-to-file")
 _FILE_TO_STREAM = os.path.join(_EXE_PATH, "arrow-file-to-stream")
@@ -37,12 +41,19 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
+_INTEGRATION_DLL = os.path.join(_EXE_PATH,
+                                "libarrow_integration_testing" + cdata.dll_suffix)
+
 
 class RustTester(Tester):
     PRODUCER = True
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
+    C_DATA_SCHEMA_EXPORTER = True
+    C_DATA_ARRAY_EXPORTER = True
+    C_DATA_SCHEMA_IMPORTER = True
+    C_DATA_ARRAY_IMPORTER = True
 
     name = 'Rust'
 
@@ -117,3 +128,102 @@ class RustTester(Tester):
         if self.debug:
             log(' '.join(cmd))
         run_cmd(cmd)
+
+    def make_c_data_exporter(self):
+        return RustCDataExporter(self.debug, self.args)
+
+    def make_c_data_importer(self):
+        return RustCDataImporter(self.debug, self.args)
+
+
+_rust_c_data_entrypoints = """
+    const char* arrow_rs_cdata_integration_export_schema_from_json(
+        const char* json_path, uintptr_t out);
+    const char* arrow_rs_cdata_integration_import_schema_and_compare_to_json(
+        const char* json_path, uintptr_t c_schema);
+
+    const char* arrow_rs_cdata_integration_export_batch_from_json(
+        const char* json_path, int num_batch, uintptr_t out);
+    const char* arrow_rs_cdata_integration_import_batch_and_compare_to_json(
+        const char* json_path, int num_batch, uintptr_t c_array);
+
+    void arrow_rs_free_error(const char*);
+    """
+
+
+@functools.lru_cache
+def _load_ffi(ffi, lib_path=_INTEGRATION_DLL):
+    ffi.cdef(_rust_c_data_entrypoints)
+    dll = ffi.dlopen(lib_path)
+    return dll
+
+
+class _CDataBase:
+
+    def __init__(self, debug, args):
+        self.debug = debug
+        self.args = args
+        self.ffi = cdata.ffi()
+        self.dll = _load_ffi(self.ffi)
+
+    def _pointer_to_int(self, c_ptr):
+        return self.ffi.cast('uintptr_t', c_ptr)
+
+    def _check_rust_error(self, rs_error):
+        """
+        Check a `const char*` error return from an integration entrypoint.
+
+        A null means success, a non-empty string is an error message.
+        The string is dynamically allocated on the Rust side.
+        """
+        assert self.ffi.typeof(rs_error) is self.ffi.typeof("const char*")
+        if rs_error != self.ffi.NULL:
+            try:
+                error = self.ffi.string(rs_error).decode(
+                    'utf8', errors='replace')
+                raise RuntimeError(
+                    f"Rust C Data Integration call failed: {error}")
+            finally:
+                self.dll.arrow_rs_free_error(rs_error)
+
+
+class RustCDataExporter(CDataExporter, _CDataBase):
+
+    def export_schema_from_json(self, json_path, c_schema_ptr):
+        rs_error = self.dll.arrow_rs_cdata_integration_export_schema_from_json(
+            str(json_path).encode(), self._pointer_to_int(c_schema_ptr))
+        self._check_rust_error(rs_error)
+
+    def export_batch_from_json(self, json_path, num_batch, c_array_ptr):
+        rs_error = self.dll.arrow_rs_cdata_integration_export_batch_from_json(
+            str(json_path).encode(), num_batch,
+            self._pointer_to_int(c_array_ptr))
+        self._check_rust_error(rs_error)
+
+    @property
+    def supports_releasing_memory(self):
+        return True
+
+    def record_allocation_state(self):
+        # FIXME is it possible to measure the amount of Rust-allocated memory?
+        return 0
+
+
+class RustCDataImporter(CDataImporter, _CDataBase):
+
+    def import_schema_and_compare_to_json(self, json_path, c_schema_ptr):
+        rs_error = \
+            self.dll.arrow_rs_cdata_integration_import_schema_and_compare_to_json(
+                str(json_path).encode(), self._pointer_to_int(c_schema_ptr))
+        self._check_rust_error(rs_error)
+
+    def import_batch_and_compare_to_json(self, json_path, num_batch,
+                                         c_array_ptr):
+        rs_error = \
+            self.dll.arrow_rs_cdata_integration_import_batch_and_compare_to_json(
+                str(json_path).encode(), num_batch, self._pointer_to_int(c_array_ptr))
+        self._check_rust_error(rs_error)
+
+    @property
+    def supports_releasing_memory(self):
+        return True
