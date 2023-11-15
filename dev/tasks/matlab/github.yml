@@ -32,6 +32,11 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
+      - name: find system libstdc++
+        run: |
+          popd /usr/lib/
+          ls */**
+          pushd
       - name: Build MATLAB Interface
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
