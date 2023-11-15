@@ -50,9 +50,9 @@ opts.SupportedPlatforms.Maci64 = true;
 opts.SupportedPlatforms.Glnxa64 = true;
 opts.SupportedPlatforms.MatlabOnline = true;
 
-% TODO: Determine what to set the min/max release to
+% Interface is only qualified against R2023a at the moment
 opts.MinimumMatlabRelease = "R2023a";
-opts.MaximumMatlabRelease = "";
+opts.MaximumMatlabRelease = "R2023a";
 
 opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
 disp("Output File: " + opts.OutputFile);
