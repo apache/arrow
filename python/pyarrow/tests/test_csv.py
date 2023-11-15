@@ -1970,3 +1970,24 @@ def test_write_csv_decimal(tmpdir, type_factory):
     out = read_csv(tmpdir / "out.csv")
 
     assert out.column('col').cast(type) == table.column('col')
+
+
+def test_read_csv_gil_deadlock():
+    # GH-38676
+    # This test depends on several preconditions:
+    # - the CSV input is a Python file object
+    # - reading the CSV file produces an error
+    data = b"a,b,c"
+
+    class MyBytesIO(io.BytesIO):
+        def read(self, *args):
+            time.sleep(0.001)
+            return super().read(*args)
+
+        def readinto(self, *args):
+            time.sleep(0.001)
+            return super().readinto(*args)
+
+    for i in range(20):
+        with pytest.raises(pa.ArrowInvalid):
+            read_csv(MyBytesIO(data))

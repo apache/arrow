@@ -26,8 +26,7 @@ from collections.abc import Mapping
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_python cimport (MakeInvalidRowHandler,
-                                               PyInvalidRowCallback)
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
@@ -1251,7 +1250,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options
         CIOContext io_context
-        shared_ptr[CCSVReader] reader
+        SharedPtrNoGIL[CCSVReader] reader
         shared_ptr[CTable] table
 
     _get_reader(input_file, read_options, &stream)

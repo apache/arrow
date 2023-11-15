@@ -977,7 +977,7 @@ cdef _wrap_record_batch_with_metadata(CRecordBatchWithMetadata c):
 
 cdef class _RecordBatchFileReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchFileReader] reader
+        SharedPtrNoGIL[CRecordBatchFileReader] reader
         shared_ptr[CRandomAccessFile] file
         CIpcReadOptions options
 
