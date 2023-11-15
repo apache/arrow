@@ -45,9 +45,19 @@ public class ListAvaticaParameterConverter extends BaseAvaticaParameterConverter
 
       int startPos = listVector.startNewValue(index);
       for (int i = 0; i < values.size(); i++) {
-        childVector.getField().getType().accept(
-                new AvaticaParameterBinder.BinderVisitor(
-                        childVector, TypedValue.ofSerial(typedValue.componentType, values.get(i)), startPos + i));
+        Object val = values.get(i);
+        int childIndex = startPos + i;
+        if (val == null) {
+          if (childVector.getField().isNullable()) {
+            childVector.setNull(childIndex);
+          } else {
+            throw new UnsupportedOperationException("Can't set null on non-nullable child list");
+          }
+        } else {
+          childVector.getField().getType().accept(
+                  new AvaticaParameterBinder.BinderVisitor(
+                          childVector, TypedValue.ofSerial(typedValue.componentType, val), childIndex));
+        }
       }
       listVector.endValue(index, values.size());
       listVector.setValueCount(index + 1);
