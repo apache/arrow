@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/util/dict_util.h"
-#include "array_dict.h"
+#include "arrow/array/array_dict.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 
@@ -33,10 +33,9 @@ int64_t LogicalNullCount(const ArraySpan& span) {
   using CType = typename IndexArrowType::c_type;
   const CType* indices_data = span.GetValues<CType>(1);
   auto index_length = span.length;
-  CType dict_len = static_cast<CType>(span.dictionary().length);
   int64_t null_count = 0;
   for (int64_t i = 0; i < index_length; i++) {
-    if (!bit_util::GetBit(indices_null_bit_map, i)) {
+    if (indices_null_bit_map != nullptr && !bit_util::GetBit(indices_null_bit_map, i)) {
       null_count++;
       continue;
     }
@@ -56,7 +55,7 @@ int64_t LogicalNullCount(const ArraySpan& span) {
     return span.GetNullCount();
   }
 
-  const auto& dict_array_type = internal::checked_cast<DictionaryType>(*span.type);
+  const auto& dict_array_type = internal::checked_cast<const DictionaryType&>(*span.type);
   switch (dict_array_type.index_type()->id()) {
     case Type::UINT8:
       return LogicalNullCount<UInt8Type>(span);
