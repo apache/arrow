@@ -62,8 +62,8 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
   virtual std::shared_ptr<FlightSqlSession> GetSession();
   /// \brief Get request headers, in lieu of a provided or created session.
   virtual const CallHeaders& GetCallHeaders() const;
- protected:
-  ServerSessionMiddleware() {}
+
+  virtual ~ServerSessionMiddleware() = default;
 };
 
 /// \brief Returns a ServerMiddlewareFactory that handles Session option storage.
