@@ -319,8 +319,8 @@ namespace Apache.Arrow
 
                 return Instance;
 #else
-                //There is not a clean way to shift the bytes with Span.CopyTo which was added in .NetStandard 2.1/.NET5
-                //Given .NetStandard past EOL, keep existing functionality the same for those users.
+                //There is not a clean way to shift the bytes without Span.CopyTo which was added in .NetStandard 2.1/.NET5
+                //For that reason this feature is only avaiable when running versions of .NetStandard 2.1/.NET5 and higher
                 throw new NotImplementedException();
 #endif
             }
