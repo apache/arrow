@@ -1003,7 +1003,7 @@ def test_make_fragment_with_size(s3_example_simple):
     fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
                            for path, size in zip(paths, sizes_true)]
     dataset_with_size = ds.FileSystemDataset(
-            fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
     )
     tbl = dataset.to_table()
     assert tbl.equals(table)
