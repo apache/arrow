@@ -823,7 +823,24 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
 
 /// \brief The result(s) of setting session option(s).
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
-  std::map<std::string, SetSessionOptionStatus> statuses;
+  struct Result {
+    SetSessionOptionStatus status;
+
+    bool Equals(const Result& other) const {
+      if (status != other.status) {
+        return false;
+      }
+      return true;
+    }
+    friend bool operator==(const Result& left, const Result& right) {
+      return left.Equals(right);
+    }
+    friend bool operator!=(const Result& left, const Result& right) {
+      return !(left == right);
+    }
+  };
+
+  std::map<std::string, Result> results;
 
   std::string ToString() const;
   bool Equals(const SetSessionOptionsResult& other) const;

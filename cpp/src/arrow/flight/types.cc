@@ -501,6 +501,11 @@ std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Result& r) {
+  os << '{' << r.status << '}';
+  return os;
+}
+
 template <typename T>
 std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
   os << '{';
@@ -588,13 +593,13 @@ arrow::Result<SetSessionOptionsRequest> SetSessionOptionsRequest::Deserialize(
 std::string SetSessionOptionsResult::ToString() const {
   std::stringstream ss;
 
-  ss << "<SetSessionOptionsResult results=" << statuses << '>';
+  ss << "<SetSessionOptionsResult results=" << results << '>';
 
   return ss.str();
 }
 
 bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const {
-  if (statuses != other.statuses) {
+  if (results != other.results) {
     return false;
   }
   return true;

@@ -477,17 +477,19 @@ Status ToProto(const SetSessionOptionsRequest& request,
 
 Status FromProto(const pb::SetSessionOptionsResult& pb_result,
                  SetSessionOptionsResult* result) {
-  for (const auto& [k, pb_v] : pb_result.statuses()) {
-    result->statuses.insert({k, static_cast<SetSessionOptionStatus>(pb_v)});
+  for (const auto& [k, pb_v] : pb_result.results()) {
+    result->results.insert({k, {static_cast<SetSessionOptionStatus>(pb_v.status())}});
   }
   return Status::OK();
 }
 
 Status ToProto(const SetSessionOptionsResult& result,
                pb::SetSessionOptionsResult* pb_result) {
-  auto* pb_statuses = pb_result->mutable_statuses();
-  for (const auto& [k, v] : result.statuses) {
-    (*pb_statuses)[k] = static_cast<pb::SetSessionOptionsResult::Status>(v);
+  auto* pb_statuses = pb_result->mutable_results();
+  for (const auto& [k, v] : result.results) {
+    pb::SetSessionOptionsResult::Result r;
+    r.set_status(static_cast<pb::SetSessionOptionsResult::Status>(v.status));
+    (*pb_statuses)[k] = std::move(r);
   }
   return Status::OK();
 }

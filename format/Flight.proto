@@ -577,7 +577,11 @@ message SetSessionOptionsResult {
     SET_SESSION_OPTION_RESULT_ERROR = 5;
   }
 
-  map<string, Status> statuses = 1;
+  message Result {
+    Status status = 1;
+  }
+  
+  map<string, Result> results = 1;
 }
 
 /*
