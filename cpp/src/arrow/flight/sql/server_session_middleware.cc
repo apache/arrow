@@ -43,7 +43,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
 
 class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
  protected:
- std::shared_mutex lock_;
+  std::shared_mutex lock_;
   ServerSessionMiddlewareFactory* factory_;
   const CallHeaders& headers_;
   std::shared_ptr<FlightSqlSession> session_;
@@ -52,12 +52,13 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 
  public:
   ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
-      const CallHeaders& headers)
+                              const CallHeaders& headers)
       : factory_(factory), headers_(headers), existing_session(false) {}
 
-  ServerSessionMiddlewareImpl(
-      ServerSessionMiddlewareFactory* factory, const CallHeaders& headers,
-      std::shared_ptr<FlightSqlSession> session, std::string session_id)
+  ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
+                              const CallHeaders& headers,
+                              std::shared_ptr<FlightSqlSession> session,
+                              std::string session_id)
       : factory_(factory),
         headers_(headers),
         session_(std::move(session)),
@@ -66,8 +67,8 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 
   void SendingHeaders(AddCallHeaders* add_call_headers) override {
     if (!existing_session && session_) {
-     add_call_headers->AddHeader(
-         "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
+      add_call_headers->AddHeader(
+          "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
     }
   }
 
@@ -89,8 +90,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
 };
 
 std::vector<std::pair<std::string, std::string>>
-ServerSessionMiddlewareFactory::ParseCookieString(
-    const std::string_view& s) {
+ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
   const std::string list_sep = "; ";
   const std::string pair_sep = "=";
   const size_t pair_sep_len = pair_sep.length();
@@ -124,8 +124,8 @@ ServerSessionMiddlewareFactory::ParseCookieString(
 }
 
 Status ServerSessionMiddlewareFactory::StartCall(
-                 const CallInfo&, const CallHeaders& incoming_headers,
-                 std::shared_ptr<ServerMiddleware>* middleware) {
+    const CallInfo&, const CallHeaders& incoming_headers,
+    std::shared_ptr<ServerMiddleware>* middleware) {
   std::string session_id;
 
   const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>&
@@ -154,7 +154,7 @@ Status ServerSessionMiddlewareFactory::StartCall(
     } else {
       auto session = it->second;
       *middleware = std::make_shared<ServerSessionMiddlewareImpl>(
-        this, incoming_headers, std::move(session), session_id);
+          this, incoming_headers, std::move(session), session_id);
     }
   }
 
@@ -173,8 +173,8 @@ ServerSessionMiddlewareFactory::GetNewSession() {
   return {new_id, session};
 }
 
-std::shared_ptr<ServerMiddlewareFactory>
-MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen) {
+std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory(
+    std::function<std::string()> id_gen) {
   return std::make_shared<ServerSessionMiddlewareFactory>(std::move(id_gen));
 }
 

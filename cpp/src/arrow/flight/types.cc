@@ -536,7 +536,7 @@ static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionVa
       if (v.index() != b_v.index()) {
         return false;
       }
-     if (v != b_v) {
+      if (v != b_v) {
         return false;
       }
     }
