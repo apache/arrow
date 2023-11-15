@@ -34,7 +34,7 @@ namespace sql {
 
 static constexpr char const kSessionCookieName[] = "arrow_flight_session_id";
 
-class FlightSqlSession {
+class ARROW_FLIGHT_SQL_EXPORT FlightSqlSession {
  protected:
   std::map<std::string, SessionOptionValue> map_;
   std::shared_mutex map_lock_;
