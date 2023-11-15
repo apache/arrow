@@ -234,6 +234,7 @@ struct MapType {}     // see LogicalTypes.md
 struct ListType {}    // see LogicalTypes.md
 struct EnumType {}    // allowed for BINARY, must be encoded with UTF-8
 struct DateType {}    // allowed for INT32
+struct Float16Type{}  // allowed for FIXED[2], must encode raw FLOAT16 bytes
 
 /**
  * Logical type to annotate a column that is always null.
@@ -344,6 +345,7 @@ union LogicalType {
   12: JsonType JSON           // use ConvertedType JSON
   13: BsonType BSON           // use ConvertedType BSON
   14: UUIDType UUID           // no compatible ConvertedType
+  15: Float16Type FLOAT16     // no compatible ConvertedType
 }
 
 /**

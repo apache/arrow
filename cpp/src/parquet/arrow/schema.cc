@@ -397,6 +397,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     case ArrowTypeId::DURATION:
       type = ParquetType::INT64;
       break;
+    case ArrowTypeId::HALF_FLOAT:
+      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+      logical_type = LogicalType::Float16();
+      length = sizeof(uint16_t);
+      break;
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, name, field->nullable(), field_id, properties,
