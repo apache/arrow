@@ -87,7 +87,8 @@ void CheckDictionaryNullCount(const std::shared_ptr<DataType>& dict_type,
                               const int64_t& expected_logical_null_count,
                               bool expected_may_have_nulls,
                               bool expected_may_have_logical_nulls) {
-  std::shared_ptr<arrow::Array> arr = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
+  std::shared_ptr<arrow::Array> arr =
+      DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
 
   ASSERT_EQ(expected_null_count, arr->null_count());
   ASSERT_EQ(expected_logical_null_count, arr->ComputeLogicalNullCount());
