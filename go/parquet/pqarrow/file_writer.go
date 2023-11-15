@@ -305,7 +305,7 @@ func (fw *FileWriter) Close() error {
 // building of writing columns to a file via arrow data without needing to already have
 // a record or table.
 func (fw *FileWriter) WriteColumnChunked(data *arrow.Chunked, offset, size int64) error {
-	acw, err := NewArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
+	acw, err := newArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
 	if err != nil {
 		return err
 	}
