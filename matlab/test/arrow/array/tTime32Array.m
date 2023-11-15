@@ -284,7 +284,7 @@ classdef tTime32Array < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array2));
         end
 
-        function RoundTimeBySpecifyTimeUnit(tc)
+        function RoundTimeBySpecifiedTimeUnit(tc)
             % Verify that the input parameter "TimeUnit" is used to specify
             % the time resolution. The value is rounded off based on the
             % specified "TimeUnit".
@@ -305,11 +305,7 @@ classdef tTime32Array < matlab.unittest.TestCase
 
             matlabTimes = seconds([1.1, 1.4, 1.5, 1.9, 2.001]);
             arrowArray = tc.ArrowArrayConstructorFcn(matlabTimes);
-            tc.verifyError(@()setTimeUnit(arrowArray),'MATLAB:class:SetProhibited');
-
-            function setTimeUnit(arrowTime)
-                arrowTime.Type.TimeUnit = "millisecond";
-            end
+            tc.verifyError(@()setfield(arrowArray.Type,"TimeUnit", "millisecond"),'MATLAB:class:SetProhibited');
         end
     end
 

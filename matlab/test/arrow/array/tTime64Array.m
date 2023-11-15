@@ -311,7 +311,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array2));
         end
 
-        function RoundTimeBySpecifyTimeUnit(tc)
+        function RoundTimeBySpecifiedTimeUnit(tc)
             % Verify that the input parameter "TimeUnit" is used to specify
             % the time resolution. The value is rounded off based on the
             % specified "TimeUnit".
@@ -364,11 +364,7 @@ classdef tTime64Array < matlab.unittest.TestCase
 
             matlabTimes = seconds([1.000001, 2.999999, 0.0002004]);
             arrowArray = tc.ArrowArrayConstructorFcn(matlabTimes);
-            tc.verifyError(@()setTimeUnit(arrowArray),'MATLAB:class:SetProhibited');
-
-            function setTimeUnit(arrowTime)
-                arrowTime.Type.TimeUnit = "Nanosecond";
-            end
+            tc.verifyError(@()setfield(arrowArray.Type,"TimeUnit", "Nanosecond"),'MATLAB:class:SetProhibited');
         end
     end
 
