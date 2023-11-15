@@ -119,12 +119,12 @@ public class AvaticaParameterBinder {
     }
   }
 
-  private static class BinderVisitor implements ArrowType.ArrowTypeVisitor<Boolean> {
+  public static class BinderVisitor implements ArrowType.ArrowTypeVisitor<Boolean> {
     private final FieldVector vector;
     private final TypedValue typedValue;
     private final int index;
 
-    private BinderVisitor(FieldVector vector, TypedValue value, int index) {
+    public BinderVisitor(FieldVector vector, TypedValue value, int index) {
       this.vector = vector;
       this.typedValue = value;
       this.index = index;
