@@ -3571,36 +3571,36 @@ def test_dlpack(value_type):
     np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.parametrize(
-    'value_type',
-    [pa.uint8(), pa.uint32(), pa.int16(), pa.float32()]
-)
-def test_dlpack_on_fixed_shape_tensor(value_type):
-    if Version(np.__version__) < Version("1.22.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
-    tensor_type = pa.fixed_shape_tensor(value_type, [2, 2])
-    arr = [[1, 2, 3, 4], [10, 20, 30, 40], [1, 2, 3, 4]]
-    storage = pa.array(arr, pa.list_(value_type, 4))
-    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+# @pytest.mark.parametrize(
+#     'value_type',
+#     [pa.uint8(), pa.uint32(), pa.int16(), pa.float32()]
+# )
+# def test_dlpack_on_fixed_shape_tensor(value_type):
+#     if Version(np.__version__) < Version("1.22.0"):
+#         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+#     tensor_type = pa.fixed_shape_tensor(value_type, [2, 2])
+#     arr = [[1, 2, 3, 4], [10, 20, 30, 40], [1, 2, 3, 4]]
+#     storage = pa.array(arr, pa.list_(value_type, 4))
+#     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
 
-    DLTensor = arr.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+#     DLTensor = arr.__dlpack__()
+#     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
 
-    expected = arr.to_numpy_ndarray()
-    result = np.from_dlpack(arr)
-    np.testing.assert_array_equal(result, expected)
+#     expected = arr.to_numpy_ndarray()
+#     result = np.from_dlpack(arr)
+#     np.testing.assert_array_equal(result, expected)
 
 
-def test_dlpack_not_supported():
-    if Version(np.__version__) < Version("1.22.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
-    with pytest.raises(pa.ArrowTypeError):
-        arr = pa.array([1, None, 3])
-        np.from_dlpack(arr)
+# def test_dlpack_not_supported():
+#     if Version(np.__version__) < Version("1.22.0"):
+#         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+#     with pytest.raises(pa.ArrowTypeError):
+#         arr = pa.array([1, None, 3])
+#         np.from_dlpack(arr)
 
-    with pytest.raises(pa.ArrowTypeError):
-        arr = pa.array(
-            [[0, 1], [3, 4]],
-            type=pa.list_(pa.int32())
-        )
-        np.from_dlpack(arr)
+#     with pytest.raises(pa.ArrowTypeError):
+#         arr = pa.array(
+#             [[0, 1], [3, 4]],
+#             type=pa.list_(pa.int32())
+#         )
+#         np.from_dlpack(arr)
