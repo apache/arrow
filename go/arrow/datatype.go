@@ -210,6 +210,11 @@ type BinaryDataType interface {
 	binary()
 }
 
+type BinaryViewDataType interface {
+	BinaryDataType
+	view()
+}
+
 type OffsetsDataType interface {
 	DataType
 	OffsetTypeTraits() OffsetTraits
@@ -272,6 +277,8 @@ func (b BufferSpec) Equals(other BufferSpec) bool {
 type DataTypeLayout struct {
 	Buffers []BufferSpec
 	HasDict bool
+	// VariadicSpec is what the buffers beyond len(Buffers) are expected to conform to.
+	VariadicSpec *BufferSpec
 }
 
 func SpecFixedWidth(w int) BufferSpec { return BufferSpec{KindFixedWidth, w} }

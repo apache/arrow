@@ -351,6 +351,40 @@ func (r *RandomArrayGenerator) LargeString(size int64, minLength, maxLength int6
 	return bldr.NewArray()
 }
 
+func (r *RandomArrayGenerator) StringView(size int64, minLength, maxLength int64, nullProb float64) arrow.Array {
+	return r.generateBinaryView(arrow.BinaryTypes.StringView, size, minLength, maxLength, nullProb)
+}
+
+func (r *RandomArrayGenerator) generateBinaryView(dt arrow.DataType, size int64, minLength, maxLength int64, nullProb float64) arrow.Array {
+	lengths := r.Int32(size, int32(minLength), int32(maxLength), nullProb).(*array.Int32)
+	defer lengths.Release()
+
+	bldr := array.NewBuilder(r.mem, dt).(array.StringLikeBuilder)
+	defer bldr.Release()
+
+	r.extra++
+	dist := rand.New(rand.NewSource(r.seed + r.extra))
+
+	buf := make([]byte, 0, maxLength)
+	gen := func(n int32) string {
+		out := buf[:n]
+		for i := range out {
+			out[i] = uint8(dist.Int31n(int32('z')-int32('A')+1) + int32('A'))
+		}
+		return string(out)
+	}
+
+	for i := 0; i < lengths.Len(); i++ {
+		if lengths.IsNull(i) {
+			bldr.AppendNull()
+			continue
+		}
+		bldr.Append(gen(lengths.Value(i)))
+	}
+
+	return bldr.NewArray()
+}
+
 func (r *RandomArrayGenerator) Numeric(dt arrow.Type, size int64, min, max int64, nullprob float64) arrow.Array {
 	switch dt {
 	case arrow.INT8:

@@ -364,6 +364,10 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.RUN_END_ENCODED:
 		typ := dtype.(*arrow.RunEndEncodedType)
 		return NewRunEndEncodedBuilder(mem, typ.RunEnds(), typ.Encoded())
+	case arrow.BINARY_VIEW:
+		return NewBinaryViewBuilder(mem)
+	case arrow.STRING_VIEW:
+		return NewStringViewBuilder(mem)
 	}
 	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

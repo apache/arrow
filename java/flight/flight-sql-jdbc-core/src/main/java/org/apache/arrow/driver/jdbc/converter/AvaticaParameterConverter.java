@@ -33,10 +33,15 @@ public interface AvaticaParameterConverter {
    *
    * @param vector FieldVector that the parameter should be bound to.
    * @param typedValue TypedValue to bind as a parameter.
-   * @param index Vector index that the TypedValue should be bound to.
+   * @param index Vector index (0-indexed) that the TypedValue should be bound to.
    * @return Whether the value was set successfully.
    */
   boolean bindParameter(FieldVector vector, TypedValue typedValue, int index);
 
+  /**
+   * Create an AvaticaParameter from the given Field.
+   *
+   * @param field Arrow Field to generate an AvaticaParameter from.
+   */
   AvaticaParameter createParameter(Field field);
 }
