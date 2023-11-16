@@ -272,6 +272,22 @@ class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
   }
 };
 
+// How to enable this test:
+//
+// You need an Azure account. You should be able to create a free
+// account at https://azure.microsoft.com/en-gb/free/ . You should be
+// able to create a storage account through the portal Web UI.
+//
+// See also the official document how to create a storage account:
+// https://learn.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account
+//
+// A few suggestions on configuration:
+//
+// * Use Standard general-purpose v2 not premium
+// * Use LRS redundancy
+// * Obviously you need to enable hierarchical namespace.
+// * Set the default access tier to hot
+// * SFTP, NFS and file shares are not required.
 class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
   Result<AzureOptions> MakeOptions() override {
     AzureOptions options;
