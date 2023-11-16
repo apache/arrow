@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -37,6 +38,7 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
@@ -457,18 +459,98 @@ public class TestFixedSizeListVector {
 
       assertEquals(4, vector1.getValueCount());
 
-      List realValue1 = vector1.getObject(0);
+      List<?> realValue1 = vector1.getObject(0);
       assertEquals(values1, realValue1);
-      List realValue2 = vector1.getObject(1);
+      List<?> realValue2 = vector1.getObject(1);
       assertEquals(values2, realValue2);
-      List realValue3 = vector1.getObject(2);
+      List<?> realValue3 = vector1.getObject(2);
       assertEquals(values3, realValue3);
-      List realValue4 = vector1.getObject(3);
+      List<?> realValue4 = vector1.getObject(3);
       assertEquals(values4, realValue4);
     }
   }
 
-  private int[] convertListToIntArray(List list) {
+  @Test
+  public void testWriteVarCharHelpers() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/4, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.startList();
+      writer.writeVarChar("row1,1");
+      writer.writeVarChar(new Text("row1,2"));
+      writer.writeNull();
+      writer.writeNull();
+      writer.endList();
+
+      assertEquals("row1,1", vector.getObject(0).get(0).toString());
+      assertEquals("row1,2", vector.getObject(0).get(1).toString());
+    }
+  }
+
+  @Test
+  public void testWriteLargeVarCharHelpers() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/4, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.startList();
+      writer.writeLargeVarChar("row1,1");
+      writer.writeLargeVarChar(new Text("row1,2"));
+      writer.writeNull();
+      writer.writeNull();
+      writer.endList();
+
+      assertEquals("row1,1", vector.getObject(0).get(0).toString());
+      assertEquals("row1,2", vector.getObject(0).get(1).toString());
+    }
+  }
+
+  @Test
+  public void testWriteVarBinaryHelpers() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/4, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.startList();
+      writer.writeVarBinary("row1,1".getBytes());
+      writer.writeVarBinary("row1,2".getBytes(), 0, "row1,2".getBytes().length);
+      writer.writeVarBinary(ByteBuffer.wrap("row1,3".getBytes()));
+      writer.writeVarBinary(ByteBuffer.wrap("row1,4".getBytes()), 0, "row1,4".getBytes().length);
+      writer.endList();
+
+      assertEquals("row1,1", new String((byte[]) (vector.getObject(0).get(0))));
+      assertEquals("row1,2", new String((byte[]) (vector.getObject(0).get(1))));
+      assertEquals("row1,3", new String((byte[]) (vector.getObject(0).get(2))));
+      assertEquals("row1,4", new String((byte[]) (vector.getObject(0).get(3))));
+    }
+  }
+
+  @Test
+  public void testWriteLargeVarBinaryHelpers() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/4, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.startList();
+      writer.writeLargeVarBinary("row1,1".getBytes());
+      writer.writeLargeVarBinary("row1,2".getBytes(), 0, "row1,2".getBytes().length);
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row1,3".getBytes()));
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row1,4".getBytes()), 0, "row1,4".getBytes().length);
+      writer.endList();
+
+      assertEquals("row1,1", new String((byte[]) (vector.getObject(0).get(0))));
+      assertEquals("row1,2", new String((byte[]) (vector.getObject(0).get(1))));
+      assertEquals("row1,3", new String((byte[]) (vector.getObject(0).get(2))));
+      assertEquals("row1,4", new String((byte[]) (vector.getObject(0).get(3))));
+    }
+  }
+
+  private int[] convertListToIntArray(List<?> list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {
       values[i] = (int) list.get(i);

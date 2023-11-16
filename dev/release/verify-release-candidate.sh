@@ -196,7 +196,9 @@ test_apt() {
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
                 "ubuntu:lunar" \
-                "arm64v8/ubuntu:lunar"; do \
+                "arm64v8/ubuntu:lunar" \
+                "ubuntu:mantic" \
+                "arm64v8/ubuntu:mantic"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -962,7 +964,7 @@ ensure_source_directory() {
   # Ensure that the testing repositories are prepared
   if [ ! -d ${ARROW_SOURCE_DIR}/testing/data ]; then
     if [ -d ${SOURCE_DIR}/../../testing/data ]; then
-      cp -a ${SOURCE_DIR}/../../testing/ ${ARROW_SOURCE_DIR}/
+      cp -a ${SOURCE_DIR}/../../testing ${ARROW_SOURCE_DIR}/
     else
       git clone \
         https://github.com/apache/arrow-testing.git \
@@ -972,7 +974,7 @@ ensure_source_directory() {
   if [ ! -d ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data ]; then
     if [ -d ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/data ]; then
       cp -a \
-         ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/ \
+         ${SOURCE_DIR}/../../cpp/submodules/parquet-testing \
          ${ARROW_SOURCE_DIR}/cpp/submodules/
     else
       git clone \

@@ -96,7 +96,7 @@ Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* poo
 
 ARROW_TESTING_EXPORT
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
-                                  bool with_nulls = true);
+                                  bool with_nulls = true, bool with_view_types = true);
 
 ARROW_TESTING_EXPORT
 Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out);

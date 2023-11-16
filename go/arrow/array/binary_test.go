@@ -20,9 +20,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -696,6 +696,30 @@ func TestBinaryStringRoundTrip(t *testing.T) {
 	}
 
 	arr1 := b1.NewArray().(*Binary)
+	defer arr1.Release()
+
+	assert.True(t, Equal(arr, arr1))
+}
+
+func TestBinaryViewStringRoundTrip(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "supercalifragilistic", "", "expeallodocious"}
+	valid := []bool{true, true, false, false, true, true, true}
+
+	b := NewBinaryViewBuilder(mem)
+	defer b.Release()
+
+	b.AppendStringValues(values, valid)
+	arr := b.NewArray().(*BinaryView)
+	defer arr.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b.NewArray().(*BinaryView)
 	defer arr1.Release()
 
 	assert.True(t, Equal(arr, arr1))

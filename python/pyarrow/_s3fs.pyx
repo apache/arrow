@@ -269,8 +269,6 @@ cdef class S3FileSystem(FileSystem):
                  load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
-        ensure_s3_initialized()
-
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped

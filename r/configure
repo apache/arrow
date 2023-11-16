@@ -126,7 +126,7 @@ fi
 # but doing it now allows us to catch it in
 # nixlibs.R and activate S3 and GCS support for the source build.
 
-# macOS ships with libressl. openssl is installable with brew, but it is 
+# macOS ships with libressl. openssl is installable with brew, but it is
 # generally not linked. We can over-ride this and find
 # openssl by setting OPENSSL_ROOT_DIR (which cmake will pick up later in
 # the installation process).
@@ -135,7 +135,7 @@ if [ "${OPENSSL_ROOT_DIR}" = "" ] && brew --prefix openssl >/dev/null 2>&1; then
   export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 fi
 # Look for openssl with pkg-config for non-brew sources(e.g. CRAN) and Linux
-if [ "${OPENSSL_ROOT_DIR}" = "" -a "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
+if [ "${OPENSSL_ROOT_DIR}" = "" ] && [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
   if ${PKG_CONFIG} --exists openssl; then
     export OPENSSL_ROOT_DIR="`${PKG_CONFIG} --variable=prefix openssl`"
   fi
@@ -203,9 +203,27 @@ find_arrow () {
 do_bundled_build () {
   ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
 
+  if [ $? -ne 0 ]; then
+    # If the nixlibs.R script failed, we can't continue
+    echo "------------------------- NOTE ---------------------------"
+    echo "There was an issue building the Arrow C++ libraries."
+    echo "See https://arrow.apache.org/docs/r/articles/install.html"
+    echo "---------------------------------------------------------"
+    exit 1
+  fi
+
+  if [ -d "libarrow/arrow-$VERSION" ]; then
+    _LIBARROW_FOUND="`pwd`/libarrow/arrow-${VERSION}"
+  else
+    # It's possible that the version of the libarrow binary is not identical to the
+    # R version, e.g. if the R build is a patch release, so find what the dir is
+    # actually called. If there is more than one version present, use the one
+    # with the highest version:
+    _LIBARROW_FOUND="`pwd`/libarrow/$(ls libarrow/ | grep ^arrow- | tail -n 1)"
+  fi
+
   # Handle a few special cases, using what we know about the bundled build
   # and our ability to make edits to it since we "own" it.
-  _LIBARROW_FOUND="`pwd`/libarrow/arrow-${VERSION}"
   LIB_DIR="${_LIBARROW_FOUND}/lib"
   if [ -d "$LIB_DIR" ]; then
     if [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
@@ -264,7 +282,7 @@ set_pkg_vars () {
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
 
-  # We use expr because the product version returns more than just 10.13 and we want to 
+  # We use expr because the product version returns more than just 10.13 and we want to
   # match the substring. However, expr always outputs the number of matched characters
   # to stdout, to avoid noise in the log we redirect the output to /dev/null
   if [ "$UNAME" = "Darwin" ] && expr $(sw_vers -productVersion) : '10\.13' >/dev/null 2>&1; then

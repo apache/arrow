@@ -19,9 +19,9 @@ package schema_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v14/internal/json"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -158,6 +158,7 @@ func TestNewTypeIncompatibility(t *testing.T) {
 		expected schema.LogicalType
 	}{
 		{"uuid", schema.UUIDLogicalType{}, schema.UUIDLogicalType{}},
+		{"float16", schema.Float16LogicalType{}, schema.Float16LogicalType{}},
 		{"null", schema.NullLogicalType{}, schema.NullLogicalType{}},
 		{"not-utc-time_milli", schema.NewTimeLogicalType(false /* adjutedToUTC */, schema.TimeUnitMillis), &schema.TimeLogicalType{}},
 		{"not-utc-time-micro", schema.NewTimeLogicalType(false /* adjutedToUTC */, schema.TimeUnitMicros), &schema.TimeLogicalType{}},
@@ -224,6 +225,7 @@ func TestLogicalTypeProperties(t *testing.T) {
 		{"json", schema.JSONLogicalType{}, false, true, true},
 		{"bson", schema.BSONLogicalType{}, false, true, true},
 		{"uuid", schema.UUIDLogicalType{}, false, true, true},
+		{"float16", schema.Float16LogicalType{}, false, true, true},
 		{"nological", schema.NoLogicalType{}, false, false, true},
 		{"unknown", schema.UnknownLogicalType{}, false, false, false},
 	}
@@ -358,6 +360,14 @@ func TestLogicalInapplicableTypes(t *testing.T) {
 			assert.False(t, logical.IsApplicable(tt.typ, tt.len))
 		})
 	}
+
+	logical = schema.Float16LogicalType{}
+	assert.True(t, logical.IsApplicable(parquet.Types.FixedLenByteArray, 2))
+	for _, tt := range tests {
+		t.Run("float16 "+tt.name, func(t *testing.T) {
+			assert.False(t, logical.IsApplicable(tt.typ, tt.len))
+		})
+	}
 }
 
 func TestDecimalLogicalTypeApplicability(t *testing.T) {
@@ -445,6 +455,7 @@ func TestLogicalTypeRepresentation(t *testing.T) {
 		{"json", schema.JSONLogicalType{}, "JSON", `{"Type": "JSON"}`},
 		{"bson", schema.BSONLogicalType{}, "BSON", `{"Type": "BSON"}`},
 		{"uuid", schema.UUIDLogicalType{}, "UUID", `{"Type": "UUID"}`},
+		{"float16", schema.Float16LogicalType{}, "Float16", `{"Type": "Float16"}`},
 		{"none", schema.NoLogicalType{}, "None", `{"Type": "None"}`},
 	}
 
@@ -490,6 +501,7 @@ func TestLogicalTypeSortOrder(t *testing.T) {
 		{"json", schema.JSONLogicalType{}, schema.SortUNSIGNED},
 		{"bson", schema.BSONLogicalType{}, schema.SortUNSIGNED},
 		{"uuid", schema.UUIDLogicalType{}, schema.SortUNSIGNED},
+		{"float16", schema.Float16LogicalType{}, schema.SortSIGNED},
 		{"none", schema.NoLogicalType{}, schema.SortUNKNOWN},
 	}
 

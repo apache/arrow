@@ -43,10 +43,12 @@ add_arrow_test(utility-test
                align_util_test.cc
                atfork_test.cc
                byte_size_test.cc
+               byte_stream_split_test.cc
                cache_test.cc
                checked_cast_test.cc
                compression_test.cc
                decimal_test.cc
+               float16_test.cc
                formatting_util_test.cc
                key_value_metadata_test.cc
                hashing_test.cc

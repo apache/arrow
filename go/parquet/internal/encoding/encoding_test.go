@@ -26,13 +26,13 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v15/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -363,6 +363,16 @@ func (b *BaseEncodingTestSuite) TestBasicRoundTrip() {
 	b.checkRoundTrip(parquet.Encodings.Plain)
 }
 
+func (b *BaseEncodingTestSuite) TestRleBooleanEncodingRoundTrip() {
+	switch b.typ {
+	case reflect.TypeOf(true):
+		b.initData(2000, 200)
+		b.checkRoundTrip(parquet.Encodings.RLE)
+	default:
+		b.T().SkipNow()
+	}
+}
+
 func (b *BaseEncodingTestSuite) TestDeltaEncodingRoundTrip() {
 	b.initData(10000, 1)
 
@@ -408,6 +418,8 @@ func (b *BaseEncodingTestSuite) TestSpacedRoundTrip() {
 			if validBits != nil {
 				b.checkRoundTripSpaced(parquet.Encodings.Plain, validBits, validBitsOffset)
 				switch b.typ {
+				case reflect.TypeOf(false):
+					b.checkRoundTripSpaced(parquet.Encodings.RLE, validBits, validBitsOffset)
 				case reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)):
 					b.checkRoundTripSpaced(parquet.Encodings.DeltaBinaryPacked, validBits, validBitsOffset)
 				case reflect.TypeOf(parquet.ByteArray{}):

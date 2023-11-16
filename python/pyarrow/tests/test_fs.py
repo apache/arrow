@@ -463,7 +463,7 @@ def check_mtime_or_absent(file_info):
 
 
 def skip_fsspec_s3fs(fs):
-    if fs.type_name == "py::fsspec+s3":
+    if fs.type_name == "py::fsspec+('s3', 's3a')":
         pytest.xfail(reason="Not working with fsspec's s3fs")
 
 
@@ -631,7 +631,7 @@ def test_get_file_info(fs, pathfn):
     assert aaa_info.path == aaa
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
-    if fs.type_name == "py::fsspec+s3":
+    if fs.type_name == "py::fsspec+('s3', 's3a')":
         # s3fs doesn't create empty directories
         assert aaa_info.type == FileType.NotFound
     else:
@@ -646,7 +646,7 @@ def test_get_file_info(fs, pathfn):
     assert bb_info.type == FileType.File
     assert 'FileType.File' in repr(bb_info)
     assert bb_info.size == 0
-    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+('s3', 's3a')"]:
         check_mtime(bb_info)
 
     assert c_info.path == str(c)
@@ -655,7 +655,7 @@ def test_get_file_info(fs, pathfn):
     assert c_info.type == FileType.File
     assert 'FileType.File' in repr(c_info)
     assert c_info.size == 4
-    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+('s3', 's3a')"]:
         check_mtime(c_info)
 
     assert zzz_info.path == str(zzz)
@@ -698,7 +698,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         assert selector.base_dir == base_dir
 
         infos = fs.get_file_info(selector)
-        if fs.type_name == "py::fsspec+s3":
+        if fs.type_name == "py::fsspec+('s3', 's3a')":
             # s3fs only lists directories if they are not empty
             len(infos) == 4
         else:
@@ -719,7 +719,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         selector = FileSelector(base_dir, recursive=False)
 
         infos = fs.get_file_info(selector)
-        if fs.type_name == "py::fsspec+s3":
+        if fs.type_name == "py::fsspec+('s3', 's3a')":
             # s3fs only lists directories if they are not empty
             assert len(infos) == 3
         else:

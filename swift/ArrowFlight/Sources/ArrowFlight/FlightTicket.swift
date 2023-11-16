@@ -22,11 +22,11 @@ public class FlightTicket {
     init(_ ticket: Arrow_Flight_Protocol_Ticket) {
         self.data = ticket.ticket
     }
-    
+
     public init(_ data: Data) {
         self.data = data
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_Ticket {
         var ticket = Arrow_Flight_Protocol_Ticket()
         ticket.ticket = self.data

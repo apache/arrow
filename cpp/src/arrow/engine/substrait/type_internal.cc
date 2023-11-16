@@ -263,6 +263,8 @@ struct DataTypeToProtoImpl {
     return SetWith(&substrait::Type::set_allocated_binary);
   }
 
+  Status Visit(const BinaryViewType& t) { return NotImplemented(t); }
+
   Status Visit(const FixedSizeBinaryType& t) {
     SetWithThen(&substrait::Type::set_allocated_fixed_binary)->set_length(t.byte_width());
     return Status::OK();

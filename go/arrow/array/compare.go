@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/float16"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -232,6 +232,12 @@ func Equal(left, right arrow.Array) bool {
 	case *LargeString:
 		r := right.(*LargeString)
 		return arrayEqualLargeString(l, r)
+	case *BinaryView:
+		r := right.(*BinaryView)
+		return arrayEqualBinaryView(l, r)
+	case *StringView:
+		r := right.(*StringView)
+		return arrayEqualStringView(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -482,6 +488,12 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *LargeString:
 		r := right.(*LargeString)
 		return arrayEqualLargeString(l, r)
+	case *BinaryView:
+		r := right.(*BinaryView)
+		return arrayEqualBinaryView(l, r)
+	case *StringView:
+		r := right.(*StringView)
+		return arrayEqualStringView(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)

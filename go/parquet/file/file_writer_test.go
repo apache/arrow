@@ -22,13 +22,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/compress"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/compress"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v15/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -97,6 +97,8 @@ func (t *SerializeTestSuite) fileSerializeTest(codec compress.Compression, expec
 	writer.Close()
 
 	nrows := t.numRowGroups * t.rowsPerRG
+	t.EqualValues(nrows, writer.NumRows())
+
 	reader, err := file.NewParquetReader(bytes.NewReader(sink.Bytes()))
 	t.NoError(err)
 	t.Equal(t.numCols, reader.MetaData().Schema.NumColumns())

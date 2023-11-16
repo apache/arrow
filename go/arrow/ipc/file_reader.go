@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/internal"
-	"github.com/apache/arrow/go/v14/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v14/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 // FileReader is an Arrow file reader.
@@ -430,13 +430,18 @@ func (src *ipcSource) fieldMetadata(i int) *flatbuf.FieldNode {
 	return &node
 }
 
+func (src *ipcSource) variadicCount(i int) int64 {
+	return src.meta.VariadicBufferCounts(i)
+}
+
 type arrayLoaderContext struct {
-	src     ipcSource
-	ifield  int
-	ibuffer int
-	max     int
-	memo    *dictutils.Memo
-	version MetadataVersion
+	src       ipcSource
+	ifield    int
+	ibuffer   int
+	ivariadic int
+	max       int
+	memo      *dictutils.Memo
+	version   MetadataVersion
 }
 
 func (ctx *arrayLoaderContext) field() *flatbuf.FieldNode {
@@ -449,6 +454,12 @@ func (ctx *arrayLoaderContext) buffer() *memory.Buffer {
 	buf := ctx.src.buffer(ctx.ibuffer)
 	ctx.ibuffer++
 	return buf
+}
+
+func (ctx *arrayLoaderContext) variadic() int64 {
+	v := ctx.src.variadicCount(ctx.ivariadic)
+	ctx.ivariadic++
+	return v
 }
 
 func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
@@ -475,6 +486,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 
 	case *arrow.BinaryType, *arrow.StringType, *arrow.LargeStringType, *arrow.LargeBinaryType:
 		return ctx.loadBinary(dt)
+
+	case arrow.BinaryViewDataType:
+		return ctx.loadBinaryView(dt)
 
 	case *arrow.FixedSizeBinaryType:
 		return ctx.loadFixedSizeBinary(dt)
@@ -577,6 +591,18 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.ArrayData 
 func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 3)
 	buffers = append(buffers, ctx.buffer(), ctx.buffer())
+	defer releaseBuffers(buffers)
+
+	return array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+}
+
+func (ctx *arrayLoaderContext) loadBinaryView(dt arrow.DataType) arrow.ArrayData {
+	nVariadicBufs := ctx.variadic()
+	field, buffers := ctx.loadCommon(dt.ID(), 2+int(nVariadicBufs))
+	buffers = append(buffers, ctx.buffer())
+	for i := 0; i < int(nVariadicBufs); i++ {
+		buffers = append(buffers, ctx.buffer())
+	}
 	defer releaseBuffers(buffers)
 
 	return array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)

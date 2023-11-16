@@ -21,14 +21,14 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/float16"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/types"
 )
 
 var (
@@ -54,6 +54,7 @@ func init() {
 	Records["extension"] = makeExtensionRecords()
 	Records["union"] = makeUnionRecords()
 	Records["run_end_encoded"] = makeRunEndEncodedRecords()
+	Records["view_types"] = makeStringViewRecords()
 
 	for k := range Records {
 		RecordNames = append(RecordNames, k)
@@ -1155,6 +1156,65 @@ func makeRunEndEncodedRecords() []arrow.Record {
 	return recs
 }
 
+func makeStringViewRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "binary_view", Type: arrow.BinaryTypes.BinaryView, Nullable: true},
+		{Name: "string_view", Type: arrow.BinaryTypes.StringView, Nullable: true},
+	}, nil)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]arrow.Array{
+		{
+			viewTypeArrayOf(mem, [][]byte{[]byte("1é"), []byte("2"), []byte("3"), []byte("4"), []byte("5")}, mask),
+			viewTypeArrayOf(mem, []string{"1é", "2", "3", "4", "5"}, mask),
+		},
+		{
+			viewTypeArrayOf(mem, [][]byte{[]byte("1é"), []byte("22222222222222"), []byte("33333333333333"), []byte("4444"), []byte("5555")}, mask),
+			viewTypeArrayOf(mem, []string{"1é", "22222222222222", "33333333333333", "4444", "5555"}, nil),
+		},
+		{
+			viewTypeArrayOf(mem, [][]byte{[]byte("1é1é"), []byte("22222222222222"), []byte("33333333333333"), []byte("44"), []byte("55")}, nil),
+			viewTypeArrayOf(mem, []string{"1é1é", "22222222222222", "33333333333333", "44", "55"}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]arrow.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
+func viewTypeArrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	switch a := a.(type) {
+	case []string:
+		bldr := array.NewStringViewBuilder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+	case [][]byte:
+		bldr := array.NewBinaryViewBuilder(mem)
+		defer bldr.Release()
+		bldr.AppendValues(a, valids)
+		return bldr.NewArray()
+	}
+	return nil
+}
+
 func extArray(mem memory.Allocator, dt arrow.ExtensionType, a interface{}, valids []bool) arrow.Array {
 	var storage arrow.Array
 	switch st := dt.StorageType().(type) {
@@ -1742,6 +1802,27 @@ func buildArray(bldr array.Builder, data arrow.Array) {
 
 	case *array.LargeStringBuilder:
 		data := data.(*array.LargeString)
+		for i := 0; i < data.Len(); i++ {
+			switch {
+			case data.IsValid(i):
+				bldr.Append(data.Value(i))
+			default:
+				bldr.AppendNull()
+			}
+		}
+
+	case *array.BinaryViewBuilder:
+		data := data.(*array.BinaryView)
+		for i := 0; i < data.Len(); i++ {
+			switch {
+			case data.IsValid(i):
+				bldr.Append(data.Value(i))
+			default:
+				bldr.AppendNull()
+			}
+		}
+	case *array.StringViewBuilder:
+		data := data.(*array.StringView)
 		for i := 0; i < data.Len(); i++ {
 			switch {
 			case data.IsValid(i):

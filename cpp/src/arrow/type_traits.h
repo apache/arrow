@@ -342,6 +342,16 @@ struct TypeTraits<BinaryType> {
 };
 
 template <>
+struct TypeTraits<BinaryViewType> {
+  using ArrayType = BinaryViewArray;
+  using BuilderType = BinaryViewBuilder;
+  using ScalarType = BinaryViewScalar;
+  using CType = BinaryViewType::c_type;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return binary_view(); }
+};
+
+template <>
 struct TypeTraits<LargeBinaryType> {
   using ArrayType = LargeBinaryArray;
   using BuilderType = LargeBinaryBuilder;
@@ -372,6 +382,16 @@ struct TypeTraits<StringType> {
 };
 
 template <>
+struct TypeTraits<StringViewType> {
+  using ArrayType = StringViewArray;
+  using BuilderType = StringViewBuilder;
+  using ScalarType = StringViewScalar;
+  using CType = BinaryViewType::c_type;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return utf8_view(); }
+};
+
+template <>
 struct TypeTraits<LargeStringType> {
   using ArrayType = LargeStringArray;
   using BuilderType = LargeStringBuilder;
@@ -397,6 +417,11 @@ struct TypeTraits<RunEndEncodedType> {
 template <>
 struct CTypeTraits<std::string> : public TypeTraits<StringType> {
   using ArrowType = StringType;
+};
+
+template <>
+struct CTypeTraits<BinaryViewType::c_type> : public TypeTraits<BinaryViewType> {
+  using ArrowType = BinaryViewType;
 };
 
 template <>
@@ -615,6 +640,24 @@ template <typename T, typename R = void>
 using enable_if_string = enable_if_t<is_string_type<T>::value, R>;
 
 template <typename T>
+using is_binary_view_like_type = std::is_base_of<BinaryViewType, T>;
+
+template <typename T>
+using is_binary_view_type = std::is_same<BinaryViewType, T>;
+
+template <typename T>
+using is_string_view_type = std::is_same<StringViewType, T>;
+
+template <typename T, typename R = void>
+using enable_if_binary_view_like = enable_if_t<is_binary_view_like_type<T>::value, R>;
+
+template <typename T, typename R = void>
+using enable_if_binary_view = enable_if_t<is_binary_view_type<T>::value, R>;
+
+template <typename T, typename R = void>
+using enable_if_string_view = enable_if_t<is_string_view_type<T>::value, R>;
+
+template <typename T>
 using is_string_like_type =
     std::integral_constant<bool, is_base_binary_type<T>::value && T::is_utf8>;
 
@@ -801,8 +844,10 @@ using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
 template <typename T>
 using has_string_view =
     std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
+                                     std::is_same<BinaryViewType, T>::value ||
                                      std::is_same<LargeBinaryType, T>::value ||
                                      std::is_same<StringType, T>::value ||
+                                     std::is_same<StringViewType, T>::value ||
                                      std::is_same<LargeStringType, T>::value ||
                                      std::is_same<FixedSizeBinaryType, T>::value>;
 

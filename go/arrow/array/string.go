@@ -23,10 +23,15 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
+
+type StringLike interface {
+	arrow.Array
+	Value(int) string
+}
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
 type String struct {
@@ -310,6 +315,108 @@ func arrayEqualLargeString(left, right *LargeString) bool {
 	return true
 }
 
+type StringView struct {
+	array
+	values      []arrow.ViewHeader
+	dataBuffers []*memory.Buffer
+}
+
+func NewStringViewData(data arrow.ArrayData) *StringView {
+	a := &StringView{}
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+// Reset resets the String with a different set of Data.
+func (a *StringView) Reset(data arrow.ArrayData) {
+	a.setData(data.(*Data))
+}
+
+func (a *StringView) setData(data *Data) {
+	if len(data.buffers) < 2 {
+		panic("len(data.buffers) < 2")
+	}
+	a.array.setData(data)
+
+	if valueData := data.buffers[1]; valueData != nil {
+		a.values = arrow.ViewHeaderTraits.CastFromBytes(valueData.Bytes())
+	}
+
+	a.dataBuffers = data.buffers[2:]
+}
+
+func (a *StringView) ValueHeader(i int) *arrow.ViewHeader {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	return &a.values[a.array.data.offset+i]
+}
+
+func (a *StringView) Value(i int) string {
+	s := a.ValueHeader(i)
+	if s.IsInline() {
+		return s.InlineString()
+	}
+	start := s.BufferOffset()
+	buf := a.dataBuffers[s.BufferIndex()]
+	value := buf.Bytes()[start : start+int32(s.Len())]
+	return *(*string)(unsafe.Pointer(&value))
+}
+
+func (a *StringView) String() string {
+	var o strings.Builder
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString(NullValueStr)
+		default:
+			fmt.Fprintf(&o, "%q", a.Value(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *StringView) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
+
+func (a *StringView) GetOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *StringView) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.GetOneForMarshal(i)
+	}
+	return json.Marshal(vals)
+}
+
+func arrayEqualStringView(left, right *StringView) bool {
+	leftBufs, rightBufs := left.dataBuffers, right.dataBuffers
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !left.ValueHeader(i).Equals(leftBufs, right.ValueHeader(i), rightBufs) {
+			return false
+		}
+	}
+	return true
+}
+
 // A StringBuilder is used to build a String array using the Append methods.
 type StringBuilder struct {
 	*BinaryBuilder
@@ -343,10 +450,6 @@ func (b *StringBuilder) AppendValues(v []string, valid []bool) {
 func (b *StringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
-
-// func (b *StringBuilder) UnsafeAppend(v string) {
-// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
-// }
 
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
@@ -441,10 +544,6 @@ func (b *LargeStringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
 
-// func (b *LargeStringBuilder) UnsafeAppend(v string) {
-// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
-// }
-
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *LargeStringBuilder) NewArray() arrow.Array {
@@ -504,9 +603,87 @@ func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+type StringViewBuilder struct {
+	*BinaryViewBuilder
+}
+
+func NewStringViewBuilder(mem memory.Allocator) *StringViewBuilder {
+	bldr := &StringViewBuilder{
+		BinaryViewBuilder: NewBinaryViewBuilder(mem),
+	}
+	bldr.dtype = arrow.BinaryTypes.StringView
+	return bldr
+}
+
+func (b *StringViewBuilder) Append(v string) {
+	b.BinaryViewBuilder.AppendString(v)
+}
+
+func (b *StringViewBuilder) AppendValues(v []string, valid []bool) {
+	b.BinaryViewBuilder.AppendStringValues(v, valid)
+}
+
+func (b *StringViewBuilder) UnmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case string:
+		b.Append(v)
+	case []byte:
+		b.BinaryViewBuilder.Append(v)
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *StringViewBuilder) Unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.UnmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *StringViewBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary view builder must unpack from json array, found %s", delim)
+	}
+
+	return b.Unmarshal(dec)
+}
+
+func (b *StringViewBuilder) NewArray() arrow.Array {
+	return b.NewStringViewArray()
+}
+
+func (b *StringViewBuilder) NewStringViewArray() (a *StringView) {
+	data := b.newData()
+	a = NewStringViewData(data)
+	data.Release()
+	return
+}
+
 type StringLikeBuilder interface {
 	Builder
 	Append(string)
+	AppendValues([]string, []bool)
 	UnsafeAppend([]byte)
 	ReserveData(int)
 }
@@ -514,8 +691,11 @@ type StringLikeBuilder interface {
 var (
 	_ arrow.Array       = (*String)(nil)
 	_ arrow.Array       = (*LargeString)(nil)
+	_ arrow.Array       = (*StringView)(nil)
 	_ Builder           = (*StringBuilder)(nil)
 	_ Builder           = (*LargeStringBuilder)(nil)
+	_ Builder           = (*StringViewBuilder)(nil)
 	_ StringLikeBuilder = (*StringBuilder)(nil)
 	_ StringLikeBuilder = (*LargeStringBuilder)(nil)
+	_ StringLikeBuilder = (*StringViewBuilder)(nil)
 )

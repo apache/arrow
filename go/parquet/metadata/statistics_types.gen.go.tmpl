@@ -19,13 +19,13 @@ package metadata
 import (
   "fmt"
 
-  "github.com/apache/arrow/go/v14/arrow"
-  "github.com/apache/arrow/go/v14/parquet"
-  "github.com/apache/arrow/go/v14/parquet/schema"
-  "github.com/apache/arrow/go/v14/parquet/internal/utils"
-  shared_utils "github.com/apache/arrow/go/v14/internal/utils"
-  "github.com/apache/arrow/go/v14/parquet/internal/encoding"
-  "github.com/apache/arrow/go/v14/internal/bitutils"
+  "github.com/apache/arrow/go/v15/arrow"
+  "github.com/apache/arrow/go/v15/parquet"
+  "github.com/apache/arrow/go/v15/parquet/schema"
+  "github.com/apache/arrow/go/v15/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+  "github.com/apache/arrow/go/v15/parquet/internal/encoding"
+  "github.com/apache/arrow/go/v15/internal/bitutils"
 )
 
 {{range .In}}
@@ -45,10 +45,18 @@ type {{.Name}}Statistics struct {
 // given column descriptor and allocator.
 //
 // Panics if the physical type of descr is not parquet.Type.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}}
+{{- if eq .Name "Float16"}}
+// Panics if the logical type of descr is not schema.Float16LogicalType
+{{- end}}
 func New{{.Name}}Statistics(descr *schema.Column, mem memory.Allocator) *{{.Name}}Statistics {
   if descr.PhysicalType() != parquet.Types.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}} {
     panic(fmt.Errorf("parquet: invalid type %s for constructing a {{.Name}} stat object", descr.PhysicalType()))
   }
+{{- if eq .Name "Float16"}}
+  if !descr.LogicalType().Equals(schema.Float16LogicalType{}) {
+    panic(fmt.Errorf("parquet: invalid logical type %s for constructing a {{.Name}} stat object", descr.LogicalType().String()))
+  }
+{{- end}}
 
   return &{{.Name}}Statistics{
     statistics: statistics{
@@ -96,7 +104,7 @@ func (s *{{.Name}}Statistics) plainEncode(src {{.name}}) []byte {
   copy(out, src)
   return out
 {{- else}}
-  s.encoder.(encoding.{{.Name}}Encoder).Put([]{{.name}}{src})
+  s.encoder.(encoding.{{if .logical}}{{.physical}}{{else}}{{.Name}}{{end}}Encoder).Put([]{{.name}}{src})
   buf, err := s.encoder.FlushValues()
   if err != nil {
     panic(err) // recovered by Encode
@@ -117,12 +125,12 @@ func (s *{{.Name}}Statistics) plainDecode(src []byte) {{.name}} {
 
   decoder := encoding.NewDecoder(s.descr.PhysicalType(), parquet.Encodings.Plain, s.descr, s.mem)
   decoder.SetData(1, src)
-  decoder.(encoding.{{.Name}}Decoder).Decode(buf[:])
+  decoder.(encoding.{{if .logical}}{{.physical}}{{else}}{{.Name}}{{end}}Decoder).Decode(buf[:])
   return buf[0]
 {{- end}}
 }
 
-{{if and (ne .Name "ByteArray") (ne .Name "FixedLenByteArray")}}
+{{if and (ne .Name "ByteArray") (ne .Name "FixedLenByteArray") (ne .Name "Float16")}}
 func (s *{{.Name}}Statistics) minval(a, b {{.name}}) {{.name}} {
   if s.less(a, b) {
     return a
@@ -172,7 +180,11 @@ func (s *{{.Name}}Statistics) MinMaxEqual(rhs *{{.Name}}Statistics) bool {
 // Equals returns true only if both objects are the same type, have the same min and
 // max values, null count, distinct count and number of values.
 func (s *{{.Name}}Statistics) Equals(other TypedStatistics) bool {
+{{- if .logical}}
+  if s.Type() != other.Type() || !s.descr.LogicalType().Equals(other.Descr().LogicalType()) {
+{{- else}}
   if s.Type() != other.Type() {
+{{- end}}
     return false
   }
   rhs, ok := other.(*{{.Name}}Statistics)
@@ -190,6 +202,13 @@ func (s *{{.Name}}Statistics) Equals(other TypedStatistics) bool {
 {{if or (eq .name "float32") (eq .name "float64")}}
 func (s *{{.Name}}Statistics) coalesce(val, fallback {{.name}}) {{.name}} {
   if math.IsNaN(float64(val)) {
+    return fallback
+  }
+  return val
+}
+{{else if eq .Name "Float16"}}
+func (s *{{.Name}}Statistics) coalesce(val, fallback {{.name}}) {{.name}} {
+  if float16.FromLEBytes(val).IsNaN() {
     return fallback
   }
   return val
@@ -212,7 +231,7 @@ func (s *{{.Name}}Statistics) getMinMax(values []{{.name}}) (min, max {{.name}})
   max = defMax
 
   for _, v := range values {
-{{- if or (eq .name "float32") (eq .name "float64") }}
+{{- if or (eq .name "float32") (eq .name "float64") (eq .Name "Float16") }}
     min = s.minval(min, s.coalesce(v, defMin))
     max = s.maxval(max, s.coalesce(v, defMax))
 {{- else}}
@@ -261,7 +280,7 @@ func (s *{{.Name}}Statistics) getMinMaxSpaced(values []{{.name}}, validBits []by
     }
 {{- else}}
     for _, v := range values[int(run.Pos):int(run.Pos+run.Length)] {
-{{- if or (eq .name "float32") (eq .name "float64") }}
+{{- if or (eq .name "float32") (eq .name "float64") (eq .Name "Float16") }}
       min = s.minval(min, coalesce(v, s.defaultMin()).({{.name}}))
       max = s.maxval(max, coalesce(v, s.defaultMax()).({{.name}}))
 {{- else}}
@@ -381,7 +400,9 @@ func (s *{{.Name}}Statistics) UpdateFromArrow(values arrow.Array, updateCounts b
   s.SetMinMax(min, max)
   return nil
 {{else if eq .Name "Boolean"}}
-  return fmt.Errorf("%w: update boolean stats from Arrow", arrow.ErrNotImplemented)  
+  return fmt.Errorf("%w: update boolean stats from Arrow", arrow.ErrNotImplemented)
+{{else if eq .Name "Float16"}}
+  return fmt.Errorf("%w: update float16 stats from Arrow", arrow.ErrNotImplemented)
 {{else}}
   if values.DataType().(arrow.FixedWidthDataType).Bytes() != arrow.{{.Name}}SizeBytes {
     return fmt.Errorf("%w: cannot update {{.name}} stats with %s arrow array", 
@@ -475,8 +496,15 @@ func NewStatistics(descr *schema.Column, mem memory.Allocator) TypedStatistics {
   }
   switch descr.PhysicalType() {
 {{- range .In}}
+  {{- if not .logical}}
   case parquet.Types.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}}:
+    {{- if eq .Name "FixedLenByteArray"}}
+    if descr.LogicalType().Equals(schema.Float16LogicalType{}) {
+      return NewFloat16Statistics(descr, mem)
+    }
+    {{- end}}
     return New{{.Name}}Statistics(descr, mem)
+  {{- end}}
 {{- end}}
   default:
     panic("not implemented")
@@ -493,8 +521,15 @@ func NewStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalue
   }
   switch descr.PhysicalType() {
 {{- range .In}}
+  {{- if not .logical}}
   case parquet.Types.{{if .physical}}{{.physical}}{{else}}{{.Name}}{{end}}:
+    {{- if eq .Name "FixedLenByteArray"}}
+    if descr.LogicalType().Equals(schema.Float16LogicalType{}) {
+      return NewFloat16StatisticsFromEncoded(descr, mem, nvalues, encoded)
+    }
+    {{- end}}
     return New{{.Name}}StatisticsFromEncoded(descr, mem, nvalues, encoded)
+  {{- end}}
 {{- end}}
   default:
     panic("not implemented")

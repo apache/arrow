@@ -363,13 +363,11 @@ std::shared_ptr<Array> RandomArrayGenerator::Decimal256(std::shared_ptr<DataType
   return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
 }
 
-template <typename TypeClass>
-static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int64_t size,
-                                                  int32_t min_length, int32_t max_length,
-                                                  double null_probability,
-                                                  int64_t alignment,
-                                                  MemoryPool* memory_pool) {
-  using offset_type = typename TypeClass::offset_type;
+template <typename TypeClass, typename offset_type = typename TypeClass::offset_type>
+static std::shared_ptr<Array> GenerateBinaryArray(
+    RandomArrayGenerator* gen, int64_t size, int32_t min_length, int32_t max_length,
+    double null_probability, std::optional<int64_t> max_data_buffer_length,
+    int64_t alignment, MemoryPool* memory_pool) {
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
@@ -387,7 +385,12 @@ static std::shared_ptr<Array> GenerateBinaryArray(RandomArrayGenerator* gen, int
                  /*null_probability=*/0);
 
   std::vector<uint8_t> str_buffer(max_length);
-  BuilderType builder(memory_pool, alignment);
+  BuilderType builder{memory_pool, alignment};
+  if constexpr (std::is_base_of_v<BinaryViewType, TypeClass>) {
+    if (max_data_buffer_length) {
+      builder.SetBlockSize(*max_data_buffer_length);
+    }
+  }
 
   for (int64_t i = 0; i < size; ++i) {
     if (lengths->IsValid(i)) {
@@ -409,7 +412,8 @@ std::shared_ptr<Array> RandomArrayGenerator::String(int64_t size, int32_t min_le
                                                     int64_t alignment,
                                                     MemoryPool* memory_pool) {
   return GenerateBinaryArray<StringType>(this, size, min_length, max_length,
-                                         null_probability, alignment, memory_pool);
+                                         null_probability, /*max_data_buffer_length=*/{},
+                                         alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::LargeString(int64_t size, int32_t min_length,
@@ -417,8 +421,9 @@ std::shared_ptr<Array> RandomArrayGenerator::LargeString(int64_t size, int32_t m
                                                          double null_probability,
                                                          int64_t alignment,
                                                          MemoryPool* memory_pool) {
-  return GenerateBinaryArray<LargeStringType>(this, size, min_length, max_length,
-                                              null_probability, alignment, memory_pool);
+  return GenerateBinaryArray<LargeStringType>(
+      this, size, min_length, max_length, null_probability, /*max_data_buffer_length=*/{},
+      alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(
@@ -428,6 +433,15 @@ std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(
                                    alignment, memory_pool);
   std::shared_ptr<Array> out;
   return *strings->View(binary());
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::StringView(
+    int64_t size, int32_t min_length, int32_t max_length, double null_probability,
+    std::optional<int64_t> max_data_buffer_length, int64_t alignment,
+    MemoryPool* memory_pool) {
+  return GenerateBinaryArray<StringViewType, int32_t>(
+      this, size, min_length, max_length, null_probability, max_data_buffer_length,
+      alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(
@@ -841,6 +855,24 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       return *String(length, min_length, max_length, null_probability, alignment,
                      memory_pool)
                   ->View(field.type());
+    }
+
+    case Type::type::STRING_VIEW:
+    case Type::type::BINARY_VIEW: {
+      const auto min_length =
+          GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
+      const auto max_length =
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 20);
+      std::optional<int64_t> max_data_buffer_length =
+          GetMetadata<int64_t>(field.metadata().get(), "max_data_buffer_length", 0);
+      if (*max_data_buffer_length == 0) {
+        *max_data_buffer_length = {};
+      }
+
+      return StringView(length, min_length, max_length, null_probability,
+                        max_data_buffer_length, alignment)
+          ->View(field.type())
+          .ValueOrDie();
     }
 
     case Type::type::DECIMAL128:

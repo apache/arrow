@@ -56,7 +56,8 @@ export const closureTask = ((cache) => memoizeTask(cache, async function closure
 
     return await Promise.all([
         runClosureCompileAsObservable().toPromise(),
-        compileBinFiles(target, format).toPromise()
+        compileBinFiles(target, format).toPromise(),
+        observableFromStreams(gulp.src(`${src}/**/*.d.ts`), gulp.dest(out)), // copy .d.ts files
     ]);
 
     function runClosureCompileAsObservable() {

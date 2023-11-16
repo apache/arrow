@@ -227,12 +227,62 @@ public final class ClientAuthenticationUtils {
     final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 
     try (final InputStream keyStoreStream = Files
-        .newInputStream(Paths.get(Preconditions.checkNotNull(keyStorePath)))) {
-      keyStore.load(keyStoreStream,
-          Preconditions.checkNotNull(keyStorePass).toCharArray());
+        .newInputStream(Paths.get(keyStorePath))) {
+      keyStore.load(keyStoreStream, keyStorePass.toCharArray());
     }
 
     return getSingleCertificateInputStream(keyStore);
+  }
+
+  /**
+   * Generates an {@link InputStream} that contains certificates for path-based
+   * TLS Root Certificates.
+   *
+   * @param tlsRootsCertificatesPath The path of the TLS Root Certificates.
+   * @return a new {code InputStream} containing the certificates.
+   * @throws GeneralSecurityException on error.
+   * @throws IOException              on error.
+   */
+  public static InputStream getTlsRootCertificatesStream(final String tlsRootsCertificatesPath)
+          throws GeneralSecurityException, IOException {
+    Preconditions.checkNotNull(tlsRootsCertificatesPath, "TLS Root certificates path cannot be null!");
+
+    return Files
+      .newInputStream(Paths.get(tlsRootsCertificatesPath));
+  }
+
+  /**
+   * Generates an {@link InputStream} that contains certificates for a path-based
+   * mTLS Client Certificate.
+   *
+   * @param clientCertificatePath The path of the mTLS Client Certificate.
+   * @return a new {code InputStream} containing the certificates.
+   * @throws GeneralSecurityException on error.
+   * @throws IOException              on error.
+   */
+  public static InputStream getClientCertificateStream(final String clientCertificatePath)
+      throws GeneralSecurityException, IOException {
+    Preconditions.checkNotNull(clientCertificatePath, "Client certificate path cannot be null!");
+
+    return Files
+      .newInputStream(Paths.get(clientCertificatePath));
+  }
+
+  /**
+   * Generates an {@link InputStream} that contains certificates for a path-based
+   * mTLS Client Key.
+   *
+   * @param clientKeyPath The path of the mTLS Client Key.
+   * @return a new {code InputStream} containing the certificates.
+   * @throws GeneralSecurityException on error.
+   * @throws IOException              on error.
+   */
+  public static InputStream getClientKeyStream(final String clientKeyPath)
+          throws GeneralSecurityException, IOException {
+    Preconditions.checkNotNull(clientKeyPath, "Client key path cannot be null!");
+
+    return Files
+      .newInputStream(Paths.get(clientKeyPath));
   }
 
   private static InputStream getSingleCertificateInputStream(KeyStore keyStore)
