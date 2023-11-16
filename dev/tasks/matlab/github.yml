@@ -36,14 +36,14 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
-      - name: change shared library install name
+      - name: Change shared library dependency name
         run: |
           pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/ 
           SYMLINK_ARROW_LIB="$(find . -regex "./libarrow.so.[0-9][0-9][0-9][0-9]" | xargs basename)"
           REGULAR_ARROW_LIB="$(find . -regex "./libarrow.so.[0-9][0-9][0-9][0-9].[0-9].[0-9]" | xargs basename)"
           patchelf --replace-needed $SYMLINK_ARROW_LIB $REGULAR_ARROW_LIB libarrowproxy.so
           popd
-      - name: Compress into single artifact to keep directory structure
+      - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-ubuntu.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
@@ -66,14 +66,14 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
-      - name: change shared library install name
+      - name: Change shared library dependency name
         run: |
            pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
            SYMLINK_ARROW_LIB="$(find . -regex "./libarrow.[0-9][0-9][0-9][0-9].dylib" | xargs basename)"
            REGULAR_ARROW_LIB="$(find . -regex "./libarrow.[0-9][0-9][0-9][0-9].[0-9].[0-9].dylib" | xargs basename)"
            install_name_tool -change @rpath/$SYMLINK_ARROW_LIB @rpath/$REGULAR_ARROW_LIB libarrowproxy.dylib
            popd
-      - name: Compress into single artifact to keep directory structure
+      - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-macos.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
@@ -103,7 +103,7 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "arrow/ci/scripts/matlab_build.sh $(pwd)/arrow"
-      - name: Compress into single artifact to keep directory structure
+      - name: Compress into single artifact
         shell: bash
         run: tar -cvzf matlab-arrow-windows.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
