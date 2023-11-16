@@ -656,7 +656,11 @@ void ParquetFileWriter::AddKeyValueMetadata(
 }
 
 const std::shared_ptr<WriterProperties>& ParquetFileWriter::properties() const {
-  return contents_->properties();
+  if (contents_) {
+    return contents_->properties();
+  } else {
+    throw ParquetException("Cannot get properties from closed file");
+  }
 }
 
 }  // namespace parquet

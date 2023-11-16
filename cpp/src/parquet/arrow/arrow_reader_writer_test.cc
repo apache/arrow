@@ -5221,6 +5221,33 @@ TEST(TestArrowReadWrite, FuzzReader) {
   }
 }
 
+// Test writing table with a closed writer, should not segfault (GH-37969).
+TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
+  // A sample table, type and structure does not matter in this test case
+  auto schema = ::arrow::schema({::arrow::field("letter", ::arrow::utf8())});
+  auto table = ::arrow::Table::Make(
+      schema, {::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])")});
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_AND_ASSIGN(auto writer, parquet::arrow::FileWriter::Open(
+                                        *schema, ::arrow::default_memory_pool(), sink,
+                                        parquet::default_writer_properties(),
+                                        parquet::default_arrow_writer_properties()));
+
+  // Should be ok
+  ASSERT_OK(writer->WriteTable(*table, 1));
+
+  // Operations on closed writer are invalid
+  ASSERT_OK(writer->Close());
+
+  ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
+  ASSERT_RAISES(Invalid, writer->WriteColumnChunk(table->column(0), 0, 1));
+  ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
+  ASSERT_OK_AND_ASSIGN(auto record_batch, table->CombineChunksToBatch());
+  ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*record_batch));
+  ASSERT_RAISES(Invalid, writer->WriteTable(*table, 1));
+}
+
 namespace {
 
 struct ColumnIndexObject {

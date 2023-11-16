@@ -306,6 +306,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status NewRowGroup(int64_t chunk_size) override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -325,6 +326,13 @@ class FileWriterImpl : public FileWriter {
     return Status::OK();
   }
 
+  Status CheckClosed() const {
+    if (closed_) {
+      return Status::Invalid("Operation on closed file");
+    }
+    return Status::OK();
+  }
+
   Status WriteColumnChunk(const Array& data) override {
     // A bit awkward here since cannot instantiate ChunkedArray from const Array&
     auto chunk = ::arrow::MakeArray(data.data());
@@ -334,6 +342,7 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
+    RETURN_NOT_OK(CheckClosed());
     if (arrow_properties_->engine_version() == ArrowWriterProperties::V2 ||
         arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
       if (row_group_writer_->buffered()) {
@@ -356,6 +365,7 @@ class FileWriterImpl : public FileWriter {
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
   Status WriteTable(const Table& table, int64_t chunk_size) override {
+    RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(table.Validate());
 
     if (chunk_size <= 0 && table.num_rows() > 0) {
@@ -392,6 +402,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status NewBufferedRowGroup() override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -400,6 +411,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
+    RETURN_NOT_OK(CheckClosed());
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
