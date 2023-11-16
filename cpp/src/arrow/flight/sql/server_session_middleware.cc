@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <mutex>
+
 #include "arrow/flight/sql/server_session_middleware.h"
 
 namespace arrow {
@@ -32,7 +34,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       const std::string_view& s);
 
  public:
-  ServerSessionMiddlewareFactory(std::function<std::string()> id_gen)
+  explicit ServerSessionMiddlewareFactory(std::function<std::string()> id_gen)
       : id_generator_(id_gen) {}
   Status StartCall(const CallInfo&, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware);
