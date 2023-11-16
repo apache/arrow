@@ -45,11 +45,11 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -145,8 +145,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           Field.notNullable("IS_AUTOINCREMENT", Types.MinorType.VARCHAR.getType()),
           Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())
       ));
-  private final Map<SqlInfo, Object> cachedSqlInfo =
-      Collections.synchronizedMap(new EnumMap<>(SqlInfo.class));
+  private final AtomicBoolean isCachePopulated = new AtomicBoolean(false);
+  private final Map<SqlInfo, Object> cachedSqlInfo = new EnumMap<>(SqlInfo.class);
   private static final Map<Integer, Integer> sqlTypesToFlightEnumConvertTypes = new HashMap<>();
 
   static {
@@ -729,10 +729,15 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
                                                  final Class<T> desiredType)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
-    if (cachedSqlInfo.isEmpty()) {
-      final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
+    if (!isCachePopulated.get()) {
+      // Lock-and-populate the cache. Only issue the call to getSqlInfo() once,
+      // populate the cache, then mark it as populated.
+      // Note that multiple callers from separate threads can see that the cache is not populated, but only
+      // one thread will try to populate the cache. Other threads will see the cache is non-empty when acquiring
+      // the lock on the cache and skip population.
       synchronized (cachedSqlInfo) {
         if (cachedSqlInfo.isEmpty()) {
+          final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
           try (final ResultSet resultSet =
                    ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
                        connection, sqlInfo, null)) {
@@ -741,6 +746,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
                   resultSet.getObject("value"));
             }
           }
+          isCachePopulated.set(true);
         }
       }
     }
