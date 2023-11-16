@@ -38,8 +38,7 @@ end
 
 disp("Toolbox Version:" + toolboxVersion);
 
-identifier = "ARROW-MATLAB-TOOLBOX";
-
+identifier = "ad1d0fe6-22d1-4969-9e6f-0ab5d0f12ce3";
 opts = matlab.addons.toolbox.ToolboxOptions(toolboxFolder, identifier);
 opts.ToolboxName = "MATLAB Interface to Arrow";
 opts.ToolboxVersion = toolboxVersion;
