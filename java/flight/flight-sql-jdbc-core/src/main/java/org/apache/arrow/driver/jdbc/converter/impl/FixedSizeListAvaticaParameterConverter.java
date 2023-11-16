@@ -38,15 +38,23 @@ public class FixedSizeListAvaticaParameterConverter extends BaseAvaticaParameter
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
     final List<?> values = (List<?>) typedValue.value;
+    final int arraySize = values.size();
 
     if (vector instanceof FixedSizeListVector) {
       FixedSizeListVector listVector = ((FixedSizeListVector) vector);
       FieldVector childVector = listVector.getDataVector();
-      if (values.size() > listVector.getListSize()) {
-        throw new UnsupportedOperationException("Child list size can't be larger than vector fixed size");
+      int maxArraySize = listVector.getListSize();
+
+      if (arraySize != maxArraySize) {
+        if (!childVector.getField().isNullable()) {
+          throw new UnsupportedOperationException("Each array must contain " + maxArraySize + " elements");
+        } else if (arraySize > maxArraySize){
+          throw new UnsupportedOperationException("Each array must contain at most " + maxArraySize + " elements");
+        }
       }
+
       int startPos = listVector.startNewValue(index);
-      for (int i = 0; i < values.size(); i++) {
+      for (int i = 0; i < arraySize; i++) {
         Object val = values.get(i);
         int childIndex = startPos + i;
         if (val == null) {
