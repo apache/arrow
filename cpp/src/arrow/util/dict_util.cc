@@ -27,21 +27,23 @@ namespace {
 
 template <typename IndexArrowType>
 int64_t LogicalNullCount(const ArraySpan& span) {
-  const auto* indices_null_bit_map = span.GetValues<uint8_t>(0);
-  const auto* dictionary_null_bit_map = span.dictionary().GetValues<uint8_t>(0);
+  const auto* indices_null_bit_map = span.buffers[0].data;
+  const auto& dictionary_span = span.dictionary();
+  const auto* dictionary_null_bit_map = dictionary_span.buffers[0].data;
 
   using CType = typename IndexArrowType::c_type;
   const CType* indices_data = span.GetValues<CType>(1);
-  auto index_length = span.length;
   int64_t null_count = 0;
-  for (int64_t i = 0; i < index_length; i++) {
-    if (indices_null_bit_map != nullptr && !bit_util::GetBit(indices_null_bit_map, i)) {
+  for (int64_t i = 0; i < span.length; i++) {
+    if (indices_null_bit_map != nullptr &&
+        !bit_util::GetBit(indices_null_bit_map, i + span.offset)) {
       null_count++;
       continue;
     }
 
     CType current_index = indices_data[i];
-    if (!bit_util::GetBit(dictionary_null_bit_map, current_index)) {
+    if (!bit_util::GetBit(dictionary_null_bit_map,
+                          current_index + dictionary_span.offset)) {
       null_count++;
     }
   }
