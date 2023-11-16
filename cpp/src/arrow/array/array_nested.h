@@ -85,10 +85,20 @@ class VarLengthListLikeArray : public Array {
   }
 
   // The following functions will not perform boundschecking
+
   offset_type value_offset(int64_t i) const {
     return raw_value_offsets_[i + data_->offset];
   }
+
+  /// \brief Return the size of the value at a particular index
+  ///
+  /// Since non-empty null lists and list-views are possible, avoid calling this
+  /// function when the list at slot i is null.
+  ///
+  /// \pre IsValid(i)
   virtual offset_type value_length(int64_t i) const = 0;
+
+  /// \pre IsValid(i)
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
   }
@@ -114,6 +124,12 @@ class BaseListArray : public VarLengthListLikeArray<TYPE> {
 
   const TypeClass* list_type() const { return this->var_length_list_like_type(); }
 
+  /// \brief Return the size of the value at a particular index
+  ///
+  /// Since non-empty null lists are possible, avoid calling this
+  /// function when the list at slot i is null.
+  ///
+  /// \pre IsValid(i)
   offset_type value_length(int64_t i) const final {
     i += this->data_->offset;
     return this->raw_value_offsets_[i + 1] - this->raw_value_offsets_[i];
@@ -259,14 +275,21 @@ class BaseListViewArray : public VarLengthListLikeArray<TYPE> {
 
   const TypeClass* list_view_type() const { return this->var_length_list_like_type(); }
 
-  /// Note that this buffer does not account for any slice offset or length.
+  /// \brief Note that this buffer does not account for any slice offset or length.
   const std::shared_ptr<Buffer>& value_sizes() const { return this->data_->buffers[2]; }
 
-  /// Return pointer to raw value offsets accounting for any slice offset
+  /// \brief Return pointer to raw value offsets accounting for any slice offset
   const offset_type* raw_value_sizes() const {
     return raw_value_sizes_ + this->data_->offset;
   }
 
+  /// \brief Return the size of the value at a particular index
+  ///
+  /// This should not be called if the list-view at slot i is null.
+  /// The returned size in those cases could be any value from 0 to the
+  /// length of the child values array.
+  ///
+  /// \pre IsValid(i)
   offset_type value_length(int64_t i) const final {
     return this->raw_value_sizes_[i + this->data_->offset];
   }
@@ -549,10 +572,18 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
     i += data_->offset;
     return list_size_ * i;
   }
+  /// \brief Return the fixed-size of the values
+  ///
+  /// No matter the value of the index parameter, the result is the same.
+  /// So even when the value at slot i is null, this function will return a
+  /// non-zero size.
+  ///
+  /// \pre IsValid(i)
   int32_t value_length(int64_t i = 0) const {
     ARROW_UNUSED(i);
     return list_size_;
   }
+  /// \pre IsValid(i)
   std::shared_ptr<Array> value_slice(int64_t i) const {
     return values_->Slice(value_offset(i), value_length(i));
   }
