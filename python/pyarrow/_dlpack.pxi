@@ -24,10 +24,23 @@ from cython import sizeof
 
 cdef void pycapsule_deleter(object dltensor) noexcept:
     cdef DLManagedTensor* dlm_tensor
+    cdef PyObject* err_type
+    cdef PyObject* err_value
+    cdef PyObject* err_traceback
+
+    if cpython.PyCapsule_IsValid(dltensor, "used_dltensor"):
+        return
+
+    cpython.PyErr_Fetch(&err_type, &err_value, &err_traceback)
+
     if cpython.PyCapsule_IsValid(dltensor, 'dltensor'):
         dlm_tensor = <DLManagedTensor*>cpython.PyCapsule_GetPointer(
             dltensor, 'dltensor')
         dlm_tensor.deleter(dlm_tensor)
+    else:
+        cpython.PyErr_WriteUnraisable(dltensor)
+
+    cpython.PyErr_Restore(err_type, err_value, err_traceback)
 
 
 cpdef object to_dlpack(Array arr) except *:
