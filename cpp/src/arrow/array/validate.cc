@@ -584,7 +584,7 @@ struct ValidateArrayImpl {
     const Buffer& values = *data.buffers[2];
 
     // First validate offsets, to make sure the accesses below are valid
-    RETURN_NOT_OK(ValidateOffsets(type, values.size()));
+    RETURN_NOT_OK(ValidateOffsetsAndSizes(type, values.size()));
 
     if (data.length > 0 && data.buffers[1]->is_cpu()) {
       using offset_type = typename BinaryType::offset_type;
@@ -704,7 +704,7 @@ struct ValidateArrayImpl {
     }
 
     // First validate offsets, to make sure the accesses below are valid
-    RETURN_NOT_OK(ValidateOffsets(type, values.offset + values.length));
+    RETURN_NOT_OK(ValidateOffsetsAndSizes(type, values.offset + values.length));
 
     // An empty list array can have 0 offsets
     if (data.length > 0 && data.buffers[1]->is_cpu()) {
@@ -884,8 +884,9 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
+ public:
   template <typename TypeClass>
-  Status ValidateOffsetsAndMaybeSizes(const TypeClass&, int64_t offset_limit) {
+  Status ValidateOffsetsAndSizes(const TypeClass&, int64_t offset_limit) {
     using offset_type = typename TypeClass::offset_type;
     constexpr bool is_list_view = is_list_view_type<TypeClass>::value;
 
@@ -933,21 +934,6 @@ struct ValidateArrayImpl {
       }
     }
     return Status::OK();
-  }
-
- public:
-  template <typename TypeClass>
-  enable_if_list_view<TypeClass, Status> ValidateOffsetsAndSizes(const TypeClass& type,
-                                                                 int64_t offset_limit) {
-    return ValidateOffsetsAndMaybeSizes<TypeClass>(type, offset_limit);
-  }
-
-  template <typename TypeClass>
-  std::enable_if_t<is_var_length_list_type<TypeClass>::value ||
-                       is_base_binary_like(TypeClass::type_id),
-                   Status>
-  ValidateOffsets(const TypeClass& type, int64_t offset_limit) {
-    return ValidateOffsetsAndMaybeSizes<TypeClass>(type, offset_limit);
   }
 
   template <typename DecimalType>
