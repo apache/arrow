@@ -3597,7 +3597,7 @@ class FixedShapeTensorArray(ExtensionArray):
         if len(self.buffers()) > 3 or self.buffers()[0] or self.buffers()[1]:
             raise ArrowTypeError(
                 "Can only use __dlpack__ on fixed shape tensor array with no validity buffers.")
-        #return fixed_shape_tensor_to_dlpack(self)
+        # return fixed_shape_tensor_to_dlpack(self)
         return None
 
 
