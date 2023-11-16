@@ -223,6 +223,7 @@ set(ARROW_SRCS
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
+    util/float16.cc
     util/formatting.cc
     util/future.cc
     util/hashing.cc
@@ -502,8 +503,8 @@ if(ARROW_FILESYSTEM)
        filesystem/util_internal.cc)
 
   if(ARROW_AZURE)
-    list(APPEND ARROW_SRCS filesystem/azurefs.cc)
-    set_source_files_properties(filesystem/azurefs.cc
+    list(APPEND ARROW_SRCS filesystem/azurefs.cc filesystem/azurefs_internal.cc)
+    set_source_files_properties(filesystem/azurefs.cc filesystem/azurefs_internal.cc
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                            SKIP_UNITY_BUILD_INCLUSION ON)
   endif()

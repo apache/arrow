@@ -21,18 +21,20 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
+	"os"
+	"path"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/compress"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v14/parquet/metadata"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/compress"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -384,4 +386,63 @@ func TestDeltaLengthByteArrayPackingWithNulls(t *testing.T) {
 		assert.Equal(t, data[0], readData[0])
 		assert.NotNil(t, readData[0])
 	}
+}
+
+func TestRleBooleanEncodingFileRead(t *testing.T) {
+	dir := os.Getenv("PARQUET_TEST_DATA")
+	if dir == "" {
+		t.Skip("no path supplied with PARQUET_TEST_DATA")
+	}
+	assert.DirExists(t, dir)
+
+	props := parquet.NewReaderProperties(memory.DefaultAllocator)
+	fileReader, err := file.OpenParquetFile(path.Join(dir, "rle_boolean_encoding.parquet"),
+		false, file.WithReadProps(props))
+	require.NoError(t, err)
+	defer fileReader.Close()
+
+	assert.Equal(t, 1, fileReader.NumRowGroups())
+	rgr := fileReader.RowGroup(0)
+	assert.EqualValues(t, 68, rgr.NumRows())
+
+	rdr, err := rgr.Column(0)
+	require.NoError(t, err)
+	brdr := rdr.(*file.BooleanColumnChunkReader)
+
+	values := make([]bool, 68)
+	defLvls, repLvls := make([]int16, 68), make([]int16, 68)
+	total, read, err := brdr.ReadBatch(68, values, defLvls, repLvls)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, 68, total)
+	md, err := rgr.MetaData().ColumnChunk(0)
+	require.NoError(t, err)
+	stats, err := md.Statistics()
+	require.NoError(t, err)
+	assert.EqualValues(t, total-stats.NullCount(), read)
+
+	expected := []bool{
+		true, false, true, true, false, false,
+		true, true, true, false, false, true, true,
+		false, true, true, false, false, true, true,
+		false, true, true, false, false, true, true,
+		true, false, false, false, false, true, true,
+		false, true, true, false, false, true, true,
+		true, false, false, true, true, false, false,
+		true, true, true, false, true, true, false,
+		true, true, false, false, true, true, true,
+	}
+	expectedNulls := []int{2, 15, 23, 38, 48, 60}
+
+	expectedNullIdx := 0
+	for i, v := range defLvls {
+		if expectedNullIdx < len(expectedNulls) && i == expectedNulls[expectedNullIdx] {
+			assert.Zero(t, v)
+			expectedNullIdx++
+		} else {
+			assert.EqualValues(t, 1, v)
+		}
+	}
+
+	assert.Equal(t, expected, values[:len(expected)])
 }

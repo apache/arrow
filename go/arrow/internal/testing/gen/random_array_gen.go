@@ -19,11 +19,11 @@ package gen
 import (
 	"math"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -346,6 +346,40 @@ func (r *RandomArrayGenerator) LargeString(size int64, minLength, maxLength int6
 		} else {
 			bldr.AppendNull()
 		}
+	}
+
+	return bldr.NewArray()
+}
+
+func (r *RandomArrayGenerator) StringView(size int64, minLength, maxLength int64, nullProb float64) arrow.Array {
+	return r.generateBinaryView(arrow.BinaryTypes.StringView, size, minLength, maxLength, nullProb)
+}
+
+func (r *RandomArrayGenerator) generateBinaryView(dt arrow.DataType, size int64, minLength, maxLength int64, nullProb float64) arrow.Array {
+	lengths := r.Int32(size, int32(minLength), int32(maxLength), nullProb).(*array.Int32)
+	defer lengths.Release()
+
+	bldr := array.NewBuilder(r.mem, dt).(array.StringLikeBuilder)
+	defer bldr.Release()
+
+	r.extra++
+	dist := rand.New(rand.NewSource(r.seed + r.extra))
+
+	buf := make([]byte, 0, maxLength)
+	gen := func(n int32) string {
+		out := buf[:n]
+		for i := range out {
+			out[i] = uint8(dist.Int31n(int32('z')-int32('A')+1) + int32('A'))
+		}
+		return string(out)
+	}
+
+	for i := 0; i < lengths.Len(); i++ {
+		if lengths.IsNull(i) {
+			bldr.AppendNull()
+			continue
+		}
+		bldr.Append(gen(lengths.Value(i)))
 	}
 
 	return bldr.NewArray()

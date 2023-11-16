@@ -37,7 +37,8 @@ public final class BodyCompression extends Table {
   public BodyCompression __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   /**
-   * Compressor library
+   * Compressor library.
+   * For LZ4_FRAME, each compressed buffer must consist of a single frame.
    */
   public byte codec() { int o = __offset(4); return o != 0 ? bb.get(o + bb_pos) : 0; }
   /**

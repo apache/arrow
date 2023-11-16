@@ -21,11 +21,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
-	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
 
@@ -206,7 +206,7 @@ func (n *listNode) fillForLast(rng, childRng *elemRange, ctx *pathWriteCtx) iter
 	fillRepLevels(int(childRng.size()), n.repLevel, ctx)
 	// once we've reached this point the following preconditions should hold:
 	// 1. there are no more repeated path nodes to deal with
-	// 2. all elements in |range| reperesent contiguous elements in the child
+	// 2. all elements in |range| represent contiguous elements in the child
 	//    array (null values would have shortened the range to ensure all
 	//    remaining list elements are present, though they may be empty)
 	// 3. no element of range spans a parent list (intermediate list nodes
@@ -225,7 +225,7 @@ func (n *listNode) fillForLast(rng, childRng *elemRange, ctx *pathWriteCtx) iter
 
 		// this is the start of a new list. we can be sure that it only applies to the
 		// previous list (and doesn't jump to the start of any list further up in nesting
-		// due to the contraints mentioned earlier)
+		// due to the constraints mentioned earlier)
 		ctx.AppendRepLevel(n.prevRepLevel)
 		ctx.AppendRepLevels(int(sizeCheck.size())-1, n.repLevel)
 		childRng.end = sizeCheck.end

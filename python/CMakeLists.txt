@@ -21,7 +21,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(pyarrow)
 
-set(PYARROW_VERSION "14.0.0-SNAPSHOT")
+set(PYARROW_VERSION "15.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Running from a Python sdist tarball
@@ -84,7 +84,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use

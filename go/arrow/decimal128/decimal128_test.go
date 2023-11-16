@@ -22,8 +22,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFromU64(t *testing.T) {
@@ -697,4 +698,12 @@ func TestBitLen(t *testing.T) {
 	assert.ErrorContains(t, err, "bitlen too large for decimal128")
 	_, err = decimal128.FromString(b.String(), decimal128.MaxPrecision, -1)
 	assert.ErrorContains(t, err, "bitlen too large for decimal128")
+}
+
+func TestFromStringDecimal128b(t *testing.T) {
+	const decStr = "9323406071781562130.6457232358109488923"
+
+	num, err := decimal128.FromString(decStr, 38, 19)
+	require.NoError(t, err)
+	assert.Equal(t, decStr, num.ToString(19))
 }

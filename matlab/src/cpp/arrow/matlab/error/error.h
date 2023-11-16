@@ -203,4 +203,11 @@ namespace arrow::matlab::error {
     static const char* BUFFER_VIEW_OR_COPY_FAILED = "arrow:buffer:ViewOrCopyFailed";
     static const char* ARRAY_PRETTY_PRINT_FAILED = "arrow:array:PrettyPrintFailed";
     static const char* TABULAR_GET_ROW_AS_STRING_FAILED = "arrow:tabular:GetRowAsStringFailed";
+    static const char* ARRAY_VALIDATE_MINIMAL_FAILED = "arrow:array:ValidateMinimalFailed";
+    static const char* ARRAY_VALIDATE_FULL_FAILED = "arrow:array:ValidateFullFailed";
+    static const char* ARRAY_VALIDATE_UNSUPPORTED_ENUM = "arrow:array:ValidateUnsupportedEnum";
+    static const char* ARRAY_SLICE_NON_POSITIVE_OFFSET = "arrow:array:slice:NonPositiveOffset";
+    static const char* ARRAY_SLICE_NEGATIVE_LENGTH = "arrow:array:slice:NegativeLength";
+    static const char* ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY = "arrow:array:slice:FailedToCreateArrayProxy";
+
 }

@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 const (
@@ -261,7 +261,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 	var precInBits = uint(math.Round(float64(prec+scale+1)/math.Log10(2))) + 1
 
 	var out *big.Float
-	out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestEven)
+	out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestEven)
 	if err != nil {
 		return
 	}
@@ -280,7 +280,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
 		// we're positive we'll add 0.5.
 		p := (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt())
-		out.Mul(out, p).SetPrec(precInBits)
+		out.SetPrec(precInBits).Mul(out, p)
 		if out.Signbit() {
 			out.Sub(out, pt5)
 		} else {

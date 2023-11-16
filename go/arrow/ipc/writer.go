@@ -26,14 +26,14 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/internal"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v14/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type swriter struct {
@@ -277,7 +277,7 @@ type dictEncoder struct {
 }
 
 func (d *dictEncoder) encodeMetadata(p *Payload, isDelta bool, id, nrows int64) error {
-	p.meta = writeDictionaryMessage(d.mem, id, isDelta, nrows, p.size, d.fields, d.meta, d.codec)
+	p.meta = writeDictionaryMessage(d.mem, id, isDelta, nrows, p.size, d.fields, d.meta, d.codec, d.variadicCounts)
 	return nil
 }
 
@@ -300,8 +300,9 @@ func (d *dictEncoder) Encode(p *Payload, id int64, isDelta bool, dict arrow.Arra
 type recordEncoder struct {
 	mem memory.Allocator
 
-	fields []fieldMetadata
-	meta   []bufferMetadata
+	fields         []fieldMetadata
+	meta           []bufferMetadata
+	variadicCounts []int64
 
 	depth           int64
 	start           int64
@@ -601,6 +602,33 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		}
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, values)
+
+	case arrow.BinaryViewDataType:
+		data := arr.Data()
+		values := data.Buffers()[1]
+		arrLen := int64(arr.Len())
+		typeWidth := int64(arrow.ViewHeaderSizeBytes)
+		minLength := paddedLength(arrLen*typeWidth, kArrowAlignment)
+
+		switch {
+		case needTruncate(int64(data.Offset()), values, minLength):
+			// non-zero offset: slice the buffer
+			offset := data.Offset() * int(typeWidth)
+			// send padding if available
+			len := int(minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len()-offset)))
+			values = memory.SliceBuffer(values, offset, len)
+		default:
+			if values != nil {
+				values.Retain()
+			}
+		}
+		p.body = append(p.body, values)
+
+		w.variadicCounts = append(w.variadicCounts, int64(len(data.Buffers())-2))
+		for _, b := range data.Buffers()[2:] {
+			b.Retain()
+			p.body = append(p.body, b)
+		}
 
 	case *arrow.StructType:
 		w.depth--
@@ -946,7 +974,7 @@ func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 }
 
 func (w *recordEncoder) encodeMetadata(p *Payload, nrows int64) error {
-	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta, w.codec)
+	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta, w.codec, w.variadicCounts)
 	return nil
 }
 

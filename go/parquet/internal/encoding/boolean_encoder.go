@@ -17,9 +17,12 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
+	"encoding/binary"
+
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
 )
 
 const (
@@ -86,4 +89,56 @@ func (enc *PlainBooleanEncoder) FlushValues() (Buffer, error) {
 	enc.wr.Reset(0, boolsInBuf)
 
 	return enc.sink.Finish(), nil
+}
+
+const rleLengthInBytes = 4
+
+type RleBooleanEncoder struct {
+	encoder
+
+	bufferedValues []bool
+}
+
+func (RleBooleanEncoder) Type() parquet.Type {
+	return parquet.Types.Boolean
+}
+
+func (enc *RleBooleanEncoder) Put(in []bool) {
+	enc.bufferedValues = append(enc.bufferedValues, in...)
+}
+
+func (enc *RleBooleanEncoder) PutSpaced(in []bool, validBits []byte, validBitsOffset int64) {
+	bufferOut := make([]bool, len(in))
+	nvalid := spacedCompress(in, bufferOut, validBits, validBitsOffset)
+	enc.Put(bufferOut[:nvalid])
+}
+
+func (enc *RleBooleanEncoder) EstimatedDataEncodedSize() int64 {
+	return rleLengthInBytes + int64(enc.maxRleBufferSize())
+}
+
+func (enc *RleBooleanEncoder) maxRleBufferSize() int {
+	return utils.MaxRLEBufferSize(1, len(enc.bufferedValues)) +
+		utils.MinRLEBufferSize(1)
+}
+
+func (enc *RleBooleanEncoder) FlushValues() (Buffer, error) {
+	rleBufferSizeMax := enc.maxRleBufferSize()
+	enc.sink.SetOffset(rleLengthInBytes)
+	enc.sink.Reserve(rleBufferSizeMax)
+
+	rleEncoder := utils.NewRleEncoder(enc.sink, 1)
+	for _, v := range enc.bufferedValues {
+		if v {
+			rleEncoder.Put(1)
+		} else {
+			rleEncoder.Put(0)
+		}
+	}
+	n := rleEncoder.Flush()
+	debug.Assert(n <= rleBufferSizeMax, "num encoded bytes larger than expected max")
+	buf := enc.sink.Finish()
+	binary.LittleEndian.PutUint32(buf.Bytes(), uint32(n))
+
+	return buf, nil
 }

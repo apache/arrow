@@ -17,9 +17,10 @@
 package testutils
 
 import (
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/exp/rand"
 )
 
@@ -47,6 +48,13 @@ func RandomNonNull(mem memory.Allocator, dt arrow.DataType, size int) arrow.Arra
 		defer bldr.Release()
 		values := make([]float64, size)
 		FillRandomFloat64(0, values)
+		bldr.AppendValues(values, nil)
+		return bldr.NewArray()
+	case arrow.FLOAT16:
+		bldr := array.NewFloat16Builder(mem)
+		defer bldr.Release()
+		values := make([]float16.Num, size)
+		FillRandomFloat16(0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.INT64:
@@ -211,6 +219,21 @@ func RandomNullable(dt arrow.DataType, size int, numNulls int) arrow.Array {
 		defer bldr.Release()
 		values := make([]float64, size)
 		FillRandomFloat64(0, values)
+
+		valid := make([]bool, size)
+		for idx := range valid {
+			valid[idx] = true
+		}
+		for i := 0; i < numNulls; i++ {
+			valid[i*2] = false
+		}
+		bldr.AppendValues(values, valid)
+		return bldr.NewArray()
+	case arrow.FLOAT16:
+		bldr := array.NewFloat16Builder(memory.DefaultAllocator)
+		defer bldr.Release()
+		values := make([]float16.Num, size)
+		FillRandomFloat16(0, values)
 
 		valid := make([]bool, size)
 		for idx := range valid {

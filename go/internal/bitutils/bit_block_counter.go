@@ -21,8 +21,8 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 func loadWord(byt []byte) uint64 {

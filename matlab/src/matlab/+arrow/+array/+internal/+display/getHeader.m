@@ -16,7 +16,7 @@
 % permissions and limitations under the License.
 
 function header = getHeader(className, numElements, numNulls)
-    import arrow.array.internal.display.pluralizeStringIfNeeded
+    import arrow.internal.display.pluralizeStringIfNeeded
     elementString = pluralizeStringIfNeeded(numElements, "element");
 
     nullString = pluralizeStringIfNeeded(numNulls, "null value");
