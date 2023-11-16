@@ -44,12 +44,12 @@ jobs:
           patchelf --replace-needed $SYMLINK_ARROW_LIB $REGULAR_ARROW_LIB libarrowproxy.so
           popd
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-matlab-ubuntu.tar.gz arrow/matlab/install/arrow_matlab
+        run: tar -cvzf matlab-arrow-ubuntu.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: arrow-matlab-ubuntu.tar.gz
-          path: arrow-matlab-ubuntu.tar.gz
+          name: matlab-arrow-ubuntu.tar.gz
+          path: matlab-arrow-ubuntu.tar.gz
 
   macos:
     name: AMD64 macOS 11 MATLAB
@@ -74,12 +74,12 @@ jobs:
            install_name_tool -change @rpath/$SYMLINK_ARROW_LIB @rpath/$REGULAR_ARROW_LIB libarrowproxy.dylib
            popd
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-matlab-macos.tar.gz arrow/matlab/install/arrow_matlab
+        run: tar -cvzf matlab-arrow-macos.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: arrow-matlab-macos.tar.gz
-          path: arrow-matlab-macos.tar.gz
+          name: matlab-arrow-macos.tar.gz
+          path: matlab-arrow-macos.tar.gz
 
   windows:
     name: AMD64 Windows 2022 MATLAB
@@ -105,12 +105,12 @@ jobs:
           bash -c "arrow/ci/scripts/matlab_build.sh $(pwd)/arrow"
       - name: Compress into single artifact to keep directory structure
         shell: bash
-        run: tar -cvzf arrow-matlab-windows.tar.gz arrow/matlab/install/arrow_matlab
+        run: tar -cvzf matlab-arrow-windows.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: arrow-matlab-windows.tar.gz
-          path: arrow-matlab-windows.tar.gz
+          name: matlab-arrow-windows.tar.gz
+          path: matlab-arrow-windows.tar.gz
 
   package-mltbx:
     name: Package MATLAB Toolbox (MLTBX) Files
@@ -128,9 +128,9 @@ jobs:
       - name: Decompress Artifacts
         run: |
           mv artifacts-downloaded/*/*.tar.gz .
-          tar -xzvf arrow-matlab-ubuntu.tar.gz
-          tar -xzvf arrow-matlab-macos.tar.gz
-          tar -xzvf arrow-matlab-windows.tar.gz
+          tar -xzvf matlab-arrow-ubuntu.tar.gz
+          tar -xzvf matlab-arrow-macos.tar.gz
+          tar -xzvf matlab-arrow-windows.tar.gz
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v1
         with:
