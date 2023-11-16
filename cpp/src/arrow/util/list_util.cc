@@ -136,7 +136,7 @@ int64_t MaxViewEnd(const ArraySpan& input) {
 template <typename offset_type>
 std::pair<int64_t, int64_t> RangeOfValuesUsedByListView(const ArraySpan& input) {
   DCHECK(is_list_view(*input.type));
-  if (input.length == 0 || input.GetNullCount() == input.length) {
+  if (input.length == 0 || input.null_count == input.length) {
     return {0, 0};
   }
   const auto min_offset = MinViewOffset<offset_type>(input);
