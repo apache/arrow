@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/dlpack.h"
+
 #include "arrow/array/array_base.h"
 #include "arrow/dlpack_structure.h"
 #include "arrow/type.h"
