@@ -108,6 +108,10 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
   /// slots or an invalid [Large]ListView array will be generated because there
   /// aren't enough elements in the values builder to fill the list slots.
   ///
+  /// If you're building a [Large]List and don't need to be compatible
+  /// with [Large]ListView, then `BaseListBuilder::Append(bool is_valid)`
+  /// is a simpler API.
+  ///
   /// \pre if is_valid is false, list_length MUST be 0
   /// \param is_valid Whether the new list slot is valid
   /// \param list_length The number of elements in the list
