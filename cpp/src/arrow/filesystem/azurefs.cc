@@ -463,12 +463,33 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
+Status CreateEmptyBlockBlob(
+    std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client) {
+  std::string s = "";
+  try {
+    block_blob_client->UploadFrom(
+        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
+  } catch (const Azure::Storage::StorageException& exception) {
+    return internal::ExceptionToStatus(
+        "UploadFrom failed for '" + block_blob_client->GetUrl() +
+            "' with an unexpected Azure error. There is new existing blob at this "
+            "path "
+            "so ObjectAppendStream must create a new empty block blob.",
+        exception);
+  }
+  return Status::OK();
+}
+
 class ObjectAppendStream final : public io::OutputStream {
  public:
-  ObjectAppendStream(std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
-                     const io::IOContext& io_context, const AzurePath& path,
-                     const std::shared_ptr<const KeyValueMetadata>& metadata)
-      : block_blob_client_(std::move(block_blob_client)), io_context_(io_context), path_(path) {}
+  ObjectAppendStream(
+      std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
+      const io::IOContext& io_context, const AzurePath& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata, int64_t size = kNoSize)
+      : block_blob_client_(std::move(block_blob_client)),
+        io_context_(io_context),
+        path_(path),
+        content_length_(size) {}
 
   ~ObjectAppendStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -477,7 +498,6 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   Status Init() {
-    closed_ = false;
     if (content_length_ != kNoSize) {
       DCHECK_GE(content_length_, 0);
       return Status::OK();
@@ -488,30 +508,22 @@ class ObjectAppendStream final : public io::OutputStream {
       content_length_ = properties.Value.BlobSize;
       pos_ = content_length_;
     } catch (const Azure::Storage::StorageException& exception) {
-      // new file
-
-      std::string s = "";
-      try {
-        block_blob_client_->UploadFrom(
-            const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
-      } catch (const Azure::Storage::StorageException& exception) {
-        return Status::IOError(exception.RawResponse->GetReasonPhrase());
+      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+        RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client_));
+      } else {
+        return internal::ExceptionToStatus(
+            "GetProperties failed for '" + block_blob_client_->GetUrl() +
+                "' with an unexpected Azure error. Can not initialise an "
+                "ObjectAppendStream without knowing whether a file already exists at "
+                "this path.",
+            exception);
       }
       content_length_ = 0;
     }
     return Status::OK();
   }
 
-  Status Abort() override {
-    if (closed_) {
-      return Status::OK();
-    }
-    block_blob_client_ = nullptr;
-    closed_ = true;
-    return Status::OK();
-  }
-
-  // OutputStream interface
+  Status Abort() override { return Close(); }
 
   Status Close() override {
     if (closed_) {
@@ -524,10 +536,15 @@ class ObjectAppendStream final : public io::OutputStream {
 
   bool closed() const override { return closed_; }
 
-  Result<int64_t> Tell() const override {
+  Status CheckClosed(const char* action) const {
     if (closed_) {
-      return Status::Invalid("Operation on closed stream");
+      return Status::Invalid("Cannot ", action, " on closed stream.");
     }
+    return Status::OK();
+  }
+
+  Result<int64_t> Tell() const override {
+    RETURN_NOT_OK(CheckClosed("tell"));
     return pos_;
   }
 
@@ -541,9 +558,7 @@ class ObjectAppendStream final : public io::OutputStream {
 
   Status DoAppend(const void* data, int64_t nbytes,
                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
-    if (closed_) {
-      return Status::Invalid("Operation on closed stream");
-    }
+    RETURN_NOT_OK(CheckClosed("append"));
     try {
       auto append_data = static_cast<uint8_t*>((void*)data);
       auto res = block_blob_client_->GetBlockList().Value;
@@ -578,9 +593,7 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   Status Flush() override {
-    if (closed_) {
-      return Status::Invalid("Operation on closed stream");
-    }
+    RETURN_NOT_OK(CheckClosed("flush"));
     try {
       auto res = block_blob_client_->GetBlockList().Value;
       std::vector<std::string> block_ids;
@@ -599,7 +612,7 @@ class ObjectAppendStream final : public io::OutputStream {
   const io::IOContext io_context_;
   const AzurePath path_;
 
-  bool closed_ = true;
+  bool closed_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
 };
@@ -882,8 +895,8 @@ class AzureFileSystem::Impl {
         blob_service_client_->GetBlobContainerClient(path.container)
             .GetBlockBlobClient(path.path_to_file));
 
-    auto ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(), path,
-                                                    metadata);
+    auto ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
+                                                    path, metadata);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
