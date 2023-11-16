@@ -670,28 +670,17 @@ void ShuffleListViewDataInPlace(SeedType seed, ArrayData* data) {
 /// The sizes buffer is an input of this function, but when force_empty_nulls is true,
 /// some values on the sizes buffer can be set to 0.
 ///
-/// When sparsity is 0.0, the list-view spans are perfectly packed one after the
-/// other. If sparsity is greater than 0.0, the list-view spans are set apart
-/// from each other in proportion to the sparsity value and size of each
-/// list-view. A negative sparsity means each list-view shares a fraction of the
-/// values used by the previous list-view.
-///
-/// For instance, a sparsity of -1.0 means the values array will only need enough values
-/// for the largest list-view with all the other list-views spanning some of these same
-/// values.
-///
 /// \param[in] seed The seed for the random number generator
 /// \param[in,out] mutable_sizes_array The array of sizes to use
 /// \param[in] force_empty_nulls Whether to force null list-view sizes to be 0
 /// \param[in] zero_undefined_offsets Whether to zero the offsets of list-views that have
 /// 0 set as the size
-/// \param[in] sparsity The sparsity of the generated list-view offsets
 /// \param[out] out_max_view_end The maximum value of the end of a list-view
 template <typename OffsetArrayType, typename offset_type>
 std::shared_ptr<Array> ViewOffsetsFromLengthsArray(
     SeedType seed, OffsetArrayType& mutable_sizes_array, bool force_empty_nulls,
-    bool zero_undefined_offsets, double sparsity, int64_t* out_max_view_end,
-    int64_t alignment, MemoryPool* memory_pool) {
+    bool zero_undefined_offsets, int64_t* out_max_view_end, int64_t alignment,
+    MemoryPool* memory_pool) {
   using TypeClass = typename OffsetArrayType::TypeClass;
 
   auto* sizes = mutable_sizes_array.data()->template GetMutableValues<offset_type>(1);
@@ -702,10 +691,9 @@ std::shared_ptr<Array> ViewOffsetsFromLengthsArray(
                                alignment, memory_pool);
   auto offsets = buffers[1]->mutable_data_as<offset_type>();
 
-  double offset_base = 0.0;
+  offset_type offset = 0;
   offset_type max_view_end = 0;
   for (int64_t i = 0; i < mutable_sizes_array.length(); ++i) {
-    const auto offset = static_cast<offset_type>(std::llround(offset_base));
     if (mutable_sizes_array.IsNull(i)) {
       if (force_empty_nulls) {
         sizes[i] = 0;
@@ -717,7 +705,7 @@ std::shared_ptr<Array> ViewOffsetsFromLengthsArray(
       } else {
         offsets[i] = offset;
         DCHECK_LT(offset, std::numeric_limits<offset_type>::max() - sizes[i]);
-        offset_base = std::max(0.0, offset_base + (sparsity * sizes[i]));
+        offset += sizes[i];
       }
     }
     max_view_end = std::max(max_view_end, offsets[i] + sizes[i]);
@@ -748,15 +736,14 @@ Result<std::shared_ptr<Array>> ArrayOfListView(RAG& self, const Field& field,
       GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
   const auto zero_undefined_offsets =
       GetMetadata<bool>(field.metadata().get(), "zero_undefined_offsets", false);
-  const auto sparsity = GetMetadata<double>(field.metadata().get(), "sparsity", 0.0);
   const auto lengths = internal::checked_pointer_cast<OffsetArrayType>(
       self.RAG::template Numeric<OffsetArrowType, offset_type>(
           length, min_length, max_length, null_probability));
 
   int64_t max_view_end = 0;
   const auto offsets = ViewOffsetsFromLengthsArray<OffsetArrayType, offset_type>(
-      self.seed(), *lengths, force_empty_nulls, zero_undefined_offsets, sparsity,
-      &max_view_end, alignment, memory_pool);
+      self.seed(), *lengths, force_empty_nulls, zero_undefined_offsets, &max_view_end,
+      alignment, memory_pool);
 
   const auto values = self.RAG::ArrayOf(
       *internal::checked_pointer_cast<TypeClass>(field.type())->value_field(),
