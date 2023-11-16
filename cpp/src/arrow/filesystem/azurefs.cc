@@ -148,6 +148,16 @@ Status ValidateFilePath(const AzurePath& path) {
   return Status::OK();
 }
 
+Status StatusFromErrorResponse(const std::string& url,
+                               Azure::Core::Http::RawResponse* raw_response,
+                               const std::string& context) {
+  const auto& body = raw_response->GetBody();
+  std::string_view body_text(reinterpret_cast<const char*>(body.data()), body.size());
+  return Status::IOError(context, ": ", url, ": ", raw_response->GetReasonPhrase(), " (",
+                         static_cast<int>(raw_response->GetStatusCode()),
+                         "): ", body_text);
+}
+
 template <typename ArrowType>
 std::string FormatValue(typename TypeTraits<ArrowType>::CType value) {
   struct StringAppender {
@@ -625,19 +635,14 @@ class AzureFileSystem::Impl {
         if (response.Value.Created) {
           return Status::OK();
         } else {
-          const auto& body = response.RawResponse->GetBody();
-          std::string_view body_text(reinterpret_cast<const char*>(body.data()),
-                                     body.size());
-          return Status::IOError("Failed to create a container: ", path.container, " (",
-                                 container_client.GetUrl(),
-                                 "): ", response.RawResponse->GetReasonPhrase(), " (",
-                                 static_cast<int>(response.RawResponse->GetStatusCode()),
-                                 "): ", body_text);
+          return StatusFromErrorResponse(
+              container_client.GetUrl(), response.RawResponse.get(),
+              "Failed to create a container: " + path.container);
         }
       } catch (const Azure::Storage::StorageException& exception) {
         return internal::ExceptionToStatus(
-            "Failed to create a container: " + path.container + " (" +
-                container_client.GetUrl() + ")",
+            "Failed to create a container: " + path.container + ": " +
+                container_client.GetUrl(),
             exception);
       }
     }
@@ -645,9 +650,14 @@ class AzureFileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
                           hierarchical_namespace_.Enabled(path.container));
     if (!hierarchical_namespace_enabled) {
-      return Status::NotImplemented(
-          "Cannot create a directory without hierarchical namespace: ", path.full_path);
+      // We can't create a directory without hierarchical namespace
+      // support. There is only "virtual directory" without
+      // hierarchical namespace support. And a "virtual directory" is
+      // (virtually) created a blob with ".../.../blob" blob name
+      // automatically.
+      return Status::OK();
     }
+
     auto directory_client = datalake_service_client_->GetFileSystemClient(path.container)
                                 .GetDirectoryClient(path.path_to_file);
     try {
@@ -655,19 +665,14 @@ class AzureFileSystem::Impl {
       if (response.Value.Created) {
         return Status::OK();
       } else {
-        const auto& body = response.RawResponse->GetBody();
-        std::string_view body_text(reinterpret_cast<const char*>(body.data()),
-                                   body.size());
-        return Status::IOError("Failed to create a directory: ", path.path_to_file, " (",
-                               directory_client.GetUrl(),
-                               "): ", response.RawResponse->GetReasonPhrase(), " (",
-                               static_cast<int>(response.RawResponse->GetStatusCode()),
-                               "): ", body_text);
+        return StatusFromErrorResponse(
+            directory_client.GetUrl(), response.RawResponse.get(),
+            "Failed to create a directory: " + path.path_to_file);
       }
     } catch (const Azure::Storage::StorageException& exception) {
       return internal::ExceptionToStatus(
-          "Failed to create a directory: " + path.path_to_file + " (" +
-              directory_client.GetUrl() + ")",
+          "Failed to create a directory: " + path.path_to_file + ": " +
+              directory_client.GetUrl(),
           exception);
     }
   }
@@ -690,8 +695,12 @@ class AzureFileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
                           hierarchical_namespace_.Enabled(path.container));
     if (!hierarchical_namespace_enabled) {
-      return Status::NotImplemented(
-          "Cannot create a directory without hierarchical namespace: ", path.full_path);
+      // We can't create a directory without hierarchical namespace
+      // support. There is only "virtual directory" without
+      // hierarchical namespace support. And a "virtual directory" is
+      // (virtually) created a blob with ".../.../blob" blob name
+      // automatically.
+      return Status::OK();
     }
 
     std::string current_path;

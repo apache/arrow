@@ -411,10 +411,12 @@ TEST_F(AzuriteFileSystemTest, CreateDirSuccessContainerOnly) {
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirFailureContainerAndDirectory) {
+TEST_F(AzuriteFileSystemTest, CreateDirSuccessContainerAndDirectory) {
   const auto path = PreexistingContainerPath() + RandomDirectoryName();
-  // Can't create a directory without hierarchical namespace support.
-  ASSERT_RAISES(NotImplemented, fs_->CreateDir(path, false));
+  ASSERT_OK(fs_->CreateDir(path, false));
+  // There is only virtual directory without hierarchical namespace
+  // support. So the CreateDir() does nothing.
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
 }
 
 TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirSuccessContainerAndDirectory) {
@@ -438,9 +440,10 @@ TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirRecursiveSuccessContai
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureContainerOnly) {
+TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessContainerOnly) {
   auto container_name = RandomContainerName();
-  ASSERT_RAISES(NotImplemented, fs_->CreateDir(container_name, true));
+  ASSERT_OK(fs_->CreateDir(container_name, true));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
 }
 
 TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirRecursiveSuccessDirectoryOnly) {
@@ -451,10 +454,14 @@ TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirRecursiveSuccessDirect
   arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureDirectoryOnly) {
+TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessDirectoryOnly) {
   const auto parent = PreexistingContainerPath() + RandomDirectoryName();
   const auto path = internal::ConcatAbstractPath(parent, "new-sub");
-  ASSERT_RAISES(NotImplemented, fs_->CreateDir(path, true));
+  ASSERT_OK(fs_->CreateDir(path, true));
+  // There is only virtual directory without hierarchical namespace
+  // support. So the CreateDir() does nothing.
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
 }
 
 TEST_F(AzureHierarchicalNamespaceFileSystemTest,
@@ -468,11 +475,16 @@ TEST_F(AzureHierarchicalNamespaceFileSystemTest,
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureContainerAndDirectory) {
+TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessContainerAndDirectory) {
   auto container_name = RandomContainerName();
   const auto parent = internal::ConcatAbstractPath(container_name, RandomDirectoryName());
   const auto path = internal::ConcatAbstractPath(parent, "new-sub");
-  ASSERT_RAISES(NotImplemented, fs_->CreateDir(path, true));
+  ASSERT_OK(fs_->CreateDir(path, true));
+  // There is only virtual directory without hierarchical namespace
+  // support. So the CreateDir() does nothing.
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
 }
 
 TEST_F(AzuriteFileSystemTest, CreateDirUri) {
