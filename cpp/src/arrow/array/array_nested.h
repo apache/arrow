@@ -161,6 +161,10 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
 
+  /// \brief Build a ListArray from a ListViewArray
+  static Result<std::shared_ptr<ListArray>> FromListView(const ListViewArray& source,
+                                                         MemoryPool* pool);
+
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
   /// Note that it's different from `values()` in that it takes into
@@ -224,6 +228,10 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
       MemoryPool* pool = default_memory_pool(),
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
+
+  /// \brief Build a LargeListArray from a LargeListViewArray
+  static Result<std::shared_ptr<LargeListArray>> FromListView(
+      const LargeListViewArray& source, MemoryPool* pool);
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
@@ -316,6 +324,10 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
 
+  /// \brief Build a ListViewArray from a ListArray
+  static Result<std::shared_ptr<ListViewArray>> FromList(const ListArray& list_array,
+                                                         MemoryPool* pool);
+
   /// \brief Return an Array that is a concatenation of the list-views in this array.
   ///
   /// Note that it's different from `values()` in that it takes into
@@ -399,6 +411,10 @@ class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewTy
       const Array& values, MemoryPool* pool = default_memory_pool(),
       std::shared_ptr<Buffer> null_bitmap = NULLPTR,
       int64_t null_count = kUnknownNullCount);
+
+  /// \brief Build a LargeListViewArray from a LargeListArray
+  static Result<std::shared_ptr<LargeListViewArray>> FromList(
+      const LargeListArray& list_array, MemoryPool* pool);
 
   /// \brief Return an Array that is a concatenation of the large list-views in this
   /// array.

@@ -49,22 +49,6 @@ ARROW_EXPORT Result<std::pair<int64_t, int64_t>> RangeOfValuesUsed(
 /// \return The sum of all list or list-view sizes
 ARROW_EXPORT Result<int64_t> SumOfLogicalListSizes(const ArraySpan& input);
 
-/// \brief Build a ListViewArray from a ListArray
-ARROW_EXPORT Result<std::shared_ptr<ListViewArray>> ListViewFromList(
-    const ListArray& source, MemoryPool* pool);
-
-/// \brief Build a LargeListViewArray from a LargeListArray
-ARROW_EXPORT Result<std::shared_ptr<LargeListViewArray>> ListViewFromList(
-    const LargeListArray& source, MemoryPool* pool);
-
-/// \brief Build a ListArray from a ListViewArray
-ARROW_EXPORT Result<std::shared_ptr<ListArray>> ListFromListView(
-    const ListViewArray& source, MemoryPool* pool);
-
-/// \brief Build a LargeListArray from a LargeListViewArray
-ARROW_EXPORT Result<std::shared_ptr<LargeListArray>> ListFromListView(
-    const LargeListViewArray& source, MemoryPool* pool);
-
 }  // namespace internal
 
 }  // namespace list_util

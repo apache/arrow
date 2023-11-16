@@ -169,6 +169,7 @@ class TestListConversions : public ::testing::Test {
 
   template <typename DestListViewType, typename SrcListType>
   void DoTestListViewFromList() {
+    using DestListViewArrayClass = typename TypeTraits<DestListViewType>::ArrayType;
     using SrcListArrayClass = typename TypeTraits<SrcListType>::ArrayType;
     auto list_type = std::make_shared<SrcListType>(int32());
     auto list_view_type = std::make_shared<DestListViewType>(int32());
@@ -183,13 +184,13 @@ class TestListConversions : public ::testing::Test {
     auto list_wo_nulls = ArrayFromJSON(list_type, "[[1, 2], [], [100000]]");
 
     ASSERT_OK_AND_ASSIGN(
-        auto result, list_util::internal::ListViewFromList(
+        auto result, DestListViewArrayClass::FromList(
                          *checked_pointer_cast<SrcListArrayClass>(list_w_nulls), pool_));
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*expected_list_view_w_nulls, *result, /*verbose=*/true);
 
     ASSERT_OK_AND_ASSIGN(
-        result, list_util::internal::ListViewFromList(
+        result, DestListViewArrayClass::FromList(
                     *checked_pointer_cast<SrcListArrayClass>(list_wo_nulls), pool_));
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*expected_list_view_wo_nulls, *result, /*verbose=*/true);
@@ -198,6 +199,7 @@ class TestListConversions : public ::testing::Test {
   template <typename DestListType, typename SrcListViewType>
   void DoTestListFromListView() {
     using SrcListViewArrayClass = typename TypeTraits<SrcListViewType>::ArrayType;
+    using DestListArrayClass = typename TypeTraits<DestListType>::ArrayType;
     auto list_view_type = std::make_shared<SrcListViewType>(int32());
     auto list_type = std::make_shared<DestListType>(int32());
 
@@ -210,14 +212,14 @@ class TestListConversions : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(
         auto result,
-        list_util::internal::ListFromListView(
+        DestListArrayClass::FromListView(
             *checked_pointer_cast<SrcListViewArrayClass>(list_view_w_nulls), pool_));
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*expected_list_w_nulls, *result, /*verbose=*/true);
 
     ASSERT_OK_AND_ASSIGN(
         result,
-        list_util::internal::ListFromListView(
+        DestListArrayClass::FromListView(
             *checked_pointer_cast<SrcListViewArrayClass>(list_view_wo_nulls), pool_));
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*expected_list_wo_nulls, *result, /*verbose=*/true);
