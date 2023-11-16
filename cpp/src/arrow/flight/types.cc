@@ -526,9 +526,6 @@ static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionVa
     return false;
   }
   for (const auto& [k, v] : a) {
-    if (!b.count(k)) {
-      return false;
-    }
     if (const auto it = b.find(k); it == b.end()) {
       return false;
     } else {
