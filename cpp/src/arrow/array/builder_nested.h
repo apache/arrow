@@ -305,6 +305,9 @@ class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
     // consistent with the offsets to rule out the possibility that the caller
     // is passing sizes that could work if building a list-view, but don't work
     // on building a list that requires offsets to be non-decreasing.
+    // CAUTION: the last size element (`sizes[length - 1]`) is not
+    // validated and could be inconsistent with the offsets given in a
+    // subsequent call to AppendValues.
     if (sizes) {
       for (int64_t i = 0; i < length - 1; ++i) {
         if (ARROW_PREDICT_FALSE(offsets[i] != offsets[i + 1] - sizes[i])) {
