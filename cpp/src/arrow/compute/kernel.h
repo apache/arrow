@@ -37,6 +37,11 @@
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
+// MacOSX defines PREALLOCATE as a preprocessor define in the header sys/vnode.h
+// No other BSD seems to do so.  The name is used as an identifier in MemAllocation enum
+#if defined(__APPLE__) and defined(PREALLOCATE)
+# undef PREALLOCATE 
+#endif  
 
 namespace arrow {
 namespace compute {
