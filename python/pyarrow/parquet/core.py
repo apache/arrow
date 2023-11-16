@@ -767,13 +767,16 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
     Other features such as compression algorithms or the new serialized
     data page format must be enabled separately (see 'compression' and
     'data_page_version').
-use_dictionary : bool or list
+use_dictionary : bool or list, default True
     Specify if we should use dictionary encoding in general or only for
     some columns.
-compression : str or dict
+    When encoding the column, if the dictionary size is too large, the
+    column will fallback to ``PLAIN`` encoding. Specially, ``BOOLEAN`` type
+    doesn't support dictionary encoding.
+compression : str or dict, default 'snappy'
     Specify the compression codec, either on a general basis or per-column.
     Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
-write_statistics : bool or list
+write_statistics : bool or list, default True
     Specify if we should write statistics in general (default is True) or only
     for some columns.
 use_deprecated_int96_timestamps : bool, default None
@@ -821,7 +824,10 @@ use_byte_stream_split : bool or list, default False
     and should be combined with a compression codec.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
-    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT'}.
+    Can only be used when when ``use_dictionary`` is set to False, and
+    cannot be used in combination with ``use_byte_stream_split``.
+    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT',
+    'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'}.
     Certain encodings are only compatible with certain data types.
     Please refer to the encodings section of `Reading and writing Parquet
     files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
@@ -832,7 +838,7 @@ data_page_version : {"1.0", "2.0"}, default "1.0"
 use_compliant_nested_type : bool, default True
     Whether to write compliant Parquet nested type (lists) as defined
     `here <https://github.com/apache/parquet-format/blob/master/
-    LogicalTypes.md#nested-types>`_, defaults to ``False``.
+    LogicalTypes.md#nested-types>`_, defaults to ``True``.
     For ``use_compliant_nested_type=True``, this will write into a list
     with 3-level structure where the middle level, named ``list``,
     is a repeated group with a single field named ``element``::
@@ -1742,11 +1748,12 @@ use_legacy_dataset : bool, default False
     different partitioning schemes, etc.
 pre_buffer : bool, default True
     Coalesce and issue file reads in parallel to improve performance on
-    high-latency filesystems (e.g. S3). If True, Arrow will use a
+    high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
     background I/O thread pool. This option is only supported for
     use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
-    results.
+    results. Set to False if you want to prioritize minimal memory usage
+    over maximum speed.
 coerce_int96_timestamp_unit : str, default None
     Cast timestamps that are stored in INT96 format to a particular resolution
     (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96

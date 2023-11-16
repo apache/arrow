@@ -28,6 +28,7 @@ import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -137,7 +138,8 @@ public class TestFlightService {
       @Override
       public FlightInfo getFlightInfo(CallContext context,
               FlightDescriptor descriptor) {
-        return new FlightInfo(null, descriptor, Collections.emptyList(), 0, 0);
+        return new FlightInfo(null, descriptor, Collections.emptyList(),
+                0, 0, false, IpcOption.DEFAULT, "foo".getBytes());
       }
     };
 
@@ -147,6 +149,7 @@ public class TestFlightService {
       FlightInfo flightInfo = client.getInfo(FlightDescriptor.path("test"));
       Assertions.assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
       Assertions.assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
+      Assertions.assertArrayEquals(flightInfo.getAppMetadata(), "foo".getBytes());
 
       Exception e = Assertions.assertThrows(
           FlightRuntimeException.class,

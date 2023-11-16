@@ -17,13 +17,19 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+
+import java.util.Arrays;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.holders.NullableLargeVarBinaryHolder;
+import org.apache.arrow.vector.util.ReusableByteArray;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,21 +60,20 @@ public class TestLargeVarBinaryVector {
       binHolder.isSet = 1;
 
       String str = "hello";
-      ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      try (ArrowBuf buf = allocator.buffer(16)) {
+        buf.setBytes(0, str.getBytes());
 
-      binHolder.start = 0;
-      binHolder.end = str.length();
-      binHolder.buffer = buf;
+        binHolder.start = 0;
+        binHolder.end = str.length();
+        binHolder.buffer = buf;
 
-      vector.set(0, nullHolder);
-      vector.set(1, binHolder);
+        vector.set(0, nullHolder);
+        vector.set(1, binHolder);
 
-      // verify results
-      assertTrue(vector.isNull(0));
-      assertEquals(str, new String(vector.get(1)));
-
-      buf.close();
+        // verify results
+        assertTrue(vector.isNull(0));
+        assertEquals(str, new String(vector.get(1)));
+      }
     }
   }
 
@@ -84,21 +89,62 @@ public class TestLargeVarBinaryVector {
       binHolder.isSet = 1;
 
       String str = "hello world";
-      ArrowBuf buf = allocator.buffer(16);
-      buf.setBytes(0, str.getBytes());
+      try (ArrowBuf buf = allocator.buffer(16)) {
+        buf.setBytes(0, str.getBytes());
 
-      binHolder.start = 0;
-      binHolder.end = str.length();
-      binHolder.buffer = buf;
+        binHolder.start = 0;
+        binHolder.end = str.length();
+        binHolder.buffer = buf;
 
-      vector.setSafe(0, binHolder);
-      vector.setSafe(1, nullHolder);
+        vector.setSafe(0, binHolder);
+        vector.setSafe(1, nullHolder);
+
+        // verify results
+        assertEquals(str, new String(vector.get(0)));
+        assertTrue(vector.isNull(1));
+      }
+    }
+  }
+
+  @Test
+  public void testGetBytesRepeatedly() {
+    try (LargeVarBinaryVector vector = new LargeVarBinaryVector("", allocator)) {
+      vector.allocateNew(5, 1);
+
+      final String str = "hello world";
+      final String str2 = "foo";
+      vector.setSafe(0, str.getBytes());
+      vector.setSafe(1, str2.getBytes());
 
       // verify results
-      assertEquals(str, new String(vector.get(0)));
-      assertTrue(vector.isNull(1));
+      ReusableByteArray reusableByteArray = new ReusableByteArray();
+      vector.read(0, reusableByteArray);
+      byte[] oldBuffer = reusableByteArray.getBuffer();
+      assertArrayEquals(str.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+          0, (int) reusableByteArray.getLength()));
 
-      buf.close();
+      vector.read(1, reusableByteArray);
+      assertArrayEquals(str2.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+          0, (int) reusableByteArray.getLength()));
+
+      // There should not have been any reallocation since the newer value is smaller in length.
+      assertSame(oldBuffer, reusableByteArray.getBuffer());
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
+        LargeVarBinaryVector v1 = new LargeVarBinaryVector("v1", childAllocator1)) {
+      v1.allocateNew();
+      v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+      v1.setValueCount(4001);
+
+      TransferPair tp = v1.getTransferPair(v1.getField(), allocator);
+      tp.transfer();
+      LargeVarBinaryVector v2 = (LargeVarBinaryVector) tp.getTo();
+      assertSame(v1.getField(), v2.getField());
+      v2.clear();
     }
   }
 }

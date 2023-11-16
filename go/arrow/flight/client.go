@@ -26,7 +26,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -312,6 +312,11 @@ func (c *client) AuthenticateBasicToken(ctx context.Context, username, password 
 		return ctx, err
 	}
 
+	err = stream.CloseSend()
+	if err != nil {
+		return ctx, err
+	}
+
 	header, err := stream.Header()
 	if err != nil {
 		return ctx, err
@@ -319,11 +324,6 @@ func (c *client) AuthenticateBasicToken(ctx context.Context, username, password 
 
 	_, err = stream.Recv()
 	if err != nil && err != io.EOF {
-		return ctx, err
-	}
-
-	err = stream.CloseSend()
-	if err != nil {
 		return ctx, err
 	}
 

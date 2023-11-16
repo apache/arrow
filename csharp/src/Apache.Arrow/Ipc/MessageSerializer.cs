@@ -177,6 +177,9 @@ namespace Apache.Arrow.Ipc
                     Types.TimeUnit unit = timestampTypeMetadata.Unit.ToArrow();
                     string timezone = timestampTypeMetadata.Timezone;
                     return new Types.TimestampType(unit, timezone);
+                case Flatbuf.Type.Duration:
+                    Flatbuf.Duration durationMeta = field.Type<Flatbuf.Duration>().Value;
+                    return DurationType.FromTimeUnit(durationMeta.Unit.ToArrow());
                 case Flatbuf.Type.Interval:
                     Flatbuf.Interval intervalMetadata = field.Type<Flatbuf.Interval>().Value;
                     return Types.IntervalType.FromIntervalUnit(intervalMetadata.Unit.ToArrow());
@@ -207,6 +210,13 @@ namespace Apache.Arrow.Ipc
                     Debug.Assert(childFields != null);
                     Flatbuf.Union unionMetadata = field.Type<Flatbuf.Union>().Value;
                     return new Types.UnionType(childFields, unionMetadata.GetTypeIdsArray(), unionMetadata.Mode.ToArrow());
+                case Flatbuf.Type.Map:
+                    if (childFields == null || childFields.Length != 1)
+                    {
+                        throw new InvalidDataException($"Map type must have exactly one struct child.");
+                    }
+                    Flatbuf.Map meta = field.Type<Flatbuf.Map>().Value;
+                    return new Types.MapType(childFields[0], meta.KeysSorted);
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

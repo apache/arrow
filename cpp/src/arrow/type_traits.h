@@ -342,6 +342,16 @@ struct TypeTraits<BinaryType> {
 };
 
 template <>
+struct TypeTraits<BinaryViewType> {
+  using ArrayType = BinaryViewArray;
+  using BuilderType = BinaryViewBuilder;
+  using ScalarType = BinaryViewScalar;
+  using CType = BinaryViewType::c_type;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return binary_view(); }
+};
+
+template <>
 struct TypeTraits<LargeBinaryType> {
   using ArrayType = LargeBinaryArray;
   using BuilderType = LargeBinaryBuilder;
@@ -372,6 +382,16 @@ struct TypeTraits<StringType> {
 };
 
 template <>
+struct TypeTraits<StringViewType> {
+  using ArrayType = StringViewArray;
+  using BuilderType = StringViewBuilder;
+  using ScalarType = StringViewScalar;
+  using CType = BinaryViewType::c_type;
+  constexpr static bool is_parameter_free = true;
+  static inline std::shared_ptr<DataType> type_singleton() { return utf8_view(); }
+};
+
+template <>
 struct TypeTraits<LargeStringType> {
   using ArrayType = LargeStringArray;
   using BuilderType = LargeStringBuilder;
@@ -397,6 +417,11 @@ struct TypeTraits<RunEndEncodedType> {
 template <>
 struct CTypeTraits<std::string> : public TypeTraits<StringType> {
   using ArrowType = StringType;
+};
+
+template <>
+struct CTypeTraits<BinaryViewType::c_type> : public TypeTraits<BinaryViewType> {
+  using ArrowType = BinaryViewType;
 };
 
 template <>
@@ -615,6 +640,24 @@ template <typename T, typename R = void>
 using enable_if_string = enable_if_t<is_string_type<T>::value, R>;
 
 template <typename T>
+using is_binary_view_like_type = std::is_base_of<BinaryViewType, T>;
+
+template <typename T>
+using is_binary_view_type = std::is_same<BinaryViewType, T>;
+
+template <typename T>
+using is_string_view_type = std::is_same<StringViewType, T>;
+
+template <typename T, typename R = void>
+using enable_if_binary_view_like = enable_if_t<is_binary_view_like_type<T>::value, R>;
+
+template <typename T, typename R = void>
+using enable_if_binary_view = enable_if_t<is_binary_view_type<T>::value, R>;
+
+template <typename T, typename R = void>
+using enable_if_string_view = enable_if_t<is_string_view_type<T>::value, R>;
+
+template <typename T>
 using is_string_like_type =
     std::integral_constant<bool, is_base_binary_type<T>::value && T::is_utf8>;
 
@@ -801,8 +844,10 @@ using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
 template <typename T>
 using has_string_view =
     std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
+                                     std::is_same<BinaryViewType, T>::value ||
                                      std::is_same<LargeBinaryType, T>::value ||
                                      std::is_same<StringType, T>::value ||
+                                     std::is_same<StringViewType, T>::value ||
                                      std::is_same<LargeStringType, T>::value ||
                                      std::is_same<FixedSizeBinaryType, T>::value>;
 
@@ -1132,6 +1177,36 @@ constexpr bool is_temporal(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a time type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_time(Type::type type_id) {
+  switch (type_id) {
+    case Type::TIME32:
+    case Type::TIME64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a date type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_date(Type::type type_id) {
+  switch (type_id) {
+    case Type::DATE32:
+    case Type::DATE64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for an interval type
 ///
 /// \param[in] type_id the type-id to check
@@ -1188,6 +1263,22 @@ constexpr bool is_var_length_list(Type::type type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
     case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a list type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a list type one
+constexpr bool is_list(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::FIXED_SIZE_LIST:
       return true;
     default:
       break;

@@ -119,11 +119,13 @@ namespace Apache.Arrow.IntegrationTest
                 "fixedsizebinary" => new FixedSizeBinaryType(type.ByteWidth),
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
+                "duration" => ToDurationArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
                 "list" => ToListArrowType(type, children),
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
                 "struct" => ToStructArrowType(type, children),
                 "union" => ToUnionArrowType(type, children),
+                "map" => ToMapArrowType(type, children),
                 "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
@@ -190,6 +192,18 @@ namespace Apache.Arrow.IntegrationTest
             };
         }
 
+        private static IArrowType ToDurationArrowType(JsonArrowType type)
+        {
+            return type.Unit switch
+            {
+                "SECOND" => DurationType.Second,
+                "MILLISECOND" => DurationType.Millisecond,
+                "MICROSECOND" => DurationType.Microsecond,
+                "NANOSECOND" => DurationType.Nanosecond,
+                _ => throw new NotSupportedException($"Time type not supported: {type.Unit}, {type.BitWidth}")
+            };
+        }
+
         private static IArrowType ToTimestampArrowType(JsonArrowType type)
         {
             return type.Unit switch
@@ -226,6 +240,11 @@ namespace Apache.Arrow.IntegrationTest
                 _ => throw new NotSupportedException($"Union mode not supported: {type.Mode}"),
             };
             return new UnionType(children, type.TypeIds, mode);
+        }
+
+        private static IArrowType ToMapArrowType(JsonArrowType type, Field[] children)
+        {
+            return new MapType(children[0], type.KeysSorted);
         }
     }
 
@@ -270,6 +289,9 @@ namespace Apache.Arrow.IntegrationTest
         // union fields
         public string Mode { get; set; }
         public int[] TypeIds { get; set; }
+
+        // map fields
+        public bool KeysSorted { get; set; }
 
         [JsonExtensionData]
         public Dictionary<string, JsonElement> ExtensionData { get; set; }
@@ -337,6 +359,7 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
+            IArrowTypeVisitor<DurationType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<BinaryType>,
@@ -345,6 +368,7 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
+            IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; set; }
@@ -386,6 +410,7 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(DoubleType type) => GenerateArray<double, DoubleArray>((v, n, c, nc, o) => new DoubleArray(v, n, c, nc, o));
             public void Visit(Time32Type type) => GenerateArray<int, Time32Array>((v, n, c, nc, o) => new Time32Array(type, v, n, c, nc, o));
             public void Visit(Time64Type type) => GenerateLongArray<long, Time64Array>((v, n, c, nc, o) => new Time64Array(type, v, n, c, nc, o), s => long.Parse(s));
+            public void Visit(DurationType type) => GenerateLongArray<long, DurationArray>((v, n, c, nc, o) => new DurationArray(type, v, n, c, nc, o), s => long.Parse(s));
 
             public void Visit(Decimal128Type type)
             {
@@ -614,6 +639,21 @@ namespace Apache.Arrow.IntegrationTest
                 int nullCount = 0;
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, buffers, children);
                 Array = UnionArray.Create(arrayData);
+            }
+
+            public void Visit(MapType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetOffsetBuffer();
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.KeyValueType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
+                Array = new MapArray(arrayData);
             }
 
             private ArrayData[] GetChildren(NestedType type)

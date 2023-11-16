@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

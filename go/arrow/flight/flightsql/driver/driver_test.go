@@ -33,13 +33,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/driver"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/example"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/driver"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/example"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 const defaultTableName = "drivertest"
@@ -810,6 +810,17 @@ func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flight
 
 	if s.PreparedStatementParameterSchema != nil && !s.PreparedStatementParameterSchema.Equal(r.Schema()) {
 		return fmt.Errorf("parameter schema: %w", arrow.ErrInvalid)
+	}
+
+	// GH-35328: it's rare, but this function can complete execution and return
+	// closing the reader *after* the schema is written but *before* the parameter batch
+	// is written (race condition based on goroutine scheduling). In that situation,
+	// the client call to Write the parameter record batch will return an io.EOF because
+	// this end of the connection will have closed before it attempted to send the batch.
+	// This created a flaky test situation that was difficult to reproduce (1-4 failures
+	// in 5000 runs). We can avoid this flakiness by simply *explicitly* draining the
+	// record batch messages from the reader before returning.
+	for r.Next() {
 	}
 
 	return nil

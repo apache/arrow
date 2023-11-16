@@ -22,9 +22,18 @@
 namespace gandiva {
 
 void ExportedFuncsRegistry::AddMappings(Engine* engine) {
-  for (auto entry : registered()) {
+  for (const auto& entry : *registered()) {
     entry->AddMappings(engine);
   }
+}
+
+const ExportedFuncsRegistry::list_type& ExportedFuncsRegistry::Registered() {
+  return *registered();
+}
+
+ExportedFuncsRegistry::list_type* ExportedFuncsRegistry::registered() {
+  static list_type registered_list;
+  return &registered_list;
 }
 
 }  // namespace gandiva

@@ -17,7 +17,52 @@
   under the License.
 -->
 
-# arrow 13.0.0.9000
+# arrow 14.0.0.9000
+
+# arrow 14.0.0
+
+## New features
+
+* When reading partitioned CSV datasets and supplying a schema to
+  `open_dataset()`, the partition variables are now included in the resulting
+  dataset (#37658).
+* New function `write_csv_dataset()` now wraps `write_dataset()` and mirrors
+  the syntax of `write_csv_arrow()` (@dgreiss, #36436).
+* `open_delim_dataset()` now accepts `quoted_na` argument to empty strings
+  to be parsed as NA values (#37828).
+* `schema()` can now be called on `data.frame` objects to retrieve their
+  inferred Arrow schema  (#37843).
+* CSVs with a comma or other character as decimal mark can now be read in
+  by the dataset reading functions and new function `read_csv2_arrow()` 
+  (#38002).
+
+## Minor improvements and fixes
+
+* Documentation for `CsvParseOptions` object creation now contains more
+  information about default values (@angela-li, #37909).
+* Fixed a code path which may have resulted in R code being called from a
+  non-R thread after a failed allocation (#37565).
+* Fixed a bug where large Parquet files could not be read from R connections
+  (#37274).
+* Bindings to stringr helpers (e.g., `fixed()`, `regex()` etc.) now allow
+  variables to be reliably used in their arguments (#36784).
+* Thrift string and container size limits can now be configured via newly
+  exposed `ParquetReaderProperties`, allowing users to work with Parquet files
+  with unusually large metadata (#36992).
+* Error messages resulting from use of `add_filename()` are improved
+  (@amoeba, #37372).
+
+## Installation
+
+* MacOS builds now use the same installation pathway as on Linux (@assignUser,
+  #37684).
+* A warning message is now issued on package load when running under emulation
+  on MacOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
+* R scripts that run during configuration and installation are now run
+  using the correct R interpreter (@meztez, #37225).
+* Failed libarrow builds now return more detailed output (@amoeba, #37727).
+* `create_package_with_all_dependencies()` now properly escapes paths on
+  Windows (#37226).
 
 # arrow 13.0.0.1
 

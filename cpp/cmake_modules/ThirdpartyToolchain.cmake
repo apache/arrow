@@ -65,7 +65,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     lz4
     nlohmann_json
     opentelemetry-cpp
-    ORC
+    orc
     re2
     Protobuf
     RapidJSON
@@ -92,6 +92,14 @@ endif()
 # upstream uses "re2" not "RE2" as package name.
 if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
+endif()
+
+# For backward compatibility. We use "ORC_SOURCE" if "orc_SOURCE"
+# isn't specified and "ORC_SOURCE" is specified.
+# We renamed "ORC" dependency name to "orc" in 15.0.0 because
+# upstream uses "orc" not "ORC" as package name.
+if("${orc_SOURCE}" STREQUAL "" AND NOT "${ORC_SOURCE}" STREQUAL "")
+  set(orc_SOURCE ${ORC_SOURCE})
 endif()
 
 # For backward compatibility. We use "RE2_ROOT" if "re2_ROOT"
@@ -193,7 +201,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_nlohmann_json()
   elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
     build_opentelemetry()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "orc")
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
@@ -222,18 +230,21 @@ macro(build_dependency DEPENDENCY_NAME)
   endif()
 endmacro()
 
-# Find modules are needed by the consumer in case of a static build, or if the
-# linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
-  set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
-  if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+function(provide_cmake_module MODULE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  set(module "${CMAKE_SOURCE_DIR}/cmake_modules/${MODULE_NAME}.cmake")
+  if(EXISTS "${module}")
+    message(STATUS "Providing CMake module for ${MODULE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
     )
-    install(FILES "${module_}"
+    install(FILES "${module}"
             DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
-  unset(module_)
-endmacro()
+endfunction()
+
+# Find modules are needed by the consumer in case of a static build, or if the
+# linkage is PUBLIC or INTERFACE.
+function(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  provide_cmake_module("Find${PACKAGE_NAME}" ${ARROW_CMAKE_PACKAGE_NAME})
+endfunction()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
@@ -921,11 +932,18 @@ set(EP_COMMON_TOOLCHAIN "-DCMAKE_C_COMPILER=${EP_C_COMPILER}"
                         "-DCMAKE_CXX_COMPILER=${EP_CXX_COMPILER}")
 
 if(CMAKE_AR)
-  list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_AR=${CMAKE_AR})
+  # Ensure using absolute path.
+  find_program(EP_CMAKE_AR ${CMAKE_AR} REQUIRED)
+  list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_AR=${EP_CMAKE_AR})
 endif()
 
-if(CMAKE_RANLIB)
-  list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${CMAKE_RANLIB})
+# RANLIB isn't used for MSVC
+if(NOT MSVC)
+  if(CMAKE_RANLIB)
+    # Ensure using absolute path.
+    find_program(EP_CMAKE_RANLIB ${CMAKE_RANLIB} REQUIRED)
+    list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${EP_CMAKE_RANLIB})
+  endif()
 endif()
 
 # External projects are still able to override the following declarations.
@@ -1016,8 +1034,10 @@ endmacro()
 # ----------------------------------------------------------------------
 # Find pthreads
 
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
+if(ARROW_ENABLE_THREADING)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+endif()
 
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
@@ -2038,9 +2058,9 @@ macro(build_jemalloc)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
   add_library(jemalloc::jemalloc STATIC IMPORTED)
-  set_target_properties(jemalloc::jemalloc
-                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-                                   IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}")
+  set_target_properties(jemalloc::jemalloc PROPERTIES IMPORTED_LOCATION
+                                                      "${JEMALLOC_STATIC_LIB}")
+  target_link_libraries(jemalloc::jemalloc INTERFACE Threads::Threads)
   target_include_directories(jemalloc::jemalloc BEFORE
                              INTERFACE "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
@@ -2053,6 +2073,9 @@ macro(build_jemalloc)
 endmacro()
 
 if(ARROW_JEMALLOC)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use jemalloc with ARROW_ENABLE_THREADING=OFF")
+  endif()
   resolve_dependency(jemalloc HAVE_ALT TRUE)
 endif()
 
@@ -2060,6 +2083,10 @@ endif()
 # mimalloc - Cross-platform high-performance allocator, from Microsoft
 
 if(ARROW_MIMALLOC)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use mimalloc with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
   message(STATUS "Building (vendored) mimalloc from source")
   # We only use a vendored mimalloc as we want to control its build options.
 
@@ -2096,15 +2123,13 @@ if(ARROW_MIMALLOC)
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
 
   add_library(mimalloc::mimalloc STATIC IMPORTED)
-  set_target_properties(mimalloc::mimalloc
-                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-                                   IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}")
+  set_target_properties(mimalloc::mimalloc PROPERTIES IMPORTED_LOCATION
+                                                      "${MIMALLOC_STATIC_LIB}")
   target_include_directories(mimalloc::mimalloc BEFORE
                              INTERFACE "${MIMALLOC_INCLUDE_DIR}")
+  target_link_libraries(mimalloc::mimalloc INTERFACE Threads::Threads)
   if(WIN32)
-    set_property(TARGET mimalloc::mimalloc
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES "bcrypt.lib" "psapi.lib")
+    target_link_libraries(mimalloc::mimalloc INTERFACE "bcrypt.lib" "psapi.lib")
   endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
@@ -2139,10 +2164,22 @@ function(build_gtest)
             FORCE)
   string(APPEND CMAKE_INSTALL_INCLUDEDIR "/arrow-gtest")
   fetchcontent_makeavailable(googletest)
-  set_target_properties(gmock PROPERTIES OUTPUT_NAME "arrow_gmock")
-  set_target_properties(gmock_main PROPERTIES OUTPUT_NAME "arrow_gmock_main")
-  set_target_properties(gtest PROPERTIES OUTPUT_NAME "arrow_gtest")
-  set_target_properties(gtest_main PROPERTIES OUTPUT_NAME "arrow_gtest_main")
+  foreach(target gmock gmock_main gtest gtest_main)
+    set_target_properties(${target}
+                          PROPERTIES OUTPUT_NAME "arrow_${target}"
+                                     PDB_NAME "arrow_${target}"
+                                     PDB_NAME_DEBUG "arrow_${target}d"
+                                     COMPILE_PDB_NAME "arrow_${target}"
+                                     COMPILE_PDB_NAME_DEBUG "arrow_${target}d"
+                                     RUNTIME_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     LIBRARY_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     ARCHIVE_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     PDB_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  endforeach()
   install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
                     "${googletest_SOURCE_DIR}/googletest/include/"
           DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
@@ -3899,9 +3936,9 @@ macro(build_grpc)
       absl::log_severity)
 
   add_library(gRPC::gpr STATIC IMPORTED)
-  set_target_properties(gRPC::gpr
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
-                                   INTERFACE_LINK_LIBRARIES "${GRPC_GPR_ABSL_LIBRARIES}")
+  set_target_properties(gRPC::gpr PROPERTIES IMPORTED_LOCATION
+                                             "${GRPC_STATIC_LIBRARY_GPR}")
+  target_link_libraries(gRPC::gpr INTERFACE ${GRPC_GPR_ABSL_LIBRARIES})
   target_include_directories(gRPC::gpr BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::address_sorting STATIC IMPORTED)
@@ -3918,25 +3955,23 @@ macro(build_grpc)
                              INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc STATIC IMPORTED)
-  set(GRPC_LINK_LIBRARIES
-      gRPC::gpr
-      gRPC::upb
-      gRPC::address_sorting
-      re2::re2
-      c-ares::cares
-      ZLIB::ZLIB
-      OpenSSL::SSL
-      Threads::Threads)
-  set_target_properties(gRPC::grpc
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
-                                   INTERFACE_LINK_LIBRARIES "${GRPC_LINK_LIBRARIES}")
+  set_target_properties(gRPC::grpc PROPERTIES IMPORTED_LOCATION
+                                              "${GRPC_STATIC_LIBRARY_GRPC}")
+  target_link_libraries(gRPC::grpc
+                        INTERFACE gRPC::gpr
+                                  gRPC::upb
+                                  gRPC::address_sorting
+                                  re2::re2
+                                  c-ares::cares
+                                  ZLIB::ZLIB
+                                  OpenSSL::SSL
+                                  Threads::Threads)
   target_include_directories(gRPC::grpc BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc++ STATIC IMPORTED)
-  set(GRPCPP_LINK_LIBRARIES gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_LINK_LIBRARIES "${GRPCPP_LINK_LIBRARIES}")
+  set_target_properties(gRPC::grpc++ PROPERTIES IMPORTED_LOCATION
+                                                "${GRPC_STATIC_LIBRARY_GRPCPP}")
+  target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
   target_include_directories(gRPC::grpc++ BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
@@ -3983,6 +4018,10 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use gRPC with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
   set(ARROW_GRPC_REQUIRED_VERSION "1.30.0")
   if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
     # ARROW-15495: Protobuf/gRPC must come from the same source
@@ -4058,6 +4097,7 @@ macro(build_crc32c_once)
                                                     ${_CRC32C_STATIC_LIBRARY})
     target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS Crc32c::crc32c)
   endif()
 endmacro()
 
@@ -4201,17 +4241,16 @@ macro(build_google_cloud_cpp_storage)
   # (subsitute `main` for the SHA of the version we use)
   # Version 1.39.0 is at a different place (they refactored after):
   # https://github.com/googleapis/google-cloud-cpp/blob/29e5af8ca9b26cec62106d189b50549f4dc1c598/google/cloud/CMakeLists.txt#L146-L155
-  set_property(TARGET google-cloud-cpp::common
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::cord
-                        absl::memory
-                        absl::optional
-                        absl::span
-                        absl::time
-                        absl::variant
-                        Threads::Threads
-                        OpenSSL::Crypto)
+  target_link_libraries(google-cloud-cpp::common
+                        INTERFACE absl::base
+                                  absl::cord
+                                  absl::memory
+                                  absl::optional
+                                  absl::span
+                                  absl::time
+                                  absl::variant
+                                  Threads::Threads
+                                  OpenSSL::Crypto)
 
   add_library(google-cloud-cpp::rest-internal STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::rest-internal
@@ -4219,14 +4258,13 @@ macro(build_google_cloud_cpp_storage)
                                    "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}")
   target_include_directories(google-cloud-cpp::rest-internal BEFORE
                              INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
-  set_property(TARGET google-cloud-cpp::rest-internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::span
-                        google-cloud-cpp::common
-                        CURL::libcurl
-                        nlohmann_json::nlohmann_json
-                        OpenSSL::SSL
-                        OpenSSL::Crypto)
+  target_link_libraries(google-cloud-cpp::rest-internal
+                        INTERFACE absl::span
+                                  google-cloud-cpp::common
+                                  CURL::libcurl
+                                  nlohmann_json::nlohmann_json
+                                  OpenSSL::SSL
+                                  OpenSSL::Crypto)
 
   add_library(google-cloud-cpp::storage STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::storage
@@ -4235,22 +4273,21 @@ macro(build_google_cloud_cpp_storage)
   target_include_directories(google-cloud-cpp::storage BEFORE
                              INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   # Update this from https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/google_cloud_cpp_storage.cmake
-  set_property(TARGET google-cloud-cpp::storage
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        google-cloud-cpp::common
-                        google-cloud-cpp::rest-internal
-                        absl::memory
-                        absl::strings
-                        absl::str_format
-                        absl::time
-                        absl::variant
-                        nlohmann_json::nlohmann_json
-                        Crc32c::crc32c
-                        CURL::libcurl
-                        Threads::Threads
-                        OpenSSL::SSL
-                        OpenSSL::Crypto
-                        ZLIB::ZLIB)
+  target_link_libraries(google-cloud-cpp::storage
+                        INTERFACE google-cloud-cpp::common
+                                  google-cloud-cpp::rest-internal
+                                  absl::memory
+                                  absl::strings
+                                  absl::str_format
+                                  absl::time
+                                  absl::variant
+                                  nlohmann_json::nlohmann_json
+                                  Crc32c::crc32c
+                                  CURL::libcurl
+                                  Threads::Threads
+                                  OpenSSL::SSL
+                                  OpenSSL::Crypto
+                                  ZLIB::ZLIB)
   add_dependencies(google-cloud-cpp::storage google_cloud_cpp_ep)
 
   list(APPEND
@@ -4291,12 +4328,16 @@ macro(build_google_cloud_cpp_storage)
          absl::synchronization
          absl::throw_delegate
          absl::time
-         absl::time_zone
-         Crc32c::crc32c)
+         absl::time_zone)
   endif()
 endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use Google Cloud Platform C++ Client Libraries with ARROW_ENABLE_THREADING=OFF"
+    )
+  endif()
+
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -4393,31 +4434,31 @@ macro(build_orc)
 
   set(ORC_VENDORED 1)
 
-  add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(orc::liborc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
-  target_include_directories(orc::liborc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
-  set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  add_library(orc::orc STATIC IMPORTED)
+  set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
+  target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
+  target_link_libraries(orc::orc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
+                                           ${Snappy_TARGET})
   # Protobuf generated files may use ABSL_DCHECK*() and
   # absl::log_internal_check_op is needed for them.
   if(TARGET absl::log_internal_check_op)
-    list(APPEND ORC_LINK_LIBRARIES absl::log_internal_check_op)
+    target_link_libraries(orc::orc INTERFACE absl::log_internal_check_op)
   endif()
   if(NOT MSVC)
-    if(NOT APPLE)
-      list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
+    if(NOT APPLE AND ARROW_ENABLE_THREADING)
+      target_link_libraries(orc::orc INTERFACE Threads::Threads)
     endif()
-    list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
+    target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
   endif()
-  target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
 
   add_dependencies(toolchain orc_ep)
-  add_dependencies(orc::liborc orc_ep)
+  add_dependencies(orc::orc orc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::liborc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
 endmacro()
 
 if(ARROW_ORC)
-  resolve_dependency(ORC)
+  resolve_dependency(orc HAVE_ALT TRUE)
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
@@ -4582,34 +4623,25 @@ macro(build_opentelemetry)
 
   set(OPENTELEMETRY_VENDORED 1)
 
-  set_target_properties(opentelemetry-cpp::common
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::api;opentelemetry-cpp::sdk;Threads::Threads"
-  )
-  set_target_properties(opentelemetry-cpp::resources
-                        PROPERTIES INTERFACE_LINK_LIBRARIES "opentelemetry-cpp::common")
-  set_target_properties(opentelemetry-cpp::trace
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::common;opentelemetry-cpp::resources"
-  )
-  set_target_properties(opentelemetry-cpp::http_client_curl
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::ext;CURL::libcurl")
-  set_target_properties(opentelemetry-cpp::proto
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "${ARROW_PROTOBUF_LIBPROTOBUF}")
-  set_target_properties(opentelemetry-cpp::otlp_recordable
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
-  )
-  set_target_properties(opentelemetry-cpp::otlp_http_client
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::sdk;opentelemetry-cpp::proto;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
-  )
-  set_target_properties(opentelemetry-cpp::otlp_http_exporter
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::otlp_http_client"
-  )
+  target_link_libraries(opentelemetry-cpp::common
+                        INTERFACE opentelemetry-cpp::api opentelemetry-cpp::sdk
+                                  Threads::Threads)
+  target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
+  target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
+                                                           opentelemetry-cpp::resources)
+  target_link_libraries(opentelemetry-cpp::http_client_curl
+                        INTERFACE opentelemetry-cpp::ext CURL::libcurl)
+  target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+  target_link_libraries(opentelemetry-cpp::otlp_recordable
+                        INTERFACE opentelemetry-cpp::trace opentelemetry-cpp::resources
+                                  opentelemetry-cpp::proto)
+  target_link_libraries(opentelemetry-cpp::otlp_http_client
+                        INTERFACE opentelemetry-cpp::sdk opentelemetry-cpp::proto
+                                  opentelemetry-cpp::http_client_curl
+                                  nlohmann_json::nlohmann_json)
+  target_link_libraries(opentelemetry-cpp::otlp_http_exporter
+                        INTERFACE opentelemetry-cpp::otlp_recordable
+                                  opentelemetry-cpp::otlp_http_client)
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
@@ -4621,6 +4653,10 @@ macro(build_opentelemetry)
 endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use OpenTelemetry with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
@@ -5045,8 +5081,20 @@ endif()
 # Azure SDK for C++
 
 function(build_azure_sdk)
+  if(CMAKE_VERSION VERSION_LESS 3.22)
+    # We can't disable installing Azure SDK for C++ by
+    # "set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY
+    # EXCLUDE_FROM_ALL TRUE)" with CMake 3.16.
+    #
+    # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
+    # here. We may be able to use more earlier version here.
+    message(FATAL_ERROR "Building Azure SDK for C++ requires at least CMake 3.22. "
+                        "(At least we can't use CMake 3.16)")
+  endif()
   message(STATUS "Building Azure SDK for C++ from source")
   fetchcontent_declare(azure_sdk
+                       # EXCLUDE_FROM_ALL is available since CMake 3.28
+                       # EXCLUDE_FROM_ALL TRUE
                        URL ${ARROW_AZURE_SDK_URL}
                        URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
@@ -5059,6 +5107,9 @@ function(build_azure_sdk)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
   set(WARNINGS_AS_ERRORS FALSE)
   fetchcontent_makeavailable(azure_sdk)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)

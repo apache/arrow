@@ -304,6 +304,8 @@ Status MakeConverter(const std::shared_ptr<DataType>& out_type, MemoryPool* pool
     CONVERTER_CASE(Type::STRING, BinaryConverter<StringType>);
     CONVERTER_CASE(Type::LARGE_BINARY, BinaryConverter<LargeBinaryType>);
     CONVERTER_CASE(Type::LARGE_STRING, BinaryConverter<LargeStringType>);
+    CONVERTER_CASE(Type::BINARY_VIEW, BinaryConverter<BinaryViewType>);
+    CONVERTER_CASE(Type::STRING_VIEW, BinaryConverter<StringViewType>);
     CONVERTER_CASE(Type::DECIMAL128, DecimalConverter<Decimal128Type>);
     CONVERTER_CASE(Type::DECIMAL256, DecimalConverter<Decimal256Type>);
     default:

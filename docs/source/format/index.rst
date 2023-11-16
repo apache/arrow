@@ -17,8 +17,8 @@
 
 .. _format:
 
-Specifications and Protocols
-============================
+Specifications
+==============
 
 .. toctree::
    :maxdepth: 2
@@ -29,6 +29,7 @@ Specifications and Protocols
    Other
    CDataInterface
    CStreamInterface
+   CDeviceDataInterface
    Flight
    FlightSql
    ADBC

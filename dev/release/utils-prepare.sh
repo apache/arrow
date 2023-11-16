@@ -65,7 +65,7 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version}
+  mvn versions:set -DnewVersion=${version} -DprocessAllModules
   find . -type f -name pom.xml.versionsBackup -delete
   git add "pom.xml"
   git add "**/pom.xml"
@@ -80,11 +80,6 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/dev/tasks/homebrew-formulae"
-  sed -i.bak -E -e \
-    "s/arrow-[0-9.]+[0-9]+/arrow-${r_version}/g" \
-    autobrew/apache-arrow.rb
-  rm -f autobrew/apache-arrow.rb.bak
-  git add autobrew/apache-arrow.rb
   sed -i.bak -E -e \
     "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
     apache-arrow-glib.rb \

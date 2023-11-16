@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
 )
 
 // *** GRPC helpers ***
@@ -58,46 +58,56 @@ func (g grpcCredentials) RequireTransportSecurity() bool {
 
 // *** Type conversions ***
 func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
+	if arr.IsNull(idx) {
+		return nil, nil
+	}
+
 	switch c := arr.(type) {
 	case *array.Boolean:
 		return c.Value(idx), nil
 	case *array.Float16:
-		return float64(c.Value(idx).Float32()), nil
+		return c.Value(idx), nil
 	case *array.Float32:
-		return float64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Float64:
 		return c.Value(idx), nil
+	case *array.Decimal128:
+		v := arr.DataType().(*arrow.Decimal128Type)
+		return c.Value(idx).ToFloat64(v.Scale), nil
+	case *array.Decimal256:
+		v := arr.DataType().(*arrow.Decimal256Type)
+		return c.Value(idx).ToFloat64(v.Scale), nil
 	case *array.Int8:
-		return int64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Int16:
-		return int64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Int32:
-		return int64(c.Value(idx)), nil
+		return c.Value(idx), nil
 	case *array.Int64:
+		return c.Value(idx), nil
+	case *array.Binary:
 		return c.Value(idx), nil
 	case *array.String:
 		return c.Value(idx), nil
 	case *array.Time32:
-		dt, ok := arr.DataType().(*arrow.Time32Type)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching time32", arr.DataType())
-		}
+		d32 := arr.DataType().(*arrow.Time32Type)
 		v := c.Value(idx)
-		return v.ToTime(dt.TimeUnit()), nil
+		return v.ToTime(d32.TimeUnit()), nil
 	case *array.Time64:
-		dt, ok := arr.DataType().(*arrow.Time64Type)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching time64", arr.DataType())
-		}
+		d64 := arr.DataType().(*arrow.Time64Type)
 		v := c.Value(idx)
-		return v.ToTime(dt.TimeUnit()), nil
+		return v.ToTime(d64.TimeUnit()), nil
 	case *array.Timestamp:
-		dt, ok := arr.DataType().(*arrow.TimestampType)
-		if !ok {
-			return nil, fmt.Errorf("datatype %T not matching timestamp", arr.DataType())
-		}
+		ts := arr.DataType().(*arrow.TimestampType)
 		v := c.Value(idx)
-		return v.ToTime(dt.TimeUnit()), nil
+		return v.ToTime(ts.TimeUnit()), nil
+	case *array.Date64:
+		return c.Value(idx).ToTime(), nil
+	case *array.DayTimeInterval:
+		durationDays := time.Duration(c.Value(idx).Days*24) * time.Hour
+		duration := time.Duration(c.Value(idx).Milliseconds) * time.Millisecond
+
+		return durationDays + duration, nil
 	}
 
 	return nil, fmt.Errorf("type %T: %w", arr, ErrNotSupported)

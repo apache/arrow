@@ -133,7 +133,7 @@ classdef StructArray < arrow.array.Array
 
             validateArrayLengths(arrowArrays);
             validateColumnNames(opts.FieldNames, numel(arrowArrays));
-            validElements = parseValid(opts, arrowArrays{1}.Length);
+            validElements = parseValid(opts, arrowArrays{1}.NumElements);
 
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
             args = struct(ArrayProxyIDs=arrayProxyIDs, ...

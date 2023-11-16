@@ -196,7 +196,9 @@ test_apt() {
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
                 "ubuntu:lunar" \
-                "arm64v8/ubuntu:lunar"; do \
+                "arm64v8/ubuntu:lunar" \
+                "ubuntu:mantic" \
+                "arm64v8/ubuntu:mantic"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -565,14 +567,12 @@ maybe_setup_nodejs() {
 test_package_java() {
   show_header "Build and test Java libraries"
 
-  # Build and test Java (Requires newer Maven -- I used 3.3.9)
-  # Pin OpenJDK 17 since OpenJDK 20 is incompatible with our versions
-  # of things like Mockito, and we also can't update Mockito due to
-  # not supporting Java 8 anymore
-  maybe_setup_conda maven openjdk=17.0.3 || exit 1
+  maybe_setup_conda maven openjdk || exit 1
 
   pushd java
-  mvn test
+  if [ ${TEST_JAVA} -gt 0 ]; then
+    mvn test
+  fi
   mvn package
   popd
 }
@@ -605,11 +605,20 @@ test_and_install_cpp() {
     ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G ${CMAKE_GENERATOR}"
   fi
 
+  local ARROW_BUILD_INTEGRATION=OFF
+  local ARROW_BUILD_TESTS=OFF
+  if [ ${TEST_INTEGRATION_CPP} -gt 0 ]; then
+    ARROW_BUILD_INTEGRATION=ON
+  fi
+  if [ ${TEST_CPP} -gt 0 ]; then
+    ARROW_BUILD_TESTS=ON
+  fi
+
   cmake \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_EXAMPLES=OFF \
-    -DARROW_BUILD_INTEGRATION=ON \
-    -DARROW_BUILD_TESTS=ON \
+    -DARROW_BUILD_INTEGRATION=${ARROW_BUILD_INTEGRATION} \
+    -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
     -DARROW_BUILD_UTILITIES=ON \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
@@ -649,15 +658,13 @@ test_and_install_cpp() {
   export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-${NPROC}}
   cmake --build . --target install
 
-  # Explicitly set site-package directory, otherwise the C++ tests are unable
-  # to load numpy in a python virtualenv
-  local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
-
-  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
-    --label-regex unittest \
-    --output-on-failure \
-    --parallel $NPROC \
-    --timeout 300
+  if [ ${TEST_CPP} -gt 0 ]; then
+    LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
+      --label-regex unittest \
+      --output-on-failure \
+      --parallel $NPROC \
+      --timeout 300
+  fi
 
   popd
 }
@@ -666,7 +673,7 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv "cython<3" numpy "setuptools_scm<8.0.0" setuptools || exit 1
+  maybe_setup_virtualenv "cython>=0.29.31" numpy "setuptools_scm<8.0.0" setuptools || exit 1
   maybe_setup_conda --file ci/conda_env_python.txt || exit 1
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -852,8 +859,10 @@ test_js() {
   yarn clean:all
   yarn lint
   yarn build
-  yarn test
-  yarn test:bundle
+  if [ ${TEST_JS} -gt 0 ]; then
+    yarn test
+    yarn test:bundle
+  fi
   popd
 }
 
@@ -865,8 +874,26 @@ test_go() {
 
   pushd go
   go get -v ./...
-  go test ./...
+  if [ ${TEST_GO} -gt 0 ]; then
+    go test ./...
+  fi
   go install -buildvcs=false ./...
+  if [ ${TEST_INTEGRATION_GO} -gt 0 ]; then
+    pushd arrow/internal/cdata_integration
+    case "$(uname)" in
+      Linux)
+        go_lib="arrow_go_integration.so"
+        ;;
+      Darwin)
+        go_lib="arrow_go_integration.dylib"
+        ;;
+      MINGW*)
+        go_lib="arrow_go_integration.dll"
+        ;;
+    esac
+    go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+    popd
+  fi
   go clean -modcache
   popd
 }
@@ -878,7 +905,7 @@ test_integration() {
   maybe_setup_conda || exit 1
   maybe_setup_virtualenv || exit 1
 
-  pip install -e dev/archery
+  pip install -e dev/archery[integration]
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
@@ -894,6 +921,7 @@ test_integration() {
 
   # Flight integration test executable have runtime dependency on release/libgtest.so
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
+    --run-ipc --run-flight --run-c-data \
     --with-cpp=${TEST_INTEGRATION_CPP} \
     --with-java=${TEST_INTEGRATION_JAVA} \
     --with-js=${TEST_INTEGRATION_JS} \
@@ -933,12 +961,26 @@ ensure_source_directory() {
     fi
   fi
 
-  # Ensure that the testing repositories are cloned
-  if [ ! -d "${ARROW_SOURCE_DIR}/testing/data" ]; then
-    git clone https://github.com/apache/arrow-testing.git ${ARROW_SOURCE_DIR}/testing
+  # Ensure that the testing repositories are prepared
+  if [ ! -d ${ARROW_SOURCE_DIR}/testing/data ]; then
+    if [ -d ${SOURCE_DIR}/../../testing/data ]; then
+      cp -a ${SOURCE_DIR}/../../testing ${ARROW_SOURCE_DIR}/
+    else
+      git clone \
+        https://github.com/apache/arrow-testing.git \
+        ${ARROW_SOURCE_DIR}/testing
+    fi
   fi
-  if [ ! -d "${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data" ]; then
-    git clone https://github.com/apache/parquet-testing.git ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing
+  if [ ! -d ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data ]; then
+    if [ -d ${SOURCE_DIR}/../../cpp/submodules/parquet-testing/data ]; then
+      cp -a \
+         ${SOURCE_DIR}/../../cpp/submodules/parquet-testing \
+         ${ARROW_SOURCE_DIR}/cpp/submodules/
+    else
+      git clone \
+        https://github.com/apache/parquet-testing.git \
+        ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing
+    fi
   fi
 
   export ARROW_TEST_DATA=$ARROW_SOURCE_DIR/testing/data
@@ -962,16 +1004,16 @@ test_source_distribution() {
 
   pushd $ARROW_SOURCE_DIR
 
-  if [ ${TEST_GO} -gt 0 ]; then
+  if [ ${BUILD_GO} -gt 0 ]; then
     test_go
   fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
   fi
-  if [ ${TEST_JS} -gt 0 ]; then
+  if [ ${BUILD_JS} -gt 0 ]; then
     test_js
   fi
-  if [ ${TEST_CPP} -gt 0 ]; then
+  if [ ${BUILD_CPP} -gt 0 ]; then
     test_and_install_cpp
   fi
   if [ ${TEST_PYTHON} -gt 0 ]; then
@@ -983,7 +1025,7 @@ test_source_distribution() {
   if [ ${TEST_RUBY} -gt 0 ]; then
     test_ruby
   fi
-  if [ ${TEST_JAVA} -gt 0 ]; then
+  if [ ${BUILD_JAVA} -gt 0 ]; then
     test_package_java
   fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
@@ -1020,7 +1062,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11 3.12}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
   for python in ${python_versions}; do
@@ -1042,11 +1084,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10 3.11"
+    local python_versions="3.8 3.9 3.10 3.11 3.12"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.8 3.9 3.10 3.11"
+    local python_versions="3.8 3.9 3.10 3.11 3.12"
     local platform_tags="macosx_10_14_x86_64"
   fi
 
@@ -1164,15 +1206,15 @@ test_jars() {
 : ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
 : ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
 
-# Automatically test if its activated by a dependent
+# Automatically build/test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
-TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
-TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
-TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
+BUILD_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
+BUILD_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
+BUILD_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
+BUILD_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-# Execute tests in a conda enviroment
+# Execute tests in a conda environment
 : ${USE_CONDA:=0}
 
 # Build options for the C++ library

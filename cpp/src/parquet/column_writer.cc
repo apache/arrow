@@ -39,6 +39,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/type_traits.h"
@@ -65,6 +66,7 @@ using arrow::Status;
 using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
+using arrow::util::Float16;
 using arrow::util::RleEncoder;
 
 namespace bit_util = arrow::bit_util;
@@ -134,28 +136,13 @@ struct ValueBufferSlicer {
   NOT_IMPLEMENTED_VISIT(Dictionary);
   NOT_IMPLEMENTED_VISIT(RunEndEncoded);
   NOT_IMPLEMENTED_VISIT(Extension);
+  NOT_IMPLEMENTED_VISIT(BinaryView);
+  NOT_IMPLEMENTED_VISIT(StringView);
 
 #undef NOT_IMPLEMENTED_VISIT
 
   MemoryPool* pool_;
 };
-
-internal::LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
-  internal::LevelInfo level_info;
-  level_info.def_level = descr->max_definition_level();
-  level_info.rep_level = descr->max_repetition_level();
-
-  int16_t min_spaced_def_level = descr->max_definition_level();
-  const ::parquet::schema::Node* node = descr->schema_node().get();
-  while (node != nullptr && !node->is_repeated()) {
-    if (node->is_optional()) {
-      min_spaced_def_level--;
-    }
-    node = node->parent();
-  }
-  level_info.repeated_ancestor_def_level = min_spaced_def_level;
-  return level_info;
-}
 
 template <class T>
 inline const T* AddIfNotNull(const T* base, int64_t offset) {
@@ -738,7 +725,7 @@ class ColumnWriterImpl {
                    Encoding::type encoding, const WriterProperties* properties)
       : metadata_(metadata),
         descr_(metadata->descr()),
-        level_info_(ComputeLevelInfo(metadata->descr())),
+        level_info_(internal::LevelInfo::ComputeLevelInfo(metadata->descr())),
         pager_(std::move(pager)),
         has_dictionary_(use_dictionary),
         encoding_(encoding),
@@ -895,11 +882,13 @@ class ColumnWriterImpl {
   void ConcatenateBuffers(int64_t definition_levels_rle_size,
                           int64_t repetition_levels_rle_size,
                           const std::shared_ptr<Buffer>& values, uint8_t* combined) {
-    memcpy(combined, repetition_levels_rle_->data(), repetition_levels_rle_size);
+    memcpy(combined, repetition_levels_rle_->data(),
+           static_cast<size_t>(repetition_levels_rle_size));
     combined += repetition_levels_rle_size;
-    memcpy(combined, definition_levels_rle_->data(), definition_levels_rle_size);
+    memcpy(combined, definition_levels_rle_->data(),
+           static_cast<size_t>(definition_levels_rle_size));
     combined += definition_levels_rle_size;
-    memcpy(combined, values->data(), values->size());
+    memcpy(combined, values->data(), static_cast<size_t>(values->size()));
   }
 };
 
@@ -2308,6 +2297,33 @@ struct SerializeFunctor<
   int64_t* scratch;
 };
 
+// ----------------------------------------------------------------------
+// Write Arrow to Float16
+
+// Requires a custom serializer because Float16s in Parquet are stored as a 2-byte
+// (little-endian) FLBA, whereas in Arrow they're a native `uint16_t`.
+template <>
+struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
+  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext*, FLBA* out) {
+    const uint16_t* values = array.raw_values();
+    if (array.null_count() == 0) {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = ToFLBA(&values[i]);
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = array.IsValid(i) ? ToFLBA(&values[i]) : FLBA{};
+      }
+    }
+    return Status::OK();
+  }
+
+ private:
+  FLBA ToFLBA(const uint16_t* value_ptr) const {
+    return FLBA{reinterpret_cast<const uint8_t*>(value_ptr)};
+  }
+};
+
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
@@ -2316,6 +2332,7 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
+    WRITE_SERIALIZE_CASE(HALF_FLOAT, HalfFloatType, FLBAType)
     default:
       break;
   }
@@ -2334,7 +2351,8 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   Encoding::type encoding = properties->encoding(descr->path());
   if (encoding == Encoding::UNKNOWN) {
     encoding = (descr->physical_type() == Type::BOOLEAN &&
-                properties->version() != ParquetVersion::PARQUET_1_0)
+                properties->version() != ParquetVersion::PARQUET_1_0 &&
+                properties->data_page_version() == ParquetDataPageVersion::V2)
                    ? Encoding::RLE
                    : Encoding::PLAIN;
   }

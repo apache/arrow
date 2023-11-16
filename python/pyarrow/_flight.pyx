@@ -1014,11 +1014,8 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         Returns
         -------
-        data : FlightStreamChunk
+        chunk : FlightStreamChunk
             The next FlightStreamChunk in the stream.
-        app_metadata : Buffer or None
-            Application-specific metadata for the batch as defined by
-            Flight.
 
         Raises
         ------

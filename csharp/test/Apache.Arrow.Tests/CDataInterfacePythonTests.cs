@@ -115,6 +115,13 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("dense_union").DataType(new UnionType(new[] { new Field("i64", Int64Type.Default, false), new Field("f32", FloatType.Default, true), }, new[] { 0, 1 }, UnionMode.Dense)))
                     .Field(f => f.Name("sparse_union").DataType(new UnionType(new[] { new Field("i32", Int32Type.Default, true), new Field("f64", DoubleType.Default, false), }, new[] { 0, 1 }, UnionMode.Sparse)))
 
+                    .Field(f => f.Name("map").DataType(new MapType(StringType.Default, Int32Type.Default)).Nullable(false))
+
+                    .Field(f => f.Name("duration_s").DataType(DurationType.Second).Nullable(false))
+                    .Field(f => f.Name("duration_ms").DataType(DurationType.Millisecond).Nullable(true))
+                    .Field(f => f.Name("duration_us").DataType(DurationType.Microsecond).Nullable(false))
+                    .Field(f => f.Name("duration_ns").DataType(DurationType.Nanosecond).Nullable(true))
+
                     // Checking wider characters.
                     .Field(f => f.Name("hello 你好 😄").DataType(BooleanType.Default).Nullable(true))
 
@@ -177,6 +184,13 @@ namespace Apache.Arrow.Tests
 
                 yield return pa.field("dense_union", pa.dense_union(List(pa.field("i64", pa.int64(), false), pa.field("f32", pa.float32(), true))));
                 yield return pa.field("sparse_union", pa.sparse_union(List(pa.field("i32", pa.int32(), true), pa.field("f64", pa.float64(), false))));
+
+                yield return pa.field("map", pa.map_(pa.@string(), pa.int32()), false);
+
+                yield return pa.field("duration_s", pa.duration("s"), false);
+                yield return pa.field("duration_ms", pa.duration("ms"), true);
+                yield return pa.field("duration_us", pa.duration("us"), false);
+                yield return pa.field("duration_ns", pa.duration("ns"), true);
 
                 yield return pa.field("hello 你好 😄", pa.bool_(), true);
             }
@@ -512,8 +526,13 @@ namespace Apache.Arrow.Tests
                             ),
                             /* field name */ List("i32", "s"),
                             /* type codes */ List(3, 2)),
+                        pa.MapArray.from_arrays(
+                            List(0, 0, 1, 2, 4, 10),
+                            pa.array(List("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")),
+                            pa.array(List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))),
+                        pa.array(List(1234, 2345, 3456, null, 6789), pa.duration("ms")),
                     }),
-                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9" });
+                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9", "col10", "col11" });
 
                 dynamic batch = table.to_batches()[0];
 
@@ -585,6 +604,14 @@ namespace Apache.Arrow.Tests
             UnionArray col9 = (UnionArray)recordBatch.Column("col9");
             Assert.Equal(5, col9.Length);
             Assert.True(col9 is DenseUnionArray);
+
+            MapArray col10 = (MapArray)recordBatch.Column("col10");
+            Assert.Equal(5, col10.Length);
+            Assert.Equal(new int[] { 0, 0, 1, 2, 4, 10}, col10.ValueOffsets.ToArray());
+            Assert.Equal(new long?[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }, ((Int64Array)col10.Values).ToList().ToArray());
+
+            DurationArray col11 = (DurationArray)recordBatch.Column("col11");
+            Assert.Equal(5, col11.Length);
         }
 
         [SkippableFact]

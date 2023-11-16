@@ -83,16 +83,57 @@ func (t *LargeStringType) Layout() DataTypeLayout {
 func (t *LargeStringType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
 func (LargeStringType) IsUtf8() bool                      { return true }
 
+type BinaryViewType struct{}
+
+func (*BinaryViewType) ID() Type              { return BINARY_VIEW }
+func (*BinaryViewType) Name() string          { return "binary_view" }
+func (*BinaryViewType) String() string        { return "binary_view" }
+func (*BinaryViewType) IsUtf8() bool          { return false }
+func (*BinaryViewType) binary()               {}
+func (*BinaryViewType) view()                 {}
+func (t *BinaryViewType) Fingerprint() string { return typeFingerprint(t) }
+func (*BinaryViewType) Layout() DataTypeLayout {
+	variadic := SpecVariableWidth()
+	return DataTypeLayout{
+		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(ViewHeaderSizeBytes)},
+		VariadicSpec: &variadic,
+	}
+}
+
+type StringViewType struct{}
+
+func (*StringViewType) ID() Type              { return STRING_VIEW }
+func (*StringViewType) Name() string          { return "string_view" }
+func (*StringViewType) String() string        { return "string_view" }
+func (*StringViewType) IsUtf8() bool          { return true }
+func (*StringViewType) binary()               {}
+func (*StringViewType) view()                 {}
+func (t *StringViewType) Fingerprint() string { return typeFingerprint(t) }
+func (*StringViewType) Layout() DataTypeLayout {
+	variadic := SpecVariableWidth()
+	return DataTypeLayout{
+		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(ViewHeaderSizeBytes)},
+		VariadicSpec: &variadic,
+	}
+}
+
 var (
 	BinaryTypes = struct {
 		Binary      BinaryDataType
 		String      BinaryDataType
 		LargeBinary BinaryDataType
 		LargeString BinaryDataType
+		BinaryView  BinaryDataType
+		StringView  BinaryDataType
 	}{
 		Binary:      &BinaryType{},
 		String:      &StringType{},
 		LargeBinary: &LargeBinaryType{},
 		LargeString: &LargeStringType{},
+		BinaryView:  &BinaryViewType{},
+		StringView:  &StringViewType{},
 	}
+
+	_ BinaryViewDataType = (*StringViewType)(nil)
+	_ BinaryViewDataType = (*BinaryViewType)(nil)
 )

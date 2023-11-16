@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 13.0.0.9000
+Version: 14.0.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal.p.richardson@gmail.com", role = c("aut")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -10,6 +10,7 @@ Authors@R: c(
     person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut")),
     person("Drago\u0219", "Moldovan-Gr\u00fcnfeld", email = "dragos.mold@gmail.com", role = c("aut")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
+    person("Jacob", "Wujciak-Jens", email = "jacob@wujciak.de", role = c("aut")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Karl", "Dunkle Werner", email = "karldw@users.noreply.github.com", role = c("ctb"), comment = c(ORCID = "0000-0003-0523-7309")),
     person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
@@ -45,6 +46,7 @@ RoxygenNote: 7.2.3
 Config/testthat/edition: 3
 Suggests:
     blob,
+    curl,
     cli,
     DBI,
     dbplyr,

@@ -108,7 +108,7 @@ the different physical layouts defined by Arrow:
 * **Variable-size Binary**: a sequence of values each having a variable
   byte length. Two variants of this layout are supported using 32-bit
   and 64-bit length encoding.
-* **Views of Variable-size Binary**: a sequence of values each having a
+* **View of Variable-size Binary**: a sequence of values each having a
   variable byte length. In contrast to Variable-size Binary, the values
   of this layout are distributed across potentially multiple buffers
   instead of densely and sequentially packed in a single buffer.
@@ -118,6 +118,11 @@ the different physical layouts defined by Arrow:
   variable-length sequence of values taken from a child data type. Two
   variants of this layout are supported using 32-bit and 64-bit length
   encoding.
+* **View of Variable-size List**: a nested layout where each value is a
+  variable-length sequence of values taken from a child data type. This
+  layout differs from **Variable-size List** by having an additional
+  buffer containing the sizes of each list value. This removes a constraint
+  on the offsets buffer — it does not need to be in order.
 * **Struct**: a nested layout consisting of a collection of named
   child **fields** each having the same length but possibly different
   types.
@@ -382,7 +387,7 @@ In both the long and short string cases, the first four bytes encode the
 length of the string and can be used to determine how the rest of the view
 should be interpreted.
 
-In the short string case the string's bytes are inlined- stored inside the
+In the short string case the string's bytes are inlined — stored inside the
 view itself, in the twelve bytes which follow the length.
 
 In the long string case, a buffer index indicates which data buffer
@@ -405,7 +410,14 @@ Variable-size List Layout
 -------------------------
 
 List is a nested type which is semantically similar to variable-size
-binary. It is defined by two buffers, a validity bitmap and an offsets
+binary. There are two list layout variations — "list" and "list-view" —
+and each variation can be delimited by either 32-bit or 64-bit offsets
+integers.
+
+List Layout
+~~~~~~~~~~~
+
+The List layout is defined by two buffers, a validity bitmap and an offsets
 buffer, and a child array. The offsets are the same as in the
 variable-size binary case, and both 32-bit and 64-bit signed integer
 offsets are supported options for the offsets. Rather than referencing
@@ -441,7 +453,7 @@ will have the following representation: ::
       |------------|-------------|-------------|-------------|-------------|-----------------------|
       | 0          | 3           | 3           | 7           | 7           | unspecified (padding) |
 
-    * Values array (Int8array):
+    * Values array (Int8Array):
       * Length: 7,  Null count: 0
       * Validity bitmap buffer: Not required
       * Values buffer (int8)
@@ -486,6 +498,103 @@ will be represented as follows: ::
           | Bytes 0-9                     | Bytes 10-63           |
           |-------------------------------|-----------------------|
           | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified (padding) |
+
+ListView Layout
+~~~~~~~~~~~~~~~
+
+The ListView layout is defined by three buffers: a validity bitmap, an offsets
+buffer, and an additional sizes buffer. Sizes and offsets have the identical bit
+width and both 32-bit and 64-bit signed integer options are supported.
+
+As in the List layout, the offsets encode the start position of each slot in the
+child array. In contrast to the List layout, list lengths are stored explicitly
+in the sizes buffer instead of inferred. This allows offsets to be out of order.
+Elements of the child array do not have to be stored in the same order they
+logically appear in the list elements of the parent array.
+
+Every list-view value, including null values, has to guarantee the following
+invariants: ::
+
+    0 <= offsets[i] <= length of the child array
+    0 <= offsets[i] + size[i] <= length of the child array
+
+A list-view type is specified like ``ListView<T>``, where ``T`` is any type
+(primitive or nested). In these examples we use 32-bit offsets and sizes where
+the 64-bit version would be denoted by ``LargeListView<T>``.
+
+**Example Layout: ``ListView<Int8>`` Array**
+
+We illustrate an example of ``ListView<Int8>`` with length 4 having values::
+
+    [[12, -7, 25], null, [0, -127, 127, 50], []]
+
+It may have the following representation: ::
+
+    * Length: 4, Null count: 1
+    * Validity bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00001101                 | 0 (padding)           |
+
+    * Offsets buffer (int32)
+
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63           |
+      |------------|-------------|-------------|-------------|-----------------------|
+      | 0          | 7           | 3           | 0           | unspecified (padding) |
+
+    * Sizes buffer (int32)
+
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63           |
+      |------------|-------------|-------------|-------------|-----------------------|
+      | 3          | 0           | 4           | 0           | unspecified (padding) |
+
+    * Values array (Int8Array):
+      * Length: 7,  Null count: 0
+      * Validity bitmap buffer: Not required
+      * Values buffer (int8)
+
+        | Bytes 0-6                    | Bytes 7-63            |
+        |------------------------------|-----------------------|
+        | 12, -7, 25, 0, -127, 127, 50 | unspecified (padding) |
+
+**Example Layout: ``ListView<Int8>`` Array**
+
+We continue with the ``ListView<Int8>`` type, but this instance illustrates out
+of order offsets and sharing of child array values. It is an array with length 5
+having logical values::
+
+    [[12, -7, 25], null, [0, -127, 127, 50], [], [50, 12]]
+
+It may have the following representation: ::
+
+    * Length: 4, Null count: 1
+    * Validity bitmap buffer:
+
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00011101                 | 0 (padding)           |
+
+    * Offsets buffer (int32)
+
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 4          | 7           | 0           | 0           | 3           | unspecified (padding) |
+
+    * Sizes buffer (int32)
+
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 3          | 0           | 4           | 0           | 2           | unspecified (padding) |
+
+    * Values array (Int8Array):
+      * Length: 7,  Null count: 0
+      * Validity bitmap buffer: Not required
+      * Values buffer (int8)
+
+        | Bytes 0-6                    | Bytes 7-63            |
+        |------------------------------|-----------------------|
+        | 0, -127, 127, 50, 12, -7, 25 | unspecified (padding) |
 
 Fixed-Size List Layout
 ----------------------
@@ -858,19 +967,19 @@ are held in the second child array.
 For the purposes of determining field names and schemas, these child arrays
 are prescribed the standard names of **run_ends** and **values** respectively.
 
-The values in the first child array represent the accumulated length of all runs 
+The values in the first child array represent the accumulated length of all runs
 from the first to the current one, i.e. the logical index where the
 current run ends. This allows relatively efficient random access from a logical
 index using binary search. The length of an individual run can be determined by
 subtracting two adjacent values. (Contrast this with run-length encoding, in
 which the lengths of the runs are represented directly, and in which random
-access is less efficient.) 
+access is less efficient.)
 
 .. note::
    Because the ``run_ends`` child array cannot have nulls, it's reasonable
    to consider why the ``run_ends`` are a child array instead of just a
    buffer, like the offsets for a :ref:`variable-size-list-layout`. This
-   layout was considered, but it was decided to use the child arrays. 
+   layout was considered, but it was decided to use the child arrays.
 
    Child arrays allow us to keep the "logical length" (the decoded length)
    associated with the parent array and the "physical length" (the number
@@ -1122,7 +1231,7 @@ addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
 
 Variadic buffers
-^^^^^^^^^^^^^^^^
+----------------
 
 Some types such as Utf8View are represented using a variable number of buffers.
 For each such Field in the pre-ordered flattened logical schema, there will be

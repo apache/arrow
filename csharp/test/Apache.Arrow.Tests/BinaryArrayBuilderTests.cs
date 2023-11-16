@@ -481,7 +481,8 @@ namespace Apache.Arrow.Tests
             for (int i = 0; i < array.Length; i++)
             {
                 var expectedArray = expectedContentsArr[i];
-                var actualArray = array.IsNull(i) ? null : array.GetBytes(i).ToArray();
+                var actualSpan = array.GetBytes(i, out bool isNull);
+                var actualArray = isNull ? null : actualSpan.ToArray();
                 Assert.Equal(expectedArray, actualArray);
             }
         }

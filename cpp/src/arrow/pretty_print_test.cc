@@ -200,6 +200,84 @@ TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
   CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
 }
 
+TEST_F(TestPrettyPrint, ArrayCustomElementDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom array element delimiter of " | ",
+  // rather than the default delimiter (i.e. ",").
+  options.array_delimiters.element = " | ";
+
+  // Short array without ellipsis
+  {
+    std::vector<bool> is_valid = {true, true, false, true, false};
+    std::vector<int32_t> values = {1, 2, 3, 4, 5};
+    static const char* expected = R"expected([
+  1 | 
+  2 | 
+  null | 
+  4 | 
+  null
+])expected";
+    CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+  }
+
+  // Longer array with ellipsis
+  {
+    std::vector<bool> is_valid = {true, false, true};
+    std::vector<int32_t> values = {1, 2, 3};
+    // Append 20 copies of the value "10" to the end of the values vector.
+    values.insert(values.end(), 20, 10);
+    // Append 20 copies of the value "true" to the end of the validity bitmap vector.
+    is_valid.insert(is_valid.end(), 20, true);
+    // Append the values 4, 5, and 6 to the end of the values vector.
+    values.insert(values.end(), {4, 5, 6});
+    // Append the values true, false, and true to the end of the validity bitmap vector.
+    is_valid.insert(is_valid.end(), {true, false, true});
+    static const char* expected = R"expected([
+  1 | 
+  null | 
+  3 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  ...
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  10 | 
+  4 | 
+  null | 
+  6
+])expected";
+    CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+  }
+}
+
+TEST_F(TestPrettyPrint, ArrayCustomOpenCloseDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom opening Array delimiter of "{", rather than the default "]".
+  options.array_delimiters.open = "{";
+  // Use a custom closing Array delimiter of "}", rather than the default "]".
+  options.array_delimiters.close = "}";
+
+  std::vector<bool> is_valid = {true, true, false, true, false};
+  std::vector<int32_t> values = {1, 2, 3, 4, 5};
+  static const char* expected = R"expected({
+  1,
+  2,
+  null,
+  4,
+  null
+})expected";
+  CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+}
+
 TEST_F(TestPrettyPrint, Int8) {
   static const char* expected = R"expected([
   0,
@@ -1018,6 +1096,112 @@ TEST_F(TestPrettyPrint, ChunkedArrayPrimitiveType) {
 ])expected";
 
   CheckStream(chunked_array_2, {0}, expected_2);
+}
+
+TEST_F(TestPrettyPrint, ChunkedArrayCustomElementDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom ChunkedArray element delimiter of ";",
+  // rather than the default delimiter (i.e. ",").
+  options.chunked_array_delimiters.element = ";";
+  // Use a custom Array element delimiter of " | ",
+  // rather than the default delimiter (i.e. ",").
+  options.array_delimiters.element = " | ";
+
+  const auto chunk = ArrayFromJSON(int32(), "[1, 2, null, 4, null]");
+
+  // ChunkedArray with 1 chunk
+  {
+    const ChunkedArray chunked_array(chunk);
+
+    static const char* expected = R"expected([
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ]
+])expected";
+    CheckStream(chunked_array, options, expected);
+  }
+
+  // ChunkedArray with 2 chunks
+  {
+    const ChunkedArray chunked_array({chunk, chunk});
+
+    static const char* expected = R"expected([
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ];
+  [
+    1 | 
+    2 | 
+    null | 
+    4 | 
+    null
+  ]
+])expected";
+
+    CheckStream(chunked_array, options, expected);
+  }
+}
+
+TEST_F(TestPrettyPrint, ChunkedArrayCustomOpenCloseDelimiter) {
+  PrettyPrintOptions options{};
+  // Use a custom opening Array delimiter of "{", rather than the default "]".
+  options.array_delimiters.open = "{";
+  // Use a custom closing Array delimiter of "}", rather than the default "]".
+  options.array_delimiters.close = "}";
+  // Use a custom opening ChunkedArray delimiter of "<", rather than the default "]".
+  options.chunked_array_delimiters.open = "<";
+  // Use a custom closing ChunkedArray delimiter of ">", rather than the default "]".
+  options.chunked_array_delimiters.close = ">";
+
+  const auto chunk = ArrayFromJSON(int32(), "[1, 2, null, 4, null]");
+
+  // ChunkedArray with 1 chunk
+  {
+    const ChunkedArray chunked_array(chunk);
+
+    static const char* expected = R"expected(<
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  }
+>)expected";
+    CheckStream(chunked_array, options, expected);
+  }
+
+  // ChunkedArray with 2 chunks
+  {
+    const ChunkedArray chunked_array({chunk, chunk});
+
+    static const char* expected = R"expected(<
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  },
+  {
+    1,
+    2,
+    null,
+    4,
+    null
+  }
+>)expected";
+
+    CheckStream(chunked_array, options, expected);
+  }
 }
 
 TEST_F(TestPrettyPrint, TablePrimitive) {

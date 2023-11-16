@@ -37,7 +37,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/byte_stream_split.h"
+#include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
@@ -442,7 +442,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
         dict_encoded_size_(0),
         memo_table_(pool, kInitialHashTableSize) {}
 
-  ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
+  ~DictEncoderImpl() = default;
 
   int dict_encoded_size() const override { return dict_encoded_size_; }
 
@@ -1018,7 +1018,7 @@ inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
   }
   // If bytes_to_decode == 0, data could be null
   if (bytes_to_decode > 0) {
-    memcpy(out, data, bytes_to_decode);
+    memcpy(out, data, static_cast<size_t>(bytes_to_decode));
   }
   return static_cast<int>(bytes_to_decode);
 }
@@ -1574,7 +1574,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
     // XXX(wesm): Cannot append "valid bits" directly to the builder
     std::vector<uint8_t> valid_bytes(num_values, 0);
-    int64_t i = 0;
+    size_t i = 0;
     VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() { valid_bytes[i++] = 1; }, [&]() { ++i; });

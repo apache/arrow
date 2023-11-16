@@ -50,6 +50,14 @@ except ImportError:
     pass
 
 
+try:
+    _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+except AttributeError:
+    from numpy.exceptions import (
+        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+    )
+
+
 # Marks all of the tests in this module
 pytestmark = pytest.mark.pandas
 
@@ -706,7 +714,7 @@ class TestConvertPrimitiveTypes:
 
     def test_float_nulls_to_ints(self):
         # ARROW-2135
-        df = pd.DataFrame({"a": [1.0, 2.0, np.NaN]})
+        df = pd.DataFrame({"a": [1.0, 2.0, np.nan]})
         schema = pa.schema([pa.field("a", pa.int16(), nullable=True)])
         table = pa.Table.from_pandas(df, schema=schema, safe=False)
         assert table[0].to_pylist() == [1, 2, None]
@@ -1683,6 +1691,7 @@ class TestConvertStringLikeTypes:
             'strings': [[v1]] * 20 + [[v2]] + [[b'x']]
         })
         arr = pa.array(df['strings'], from_pandas=True)
+        arr.validate(full=True)
         assert isinstance(arr, pa.ChunkedArray)
         assert arr.num_chunks == 2
         assert len(arr.chunk(0)) == 21
@@ -2329,7 +2338,7 @@ class TestConvertListTypes:
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",
                                     "Creating an ndarray from ragged nested",
-                                    np.VisibleDeprecationWarning)
+                                    _np_VisibleDeprecationWarning)
             warnings.filterwarnings("ignore", "elementwise comparison failed",
                                     DeprecationWarning)
             tm.assert_series_equal(
@@ -2373,6 +2382,7 @@ class TestConvertListTypes:
             "b": range(n)
         })
         table = pa.Table.from_pandas(df)
+        table.validate(full=True)
 
         column_a = table[0]
         assert column_a.num_chunks == 2
@@ -2441,26 +2451,26 @@ class TestConvertListTypes:
         np_arr = chunked_arr.to_numpy()
 
         expected = np.array([[1., 2.], [3., 4., 5.], None,
-                            [6., np.NaN]], dtype="object")
+                            [6., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.NaN]])
+        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr[0].base, expected_base)
 
         np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
 
-        expected = np.array([[3, 4, 5], None, [6, np.NaN]], dtype="object")
+        expected = np.array([[3, 4, 5], None, [6, np.nan]], dtype="object")
         for left, right in zip(np_arr_sliced, expected):
             if right is None:
                 assert left == right
             else:
                 npt.assert_array_equal(left, right)
 
-        expected_base = np.array([[3., 4., 5., 6., np.NaN]])
+        expected_base = np.array([[3., 4., 5., 6., np.nan]])
         npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
 
     def test_list_values_behind_null(self):
@@ -2471,7 +2481,7 @@ class TestConvertListTypes:
         )
         np_arr = arr.to_numpy(zero_copy_only=False)
 
-        expected = np.array([[1., 2.], None, [3., np.NaN]], dtype="object")
+        expected = np.array([[1., 2.], None, [3., np.nan]], dtype="object")
         for left, right in zip(np_arr, expected):
             if right is None:
                 assert left == right
@@ -2615,6 +2625,7 @@ class TestConvertStructTypes:
         ty = pa.struct([pa.field('x', pa.float64()),
                         pa.field('y', pa.binary())])
         arr = pa.array(data, type=ty, from_pandas=True)
+        arr.validate(full=True)
         assert arr.num_chunks == 2
 
         def iter_chunked_array(arr):
@@ -2647,6 +2658,7 @@ class TestConvertStructTypes:
         # Now with explicit mask
         mask = np.random.random_sample(n) < 0.2
         arr = pa.array(data, type=ty, mask=mask, from_pandas=True)
+        arr.validate(full=True)
         assert arr.num_chunks == 2
 
         check(arr, data, mask)
@@ -4084,13 +4096,20 @@ def test_array_protocol():
     assert result.equals(expected2)
 
 
-class DummyExtensionType(pa.PyExtensionType):
+class DummyExtensionType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
+        super().__init__(pa.int64(),
+                         'pyarrow.tests.test_pandas.DummyExtensionType')
 
-    def __reduce__(self):
-        return DummyExtensionType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        assert storage_type == pa.int64()
+        return cls()
 
 
 def PandasArray__arrow_array__(self, type=None):
@@ -4186,13 +4205,14 @@ def test_convert_to_extension_array(monkeypatch):
     assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
 
 
-class MyCustomIntegerType(pa.PyExtensionType):
+class MyCustomIntegerType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
+        super().__init__(pa.int64(),
+                         'pyarrow.tests.test_pandas.MyCustomIntegerType')
 
-    def __reduce__(self):
-        return MyCustomIntegerType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
 
     def to_pandas_dtype(self):
         return pd.Int64Dtype()
@@ -4818,6 +4838,7 @@ def test_roundtrip_nested_map_array_with_pydicts_sliced():
 
     def assert_roundtrip(series: pd.Series, data) -> None:
         array_roundtrip = pa.chunked_array(pa.Array.from_pandas(series, type=ty))
+        array_roundtrip.validate(full=True)
         assert data.equals(array_roundtrip)
 
     assert_roundtrip(series_default, chunked_array)
@@ -4936,3 +4957,42 @@ def test_array_conversion_for_datetime():
 
     result = arr.to_pandas()
     tm.assert_series_equal(result, series)
+
+
+@pytest.mark.large_memory
+def test_nested_chunking_valid():
+    # GH-32439: Chunking can cause arrays to be in invalid state
+    # when nested types are involved.
+    # Here we simply ensure we validate correctly.
+
+    def roundtrip(df, schema=None):
+        tab = pa.Table.from_pandas(df, schema=schema)
+        tab.validate(full=True)
+        # we expect to trigger chunking internally
+        # an assertion failure here may just mean this threshold has changed
+        num_chunks = tab.column(0).num_chunks
+        assert num_chunks > 1
+        tm.assert_frame_equal(tab.to_pandas(self_destruct=True,
+                                            maps_as_pydicts="strict"), df)
+
+    x = b"0" * 720000000
+    roundtrip(pd.DataFrame({"strings": [x, x, x]}))
+
+    struct = {"struct_field": x}
+    roundtrip(pd.DataFrame({"structs": [struct, struct, struct]}))
+
+    lists = [x]
+    roundtrip(pd.DataFrame({"lists": [lists, lists, lists]}))
+
+    los = [struct]
+    roundtrip(pd.DataFrame({"los": [los, los, los]}))
+
+    sol = {"struct_field": lists}
+    roundtrip(pd.DataFrame({"sol": [sol, sol, sol]}))
+
+    map_of_los = {"a": los}
+    map_type = pa.map_(pa.string(),
+                       pa.list_(pa.struct([("struct_field", pa.binary())])))
+    schema = pa.schema([("maps", map_type)])
+    roundtrip(pd.DataFrame({"maps": [map_of_los, map_of_los, map_of_los]}),
+              schema=schema)

@@ -180,6 +180,9 @@ namespace Apache.Arrow.C
                         }; ;
                         break;
                     case ArrowTypeId.Map:
+                        MapType mapType = (MapType)type;
+                        children = ProcessListChildren(cArray, mapType.Fields[0].DataType);
+                        buffers = ImportListBuffers(cArray);
                         break;
                     case ArrowTypeId.Null:
                         buffers = System.Array.Empty<ArrowBuffer>();

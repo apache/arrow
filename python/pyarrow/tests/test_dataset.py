@@ -784,28 +784,28 @@ def test_parquet_scan_options():
     opts2 = ds.ParquetFragmentScanOptions(buffer_size=4096)
     opts3 = ds.ParquetFragmentScanOptions(
         buffer_size=2**13, use_buffered_stream=True)
-    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
+    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=False)
     opts5 = ds.ParquetFragmentScanOptions(
         thrift_string_size_limit=123456,
         thrift_container_size_limit=987654,)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
-    assert opts1.pre_buffer is False
+    assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
-    assert opts2.pre_buffer is False
+    assert opts2.pre_buffer is True
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
-    assert opts3.pre_buffer is False
+    assert opts3.pre_buffer is True
 
     assert opts4.use_buffered_stream is False
     assert opts4.buffer_size == 2**13
-    assert opts4.pre_buffer is True
+    assert opts4.pre_buffer is False
 
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
@@ -2921,7 +2921,7 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
     _, path = _create_single_file(tempdir, table=table)
     child4 = ds.dataset(path)
 
-    with pytest.raises(pa.ArrowInvalid, match='Unable to merge'):
+    with pytest.raises(pa.ArrowTypeError, match='Unable to merge'):
         ds.dataset([child1, child4])
 
 

@@ -85,6 +85,28 @@ that changing their value later will have an effect.
    ``libhdfs.dylib`` on macOS, ``libhdfs.so`` on other platforms).
    Alternatively, one can set :envvar:`HADOOP_HOME`.
 
+.. envvar:: ARROW_S3_LOG_LEVEL
+
+   Controls the verbosity of logging produced by S3 calls. Defaults to ``FATAL``
+   which only produces output in the case of fatal errors. ``DEBUG`` is recommended
+   when you're trying to troubleshoot issues.
+
+   Possible values include:
+
+   - ``FATAL`` (the default)
+   - ``ERROR``
+   - ``WARN``
+   - ``INFO``
+   - ``DEBUG``
+   - ``TRACE``
+   - ``OFF``
+
+   .. seealso::
+
+      `Logging - AWS SDK For C++
+      <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/logging.html>`__
+
+
 .. envvar:: ARROW_TRACING_BACKEND
 
    The backend where to export `OpenTelemetry <https://opentelemetry.io/>`_-based

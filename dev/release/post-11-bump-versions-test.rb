@@ -54,12 +54,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     end
     env = env.merge(additional_env)
     case bump_type
-    when :minor_on_main, :patch_on_main
+    when :minor, :patch
       previous_version_components = @previous_version.split(".")
       case bump_type
-      when :minor_on_main
+      when :minor
         previous_version_components[1].succ!
-      when :patch_on_main
+      when :patch
         previous_version_components[2].succ!
       end
       sh(env,
@@ -126,13 +126,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         hunks: [
           ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",
            "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
-        ],
-      },
-      {
-        path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
-        hunks: [
-          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
-           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
         ],
       },
     ]
@@ -330,8 +323,9 @@ class PostBumpVersionsTest < Test::Unit::TestCase
                  "Output:\n#{stdout}")
   end
 
-  data(:bump_type, [nil, :minor_on_main, :patch_on_main])
+  data(:bump_type, [nil, :minor, :patch])
   def test_deb_package_names
+    omit_on_release_branch unless bump_type.nil?
     current_commit = git_current_commit
     stdout = bump_versions("DEB_PACKAGE_NAMES")
     changes = parse_patch(git("log", "-p", "#{current_commit}.."))

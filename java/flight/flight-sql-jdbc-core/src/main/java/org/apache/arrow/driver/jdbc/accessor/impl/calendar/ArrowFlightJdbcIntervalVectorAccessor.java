@@ -22,6 +22,8 @@ import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatInter
 import static org.apache.arrow.vector.util.DateUtility.yearsToMonths;
 
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Period;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
@@ -31,7 +33,6 @@ import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
 import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
-import org.joda.time.Period;
 
 /**
  * Accessor for the Arrow type {@link IntervalDayVector}.
@@ -62,7 +63,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
       } else {
         final int days = holder.days;
         final int millis = holder.milliseconds;
-        return formatIntervalDay(new Period().plusDays(days).plusMillis(millis));
+        return formatIntervalDay(Duration.ofDays(days).plusMillis(millis));
       }
     };
     objectClass = java.time.Duration.class;
@@ -89,7 +90,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
         final int interval = holder.value;
         final int years = (interval / yearsToMonths);
         final int months = (interval % yearsToMonths);
-        return formatIntervalYear(new Period().plusYears(years).plusMonths(months));
+        return formatIntervalYear(Period.ofYears(years).plusMonths(months));
       }
     };
     objectClass = java.time.Period.class;

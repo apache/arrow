@@ -21,7 +21,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(pyarrow)
 
-set(PYARROW_VERSION "14.0.0-SNAPSHOT")
+set(PYARROW_VERSION "15.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Running from a Python sdist tarball
@@ -84,7 +84,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -340,9 +340,12 @@ if(PYARROW_BUILD_PARQUET_ENCRYPTION)
     else()
       list(APPEND PYARROW_CPP_LINK_LIBS Parquet::parquet_static)
     endif()
+    message(STATUS "Parquet Encryption Enabled")
   else()
     message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
   endif()
+else()
+  message(STATUS "Parquet Encryption is NOT Enabled")
 endif()
 
 if(PYARROW_BUILD_HDFS)
@@ -627,6 +630,9 @@ if(PYARROW_BUILD_PARQUET)
   endif()
   if(PYARROW_BUILD_DATASET)
     list(APPEND CYTHON_EXTENSIONS _dataset_parquet)
+    if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+      list(APPEND CYTHON_EXTENSIONS _dataset_parquet_encryption)
+    endif()
   endif()
 endif()
 

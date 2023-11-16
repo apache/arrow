@@ -15,8 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import warnings
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
 
+import warnings
+from cython import sizeof
 
 cdef class ChunkedArray(_PandasConvertible):
     """
@@ -2983,6 +2985,100 @@ cdef class RecordBatch(_Tabular):
                     <ArrowArray*> c_ptr, c_schema))
         return pyarrow_wrap_batch(c_batch)
 
+    def __arrow_c_array__(self, requested_schema=None):
+        """
+        Get a pair of PyCapsules containing a C ArrowArray representation of the object.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule | None
+            A PyCapsule containing a C ArrowSchema representation of a requested
+            schema. PyArrow will attempt to cast the batch to this schema.
+            If None, the schema will be returned as-is, with a schema matching the
+            one returned by :meth:`__arrow_c_schema__()`.
+
+        Returns
+        -------
+        Tuple[PyCapsule, PyCapsule]
+            A pair of PyCapsules containing a C ArrowSchema and ArrowArray,
+            respectively.
+        """
+        cdef:
+            ArrowArray* c_array
+            ArrowSchema* c_schema
+
+        if requested_schema is not None:
+            target_schema = Schema._import_from_c_capsule(requested_schema)
+
+            if target_schema != self.schema:
+                try:
+                    # We don't expose .cast() on RecordBatch, only on Table.
+                    casted_batch = Table.from_batches([self]).cast(
+                        target_schema, safe=True).to_batches()[0]
+                    inner_batch = pyarrow_unwrap_batch(casted_batch)
+                except ArrowInvalid as e:
+                    raise ValueError(
+                        f"Could not cast {self.schema} to requested schema {target_schema}: {e}"
+                    )
+            else:
+                inner_batch = self.sp_batch
+        else:
+            inner_batch = self.sp_batch
+
+        schema_capsule = alloc_c_schema(&c_schema)
+        array_capsule = alloc_c_array(&c_array)
+
+        with nogil:
+            check_status(ExportRecordBatch(deref(inner_batch), c_array, c_schema))
+
+        return schema_capsule, array_capsule
+
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export the batch as an Arrow C stream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : pyarrow.lib.Schema, default None
+            A schema to attempt to cast the streamed data to. This is currently
+            unsupported and will raise an error.
+
+        Returns
+        -------
+        PyCapsule
+        """
+        return Table.from_batches([self]).__arrow_c_stream__(requested_schema)
+
+    @staticmethod
+    def _import_from_c_capsule(schema_capsule, array_capsule):
+        """
+        Import RecordBatch from a pair of PyCapsules containing a C ArrowArray
+        and ArrowSchema, respectively.
+
+        Parameters
+        ----------
+        schema_capsule : PyCapsule
+            A PyCapsule containing a C ArrowSchema representation of the schema.
+        array_capsule : PyCapsule
+            A PyCapsule containing a C ArrowArray representation of the array.
+
+        Returns
+        -------
+        pyarrow.RecordBatch
+        """
+        cdef:
+            ArrowSchema* c_schema
+            ArrowArray* c_array
+            shared_ptr[CRecordBatch] c_batch
+
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema_capsule, 'arrow_schema')
+        c_array = <ArrowArray*> PyCapsule_GetPointer(array_capsule, 'arrow_array')
+
+        with nogil:
+            c_batch = GetResultValue(ImportRecordBatch(c_array, c_schema))
+
+        return pyarrow_wrap_batch(c_batch)
+
 
 def _reconstruct_record_batch(columns, schema):
     """
@@ -4757,6 +4853,22 @@ cdef class Table(_Tabular):
             output_type=Table
         )
 
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export the table as an Arrow C stream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : pyarrow.lib.Schema, default None
+            A schema to attempt to cast the streamed data to. This is currently
+            unsupported and will raise an error.
+
+        Returns
+        -------
+        PyCapsule
+        """
+        return self.to_reader().__arrow_c_stream__(requested_schema)
+
 
 def _reconstruct_table(arrays, schema):
     """
@@ -4772,8 +4884,10 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
     Parameters
     ----------
-    data : pandas.DataFrame, list
-        A DataFrame or list of arrays or chunked arrays.
+    data : pandas.DataFrame, list, Arrow-compatible table
+        A DataFrame, list of arrays or chunked arrays, or a tabular object
+        implementing the Arrow PyCapsule Protocol (has an
+        ``__arrow_c_array__`` method).
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument.
@@ -4892,6 +5006,18 @@ def record_batch(data, names=None, schema=None, metadata=None):
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
                                        metadata=metadata)
+    elif hasattr(data, "__arrow_c_array__"):
+        if schema is not None:
+            requested_schema = schema.__arrow_c_schema__()
+        else:
+            requested_schema = None
+        schema_capsule, array_capsule = data.__arrow_c_array__(requested_schema)
+        batch = RecordBatch._import_from_c_capsule(schema_capsule, array_capsule)
+        if schema is not None and batch.schema != schema:
+            # __arrow_c_array__ coerces schema with best effort, so we might
+            # need to cast it if the producer wasn't able to cast to exact schema.
+            batch = Table.from_batches([batch]).cast(schema).to_batches()[0]
+        return batch
     elif _pandas_api.is_data_frame(data):
         return RecordBatch.from_pandas(data, schema=schema)
     else:
@@ -5013,6 +5139,22 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
+    elif hasattr(data, "__arrow_c_stream__"):
+        if schema is not None:
+            requested = schema.__arrow_c_schema__()
+        else:
+            requested = None
+        capsule = data.__arrow_c_stream__(requested)
+        reader = RecordBatchReader._import_from_c_capsule(capsule)
+        table = reader.read_all()
+        if schema is not None and table.schema != schema:
+            # __arrow_c_array__ coerces schema with best effort, so we might
+            # need to cast it if the producer wasn't able to cast to exact schema.
+            table = table.cast(schema)
+        return table
+    elif hasattr(data, "__arrow_c_array__"):
+        batch = record_batch(data, schema)
+        return Table.from_batches([batch])
     elif _pandas_api.is_data_frame(data):
         if names is not None or metadata is not None:
             raise ValueError(
@@ -5024,16 +5166,16 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs):
     """
     Concatenate pyarrow.Table objects.
 
-    If promote==False, a zero-copy concatenation will be performed. The schemas
+    If promote_options="none", a zero-copy concatenation will be performed. The schemas
     of all the Tables must be the same (except the metadata), otherwise an
     exception will be raised. The result Table will share the metadata with the
     first table.
 
-    If promote==True, any null type arrays will be casted to the type of other
+    If promote_options="default", any null type arrays will be casted to the type of other
     arrays in the column of the same name. If a table is missing a particular
     field, null values of the appropriate type will be generated to take the
     place of the missing field. The new schema will share the metadata with the
@@ -5041,14 +5183,18 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     first table which has the field defined. Note that type promotions may
     involve additional allocations on the given ``memory_pool``.
 
+    If promote_options="permissive", the behavior of default plus types will be promoted
+    to the common denominator that fits all the fields.
+
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
         Pyarrow tables to concatenate into a single Table.
-    promote : bool, default False
-        If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
+    promote_options : str, default none
+        Accepts strings "none", "default" and "permissive".
+    **kwargs : dict, optional
 
     Examples
     --------
@@ -5078,11 +5224,25 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
         CConcatenateTablesOptions options = (
             CConcatenateTablesOptions.Defaults())
 
+    if "promote" in kwargs:
+        warnings.warn(
+            "promote has been superseded by promote_options='default'.",
+            FutureWarning, stacklevel=2)
+        if kwargs['promote'] is True:
+            promote_options = "default"
+
     for table in tables:
         c_tables.push_back(table.sp_table)
 
+    if promote_options == "permissive":
+        options.field_merge_options = CField.CMergeOptions.Permissive()
+    elif promote_options in {"default", "none"}:
+        options.field_merge_options = CField.CMergeOptions.Defaults()
+    else:
+        raise ValueError(f"Invalid promote options: {promote_options}")
+
     with nogil:
-        options.unify_schemas = promote
+        options.unify_schemas = promote_options != "none"
         c_result_table = GetResultValue(
             ConcatenateTables(c_tables, options, pool))
 

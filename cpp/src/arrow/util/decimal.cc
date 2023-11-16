@@ -868,7 +868,7 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
   std::array<uint64_t, 4> little_endian_array;
 
   if (ARROW_PREDICT_FALSE(length < kMinDecimalBytes || length > kMaxDecimalBytes)) {
-    return Status::Invalid("Length of byte array passed to Decimal128::FromBigEndian ",
+    return Status::Invalid("Length of byte array passed to Decimal256::FromBigEndian ",
                            "was ", length, ", but must be between ", kMinDecimalBytes,
                            " and ", kMaxDecimalBytes);
   }

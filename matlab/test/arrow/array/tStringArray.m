@@ -142,7 +142,7 @@ classdef tStringArray < matlab.unittest.TestCase
         function AllowNDimensionalEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape(string.empty(0, 0), [1 0 0]));
             arrowArray = tc.ArrowArrayConstructorFcn(data);
-            tc.verifyEqual(arrowArray.Length, int64(0));
+            tc.verifyEqual(arrowArray.NumElements, int64(0));
             tc.verifyEqual(toMATLAB(arrowArray), string.empty(0, 1));
         end
 
@@ -233,7 +233,7 @@ classdef tStringArray < matlab.unittest.TestCase
             % Verifies arrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. They have the same length (i.e. their Length properties are equal)
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
             %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
             %  4. All corresponding valid elements have the same values
             
@@ -270,7 +270,7 @@ classdef tStringArray < matlab.unittest.TestCase
             % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % Their Length properties are not equal
+            % Their NumElements properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
             % Comparing an arrow.array.Array to a MATLAB double

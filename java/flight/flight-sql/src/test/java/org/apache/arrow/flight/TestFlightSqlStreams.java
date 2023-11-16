@@ -208,7 +208,11 @@ public class TestFlightSqlStreams {
 
   @AfterAll
   public static void tearDown() throws Exception {
-    close(sqlClient, server, allocator);
+    close(sqlClient, server);
+
+    // Manually close all child allocators.
+    allocator.getChildAllocators().forEach(BufferAllocator::close);
+    close(allocator);
   }
 
   @Test

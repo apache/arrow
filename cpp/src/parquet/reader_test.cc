@@ -502,6 +502,42 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
   ASSERT_THROW(printer2.DebugPrint(ss, columns), ParquetException);
 }
 
+// Tests that read_dense_for_nullable is passed down to the record
+// reader. The functionality of read_dense_for_nullable is tested
+// elsewhere.
+TEST(TestFileReader, RecordReaderReadDenseForNullable) {
+  // We test the default which is false, and also test enabling and disabling
+  // read_dense_for_nullable.
+  std::vector<ReaderProperties> reader_properties(3);
+  reader_properties[1].enable_read_dense_for_nullable();
+  reader_properties[2].disable_read_dense_for_nullable();
+  for (const auto& reader_props : reader_properties) {
+    std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
+        alltypes_plain(), /* memory_map = */ false, reader_props);
+    std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
+    std::shared_ptr<internal::RecordReader> col_record_reader = group->RecordReader(0);
+    ASSERT_EQ(reader_props.read_dense_for_nullable(),
+              col_record_reader->read_dense_for_nullable());
+  }
+}
+
+// Tests getting a record reader from a row group reader.
+TEST(TestFileReader, GetRecordReader) {
+  ReaderProperties reader_props;
+  std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
+      alltypes_plain(), /* memory_map = */ false, reader_props);
+  std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
+
+  std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
+
+  ASSERT_TRUE(col_record_reader_->HasMoreData());
+  auto records_read = col_record_reader_->ReadRecords(4);
+  ASSERT_EQ(records_read, 4);
+  ASSERT_EQ(4, col_record_reader_->values_written());
+  ASSERT_EQ(4, col_record_reader_->levels_position());
+  ASSERT_EQ(8, col_record_reader_->levels_written());
+}
+
 class TestLocalFile : public ::testing::Test {
  public:
   void SetUp() {
