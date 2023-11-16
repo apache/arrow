@@ -114,6 +114,21 @@ case-sensitive. The supported parameters are:
      - null
      - When TLS is enabled, the password for the certificate store
 
+   * - tlsRootCerts
+     - null
+     - Path to PEM-encoded root certificates for TLS - use this as
+       an alternative to ``trustStore``
+
+   * - clientCertificate
+     - null
+     - Path to PEM-encoded client mTLS certificate when the Flight
+       SQL server requires client verification.
+
+   * - clientKey
+     - null
+     - Path to PEM-encoded client mTLS key when the Flight
+       SQL server requires client verification.
+
    * - useEncryption
      - true
      - Whether to use TLS (the default is an encrypted connection)
@@ -125,6 +140,17 @@ case-sensitive. The supported parameters are:
    * - useSystemTrustStore
      - true
      - When TLS is enabled, whether to use the system certificate store
+
+   * - retainCookies
+     - true
+     - Whether to use cookies from the initial connection in subsequent
+       internal connections when retrieving streams from separate endpoints.
+
+   * - retainAuth
+     - true
+     - Whether to use bearer tokens obtained from the initial connection
+       in subsequent internal connections used for retrieving streams
+       from separate endpoints.
 
 Note that URI values must be URI-encoded if they contain characters such
 as !, @, $, etc.

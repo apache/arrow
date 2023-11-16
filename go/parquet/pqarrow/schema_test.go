@@ -280,6 +280,25 @@ func TestConvertArrowDecimals(t *testing.T) {
 	}
 }
 
+func TestConvertArrowFloat16(t *testing.T) {
+	parquetFields := make(schema.FieldList, 0)
+	arrowFields := make([]arrow.Field, 0)
+
+	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("float16", parquet.Repetitions.Required,
+		schema.Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2, -1)))
+	arrowFields = append(arrowFields, arrow.Field{Name: "float16", Type: &arrow.Float16Type{}})
+
+	arrowSchema := arrow.NewSchema(arrowFields, nil)
+	parquetSchema := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Repeated, parquetFields, -1)))
+
+	result, err := pqarrow.ToParquet(arrowSchema, nil, pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true)))
+	assert.NoError(t, err)
+	assert.True(t, parquetSchema.Equals(result))
+	for i := 0; i < parquetSchema.NumColumns(); i++ {
+		assert.Truef(t, parquetSchema.Column(i).Equals(result.Column(i)), "Column %d didn't match: %s", i, parquetSchema.Column(i).Name())
+	}
+}
+
 func TestCoerceTImestampV1(t *testing.T) {
 	parquetFields := make(schema.FieldList, 0)
 	arrowFields := make([]arrow.Field, 0)
@@ -418,7 +437,6 @@ func TestUnsupportedTypes(t *testing.T) {
 		typ arrow.DataType
 	}{
 		// Non-exhaustive list of unsupported types
-		{typ: &arrow.Float16Type{}},
 		{typ: &arrow.DurationType{}},
 		{typ: &arrow.DayTimeIntervalType{}},
 		{typ: &arrow.MonthIntervalType{}},

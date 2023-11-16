@@ -237,16 +237,17 @@ public class ResultSetTest {
    */
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletionWithMaxRowsLimit() throws Exception {
-    Statement statement = connection.createStatement();
-    ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
-    final long maxRowsLimit = 3;
-    statement.setLargeMaxRows(maxRowsLimit);
-    statement.closeOnCompletion();
+      final long maxRowsLimit = 3;
+      statement.setLargeMaxRows(maxRowsLimit);
+      statement.closeOnCompletion();
 
-    resultSetNextUntilDone(resultSet);
+      resultSetNextUntilDone(resultSet);
 
-    collector.checkThat(statement.isClosed(), is(true));
+      collector.checkThat(statement.isClosed(), is(true));
+    }
   }
 
   /**
@@ -453,6 +454,19 @@ public class ResultSetTest {
           assertTrue(resultData.contains(((IntVector) secondPartition.getVector(0)).get(0)));
         }
       }
+    }
+  }
+
+  @Test
+  public void testShouldRunSelectQueryWithEmptyVectorsEmbedded() throws Exception {
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_WITH_EMPTY_SQL_CMD)) {
+      long rowCount = 0;
+      while (resultSet.next()) {
+        ++rowCount;
+      }
+      assertEquals(2, rowCount);
     }
   }
 }

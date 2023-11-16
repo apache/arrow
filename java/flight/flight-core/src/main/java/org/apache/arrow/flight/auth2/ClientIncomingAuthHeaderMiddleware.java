@@ -34,7 +34,7 @@ public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddlewar
    */
   public static class Factory implements FlightClientMiddleware.Factory {
     private final ClientHeaderHandler headerHandler;
-    private CredentialCallOption credentialCallOption;
+    private CredentialCallOption credentialCallOption = null;
 
     /**
      * Construct a factory with the given header handler.

@@ -42,6 +42,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
@@ -82,6 +83,7 @@ using ::arrow::bit_util::FromBigEndian;
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::SafeLeftShift;
+using ::arrow::util::Float16;
 using ::arrow::util::SafeLoadAs;
 
 using parquet::internal::BinaryRecordReader;
@@ -713,6 +715,17 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
+Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
+                         const std::shared_ptr<Field>& field, Datum* out) {
+  static const auto binary_type = ::arrow::fixed_size_binary(2);
+  // Read as a FixedSizeBinaryArray - then, view as a HalfFloatArray
+  std::shared_ptr<ChunkedArray> chunked_array;
+  RETURN_NOT_OK(
+      TransferBinary(reader, pool, field->WithType(binary_type), &chunked_array));
+  ARROW_ASSIGN_OR_RAISE(*out, chunked_array->View(field->type()));
+  return Status::OK();
+}
+
 }  // namespace
 
 #define TRANSFER_INT32(ENUM, ArrowType)                                               \
@@ -771,6 +784,18 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
     case ::arrow::Type::LARGE_STRING: {
       RETURN_NOT_OK(TransferBinary(reader, pool, value_field, &chunked_result));
       result = chunked_result;
+    } break;
+    case ::arrow::Type::HALF_FLOAT: {
+      const auto& type = *value_field->type();
+      if (descr->physical_type() != ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
+        return Status::Invalid("Physical type for ", type.ToString(),
+                               " must be fixed length binary");
+      }
+      if (descr->type_length() != type.byte_width()) {
+        return Status::Invalid("Fixed length binary type for ", type.ToString(),
+                               " must have a byte width of ", type.byte_width());
+      }
+      RETURN_NOT_OK(TransferHalfFloat(reader, pool, value_field, &result));
     } break;
     case ::arrow::Type::DECIMAL128: {
       switch (descr->physical_type()) {
