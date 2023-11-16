@@ -476,7 +476,11 @@ class NullArrayFactory {
   }
 
   Status Visit(const BinaryViewType&) {
-    out_->buffers.resize(2, *zero_buffer_);
+    if (presizing_zero_buffer_) {
+      ZeroBufferMustBeAtLeast(sizeof(BinaryViewType::c_type) * length_);
+      return Status::OK();
+    }
+    out_->buffers = {GetValidityBitmap(), *zero_buffer_};
     return Status::OK();
   }
 

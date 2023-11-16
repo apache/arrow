@@ -759,14 +759,9 @@ struct ValidateArrayImpl {
 
   template <typename ListViewType>
   Status ValidateListView(const ListViewType& type) {
-    const ArrayData& values = *data.child_data[0];
-    const Status child_valid = RecurseInto(values);
-    if (!child_valid.ok()) {
-      return Status::Invalid("List-view child array is invalid: ",
-                             child_valid.ToString());
-    }
+    RETURN_NOT_OK(RecurseIntoField(0, "List-view child array"));
     // For list-views, sizes are validated together with offsets.
-    return ValidateOffsetsAndSizes(type, /*offset_limit=*/values.length);
+    return ValidateOffsetsAndSizes(type, /*offset_limit=*/data.child_data[0]->length);
   }
 
   template <typename RunEndCType>
