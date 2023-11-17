@@ -107,7 +107,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
 Maven
 ~~~~~
 
-- To build only the JNI C Data Interface library (MacOS / Linux):
+- To build only the JNI C Data Interface library (macOS / Linux):
 
   .. code-block:: text
 
@@ -128,7 +128,7 @@ Maven
       $ dir "../java-dist/bin/x86_64"
       |__ arrow_cdata_jni.dll
 
-- To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
+- To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
   .. code-block:: text
 
@@ -153,7 +153,7 @@ Maven
 CMake
 ~~~~~
 
-- To build only the JNI C Data Interface library (MacOS / Linux):
+- To build only the JNI C Data Interface library (macOS / Linux):
 
   .. code-block:: text
 
@@ -192,7 +192,7 @@ CMake
       $ dir "java-dist/bin"
       |__ arrow_cdata_jni.dll
 
-- To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
+- To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
   .. code-block::
 
