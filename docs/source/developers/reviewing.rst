@@ -221,7 +221,7 @@ Social aspects
   handle).
 
 * If the contributor has stopped giving feedback or updating their PR,
-  perhaps they're not interested any more, but perhaps also they're stuck
+  perhaps they're not interested anymore, but perhaps also they're stuck
   on some issue and feel unable to push their contribution any further.
   Don't hesitate to ask (*"I see this PR hasn't seen any updates recently,
   are you stuck on something? Do you need any help?"*).
