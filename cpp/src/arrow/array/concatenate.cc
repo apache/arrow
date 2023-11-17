@@ -35,6 +35,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -44,6 +45,7 @@
 #include "arrow/util/list_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/slice_util_internal.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
@@ -177,7 +179,8 @@ Status PutOffsets(const Buffer& src, Offset first_offset, Offset* dst,
 }
 
 template <typename offset_type>
-void PutListViewOffsets(const Buffer& src, offset_type displacement, offset_type* dst);
+Status PutListViewOffsets(const ArrayData& input, offset_type* sizes, const Buffer& src,
+                          offset_type displacement, offset_type* dst);
 
 // Concatenate buffers holding list-view offsets into a single buffer of offsets
 //
@@ -186,22 +189,37 @@ void PutListViewOffsets(const Buffer& src, offset_type displacement, offset_type
 // but when that is not the case, we need to adjust the displacement of offsets.
 // The concatenated child array does not contain values from the beginning
 // if they are not referenced to by any view.
+//
+// The child arrays and the sizes buffer are used to ensure we can trust the offsets in
+// offset_buffers to be within the valid range.
+//
+// This function also mutates sizes so that null list-view entries have size 0.
+//
+// \param[in] in The child arrays
+// \param[in,out] sizes The concatenated sizes buffer
 template <typename offset_type>
-Status ConcatenateListViewOffsets(const BufferVector& buffers,
+Status ConcatenateListViewOffsets(const ArrayDataVector& in, offset_type* sizes,
+                                  const BufferVector& offset_buffers,
                                   const std::vector<Range>& value_ranges,
                                   MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  const int64_t out_size_in_bytes = SumBufferSizesInBytes(buffers);
+  DCHECK_EQ(offset_buffers.size(), value_ranges.size());
+
+  // Allocate resulting offsets buffer and initialize it with zeros
+  const int64_t out_size_in_bytes = SumBufferSizesInBytes(offset_buffers);
   ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(out_size_in_bytes, pool));
-  auto* out_data = (*out)->mutable_data_as<offset_type>();
+  memset((*out)->mutable_data(), 0, static_cast<size_t>((*out)->size()));
+
+  auto* out_offsets = (*out)->mutable_data_as<offset_type>();
 
   int64_t num_child_values = 0;
   int64_t elements_length = 0;
-  for (size_t i = 0; i < buffers.size(); ++i) {
+  for (size_t i = 0; i < offset_buffers.size(); ++i) {
     const auto displacement =
         static_cast<offset_type>(num_child_values - value_ranges[i].offset);
-    PutListViewOffsets(/*src=*/*buffers[i], static_cast<offset_type>(displacement),
-                       /*dst=*/out_data + elements_length);
-    elements_length += buffers[i]->size() / sizeof(offset_type);
+    RETURN_NOT_OK(PutListViewOffsets(*in[i], /*sizes=*/sizes + elements_length,
+                                     /*src=*/*offset_buffers[i], displacement,
+                                     /*dst=*/out_offsets + elements_length));
+    elements_length += offset_buffers[i]->size() / sizeof(offset_type);
     num_child_values += value_ranges[i].length;
     if (num_child_values > std::numeric_limits<offset_type>::max()) {
       return Status::Invalid("offset overflow while concatenating arrays");
@@ -214,19 +232,78 @@ Status ConcatenateListViewOffsets(const BufferVector& buffers,
 }
 
 template <typename offset_type>
-void PutListViewOffsets(const Buffer& src, offset_type displacement, offset_type* dst) {
+Status PutListViewOffsets(const ArrayData& input, offset_type* sizes, const Buffer& src,
+                          offset_type displacement, offset_type* dst) {
   if (src.size() == 0) {
-    return;
+    return Status::OK();
   }
-  auto src_begin = src.data_as<offset_type>();
-  auto src_end = reinterpret_cast<const offset_type*>(src.data() + src.size());
-  // NOTE: Concatenate can be called during IPC reads to append delta dictionaries.
-  // Avoid UB on non-validated input by doing the addition in the unsigned domain.
-  // (the result can later be validated using Array::ValidateFull)
-  std::transform(src_begin, src_end, dst, [displacement](offset_type offset) {
-    constexpr offset_type kZero = 0;
-    return std::max(kZero, SafeSignedAdd(offset, displacement));
-  });
+  const auto& validity_buffer = input.buffers[0];
+  if (validity_buffer) {
+    // Ensure that it is safe to access all the bits in the validity bitmap of input.
+    RETURN_NOT_OK(internal::CheckSliceParams(/*size=*/8 * validity_buffer->size(),
+                                             input.offset, input.length, "buffer"));
+  }
+
+  const auto offsets = src.data_as<offset_type>();
+  DCHECK_EQ(src.size() / sizeof(offset_type), input.length);
+
+  auto visit_not_null = [&](int64_t position) {
+    if (sizes[position] > 0) {
+      // NOTE: Concatenate can be called during IPC reads to append delta
+      // dictionaries. Avoid UB on non-validated input by doing the addition in the
+      // unsigned domain. (the result can later be validated using
+      // Array::ValidateFull)
+      const auto displaced_offset = SafeSignedAdd(offsets[position], displacement);
+      // displaced_offset>=0 is guaranteed by RangeOfValuesUsed returning the
+      // smallest offset of valid and non-empty list-views.
+      DCHECK_GE(displaced_offset, 0);
+      dst[position] = displaced_offset;
+    } else {
+      // Do nothing to leave the dst[position] as 0.
+    }
+  };
+
+  const auto* validity = validity_buffer->data_as<uint8_t>();
+  internal::OptionalBitBlockCounter bit_counter(validity, input.offset, input.length);
+  int64_t position = 0;
+  while (position < input.length) {
+    internal::BitBlockCount block = bit_counter.NextBlock();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (sizes[position] > 0) {
+          // NOTE: Concatenate can be called during IPC reads to append delta
+          // dictionaries. Avoid UB on non-validated input by doing the addition in the
+          // unsigned domain. (the result can later be validated using
+          // Array::ValidateFull)
+          const auto displaced_offset = SafeSignedAdd(offsets[position], displacement);
+          // displaced_offset>=0 is guaranteed by RangeOfValuesUsed returning the
+          // smallest offset of valid and non-empty list-views.
+          DCHECK_GE(displaced_offset, 0);
+          dst[position] = displaced_offset;
+        } else {
+          // Do nothing to leave dst[position] as 0.
+        }
+      }
+    } else if (block.NoneSet()) {
+      // NOTE: we don't have to do anything for the null entries regarding the
+      // offsets as the buffer is initialized to 0 when it is allocated.
+
+      // Zero-out the sizes of the null entries to ensure these sizes are not
+      // greater than the new values length of the concatenated array.
+      memset(sizes + position, 0, block.length * sizeof(offset_type));
+      position += block.length;
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        if (bit_util::GetBit(validity, input.offset + position)) {
+          visit_not_null(position);
+        } else {
+          // Zero-out the size at position.
+          sizes[position] = 0;
+        }
+      }
+    }
+  }
+  return Status::OK();
 }
 
 class ConcatenateImpl {
@@ -369,14 +446,17 @@ class ConcatenateImpl {
     RETURN_NOT_OK(ConcatenateImpl(value_data, pool_).Concatenate(&out_->child_data[0]));
     out_->child_data[0]->type = type.value_type();
 
+    // Concatenate the sizes first
+    ARROW_ASSIGN_OR_RAISE(auto size_buffers, Buffers(2, sizeof(offset_type)));
+    RETURN_NOT_OK(ConcatenateBuffers(size_buffers, pool_).Value(&out_->buffers[2]));
+
     // Concatenate the offsets
     ARROW_ASSIGN_OR_RAISE(auto offset_buffers, Buffers(1, sizeof(offset_type)));
-    RETURN_NOT_OK(ConcatenateListViewOffsets<offset_type>(offset_buffers, value_ranges,
-                                                          pool_, &out_->buffers[1]));
+    RETURN_NOT_OK(ConcatenateListViewOffsets<offset_type>(
+        in_, /*sizes=*/out_->buffers[2]->mutable_data_as<offset_type>(), offset_buffers,
+        value_ranges, pool_, &out_->buffers[1]));
 
-    // Concatenate the sizes
-    ARROW_ASSIGN_OR_RAISE(auto size_buffers, Buffers(2, sizeof(offset_type)));
-    return ConcatenateBuffers(size_buffers, pool_).Value(&out_->buffers[2]);
+    return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& fixed_size_list) {
