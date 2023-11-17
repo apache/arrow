@@ -4099,6 +4099,60 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
         std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
 
+TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
+  using ::arrow::util::Float16;
+  constexpr auto nan = std::numeric_limits<Float16>::quiet_NaN();
+
+  struct TestCase {
+    std::string filename;
+    int32_t len;
+    std::vector<Float16> vals;
+  } test_cases[] = {
+      {"float16_nonzeros_and_nans",
+       8,
+       {Float16(+1.0), Float16(-2.0), nan, Float16(+0.0), Float16(-1.0), Float16(-0.0),
+        Float16(+2.0)}},
+      {"float16_zeros_and_nans", 3, {Float16(+0.0), nan}},
+  };
+
+  const auto pool = ::arrow::default_memory_pool();
+
+  for (const auto& tc : test_cases) {
+    std::string path(test::get_data_dir());
+    path += "/" + tc.filename + ".parquet";
+    ARROW_SCOPED_TRACE("path = ", path);
+
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK_NO_THROW(
+        FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &reader));
+    std::shared_ptr<::arrow::Table> table;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&table));
+
+    std::shared_ptr<::arrow::Schema> schema;
+    ASSERT_OK_NO_THROW(reader->GetSchema(&schema));
+    ASSERT_EQ(1, schema->num_fields());
+    ASSERT_EQ(schema->field(0)->type()->id(), ::arrow::Type::HALF_FLOAT);
+
+    ASSERT_EQ(1, table->num_columns());
+    auto column = table->column(0);
+    ASSERT_EQ(tc.len, column->length());
+    ASSERT_EQ(1, column->num_chunks());
+
+    auto chunk = checked_pointer_cast<::arrow::HalfFloatArray>(column->chunk(0));
+    ASSERT_TRUE(chunk->IsNull(0));
+    for (int32_t i = 0; i < tc.len - 1; ++i) {
+      const auto expected = tc.vals[i];
+      const auto actual = Float16::FromBits(chunk->Value(i + 1));
+      if (expected.is_nan()) {
+        // NaN representations aren't guaranteed to be exact on a binary level
+        ASSERT_TRUE(actual.is_nan());
+      } else {
+        ASSERT_EQ(expected.bits(), actual.bits());
+      }
+    }
+  }
+}
+
 // direct-as-possible translation of
 // pyarrow/tests/test_parquet.py::test_validate_schema_write_table
 TEST(TestArrowWriterAdHoc, SchemaMismatch) {
