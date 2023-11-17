@@ -157,7 +157,7 @@ adjusted_mantissa compute_float(int64_t q, uint64_t w)  noexcept  {
     return answer;
   }
 
-  // usually, we round *up*, but if we fall right in between and and we have an
+  // usually, we round *up*, but if we fall right in between and we have an
   // even basis, we need to round down
   // We are only concerned with the cases where 5**q fits in single 64-bit word.
   if ((product.low <= 1) &&  (q >= binary::min_exponent_round_to_even()) && (q <= binary::max_exponent_round_to_even()) &&
