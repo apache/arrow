@@ -704,23 +704,15 @@ class AzureFileSystem::Impl {
       return Status::OK();
     }
 
-    std::string current_path;
-    for (const auto& part : path.path_to_file_parts) {
-      if (!current_path.empty()) {
-        current_path += internal::kSep;
-      }
-      current_path += part;
-      auto directory_client =
-          datalake_service_client_->GetFileSystemClient(path.container)
-              .GetDirectoryClient(current_path);
-      try {
-        directory_client.CreateIfNotExists();
-      } catch (const Azure::Storage::StorageException& exception) {
-        return internal::ExceptionToStatus(
-            "Failed to create a directory: " + current_path + " (" +
-                directory_client.GetUrl() + ")",
-            exception);
-      }
+    auto directory_client = datalake_service_client_->GetFileSystemClient(path.container)
+                                .GetDirectoryClient(path.path_to_file);
+    try {
+      directory_client.CreateIfNotExists();
+    } catch (const Azure::Storage::StorageException& exception) {
+      return internal::ExceptionToStatus(
+          "Failed to create a directory: " + path.path_to_file + " (" +
+              directory_client.GetUrl() + ")",
+          exception);
     }
 
     return Status::OK();
