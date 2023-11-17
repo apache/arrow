@@ -710,7 +710,7 @@ defining a join. The hash_join supports
 <https://en.wikipedia.org/wiki/Join_(SQL)>`_. 
 Also the join-key (i.e. the column(s) to join on), and suffixes (i.e a suffix term like "_x"
 which can be appended as a suffix for column names duplicated in both left and right 
-relations.) can be set via the the join options. 
+relations.) can be set via the join options. 
 `Read more on hash-joins
 <https://en.wikipedia.org/wiki/Hash_join>`_. 
 
