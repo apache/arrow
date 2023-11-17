@@ -1690,11 +1690,11 @@ def test_s3_real_aws_region_selection():
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
-    # Non-existent bucket (hopefully, otherwise need to fix this test)
+    # Nonexistent bucket (hopefully, otherwise need to fix this test)
     with pytest.raises(IOError, match="Bucket '.*' not found"):
-        FileSystem.from_uri('s3://x-arrow-non-existent-bucket')
+        FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
     fs, path = FileSystem.from_uri(
-        's3://x-arrow-non-existent-bucket?region=us-east-3')
+        's3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
 
 
