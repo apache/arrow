@@ -502,7 +502,7 @@ void generate_to_impl(SeedSeq&& generator, DestIter dest,
             ? size * ((DEST_SIZE+GEN_SIZE-1) / GEN_SIZE)
             : (size + (GEN_SIZE / DEST_SIZE) - 1)
                 / ((GEN_SIZE / DEST_SIZE) + GEN_IS_SMALLER);
-                        //  this odd code ^^^^^^^^^^^^^^^^^ is work-around for
+                        //  this odd code ^^^^^^^^^^^^^^^^^ is workaround for
                         //  a bug: http://llvm.org/bugs/show_bug.cgi?id=21287
 
     if (FROM_ELEMS <= 1024) {
