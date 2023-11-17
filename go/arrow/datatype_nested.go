@@ -464,7 +464,7 @@ func (t *StructType) FieldByName(name string) (Field, bool) {
 // FieldIdx gets the index of the field with the given name.
 //
 // If there are multiple fields with the given name, FieldIdx returns
-// the index of the first first such field.
+// the index of the first such field.
 func (t *StructType) FieldIdx(name string) (int, bool) {
 	i, ok := t.index[name]
 	if ok {
