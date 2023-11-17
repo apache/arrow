@@ -38,6 +38,11 @@ jobs:
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Change shared library dependency name
         run: |
+          # MATLAB's programmatic packaging interface does not properly 
+          # include symbolic link files in the package MLTBX - this is a
+          # bug. As a temporary workaround, change the expected name of the 
+          # Arrow C++ library which libarrowproxy.so depends on. For example,
+          # change libarrow.so.1500.0.0 to libarrow.so.1500.
           pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/ 
           SYMLINK_ARROW_LIB="$(find . -name 'libarrow.so.*' -type l | xargs basename)"
           REGULAR_ARROW_LIB="$(echo libarrow.so.*.*)"
@@ -70,6 +75,11 @@ jobs:
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Change shared library dependency name
         run: |
+           # MATLAB's programmatic packaging interface does not properly 
+           # include symbolic link files in the package MLTBX - this is a
+           # bug. As a temporary workaround, change the expected name of the 
+           # Arrow C++ library which libarrowproxy.dylib depends on.
+           # For example, change to libarrow.1500.0.0.dylib to libarrow.1500.dylib.
            pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
            SYMLINK_ARROW_LIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
            REGULAR_ARROW_LIB="$(echo libarrow.*.*.dylib)"
