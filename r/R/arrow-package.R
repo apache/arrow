@@ -212,7 +212,7 @@ configure_tzdb <- function() {
         )
       )
     }
-  })
+  }, silent = TRUE)
 }
 
 # Clean up the StopSource that was registered in .onLoad() so that if the
