@@ -87,7 +87,7 @@ try_download <- function(from_url, to_file, hush = quietly) {
 
   status <- try(
     suppressWarnings(
-      download.file(from_url, to_file, quiet = hush)
+      download.file(from_url, to_file, quiet = hush, mode = "wb")
     ),
     silent = hush
   )
