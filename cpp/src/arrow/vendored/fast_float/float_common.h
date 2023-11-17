@@ -137,7 +137,7 @@ fastfloat_really_inline constexpr bool cpp20_and_in_constexpr() {
 #endif
 }
 
-// Compares two ASCII strings in a case insensitive manner.
+// Compares two ASCII strings in a case-insensitive manner.
 inline FASTFLOAT_CONSTEXPR14 bool
 fastfloat_strncasecmp(const char *input1, const char *input2, size_t length) {
   char running_diff{0};

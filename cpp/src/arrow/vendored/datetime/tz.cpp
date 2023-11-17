@@ -643,7 +643,7 @@ bool
 native_to_standard_timezone_name(const std::string& native_tz_name,
                                  std::string& standard_tz_name)
 {
-    // TOOD! Need be a case insensitive compare?
+    // TOOD! Need be a case-insensitive compare?
     if (native_tz_name == "UTC")
     {
         standard_tz_name = "Etc/UTC";
