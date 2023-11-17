@@ -242,8 +242,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 42, rversion: "4.2" }
-        - { rtools: 42, rversion: "devel" }
+        - { rtools: 43, rversion: "4.3" }
+        - { rtools: 43, rversion: "devel" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
