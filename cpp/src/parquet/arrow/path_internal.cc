@@ -66,7 +66,7 @@
 // 3.  In order to keep repetition/definition level populated the algorithm is lazy
 //     in assigning repetition levels. The algorithm tracks whether it is currently
 //     in the middle of a list by comparing the lengths of repetition/definition levels.
-//     If it is currently in the middle of a list the the number of repetition levels
+//     If it is currently in the middle of a list the number of repetition levels
 //     populated will be greater than definition levels (the start of a List requires
 //     adding the first element). If there are equal numbers of definition and repetition
 //     levels populated this indicates a list is waiting to be started and the next list
@@ -312,7 +312,7 @@ struct NullableTerminalNode {
 // at least one other node).
 //
 // Type parameters:
-//    |RangeSelector| - A strategy for determine the the range of the child node to
+//    |RangeSelector| - A strategy for determine the range of the child node to
 //    process.
 //       this varies depending on the type of list (int32_t* offsets, int64_t* offsets of
 //       fixed.
