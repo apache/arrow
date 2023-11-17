@@ -33,6 +33,7 @@
 #include "arrow/c/util_internal.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -3829,6 +3830,24 @@ TEST_F(TestArrayRoundtrip, ListView) {
   TestWithJSON(list_view(int32()), "[[4, 5], [6, null], null]");
 
   TestWithJSONSliced(list_view(int32()), "[[4, 5], [6, null], null]");
+
+  // Out-of-order offsets
+  TestWithArrayFactory([this]() -> Result<std::shared_ptr<Array>> {
+    std::shared_ptr<Array> offsets;
+    ArrayFromVector<Int32Type>(int32(),
+                               std::vector<bool>{false, true, true, true, false, true},
+                               std::vector<int32_t>{4, 2, 1, 3, 3, 2}, &offsets);
+
+    std::shared_ptr<Array> sizes;
+    ArrayFromVector<Int32Type>(std::vector<int32_t>{2, 2, 3, 1, 2, 0}, &sizes);
+
+    auto values = ArrayFromJSON(int8(), "[4, 5, 6, null, 8, null]");
+    auto result = ListViewArray::FromArrays(*offsets, *sizes, *values, pool_);
+    if (result.ok()) {
+      RETURN_NOT_OK((*result)->ValidateFull());
+    }
+    return result;
+  });
 }
 
 TEST_F(TestArrayRoundtrip, Struct) {
