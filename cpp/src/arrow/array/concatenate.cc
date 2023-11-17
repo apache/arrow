@@ -263,7 +263,7 @@ Status PutListViewOffsets(const ArrayData& input, offset_type* sizes, const Buff
     }
   };
 
-  const auto* validity = validity_buffer->data_as<uint8_t>();
+  const auto* validity = validity_buffer ? validity_buffer->data_as<uint8_t>() : nullptr;
   internal::OptionalBitBlockCounter bit_counter(validity, input.offset, input.length);
   int64_t position = 0;
   while (position < input.length) {

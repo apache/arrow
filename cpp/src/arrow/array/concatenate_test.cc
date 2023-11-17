@@ -173,9 +173,11 @@ class SimpleRandomArrayGenerator {
     ArrayFromVector<OffsetArrowType>(sizes_vector, &sizes);
 
     auto validity_bitmap = ValidityBitmap(length, null_probability);
+    auto valid_count = internal::CountSetBits(validity_bitmap->data(), 0, length);
 
-    return ListViewArrayType::FromArrays(*offsets, *sizes, *values, default_memory_pool(),
-                                         std::move(validity_bitmap));
+    return ListViewArrayType::FromArrays(
+        *offsets, *sizes, *values, default_memory_pool(),
+        valid_count == length ? nullptr : std::move(validity_bitmap));
   }
 };
 
