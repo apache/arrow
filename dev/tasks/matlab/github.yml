@@ -39,8 +39,10 @@ jobs:
       - name: Change shared library dependency name
         run: |
           pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/ 
-          SYMLINK_ARROW_LIB="$(find . -regex "./libarrow.so.[0-9][0-9][0-9][0-9]" | xargs basename)"
-          REGULAR_ARROW_LIB="$(find . -regex "./libarrow.so.[0-9][0-9][0-9][0-9].[0-9].[0-9]" | xargs basename)"
+          SYMLINK_ARROW_LIB="$(find . -name 'libarrow.so.*' -type l | xargs basename)"
+          REGULAR_ARROW_LIB="$(echo libarrow.so.*.*)"
+          echo "SYMLINK_ARROW_LIB = ${SYMLINK_ARROW_LIB}"
+          echo "REGULAR_ARROW_LIB = ${REGULAR_ARROW_LIB}"
           patchelf --replace-needed $SYMLINK_ARROW_LIB $REGULAR_ARROW_LIB libarrowproxy.so
           popd
       - name: Compress into single artifact
@@ -69,8 +71,10 @@ jobs:
       - name: Change shared library dependency name
         run: |
            pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
-           SYMLINK_ARROW_LIB="$(find . -regex "./libarrow.[0-9][0-9][0-9][0-9].dylib" | xargs basename)"
-           REGULAR_ARROW_LIB="$(find . -regex "./libarrow.[0-9][0-9][0-9][0-9].[0-9].[0-9].dylib" | xargs basename)"
+           SYMLINK_ARROW_LIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
+           REGULAR_ARROW_LIB="$(echo libarrow.*.*.dylib)"
+           echo "SYMLINK_ARROW_LIB = ${SYMLINK_ARROW_LIB}"
+           echo "REGULAR_ARROW_LIB = ${REGULAR_ARROW_LIB}"
            install_name_tool -change @rpath/$SYMLINK_ARROW_LIB @rpath/$REGULAR_ARROW_LIB libarrowproxy.dylib
            popd
       - name: Compress into single artifact
