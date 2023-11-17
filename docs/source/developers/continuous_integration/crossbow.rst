@@ -245,7 +245,7 @@ see its help page:
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
 .. _Create the queue repository: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
-.. _Github Actions: https://docs.github.com/en/actions/quickstart
+.. _GitHub Actions: https://docs.github.com/en/actions/quickstart
 .. _Travis CI: https://travis-ci.com/getting-started/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
 .. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit

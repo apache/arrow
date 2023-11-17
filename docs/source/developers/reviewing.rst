@@ -217,7 +217,7 @@ Social aspects
 
 * If you know someone who has the competence to help on a blocking issue
   and past experience suggests they may be willing to do so, feel free to
-  add them to the discussion (for example by gently pinging their Github
+  add them to the discussion (for example by gently pinging their GitHub
   handle).
 
 * If the contributor has stopped giving feedback or updating their PR,

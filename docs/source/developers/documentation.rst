@@ -136,7 +136,7 @@ GitHub Actions response, where you need to click on the Crossbow build badge:
 
 .. figure:: ./images/docs_preview_1.jpeg
    :scale: 70 %
-   :alt: Github-actions response with the crossbow build status.
+   :alt: GitHub-actions response with the crossbow build status.
 
    Crossbow build status
 
