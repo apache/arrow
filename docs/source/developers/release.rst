@@ -419,7 +419,7 @@ Be sure to go through on the following checklist:
 
    The package upload requires npm and yarn to be installed and 2FA to be configured on your account.
 
-   When you have access, you can publish releases to npm by running the the following script:
+   When you have access, you can publish releases to npm by running the following script:
 
    .. code-block:: Bash
 

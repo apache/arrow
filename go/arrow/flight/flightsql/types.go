@@ -525,7 +525,7 @@ const (
 	SqlInfoMaxCharLiteralLen = SqlInfo(pb.SqlInfo_SQL_MAX_CHAR_LITERAL_LENGTH)
 	// Retrieves a int64 value representing the maximum number of characters allowed for a column name.
 	SqlInfoMaxColumnNameLen = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMN_NAME_LENGTH)
-	// Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+	// Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
 	SqlInfoMaxColumnsInGroupBy = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMNS_IN_GROUP_BY)
 	// Retrieves a int64 value representing the maximum number of columns allowed in an index.
 	SqlInfoMaxColumnsInIndex = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMNS_IN_INDEX)

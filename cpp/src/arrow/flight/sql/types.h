@@ -535,7 +535,7 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// allowed for a column name.
     SQL_MAX_COLUMN_NAME_LENGTH = 543,
 
-    /// Retrieves a int64 value representing the the maximum number of columns
+    /// Retrieves a int64 value representing the maximum number of columns
     /// allowed in a GROUP BY clause.
     SQL_MAX_COLUMNS_IN_GROUP_BY = 544,
 
