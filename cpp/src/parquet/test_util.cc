@@ -101,6 +101,16 @@ void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_v
   }
 }
 
+void random_float16_numbers(int n, uint32_t seed, ::arrow::util::Float16 min_value,
+                            ::arrow::util::Float16 max_value, uint16_t* out) {
+  std::vector<float> values(n);
+  random_numbers(n, seed, static_cast<float>(min_value), static_cast<float>(max_value),
+                 values.data());
+  for (int i = 0; i < n; ++i) {
+    out[i] = ::arrow::util::Float16(values[i]).bits();
+  }
+}
+
 void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out) {
   std::default_random_engine gen(seed);
   std::uniform_int_distribution<int> d(0, 255);

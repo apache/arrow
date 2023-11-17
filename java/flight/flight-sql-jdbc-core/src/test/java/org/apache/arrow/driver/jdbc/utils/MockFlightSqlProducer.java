@@ -105,8 +105,8 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
 
   private final Map<String, Integer> actionTypeCounter = new HashMap<>();
 
-  private static FlightInfo getFightInfoExportedAndImportedKeys(final Message message,
-                                                                final FlightDescriptor descriptor) {
+  private static FlightInfo getFlightInfoExportedAndImportedKeys(final Message message,
+                                                                 final FlightDescriptor descriptor) {
     return getFlightInfo(message, Schemas.GET_IMPORTED_KEYS_SCHEMA, descriptor);
   }
 
@@ -529,14 +529,14 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
   public FlightInfo getFlightInfoExportedKeys(final CommandGetExportedKeys commandGetExportedKeys,
                                               final CallContext callContext,
                                               final FlightDescriptor flightDescriptor) {
-    return getFightInfoExportedAndImportedKeys(commandGetExportedKeys, flightDescriptor);
+    return getFlightInfoExportedAndImportedKeys(commandGetExportedKeys, flightDescriptor);
   }
 
   @Override
   public FlightInfo getFlightInfoImportedKeys(final CommandGetImportedKeys commandGetImportedKeys,
                                               final CallContext callContext,
                                               final FlightDescriptor flightDescriptor) {
-    return getFightInfoExportedAndImportedKeys(commandGetImportedKeys, flightDescriptor);
+    return getFlightInfoExportedAndImportedKeys(commandGetImportedKeys, flightDescriptor);
   }
 
   @Override
@@ -544,7 +544,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
       final CommandGetCrossReference commandGetCrossReference,
       final CallContext callContext,
       final FlightDescriptor flightDescriptor) {
-    return getFightInfoExportedAndImportedKeys(commandGetCrossReference, flightDescriptor);
+    return getFlightInfoExportedAndImportedKeys(commandGetCrossReference, flightDescriptor);
   }
 
   @Override

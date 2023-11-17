@@ -552,12 +552,12 @@ cdef class CompressedOutputStream(NativeFile):
 
 cdef class _CRecordBatchWriter(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchWriter] writer
+        SharedPtrNoGIL[CRecordBatchWriter] writer
 
 
 cdef class RecordBatchReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchReader] reader
+        SharedPtrNoGIL[CRecordBatchReader] reader
 
 
 cdef class Codec(_Weakrefable):

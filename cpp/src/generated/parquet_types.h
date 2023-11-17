@@ -359,6 +359,8 @@ class EnumType;
 
 class DateType;
 
+class Float16Type;
+
 class NullType;
 
 class DecimalType;
@@ -768,6 +770,39 @@ class DateType : public virtual ::apache::thrift::TBase {
 void swap(DateType &a, DateType &b);
 
 std::ostream& operator<<(std::ostream& out, const DateType& obj);
+
+
+class Float16Type : public virtual ::apache::thrift::TBase {
+ public:
+
+  Float16Type(const Float16Type&) noexcept;
+  Float16Type(Float16Type&&) noexcept;
+  Float16Type& operator=(const Float16Type&) noexcept;
+  Float16Type& operator=(Float16Type&&) noexcept;
+  Float16Type() noexcept {
+  }
+
+  virtual ~Float16Type() noexcept;
+
+  bool operator == (const Float16Type & /* rhs */) const
+  {
+    return true;
+  }
+  bool operator != (const Float16Type &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const Float16Type & ) const;
+
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
+
+  virtual void printTo(std::ostream& out) const;
+};
+
+void swap(Float16Type &a, Float16Type &b);
+
+std::ostream& operator<<(std::ostream& out, const Float16Type& obj);
 
 
 /**
@@ -1253,7 +1288,7 @@ void swap(BsonType &a, BsonType &b);
 std::ostream& operator<<(std::ostream& out, const BsonType& obj);
 
 typedef struct _LogicalType__isset {
-  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false) {}
+  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false) {}
   bool STRING :1;
   bool MAP :1;
   bool LIST :1;
@@ -1267,6 +1302,7 @@ typedef struct _LogicalType__isset {
   bool JSON :1;
   bool BSON :1;
   bool UUID :1;
+  bool FLOAT16 :1;
 } _LogicalType__isset;
 
 /**
@@ -1300,6 +1336,7 @@ class LogicalType : public virtual ::apache::thrift::TBase {
   JsonType JSON;
   BsonType BSON;
   UUIDType UUID;
+  Float16Type FLOAT16;
 
   _LogicalType__isset __isset;
 
@@ -1328,6 +1365,8 @@ class LogicalType : public virtual ::apache::thrift::TBase {
   void __set_BSON(const BsonType& val);
 
   void __set_UUID(const UUIDType& val);
+
+  void __set_FLOAT16(const Float16Type& val);
 
   bool operator == (const LogicalType & rhs) const
   {
@@ -1382,6 +1421,10 @@ class LogicalType : public virtual ::apache::thrift::TBase {
     if (__isset.UUID != rhs.__isset.UUID)
       return false;
     else if (__isset.UUID && !(UUID == rhs.UUID))
+      return false;
+    if (__isset.FLOAT16 != rhs.__isset.FLOAT16)
+      return false;
+    else if (__isset.FLOAT16 && !(FLOAT16 == rhs.FLOAT16))
       return false;
     return true;
   }
