@@ -502,7 +502,7 @@ class Repo:
                 logger.error('Attempt {} has failed with message: {}.'
                              .format(i + 1, str(e)))
                 logger.error('Error message {}'.format(e.msg))
-                logger.error('List of errors provided by Github:')
+                logger.error('List of errors provided by GitHub:')
                 for err in e.errors:
                     logger.error(' - {}'.format(err))
 
@@ -526,7 +526,7 @@ class Repo:
 
             time.sleep(retry_backoff)
 
-        raise RuntimeError('Github asset uploading has failed!')
+        raise RuntimeError('GitHub asset uploading has failed!')
 
     def github_upload_asset_curl(self, release, path, name, mime):
         upload_url, _ = release.upload_url.split('{?')
