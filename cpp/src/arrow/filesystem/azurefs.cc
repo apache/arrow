@@ -653,9 +653,9 @@ class AzureFileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
                           hierarchical_namespace_.Enabled(path.container));
     if (!hierarchical_namespace_enabled) {
-      // Without hierarchical namespace enabled Azure blob storage has no directories. 
-      // Therefore we can't, and don't need to create one. Simply creating a blob with `/` in the name
-      // implies directories. 
+      // Without hierarchical namespace enabled Azure blob storage has no directories.
+      // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
+      // in the name implies directories.
       return Status::OK();
     }
 
