@@ -462,7 +462,7 @@ typedef struct _SizeStatistics__isset {
  * A structure for capturing metadata for estimating the unencoded,
  * uncompressed size of data written. This is useful for readers to estimate
  * how much memory is needed to reconstruct data in their memory model and for
- * fine grained filter pushdown on nested structures (the histograms contained
+ * fine-grained filter pushdown on nested structures (the histograms contained
  * in this structure can help determine the number of nulls at a particular
  * nesting level and maximum length of lists).
  */
