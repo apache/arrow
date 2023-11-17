@@ -40,22 +40,22 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
                    std::shared_ptr<ServerMiddleware>* middleware);
 
   /// \brief Get a new, empty session option map and its id key.
-  std::pair<std::string, std::shared_ptr<FlightSqlSession>> GetNewSession();
+  std::pair<std::string, std::shared_ptr<FlightSqlSession>> CreateNewSession();
 };
 
 class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
  protected:
-  std::shared_mutex lock_;
+  std::shared_mutex mutex_;
   ServerSessionMiddlewareFactory* factory_;
   const CallHeaders& headers_;
   std::shared_ptr<FlightSqlSession> session_;
   std::string session_id_;
-  const bool existing_session;
+  const bool existing_session_;
 
  public:
   ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
                               const CallHeaders& headers)
-      : factory_(factory), headers_(headers), existing_session(false) {}
+      : factory_(factory), headers_(headers), existing_session_(false) {}
 
   ServerSessionMiddlewareImpl(ServerSessionMiddlewareFactory* factory,
                               const CallHeaders& headers,
@@ -65,10 +65,10 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
         headers_(headers),
         session_(std::move(session)),
         session_id_(std::move(session_id)),
-        existing_session(true) {}
+        existing_session_(true) {}
 
   void SendingHeaders(AddCallHeaders* add_call_headers) override {
-    if (!existing_session && session_) {
+    if (!existing_session_ && session_) {
       add_call_headers->AddHeader(
           "set-cookie", static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
     }
@@ -79,9 +79,9 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   bool HasSession() const override { return static_cast<bool>(session_); }
 
   std::shared_ptr<FlightSqlSession> GetSession() override {
-    const std::lock_guard<std::shared_mutex> l(lock_);
+    const std::lock_guard<std::shared_mutex> l(mutex_);
     if (!session_) {
-      auto [id, s] = factory_->GetNewSession();
+      auto [id, s] = factory_->CreateNewSession();
       session_ = std::move(s);
       session_id_ = std::move(id);
     }
@@ -165,7 +165,7 @@ Status ServerSessionMiddlewareFactory::StartCall(
 
 /// \brief Get a new, empty session option map and its id key.
 std::pair<std::string, std::shared_ptr<FlightSqlSession>>
-ServerSessionMiddlewareFactory::GetNewSession() {
+ServerSessionMiddlewareFactory::CreateNewSession() {
   auto new_id = id_generator_();
   auto session = std::make_shared<FlightSqlSession>();
 
@@ -181,9 +181,9 @@ std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory(
 }
 
 std::optional<SessionOptionValue> FlightSqlSession::GetSessionOption(
-    const std::string& k) {
+    const std::string& name) {
   const std::shared_lock<std::shared_mutex> l(map_lock_);
-  auto it = map_.find(k);
+  auto it = map_.find(name);
   if (it != map_.end()) {
     return it->second;
   } else {
@@ -191,15 +191,15 @@ std::optional<SessionOptionValue> FlightSqlSession::GetSessionOption(
   }
 }
 
-void FlightSqlSession::SetSessionOption(const std::string& k,
-                                        const SessionOptionValue v) {
+void FlightSqlSession::SetSessionOption(const std::string& name,
+                                        const SessionOptionValue value) {
   const std::lock_guard<std::shared_mutex> l(map_lock_);
-  map_[k] = std::move(v);
+  map_[name] = std::move(value);
 }
 
-void FlightSqlSession::EraseSessionOption(const std::string& k) {
+void FlightSqlSession::EraseSessionOption(const std::string& name) {
   const std::lock_guard<std::shared_mutex> l(map_lock_);
-  map_.erase(k);
+  map_.erase(name);
 }
 
 }  // namespace sql

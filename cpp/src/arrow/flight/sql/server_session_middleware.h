@@ -40,12 +40,12 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlSession {
   std::shared_mutex map_lock_;
 
  public:
-  /// \brief Get session option by key
-  std::optional<SessionOptionValue> GetSessionOption(const std::string&);
-  /// \brief Set session option by key to given value
-  void SetSessionOption(const std::string& key, const SessionOptionValue v);
-  /// \brief Idempotently remove key from this call's Session, if Session & key exist
-  void EraseSessionOption(const std::string& key);
+  /// \brief Get session option by name
+  std::optional<SessionOptionValue> GetSessionOption(const std::string& name);
+  /// \brief Set session option by name to given value
+  void SetSessionOption(const std::string& name, const SessionOptionValue value);
+  /// \brief Idempotently remove key from this call's Session, if Session & name exist
+  void EraseSessionOption(const std::string& name);
 };
 
 /// \brief A middleware to handle session option persistence and related cookie headers.

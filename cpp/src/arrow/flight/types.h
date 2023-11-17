@@ -781,20 +781,20 @@ enum class SetSessionOptionStatus : int8_t {
   /// \brief The given session option name was an alias for another option name.
   kOkMapped,
   /// \brief The given session option name is invalid.
-  kInvalidKey,
+  kInvalidName,
   /// \brief The session option value is invalid.
   kInvalidValue,
   /// \brief The session option cannot be set.
   kError
 };
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r);
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& status);
 
 /// \brief The result of closing a session.
 enum class CloseSessionStatus : int8_t { kUnspecified, kClosed, kClosing, kNotClosable };
-std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r);
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
 
 static const char* const SetSessionOptionStatusNames[] = {
-    "Unspecified", "Ok", "OkMapped", "InvalidKey", "InvalidValue", "Error"};
+    "Unspecified", "Ok", "OkMapped", "InvalidName", "InvalidValue", "Error"};
 static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
                                                       "NotClosable"};
 

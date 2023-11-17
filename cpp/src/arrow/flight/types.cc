@@ -473,13 +473,13 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
   return out;
 }
 
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& r) {
-  os << SetSessionOptionStatusNames[static_cast<int>(r)];
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& status) {
+  os << SetSessionOptionStatusNames[static_cast<int>(status)];
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r) {
-  os << CloseSessionStatusNames[static_cast<int>(r)];
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status) {
+  os << CloseSessionStatusNames[static_cast<int>(status)];
   return os;
 }
 
@@ -511,7 +511,7 @@ std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
   os << '{';
   std::string sep = "";
   for (const auto& [k, v] : m) {
-    os << sep << '[' << k << "]: '" << v;
+    os << sep << '[' << k << "]: '" << v << '\'';
     sep = ", ";
   }
   os << '}';
