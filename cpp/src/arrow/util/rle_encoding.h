@@ -61,7 +61,7 @@ namespace util {
 /// on a byte boundary without padding.
 /// Given that we know it is a multiple of 8, we store the number of 8-groups rather than
 /// the actual number of encoded ints. (This means that the total number of encoded values
-/// can not be determined from the encoded data, since the number of values in the last
+/// cannot be determined from the encoded data, since the number of values in the last
 /// group may not be a multiple of 8). For the last group of literal runs, we pad
 /// the group to 8 with zeros. This allows for 8 at a time decoding on the read side
 /// without the need for additional checks.
