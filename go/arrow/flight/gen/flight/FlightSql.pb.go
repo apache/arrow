@@ -421,7 +421,7 @@ const (
 	SqlInfo_SQL_MAX_CHAR_LITERAL_LENGTH SqlInfo = 542
 	// Retrieves a int64 value representing the maximum number of characters allowed for a column name.
 	SqlInfo_SQL_MAX_COLUMN_NAME_LENGTH SqlInfo = 543
-	// Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+	// Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
 	SqlInfo_SQL_MAX_COLUMNS_IN_GROUP_BY SqlInfo = 544
 	// Retrieves a int64 value representing the maximum number of columns allowed in an index.
 	SqlInfo_SQL_MAX_COLUMNS_IN_INDEX SqlInfo = 545
@@ -4134,7 +4134,7 @@ func (x *CommandPreparedStatementQuery) GetPreparedStatementHandle() []byte {
 
 //
 // Represents a SQL update query. Used in the command member of FlightDescriptor
-// for the the RPC call DoPut to cause the server to execute the included SQL update.
+// for the RPC call DoPut to cause the server to execute the included SQL update.
 type CommandStatementUpdate struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4194,7 +4194,7 @@ func (x *CommandStatementUpdate) GetTransactionId() []byte {
 
 //
 // Represents a SQL update query. Used in the command member of FlightDescriptor
-// for the the RPC call DoPut to cause the server to execute the included
+// for the RPC call DoPut to cause the server to execute the included
 // prepared statement handle as an update.
 type CommandPreparedStatementUpdate struct {
 	state         protoimpl.MessageState

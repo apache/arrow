@@ -104,7 +104,7 @@ type colEncryptConfig struct {
 	encrypted   bool
 }
 
-// ColumnEncryptOption how to specify options to the the NewColumnEncryptionProperties function.
+// ColumnEncryptOption how to specify options to the NewColumnEncryptionProperties function.
 type ColumnEncryptOption func(*colEncryptConfig)
 
 // WithKey sets a column specific key.

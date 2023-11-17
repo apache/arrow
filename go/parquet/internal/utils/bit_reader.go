@@ -152,7 +152,7 @@ func (b *BitReader) GetAligned(nbytes int, v interface{}) bool {
 	if n != nbytes {
 		return false
 	}
-	// zero pad the the bytes
+	// zero pad the bytes
 	memory.Set(b.raw[n:typBytes], 0)
 
 	switch v := v.(type) {
