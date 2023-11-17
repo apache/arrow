@@ -104,9 +104,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
         with:
           release: R2023a
-      - name: Download Timezone Database
-        shell: bash
-        run: arrow/ci/scripts/download_tz_database.sh
       - name: Install sccache
         shell: bash
         run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
