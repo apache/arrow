@@ -3278,7 +3278,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
     use_legacy_dataset : bool
-        Default is False. Set to True to use the the legacy behaviour
+        Default is False. Set to True to use the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
         removed in a future version). The legacy implementation still
         supports the `partition_filename_cb` keyword but is less efficient
