@@ -908,7 +908,7 @@ static void ConfirmFactoryEquivalence(
 TEST(TestLogicalTypeConstruction, FactoryEquivalence) {
   // For each legacy converted type, ensure that the equivalent logical type object
   // can be obtained from either the base class's FromConvertedType() factory method or
-  // the logical type type class's Make() method (accessed via convenience methods on the
+  // the logical type class's Make() method (accessed via convenience methods on the
   // base class) and that these logical type objects are equivalent
 
   struct ConfirmFactoryEquivalenceArguments {
