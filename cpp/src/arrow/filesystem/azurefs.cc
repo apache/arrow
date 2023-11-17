@@ -152,6 +152,9 @@ Status StatusFromErrorResponse(const std::string& url,
                                Azure::Core::Http::RawResponse* raw_response,
                                const std::string& context) {
   const auto& body = raw_response->GetBody();
+  // There isn't an Azure specification that response body on error
+  // doesn't contain any binary data but we assume it. We hope that
+  // error response body has useful information for the error.
   std::string_view body_text(reinterpret_cast<const char*>(body.data()), body.size());
   return Status::IOError(context, ": ", url, ": ", raw_response->GetReasonPhrase(), " (",
                          static_cast<int>(raw_response->GetStatusCode()),
