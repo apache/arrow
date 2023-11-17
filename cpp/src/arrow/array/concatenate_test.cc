@@ -254,10 +254,9 @@ class PrimitiveConcatenateTest : public ConcatenateTest {
 TYPED_TEST_SUITE(PrimitiveConcatenateTest, PrimitiveArrowTypes);
 
 TYPED_TEST(PrimitiveConcatenateTest, Primitives) {
-  this->template Check(
-      [this](int64_t size, double null_probability, std::shared_ptr<Array>* out) {
-        *out = this->rag.template PrimitiveArray<TypeParam>(size, null_probability);
-      });
+  this->Check([this](int64_t size, double null_probability, std::shared_ptr<Array>* out) {
+    *out = this->rag.template PrimitiveArray<TypeParam>(size, null_probability);
+  });
 }
 
 TEST_F(ConcatenateTest, NullType) {
