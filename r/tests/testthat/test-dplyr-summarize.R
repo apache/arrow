@@ -355,7 +355,7 @@ test_that("Functions that take ... but we only accept a single arg", {
 
 test_that("median()", {
   # When medians are integer-valued, stats::median() sometimes returns output of
-  # type integer, whereas whereas the Arrow approx_median kernels always return
+  # type integer, whereas the Arrow approx_median kernels always return
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
 
@@ -432,7 +432,7 @@ test_that("quantile()", {
   # returned by Arrow.
 
   # When quantiles are integer-valued, stats::quantile() sometimes returns
-  # output of type integer, whereas whereas the Arrow tdigest kernels always
+  # output of type integer, whereas the Arrow tdigest kernels always
   # return output of type float64. The calls to quantile(int, ...) in the tests
   # below are enclosed in as.double() to work around this known difference.
 
