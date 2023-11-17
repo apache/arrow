@@ -363,7 +363,7 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
   std::string root;
   ASSERT_OK(GetTestResourceRoot(&root));
 
-  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  // schema_v6.arrow with currently nonexistent MetadataVersion::V6
   std::stringstream schema_v6_path;
   schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
 
