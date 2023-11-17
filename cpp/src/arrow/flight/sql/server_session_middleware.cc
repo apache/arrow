@@ -95,7 +95,7 @@ std::vector<std::pair<std::string, std::string>>
 ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
   const std::string list_sep = "; ";
   const std::string pair_sep = "=";
-  const size_t pair_sep_len = pair_sep.length();
+  const auto pair_sep_len = pair_sep.length();
 
   std::vector<std::pair<std::string, std::string>> result;
 
@@ -166,7 +166,7 @@ Status ServerSessionMiddlewareFactory::StartCall(
 /// \brief Get a new, empty session option map and its id key.
 std::pair<std::string, std::shared_ptr<FlightSqlSession>>
 ServerSessionMiddlewareFactory::GetNewSession() {
-  std::string new_id = id_generator_();
+  auto new_id = id_generator_();
   auto session = std::make_shared<FlightSqlSession>();
 
   const std::lock_guard<std::shared_mutex> l(session_store_lock_);

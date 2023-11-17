@@ -798,7 +798,7 @@ static const char* const SetSessionOptionStatusNames[] = {
 static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
                                                       "NotClosable"};
 
-/// \brief A request to set a set of session options by key/value.
+/// \brief A request to set a set of session options by name/value.
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
   std::map<std::string, SessionOptionValue> session_options;
 
@@ -827,10 +827,7 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
     SetSessionOptionStatus status;
 
     bool Equals(const Result& other) const {
-      if (status != other.status) {
-        return false;
-      }
-      return true;
+      return status == other.status;
     }
     friend bool operator==(const Result& left, const Result& right) {
       return left.Equals(right);

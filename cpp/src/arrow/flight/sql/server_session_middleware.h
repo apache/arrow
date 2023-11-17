@@ -48,7 +48,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlSession {
   void EraseSessionOption(const std::string& key);
 };
 
-/// \brief A middleware to handle Session option persistence and related *Cookie headers.
+/// \brief A middleware to handle session option persistence and related cookie headers.
 class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware {
  public:
   static constexpr char const kMiddlewareName[] =
@@ -64,8 +64,8 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
   virtual const CallHeaders& GetCallHeaders() const = 0;
 };
 
-/// \brief Returns a ServerMiddlewareFactory that handles Session option storage.
-/// \param[in] id_gen A generator function for unique session id strings.
+/// \brief Returns a ServerMiddlewareFactory that handles session option storage.
+/// \param[in] id_gen A generator function for unique session ID strings.
 ARROW_FLIGHT_SQL_EXPORT std::shared_ptr<ServerMiddlewareFactory>
 MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen);
 

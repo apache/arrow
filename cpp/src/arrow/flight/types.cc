@@ -484,11 +484,11 @@ std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& r) {
 }
 
 // Helpers for stringifying maps containing various types
-std::ostream& operator<<(std::ostream& os, std::vector<std::string> v) {
+std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
   os << '[';
   std::string sep = "";
-  for (const auto& x : v) {
-    os << sep << '"' << x << '"';
+  for (const auto& v : values) {
+    os << sep << '"' << v << '"';
     sep = ", ";
   }
   os << ']';
@@ -748,16 +748,13 @@ arrow::Result<CloseSessionRequest> CloseSessionRequest::Deserialize(
 std::string CloseSessionResult::ToString() const {
   std::stringstream ss;
 
-  ss << "<CloseSessionResult result=" << status << '>';
+  ss << "<CloseSessionResult status=" << status << '>';
 
   return ss.str();
 }
 
 bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
-  if (status != other.status) {
-    return false;
-  }
-  return true;
+  return status == other.status;
 }
 
 arrow::Result<std::string> CloseSessionResult::SerializeToString() const {
@@ -964,7 +961,7 @@ const ActionType ActionType::kRenewFlightEndpoint =
                "Response Message: Renewed FlightEndpoint"};
 const ActionType ActionType::kSetSessionOptions =
     ActionType{"SetSessionOptions",
-               "Set client session options by key/value pairs.\n"
+               "Set client session options by name/value pairs.\n"
                "Request Message: SetSessionOptionsRequest\n"
                "Response Message: SetSessionOptionsResult\n"};
 const ActionType ActionType::kGetSessionOptions =
