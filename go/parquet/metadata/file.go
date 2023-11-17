@@ -119,7 +119,7 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 	createdBy := f.props.CreatedBy()
 	f.metadata.CreatedBy = &createdBy
 
-	// Users cannot set the `ColumnOrder` since we do not not have user defined sort order
+	// Users cannot set the `ColumnOrder` since we do not have user defined sort order
 	// in the spec yet.
 	//
 	// We always default to `TYPE_DEFINED_ORDER`. We can expose it in
