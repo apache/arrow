@@ -79,7 +79,7 @@ class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
   bool HasSession() const override { return static_cast<bool>(session_); }
 
   std::shared_ptr<FlightSqlSession> GetSession() override {
-    const std::shared_lock<std::shared_mutex> l(lock_);
+    const std::lock_guard<std::shared_mutex> l(lock_);
     if (!session_) {
       auto [id, s] = factory_->GetNewSession();
       session_ = std::move(s);
@@ -169,7 +169,7 @@ ServerSessionMiddlewareFactory::GetNewSession() {
   std::string new_id = id_generator_();
   auto session = std::make_shared<FlightSqlSession>();
 
-  const std::unique_lock<std::shared_mutex> l(session_store_lock_);
+  const std::lock_guard<std::shared_mutex> l(session_store_lock_);
   session_store_[new_id] = session;
 
   return {new_id, session};
@@ -193,12 +193,12 @@ std::optional<SessionOptionValue> FlightSqlSession::GetSessionOption(
 
 void FlightSqlSession::SetSessionOption(const std::string& k,
                                         const SessionOptionValue v) {
-  const std::unique_lock<std::shared_mutex> l(map_lock_);
+  const std::lock_guard<std::shared_mutex> l(map_lock_);
   map_[k] = std::move(v);
 }
 
 void FlightSqlSession::EraseSessionOption(const std::string& k) {
-  const std::unique_lock<std::shared_mutex> l(map_lock_);
+  const std::lock_guard<std::shared_mutex> l(map_lock_);
   map_.erase(k);
 }
 
