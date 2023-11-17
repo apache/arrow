@@ -2489,7 +2489,7 @@ struct Arrow_Flight_Protocol_Sql_CommandGetDbSchemas {
 ///  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 /// The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
@@ -3249,7 +3249,7 @@ extension Arrow_Flight_Protocol_Sql_ActionEndSavepointRequest.EndSavepoint: Case
 ///    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 ///  - GetFlightInfo: execute the query.
@@ -3290,7 +3290,7 @@ struct Arrow_Flight_Protocol_Sql_CommandStatementQuery {
 ///    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 ///  - GetFlightInfo: execute the query.
@@ -3356,7 +3356,7 @@ struct Arrow_Flight_Protocol_Sql_TicketStatementQuery {
 ///    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 ///  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
