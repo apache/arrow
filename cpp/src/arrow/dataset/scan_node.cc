@@ -94,7 +94,7 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(
 /// fragment on disk actually had a column x, and the value was not 7, then we will prefer
 /// the guarantee in this invalid case.
 ///
-/// Ths next step is to fetch the metadata for the fragment.  For some formats (e.g.
+/// The next step is to fetch the metadata for the fragment.  For some formats (e.g.
 /// CSV) this may be quite simple (get the size of the file).  For other formats (e.g.
 /// parquet) this is more involved and requires reading data.  There is one metadata
 /// io-task per fragment.  The metadata io-task creates an AsyncGenerator<RecordBatch>
