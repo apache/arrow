@@ -331,7 +331,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
                 ColumnNames=["A", "B", "C"] ...
             );
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             name = "a";
             testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
 

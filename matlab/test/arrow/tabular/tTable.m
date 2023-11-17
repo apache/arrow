@@ -333,7 +333,7 @@ classdef tTable < matlab.unittest.TestCase
                 ColumnNames=["A", "B", "C"] ...
             );
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             name = "a";
             testCase.verifyError(@() arrowTable.column(name), "arrow:tabular:schema:AmbiguousFieldName");
 

@@ -262,7 +262,7 @@ classdef tSchema < matlab.unittest.TestCase
                 arrow.field("C", arrow.uint32) ...
             ]);
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             fieldName = "a";
             testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
 
