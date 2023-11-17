@@ -393,7 +393,7 @@ Installing Nightly Packages
     These packages are not official releases. Use them at your own risk.
 
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
-The artifacts are uploaded to GitHub. For example, for 2022/07/30, they can be found at `Github Nightly`_.
+The artifacts are uploaded to GitHub. For example, for 2022/07/30, they can be found at `GitHub Nightly`_.
 
 
 Installing from Apache Nightlies
@@ -540,4 +540,4 @@ Installing Manually
 6. Compile your project like usual with ``mvn clean install``.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
-.. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
+.. _GitHub Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars

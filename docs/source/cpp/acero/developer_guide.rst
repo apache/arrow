@@ -688,5 +688,5 @@ Because of this, we highly recommend taking the following steps:
 
   * Updates to the API reference and this guide
 
-  * Passing CI (you can enable Github Actions on your fork and that will allow most CI jobs to run before
+  * Passing CI (you can enable GitHub Actions on your fork and that will allow most CI jobs to run before
     you create your PR)
