@@ -14,15 +14,16 @@
 // limitations under the License.
 
 using System.Collections.Generic;
+using Apache.Arrow.Types;
 
-namespace Apache.Arrow.Types
+namespace Apache.Arrow
 {
-    public interface IStructType : IArrowType
+    public interface IArrowRecord : IArrowArray
     {
-        int FieldCount { get; }
+        IRecordType Schema { get; }
+        int ColumnCount { get; }
 
-        Field GetFieldByIndex(int index);
-        Field GetFieldByName(string name);
-        int GetFieldIndex(string name, IEqualityComparer<string> comparer);
+        IArrowArray Column(string columnName, IEqualityComparer<string> comparer = default);
+        IArrowArray Column(int columnIndex);
     }
 }

@@ -19,10 +19,10 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    public class IStructTests
+    public class RecordTests
     {
         [Fact]
-        public void StructsAndRecordBatchesAreSimilar()
+        public void StructArraysAndRecordBatchesAreSimilar()
         {
             Field stringField = new Field("column1", StringType.Default, true);
             StringArray.Builder stringBuilder = new StringArray.Builder();
@@ -34,11 +34,11 @@ namespace Apache.Arrow.Tests
 
             Schema schema = new Schema(new[] { stringField, intField }, null);
             RecordBatch batch = new RecordBatch(schema, new IArrowArray[] { stringArray, intArray }, intArray.Length);
-            IArrowStructArray structArray1 = batch;
+            IArrowRecord structArray1 = batch;
 
             StructType structType = new StructType(new[] { stringField, intField });
             StructArray structArray = new StructArray(structType, intArray.Length, new IArrowArray[] { stringArray, intArray }, ArrowBuffer.Empty);
-            IArrowStructArray structArray2 = structArray;
+            IArrowRecord structArray2 = structArray;
 
             FieldComparer.Compare(structArray1.Schema, structArray2.Schema);
             Assert.Equal(structArray1.Length, structArray2.Length);
@@ -77,14 +77,14 @@ namespace Apache.Arrow.Tests
 
         }
 
-        private class TestTypeVisitor1 : IArrowTypeVisitor, IArrowTypeVisitor<IStructType>
+        private class TestTypeVisitor1 : IArrowTypeVisitor, IArrowTypeVisitor<IRecordType>
         {
             public StringBuilder stringBuilder = new StringBuilder();
 
             public void Visit(IArrowType type) { stringBuilder.Append(type.Name); }
-            public void Visit(IStructType type) { stringBuilder.Append('1'); VisitFields(type); }
+            public void Visit(IRecordType type) { stringBuilder.Append('1'); VisitFields(type); }
 
-            protected void VisitFields(IStructType type)
+            protected void VisitFields(IRecordType type)
             {
                 for (int i = 0; i < type.FieldCount; i++) { type.GetFieldByIndex(i).DataType.Accept(this); }
             }
@@ -98,14 +98,14 @@ namespace Apache.Arrow.Tests
             public void Visit(Schema type) { stringBuilder.Append('3'); VisitFields(type); }
         }
 
-        private class TestArrayVisitor1 : IArrowArrayVisitor, IArrowArrayVisitor<IArrowStructArray>
+        private class TestArrayVisitor1 : IArrowArrayVisitor, IArrowArrayVisitor<IArrowRecord>
         {
             public StringBuilder stringBuilder = new StringBuilder();
 
             public void Visit(IArrowArray array) { stringBuilder.Append(array.Data.DataType.Name); }
-            public void Visit(IArrowStructArray array) { stringBuilder.Append('1'); VisitFields(array); }
+            public void Visit(IArrowRecord array) { stringBuilder.Append('1'); VisitFields(array); }
 
-            protected void VisitFields(IArrowStructArray array)
+            protected void VisitFields(IArrowRecord array)
             {
                 for (int i = 0; i < array.ColumnCount; i++) { array.Column(i).Accept(this); }
             }

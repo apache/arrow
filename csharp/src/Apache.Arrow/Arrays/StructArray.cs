@@ -20,7 +20,7 @@ using System.Threading;
 
 namespace Apache.Arrow
 {
-    public class StructArray : Array, IArrowStructArray
+    public class StructArray : Array, IArrowRecord
     {
         private IReadOnlyList<IArrowArray> _fields;
 
@@ -51,7 +51,7 @@ namespace Apache.Arrow
                 case IArrowArrayVisitor<StructArray> structArrayVisitor:
                     structArrayVisitor.Visit(this);
                     break;
-                case IArrowArrayVisitor<IArrowStructArray> arrowStructVisitor:
+                case IArrowArrayVisitor<IArrowRecord> arrowStructVisitor:
                     arrowStructVisitor.Visit(this);
                     break;
                 default:
@@ -70,13 +70,13 @@ namespace Apache.Arrow
             return result;
         }
 
-        IStructType IArrowStructArray.Schema => (StructType)Data.DataType;
+        IRecordType IArrowRecord.Schema => (StructType)Data.DataType;
 
-        int IArrowStructArray.ColumnCount => _fields.Count;
+        int IArrowRecord.ColumnCount => _fields.Count;
 
-        IArrowArray IArrowStructArray.Column(string columnName, IEqualityComparer<string> comparer) =>
+        IArrowArray IArrowRecord.Column(string columnName, IEqualityComparer<string> comparer) =>
             _fields[((StructType)Data.DataType).GetFieldIndex(columnName, comparer)];
 
-        IArrowArray IArrowStructArray.Column(int columnIndex) => _fields[columnIndex];
+        IArrowArray IArrowRecord.Column(int columnIndex) => _fields[columnIndex];
     }
 }

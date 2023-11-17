@@ -19,7 +19,7 @@ using System.Linq;
 
 namespace Apache.Arrow.Types
 {
-    public sealed class StructType : NestedType, IStructType
+    public sealed class StructType : NestedType, IRecordType
     {
         public override ArrowTypeId TypeId => ArrowTypeId.Struct;
         public override string Name => "struct";
@@ -64,7 +64,7 @@ namespace Apache.Arrow.Types
             {
                 structTypeVisitor.Visit(this);
             }
-            else if (visitor is IArrowTypeVisitor<IStructType> interfaceVisitor)
+            else if (visitor is IArrowTypeVisitor<IRecordType> interfaceVisitor)
             {
                 interfaceVisitor.Visit(this);
             }
@@ -74,8 +74,8 @@ namespace Apache.Arrow.Types
             }
         }
 
-        int IStructType.FieldCount => Fields.Count;
+        int IRecordType.FieldCount => Fields.Count;
 
-        Field IStructType.GetFieldByName(string name) => GetFieldByName(name);
+        Field IRecordType.GetFieldByName(string name) => GetFieldByName(name);
     }
 }

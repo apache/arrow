@@ -21,7 +21,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public partial class Schema : IStructType
+    public partial class Schema : IRecordType
     {
         [Obsolete("Use `FieldsList` or `FieldsLookup` instead")]
         public IReadOnlyDictionary<string, Field> Fields => _fieldsDictionary;
@@ -128,7 +128,7 @@ namespace Apache.Arrow
             {
                 schemaVisitor.Visit(this);
             }
-            else if (visitor is IArrowTypeVisitor<IStructType> interfaceVisitor)
+            else if (visitor is IArrowTypeVisitor<IRecordType> interfaceVisitor)
             {
                 interfaceVisitor.Visit(this);
             }
@@ -140,7 +140,7 @@ namespace Apache.Arrow
 
         public override string ToString() => $"{nameof(Schema)}: Num fields={_fieldsList.Count}, Num metadata={Metadata?.Count ?? 0}";
 
-        int IStructType.FieldCount => _fieldsList.Count;
+        int IRecordType.FieldCount => _fieldsList.Count;
         string IArrowType.Name => "RecordBatch";
         ArrowTypeId IArrowType.TypeId => ArrowTypeId.RecordBatch;
         bool IArrowType.IsFixedWidth => false;

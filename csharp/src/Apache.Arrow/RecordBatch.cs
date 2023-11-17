@@ -23,7 +23,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public partial class RecordBatch : IArrowStructArray
+    public partial class RecordBatch : IArrowRecord
     {
         public Schema Schema { get; }
         public int ColumnCount => _arrays.Count;
@@ -107,7 +107,7 @@ namespace Apache.Arrow
                 case IArrowArrayVisitor<RecordBatch> recordBatchVisitor:
                     recordBatchVisitor.Visit(this);
                     break;
-                case IArrowArrayVisitor<IArrowStructArray> arrowStructVisitor:
+                case IArrowArrayVisitor<IArrowRecord> arrowStructVisitor:
                     arrowStructVisitor.Visit(this);
                     break;
                 default:
@@ -118,7 +118,7 @@ namespace Apache.Arrow
 
         public override string ToString() => $"{nameof(RecordBatch)}: {ColumnCount} columns by {Length} rows";
 
-        IStructType IArrowStructArray.Schema => this.Schema;
+        IRecordType IArrowRecord.Schema => this.Schema;
         int IArrowArray.NullCount => 0;
         int IArrowArray.Offset => 0;
         ArrayData IArrowArray.Data => throw new NotSupportedException("Unable to get data for RecordBatch");

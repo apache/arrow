@@ -42,7 +42,7 @@ namespace Apache.Arrow.Tests
             actual.DataType.Accept(new ArrayTypeComparer(expected.DataType));
         }
 
-        public static void Compare(IStructType expected, IStructType actual)
+        public static void Compare(IRecordType expected, IRecordType actual)
         {
             Assert.Equal(expected.FieldCount, actual.FieldCount);
 
