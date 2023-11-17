@@ -31,6 +31,12 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
 pacman --noconfirm -Syy
 RWINLIB_LIB_DIR="lib"
+: ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
+
+export MINGW_ARCH
+
+# Needs to depend on RTools version, just checking if this helps for now
+export PATH="/c/rtools42/usr/bin:/c/rtools43/x86_64-w64-mingw32.static.posix/bin:$PATH"
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
