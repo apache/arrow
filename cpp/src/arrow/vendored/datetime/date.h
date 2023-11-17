@@ -6016,7 +6016,7 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
             {
                 if (offset_sec == nullptr)
                 {
-                    // Can not format %z with unknown offset
+                    // Cannot format %z with unknown offset
                     os.setstate(ios::failbit);
                     return os;
                 }
@@ -6050,7 +6050,7 @@ to_stream(std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
                 {
                     if (abbrev == nullptr)
                     {
-                        // Can not format %Z with unknown time_zone
+                        // Cannot format %Z with unknown time_zone
                         os.setstate(ios::failbit);
                         return os;
                     }

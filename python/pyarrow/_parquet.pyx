@@ -1655,7 +1655,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         if use_byte_stream_split:
             if column_encoding is not None:
                 raise ValueError(
-                    "'use_byte_stream_split' can not be passed"
+                    "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
             else:
                 props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
@@ -1667,7 +1667,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 column_encoding[column] = 'BYTE_STREAM_SPLIT'
             else:
                 raise ValueError(
-                    "'use_byte_stream_split' can not be passed"
+                    "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
 
     # column_encoding

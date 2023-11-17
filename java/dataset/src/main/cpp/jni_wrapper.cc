@@ -282,7 +282,7 @@ std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(J
   std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_record_batch_reader;
   int length = env->GetArrayLength(str_array);
   if (length % 2 != 0) {
-    JniThrow("Can not map odd number of array elements to key/value pairs");
+    JniThrow("Cannot map odd number of array elements to key/value pairs");
   }
   std::shared_ptr<arrow::Table> output_table;
   for (int pos = 0; pos < length; pos++) {

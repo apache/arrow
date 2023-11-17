@@ -48,7 +48,7 @@ static const RE2 iso8601_period_without_time(
 static const std::regex period_not_contains_time(R"(^((?!T).)*$)");
 
 // pre-compiled pattern for matching periods in 8601 formats that contains weeks inside
-// them. The ISO8601 specification defines that if the string contains a week, it can not
+// them. The ISO8601 specification defines that if the string contains a week, it cannot
 // have other time granularities information, like day, years and months.
 static const RE2 iso8601_period_with_weeks(
     R"(P(-?[[:digit:]]+W|-?[[:digit:]]+[,.][[:digit:]]+W){1})");

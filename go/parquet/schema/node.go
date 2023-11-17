@@ -165,7 +165,7 @@ func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logical
 				return nil, fmt.Errorf("%s cannot be applied to primitive type %s", logicalType, physicalType)
 			}
 		} else {
-			return nil, fmt.Errorf("nested logical type %s can not be applied to a non-group node", logicalType)
+			return nil, fmt.Errorf("nested logical type %s cannot be applied to a non-group node", logicalType)
 		}
 	} else {
 		n.logicalType = NoLogicalType{}

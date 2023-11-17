@@ -71,7 +71,7 @@
 #endif
 
 static_assert(!(USE_OS_TZDB && HAS_REMOTE_API),
-              "USE_OS_TZDB and HAS_REMOTE_API can not be used together");
+              "USE_OS_TZDB and HAS_REMOTE_API cannot be used together");
 
 #ifdef __clang__
 # pragma clang diagnostic pop
@@ -82,7 +82,7 @@ static_assert(!(USE_OS_TZDB && HAS_REMOTE_API),
 #endif
 
 static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
-              "AUTO_DOWNLOAD can not be turned on without HAS_REMOTE_API");
+              "AUTO_DOWNLOAD cannot be turned on without HAS_REMOTE_API");
 
 #ifndef USE_SHELL_API
 #  define USE_SHELL_API 1
@@ -90,7 +90,7 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
 
 #if USE_OS_TZDB
 #  ifdef _WIN32
-#    error "USE_OS_TZDB can not be used on Windows"
+#    error "USE_OS_TZDB cannot be used on Windows"
 #  endif
 #endif
 

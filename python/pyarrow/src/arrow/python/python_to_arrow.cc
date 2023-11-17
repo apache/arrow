@@ -819,7 +819,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
  protected:
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
-      return Status::Invalid("Invalid Map: key field can not contain null values");
+      return Status::Invalid("Invalid Map: key field cannot contain null values");
     } else {
       return Status::OK();
     }

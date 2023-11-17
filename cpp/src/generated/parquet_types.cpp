@@ -325,7 +325,7 @@ std::string to_string(const ConvertedType::type& val) {
 
 int _kFieldRepetitionTypeValues[] = {
   /**
-   * This field is required (can not be null) and each record has exactly 1 value.
+   * This field is required (cannot be null) and each record has exactly 1 value.
    */
   FieldRepetitionType::REQUIRED,
   /**
@@ -339,7 +339,7 @@ int _kFieldRepetitionTypeValues[] = {
 };
 const char* _kFieldRepetitionTypeNames[] = {
   /**
-   * This field is required (can not be null) and each record has exactly 1 value.
+   * This field is required (cannot be null) and each record has exactly 1 value.
    */
   "REQUIRED",
   /**

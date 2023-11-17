@@ -2104,7 +2104,7 @@ enum Arrow_Flight_Protocol_Sql_Nullable: SwiftProtobuf.Enum {
   case nullabilityNullable // = 1
 
   ///*
-  /// Indicates that nullability of the fields can not be determined.
+  /// Indicates that nullability of the fields cannot be determined.
   case nullabilityUnknown // = 2
   case UNRECOGNIZED(Int)
 
@@ -2149,7 +2149,7 @@ enum Arrow_Flight_Protocol_Sql_Searchable: SwiftProtobuf.Enum {
   typealias RawValue = Int
 
   ///*
-  /// Indicates that column can not be used in a WHERE clause.
+  /// Indicates that column cannot be used in a WHERE clause.
   case none // = 0
 
   ///*

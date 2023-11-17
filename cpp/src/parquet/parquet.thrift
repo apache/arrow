@@ -182,7 +182,7 @@ enum ConvertedType {
  * Representation of Schemas
  */
 enum FieldRepetitionType {
-  /** This field is required (can not be null) and each record has exactly 1 value. */
+  /** This field is required (cannot be null) and each record has exactly 1 value. */
   REQUIRED = 0;
 
   /** The field is optional (can be null) and each record has 0 or 1 values. */

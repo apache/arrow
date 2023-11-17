@@ -57,7 +57,7 @@ static const int kFastDtoaMaximalSingleLength = 9;
 // Precondition:
 //   * v must be a strictly positive finite double.
 //
-// Returns true if it succeeds, otherwise the result can not be trusted.
+// Returns true if it succeeds, otherwise the result cannot be trusted.
 // There will be *length digits inside the buffer followed by a null terminator.
 // If the function returns true and mode equals
 //   - FAST_DTOA_SHORTEST, then

@@ -778,7 +778,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
   }
 
   if (keys->null_count() != 0) {
-    return Status::Invalid("Map can not contain NULL valued keys");
+    return Status::Invalid("Map cannot contain NULL valued keys");
   }
 
   if (keys->length() != items->length()) {

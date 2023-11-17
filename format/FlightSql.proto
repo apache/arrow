@@ -1023,14 +1023,14 @@ enum Nullable {
   NULLABILITY_NULLABLE = 1;
 
   /**
-   * Indicates that nullability of the fields can not be determined.
+   * Indicates that nullability of the fields cannot be determined.
    */
   NULLABILITY_UNKNOWN = 2;
 }
 
 enum Searchable {
   /**
-   * Indicates that column can not be used in a WHERE clause.
+   * Indicates that column cannot be used in a WHERE clause.
    */
   SEARCHABLE_NONE = 0;
 

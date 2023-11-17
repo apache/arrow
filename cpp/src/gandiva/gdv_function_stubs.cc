@@ -209,7 +209,7 @@ GANDIVA_EXPORT
 const char* gdv_fn_base64_encode_binary(int64_t context, const char* in, int32_t in_len,
                                         int32_t* out_len) {
   if (in_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");
     *out_len = 0;
     return "";
   }
@@ -236,7 +236,7 @@ GANDIVA_EXPORT
 const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t in_len,
                                       int32_t* out_len) {
   if (in_len < 0) {
-    gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");
+    gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");
     *out_len = 0;
     return "";
   }

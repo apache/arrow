@@ -192,7 +192,7 @@ std::string to_string(const ConvertedType::type& val);
 struct FieldRepetitionType {
   enum type {
     /**
-     * This field is required (can not be null) and each record has exactly 1 value.
+     * This field is required (cannot be null) and each record has exactly 1 value.
      */
     REQUIRED = 0,
     /**
