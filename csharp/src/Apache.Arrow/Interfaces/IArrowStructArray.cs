@@ -13,18 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
+using System.Collections.Generic;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public interface IArrowStructArray : IDisposable
+    public interface IArrowStructArray : IArrowArray
     {
         IStructType Schema { get; }
         int ColumnCount { get; }
-        int Length { get; }
-        int NullCount { get; }
 
-        IArrowArray Column(string columnName);
+        IArrowArray Column(string columnName, IEqualityComparer<string> comparer = default);
         IArrowArray Column(int columnIndex);
     }
 }

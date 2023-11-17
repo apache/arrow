@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -121,8 +122,27 @@ namespace Apache.Arrow
             return new Schema(fields, Metadata);
         }
 
+        public void Accept(IArrowTypeVisitor visitor)
+        {
+            if (visitor is IArrowTypeVisitor<Schema> schemaVisitor)
+            {
+                schemaVisitor.Visit(this);
+            }
+            else if (visitor is IArrowTypeVisitor<IStructType> interfaceVisitor)
+            {
+                interfaceVisitor.Visit(this);
+            }
+            else
+            {
+                visitor.Visit(this);
+            }
+        }
+
         public override string ToString() => $"{nameof(Schema)}: Num fields={_fieldsList.Count}, Num metadata={Metadata?.Count ?? 0}";
 
         int IStructType.FieldCount => _fieldsList.Count;
+        string IArrowType.Name => "RecordBatch";
+        ArrowTypeId IArrowType.TypeId => ArrowTypeId.RecordBatch;
+        bool IArrowType.IsFixedWidth => false;
     }
 }

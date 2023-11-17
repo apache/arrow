@@ -58,7 +58,21 @@ namespace Apache.Arrow.Types
             return -1;
         }
 
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+        public override void Accept(IArrowTypeVisitor visitor)
+        {
+            if (visitor is IArrowTypeVisitor<StructType> structTypeVisitor)
+            {
+                structTypeVisitor.Visit(this);
+            }
+            else if (visitor is IArrowTypeVisitor<IStructType> interfaceVisitor)
+            {
+                interfaceVisitor.Visit(this);
+            }
+            else
+            {
+                visitor.Visit(this);
+            }
+        }
 
         int IStructType.FieldCount => Fields.Count;
 

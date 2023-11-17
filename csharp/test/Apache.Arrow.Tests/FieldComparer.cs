@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System.Linq;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests

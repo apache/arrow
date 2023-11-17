@@ -44,7 +44,21 @@ namespace Apache.Arrow
             data.EnsureDataType(ArrowTypeId.Struct);
         }
 
-        public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
+        public override void Accept(IArrowArrayVisitor visitor)
+        {
+            switch (visitor)
+            {
+                case IArrowArrayVisitor<StructArray> structArrayVisitor:
+                    structArrayVisitor.Visit(this);
+                    break;
+                case IArrowArrayVisitor<IArrowStructArray> arrowStructVisitor:
+                    arrowStructVisitor.Visit(this);
+                    break;
+                default:
+                    visitor.Visit(this);
+                    break;
+            }
+        }
 
         private IReadOnlyList<IArrowArray> InitializeFields()
         {
@@ -60,7 +74,8 @@ namespace Apache.Arrow
 
         int IArrowStructArray.ColumnCount => _fields.Count;
 
-        IArrowArray IArrowStructArray.Column(string columnName) => _fields[((StructType)Data.DataType).GetFieldIndex(columnName)];
+        IArrowArray IArrowStructArray.Column(string columnName, IEqualityComparer<string> comparer) =>
+            _fields[((StructType)Data.DataType).GetFieldIndex(columnName, comparer)];
 
         IArrowArray IArrowStructArray.Column(int columnIndex) => _fields[columnIndex];
     }

@@ -15,9 +15,9 @@
 
 using System.Collections.Generic;
 
-namespace Apache.Arrow
+namespace Apache.Arrow.Types
 {
-    public interface IStructType
+    public interface IStructType : IArrowType
     {
         int FieldCount { get; }
 
