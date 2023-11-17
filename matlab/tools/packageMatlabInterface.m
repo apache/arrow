@@ -42,6 +42,8 @@ identifier = "ad1d0fe6-22d1-4969-9e6f-0ab5d0f12ce3";
 opts = matlab.addons.toolbox.ToolboxOptions(toolboxFolder, identifier);
 opts.ToolboxName = "MATLAB Arrow Interface";
 opts.ToolboxVersion = toolboxVersion;
+opts.AuthorName = "Apache Arrow";
+opts.AuthorEmail = "dev@arrow.apache.org";
 
 % Set the SupportedPlatforms
 opts.SupportedPlatforms.Win64 = true;
