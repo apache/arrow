@@ -307,9 +307,9 @@ class BaseTestJSONRead:
 
     def test_load_large_json(self):
         data, expected = make_random_json(num_cols=2, num_rows=100100)
-        read_options = ReadOptions(block_size = 1024*1024*10) # 10MB
+        # set block size is 10MB
+        read_options = ReadOptions(block_size=1024*1024*10)
         table = self.read_bytes(data, read_options=read_options)
-        print(table.num_rows)
         assert table.num_rows == 100100
         assert expected.num_rows == 100100
 
