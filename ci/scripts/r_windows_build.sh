@@ -31,9 +31,6 @@ export ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 
 pacman --noconfirm -Syy
 RWINLIB_LIB_DIR="lib"
-: ${MINGW_ARCH:="mingw32 mingw64 ucrt64"}
-
-export MINGW_ARCH
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
