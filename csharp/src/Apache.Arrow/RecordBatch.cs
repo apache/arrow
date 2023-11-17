@@ -22,7 +22,7 @@ using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
-    public partial class RecordBatch : IDisposable
+    public partial class RecordBatch : IArrowStructArray
     {
         public Schema Schema { get; }
         public int ColumnCount => _arrays.Count;
@@ -95,5 +95,9 @@ namespace Apache.Arrow
         }
 
         public override string ToString() => $"{nameof(RecordBatch)}: {ColumnCount} columns by {Length} rows";
+
+        IStructType IArrowStructArray.Schema => this.Schema;
+
+        int IArrowStructArray.NullCount => 0;
     }
 }

@@ -20,7 +20,7 @@ using System.Threading;
 
 namespace Apache.Arrow
 {
-    public class StructArray : Array
+    public class StructArray : Array, IArrowStructArray
     {
         private IReadOnlyList<IArrowArray> _fields;
 
@@ -55,5 +55,13 @@ namespace Apache.Arrow
             }
             return result;
         }
+
+        IStructType IArrowStructArray.Schema => (StructType)Data.DataType;
+
+        int IArrowStructArray.ColumnCount => _fields.Count;
+
+        IArrowArray IArrowStructArray.Column(string columnName) => _fields[((StructType)Data.DataType).GetFieldIndex(columnName)];
+
+        IArrowArray IArrowStructArray.Column(int columnIndex) => _fields[columnIndex];
     }
 }

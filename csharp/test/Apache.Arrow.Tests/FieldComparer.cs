@@ -40,5 +40,15 @@ namespace Apache.Arrow.Tests
 
             actual.DataType.Accept(new ArrayTypeComparer(expected.DataType));
         }
+
+        public static void Compare(IStructType expected, IStructType actual)
+        {
+            Assert.Equal(expected.FieldCount, actual.FieldCount);
+
+            for (int i = 0; i < expected.FieldCount; i++)
+            {
+                Compare(expected.GetFieldByIndex(i), actual.GetFieldByIndex(i));
+            }
+        }
     }
 }

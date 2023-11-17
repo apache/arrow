@@ -20,7 +20,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public partial class Schema
+    public partial class Schema : IStructType
     {
         [Obsolete("Use `FieldsList` or `FieldsLookup` instead")]
         public IReadOnlyDictionary<string, Field> Fields => _fieldsDictionary;
@@ -71,11 +71,17 @@ namespace Apache.Arrow
 
         public Field GetFieldByName(string name) => FieldsLookup[name].FirstOrDefault();
 
-        public int GetFieldIndex(string name, StringComparer comparer = default)
+        public int GetFieldIndex(string name, StringComparer comparer)
+        {
+            IEqualityComparer<string> equalityComparer = (IEqualityComparer<string>)comparer;
+            return GetFieldIndex(name, equalityComparer);
+        }
+
+        public int GetFieldIndex(string name, IEqualityComparer<string> comparer = default)
         {
             comparer ??= StringComparer.CurrentCulture;
 
-            return _fieldsList.IndexOf(_fieldsList.First(x => comparer.Compare(x.Name, name) == 0));
+            return _fieldsList.IndexOf(_fieldsList.First(x => comparer.Equals(x.Name, name)));
         }
 
         public Schema RemoveField(int fieldIndex)
@@ -116,5 +122,7 @@ namespace Apache.Arrow
         }
 
         public override string ToString() => $"{nameof(Schema)}: Num fields={_fieldsList.Count}, Num metadata={Metadata?.Count ?? 0}";
+
+        int IStructType.FieldCount => _fieldsList.Count;
     }
 }
