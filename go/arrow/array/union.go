@@ -69,7 +69,7 @@ type Union interface {
 	// or arrow.DenseMode.
 	Mode() arrow.UnionMode
 	// Field returns the requested child array for this union. Returns nil if a
-	// non-existent position is passed in.
+	// nonexistent position is passed in.
 	//
 	// The appropriate child for an index can be retrieved with Field(ChildID(index))
 	Field(pos int) arrow.Array

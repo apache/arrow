@@ -3703,7 +3703,7 @@ test_that("with_tz() and force_tz() works", {
         roll_dst = "post")
       ) %>%
       collect(),
-    "roll_dst` value must be 'error' or 'boundary' for non-existent times"
+    "roll_dst` value must be 'error' or 'boundary' for nonexistent times"
   )
 
   expect_warning(
@@ -3716,7 +3716,7 @@ test_that("with_tz() and force_tz() works", {
         )
       ) %>%
       collect(),
-    "`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times"
+    "`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times"
   )
 
   # Raise error when the timezone falls into the DST-break

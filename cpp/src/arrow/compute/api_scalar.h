@@ -491,7 +491,7 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
 
   /// How to interpret ambiguous local times (due to DST shifts)
   Ambiguous ambiguous;
-  /// How to interpret non-existent local times (due to DST shifts)
+  /// How to interpret nonexistent local times (due to DST shifts)
   Nonexistent nonexistent;
 };
 

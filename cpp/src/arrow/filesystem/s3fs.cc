@@ -1042,7 +1042,7 @@ class RegionResolver {
     lock.unlock();
     ARROW_ASSIGN_OR_RAISE(auto region, ResolveRegionUncached(bucket));
     lock.lock();
-    // Note we don't cache a non-existent bucket, as the bucket could be created later
+    // Note we don't cache a nonexistent bucket, as the bucket could be created later
     cache_[bucket] = region;
     return region;
   }

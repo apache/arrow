@@ -711,7 +711,7 @@ extern  "C" {
 
 
     /**
-     * hdfsCreateDirectory - Make the given file and all non-existent
+     * hdfsCreateDirectory - Make the given file and all nonexistent
      * parents into directories.
      * @param fs The configured filesystem handle.
      * @param path The path of the directory.
