@@ -97,7 +97,7 @@ class GANDIVA_EXPORT Engine {
   Status LoadExternalPreCompiledIR();
 
   // Create and add mappings for cpp functions that can be accessed from LLVM.
-  void AddGlobalMappings();
+  arrow::Status AddGlobalMappings();
 
   // Remove unused functions to reduce compile time.
   Status RemoveUnusedFunctions();

@@ -822,7 +822,7 @@ const char* gdv_mask_show_last_n_utf8_int32(int64_t context, const char* data,
 
 namespace gandiva {
 
-void ExportedStubFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -1268,5 +1268,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   engine->AddGlobalMappingForFunc("mask_utf8", types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(mask_utf8));
+  return arrow::Status::OK();
 }
 }  // namespace gandiva

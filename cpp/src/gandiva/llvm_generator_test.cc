@@ -36,6 +36,24 @@ typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 class TestLLVMGenerator : public ::testing::Test {
  protected:
   std::shared_ptr<FunctionRegistry> registry_ = default_function_registry();
+
+ public:
+  // create a Configuration with the given registry and verify that the given function
+  // exists in the module.
+  static void VerifyFunctionMapping(
+      const std::string& function_name,
+      const std::function<std::shared_ptr<Configuration>(
+          std::shared_ptr<FunctionRegistry>)>& config_factory) {
+    auto external_registry = std::make_shared<FunctionRegistry>();
+    auto config = config_factory(std::move(external_registry));
+
+    std::unique_ptr<LLVMGenerator> generator;
+    ASSERT_OK(LLVMGenerator::Make(config, false, &generator));
+
+    auto module = generator->module();
+    ASSERT_OK(generator->engine_->LoadFunctionIRs());
+    EXPECT_NE(module->getFunction(function_name), nullptr);
+  }
 };
 
 // Verify that a valid pc function exists for every function in the registry.
@@ -116,16 +134,19 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 }
 
 TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
-  auto external_registry = std::make_shared<FunctionRegistry>();
-  auto config_with_func_registry =
-      TestConfigurationWithFunctionRegistry(std::move(external_registry));
+  VerifyFunctionMapping("multiply_by_two_int32", [](auto registry) {
+    return TestConfigWithFunctionRegistry(std::move(registry));
+  });
+}
 
-  std::unique_ptr<LLVMGenerator> generator;
-  ASSERT_OK(LLVMGenerator::Make(config_with_func_registry, false, &generator));
+TEST_F(TestLLVMGenerator, VerifyExtendedCFunctions) {
+  VerifyFunctionMapping("multiply_by_three_int32", [](auto registry) {
+    return TestConfigWithCFunction(std::move(registry));
+  });
 
-  auto module = generator->module();
-  ASSERT_OK(generator->engine_->LoadFunctionIRs());
-  EXPECT_NE(module->getFunction("multiply_by_two_int32"), nullptr);
+  VerifyFunctionMapping("multiply_by_n_int32_int32", [](auto registry) {
+    return TestConfigWithHolderFunction(std::move(registry));
+  });
 }
 
 }  // namespace gandiva
