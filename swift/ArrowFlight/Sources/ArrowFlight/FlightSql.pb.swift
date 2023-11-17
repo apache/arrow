@@ -476,7 +476,7 @@ enum Arrow_Flight_Protocol_Sql_SqlInfo: SwiftProtobuf.Enum {
   /// Retrieves a int64 value representing the maximum number of characters allowed for a column name.
   case sqlMaxColumnNameLength // = 543
 
-  /// Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+  /// Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
   case sqlMaxColumnsInGroupBy // = 544
 
   /// Retrieves a int64 value representing the maximum number of columns allowed in an index.
@@ -3376,7 +3376,7 @@ struct Arrow_Flight_Protocol_Sql_CommandPreparedStatementQuery {
 
 ///
 /// Represents a SQL update query. Used in the command member of FlightDescriptor
-/// for the the RPC call DoPut to cause the server to execute the included SQL update.
+/// for the RPC call DoPut to cause the server to execute the included SQL update.
 struct Arrow_Flight_Protocol_Sql_CommandStatementUpdate {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -3404,7 +3404,7 @@ struct Arrow_Flight_Protocol_Sql_CommandStatementUpdate {
 
 ///
 /// Represents a SQL update query. Used in the command member of FlightDescriptor
-/// for the the RPC call DoPut to cause the server to execute the included
+/// for the RPC call DoPut to cause the server to execute the included
 /// prepared statement handle as an update.
 struct Arrow_Flight_Protocol_Sql_CommandPreparedStatementUpdate {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
