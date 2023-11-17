@@ -1965,7 +1965,7 @@ const (
 	// Indicates that the fields allow the use of null values.
 	Nullable_NULLABILITY_NULLABLE Nullable = 1
 	//*
-	// Indicates that nullability of the fields can not be determined.
+	// Indicates that nullability of the fields cannot be determined.
 	Nullable_NULLABILITY_UNKNOWN Nullable = 2
 )
 
@@ -2014,7 +2014,7 @@ type Searchable int32
 
 const (
 	//*
-	// Indicates that column can not be used in a WHERE clause.
+	// Indicates that column cannot be used in a WHERE clause.
 	Searchable_SEARCHABLE_NONE Searchable = 0
 	//*
 	// Indicates that the column can be used in a WHERE clause if it is using a
