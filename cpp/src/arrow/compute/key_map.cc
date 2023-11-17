@@ -505,7 +505,7 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
 
 // Slow processing of input keys in the most generic case.
 // Handles inserting new keys.
-// Pre-existing keys will be handled correctly, although the intended use is for this
+// Preexisting keys will be handled correctly, although the intended use is for this
 // call to follow a call to find() method, which would only pass on new keys that were
 // not present in the hash table.
 //
