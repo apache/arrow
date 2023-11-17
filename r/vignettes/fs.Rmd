@@ -14,7 +14,7 @@ This article provides an overview of working with both S3 and GCS data using the
 
 ## S3 and GCS support on Linux
 
-Before you start, make sure that your arrow install has support for S3 and/or GCS enabled. For most users this will be true by default, because the Windows and MacOS binary packages hosted on CRAN include S3 and GCS support. You can check whether support is enabled via helper functions:
+Before you start, make sure that your arrow install has support for S3 and/or GCS enabled. For most users this will be true by default, because the Windows and macOS binary packages hosted on CRAN include S3 and GCS support. You can check whether support is enabled via helper functions:
 
 ```r
 arrow_with_s3()

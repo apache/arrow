@@ -1130,7 +1130,7 @@ TEST(TestDictionary, Validate) {
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
 #if !defined(__APPLE__)
-  // GH-35712: ASSERT_DEATH would make testing slow on MacOS.
+  // GH-35712: ASSERT_DEATH would make testing slow on macOS.
   ASSERT_DEATH(
       {
         std::shared_ptr<Array> null_dict_arr =

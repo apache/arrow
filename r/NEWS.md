@@ -54,10 +54,10 @@
 
 ## Installation
 
-* MacOS builds now use the same installation pathway as on Linux (@assignUser,
+* macOS builds now use the same installation pathway as on Linux (@assignUser,
   #37684).
 * A warning message is now issued on package load when running under emulation
-  on MacOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
+  on macOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
 * R scripts that run during configuration and installation are now run
   using the correct R interpreter (@meztez, #37225).
 * Failed libarrow builds now return more detailed output (@amoeba, #37727).
@@ -390,7 +390,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 
 * The `arrow.dev_repo` for nightly builds of the R package and prebuilt
   libarrow binaries is now <https://nightlies.apache.org/arrow/r/>.
-* Brotli and BZ2 are shipped with MacOS binaries. BZ2 is shipped with Windows binaries. (#13484)
+* Brotli and BZ2 are shipped with macOS binaries. BZ2 is shipped with Windows binaries. (#13484)
 
 # arrow 8.0.0
 
@@ -798,7 +798,7 @@ to send and receive data. See `vignette("flight", package = "arrow")` for an ove
 
 * `arrow` now depends on [`cpp11`](https://cpp11.r-lib.org/), which brings more robust UTF-8 handling and faster compilation
 * The Linux build script now succeeds on older versions of R
-* MacOS binary packages now ship with zstandard compression enabled
+* macOS binary packages now ship with zstandard compression enabled
 
 ## Bug fixes and other enhancements
 

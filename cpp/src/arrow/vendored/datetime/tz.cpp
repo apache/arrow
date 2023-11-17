@@ -3941,7 +3941,7 @@ tzdb::current_zone() const
     // On some OS's a file called /etc/localtime may
     // exist and it may be either a real file
     // containing time zone details or a symlink to such a file.
-    // On MacOS and BSD Unix if this file is a symlink it
+    // On macOS and BSD Unix if this file is a symlink it
     // might resolve to a path like this:
     // "/usr/share/zoneinfo/America/Los_Angeles"
     // If it does, we try to determine the current

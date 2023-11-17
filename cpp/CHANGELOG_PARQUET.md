@@ -13,7 +13,7 @@ Parquet C++ 1.5.0
     * [PARQUET-1255] - [C++] Exceptions thrown in some tests
     * [PARQUET-1358] - [C++] index_page_offset should be unset as it is not supported.
     * [PARQUET-1357] - [C++] FormatStatValue truncates binary statistics on zero character
-    * [PARQUET-1319] - [C++] Pass BISON_EXECUTABLE to Thrift EP for MacOS
+    * [PARQUET-1319] - [C++] Pass BISON_EXECUTABLE to Thrift EP for macOS
     * [PARQUET-1313] - [C++] Compilation failure with VS2017
     * [PARQUET-1315] - [C++] ColumnChunkMetaData.has_dictionary_page() should return bool, not int64_t
     * [PARQUET-1307] - [C++] memory-test fails with latest Arrow
