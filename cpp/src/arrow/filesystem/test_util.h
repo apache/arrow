@@ -170,7 +170,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool allow_move_dir_over_non_empty_dir() const { return false; }
   // - Whether the filesystem allows appending to a file
   virtual bool allow_append_to_file() const { return true; }
-  // - Whether the filesystem allows appending to a new (not existent yet) file
+  // - Whether the filesystem allows appending to a new (not yet extant) file
   virtual bool allow_append_to_new_file() const { return true; }
   // - Whether the filesystem supports directory modification times
   virtual bool have_directory_mtimes() const { return true; }
