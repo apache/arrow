@@ -79,7 +79,7 @@ Status ExprValidator::Visit(const FieldNode& node) {
                   Status::ExpressionValidationError("Field ", node.field()->name(),
                                                     " not in schema."));
 
-  // Ensure that that the found field matches.
+  // Ensure that the found field matches.
   FieldPtr field_in_schema = field_in_schema_entry->second;
   ARROW_RETURN_IF(!field_in_schema->Equals(node.field()),
                   Status::ExpressionValidationError(
