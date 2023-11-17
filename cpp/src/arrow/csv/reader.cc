@@ -1113,16 +1113,17 @@ class AsyncThreadedTableReader
   Future<std::shared_ptr<Buffer>> ProcessFirstBuffer() {
     // First block
     auto first_buffer_future = buffer_generator_();
-    return first_buffer_future.Then([this](const std::shared_ptr<Buffer>& first_buffer)
-                                        -> Result<std::shared_ptr<Buffer>> {
-      if (first_buffer == nullptr) {
-        return Status::Invalid("Empty CSV file");
-      }
-      std::shared_ptr<Buffer> first_buffer_processed;
-      RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer_processed));
-      RETURN_NOT_OK(MakeColumnBuilders());
-      return first_buffer_processed;
-    });
+    return first_buffer_future.Then(
+        [self = shared_from_this()](const std::shared_ptr<Buffer>& first_buffer)
+            -> Result<std::shared_ptr<Buffer>> {
+          if (first_buffer == nullptr) {
+            return Status::Invalid("Empty CSV file");
+          }
+          std::shared_ptr<Buffer> first_buffer_processed;
+          RETURN_NOT_OK(self->ProcessHeader(first_buffer, &first_buffer_processed));
+          RETURN_NOT_OK(self->MakeColumnBuilders());
+          return first_buffer_processed;
+        });
   }
 
   Executor* cpu_executor_;
