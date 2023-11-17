@@ -68,7 +68,7 @@ TEST_P(TestRegistry, Basics) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<const Function> f1, registry_->GetFunction("f1"));
   ASSERT_EQ("f1", f1->name());
 
-  // Non-existent function
+  // Nonexistent function
   ASSERT_RAISES(KeyError, registry_->GetFunction("f2"));
 
   // Try adding a function with name collision

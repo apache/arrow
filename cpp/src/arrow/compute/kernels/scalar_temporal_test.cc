@@ -2101,9 +2101,9 @@ TEST_F(ScalarTemporalTest, StrftimeNoTimezone) {
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidTimezone) {
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
-  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "non-existent"), seconds);
+  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "nonexistent"), seconds);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, testing::HasSubstr("Cannot locate timezone 'non-existent'"),
+      Invalid, testing::HasSubstr("Cannot locate timezone 'nonexistent'"),
       Strftime(arr, StrftimeOptions()));
 }
 
@@ -2159,12 +2159,12 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
-  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "non-existent");
+  auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "nonexistent");
   const char* seconds = R"(["1970-01-01T00:00:59", null])";
   auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), seconds);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Cannot find locale 'non-existent'"),
+                                  testing::HasSubstr("Cannot find locale 'nonexistent'"),
                                   Strftime(arr, options));
 }
 
