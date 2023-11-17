@@ -5071,7 +5071,7 @@ if(ARROW_S3)
 
   if(APPLE)
     # CoreFoundation's path is hardcoded in the CMake files provided by
-    # aws-sdk-cpp to use the MacOSX SDK provided by XCode which makes
+    # aws-sdk-cpp to use the macOS SDK provided by XCode which makes
     # XCode a hard dependency. Command Line Tools is often used instead
     # of the full XCode suite, so let the linker to find it.
     set_target_properties(AWS::aws-c-common
