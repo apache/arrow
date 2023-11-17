@@ -245,7 +245,7 @@ Status PutListViewOffsets(const ArrayData& input, offset_type* sizes, const Buff
   }
 
   const auto offsets = src.data_as<offset_type>();
-  DCHECK_EQ(src.size() / sizeof(offset_type), input.length);
+  DCHECK_EQ(static_cast<int64_t>(src.size() / sizeof(offset_type)), input.length);
 
   auto visit_not_null = [&](int64_t position) {
     if (sizes[position] > 0) {
