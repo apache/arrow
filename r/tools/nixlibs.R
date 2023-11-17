@@ -895,7 +895,7 @@ download_libarrow_ok <- download_ok && !env_is("LIBARROW_DOWNLOAD", "false")
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
 arrow_versioned <- paste0("arrow-", VERSION)
-# configure.win uses a different libarrow dir and and the zip is already nested
+# configure.win uses a different libarrow dir and the zip is already nested
 if (on_windows) {
   lib_dir <- "windows"
   dst_dir <- lib_dir
