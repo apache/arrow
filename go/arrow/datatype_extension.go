@@ -117,7 +117,7 @@ type ExtensionType interface {
 	// concurrently.
 	Serialize() string
 	// Deserialize is called when reading in extension arrays and types via the IPC format
-	// in order to construct an instance of the appropriate extension type. The data passed in
+	// in order to construct an instance of the appropriate extension type. The passed in data
 	// is pulled from the ARROW:extension:metadata key and may be nil or an empty slice.
 	// If the storage type is incorrect or something else is invalid with the data this should
 	// return nil and an appropriate error.
