@@ -36,7 +36,11 @@ RWINLIB_LIB_DIR="lib"
 export MINGW_ARCH
 
 # Needs to depend on RTools version, just checking if this helps for now
-export PATH="/c/rtools42/usr/bin:/c/rtools43/x86_64-w64-mingw32.static.posix/bin:$PATH"
+export PATH="/c/rtools43/usr/bin:/c/rtools43/x86_64-w64-mingw32.static.posix/bin:$PATH"
+
+which strip
+which gcc
+gcc --version
 
 cp $ARROW_HOME/ci/scripts/PKGBUILD .
 printenv
