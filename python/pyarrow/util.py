@@ -42,7 +42,7 @@ def doc(*docstrings, **params):
     If the docstring is a template, it will be saved as a string.
     Otherwise, it will be saved as a callable and the docstring will be obtained via
     the __doc__ attribute.
-    This decorator can not be used on Cython classes due to a CPython constraint,
+    This decorator cannot be used on Cython classes due to a CPython constraint,
     which enforces the __doc__ attribute to be read-only.
     See https://github.com/python/cpython/issues/91309
 
