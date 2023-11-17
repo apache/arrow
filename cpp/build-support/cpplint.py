@@ -1599,7 +1599,7 @@ class FileInfo(object):
         repo = FileInfo(_repository).FullName()
         root_dir = project_dir
         while os.path.exists(root_dir):
-          # allow case insensitive compare on Windows
+          # allow case-insensitive compare on Windows
           if os.path.normcase(root_dir) == os.path.normcase(repo):
             return os.path.relpath(fullname, root_dir).replace('\\', '/')
           one_up_dir = os.path.dirname(root_dir)
