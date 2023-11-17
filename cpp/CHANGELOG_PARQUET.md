@@ -89,7 +89,7 @@ Parquet C++ 1.4.0
 
 ## New Feature
     * [PARQUET-1095] - [C++] Read and write Arrow decimal values
-    * [PARQUET-970] - Add Add Lz4 and Zstd compression codecs
+    * [PARQUET-970] - Add Lz4 and Zstd compression codecs
 
 ## Task
     * [PARQUET-1221] - [C++] Extend release README
