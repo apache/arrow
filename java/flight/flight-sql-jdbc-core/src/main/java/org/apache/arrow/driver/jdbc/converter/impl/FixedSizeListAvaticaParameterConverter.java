@@ -48,7 +48,7 @@ public class FixedSizeListAvaticaParameterConverter extends BaseAvaticaParameter
       if (arraySize != maxArraySize) {
         if (!childVector.getField().isNullable()) {
           throw new UnsupportedOperationException("Each array must contain " + maxArraySize + " elements");
-        } else if (arraySize > maxArraySize){
+        } else if (arraySize > maxArraySize) {
           throw new UnsupportedOperationException("Each array must contain at most " + maxArraySize + " elements");
         }
       }
