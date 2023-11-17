@@ -453,7 +453,7 @@ class TestTls : public ::testing::Test {
     // get initialized.
     // https://github.com/grpc/grpc/issues/13856
     // https://github.com/grpc/grpc/issues/20311
-    // In general, gRPC on MacOS struggles with TLS (both in the sense
+    // In general, gRPC on macOS struggles with TLS (both in the sense
     // of thread-locals and encryption)
     grpc_init();
 
