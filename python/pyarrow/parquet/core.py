@@ -828,7 +828,7 @@ use_byte_stream_split : bool or list, default False
     and should be combined with a compression codec.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
-    Can only be used when when ``use_dictionary`` is set to False, and
+    Can only be used when ``use_dictionary`` is set to False, and
     cannot be used in combination with ``use_byte_stream_split``.
     Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT',
     'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'}.
