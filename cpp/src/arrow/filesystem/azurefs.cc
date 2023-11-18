@@ -483,7 +483,6 @@ Status CreateEmptyBlockBlob(
 Result<Azure::Storage::Blobs::Models::GetBlockListResult> GetBlockList(
     std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client) {
   try {
-    // TODO: Can we avoid this call if we know that the file is empty?
     return block_blob_client->GetBlockList().Value;
   } catch (Azure::Storage::StorageException& exception) {
     return internal::ExceptionToStatus(
@@ -529,35 +528,49 @@ class ObjectAppendStream final : public io::OutputStream {
   Status Init() {
     if (content_length_ != kNoSize) {
       DCHECK_GE(content_length_, 0);
-      return Status::OK();
-    }
-    try {
-      auto properties = block_blob_client_->GetProperties();
-      // TODO: Consider adding a check for whether its a directory.
-      content_length_ = properties.Value.BlobSize;
-      pos_ = content_length_;
-    } catch (const Azure::Storage::StorageException& exception) {
-      if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
-        RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client_));
-      } else {
-        return internal::ExceptionToStatus(
-            "GetProperties failed for '" + block_blob_client_->GetUrl() +
-                "' with an unexpected Azure error. Can not initialise an "
-                "ObjectAppendStream without knowing whether a file already exists at "
-                "this path.",
-            exception);
+    } else {
+      try {
+        auto properties = block_blob_client_->GetProperties();
+        // TODO: Consider adding a check for whether its a directory.
+        content_length_ = properties.Value.BlobSize;
+        pos_ = content_length_;
+      } catch (const Azure::Storage::StorageException& exception) {
+        if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+          RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client_));
+        } else {
+          return internal::ExceptionToStatus(
+              "GetProperties failed for '" + block_blob_client_->GetUrl() +
+                  "' with an unexpected Azure error. Can not initialise an "
+                  "ObjectAppendStream without knowing whether a file already exists at "
+                  "this path.",
+              exception);
+        }
+        content_length_ = 0;
       }
-      content_length_ = 0;
+    }
+    if (content_length_ > 0) {
+      ARROW_ASSIGN_OR_RAISE(auto block_list, GetBlockList(block_blob_client_));
+      for (auto block : block_list.CommittedBlocks) {
+        block_ids_.push_back(block.Name);
+      }
     }
     return Status::OK();
   }
 
-  Status Abort() override { return Close(); }
+  Status Abort() override {
+    if (closed_) {
+      return Status::OK();
+    }
+    block_blob_client_ = nullptr;
+    closed_ = true;
+    return Status::OK();
+  }
 
   Status Close() override {
     if (closed_) {
       return Status::OK();
     }
+    RETURN_NOT_OK(Flush());
     block_blob_client_ = nullptr;
     closed_ = true;
     return Status::OK();
@@ -595,8 +608,7 @@ class ObjectAppendStream final : public io::OutputStream {
       return Status::OK();
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto block_list, GetBlockList(block_blob_client_));
-    auto size = block_list.CommittedBlocks.size();
+    auto size = block_ids_.size();
     std::string new_block_id;
     new_block_id = std::to_string(size + 1);
     size_t n = 8;
@@ -605,10 +617,6 @@ class ObjectAppendStream final : public io::OutputStream {
     new_block_id = Azure::Core::Convert::Base64Encode(
         std::vector<uint8_t>(new_block_id.begin(), new_block_id.end()));
 
-    std::vector<std::string> block_ids;
-    for (auto block : block_list.CommittedBlocks) {
-      block_ids.push_back(block.Name);
-    }
     try {
       block_blob_client_->StageBlock(new_block_id, block_content);
     } catch (const Azure::Storage::StorageException& exception) {
@@ -619,9 +627,7 @@ class ObjectAppendStream final : public io::OutputStream {
               "streaming writes to blob storage.",
           exception);
     }
-    block_ids.push_back(new_block_id);
-    // TODO: Do we really want to commit the block list on every append?
-    RETURN_NOT_OK(CommitBlockList(block_blob_client_, block_ids));
+    block_ids_.push_back(new_block_id);
     pos_ += nbytes;
     content_length_ += nbytes;
     return Status::OK();
@@ -629,13 +635,7 @@ class ObjectAppendStream final : public io::OutputStream {
 
   Status Flush() override {
     RETURN_NOT_OK(CheckClosed("flush"));
-    ARROW_ASSIGN_OR_RAISE(auto block_list, GetBlockList(block_blob_client_));
-    std::vector<std::string> block_ids;
-    for (auto block : block_list.UncommittedBlocks) {
-      block_ids.push_back(block.Name);
-    }
-    RETURN_NOT_OK(CommitBlockList(block_blob_client_, block_ids));
-    return Status::OK();
+    return CommitBlockList(block_blob_client_, block_ids_);
   }
 
  protected:
@@ -646,6 +646,7 @@ class ObjectAppendStream final : public io::OutputStream {
   bool closed_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
+  std::vector<std::string> block_ids_;
 };
 
 }  // namespace
