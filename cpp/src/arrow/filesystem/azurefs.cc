@@ -480,6 +480,35 @@ Status CreateEmptyBlockBlob(
   return Status::OK();
 }
 
+Result<Azure::Storage::Blobs::Models::GetBlockListResult> GetBlockList(
+    std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client) {
+  try {
+    // TODO: Can we avoid this call if we know that the file is empty?
+    return block_blob_client->GetBlockList().Value;
+  } catch (Azure::Storage::StorageException& exception) {
+    return internal::ExceptionToStatus(
+        "GetBlockList failed for '" + block_blob_client->GetUrl() +
+            "' with an unexpected Azure error. Cannot write to a file without first "
+            "fetching the existing block list.",
+        exception);
+  }
+}
+
+Status CommitBlockList(
+    std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
+    std::vector<std::string> block_ids) {
+  try {
+    block_blob_client->CommitBlockList(block_ids);
+  } catch (const Azure::Storage::StorageException& exception) {
+    return internal::ExceptionToStatus(
+        "CommitBlockList failed for '" + block_blob_client->GetUrl() +
+            "' with an unexpected Azure error. Committing the block list is "
+            "fundamental to streaming writes to blob storage.",
+        exception);
+  }
+  return Status::OK();
+}
+
 class ObjectAppendStream final : public io::OutputStream {
  public:
   ObjectAppendStream(
@@ -559,51 +588,53 @@ class ObjectAppendStream final : public io::OutputStream {
   Status DoAppend(const void* data, int64_t nbytes,
                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
     RETURN_NOT_OK(CheckClosed("append"));
-    try {
-      auto append_data = static_cast<uint8_t*>((void*)data);
-      auto res = block_blob_client_->GetBlockList().Value;
-      auto size = res.CommittedBlocks.size();
-      std::string block_id;
-      {
-        block_id = std::to_string(size + 1);
-        size_t n = 8;
-        int precision = n - std::min(n, block_id.size());
-        block_id.insert(0, precision, '0');
-      }
-      block_id = Azure::Core::Convert::Base64Encode(
-          std::vector<uint8_t>(block_id.begin(), block_id.end()));
-      auto block_content = Azure::Core::IO::MemoryBodyStream(
-          append_data, strlen(reinterpret_cast<char*>(append_data)));
-      if (block_content.Length() == 0) {
-        return Status::OK();
-      }
-      block_blob_client_->StageBlock(block_id, block_content);
-      std::vector<std::string> block_ids;
-      for (auto block : res.CommittedBlocks) {
-        block_ids.push_back(block.Name);
-      }
-      block_ids.push_back(block_id);
-      block_blob_client_->CommitBlockList(block_ids);
-      pos_ += nbytes;
-    } catch (const Azure::Storage::StorageException& exception) {
-      return Status::IOError(exception.RawResponse->GetReasonPhrase());
+    auto append_data = static_cast<uint8_t*>((void*)data);
+    auto block_content = Azure::Core::IO::MemoryBodyStream(
+        append_data, strlen(reinterpret_cast<char*>(append_data)));
+    if (block_content.Length() == 0) {
+      return Status::OK();
     }
+
+    ARROW_ASSIGN_OR_RAISE(auto block_list, GetBlockList(block_blob_client_));
+    auto size = block_list.CommittedBlocks.size();
+    std::string new_block_id;
+    new_block_id = std::to_string(size + 1);
+    size_t n = 8;
+    int precision = n - std::min(n, new_block_id.size());
+    new_block_id.insert(0, precision, '0');
+    new_block_id = Azure::Core::Convert::Base64Encode(
+        std::vector<uint8_t>(new_block_id.begin(), new_block_id.end()));
+
+    std::vector<std::string> block_ids;
+    for (auto block : block_list.CommittedBlocks) {
+      block_ids.push_back(block.Name);
+    }
+    try {
+      block_blob_client_->StageBlock(new_block_id, block_content);
+    } catch (const Azure::Storage::StorageException& exception) {
+      return internal::ExceptionToStatus(
+          "StageBlock failed for '" + block_blob_client_->GetUrl() + "' new_block_id: '" +
+              new_block_id +
+              "' with an unexpected Azure error. Staging new blocks is fundamental to "
+              "streaming writes to blob storage.",
+          exception);
+    }
+    block_ids.push_back(new_block_id);
+    // TODO: Do we really want to commit the block list on every append?
+    RETURN_NOT_OK(CommitBlockList(block_blob_client_, block_ids));
+    pos_ += nbytes;
     content_length_ += nbytes;
     return Status::OK();
   }
 
   Status Flush() override {
     RETURN_NOT_OK(CheckClosed("flush"));
-    try {
-      auto res = block_blob_client_->GetBlockList().Value;
-      std::vector<std::string> block_ids;
-      for (auto block : res.UncommittedBlocks) {
-        block_ids.push_back(block.Name);
-      }
-      block_blob_client_->CommitBlockList(block_ids);
-    } catch (const Azure::Storage::StorageException& exception) {
-      return Status::IOError(exception.RawResponse->GetReasonPhrase());
+    ARROW_ASSIGN_OR_RAISE(auto block_list, GetBlockList(block_blob_client_));
+    std::vector<std::string> block_ids;
+    for (auto block : block_list.UncommittedBlocks) {
+      block_ids.push_back(block.Name);
     }
+    RETURN_NOT_OK(CommitBlockList(block_blob_client_, block_ids));
     return Status::OK();
   }
 
