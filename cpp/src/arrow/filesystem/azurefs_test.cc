@@ -744,6 +744,64 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamLarge) {
   EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
 }
 
+TEST_F(AzuriteFileSystemTest, OpenOutputStreamTruncatesExistingFile) {
+  const auto path = PreexistingContainerPath() + "test-write-object";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
+  const std::string expected0 = "Existing blob content";
+  ASSERT_OK(output->Write(expected0.data(), expected0.size()));
+  ASSERT_OK(output->Close());
+
+  // Check that the initial content has been written - if not this test is not achieving
+  // what it's meant to.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+
+  std::array<char, 1024> inbuf{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+  EXPECT_EQ(std::string(inbuf.data(), size), expected0);
+
+  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
+  const auto expected1 = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected1.data(), expected1.size()));
+  ASSERT_OK(output->Close());
+
+  // Verify that the initial content has been overwritten.
+  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+  EXPECT_EQ(std::string(inbuf.data(), size), expected1);
+}
+
+TEST_F(AzuriteFileSystemTest, OpenAppendStreamDoesNotTruncateExistingFile) {
+  const auto path = PreexistingContainerPath() + "test-write-object";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
+  const std::string expected0 = "Existing blob content";
+  ASSERT_OK(output->Write(expected0.data(), expected0.size()));
+  ASSERT_OK(output->Close());
+
+  // Check that the initial content has been written - if not this test is not achieving
+  // what it's meant to.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+
+  std::array<char, 1024> inbuf{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+  EXPECT_EQ(std::string(inbuf.data(), size), expected0);
+
+  ASSERT_OK_AND_ASSIGN(output, fs_->OpenAppendStream(path, {}));
+  const auto expected1 = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected1.data(), expected1.size()));
+  ASSERT_OK(output->Close());
+
+  // Verify that the initial content has been overwritten.
+  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+  EXPECT_EQ(std::string(inbuf.data(), size), expected0 + expected1);
+}
+
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamClosed) {
   const auto path = internal::ConcatAbstractPath(PreexistingContainerName(),
                                                  "open-output-stream-closed.txt");
