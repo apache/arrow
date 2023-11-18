@@ -484,11 +484,11 @@ class ObjectAppendStream final : public io::OutputStream {
  public:
   ObjectAppendStream(
       std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
-      const io::IOContext& io_context, const AzurePath& path,
+      const io::IOContext& io_context, const AzureLocation& location,
       const std::shared_ptr<const KeyValueMetadata>& metadata, int64_t size = kNoSize)
       : block_blob_client_(std::move(block_blob_client)),
         io_context_(io_context),
-        path_(path),
+        location_(location),
         content_length_(size) {}
 
   ~ObjectAppendStream() override {
@@ -610,7 +610,7 @@ class ObjectAppendStream final : public io::OutputStream {
  protected:
   std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
-  const AzurePath path_;
+  const AzureLocation location_;
 
   bool closed_ = false;
   int64_t pos_ = 0;
@@ -880,29 +880,28 @@ class AzureFileSystem::Impl {
 
     return Status::OK();
   }
-  
-  Result<std::shared_ptr<ObjectAppendStream>> OpenAppendStream(
-      const std::string& s, const std::shared_ptr<const KeyValueMetadata>& metadata,
-      const bool truncate, AzureFileSystem* fs) {
-    ARROW_ASSIGN_OR_RAISE(auto path, AzurePath::FromString(s));
 
+  Result<std::shared_ptr<ObjectAppendStream>> OpenAppendStream(
+      const AzureLocation& location,
+      const std::shared_ptr<const KeyValueMetadata>& metadata, const bool truncate,
+      AzureFileSystem* fs) {
     // TODO: Ensure cheap checks which don't require a call to Azure are done.
-    if (path.empty() || path.path_to_file.empty()) {
-      return ::arrow::fs::internal::PathNotFound(path.full_path);
+    if (location.empty() || location.path.empty()) {
+      return ::arrow::fs::internal::PathNotFound(location.path);
     }
 
     auto block_blob_client = std::make_shared<Azure::Storage::Blobs::BlockBlobClient>(
-        blob_service_client_->GetBlobContainerClient(path.container)
-            .GetBlockBlobClient(path.path_to_file));
+        blob_service_client_->GetBlobContainerClient(location.container)
+            .GetBlockBlobClient(location.path));
 
     std::shared_ptr<ObjectAppendStream> ptr;
     if (truncate) {
       RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client));
       ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                 path, metadata, 0);
+                                                 location, metadata, 0);
     } else {
       ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                 path, metadata);
+                                                 location, metadata);
     }
     RETURN_NOT_OK(ptr->Init());
     return ptr;
@@ -988,12 +987,14 @@ Result<std::shared_ptr<io::RandomAccessFile>> AzureFileSystem::OpenInputFile(
 
 Result<std::shared_ptr<io::OutputStream>> AzureFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return impl_->OpenAppendStream(path, metadata, true, this);
+  ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
+  return impl_->OpenAppendStream(location, metadata, true, this);
 }
 
 Result<std::shared_ptr<io::OutputStream>> AzureFileSystem::OpenAppendStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
-  return impl_->OpenAppendStream(path, metadata, false, this);
+  ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
+  return impl_->OpenAppendStream(location, metadata, false, this);
 }
 
 Result<std::shared_ptr<AzureFileSystem>> AzureFileSystem::Make(
