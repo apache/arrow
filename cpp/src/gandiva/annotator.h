@@ -60,6 +60,8 @@ class GANDIVA_EXPORT Annotator {
   EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch& record_batch,
                                 const ArrayDataVector& out_vector) const;
 
+  const Status CheckEvalBatchFieldType(const arrow::RecordBatch& record_batch) const;
+
   int buffer_count() const { return buffer_count_; }
 
  private:

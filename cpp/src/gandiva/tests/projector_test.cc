@@ -88,7 +88,7 @@ TEST_F(TestProjector, TestProjectCache) {
   status = Projector::Make(different_schema, {sum_expr, sub_expr}, configuration,
                            &should_be_new_projector);
   ASSERT_OK(status);
-  EXPECT_FALSE(should_be_new_projector->GetBuiltFromCache());
+  EXPECT_TRUE(should_be_new_projector->GetBuiltFromCache());
 
   // expression list is different should return a new projector.
   std::shared_ptr<Projector> should_be_new_projector1;
@@ -2346,10 +2346,19 @@ TEST_F(TestProjector, TestBigIntCastFunction) {
       MakeArrowArrayFloat32({6.6f, -6.6f, 9.999999f, 0}, {true, true, true, false});
   auto array1 =
       MakeArrowArrayFloat64({6.6, -6.6, 9.99999999999, 0}, {true, true, true, false});
-  auto array2 = MakeArrowArrayInt64({100, 25, -0, 0}, {true, true, true, false});
-  auto array3 = MakeArrowArrayInt32({25, -25, -0, 0}, {true, true, true, false});
-  auto in_batch =
-      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2, array3});
+
+  std::shared_ptr<arrow::Array> array_day_interval;
+  arrow::ArrayFromVector<arrow::DayTimeIntervalType,
+                         arrow::DayTimeIntervalType::DayMilliseconds>(
+      arrow::day_time_interval(), {true, true, true, false},
+      {{100, 0}, {25, 0}, {0, 0}, {0, 0}}, &array_day_interval);
+
+  std::shared_ptr<arrow::Array> array_month_interval;
+  arrow::ArrayFromVector<arrow::MonthIntervalType>(
+      arrow::month_interval(), {true, true, true, false}, {25, -25, -0, 0},
+      &array_month_interval);
+  auto in_batch = arrow::RecordBatch::Make(
+      schema, num_records, {array0, array1, array_day_interval, array_month_interval});
 
   auto out_float4 = MakeArrowArrayInt64({7, -7, 10, 0}, {true, true, true, false});
   auto out_float8 = MakeArrowArrayInt64({7, -7, 10, 0}, {true, true, true, false});
@@ -2403,8 +2412,14 @@ TEST_F(TestProjector, TestIntCastFunction) {
       MakeArrowArrayFloat32({6.6f, -6.6f, 9.999999f, 0}, {true, true, true, false});
   auto array1 =
       MakeArrowArrayFloat64({6.6, -6.6, 9.99999999999, 0}, {true, true, true, false});
-  auto array2 = MakeArrowArrayInt32({25, -25, -0, 0}, {true, true, true, false});
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+
+  std::shared_ptr<arrow::Array> array_month_interval;
+  arrow::ArrayFromVector<arrow::MonthIntervalType>(
+      arrow::month_interval(), {true, true, true, false}, {25, -25, -0, 0},
+      &array_month_interval);
+
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array0, array1, array_month_interval});
 
   auto out_float4 = MakeArrowArrayInt32({7, -7, 10, 0}, {true, true, true, false});
   auto out_float8 = MakeArrowArrayInt32({7, -7, 10, 0}, {true, true, true, false});
@@ -2449,7 +2464,10 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
 
   // Last validity is false and the cast functions throw error when input is empty. Should
   // not be evaluated due to addition of NativeFunction::kCanReturnErrors
-  auto array0 = MakeArrowArrayInt32({12, -24, -0, 0}, {true, true, true, false});
+  std::shared_ptr<arrow::Array> array0;
+  arrow::ArrayFromVector<arrow::MonthIntervalType>(
+      arrow::month_interval(), {true, true, true, false}, {12, -24, -0, 0}, &array0);
+
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   auto out_int32 = MakeArrowArrayInt32({1, -2, -0, 0}, {true, true, true, false});
@@ -3121,7 +3139,7 @@ TEST_F(TestProjector, TestCastBinaryBinary) {
   int num_records = 3;
 
   auto array0 =
-      MakeArrowArrayUtf8({"\\x41\\x42\\x43", "\\x41\\x42", ""}, {true, true, true});
+      MakeArrowArrayBinary({"\\x41\\x42\\x43", "\\x41\\x42", ""}, {true, true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
@@ -3582,7 +3600,6 @@ TEST_F(TestProjector, TestSqrtFloat64) {
 
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
-
 TEST_F(TestProjector, TestExtendedFunctions) {
   auto in_field = field("in", arrow::int32());
   auto schema = arrow::schema({in_field});
@@ -3681,6 +3698,69 @@ TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
   arrow::ArrayVector outs;
   ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+TEST_F(TestProjector, TestCacheHitForDifferentSchema) {
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::utf8());
+  auto field2 = field("f2", arrow::int32());
+  auto field3 = field("f3", arrow::int32());
+  auto field4 = field("f4", arrow::int32());
+  auto field5 = field("f5", arrow::int32());
+
+  auto schema_1 = arrow::schema({field0});
+
+  auto field0_lower = field("f0_lower", arrow::utf8());
+  auto field_add = field("field_add", arrow::int32());
+
+  auto lower_expr = TreeExprBuilder::MakeExpression("lower", {field0}, field0_lower);
+  auto add_expr = TreeExprBuilder::MakeExpression("add", {field2, field3}, field_add);
+  auto configuration = TestConfiguration();
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema_1, {lower_expr, add_expr}, configuration, &projector);
+  ASSERT_OK(status);
+  EXPECT_FALSE(projector->GetBuiltFromCache());
+
+  auto lower_expr2 = TreeExprBuilder::MakeExpression("lower", {field1}, field0_lower);
+  auto add_expr2 = TreeExprBuilder::MakeExpression("add", {field4, field5}, field_add);
+
+  std::shared_ptr<Projector> projector_new;
+  status = Projector::Make(arrow::schema({field1}), {lower_expr2, add_expr2},
+                           configuration, &projector_new);
+  ASSERT_OK(status);
+  EXPECT_TRUE(projector_new->GetBuiltFromCache());
+
+  auto data_lower = MakeArrowArrayUtf8({"A", "B", "C", "D"}, {true, true, true, true});
+  auto array0 = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({1, 1, 1, 1}, {true, true, true, true});
+  int num_records = 4;
+  auto in_batch = arrow::RecordBatch::Make(arrow::schema({field1, field4, field5}),
+                                           num_records, {data_lower, array0, array1});
+
+  arrow::ArrayVector outputs_new;
+  status = projector_new->Evaluate(*in_batch, pool_, &outputs_new);
+  EXPECT_TRUE(status.ok());
+
+  auto data_lower_expect =
+      MakeArrowArrayUtf8({"a", "b", "c", "d"}, {true, true, true, true});
+  auto add_expect = MakeArrowArrayInt32({2, 3, 4, 5}, {true, true, true, true});
+
+  EXPECT_ARROW_ARRAY_EQUALS(data_lower_expect, outputs_new.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(add_expect, outputs_new.at(1));
+
+  // different type like add(int64,int64)
+
+  auto array0_int64 = MakeArrowArrayInt64({1, 2, 3, 4}, {true, true, true, true});
+  auto array1_int64 = MakeArrowArrayInt64({1, 1, 1, 1}, {true, true, true, true});
+  auto field4_int64 = arrow::field("f4", int64());
+  auto field5_int64 = arrow::field("f5", int64());
+
+  in_batch =
+      arrow::RecordBatch::Make(arrow::schema({field1, field4_int64, field5_int64}),
+                               num_records, {data_lower, array0_int64, array1_int64});
+  status = projector_new->Evaluate(*in_batch, pool_, &outputs_new);
+  EXPECT_FALSE(status.ok());
 }
 
 }  // namespace gandiva

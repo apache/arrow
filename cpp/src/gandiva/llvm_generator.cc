@@ -129,6 +129,10 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
                               const ArrayDataVector& output_vector) const {
   DCHECK_GT(record_batch.num_rows(), 0);
 
+  auto status = annotator_.CheckEvalBatchFieldType(record_batch);
+
+  ARROW_RETURN_IF(!status.ok(), status);
+
   auto eval_batch = annotator_.PrepareEvalBatch(record_batch, output_vector);
   DCHECK_GT(eval_batch->GetNumBuffers(), 0);
 
