@@ -66,9 +66,15 @@ find_latest_nightly <- function(description_version) {
 }
 
 try_download <- function(from_url, to_file, hush = quietly) {
+  # We download some fairly large files, so ensure the timeout is set appropriately.
+  # This assumes a static library size of 100 MB (generous) and a download speed
+  # of 1 MB/s (slow).
+  opts <- options(timeout = max(100, getOption("timeout")))
+  on.exit(options(opts))
+
   status <- try(
     suppressWarnings(
-      download.file(from_url, to_file, quiet = hush)
+      download.file(from_url, to_file, quiet = hush, mode = "wb")
     ),
     silent = hush
   )
