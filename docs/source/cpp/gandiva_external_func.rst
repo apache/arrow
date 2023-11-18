@@ -56,7 +56,9 @@ To make a function available to Gandiva, you need to register it as an external 
 
 To register a function in Gandiva, use the ``gandiva::NativeFunction`` class. This class captures both the signature and metadata of the external function.
 
-Constructor Details for ``gandiva::NativeFunction``::
+Constructor Details for ``gandiva::NativeFunction``:
+
+.. code-block:: cpp
 
     NativeFunction(const std::string& base_name, const std::vector<std::string>& aliases,
                    const DataTypeVector& param_types, const DataTypePtr& ret_type,
