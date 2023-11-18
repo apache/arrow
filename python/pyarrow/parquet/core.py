@@ -133,9 +133,12 @@ _DNF_filter_doc = """Predicates are expressed using an ``Expression`` or using
     Each tuple has format: (``key``, ``op``, ``value``) and compares the
     ``key`` with the ``value``.
     The supported ``op`` are:  ``=`` or ``==``, ``!=``, ``<``, ``>``, ``<=``,
-    ``>=``, ``in`` and ``not in``. If the ``op`` is ``in`` or ``not in``, the
-    ``value`` must be a collection such as a ``list``, a ``set`` or a
-    ``tuple``.
+    ``>=``, ``in``, ``not in``, ``is_nan``, ``is_null`` and ``is_valid``.
+    If the ``op`` is ``in`` or ``not in``, the ``value`` must be a collection such as
+    a ``list``, a ``set`` or a ``tuple``.
+    If the ``op`` is ``is_nan`` or ``is_valid`` - ``value`` is ignored.
+    If the ``op`` is ``is_null`` - ``value`` is nan_is_null parameter as described
+    in ``pyarrow.dataset.Expression``.
 
     Examples:
 
@@ -208,6 +211,12 @@ def filters_to_expression(filters):
             return field.isin(val)
         elif op == 'not in':
             return ~field.isin(val)
+        elif op == 'is_nan':
+            return field.is_nan()
+        elif op == 'is_null':
+            return field.is_null(nan_is_null=val)
+        elif op == 'is_valid':
+            return field.is_valid()
         else:
             raise ValueError(
                 '"{0}" is not a valid operator in predicates.'.format(
