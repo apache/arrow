@@ -477,7 +477,8 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(
              CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
-      assertArrayEquals(((ArrowFlightJdbcFlightStreamResultSet) resultSet).getAppMetadata(), "foo".getBytes(StandardCharsets.UTF_8));
+      assertArrayEquals(((ArrowFlightJdbcFlightStreamResultSet) resultSet).getAppMetadata(),
+              "foo".getBytes(StandardCharsets.UTF_8));
     }
   }
 }
