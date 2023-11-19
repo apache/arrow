@@ -141,7 +141,7 @@ class BackgroundReader {
     // Put fd in non-blocking mode
     fcntl(fd, F_SETFL, O_NONBLOCK);
     // Note the wakeup pipe itself does not need to be non-blocking,
-    // since we're not actually reading from it.
+    // since we aren't actually reading from it.
   }
 
   void LoopReading() {

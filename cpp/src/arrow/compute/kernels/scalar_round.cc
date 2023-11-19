@@ -598,7 +598,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
       if (has_halfway_point &&
           (remainder == half_multiple || remainder == neg_half_multiple)) {
         // On the halfway point, use tiebreaker
-        // Manually implement rounding since we're not actually rounding a
+        // Manually implement rounding since we aren't actually rounding a
         // decimal value, but rather manipulating the multiple
         switch (kRoundMode) {
           case RoundMode::HALF_DOWN:
@@ -638,7 +638,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
         }
       }
     } else {
-      // Manually implement rounding since we're not actually rounding a
+      // Manually implement rounding since we aren't actually rounding a
       // decimal value, but rather manipulating the multiple
       switch (kRoundMode) {
         case RoundMode::DOWN:

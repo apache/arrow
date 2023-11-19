@@ -216,7 +216,7 @@ class ArrowSources:
         try:
             repo = git.repository_root(git_dir=cwd)
         except subprocess.CalledProcessError:
-            # We're not inside a git repository.
+            # We aren't inside a git repository.
             repo = None
 
         paths = list(filter(None, [path, env, cwd, this, repo]))

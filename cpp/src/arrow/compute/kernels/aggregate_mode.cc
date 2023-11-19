@@ -72,7 +72,7 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
 }
 
 // find top-n value:count pairs with minimal heap
-// suboptimal for tiny or large n, possibly okay as we're not in hot path
+// suboptimal for tiny or large n, possibly okay as we aren't in hot path
 template <typename InType, typename Generator>
 Status Finalize(KernelContext* ctx, const DataType& type, ExecResult* out,
                 Generator&& gen) {

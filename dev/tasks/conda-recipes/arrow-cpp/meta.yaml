@@ -358,7 +358,7 @@ outputs:
         # and using them as test dependencies blocks the migrator unnecessarily
         # - pytorch
         # - tensorflow
-        # we're not building java bindings
+        # we aren't building java bindings
         # - jpype1
         # doesn't get picked up correctly
         # - libhdfs3

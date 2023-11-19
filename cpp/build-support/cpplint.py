@@ -1246,7 +1246,7 @@ class _IncludeState(object):
       if self._section <= self._MY_H_SECTION:
         self._section = self._MY_H_SECTION
       else:
-        # This will always be the fallback because we're not sure
+        # This will always be the fallback because we aren't sure
         # enough that the header is associated with this file.
         self._section = self._OTHER_H_SECTION
     else:
@@ -1947,7 +1947,7 @@ class CleansedLines(object):
   def _CollapseStrings(elided):
     """Collapses strings and chars on a line to simple "" or '' blocks.
 
-    We nix strings first so we're not fooled by text like '"http://"'
+    We nix strings first so we aren't fooled by text like '"http://"'
 
     Args:
       elided: The line being processed.
@@ -3481,7 +3481,7 @@ def CheckSpacingForFunctionCall(filename, clean_lines, linenum, error):
   # for nested parens ( (a+b) + c ).  Likewise, there should never be
   # a space before a ( when it's a function argument.  I assume it's a
   # function argument when the char before the whitespace is legal in
-  # a function name (alnum + _) and we're not starting a macro. Also ignore
+  # a function name (alnum + _) and we aren't starting a macro. Also ignore
   # pointers and references to arrays and functions coz they're too tricky:
   # we use a very simple way to recognize these:
   # " (something)(maybe-something)" or
@@ -6155,7 +6155,7 @@ def CheckForIncludeWhatYouUse(filename, clean_lines, include_state, error,
       header_found = True
 
   # If we can't find the header file for a .cc, assume it's because we don't
-  # know where to look. In that case we'll give up as we're not sure they
+  # know where to look. In that case we'll give up as we aren't sure they
   # didn't include it in the .h file.
   # TODO(unknown): Do a better job of finding .h files so we are confident that
   # not having the .h file means there isn't one.

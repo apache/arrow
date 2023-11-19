@@ -249,7 +249,7 @@ on:
           continue
         fi
         # Pin the current commit in the formula to test so that
-        # we're not always pulling from the tip of the default branch
+        # we aren't always pulling from the tip of the default branch
         sed -i '' -E \
           -e 's@https://github.com/apache/arrow.git", branch: "main"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
           ${formula}

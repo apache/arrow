@@ -83,7 +83,7 @@ class ARROW_EXPORT SharedExclusiveChecker {
 // concurrent calls to various methods.  It is not necessary to wrap all
 // IO classes with these, only a few core classes that get used in tests.
 //
-// We're not using virtual inheritance here as virtual bases have poorly
+// We aren't using virtual inheritance here as virtual bases have poorly
 // understood semantic overhead which we'd be passing on to implementers
 // and users of these interfaces.  Instead, we just duplicate the method
 // wrappers between those two classes.
