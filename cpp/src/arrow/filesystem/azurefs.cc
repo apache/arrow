@@ -708,16 +708,18 @@ class AzureFileSystem::Impl {
       return Status::OK();
     }
 
-    auto directory_client =
-        datalake_service_client_->GetFileSystemClient(location.container)
-            .GetDirectoryClient(location.path);
-    try {
-      directory_client.CreateIfNotExists();
-    } catch (const Azure::Storage::StorageException& exception) {
-      return internal::ExceptionToStatus(
-          "Failed to create a directory: " + location.path + " (" +
-              directory_client.GetUrl() + ")",
-          exception);
+    if (!location.path.empty()) {
+      auto directory_client =
+          datalake_service_client_->GetFileSystemClient(location.container)
+              .GetDirectoryClient(location.path);
+      try {
+        directory_client.CreateIfNotExists();
+      } catch (const Azure::Storage::StorageException& exception) {
+        return internal::ExceptionToStatus(
+            "Failed to create a directory: " + location.path + " (" +
+                directory_client.GetUrl() + ")",
+            exception);
+      }
     }
 
     return Status::OK();
