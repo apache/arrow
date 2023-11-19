@@ -232,13 +232,11 @@ class AzureFileSystemTest : public ::testing::Test {
 
   void UploadLines(const std::vector<std::string>& lines, const char* path_to_file,
                    int total_size) {
-    // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-    auto blob_client =
-        blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-            .GetBlockBlobClient(path_to_file);
+    const auto path = PreexistingContainerPath() + path_to_file;
+    ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
     std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(all_lines.data()),
-                           total_size);
+    ASSERT_OK(output->Write(all_lines.data(), all_lines.size()));
+    ASSERT_OK(output->Close());
   }
 
   void RunGetFileInfoObjectWithNestedStructureTest();
@@ -347,21 +345,26 @@ void AzureFileSystemTest::RunGetFileInfoObjectWithNestedStructureTest() {
   // Adds detailed tests to handle cases of different edge cases
   // with directory naming conventions (e.g. with and without slashes).
   constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
-  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-      .GetBlockBlobClient(kObjectName)
-      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
+  ASSERT_OK_AND_ASSIGN(
+      auto output,
+      fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName, /*metadata=*/{}));
+  const auto data = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
 
   // 0 is immediately after "/" lexicographically, ensure that this doesn't
   // cause unexpected issues.
-  // TODO(GH-38333): Switch to using Azure filesystem to write once its implemented.
-  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-      .GetBlockBlobClient("test-object-dir/some_other_dir0")
-      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
-
-  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-      .GetBlockBlobClient(std::string(kObjectName) + "0")
-      .UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum), strlen(kLoremIpsum));
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs_->OpenOutputStream(
+                           PreexistingContainerPath() + "test-object-dir/some_other_dir0",
+                           /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(
+      output, fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName + "0",
+                                    /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
 
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName + "/",
@@ -676,9 +679,9 @@ TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
   ASSERT_OK(output->Write(expected.data(), expected.size()));
   ASSERT_OK(output->Close());
   blob_metadata = blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-          .GetBlockBlobClient(path)
-          .GetProperties()
-          .Value.Metadata;
+                      .GetBlockBlobClient(path)
+                      .GetProperties()
+                      .Value.Metadata;
   EXPECT_EQ(blob_metadata["bar"], "foo");
   // Defaults are overwritten and not merged.
   EXPECT_EQ(blob_metadata.find("foo"), blob_metadata.end());
