@@ -782,41 +782,23 @@ TEST_F(TestCheckDataPageCrc, CorruptDict) {
   }
 }
 
-class TestGzipMembersRead : public ::testing::Test {
- public:
-  void SetUp() {
-    std::string dir_string(test::get_data_dir());
-
-    std::stringstream ss;
-    ss << dir_string << "/"
-       << concatenated_gzip_members();
-
-    PARQUET_ASSIGN_OR_THROW(handle, ReadableFile::Open(ss.str()));
-    fileno = handle->file_descriptor();
-  }
-
-  void TearDown() {}
-
- protected:
-  int fileno;
-  std::shared_ptr<::arrow::io::ReadableFile> handle;
-};
-
 TEST(TestGzipMembersRead, TwoConcatenatedMembers) {
-    auto file_reader = ParquetFileReader::OpenFile(concatenated_gzip_members(),
-                                               /*memory_map=*/false);
-    auto col_reader = std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(
-		           file_reader->RowGroup(0)->Column(0));
-    int64_t num_values = 0;
-    int64_t num_repdef = 0;
-    std::vector<int16_t> reps(1024);
-    std::vector<int16_t> defs(1024);
-    std::vector<int64_t> vals(1024);
+  auto file_reader = ParquetFileReader::OpenFile(concatenated_gzip_members(),
+                                                 /*memory_map=*/false);
+  auto col_reader = std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(
+      file_reader->RowGroup(0)->Column(0));
+  int64_t num_values = 0;
+  int64_t num_repdef = 0;
+  std::vector<int16_t> reps(1024);
+  std::vector<int16_t> defs(1024);
+  std::vector<int64_t> vals(1024);
 
-    num_repdef = col_reader->ReadBatch(1024, defs.data(), reps.data(), vals.data(), &num_values);
-    for(int64_t i=0; i<num_repdef; i++) {
-       EXPECT_EQ(i+1, vals[i]);
-    }
+  num_repdef =
+      col_reader->ReadBatch(1024, defs.data(), reps.data(), vals.data(), &num_values);
+  EXPECT_EQ(num_repdef, 513);
+  for (int64_t i = 0; i < num_repdef; i++) {
+    EXPECT_EQ(i + 1, vals[i]);
+  }
 }
 
 TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {

@@ -369,36 +369,42 @@ TEST_P(CodecTest, CodecRoundtrip) {
 }
 
 TEST(CodecTest, CodecRoundtripGzipMembers) {
-  int sizes[] = {0, 10000, 100000};
+  std::unique_ptr<Codec> gzip_codec;
+  ASSERT_OK_AND_ASSIGN(gzip_codec, Codec::Create(Compression::GZIP));
 
-  std::unique_ptr<Codec> c1;
-  ASSERT_OK_AND_ASSIGN(c1, Codec::Create(Compression::GZIP));
+  for (int data_size : {0, 10000, 100000}) {
+    int64_t compressed_size_p1, compressed_size_p2;
+    uint32_t p1_size = data_size / 4;
+    uint32_t p2_size = data_size - p1_size;
+    std::vector<uint8_t> data_full = MakeRandomData(data_size);
+    std::vector<uint8_t> data_p1(data_full.begin(), data_full.begin() + p1_size);
+    std::vector<uint8_t> data_p2(data_full.begin() + p1_size, data_full.end());
 
-  for (int data_half_size : sizes) {
-    int64_t actual_size_p1, actual_size_p2;
-    std::vector<uint8_t> data_half = MakeRandomData(data_half_size);
-    std::vector<uint8_t> data_full(data_half.begin(), data_half.end());
-    data_full.insert(data_full.end(), data_half.begin(), data_half.end());
+    int max_compressed_len_p1 =
+        static_cast<int>(gzip_codec->MaxCompressedLen(p1_size, data_p1.data()));
+    int max_compressed_len_p2 =
+        static_cast<int>(gzip_codec->MaxCompressedLen(p2_size, data_p2.data()));
+    std::vector<uint8_t> compressed(max_compressed_len_p1 + max_compressed_len_p2);
 
-    int max_compressed_len_half =
-      static_cast<int>(c1->MaxCompressedLen(data_half.size(), data_half.data()));
-    std::vector<uint8_t> compressed(max_compressed_len_half * 2);
+    // Compress in 2 parts separately
+    ASSERT_OK_AND_ASSIGN(compressed_size_p1,
+                         gzip_codec->Compress(p1_size, data_p1.data(),
+                                              max_compressed_len_p1, compressed.data()));
+    ASSERT_OK_AND_ASSIGN(
+        compressed_size_p2,
+        gzip_codec->Compress(p2_size, data_p2.data(), max_compressed_len_p2,
+                             compressed.data() + compressed_size_p1));
+    compressed.resize(compressed_size_p1 + compressed_size_p2);
 
-    // Compress in 2 steps
-    ASSERT_OK_AND_ASSIGN(actual_size_p1, c1->Compress(data_half.size(), data_half.data(),
-                                         max_compressed_len_half, compressed.data()));
-    ASSERT_OK_AND_ASSIGN(actual_size_p2, c1->Compress(data_half.size(), data_half.data(),
-                                         max_compressed_len_half, compressed.data()+actual_size_p1));
-    compressed.resize(actual_size_p1 + actual_size_p2);
-
-    // Decompress the concatenated data
-    std::vector<uint8_t> decompressed(data_half_size*2);
+    // Decompress the concatenated compressed gzip members
+    std::vector<uint8_t> decompressed(data_size);
     int64_t actual_decompressed_size;
-    ASSERT_OK_AND_ASSIGN(actual_decompressed_size,
-                         c1->Decompress(compressed.size(), compressed.data(),
-                                        decompressed.size(), decompressed.data()));
+    ASSERT_OK_AND_ASSIGN(
+        actual_decompressed_size,
+        gzip_codec->Decompress(compressed.size(), compressed.data(), decompressed.size(),
+                               decompressed.data()));
 
-    ASSERT_EQ(data_half.size()*2, actual_decompressed_size);
+    ASSERT_EQ(data_size, actual_decompressed_size);
     ASSERT_EQ(data_full, decompressed);
   }
 }

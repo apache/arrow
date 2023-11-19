@@ -396,7 +396,7 @@ class GZipCodec : public Codec {
     }
 
     // inflate() will not automatically decode concatenated gzip members, keep calling
-    // inflate until reading all input data
+    // inflate until reading all input data (GH-38271).
     while (read_input_bytes < input_length) {
       // Reset the stream for this block
       if (inflateReset(&stream_) != Z_OK) {
@@ -410,17 +410,16 @@ class GZipCodec : public Codec {
       // compressed output.  In the case where we don't know the output,
       // we just make a bigger buffer and try the non-streaming mode
       // from the beginning again.
-      while (ret != Z_STREAM_END) {
-        stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input + read_input_bytes));
-        stream_.avail_in = static_cast<uInt>(input_length - read_input_bytes);
-        stream_.next_out = reinterpret_cast<Bytef*>(output + decompressed_bytes);
-        stream_.avail_out = static_cast<uInt>(output_buffer_length - decompressed_bytes);
+      stream_.next_in =
+          const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input + read_input_bytes));
+      stream_.avail_in = static_cast<uInt>(input_length - read_input_bytes);
+      stream_.next_out = reinterpret_cast<Bytef*>(output + decompressed_bytes);
+      stream_.avail_out = static_cast<uInt>(output_buffer_length - decompressed_bytes);
 
-        // We know the output size.  In this case, we can use Z_FINISH
-        // which is more efficient.
-        ret = inflate(&stream_, Z_FINISH);
-        if (ret == Z_STREAM_END || ret != Z_OK) break;
-
+      // We know the output size.  In this case, we can use Z_FINISH
+      // which is more efficient.
+      ret = inflate(&stream_, Z_FINISH);
+      if (ret == Z_OK) {
         // Failure, buffer was too small
         return Status::IOError("Too small a buffer passed to GZipCodec. InputLength=",
                                input_length, " OutputLength=", output_buffer_length);
