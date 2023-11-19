@@ -675,8 +675,7 @@ TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
                   location, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
   ASSERT_OK(output->Write(expected.data(), expected.size()));
   ASSERT_OK(output->Close());
-  blob_metadata =
-      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+  blob_metadata = blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
           .GetBlockBlobClient(path)
           .GetProperties()
           .Value.Metadata;
