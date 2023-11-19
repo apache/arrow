@@ -647,49 +647,43 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamClosed) {
   ASSERT_RAISES(Invalid, stream->Tell());
 }
 
-// TEST_F(AzuriteFileSystemTest, TestWriteWithDefaults) {
-//   auto options = TestGcsOptions();
-//   options.default_bucket_location = "utopia";
-//   options.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
-//   auto fs = GcsFileSystem::Make(options);
-//   std::string bucket = "new_bucket_with_default_location";
-//   auto file_name = "object_with_defaults";
-//   ASSERT_OK(fs->CreateDir(bucket, /*recursive=*/false));
-//   const auto path = bucket + "/" + file_name;
-//   std::shared_ptr<io::OutputStream> output;
-//   ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, /*metadata=*/{}));
-//   const auto expected = std::string(kLoremIpsum);
-//   ASSERT_OK(output->Write(expected.data(), expected.size()));
-//   ASSERT_OK(output->Close());
+TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
+  options_.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
 
-//   // Verify we can read the object back.
-//   std::shared_ptr<io::InputStream> input;
-//   ASSERT_OK_AND_ASSIGN(input, fs->OpenInputStream(path));
+  std::shared_ptr<AzureFileSystem> fs_with_defaults;
+  ASSERT_OK_AND_ASSIGN(fs_with_defaults, AzureFileSystem::Make(options_));
+  std::string path = "object_with_defaults";
+  auto location = PreexistingContainerPath() + path;
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs_with_defaults->OpenOutputStream(location, /*metadata=*/{}));
+  const auto expected = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
 
-//   std::array<char, 1024> inbuf{};
-//   std::int64_t size;
-//   ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+  // Verify the metadata has been set.
+  auto blob_metadata =
+      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+          .GetBlockBlobClient(path)
+          .GetProperties()
+          .Value.Metadata;
+  EXPECT_EQ(blob_metadata["foo"], "bar");
 
-//   EXPECT_EQ(std::string(inbuf.data(), size), expected);
-//   auto object = GcsClient().GetObjectMetadata(bucket, file_name);
-//   ASSERT_TRUE(object.ok()) << "status=" << object.status();
-//   EXPECT_EQ(object->mutable_metadata()["foo"], "bar");
-//   auto bucket_info = GcsClient().GetBucketMetadata(bucket);
-//   ASSERT_TRUE(bucket_info.ok()) << "status=" << object.status();
-//   EXPECT_EQ(bucket_info->location(), "utopia");
-
-//   // Check that explicit metadata overrides the defaults.
-//   ASSERT_OK_AND_ASSIGN(
-//       output, fs->OpenOutputStream(
-//                   path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
-//   ASSERT_OK(output->Write(expected.data(), expected.size()));
-//   ASSERT_OK(output->Close());
-//   object = GcsClient().GetObjectMetadata(bucket, file_name);
-//   ASSERT_TRUE(object.ok()) << "status=" << object.status();
-//   EXPECT_EQ(object->mutable_metadata()["bar"], "foo");
-//   // Defaults are overwritten and not merged.
-//   EXPECT_FALSE(object->has_metadata("foo"));
-// }
+  // Check that explicit metadata overrides the defaults.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs_with_defaults->OpenOutputStream(
+                  location, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+  blob_metadata =
+      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+          .GetBlockBlobClient(path)
+          .GetProperties()
+          .Value.Metadata;
+  EXPECT_EQ(blob_metadata["bar"], "foo");
+  // Defaults are overwritten and not merged.
+  EXPECT_EQ(blob_metadata.find("foo"), blob_metadata.end());
+}
 
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamSmall) {
   const auto path = PreexistingContainerPath() + "test-write-object";
@@ -714,7 +708,6 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamLarge) {
   const auto path = PreexistingContainerPath() + "test-write-object";
   std::shared_ptr<io::OutputStream> output;
   ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
-  // These buffer sizes are intentionally not multiples of the upload quantum (256 KiB).
   std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
   std::array<std::string, 3> buffers{
       std::string(sizes[0], 'A'),
