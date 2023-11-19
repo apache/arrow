@@ -44,7 +44,8 @@ AzureOptions::AzureOptions() {}
 bool AzureOptions::Equals(const AzureOptions& other) const {
   return (account_dfs_url == other.account_dfs_url &&
           account_blob_url == other.account_blob_url &&
-          credentials_kind == other.credentials_kind);
+          credentials_kind == other.credentials_kind &&
+          default_metadata == other.default_metadata);
 }
 
 Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_name,
@@ -493,15 +494,26 @@ Result<Azure::Storage::Blobs::Models::GetBlockListResult> GetBlockList(
   }
 }
 
+Azure::Storage::Metadata ArrowMetadataToAzureMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& arrow_metadata) {
+  Azure::Storage::Metadata azure_metadata;
+  for (auto key_value : arrow_metadata->sorted_pairs()) {
+    azure_metadata[key_value.first] = key_value.second;
+  }
+  return azure_metadata;
+}
+
 Status CommitBlockList(
     std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
-    std::vector<std::string> block_ids) {
+    std::vector<std::string> block_ids, const Azure::Storage::Metadata& metadata) {
+  Azure::Storage::Blobs::CommitBlockListOptions options;
+  options.Metadata = metadata;
   try {
     // CommitBlockList puts all block_ids in the latest element. That means in the case of
     // overlapping block_ids the newly staged block ids will always replace the
     // previously committed blocks.
     // https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list?tabs=microsoft-entra-id#request-body
-    block_blob_client->CommitBlockList(block_ids);
+    block_blob_client->CommitBlockList(block_ids, options);
   } catch (const Azure::Storage::StorageException& exception) {
     return internal::ExceptionToStatus(
         "CommitBlockList failed for '" + block_blob_client->GetUrl() +
@@ -517,11 +529,18 @@ class ObjectAppendStream final : public io::OutputStream {
   ObjectAppendStream(
       std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
       const io::IOContext& io_context, const AzureLocation& location,
-      const std::shared_ptr<const KeyValueMetadata>& metadata, int64_t size = kNoSize)
+      const std::shared_ptr<const KeyValueMetadata>& metadata,
+      const AzureOptions& options, int64_t size = kNoSize)
       : block_blob_client_(std::move(block_blob_client)),
         io_context_(io_context),
         location_(location),
-        content_length_(size) {}
+        content_length_(size) {
+    if (metadata && metadata->size() != 0) {
+      metadata_ = ArrowMetadataToAzureMetadata(metadata);
+    } else if (options.default_metadata && options.default_metadata->size() != 0) {
+      metadata_ = ArrowMetadataToAzureMetadata(options.default_metadata);
+    }
+  }
 
   ~ObjectAppendStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -647,7 +666,7 @@ class ObjectAppendStream final : public io::OutputStream {
 
   Status Flush() override {
     RETURN_NOT_OK(CheckClosed("flush"));
-    return CommitBlockList(block_blob_client_, block_ids_);
+    return CommitBlockList(block_blob_client_, block_ids_, metadata_);
   }
 
  protected:
@@ -659,6 +678,7 @@ class ObjectAppendStream final : public io::OutputStream {
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
   std::vector<std::string> block_ids_;
+  Azure::Storage::Metadata metadata_;
 };
 
 }  // namespace
@@ -942,10 +962,10 @@ class AzureFileSystem::Impl {
     if (truncate) {
       RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client));
       ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                 location, metadata, 0);
+                                                 location, metadata, options_, 0);
     } else {
       ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                 location, metadata);
+                                                 location, metadata, options_);
     }
     RETURN_NOT_OK(ptr->Init());
     return ptr;

@@ -77,6 +77,11 @@ struct ARROW_EXPORT AzureOptions {
   std::shared_ptr<Azure::Core::Credentials::TokenCredential>
       service_principle_credentials_provider;
 
+  /// \brief Default metadata for OpenOutputStream.
+  ///
+  /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
+  std::shared_ptr<const KeyValueMetadata> default_metadata;
+
   AzureOptions();
 
   Status ConfigureAccountKeyCredentials(const std::string& account_name,
