@@ -796,7 +796,8 @@ TEST_F(AzuriteFileSystemTest, OpenAppendStreamDoesNotTruncateExistingFile) {
   ASSERT_OK(output->Write(expected1.data(), expected1.size()));
   ASSERT_OK(output->Close());
 
-  // Verify that the initial content has been overwritten.
+  // Verify that the initial content has not been overwritten and that the block from
+  // the other client was not committed.
   ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
   ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
   EXPECT_EQ(std::string(inbuf.data(), size), expected0 + expected1);

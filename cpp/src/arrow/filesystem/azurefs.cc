@@ -497,6 +497,10 @@ Status CommitBlockList(
     std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
     std::vector<std::string> block_ids) {
   try {
+    // CommitBlockList puts all block_ids in the latest element. That means in the case of
+    // overlapping block_ids the newly staged block ids will always replace the
+    // previously committed blocks.
+    // https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list?tabs=microsoft-entra-id#request-body
     block_blob_client->CommitBlockList(block_ids);
   } catch (const Azure::Storage::StorageException& exception) {
     return internal::ExceptionToStatus(
@@ -609,11 +613,19 @@ class ObjectAppendStream final : public io::OutputStream {
     }
 
     auto size = block_ids_.size();
-    std::string new_block_id;
-    new_block_id = std::to_string(size + 1);
-    size_t n = 8;
-    int precision = n - std::min(n, new_block_id.size());
-    new_block_id.insert(0, precision, '0');
+
+    // New block ids must always be distinct from the existing block ids. Otherwise we
+    // will accidentally replace the content of existing blocks, causing corruption.
+    // We will use monotonically increasing integers.
+    std::string new_block_id = std::to_string(size);
+
+    // Pad to 5 digits, because Azure allows a maximum of 50,000 blocks.
+    const size_t target_number_of_digits = 5;
+    int required_padding_digits =
+        target_number_of_digits - std::min(target_number_of_digits, new_block_id.size());
+    new_block_id.insert(0, required_padding_digits, '0');
+    new_block_id += "-arrow";  // Add a suffix to reduce risk of block_id collisions with
+                               // blocks created by other applications.
     new_block_id = Azure::Core::Convert::Base64Encode(
         std::vector<uint8_t>(new_block_id.begin(), new_block_id.end()));
 
