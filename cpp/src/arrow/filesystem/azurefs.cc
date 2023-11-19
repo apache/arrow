@@ -466,10 +466,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
 Status CreateEmptyBlockBlob(
     std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client) {
-  std::string s = "";
   try {
-    block_blob_client->UploadFrom(
-        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(s.data())), s.size());
+    block_blob_client->UploadFrom(nullptr, 0);
   } catch (const Azure::Storage::StorageException& exception) {
     return internal::ExceptionToStatus(
         "UploadFrom failed for '" + block_blob_client->GetUrl() +
@@ -624,23 +622,22 @@ class ObjectAppendStream final : public io::OutputStream {
   Status DoAppend(const void* data, int64_t nbytes,
                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
     RETURN_NOT_OK(CheckClosed("append"));
-    auto append_data = reinterpret_cast<uint8_t*>((void*)data);
-    auto block_content = Azure::Core::IO::MemoryBodyStream(
-        append_data, strlen(reinterpret_cast<char*>(append_data)));
+    auto append_data = reinterpret_cast<const uint8_t*>(data);
+    auto block_content = Azure::Core::IO::MemoryBodyStream(append_data, nbytes);
     if (block_content.Length() == 0) {
       return Status::OK();
     }
 
-    auto size = block_ids_.size();
+    const auto n_block_ids = block_ids_.size();
 
-    // New block ids must always be distinct from the existing block ids. Otherwise we
+    // New block ID must always be distinct from the existing block IDs. Otherwise we
     // will accidentally replace the content of existing blocks, causing corruption.
     // We will use monotonically increasing integers.
-    std::string new_block_id = std::to_string(size);
+    std::string new_block_id = std::to_string(n_block_ids);
 
     // Pad to 5 digits, because Azure allows a maximum of 50,000 blocks.
     const size_t target_number_of_digits = 5;
-    int required_padding_digits =
+    const auto required_padding_digits =
         target_number_of_digits - std::min(target_number_of_digits, new_block_id.size());
     new_block_id.insert(0, required_padding_digits, '0');
     new_block_id += "-arrow";  // Add a suffix to reduce risk of block_id collisions with
@@ -669,7 +666,7 @@ class ObjectAppendStream final : public io::OutputStream {
     return CommitBlockList(block_blob_client_, block_ids_, metadata_);
   }
 
- protected:
+ private:
   std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
   const AzureLocation location_;
@@ -956,17 +953,17 @@ class AzureFileSystem::Impl {
         blob_service_client_->GetBlobContainerClient(location.container)
             .GetBlockBlobClient(location.path));
 
-    std::shared_ptr<ObjectAppendStream> ptr;
+    std::shared_ptr<ObjectAppendStream> stream;
     if (truncate) {
       RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client));
-      ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
+      stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
                                                  location, metadata, options_, 0);
     } else {
-      ptr = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
+      stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
                                                  location, metadata, options_);
     }
-    RETURN_NOT_OK(ptr->Init());
-    return ptr;
+    RETURN_NOT_OK(stream->Init());
+    return stream;
   }
 };
 
