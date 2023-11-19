@@ -13,54 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections.Generic;
 
 namespace Apache.Arrow.Types
 {
-    public enum ArrowTypeId
+    public interface IRecordType : IArrowType
     {
-        Null,
-        Boolean,
-        UInt8,
-        Int8,
-        UInt16,
-        Int16,
-        UInt32,
-        Int32,
-        UInt64,
-        Int64,
-        HalfFloat,
-        Float,
-        Double,
-        String,
-        Binary,
-        FixedSizedBinary,
-        Date32,
-        Date64,
-        Timestamp,
-        Time32,
-        Time64,
-        Interval,
-        Decimal128,
-        Decimal256,
-        List,
-        Struct,
-        Union,
-        Dictionary,
-        Map,
-        FixedSizeList,
-        Duration,
-        RecordBatch,
-    }
+        int FieldCount { get; }
 
-    public interface IArrowType
-    {
-        ArrowTypeId TypeId { get; }
-
-        string Name { get; }
- 
-        void Accept(IArrowTypeVisitor visitor);
-
-        bool IsFixedWidth { get; }
-    
+        Field GetFieldByIndex(int index);
+        Field GetFieldByName(string name);
+        int GetFieldIndex(string name, IEqualityComparer<string> comparer);
     }
 }

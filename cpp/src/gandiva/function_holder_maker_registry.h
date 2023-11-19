@@ -18,38 +18,35 @@
 #pragma once
 
 #include <memory>
-#include <vector>
+#include <string>
+#include <unordered_map>
 
-#include <gandiva/engine.h>
-#include <gandiva/visibility.h>
+#include "arrow/status.h"
+#include "gandiva/function_holder.h"
+#include "gandiva/node.h"
 
 namespace gandiva {
 
-class ExportedFuncsBase;
-
-/// Registry for classes that export functions which can be accessed by
-/// LLVM/IR code.
-class GANDIVA_EXPORT ExportedFuncsRegistry {
+/// registry of function holder makers
+class FunctionHolderMakerRegistry {
  public:
-  using list_type = std::vector<std::shared_ptr<ExportedFuncsBase>>;
+  using FunctionHolderMaker =
+      std::function<arrow::Result<FunctionHolderPtr>(const FunctionNode&)>;
 
-  // Add functions from all the registered classes to the engine.
-  static arrow::Status AddMappings(Engine* engine);
+  FunctionHolderMakerRegistry();
 
-  static bool Register(std::shared_ptr<ExportedFuncsBase> entry) {
-    registered()->emplace_back(std::move(entry));
-    return true;
-  }
+  arrow::Status Register(const std::string& name, FunctionHolderMaker holder_maker);
 
-  // list all the registered ExportedFuncsBase
-  static const list_type& Registered();
+  /// \brief lookup a function holder maker using the given function name,
+  /// and make a FunctionHolderPtr using the found holder maker and the given FunctionNode
+  arrow::Result<FunctionHolderPtr> Make(const std::string& name,
+                                        const FunctionNode& node);
 
  private:
-  static list_type* registered();
-};
+  using MakerMap = std::unordered_map<std::string, FunctionHolderMaker>;
 
-#define REGISTER_EXPORTED_FUNCS(classname)               \
-  [[maybe_unused]] static bool _registered_##classname = \
-      ExportedFuncsRegistry::Register(std::make_shared<classname>())
+  MakerMap function_holder_makers_;
+  static MakerMap DefaultHolderMakers();
+};
 
 }  // namespace gandiva
