@@ -1550,7 +1550,7 @@ test_that("as.difftime()", {
   )
 
   # only integer (or integer-like) -> duration conversion supported in Arrow.
-  # double -> duration not supported. we're not testing the content of the
+  # double -> duration not supported. We aren't testing the content of the
   # error message as it is being generated in the C++ code and it might change,
   # but we want to make sure that this error is raised in our binding implementation
   expect_error(
