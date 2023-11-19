@@ -399,7 +399,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_NativeMemoryPool_bytes
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
-    JniThrow("Memory pool instance not found. It may not exist nor has been closed");
+    JniThrow("Memory pool instance not found. It may not exist or have been closed");
   }
   return pool->bytes_allocated();
   JNI_METHOD_END(-1L)
