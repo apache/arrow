@@ -1765,7 +1765,7 @@ _RE_PATTERN_CLEANSE_LINE_C_COMMENTS = re.compile(
 def IsCppString(line):
   """Does line terminate so, that the next symbol is in string constant.
 
-  This function does not consider single-line nor multi-line comments.
+  This function does not consider comments at all.
 
   Args:
     line: is a partial line of code starting from the 0..n.
