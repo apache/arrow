@@ -554,7 +554,6 @@ class ObjectAppendStream final : public io::OutputStream {
     } else {
       try {
         auto properties = block_blob_client_->GetProperties();
-        // TODO: Consider adding a check for whether its a directory.
         content_length_ = properties.Value.BlobSize;
         pos_ = content_length_;
       } catch (const Azure::Storage::StorageException& exception) {
@@ -949,7 +948,8 @@ class AzureFileSystem::Impl {
       const AzureLocation& location,
       const std::shared_ptr<const KeyValueMetadata>& metadata, const bool truncate,
       AzureFileSystem* fs) {
-    // TODO: Ensure cheap checks which don't require a call to Azure are done.
+    RETURN_NOT_OK(ValidateFileLocation(location));
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
     if (location.empty() || location.path.empty()) {
       return ::arrow::fs::internal::PathNotFound(location.path);
     }
