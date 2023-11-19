@@ -17,7 +17,6 @@ using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -156,7 +155,13 @@ namespace Apache.Arrow
 
         TimeOnly? IReadOnlyList<TimeOnly?>.this[int index] => GetTime(index);
 
-        IEnumerator<TimeOnly?> IEnumerable<TimeOnly?>.GetEnumerator() => Enumerable.Range(0, Length).Select(GetTime).GetEnumerator();
+        IEnumerator<TimeOnly?> IEnumerable<TimeOnly?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetTime(index);
+            };
+        }
 #endif
     }
 }

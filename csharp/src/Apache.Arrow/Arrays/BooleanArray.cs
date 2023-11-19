@@ -18,7 +18,6 @@ using Apache.Arrow.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -197,8 +196,14 @@ namespace Apache.Arrow
 
         bool? IReadOnlyList<bool?>.this[int index] => GetValue(index);
 
-        IEnumerator<bool?> IEnumerable<bool?>.GetEnumerator() => Enumerable.Range(0, Length).Select(GetValue).GetEnumerator();
+        IEnumerator<bool?> IEnumerable<bool?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetValue(index);
+            }
+        }
 
-        IEnumerator IEnumerable.GetEnumerator() => Enumerable.Range(0, Length).Select(GetValue).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<bool?>)this).GetEnumerator();
     }
 }

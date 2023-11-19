@@ -19,7 +19,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
 using System.Collections;
-using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -372,8 +371,14 @@ namespace Apache.Arrow
         int IReadOnlyCollection<byte[]>.Count => Length;
         byte[] IReadOnlyList<byte[]>.this[int index] => GetBytes(index).ToArray();
 
-        IEnumerator<byte[]> IEnumerable<byte[]>.GetEnumerator() => Enumerable.Range(0, Length).Select(x => GetBytes(x).ToArray()).GetEnumerator();
+        IEnumerator<byte[]> IEnumerable<byte[]>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetBytes(index).ToArray();
+            }
+        }
 
-        IEnumerator IEnumerable.GetEnumerator() => Enumerable.Range(0, Length).Select(x => GetBytes(x).ToArray()).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<byte[]>)this).GetEnumerator();
     }
 }
