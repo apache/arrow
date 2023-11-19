@@ -619,6 +619,12 @@ class ObjectAppendStream final : public io::OutputStream {
     return DoAppend(data, nbytes);
   }
 
+  Status Flush() override {
+    RETURN_NOT_OK(CheckClosed("flush"));
+    return CommitBlockList(block_blob_client_, block_ids_, metadata_);
+  }
+
+ private:
   Status DoAppend(const void* data, int64_t nbytes,
                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
     RETURN_NOT_OK(CheckClosed("append"));
@@ -661,12 +667,6 @@ class ObjectAppendStream final : public io::OutputStream {
     return Status::OK();
   }
 
-  Status Flush() override {
-    RETURN_NOT_OK(CheckClosed("flush"));
-    return CommitBlockList(block_blob_client_, block_ids_, metadata_);
-  }
-
- private:
   std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
   const AzureLocation location_;
@@ -957,10 +957,10 @@ class AzureFileSystem::Impl {
     if (truncate) {
       RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client));
       stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                 location, metadata, options_, 0);
+                                                    location, metadata, options_, 0);
     } else {
       stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
-                                                 location, metadata, options_);
+                                                    location, metadata, options_);
     }
     RETURN_NOT_OK(stream->Init());
     return stream;
