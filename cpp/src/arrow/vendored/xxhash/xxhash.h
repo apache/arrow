@@ -1443,7 +1443,7 @@ struct XXH32_state_s {
    XXH32_hash_t v[4];         /*!< Accumulator lanes */
    XXH32_hash_t mem32[4];     /*!< Internal buffer for partial reads. Treated as unsigned char[16]. */
    XXH32_hash_t memsize;      /*!< Amount of data in @ref mem32 */
-   XXH32_hash_t reserved;     /*!< Reserved field. Do not read nor write to it. */
+   XXH32_hash_t reserved;     /*!< Reserved field. Do not read from nor write to it. */
 };   /* typedef'd to XXH32_state_t */
 
 
