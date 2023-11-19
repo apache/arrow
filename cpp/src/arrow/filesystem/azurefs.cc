@@ -473,9 +473,9 @@ Status CreateEmptyBlockBlob(
   } catch (const Azure::Storage::StorageException& exception) {
     return internal::ExceptionToStatus(
         "UploadFrom failed for '" + block_blob_client->GetUrl() +
-            "' with an unexpected Azure error. There is new existing blob at this "
-            "path "
-            "so ObjectAppendStream must create a new empty block blob.",
+            "' with an unexpected Azure error. There is no existing blob at this "
+            "location or the existing blob must be replaced so ObjectAppendStream must "
+            "create a new empty block blob.",
         exception);
   }
   return Status::OK();
@@ -505,7 +505,7 @@ Azure::Storage::Metadata ArrowMetadataToAzureMetadata(
 
 Status CommitBlockList(
     std::shared_ptr<Azure::Storage::Blobs::BlockBlobClient> block_blob_client,
-    std::vector<std::string> block_ids, const Azure::Storage::Metadata& metadata) {
+    const std::vector<std::string>& block_ids, const Azure::Storage::Metadata& metadata) {
   Azure::Storage::Blobs::CommitBlockListOptions options;
   options.Metadata = metadata;
   try {
@@ -517,8 +517,8 @@ Status CommitBlockList(
   } catch (const Azure::Storage::StorageException& exception) {
     return internal::ExceptionToStatus(
         "CommitBlockList failed for '" + block_blob_client->GetUrl() +
-            "' with an unexpected Azure error. Committing the block list is "
-            "fundamental to streaming writes to blob storage.",
+            "' with an unexpected Azure error. Committing is required to flush an "
+            "output/append stream.",
         exception);
   }
   return Status::OK();
@@ -551,6 +551,7 @@ class ObjectAppendStream final : public io::OutputStream {
   Status Init() {
     if (content_length_ != kNoSize) {
       DCHECK_GE(content_length_, 0);
+      pos_ = content_length_;
     } else {
       try {
         auto properties = block_blob_client_->GetProperties();
@@ -564,7 +565,7 @@ class ObjectAppendStream final : public io::OutputStream {
               "GetProperties failed for '" + block_blob_client_->GetUrl() +
                   "' with an unexpected Azure error. Can not initialise an "
                   "ObjectAppendStream without knowing whether a file already exists at "
-                  "this path.",
+                  "this path, and if it exists, its size.",
               exception);
         }
         content_length_ = 0;
@@ -623,7 +624,7 @@ class ObjectAppendStream final : public io::OutputStream {
   Status DoAppend(const void* data, int64_t nbytes,
                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
     RETURN_NOT_OK(CheckClosed("append"));
-    auto append_data = static_cast<uint8_t*>((void*)data);
+    auto append_data = reinterpret_cast<uint8_t*>((void*)data);
     auto block_content = Azure::Core::IO::MemoryBodyStream(
         append_data, strlen(reinterpret_cast<char*>(append_data)));
     if (block_content.Length() == 0) {
@@ -950,9 +951,6 @@ class AzureFileSystem::Impl {
       AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
     ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
-    if (location.empty() || location.path.empty()) {
-      return ::arrow::fs::internal::PathNotFound(location.path);
-    }
 
     auto block_blob_client = std::make_shared<Azure::Storage::Blobs::BlockBlobClient>(
         blob_service_client_->GetBlobContainerClient(location.container)
