@@ -339,7 +339,7 @@ Parquet C++ 1.0.0
     * [PARQUET-626] - Fix builds due to unavailable llvm.org apt mirror
     * [PARQUET-629] - RowGroupSerializer should only close itself once
     * [PARQUET-472] - Clean up InputStream ownership semantics in ColumnReader
-    * [PARQUET-739] - Rle-decoding uses static buffer that is shared accross threads
+    * [PARQUET-739] - Rle-decoding uses static buffer that is shared across threads
     * [PARQUET-561] - ParquetFileReader::Contents PIMPL missing a virtual destructor
     * [PARQUET-892] - [C++] Clean up link library targets in CMake files
     * [PARQUET-454] - Address inconsistencies in boolean decoding
