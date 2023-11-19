@@ -167,6 +167,9 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     populateData(currentVectorSchemaRoot, schema);
   }
 
+  /**
+   * Expose appMetadata associated with the underlying FlightInfo for this ResultSet.
+   */
   public byte[] getAppMetadata() {
     return flightInfo.getAppMetadata();
   }
