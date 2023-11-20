@@ -639,7 +639,7 @@ func typeFromNode(n Node) reflect.Type {
 	switch n.Type() {
 	case Primitive:
 		typ := parquetTypeToReflect[n.(*PrimitiveNode).PhysicalType()]
-		// if a bytearray field is annoted as a String logical type or a UTF8 converted type
+		// if a bytearray field is annotated as a String logical type or a UTF8 converted type
 		// then use a string instead of parquet.ByteArray / parquet.FixedLenByteArray which are []byte
 		if n.LogicalType().Equals(StringLogicalType{}) || n.ConvertedType() == ConvertedTypes.UTF8 {
 			typ = reflect.TypeOf(string(""))
