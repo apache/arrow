@@ -478,7 +478,7 @@ TEST_F(TestSumKernelRoundOff, Basics) {
 
   // array = np.arange(321000, dtype='float64')
   // array -= np.mean(array)
-  // array *= arrray
+  // array *= array
   double index = 0;
   ASSERT_OK_AND_ASSIGN(
       auto array, ArrayFromBuilderVisitor(
