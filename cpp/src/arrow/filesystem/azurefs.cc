@@ -646,8 +646,12 @@ class ObjectAppendStream final : public io::OutputStream {
     const auto required_padding_digits =
         target_number_of_digits - std::min(target_number_of_digits, new_block_id.size());
     new_block_id.insert(0, required_padding_digits, '0');
-    new_block_id += "-arrow";  // Add a suffix to reduce risk of block_id collisions with
-                               // blocks created by other applications.
+    // There is a small risk when appending to a blob created by another client that 
+    // `new_block_id` may overlapping with an existing block id. Adding the `-arrow` 
+    // suffix significantly reduces the risk, but does not 100% eliminate it. For example 
+    // if the blob was previously created with one block, with id `00001-arrow` then the 
+    // next block we append will conflict with that, and cause corruption.
+    new_block_id += "-arrow";
     new_block_id = Azure::Core::Convert::Base64Encode(
         std::vector<uint8_t>(new_block_id.begin(), new_block_id.end()));
 
