@@ -1733,7 +1733,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     return 0;
   }
 
-  // MEMORY ADRESS MALLOC
+  // MEMORY ADDRESS MALLOC
   // v0 -> (0, ..., &ptr[in2_len])
   // v1 -> (in2_len+1, ..., &ptr[in2_len * 2])
   int* v0;
