@@ -234,8 +234,8 @@ class AzureFileSystemTest : public ::testing::Test {
                    int total_size) {
     const auto path = PreexistingContainerPath() + path_to_file;
     ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
-    std::string all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
-    ASSERT_OK(output->Write(all_lines.data(), all_lines.size()));
+    const auto all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
+    ASSERT_OK(output->Write(all_lines));
     ASSERT_OK(output->Close());
   }
 
@@ -348,8 +348,8 @@ void AzureFileSystemTest::RunGetFileInfoObjectWithNestedStructureTest() {
   ASSERT_OK_AND_ASSIGN(
       auto output,
       fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName, /*metadata=*/{}));
-  const auto data = std::string(kLoremIpsum);
-  ASSERT_OK(output->Write(data.data(), data.size()));
+  const std::string_view data(kLoremIpsum);
+  ASSERT_OK(output->Write(data));
   ASSERT_OK(output->Close());
 
   // 0 is immediately after "/" lexicographically, ensure that this doesn't
@@ -358,12 +358,12 @@ void AzureFileSystemTest::RunGetFileInfoObjectWithNestedStructureTest() {
                        fs_->OpenOutputStream(
                            PreexistingContainerPath() + "test-object-dir/some_other_dir0",
                            /*metadata=*/{}));
-  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Write(data));
   ASSERT_OK(output->Close());
   ASSERT_OK_AND_ASSIGN(
       output, fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName + "0",
                                     /*metadata=*/{}));
-  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Write(data));
   ASSERT_OK(output->Close());
 
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
@@ -653,15 +653,13 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamClosed) {
 TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
   options_.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
 
-  std::shared_ptr<AzureFileSystem> fs_with_defaults;
-  ASSERT_OK_AND_ASSIGN(fs_with_defaults, AzureFileSystem::Make(options_));
+  ASSERT_OK_AND_ASSIGN(auto fs_with_defaults, AzureFileSystem::Make(options_));
   std::string path = "object_with_defaults";
   auto location = PreexistingContainerPath() + path;
-  std::shared_ptr<io::OutputStream> output;
-  ASSERT_OK_AND_ASSIGN(output,
+  ASSERT_OK_AND_ASSIGN(auto output,
                        fs_with_defaults->OpenOutputStream(location, /*metadata=*/{}));
-  const auto expected = std::string(kLoremIpsum);
-  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  const std::string_view expected(kLoremIpsum);
+  ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
 
   // Verify the metadata has been set.
@@ -670,46 +668,42 @@ TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
           .GetBlockBlobClient(path)
           .GetProperties()
           .Value.Metadata;
-  EXPECT_EQ(blob_metadata["foo"], "bar");
+  EXPECT_EQ(Azure::Core::CaseInsensitiveMap{std::make_pair("foo", "bar")}, blob_metadata);
 
   // Check that explicit metadata overrides the defaults.
   ASSERT_OK_AND_ASSIGN(
       output, fs_with_defaults->OpenOutputStream(
                   location, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
-  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
   blob_metadata = blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
                       .GetBlockBlobClient(path)
                       .GetProperties()
                       .Value.Metadata;
-  EXPECT_EQ(blob_metadata["bar"], "foo");
   // Defaults are overwritten and not merged.
-  EXPECT_EQ(blob_metadata.find("foo"), blob_metadata.end());
+  EXPECT_EQ(Azure::Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
 }
 
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamSmall) {
   const auto path = PreexistingContainerPath() + "test-write-object";
   std::shared_ptr<io::OutputStream> output;
   ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
-  const auto expected = std::string(kLoremIpsum);
-  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  const std::string_view expected(kLoremIpsum);
+  ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
 
   // Verify we can read the object back.
-  std::shared_ptr<io::InputStream> input;
-  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+  ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream(path));
 
   std::array<char, 1024> inbuf{};
-  std::int64_t size;
-  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data())); 
 
-  EXPECT_EQ(std::string(inbuf.data(), size), expected);
+  EXPECT_EQ(expected, std::string_view(inbuf.data(), size));
 }
 
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamLarge) {
   const auto path = PreexistingContainerPath() + "test-write-object";
-  std::shared_ptr<io::OutputStream> output;
-  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
   std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
   std::array<std::string, 3> buffers{
       std::string(sizes[0], 'A'),
@@ -718,15 +712,14 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamLarge) {
   };
   auto expected = std::int64_t{0};
   for (auto i = 0; i != 3; ++i) {
-    ASSERT_OK(output->Write(buffers[i].data(), buffers[i].size()));
+    ASSERT_OK(output->Write(buffers[i]));
     expected += sizes[i];
-    ASSERT_EQ(output->Tell(), expected);
+    ASSERT_EQ(expected, output->Tell());
   }
   ASSERT_OK(output->Close());
 
   // Verify we can read the object back.
-  std::shared_ptr<io::InputStream> input;
-  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+  ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream(path));
 
   std::string contents;
   std::shared_ptr<Buffer> buffer;
@@ -741,68 +734,62 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamLarge) {
 
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamTruncatesExistingFile) {
   const auto path = PreexistingContainerPath() + "test-write-object";
-  std::shared_ptr<io::OutputStream> output;
-  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
-  const std::string expected0 = "Existing blob content";
-  ASSERT_OK(output->Write(expected0.data(), expected0.size()));
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
+  const std::string_view expected0("Existing blob content");
+  ASSERT_OK(output->Write(expected0));
   ASSERT_OK(output->Close());
 
   // Check that the initial content has been written - if not this test is not achieving
   // what it's meant to.
-  std::shared_ptr<io::InputStream> input;
-  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+  ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream(path));
 
   std::array<char, 1024> inbuf{};
-  std::int64_t size;
-  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
-  EXPECT_EQ(std::string(inbuf.data(), size), expected0);
+  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data()));
+  EXPECT_EQ(expected0, std::string_view(inbuf.data(), size));
 
   ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
-  const auto expected1 = std::string(kLoremIpsum);
-  ASSERT_OK(output->Write(expected1.data(), expected1.size()));
+  const std::string_view expected1(kLoremIpsum);
+  ASSERT_OK(output->Write(expected1));
   ASSERT_OK(output->Close());
 
   // Verify that the initial content has been overwritten.
   ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
   ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
-  EXPECT_EQ(std::string(inbuf.data(), size), expected1);
+  EXPECT_EQ(expected1, std::string_view(inbuf.data(), size));
 }
 
 TEST_F(AzuriteFileSystemTest, OpenAppendStreamDoesNotTruncateExistingFile) {
   const auto path = PreexistingContainerPath() + "test-write-object";
-  std::shared_ptr<io::OutputStream> output;
-  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
-  const std::string expected0 = "Existing blob content";
-  ASSERT_OK(output->Write(expected0.data(), expected0.size()));
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
+  const std::string_view expected0("Existing blob content");
+  ASSERT_OK(output->Write(expected0));
   ASSERT_OK(output->Close());
 
   // Check that the initial content has been written - if not this test is not achieving
   // what it's meant to.
-  std::shared_ptr<io::InputStream> input;
-  ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
+  ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream(path));
 
   std::array<char, 1024> inbuf{};
-  std::int64_t size;
-  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
-  EXPECT_EQ(std::string(inbuf.data(), size), expected0);
+  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data()));
+  EXPECT_EQ(expected0, std::string_view(inbuf.data()));
 
   ASSERT_OK_AND_ASSIGN(output, fs_->OpenAppendStream(path, {}));
-  const auto expected1 = std::string(kLoremIpsum);
-  ASSERT_OK(output->Write(expected1.data(), expected1.size()));
+  const std::string_view expected1(kLoremIpsum);
+  ASSERT_OK(output->Write(expected1));
   ASSERT_OK(output->Close());
 
   // Verify that the initial content has not been overwritten and that the block from
   // the other client was not committed.
   ASSERT_OK_AND_ASSIGN(input, fs_->OpenInputStream(path));
   ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
-  EXPECT_EQ(std::string(inbuf.data(), size), expected0 + expected1);
+  EXPECT_EQ(std::string(inbuf.data(), size),
+            std::string(expected0) + std::string(expected1));
 }
 
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamClosed) {
   const auto path = internal::ConcatAbstractPath(PreexistingContainerName(),
                                                  "open-output-stream-closed.txt");
-  std::shared_ptr<io::OutputStream> output;
-  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
   ASSERT_OK(output->Close());
   ASSERT_RAISES(Invalid, output->Write(kLoremIpsum, std::strlen(kLoremIpsum)));
   ASSERT_RAISES(Invalid, output->Flush());
