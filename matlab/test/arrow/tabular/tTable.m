@@ -547,7 +547,7 @@ classdef tTable < matlab.unittest.TestCase
         end
 
         function Schema(testCase)
-            % Verify that the public Schema property returns an approprate
+            % Verify that the public Schema property returns an appropriate
             % instance of arrow.tabular.Table.
             matlabTable = table(...
                 ["A"; "B"; "C"], ...
