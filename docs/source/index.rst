@@ -37,7 +37,7 @@ such topics as:
 **To learn how to use Arrow refer to the documentation specific to your
 target environment.**
 
-.. grid:: 2
+.. grid:: 1 2 2 2
    :gutter: 4
    :padding: 2 2 0 0
    :class-container: sd-text-center
