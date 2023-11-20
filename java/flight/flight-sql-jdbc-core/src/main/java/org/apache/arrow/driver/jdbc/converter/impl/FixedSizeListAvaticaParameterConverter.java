@@ -17,7 +17,11 @@
 
 package org.apache.arrow.driver.jdbc.converter.impl;
 
+import java.util.List;
+
+import org.apache.arrow.driver.jdbc.utils.AvaticaParameterBinder;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
@@ -33,6 +37,41 @@ public class FixedSizeListAvaticaParameterConverter extends BaseAvaticaParameter
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
+    final List<?> values = (List<?>) typedValue.value;
+    final int arraySize = values.size();
+
+    if (vector instanceof FixedSizeListVector) {
+      FixedSizeListVector listVector = ((FixedSizeListVector) vector);
+      FieldVector childVector = listVector.getDataVector();
+      int maxArraySize = listVector.getListSize();
+
+      if (arraySize != maxArraySize) {
+        if (!childVector.getField().isNullable()) {
+          throw new UnsupportedOperationException("Each array must contain " + maxArraySize + " elements");
+        } else if (arraySize > maxArraySize) {
+          throw new UnsupportedOperationException("Each array must contain at most " + maxArraySize + " elements");
+        }
+      }
+
+      int startPos = listVector.startNewValue(index);
+      for (int i = 0; i < arraySize; i++) {
+        Object val = values.get(i);
+        int childIndex = startPos + i;
+        if (val == null) {
+          if (childVector.getField().isNullable()) {
+            childVector.setNull(childIndex);
+          } else {
+            throw new UnsupportedOperationException("Can't set null on non-nullable child list");
+          }
+        } else {
+          childVector.getField().getType().accept(
+                  new AvaticaParameterBinder.BinderVisitor(
+                          childVector, TypedValue.ofSerial(typedValue.componentType, val), childIndex));
+        }
+      }
+      listVector.setValueCount(index + 1);
+      return true;
+    }
     return false;
   }
 
