@@ -2002,7 +2002,8 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
     res_table = res_table.combine_chunks()
 
     if not res_table.equals(fixed_table):
-        # Better error output
+        assert assert res_table.schema == fixed_table.schema
+        assert assert res_table.num_rows == fixed_table.num_rows
         assert res_table.to_pydict() == fixed_table.to_pydict()
 
 
