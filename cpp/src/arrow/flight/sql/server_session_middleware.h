@@ -65,7 +65,7 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
 };
 
 /// \brief Returns a ServerMiddlewareFactory that handles session option storage.
-/// \param[in] id_gen A generator function for unique session ID strings.
+/// \param[in] id_gen A thread-safe, collision-free generator for session id strings.
 ARROW_FLIGHT_SQL_EXPORT std::shared_ptr<ServerMiddlewareFactory>
 MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen);
 

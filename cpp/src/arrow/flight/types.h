@@ -790,7 +790,25 @@ enum class SetSessionOptionStatus : int8_t {
 std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& status);
 
 /// \brief The result of closing a session.
-enum class CloseSessionStatus : int8_t { kUnspecified, kClosed, kClosing, kNotClosable };
+enum class CloseSessionStatus : int8_t {
+  // \brief The session close status is unknown.
+  //
+  // Servers should avoid using this value (send a NOT_FOUND error if the requested
+  // session is not known). Clients can retry the request.
+  kUnspecified,
+  // \brief The session close request is complete.
+  //
+  // Subsequent requests with the same session produce a NOT_FOUND error.
+  kClosed,
+  // \brief The session close request is in progress.
+  //
+  // The client may retry the request.
+  kClosing,
+  // \brief The session is not closeable.
+  //
+  // The client should not retry the request.
+  kNotClosable
+};
 std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
 
 static const char* const SetSessionOptionStatusNames[] = {

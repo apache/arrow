@@ -614,7 +614,7 @@ message CloseSessionRequest {
 message CloseSessionResult {
   enum Status {
     // The session close status is unknown. Servers should avoid using
-    // this value (send a NOT_FOUND error if the requested query is
+    // this value (send a NOT_FOUND error if the requested session is
     // not known). Clients can retry the request.
     CLOSE_RESULT_UNSPECIFIED = 0;
     // The session close request is complete. Subsequent requests with
