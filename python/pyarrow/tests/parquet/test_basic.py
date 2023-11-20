@@ -18,6 +18,7 @@
 from collections import OrderedDict
 import io
 import warnings
+from shutil import copytree
 
 import numpy as np
 import pytest
@@ -882,3 +883,134 @@ def test_thrift_size_limits(tempdir):
     assert got == table
     got = pq.read_table(path)
     assert got == table
+
+
+def test_page_checksum_verification_write_table(tempdir):
+    """Check that checksum verification works for datasets created with
+    pq.write_table()"""
+
+    # Write some sample data into a parquet file with page checksum enabled
+    original_path = tempdir / 'correct.parquet'
+    table_orig = pa.table({'a': [1, 2, 3, 4]})
+    pq.write_table(table_orig, original_path, write_page_checksum=True)
+
+    # Read file and verify that the data is correct
+    table_check = pq.read_table(original_path, page_checksum_verification=True)
+    assert table_orig == table_check
+
+    # Read the original file as binary and swap the 31-th and 36-th bytes. This
+    # should be equivalent to storing the following data:
+    #    pa.table({'a': [1, 3, 2, 4]})
+    bin_data = bytearray(original_path.read_bytes())
+
+    # Swap two bytes to emulate corruption. Also, check that the two bytes are
+    # different, otherwise no corruption occurs
+    assert bin_data[31] != bin_data[36]
+    bin_data[31], bin_data[36] = bin_data[36], bin_data[31]
+
+    # Write the corrupted data to another parquet file
+    corrupted_path = tempdir / 'corrupted.parquet'
+    corrupted_path.write_bytes(bin_data)
+
+    # Case 1: Reading the corrupted file with read_table() and without page
+    # checksum verification succeeds but yields corrupted data
+    table_corrupt = pq.read_table(corrupted_path,
+                                  page_checksum_verification=False)
+    # The read should complete without error, but the table has different
+    # content than the original file!
+    assert table_corrupt != table_orig
+    assert table_corrupt == pa.table({'a': [1, 3, 2, 4]})
+
+    # Case 2: Reading the corrupted file with read_table() and with page
+    # checksum verification enabled raises an exception
+    with pytest.raises(OSError, match="CRC checksum verification"):
+        _ = pq.read_table(corrupted_path, page_checksum_verification=True)
+
+    # Case 3: Reading the corrupted file with ParquetFile.read() and without
+    # page checksum verification succeeds but yields corrupted data
+    corrupted_pq_file = pq.ParquetFile(corrupted_path,
+                                       page_checksum_verification=False)
+    table_corrupt2 = corrupted_pq_file.read()
+    assert table_corrupt2 != table_orig
+    assert table_corrupt2 == pa.table({'a': [1, 3, 2, 4]})
+
+    # Case 4: Reading the corrupted file with ParquetFile.read() and with page
+    # checksum verification enabled raises an exception
+    corrupted_pq_file = pq.ParquetFile(corrupted_path,
+                                       page_checksum_verification=True)
+    # Accessing the data should result in an error
+    with pytest.raises(OSError, match="CRC checksum verification"):
+        _ = corrupted_pq_file.read()
+
+    # Case 5: Check that enabling page checksum verification in combination
+    # with legacy dataset raises an exception
+    with pytest.raises(ValueError, match="page_checksum_verification"):
+        _ = pq.read_table(corrupted_path,
+                          page_checksum_verification=True,
+                          use_legacy_dataset=True)
+
+
+@pytest.mark.dataset
+@pytest.mark.parametrize(
+    "use_legacy_dataset",
+    [
+        False,
+        pytest.param(
+            True,
+            marks=pytest.mark.filterwarnings(
+                "ignore:Passing 'use_legacy_dataset=True':FutureWarning"
+            ),
+        ),
+    ],
+)
+def test_checksum_write_to_dataset(tempdir, use_legacy_dataset):
+    """Check that checksum verification works for datasets created with
+    pq.write_to_dataset"""
+
+    table_orig = pa.table({'a': [1, 2, 3, 4]})
+
+    # Write a sample dataset with page checksum enabled
+    original_dir_path = tempdir / 'correct_dir'
+    pq.write_to_dataset(table_orig,
+                        original_dir_path,
+                        write_page_checksum=True,
+                        use_legacy_dataset=use_legacy_dataset)
+
+    # Read file and verify that the data is correct
+    original_file_path_list = list(original_dir_path.iterdir())
+    assert len(original_file_path_list) == 1
+    original_path = original_file_path_list[0]
+    table_check = pq.read_table(original_path, page_checksum_verification=True)
+    assert table_orig == table_check
+
+    # Read the original file as binary and swap the 31-th and 36-th bytes. This
+    # should be equivalent to storing the following data:
+    #    pa.table({'a': [1, 3, 2, 4]})
+    bin_data = bytearray(original_path.read_bytes())
+
+    # Swap two bytes to emulate corruption. Also, check that the two bytes are
+    # different, otherwise no corruption occurs
+    assert bin_data[31] != bin_data[36]
+    bin_data[31], bin_data[36] = bin_data[36], bin_data[31]
+
+    # Write the corrupted data to another parquet dataset
+    # Copy dataset dir (which should be just one file)
+    corrupted_dir_path = tempdir / 'corrupted_dir'
+    copytree(original_dir_path, corrupted_dir_path)
+    # Corrupt just the one file with the dataset
+    corrupted_file_path = corrupted_dir_path / original_path.name
+    corrupted_file_path.write_bytes(bin_data)
+
+    # Case 1: Reading the corrupted file with read_table() and without page
+    # checksum verification succeeds but yields corrupted data
+    table_corrupt = pq.read_table(corrupted_file_path,
+                                  page_checksum_verification=False)
+    # The read should complete without error, but the table has different
+    # content than the original file!
+    assert table_corrupt != table_orig
+    assert table_corrupt == pa.table({'a': [1, 3, 2, 4]})
+
+    # Case 2: Reading the corrupted file with read_table() and with page
+    # checksum verification enabled raises an exception
+    with pytest.raises(OSError, match="CRC checksum verification"):
+        _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)

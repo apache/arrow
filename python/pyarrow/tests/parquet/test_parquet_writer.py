@@ -94,14 +94,14 @@ def test_validate_schema_write_table(tempdir):
             w.write_table(simple_table)
 
 
-def test_parquet_invalid_writer():
+def test_parquet_invalid_writer(tempdir):
     # avoid segfaults with invalid construction
     with pytest.raises(TypeError):
         some_schema = pa.schema([pa.field("x", pa.int32())])
         pq.ParquetWriter(None, some_schema)
 
     with pytest.raises(TypeError):
-        pq.ParquetWriter("some_path", None)
+        pq.ParquetWriter(tempdir / "some_path", None)
 
 
 @pytest.mark.pandas

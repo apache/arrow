@@ -98,6 +98,10 @@ parquet::ReaderProperties MakeReaderProperties(
       parquet_scan_options->reader_properties->thrift_string_size_limit());
   properties.set_thrift_container_size_limit(
       parquet_scan_options->reader_properties->thrift_container_size_limit());
+
+  properties.set_page_checksum_verification(
+      parquet_scan_options->reader_properties->page_checksum_verification());
+
   return properties;
 }
 
