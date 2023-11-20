@@ -510,6 +510,99 @@ TEST_F(AzuriteFileSystemTest, CreateDirUri) {
   ASSERT_RAISES(Invalid, fs_->CreateDir("abfs://" + RandomContainerName(), true));
 }
 
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessContainer) {
+  const auto container_name = RandomContainerName();
+  ASSERT_OK(fs_->CreateDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+  ASSERT_OK(fs_->DeleteDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessEmpty) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  // There is only virtual directory without hierarchical namespace
+  // support. So the CreateDir() and DeleteDir() do nothing.
+  ASSERT_OK(fs_->CreateDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessNonexistent) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  // There is only virtual directory without hierarchical namespace
+  // support. So the DeleteDir() for nonexistent directory does nothing.
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessHaveBlobs) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  // We must use 257 or more blobs here to test pagination of ListBlobs().
+  // Because we can't add 257 or more delete blob requests to one SubmitBatch().
+  int64_t n_blobs = 300;
+  for (int64_t i = 0; i < n_blobs; ++i) {
+    const auto blob_path =
+        internal::ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
+    ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(blob_path));
+    ASSERT_OK(output->Write(std::string_view(std::to_string(i))));
+    ASSERT_OK(output->Close());
+    arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::File);
+  }
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  for (int64_t i = 0; i < n_blobs; ++i) {
+    const auto blob_path =
+        internal::ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
+    arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::NotFound);
+  }
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessEmpty) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_OK(fs_->CreateDir(directory_path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::Directory);
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirFailureNonexistent) {
+  const auto path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_RAISES(IOError, fs_->DeleteDir(path));
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveBlob) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  const auto blob_path = internal::ConcatAbstractPath(directory_path, "hello.txt");
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(blob_path));
+  ASSERT_OK(output->Write(std::string_view("hello")));
+  ASSERT_OK(output->Close());
+  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::File);
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::NotFound);
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveDirectory) {
+  const auto parent =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
+  ASSERT_OK(fs_->CreateDir(path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
+  ASSERT_OK(fs_->DeleteDir(parent));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirUri) {
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("abfs://" + PreexistingContainerPath()));
+}
+
 TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
