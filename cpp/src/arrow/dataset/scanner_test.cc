@@ -2888,12 +2888,12 @@ TEST(ScanNode, OnlyLoadProjectedFields) {
       {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
   ASSERT_OK_AND_ASSIGN(auto actual, acero::DeclarationToTable(declarations));
   // Scan node always emits augmented fields so we drop those
-  ASSERT_OK_AND_ASSIGN(auto actualMinusAgumented, actual->SelectColumns({0, 1, 2}));
+  ASSERT_OK_AND_ASSIGN(auto actualMinusAugmented, actual->SelectColumns({0, 1, 2}));
   auto expected = TableFromJSON(dummy_schema, {R"([
       [null, 1, null],
       [null, 4, null]
   ])"});
-  AssertTablesEqual(*expected, *actualMinusAgumented, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *actualMinusAugmented, /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset
