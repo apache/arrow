@@ -2001,7 +2001,9 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
                          read_options=read_options)
     res_table = res_table.combine_chunks()
 
-    assert res_table.column(0).chunks[0] == fixed_table.column(0).chunks[0]
+    if not res_table.equals(fixed_table):
+        # Better error output
+        assert res_table.to_pydict() == fixed_table.to_pydict()
 
 
 def test_read_csv_gil_deadlock():
