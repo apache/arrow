@@ -150,7 +150,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
     }
 
     if (normalized.filter.call() && normalized.filter.IsBound()) {
-      // There is no easy way to make sure a filter was bound agaisnt the same
+      // There is no easy way to make sure a filter was bound against the same
       // function registry as the one in ctx so we just require it to be unbound
       // FIXME - Do we care if it was bound to a different function registry?
       return Status::Invalid("Scan filter must be unbound");
