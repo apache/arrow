@@ -1196,6 +1196,10 @@ struct ArrowBinaryHelper<ByteArrayType> {
         chunk_space_remaining_(::arrow::kBinaryMemoryLimit -
                                acc_->builder->value_data_length()) {}
 
+  // Prepare will Reserve the number of entries remaining in the current chunk.
+  // If estimated_data_length is provided, it will also Reserve the estimated data length,
+  // and the caller should remember to call `UnsafeAppend` instead of `Append` to avoid
+  // double counting the data length.
   Status Prepare(std::optional<int64_t> estimated_data_length = {}) {
     RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
     if (estimated_data_length.has_value()) {
@@ -1205,6 +1209,9 @@ struct ArrowBinaryHelper<ByteArrayType> {
     return Status::OK();
   }
 
+  // If estimated_remaining_data_length is provided, it will also Reserve the estimated
+  // data length, and the caller should remember to call `UnsafeAppend` instead of
+  // `Append` to avoid double counting the data length.
   Status PrepareNextInput(int64_t next_value_length,
                           std::optional<int64_t> estimated_remaining_data_length = {}) {
     if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
@@ -1983,7 +1990,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int values_decoded = 0;
 
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
-    RETURN_NOT_OK(helper.Prepare(len_));
+    RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
