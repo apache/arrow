@@ -1993,7 +1993,8 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
     assert os.path.exists(file_name)
 
     parse_options = ParseOptions(delimiter="|")
-    convert_options = ConvertOptions(column_types={"fixedsize": pa.binary(4)})
+    convert_options = ConvertOptions(column_types={"fixedsize": pa.binary(4)},
+                                                                quoted_strings_can_be_null=False)
     read_options = ReadOptions(block_size=2048)
 
     res_table = read_csv(file_name, parse_options=parse_options,
@@ -2001,10 +2002,7 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
                          read_options=read_options)
     res_table = res_table.combine_chunks()
 
-    if not res_table.equals(fixed_table):
-        assert res_table.schema == fixed_table.schema
-        assert res_table.num_rows == fixed_table.num_rows
-        assert res_table.to_pydict() == fixed_table.to_pydict()
+    assert res_table.equals(fixed_table)
 
 
 def test_read_csv_gil_deadlock():
