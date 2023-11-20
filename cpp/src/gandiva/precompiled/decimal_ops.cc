@@ -401,7 +401,7 @@ BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
     return 0;
   }
 
-  // Adsjust x and y to the same scale (higher one), and then, do a integer mod.
+  // Adjust x and y to the same scale (higher one), and then, do a integer mod.
   *overflow = false;
   BasicDecimal128 result;
   int32_t min_lz = MinLeadingZeros(x, y);
