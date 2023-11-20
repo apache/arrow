@@ -35,7 +35,7 @@ const (
 	// URI for official Arrow Substrait Extension Types
 	ArrowExtTypesUri          = "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
 	SubstraitDefaultURIPrefix = extensions.SubstraitDefaultURIPrefix
-	// URI for official Substrait Arithemetic funcs extensions
+	// URI for official Substrait Arithmetic funcs extensions
 	SubstraitArithmeticFuncsURI = SubstraitDefaultURIPrefix + "functions_arithmetic.yaml"
 	// URI for official Substrait Comparison funcs extensions
 	SubstraitComparisonFuncsURI = SubstraitDefaultURIPrefix + "functions_comparison.yaml"
