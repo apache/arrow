@@ -128,7 +128,7 @@ namespace Apache.Arrow.Tests
             [InlineData(new byte[] { 254 }, 4, 12, 11, 1)]
             [InlineData(new byte[] { 254, 1 }, 9, 17, 16, 1)]
             [InlineData(new byte[] { 249, 1 }, 9, 17, 15, 2)]
-            public void BitsAreAppendedToBuilderContainingByteAllignedData(byte[] bytesToAppend,
+            public void BitsAreAppendedToBuilderContainingByteAlignedData(byte[] bytesToAppend,
                 int validBits,
                 int expectedLength,
                 int expectedSetBitCount,
@@ -154,7 +154,7 @@ namespace Apache.Arrow.Tests
             [InlineData(new byte[] { 254 }, 4, 13, 12, 1)]
             [InlineData(new byte[] { 254, 1 }, 9, 18, 17, 1)]
             [InlineData(new byte[] { 249, 1 }, 9, 18, 16, 2)]
-            public void BitsAreAppendedToBuilderContainingNotAllignedData(byte[] bytesToAppend,
+            public void BitsAreAppendedToBuilderContainingNotAlignedData(byte[] bytesToAppend,
                 int validBits,
                 int expectedLength,
                 int expectedSetBitCount,
