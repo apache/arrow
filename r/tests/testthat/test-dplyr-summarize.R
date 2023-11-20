@@ -839,7 +839,7 @@ test_that("Expressions on aggregations", {
     )
   )
 
-  # Check aggregates on aggeregates with more complex calls
+  # Check aggregates on aggregates with more complex calls
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(!lgl))),
     paste(
