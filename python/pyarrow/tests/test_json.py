@@ -17,7 +17,6 @@
 
 from collections import OrderedDict
 from decimal import Decimal
-import os
 import io
 import itertools
 import json
