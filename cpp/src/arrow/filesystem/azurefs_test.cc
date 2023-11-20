@@ -696,7 +696,7 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamSmall) {
   ASSERT_OK_AND_ASSIGN(auto input, fs_->OpenInputStream(path));
 
   std::array<char, 1024> inbuf{};
-  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data())); 
+  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data()));
 
   EXPECT_EQ(expected, std::string_view(inbuf.data(), size));
 }
