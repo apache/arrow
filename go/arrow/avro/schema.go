@@ -217,7 +217,7 @@ func iterateFields(n *schemaNode) {
 				dt.IndexType = arrow.PrimitiveTypes.Uint8
 			case sl > math.MaxUint8 && sl <= math.MaxUint16:
 				dt.IndexType = arrow.PrimitiveTypes.Uint16
-			case sl > math.MaxUint16 && sl <= math.MaxUint32:
+			case sl > math.MaxUint16 && sl <= math.MaxInt:
 				dt.IndexType = arrow.PrimitiveTypes.Uint32
 			}
 			c.arrowField = buildArrowField(c, &dt, arrow.MetadataFrom(symbols))
