@@ -1994,7 +1994,7 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
 
     parse_options = ParseOptions(delimiter="|")
     convert_options = ConvertOptions(column_types={"fixedsize": pa.binary(4)},
-                                                                quoted_strings_can_be_null=False)
+                                     quoted_strings_can_be_null=False)
     read_options = ReadOptions(block_size=2048)
 
     res_table = read_csv(file_name, parse_options=parse_options,
