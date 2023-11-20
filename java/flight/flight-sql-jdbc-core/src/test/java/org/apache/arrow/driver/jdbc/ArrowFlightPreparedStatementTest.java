@@ -27,6 +27,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
@@ -38,6 +39,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.junit.AfterClass;
@@ -89,6 +91,14 @@ public class ArrowFlightPreparedStatementTest {
   public void testQueryWithParameterBinding() throws SQLException {
     final String query = "Fake query with parameters";
     final Schema schema = new Schema(Collections.singletonList(Field.nullable("", Types.MinorType.INT.getType())));
+    final Schema parameterSchema = new Schema(Arrays.asList(
+            Field.nullable("", ArrowType.Utf8.INSTANCE),
+            new Field("", FieldType.nullable(ArrowType.List.INSTANCE),
+                    Collections.singletonList(Field.nullable("", Types.MinorType.INT.getType())))));
+    final List<List<Object>> expected = Collections.singletonList(Arrays.asList(
+                    new Text("foo"),
+                    new Integer[]{1, 2, null}));
+
     PRODUCER.addSelectQuery(query, schema,
             Collections.singletonList(listener -> {
               try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -105,11 +115,12 @@ public class ArrowFlightPreparedStatementTest {
               }
             }));
 
-    PRODUCER.addExpectedParameters(query,
-            new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
-            Collections.singletonList(Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8)))));
+    PRODUCER.addExpectedParameters(query, parameterSchema, expected);
+
     try (final PreparedStatement preparedStatement = connection.prepareStatement(query)) {
       preparedStatement.setString(1, "foo");
+      preparedStatement.setArray(2, connection.createArrayOf("INTEGER", new Integer[]{1, 2, null}));
+
       try (final ResultSet resultSet = preparedStatement.executeQuery()) {
         resultSet.next();
         assert true;
@@ -171,17 +182,29 @@ public class ArrowFlightPreparedStatementTest {
   @Test
   public void testUpdateQueryWithBatchedParameters() throws SQLException {
     String query = "Fake update with batched parameters";
-    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
-    PRODUCER.addExpectedParameters(query,
-            new Schema(Collections.singletonList(Field.nullable("", ArrowType.Utf8.INSTANCE))),
+    Schema parameterSchema = new Schema(Arrays.asList(
+            Field.nullable("", ArrowType.Utf8.INSTANCE),
+            new Field("", FieldType.nullable(ArrowType.List.INSTANCE),
+                    Collections.singletonList(Field.nullable("", Types.MinorType.INT.getType())))));
+    List<List<Object>> expected = Arrays.asList(
             Arrays.asList(
-                    Collections.singletonList(new Text("foo".getBytes(StandardCharsets.UTF_8))),
-                    Collections.singletonList(new Text("bar".getBytes(StandardCharsets.UTF_8)))));
+                    new Text("foo"),
+                    new Integer[]{1, 2, null}),
+            Arrays.asList(
+                    new Text("bar"),
+                    new Integer[]{0, -1, 100000})
+            );
+
+    PRODUCER.addUpdateQuery(query, /*updatedRows*/42);
+    PRODUCER.addExpectedParameters(query, parameterSchema, expected);
+
     try (final PreparedStatement stmt = connection.prepareStatement(query)) {
       // TODO: make sure this is validated on the server too
       stmt.setString(1, "foo");
+      stmt.setArray(2, connection.createArrayOf("INTEGER", new Integer[]{1, 2, null}));
       stmt.addBatch();
       stmt.setString(1, "bar");
+      stmt.setArray(2, connection.createArrayOf("INTEGER", new Integer[]{0, -1, 100000}));
       stmt.addBatch();
       int[] updated = stmt.executeBatch();
       assertEquals(42, updated[0]);
