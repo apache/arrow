@@ -1196,7 +1196,7 @@ struct ArrowBinaryHelper<ByteArrayType> {
         chunk_space_remaining_(::arrow::kBinaryMemoryLimit -
                                acc_->builder->value_data_length()) {}
 
-  // Prepare will Reserve the number of entries remaining in the current chunk.
+  // Prepare will reserve the number of entries remaining in the current chunk.
   // If estimated_data_length is provided, it will also Reserve the estimated data length,
   // and the caller should remember to call `UnsafeAppend` instead of `Append` to avoid
   // double counting the data length.
@@ -1209,7 +1209,7 @@ struct ArrowBinaryHelper<ByteArrayType> {
     return Status::OK();
   }
 
-  // If estimated_remaining_data_length is provided, it will also Reserve the estimated
+  // If estimated_remaining_data_length is provided, it will also reserve the estimated
   // data length, and the caller should remember to call `UnsafeAppend` instead of
   // `Append` to avoid double counting the data length.
   Status PrepareNextInput(int64_t next_value_length,
