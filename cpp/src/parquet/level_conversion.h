@@ -112,7 +112,7 @@ struct PARQUET_EXPORT LevelInfo {
     // to distinguish between an empty list and a list with an item in it.
     ++rep_level;
     ++def_level;
-    // For levels >= repeated_ancenstor_def_level it indicates the list was
+    // For levels >= repeated_ancestor_def_level it indicates the list was
     // non-null and had at least one element.  This is important
     // for later decoding because we need to add a slot for these
     // values.  for levels < current_def_level no slots are added
