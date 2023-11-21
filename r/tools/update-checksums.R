@@ -48,7 +48,7 @@ binary_paths <- readLines(tasks_yml) |>
 
 artifactory_root <- "https://apache.jfrog.io/artifactory/arrow/r/%s/libarrow/bin/%s"
 
-# Get the checksuym file from the artifactory
+# Get the checksum file from the artifactory
 for (path in binary_paths) {
   sha_path <- paste0(path, ".sha512")
   file <- file.path("tools/checksums", sha_path)
