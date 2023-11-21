@@ -255,7 +255,7 @@ public class TestVectorReAlloc {
     try (final VarCharVector vector = new VarCharVector("", allocator)) {
       vector.allocateNew(count);
       
-      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
       Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
@@ -268,7 +268,7 @@ public class TestVectorReAlloc {
     try (final LargeVarCharVector vector = new LargeVarCharVector("", allocator)) {
       vector.allocateNew(count);
       
-      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
       Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
@@ -281,7 +281,7 @@ public class TestVectorReAlloc {
     try (final VarCharVector vector = new VarCharVector("", allocator)) {
       AllocationHelper.allocateNew(vector, count);
 
-      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
       Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
@@ -294,7 +294,7 @@ public class TestVectorReAlloc {
     try (final LargeVarCharVector vector = new LargeVarCharVector("", allocator)) {
       AllocationHelper.allocateNew(vector, count);
 
-      // verify that the validity buffer and value buffer have capacity for atleast 'count' elements.
+      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
       Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
