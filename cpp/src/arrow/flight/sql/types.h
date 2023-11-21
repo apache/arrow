@@ -846,7 +846,7 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
 
   /// The level of support for Flight SQL transaction RPCs.
   enum SqlSupportedTransaction {
-    /// Unknown/not indicated/no supoprt
+    /// Unknown/not indicated/no support
     SQL_SUPPORTED_TRANSACTION_NONE = 0,
     /// Transactions, but not savepoints.
     SQL_SUPPORTED_TRANSACTION_TRANSACTION = 1,
