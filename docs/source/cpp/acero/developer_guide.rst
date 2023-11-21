@@ -176,7 +176,7 @@ In addition to plan-wide cancellation, a node may call this method on its input 
 that it has received all the data that it needs.  However, because of parallelism, a node may still
 receive a few calls to ``InputReceived`` after it has stopped its input.
 
-If any external reosurces are used then cleanup should happen as part of this call.
+If any external resources are used then cleanup should happen as part of this call.
 
 Examples
 ^^^^^^^^
