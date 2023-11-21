@@ -149,7 +149,7 @@ strings to uppercase strings would not be a part of the core Arrow library becau
 require examining the contents of the array.
 
 The compute module expands on the core library and provides functions which analyze and
-transform data.  The compute module's capabilites are all exposed via a function registry.
+transform data.  The compute module's capabilities are all exposed via a function registry.
 An Arrow "function" accepts zero or more arrays, batches, or tables, and produces an array,
 batch, or table.  In addition, function calls can be combined, along with field references
 and literals, to form an expression (a tree of function calls) which the compute module can
