@@ -481,7 +481,7 @@ extern  "C" {
     hdfsFile hdfsStreamBuilderBuild(struct hdfsStreamBuilder *bld);
 
     /**
-     * hdfsTruncateFile - Truncate a hdfs file to given lenght.
+     * hdfsTruncateFile - Truncate a hdfs file to given length.
      * @param fs The configured filesystem handle.
      * @param path The full path to the file.
      * @param newlength The size the file is to be truncated to
