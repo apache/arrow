@@ -449,7 +449,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> import pyarrow as pa
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
         >>> animals = pa.chunked_array((
-        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Flamingo", "Parrot", "Dog"],
         ...             ["Horse", "Brittle stars", "Centipede"]
         ...             ))
         >>> n_legs.equals(n_legs)
@@ -584,7 +584,7 @@ cdef class ChunkedArray(_PandasConvertible):
         --------
         >>> import pyarrow as pa
         >>> animals = pa.chunked_array((
-        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Flamingo", "Parrot", "Dog"],
         ...             ["Horse", "Brittle stars", "Centipede"]
         ...             ))
         >>> animals.dictionary_encode()
@@ -594,7 +594,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -610,7 +610,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -1127,7 +1127,7 @@ cdef class ChunkedArray(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> arr_1 = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> arr_1 = pa.array(["Flamingo", "Parrot", "Dog"]).dictionary_encode()
         >>> arr_2 = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
         >>> c_arr = pa.chunked_array([arr_1, arr_2])
         >>> c_arr
@@ -1137,7 +1137,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog"
             ]
           -- indices:
@@ -1167,7 +1167,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -1183,7 +1183,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -3659,7 +3659,7 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> arr_1 = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> arr_1 = pa.array(["Flamingo", "Parrot", "Dog"]).dictionary_encode()
         >>> arr_2 = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
         >>> c_arr = pa.chunked_array([arr_1, arr_2])
         >>> table = pa.table([c_arr], names=["animals"])
@@ -3668,7 +3668,7 @@ cdef class Table(_Tabular):
         animals: dictionary<values=string, indices=int32, ordered=0>
         ----
         animals: [  -- dictionary:
-        ["Flamingo","Parot","Dog"]  -- indices:
+        ["Flamingo","Parrot","Dog"]  -- indices:
         [0,1,2],  -- dictionary:
         ["Horse","Brittle stars","Centipede"]  -- indices:
         [0,1,2]]
@@ -3680,9 +3680,9 @@ cdef class Table(_Tabular):
         animals: dictionary<values=string, indices=int32, ordered=0>
         ----
         animals: [  -- dictionary:
-        ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+        ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
         [0,1,2],  -- dictionary:
-        ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+        ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
         [3,4,5]]
         """
         cdef:
