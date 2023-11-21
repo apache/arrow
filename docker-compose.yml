@@ -33,7 +33,7 @@
 # command `make unittest` or `ctest --output-on-failure` the correct coredump
 # patterns must be set.
 # The kernel settings are coming from the host, so while it can be enabled from
-# a running container using --priviled option the change will affect all other
+# a running container using --privileged option the change will affect all other
 # containers, so prefer setting it explicitly, directly on the host.
 # WARNING: setting this will affect the host machine.
 #
