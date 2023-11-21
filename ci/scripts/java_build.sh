@@ -86,7 +86,7 @@ if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
 fi
 
 if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
-  mvn="${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install"
+  mvn="${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni"
 fi
 
 ${mvn} install
