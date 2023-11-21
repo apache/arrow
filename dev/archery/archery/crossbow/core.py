@@ -1142,7 +1142,7 @@ class Job(Serializable):
     @classmethod
     def from_config(cls, config, target, tasks=None, groups=None, params=None):
         """
-        Intantiate a job from based on a config.
+        Instantiate a job from based on a config.
 
         Parameters
         ----------
