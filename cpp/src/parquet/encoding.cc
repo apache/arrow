@@ -1197,9 +1197,9 @@ struct ArrowBinaryHelper<ByteArrayType> {
                                acc_->builder->value_data_length()) {}
 
   // Prepare will reserve the number of entries remaining in the current chunk.
-  // If estimated_data_length is provided, it will also Reserve the estimated data length,
-  // and the caller should remember to call `UnsafeAppend` instead of `Append` to avoid
-  // double counting the data length.
+  // If estimated_data_length is provided, it will also reserve the estimated data length,
+  // and the caller should better call `UnsafeAppend` instead of `Append` to avoid
+  // double-checking the data length.
   Status Prepare(std::optional<int64_t> estimated_data_length = {}) {
     RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
     if (estimated_data_length.has_value()) {
@@ -1210,8 +1210,8 @@ struct ArrowBinaryHelper<ByteArrayType> {
   }
 
   // If estimated_remaining_data_length is provided, it will also reserve the estimated
-  // data length, and the caller should remember to call `UnsafeAppend` instead of
-  // `Append` to avoid double counting the data length.
+  // data length, and the caller should better call `UnsafeAppend` instead of
+  // `Append` to avoid double-checking the data length.
   Status PrepareNextInput(int64_t next_value_length,
                           std::optional<int64_t> estimated_remaining_data_length = {}) {
     if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
