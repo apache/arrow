@@ -525,7 +525,7 @@ template <typename T>
 std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
   os << '{';
   std::string sep = "";
-  if constexpr(std::is_convertible_v<T, std::string_view>) {
+  if constexpr (std::is_convertible_v<T, std::string_view>) {
     // std::string, char*, std::string_view
     for (const auto& [k, v] : m) {
       os << sep << '[' << k << "]: " << std::quoted(v) << '"';

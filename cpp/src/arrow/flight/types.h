@@ -841,9 +841,7 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
   struct Result {
     SetSessionOptionStatus status;
 
-    bool Equals(const Result& other) const {
-      return status == other.status;
-    }
+    bool Equals(const Result& other) const { return status == other.status; }
     friend bool operator==(const Result& left, const Result& right) {
       return left.Equals(right);
     }
