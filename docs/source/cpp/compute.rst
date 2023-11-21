@@ -155,7 +155,7 @@ is signed. For example:
 | float32, int64    | float32              | int64 is wider, still promotes to float32      |
 +-------------------+----------------------+------------------------------------------------+
 
-In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+In particular, note that comparing a ``uint64`` column to an ``int16`` column
 may emit an error if one of the ``uint64`` values cannot be expressed as the
 common type ``int64`` (for example, ``2 ** 63``).
 
