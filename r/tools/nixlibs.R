@@ -80,16 +80,12 @@ download_binary <- function(lib) {
   libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
-    if (!quietly) {
       lg("Successfully retrieved C++ binaries (%s)", lib)
-    }
   } else {
-    if (!quietly) {
       lg(
         "Downloading libarrow binary failed for version %s (%s)\n    at %s",
         VERSION, lib, binary_url
       )
-    }
     libfile <- NULL
   }
   # Explicitly setting the env var to "false" will skip checksum validation
