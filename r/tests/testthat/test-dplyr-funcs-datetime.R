@@ -3038,7 +3038,7 @@ test_that("build_formats() and build_format_from_order()", {
 
 # an "easy" date to avoid conflating tests of different things (i.e., it's
 # UTC time, and not one of the edge cases on or extremely close to the
-# rounding boundaty)
+# rounding boundary)
 easy_date <- as.POSIXct("2022-10-11 12:00:00", tz = "UTC")
 easy_df <- tibble::tibble(datetime = easy_date)
 
