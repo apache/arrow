@@ -213,7 +213,7 @@ class AggregateNodeOptions(_AggregateNodeOptions):
     Parameters
     ----------
     aggregates : list of tuples
-        Aggregations which will be applied to the targetted fields.
+        Aggregations which will be applied to the targeted fields.
         Specified as a list of tuples, where each tuple is one aggregation
         specification and consists of: aggregation target column(s) followed
         by function name, aggregation function options object and the
