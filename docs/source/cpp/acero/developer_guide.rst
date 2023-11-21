@@ -95,7 +95,7 @@ Examples
 
 This method will be called once per input.  A node will call InputFinished on its output once it
 knows how many batches it will be sending to that output.  Normally this happens when the node is
-finished working.  For example, a scan node will call InputFinished once it has finsihed reading
+finished working.  For example, a scan node will call InputFinished once it has finished reading
 its files.  However, it could call it earlier if it knows (maybe from file metadata) how many
 batches will be created.
 
