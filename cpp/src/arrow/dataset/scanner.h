@@ -141,7 +141,7 @@ struct ARROW_DS_EXPORT ScanOptions {
 /// Scan-specific options, which can be changed between scans of the same dataset.
 ///
 /// A dataset consists of one or more individual fragments.  A fragment is anything
-/// that is indepedently scannable, often a file.
+/// that is independently scannable, often a file.
 ///
 /// Batches from all fragments will be converted to a single schema. This unified
 /// schema is referred to as the "dataset schema" and is the output schema for
