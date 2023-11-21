@@ -75,7 +75,7 @@ namespace parquet {
 
 namespace {
 
-// Visitor that exracts the value buffer from a FlatArray at a given offset.
+// Visitor that extracts the value buffer from a FlatArray at a given offset.
 struct ValueBufferSlicer {
   template <typename T>
   ::arrow::enable_if_base_binary<typename T::TypeClass, Status> Visit(
