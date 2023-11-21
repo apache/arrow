@@ -156,7 +156,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
         end
 
         function VeryWideTabular(testCase, TabularType)
-            % Verify that all variables are displayed without any trucation 
+            % Verify that all variables are displayed without any truncation 
             % even when the tabular object is wider than the MATLAB Command
             % Window.
             import arrow.internal.test.display.makeLinkString
