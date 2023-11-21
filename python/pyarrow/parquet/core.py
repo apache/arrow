@@ -1906,7 +1906,7 @@ Examples
             warnings.warn(
                 "Specifying the 'schema' argument with 'use_legacy_dataset="
                 "True' is deprecated as of pyarrow 8.0.0. You can still "
-                "specify it in combination with 'use_legacy_dataet=False', "
+                "specify it in combination with 'use_legacy_dataset=False', "
                 "but in that case you need to specify a pyarrow.Schema "
                 "instead of a ParquetSchema.",
                 FutureWarning, stacklevel=2)
@@ -3272,7 +3272,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         passed, the filename will consist of a uuid.
         This option is only supported for use_legacy_dataset=True.
         When use_legacy_dataset=None and this option is specified,
-        use_legacy_datase will be set to True.
+        use_legacy_dataset will be set to True.
     filesystem : FileSystem, default None
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
