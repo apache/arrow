@@ -902,7 +902,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, ReadRequiredRepeated) {
 }
 
 // Tests reading a nullable repeated field. Tests reading null values at
-// differnet levels and reading an empty list.
+// different levels and reading an empty list.
 TEST_P(RecordReaderPrimitiveTypeTest, ReadNullableRepeated) {
   NodePtr column = GroupNode::Make(
       "p", Repetition::OPTIONAL,
