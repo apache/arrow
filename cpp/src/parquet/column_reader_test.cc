@@ -1395,7 +1395,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipPartialRecord) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(RecordReaderPrimitveTypeTests, RecordReaderPrimitiveTypeTest,
+INSTANTIATE_TEST_SUITE_P(RecordReaderPrimitiveTypeTests, RecordReaderPrimitiveTypeTest,
                          ::testing::Values(/*read_dense_for_nullable=*/true, false),
                          testing::PrintToStringParamName());
 
