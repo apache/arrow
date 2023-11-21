@@ -24,7 +24,7 @@
 #' a legacy version available starting in 2016, and the Version 2 (V2),
 #' which is the Apache Arrow IPC file format.
 #' The default version is V2.
-#' V1 files are distinct from Arrow IPC files and lack many feathures,
+#' V1 files are distinct from Arrow IPC files and lack many features,
 #' such as the ability to store all Arrow data tyeps, and compression support.
 #' [write_ipc_file()] can only write V2 files.
 #'
