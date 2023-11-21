@@ -53,7 +53,7 @@ classdef tSchema < matlab.unittest.TestCase
 
         function ConstructSchemaFromProxy(testCase)
             % Verify that an arrow.tabular.Schema instance can be
-            % constructred directly from an existing
+            % constructed directly from an existing
             % arrow.tabular.proxy.Schema Proxy instance.
             schema1 = arrow.schema(arrow.field("a", arrow.uint8));
             % Construct an instance of arrow.tabular.Schema directly from a
