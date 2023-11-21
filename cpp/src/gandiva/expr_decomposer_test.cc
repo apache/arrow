@@ -333,7 +333,7 @@ TEST_F(TestExprDecomposer, TestComplexIfCondition) {
 
       int idx_cond_a_inner_if = decomposer.PushThenEntry(cond_node_a_inner_if, true);
       EXPECT_EQ(idx_cond_a_inner_if,
-                0);  // expect bitmap to be resused since nested if else
+                0);  // expect bitmap to be reused since nested if else
       decomposer.PopThenEntry(cond_node_a_inner_if);
 
       decomposer.PushElseEntry(cond_node_a_inner_if, idx_cond_a_inner_if);
@@ -363,7 +363,7 @@ TEST_F(TestExprDecomposer, TestComplexIfCondition) {
 
       int idx_then_a_inner_if = decomposer.PushThenEntry(then_node_a_inner_if, true);
       EXPECT_EQ(idx_then_a_inner_if,
-                2);  // expect bitmap to be resused since nested if else
+                2);  // expect bitmap to be reused since nested if else
       decomposer.PopThenEntry(then_node_a_inner_if);
 
       decomposer.PushElseEntry(then_node_a_inner_if, idx_then_a_inner_if);
@@ -392,7 +392,7 @@ TEST_F(TestExprDecomposer, TestComplexIfCondition) {
 
       int idx_else_a_inner_if = decomposer.PushThenEntry(else_node_a_inner_if, true);
       EXPECT_EQ(idx_else_a_inner_if,
-                1);  // expect bitmap to be resused since nested if else
+                1);  // expect bitmap to be reused since nested if else
       decomposer.PopThenEntry(else_node_a_inner_if);
 
       decomposer.PushElseEntry(else_node_a_inner_if, idx_else_a_inner_if);
