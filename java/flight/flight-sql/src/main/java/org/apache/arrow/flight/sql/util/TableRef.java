@@ -66,7 +66,7 @@ public class TableRef {
   }
 
   /**
-   * Retreives the table from the object.
+   * Retrieves the table from the object.
    * @return  the table.
    */
   public String getTable() {
