@@ -391,7 +391,7 @@ Intra-node Parallelism
 
 Some nodes can potentially exploit parallelism within a task.  For example, in the scan node we can decode
 columns in parallel.  In the hash join node, parallelism is sometimes exploited for complex tasks such as
-building the hash table.  This sort of parallelism is less common but not neccesarily discouraged.  Profiling should
+building the hash table.  This sort of parallelism is less common but not necessarily discouraged.  Profiling should
 be done first though to ensure that this extra parallelism will be helpful in your workload.
 
 All Work Happens in Tasks
