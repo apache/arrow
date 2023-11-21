@@ -233,7 +233,7 @@ Parquet C++ 1.1.0
     * [PARQUET-977] - Improve MSVC build
     * [PARQUET-957] - [C++] Add optional $PARQUET_BUILD_TOOLCHAIN environment variable option for configuring build environment
     * [PARQUET-961] - [C++] Strip debug symbols from libparquet libraries in release builds by default
-    * [PARQUET-954] - C++: Use Brolti 0.6 release
+    * [PARQUET-954] - C++: Use Brotli 0.6 release
     * [PARQUET-953] - [C++] Change arrow::FileWriter API to be initialized from a Schema, and provide for writing multiple tables
     * [PARQUET-941] - [C++] Stop needless Boost static library detection for CentOS 7 support
     * [PARQUET-942] - [C++] Fix wrong variabe use in FindSnappy
