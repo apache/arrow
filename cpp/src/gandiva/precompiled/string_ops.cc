@@ -1778,7 +1778,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
       v1[j + 1] = min;
     }
 
-    // Swaping v0 and v1
+    // Swapping v0 and v1
     aux = v0;
     v0 = v1;
     v1 = aux;
