@@ -177,7 +177,7 @@ def _apply_options(cmd, options):
 @click.option("--with-parquet", default=None, type=BOOL,
               help="Build with Parquet file support.")
 @click.option("--with-python", default=None, type=BOOL,
-              help="Build the Arrow CPython extesions.")
+              help="Build the Arrow CPython extensions.")
 @click.option("--with-r", default=None, type=BOOL,
               help="Build the Arrow R extensions. This is not a CMake option, "
               "it will toggle required options")
