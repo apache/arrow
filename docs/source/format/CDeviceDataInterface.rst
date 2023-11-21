@@ -445,7 +445,7 @@ could be used for any device:
         array->release = NULL;
     }
 
-    void export_int32_device_array(void* cudaAllocdPtr,
+    void export_int32_device_array(void* cudaAllocedPtr,
                                    cudaStream_t stream,
                                    int64_t length,
                                    struct ArrowDeviceArray* array) {
@@ -492,7 +492,7 @@ could be used for any device:
         array->array.buffers = (const void**)malloc(sizeof(void*) * array->array.n_buffers);
         assert(array->array.buffers != NULL);
         array->array.buffers[0] = NULL;
-        array->array.buffers[1] = cudaAllocdPtr;
+        array->array.buffers[1] = cudaAllocedPtr;
     }
 
     // calling the release callback should be done using the array member
