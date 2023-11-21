@@ -1742,7 +1742,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
   v0 = &ptr[0];
   v1 = &ptr[len_smaller + 1];
 
-  // Initializate v0
+  // Initialize v0
   for (int i = 0; i <= len_smaller; i++) {
     v0[i] = i;
   }
