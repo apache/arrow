@@ -210,7 +210,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
 
  private:
   TypeHolder key_type_;
-  std::vector<uint8_t> save_key_data_;  // previusly seen segment-key grouping data
+  std::vector<uint8_t> save_key_data_;  // previously seen segment-key grouping data
   bool extend_was_called_;
 };
 
