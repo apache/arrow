@@ -117,7 +117,7 @@ classdef tSchema < matlab.unittest.TestCase
         end
 
         function NumFields(testCase)
-            % Verify that the NumFields property returns an execpted number
+            % Verify that the NumFields property returns an expected number
             % of fields.
             schema = arrow.schema([...
                 arrow.field("A", arrow.uint8), ...
