@@ -26,7 +26,7 @@ from pyarrow import compute as pc
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
 
-# For convience, most of the test here doesn't care about udf func docs
+# For convenience, most of the test here doesn't care about udf func docs
 empty_udf_doc = {"summary": "", "description": ""}
 
 try:
