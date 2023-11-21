@@ -401,7 +401,7 @@ Parquet C++ 1.0.0
     * [PARQUET-653] - [C++] Re-enable -static-libstdc++ in dev artifact builds
     * [PARQUET-763] - C++: Expose ParquetFileReader through Arrow reader
     * [PARQUET-857] - [C++] Flatten parquet/encodings directory
-    * [PARQUET-862] - Provide defaut cache size values if CPU info probing is not available
+    * [PARQUET-862] - Provide default cache size values if CPU info probing is not available
     * [PARQUET-689] - C++: Compress DataPages eagerly
     * [PARQUET-874] - [C++] Use default memory allocator from Arrow
     * [PARQUET-267] - Detach thirdparty code from build configuration.
