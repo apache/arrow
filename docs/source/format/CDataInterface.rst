@@ -39,7 +39,7 @@ corresponding C FFI declarations.
 Applications and libraries can therefore work with Arrow memory without
 necessarily using Arrow libraries or reinventing the wheel. Developers can
 choose between tight integration
-with the Arrow *software project* (benefitting from the growing array of
+with the Arrow *software project* (benefiting from the growing array of
 facilities exposed by e.g. the C++ or Java implementations of Apache Arrow,
 but with the cost of a dependency) or minimal integration with the Arrow
 *format* only.
