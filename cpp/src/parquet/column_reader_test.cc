@@ -1609,7 +1609,7 @@ TEST_P(ByteArrayRecordReaderTest, ReadAndSkipOptional) {
 
 // Tests reading and skipping an optional FLBA field.
 // The binary readers only differ in DecodeDense and DecodeSpaced functions, so
-// testing optional is sufficient in excercising those code paths.
+// testing optional is sufficient in exercising those code paths.
 TEST_P(FLBARecordReaderTest, ReadAndSkipOptional) {
   MakeRecordReader(/*levels_per_page=*/90, /*num_pages=*/1, /*FLBA_type_length=*/4);
 
