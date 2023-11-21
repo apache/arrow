@@ -1279,7 +1279,7 @@ TRACED_TEST(AsofJoinTest, TestUnsupportedOntype, {
                                field("r0_v0", float32())}));
 })
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedBytype, {
+TRACED_TEST(AsofJoinTest, TestUnsupportedByType, {
   DoRunInvalidTypeTest(schema({field("time", int64()), field("key", list(int32())),
                                field("l_v0", float64())}),
                        schema({field("time", int64()), field("key", list(int32())),
