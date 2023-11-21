@@ -235,7 +235,7 @@ func encodeOptionlessOverflowableArithmetic(id extensions.ID) arrowToSubstrait {
 	}
 }
 
-// NewExtensionSetDefault is a convenince function to create a new extension
+// NewExtensionSetDefault is a convenience function to create a new extension
 // set using the Default arrow extension ID registry.
 //
 // See NewExtensionSet for more info.
