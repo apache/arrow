@@ -61,12 +61,6 @@
   border: none;
 }
 
-.contib-card .sd-card-footer p.sd-card-text{
-  max-width: 220px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 /* This is the bootstrap CSS style for "table-striped". Since the theme does
 not yet provide an easy way to configure this globaly, it easier to simply
 include this snippet here than updating each table in all rst files to
