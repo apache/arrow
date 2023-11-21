@@ -3555,10 +3555,14 @@ def PyCapsule_IsValid(capsule, name):
 
 
 @pytest.mark.parametrize(
-    'value_type',
-    [pa.uint8(), pa.uint32(), pa.int16(), pa.float32()]
+    ('value_type', 'np_type'),
+    [
+        (pa.uint8(), np.int8),
+        (pa.uint32(), np.uint32),
+        (pa.float32(), np.float32)
+    ]
 )
-def test_dlpack(value_type):
+def test_dlpack(value_type, np_type):
     if Version(np.__version__) < Version("1.22.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
     arr = pa.array([1, 2, 3], type=value_type)
@@ -3567,6 +3571,15 @@ def test_dlpack(value_type):
     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
 
     expected = np.array([1, 2, 3])
+    result = np.from_dlpack(arr)
+    np.testing.assert_array_equal(result, expected)
+
+    arr = pa.array([], type=value_type)
+
+    DLTensor = arr.__dlpack__()
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+
+    expected = np.array([], dtype=np_type)
     result = np.from_dlpack(arr)
     np.testing.assert_array_equal(result, expected)
 
@@ -3591,16 +3604,20 @@ def test_dlpack(value_type):
 #     np.testing.assert_array_equal(result, expected)
 
 
-# def test_dlpack_not_supported():
-#     if Version(np.__version__) < Version("1.22.0"):
-#         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
-#     with pytest.raises(pa.ArrowTypeError):
-#         arr = pa.array([1, None, 3])
-#         np.from_dlpack(arr)
+def test_dlpack_not_supported():
+    if Version(np.__version__) < Version("1.22.0"):
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+    with pytest.raises(TypeError):
+        arr = pa.array([1, None, 3])
+        np.from_dlpack(arr)
 
-#     with pytest.raises(pa.ArrowTypeError):
-#         arr = pa.array(
-#             [[0, 1], [3, 4]],
-#             type=pa.list_(pa.int32())
-#         )
-#         np.from_dlpack(arr)
+    with pytest.raises(TypeError):
+        arr = pa.array(
+            [[0, 1], [3, 4]],
+            type=pa.list_(pa.int32())
+        )
+        np.from_dlpack(arr)
+
+    with pytest.raises(TypeError):
+        arr = pa.array([])
+        np.from_dlpack(arr)

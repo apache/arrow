@@ -23,7 +23,7 @@
 
 namespace arrow {
 
-DLDataType getDLDataType(const Array& arr) {
+DLDataType getDLDataType(const Array& arr, Status* status) {
   DLDataType dtype;
   dtype.lanes = 1;
   dtype.bits = arr.type()->bit_width();
@@ -49,7 +49,7 @@ DLDataType getDLDataType(const Array& arr) {
       dtype.code = DLDataTypeCode::kDLBool;
       break;
     default:
-      // TODO
+      *status = Status::TypeError("Can only use __dlpack__ on primitive arrays.");
       break;
   }
   return dtype;
@@ -66,24 +66,53 @@ static void deleter(DLManagedTensor* arg) {
 }
 
 DLManagedTensor* toDLPack(const Array& arr) {
+  Status status = Status::OK();
+
+  // Return null pointer if the array has a validity bitmap
+  if (arr.null_bitmap() != NULLPTR) {
+    status =
+        Status::TypeError("Can only use __dlpack__ on arrays with no validity buffer.");
+    return NULLPTR;
+  }
+
+  // Define the DLDataType struct
+  // Return null pointer if the data type is not supported
+  // by the protocol. Supported data types: int, uint, float
+  // and bool
+  DLDataType arr_type = getDLDataType(arr, &status);
+  if (!status.ok()) {
+    return NULLPTR;
+  }
+
+  // Create DLMTensorCtx struct with the reference to
+  // the data of the array
   std::shared_ptr<ArrayData> array_ref = arr.data();
   DLMTensorCtx* DLMTensor = new DLMTensorCtx;
   DLMTensor->ref = array_ref;
 
+  // Define DLManagedTensor struct defined by
+  // DLPack (dlpack_structure.h)
   DLManagedTensor* dlm_tensor = &DLMTensor->tensor;
   dlm_tensor->manager_ctx = DLMTensor;
   dlm_tensor->deleter = &deleter;
-  dlm_tensor->dl_tensor.data =
-      const_cast<void*>(reinterpret_cast<const void*>(array_ref->buffers[1]->address()));
 
+  // Define the data pointer to the DLTensor
+  // If array is of length 0, data pointer should be NULL
+  if (arr.length() == 0) {
+    dlm_tensor->dl_tensor.data = NULL;
+  } else {
+    dlm_tensor->dl_tensor.data = const_cast<void*>(
+        reinterpret_cast<const void*>(array_ref->buffers[1]->address()));
+  }
+
+  // Define DLDevice struct
   DLDevice ctx;
   ctx.device_id = 0;
   ctx.device_type = DLDeviceType::kDLCPU;
   dlm_tensor->dl_tensor.device = ctx;
 
   dlm_tensor->dl_tensor.ndim = 1;
-  dlm_tensor->dl_tensor.dtype = getDLDataType(arr);
-
+  dlm_tensor->dl_tensor.dtype = arr_type;
   std::vector<int64_t>* shape_arr = &DLMTensor->shape;
   shape_arr->resize(1);
   (*shape_arr)[0] = arr.length();

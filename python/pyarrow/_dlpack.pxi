@@ -45,4 +45,9 @@ cdef void pycapsule_deleter(object dltensor) noexcept:
 
 cpdef object to_dlpack(Array arr) except *:
     dlm_tensor = toDLPack(deref(pyarrow_unwrap_array(arr).get()))
+
+    if dlm_tensor == nullptr:
+        raise TypeError(
+            "Can only use __dlpack__ on primitive types with no validity buffer.")
+
     return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
