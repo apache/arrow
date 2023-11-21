@@ -227,7 +227,7 @@ func (fi *funcImpl[KT]) Kernels() []*KT {
 
 // A ScalarFunction is a function that executes element-wise operations
 // on arrays or scalars, and therefore whose results generally do not
-// depent on the order of the values in the arguments. Accepts and returns
+// depend on the order of the values in the arguments. Accepts and returns
 // arrays that are all of the same size. These functions roughly correspond
 // to the functions used in most SQL expressions.
 type ScalarFunction struct {
