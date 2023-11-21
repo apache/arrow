@@ -194,7 +194,7 @@ Initialization / Construction / Destruction
 Simple initialization logic (that cannot error) can be done in the constructor.  If the initialization
 logic may return an invalid status then it can either be done in the exec node's factory method or
 the ``Init`` method.  The factory method is preferred for simple validation.  The ``Init`` method is
-preferred if the intialization might do expensive allocation or other resource consumption.  ``Init`` will
+preferred if the initialization might do expensive allocation or other resource consumption.  ``Init`` will
 always be called before ``StartProducing`` is called.  Initialization could also be done in
 ``StartProducing`` but keep in mind that other nodes may have started by that point.
 
