@@ -2410,7 +2410,7 @@ TEST(TestArrowReadWrite, WaitCoalescedReads) {
   ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
-// Use coalesced reads and non-coaleasced reads for different column chunks.
+// Use coalesced reads and non-coalesced reads for different column chunks.
 TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
   constexpr int num_columns = 5;
   constexpr int num_rows = 128;
