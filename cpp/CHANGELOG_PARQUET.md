@@ -28,7 +28,7 @@ Parquet C++ 1.5.0
     * [PARQUET-1346] - [C++] Protect against null values data in empty Arrow array
     * [PARQUET-1340] - [C++] Fix Travis Ci valgrind errors related to std::random_device
     * [PARQUET-1323] - [C++] Fix compiler warnings with clang-6.0
-    * [PARQUET-1279] - Use ASSERT_NO_FATAIL_FAILURE in C++ unit tests
+    * [PARQUET-1279] - Use ASSERT_NO_FATAL_FAILURE in C++ unit tests
     * [PARQUET-1262] - [C++] Use the same BOOST_ROOT and Boost_NAMESPACE for Thrift
     * [PARQUET-1267] - replace "unsafe" std::equal by std::memcmp
     * [PARQUET-1360] - [C++] Minor API + style changes follow up to PARQUET-1348
