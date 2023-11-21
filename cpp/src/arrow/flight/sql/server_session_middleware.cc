@@ -105,7 +105,7 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
     const bool further_pairs = end != std::string::npos;
     const size_t len = further_pairs ? end - cur : std::string::npos;
     const std::string_view tok = s.substr(cur, len);
-    cur = further_pairs ? end + 2 : s.length();
+    cur = further_pairs ? end + list_sep.length() : s.length();
 
     const size_t val_pos = tok.find(pair_sep);
     if (val_pos == std::string::npos) {
