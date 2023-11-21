@@ -1030,7 +1030,7 @@ class TaskAssets(dict):
     def __init__(self, github_release, artifact_patterns,
                  validate_patterns=True):
         # HACK(kszucs): don't expect uploaded assets of no artifacts were
-        # defiened for the tasks in order to spare a bit of github rate limit
+        # defined for the tasks in order to spare a bit of github rate limit
         if not artifact_patterns:
             return
 
