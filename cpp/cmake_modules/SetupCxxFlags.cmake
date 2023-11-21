@@ -459,7 +459,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
 
     if(CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
       # Avoid C++17 std::get 'not available' issue on macOS 10.13
-      # This will be required until atleast R 4.4 is released and
+      # This will be required until at least R 4.4 is released and
       # CRAN (hopefully) stops checking on 10.13
       string(APPEND CXX_ONLY_FLAGS " -D_LIBCPP_DISABLE_AVAILABILITY")
     endif()
