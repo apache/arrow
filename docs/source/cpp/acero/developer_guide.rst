@@ -308,7 +308,7 @@ more complex to implement.
 
 Due to a lack of standard C++ async APIs, Acero uses a combination of the two approaches.  Acero has two thread pools.
 The first is the CPU thread pool.  This thread pool has one thread per core.  Tasks in this thread pool should never
-block (beyond minor delays for synchornization) and should generally be actively using CPU as much as possible.  Threads
+block (beyond minor delays for synchronization) and should generally be actively using CPU as much as possible.  Threads
 on the I/O thread pool are expected to spend most of the time idle.  They should avoid doing any CPU-intensive work.
 Their job is basically to wait for data to be available and schedule follow-up tasks on the CPU thread pool.
 
