@@ -159,7 +159,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #getObect(int)} but does not check for null.
+   * Same as {@link #getObject(int)} but does not check for null.
    *
    * @param index   position of element
    * @return element at given index
