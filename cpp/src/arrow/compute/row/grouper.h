@@ -92,7 +92,7 @@ class ARROW_EXPORT RowSegmenter {
   /// \brief Reset this segmenter
   ///
   /// A segmenter normally extends (see `Segment`) a segment from one batch to the next.
-  /// If segment-extenion is undesirable, for example when each batch is processed
+  /// If segment-extension is undesirable, for example when each batch is processed
   /// independently, then `Reset` should be invoked before processing the next batch.
   virtual Status Reset() = 0;
 
