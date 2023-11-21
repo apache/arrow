@@ -48,7 +48,7 @@ namespace arrow::matlab::array::proxy {
        const std::u16string& time_unit_utf16 = time_unit_mda[0];
        MATLAB_ASSIGN_OR_ERROR(const auto time_unit,
                               timeUnitFromString(time_unit_utf16),
-                              error::UKNOWN_TIME_UNIT_ERROR_ID);
+                              error::UNKNOWN_TIME_UNIT_ERROR_ID);
 
        MATLAB_ERROR_IF_NOT_OK(validateTimeUnit<ArrowType>(time_unit),
                               error::INVALID_TIME_UNIT);

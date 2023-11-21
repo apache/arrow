@@ -1019,7 +1019,7 @@ def test_key_value_metadata():
     assert md['b'] == b'beta'
     assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']
     assert md.get_all('b') == [b'beta']
-    assert md.get_all('unkown') == []
+    assert md.get_all('unknown') == []
 
     with pytest.raises(KeyError):
         md = pa.KeyValueMetadata([
