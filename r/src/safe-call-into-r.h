@@ -149,7 +149,7 @@ class MainRThread {
 // the signal handlers only when we are evaluating code outside the R thread
 // (when we are evaluating code *on* the R thread, R's signal handlers are
 // sufficient and will signal an interupt condition that will propagate
-// via a cpp11::unwind_excpetion).
+// via a cpp11::unwind_exception).
 class WithSignalHandlerContext {
  public:
   WithSignalHandlerContext() : signal_handler_registered_(false) {
