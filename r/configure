@@ -429,7 +429,7 @@ else
   echo "There was an issue preparing the Arrow C++ libraries."
   echo "See https://arrow.apache.org/docs/r/articles/install.html"
   echo "----------------------------------------------------------"
-  echo "\n"
+  echo ""
   echo "Test compile error: ${TEST_ERROR}"
   echo "Failing compile command: ${TEST_CMD}"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
