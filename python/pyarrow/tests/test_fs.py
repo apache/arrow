@@ -1303,9 +1303,9 @@ def test_s3_proxy_options(monkeypatch, pickle_module):
     # Missing port
     with pytest.raises(KeyError):
         S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
-    # Invalid proxy URI (invalid scheme htttps)
+    # Invalid proxy URI (invalid scheme httpsB)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options='htttps://localhost:9000')
+        S3FileSystem(proxy_options='httpsB://localhost:9000')
     # Invalid proxy_options dict (invalid scheme httpA)
     with pytest.raises(pa.ArrowInvalid):
         S3FileSystem(proxy_options={'scheme': 'httpA', 'host': 'localhost',
