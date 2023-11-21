@@ -1710,7 +1710,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
 
   // The levels_index and values_index are over the original vectors that have
   // all the rep/def values for all the records. In the following loop, we will
-  // read/skip a numebr of records and Reset the reader after each iteration.
+  // read/skip a number of records and Reset the reader after each iteration.
   // This is on-par with how the record reader is used.
   size_t levels_index = 0;
   size_t values_index = 0;
