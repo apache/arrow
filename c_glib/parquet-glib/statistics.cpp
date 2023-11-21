@@ -169,7 +169,7 @@ gparquet_statistics_get_n_nulls(GParquetStatistics *statistics)
 }
 
 /**
- * gparquet_statistics_has_n_distinct_valuess:
+ * gparquet_statistics_has_n_distinct_values:
  * @statistics: A #GParquetStatistics.
  *
  * Returns: %TRUE if the number of distinct values is set, %FALSE otherwise.
