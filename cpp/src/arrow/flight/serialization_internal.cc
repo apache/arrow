@@ -433,7 +433,7 @@ Status ToProto(const SessionOptionValue& val, pb::SessionOptionValue* pb_val) {
                         [&](std::vector<std::string> v) {
                           auto* string_list_repeated_pointer_field =
                               pb_val->mutable_string_list_value()->mutable_values();
-                          string_list_repeated_pointer_field->Assign(v.begin(), v.end());
+                          string_list_repeated_pointer_field->Add(v.begin(), v.end());
                         }},
              val);
   return Status::OK();
