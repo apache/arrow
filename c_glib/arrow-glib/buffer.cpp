@@ -307,7 +307,7 @@ garrow_buffer_get_data(GArrowBuffer *buffer)
  * @buffer: A #GArrowBuffer.
  *
  * Returns: (transfer full) (nullable): The data of the buffer. If the
- *   buffer is imutable, it returns %NULL. The data is owned by the
+ *   buffer is immutable, it returns %NULL. The data is owned by the
  *   buffer. You should not free the data.
  *
  * Since: 0.3.0
