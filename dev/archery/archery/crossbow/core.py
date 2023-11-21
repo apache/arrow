@@ -1302,7 +1302,7 @@ class Config(dict):
         }
 
     def validate(self):
-        # validate that the task groups are properly refering to the tasks
+        # validate that the task groups are properly referring to the tasks
         for group_name, group in self['groups'].items():
             for pattern in group:
                 # remove the negation character for blocklisted tasks
