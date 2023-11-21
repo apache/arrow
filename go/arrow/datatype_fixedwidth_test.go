@@ -181,6 +181,7 @@ func TestTimestampType_GetToTimeFunc(t *testing.T) {
 	assert.Equal(t, "2345-12-29T19:00:00-05:00", toTimeNY(ts).Format(time.RFC3339))
 }
 
+// Test race condition from GH-38795
 func TestGetToTimeFuncRace(t *testing.T) {
 	var (
 		wg         sync.WaitGroup
