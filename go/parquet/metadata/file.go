@@ -401,7 +401,7 @@ func (f *FileMetaData) KeyValueMetadata() KeyValueMetadata {
 // Panics if f.FileDecryptor is nil
 func (f *FileMetaData) VerifySignature(signature []byte) bool {
 	if f.FileDecryptor == nil {
-		panic("decryption not set propertly, cannot verify signature")
+		panic("decryption not set properly, cannot verify signature")
 	}
 
 	serializer := thrift.NewThriftSerializer()

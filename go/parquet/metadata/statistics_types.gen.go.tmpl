@@ -74,7 +74,7 @@ func New{{.Name}}Statistics(descr *schema.Column, mem memory.Allocator) *{{.Name
   }
 }
 
-// New{{.Name}}StatisticsFromEncoded will construct a propertly typed statistics object
+// New{{.Name}}StatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func New{{.Name}}StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *{{.Name}}Statistics {
   ret := New{{.Name}}Statistics(descr, mem)
