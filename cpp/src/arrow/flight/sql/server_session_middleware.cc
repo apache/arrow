@@ -95,7 +95,6 @@ std::vector<std::pair<std::string, std::string>>
 ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
   const std::string list_sep = "; ";
   const std::string pair_sep = "=";
-  const auto pair_sep_len = pair_sep.length();
 
   std::vector<std::pair<std::string, std::string>> result;
 
@@ -113,7 +112,7 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
       continue;
     }
     result.emplace_back(tok.substr(0, val_pos),
-                        tok.substr(val_pos + pair_sep_len, std::string::npos));
+                        tok.substr(val_pos + pair_sep.length(), std::string::npos));
   }
 
   return result;
