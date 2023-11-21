@@ -1843,7 +1843,7 @@ constexpr int kDefaultBackgroundQRestart = 16;
 /// active background thread task at any given time.  You MUST transfer away from this
 /// background generator.  Otherwise there could be a race condition if a callback on the
 /// background thread deletes the last consumer reference to the background generator. You
-/// can transfer onto the same executor as the background thread, it is only neccesary to
+/// can transfer onto the same executor as the background thread, it is only necessary to
 /// create a new thread task, not to switch executors.
 ///
 /// This generator is not async-reentrant
