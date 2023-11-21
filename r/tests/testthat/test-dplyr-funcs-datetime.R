@@ -2831,7 +2831,7 @@ test_that("parse_date_time with truncated formats", {
 })
 
 test_that("parse_date_time with `locale != NULL` not supported", {
-  # parse_date_time currently doesn't take locale paramete which will be
+  # parse_date_time currently doesn't take locale parameter which will be
   # addressed in https://issues.apache.org/jira/browse/ARROW-17147
   skip_if_not_available("re2")
 
