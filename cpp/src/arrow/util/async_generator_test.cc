@@ -1095,7 +1095,7 @@ TEST_P(BackgroundGeneratorTestFixture, BadResult) {
   ASSERT_FINISHES_OK_AND_EQ(TestInt(1), generator());
   // Next three results may or may not be valid.
   // The typical case is the call for TestInt(2) restarts a full queue and then maybe
-  // TestInt(3) and TestInt(4) arrive quickly enough to not get pre-empted or maybe
+  // TestInt(3) and TestInt(4) arrive quickly enough to not get preempted or maybe
   // they don't.
   //
   // A more bizarre, but possible, case is the checking thread falls behind the producer
