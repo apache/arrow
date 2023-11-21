@@ -67,7 +67,7 @@ type MemoTable interface {
 	// insert one if it doesn't already exist. Will return -1 if it doesn't exist
 	// indicated by a false value for the boolean.
 	GetNull() (idx int, exists bool)
-	// WriteOut copys the unique values of the memotable out to the byte slice
+	// WriteOut copies the unique values of the memotable out to the byte slice
 	// provided. Must have allocated enough bytes for all the values.
 	WriteOut(out []byte)
 	// WriteOutSubset is like WriteOut, but only writes a subset of values
