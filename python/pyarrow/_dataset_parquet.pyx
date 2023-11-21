@@ -415,7 +415,7 @@ cdef class ParquetFileFragment(FileFragment):
             the Parquet RowGroup statistics).
         schema : Schema, default None
             Schema to use when filtering row groups. Defaults to the
-            Fragment's phsyical schema
+            Fragment's physical schema
 
         Returns
         -------
@@ -450,7 +450,7 @@ cdef class ParquetFileFragment(FileFragment):
             the Parquet RowGroup statistics).
         schema : Schema, default None
             Schema to use when filtering row groups. Defaults to the
-            Fragment's phsyical schema
+            Fragment's physical schema
         row_group_ids : list of ints
             The row group IDs to include in the subset. Can only be specified
             if `filter` is None.
