@@ -329,7 +329,7 @@ exec nodes, scan, project, and then filter (this is a very common use case).  No
 In a task-per-operator model we would have tasks like "Scan Batch 5", "Project Batch 5", and "Filter Batch 5".  Each
 of those tasks is potentially going to access the same data.  For example, maybe the `project` and `filter` nodes need
 to read the same column.  A column which is intially created in a decode phase of the `scan` node.  To maximize cache
-utiliziation we would need to carefully schedule our tasks to ensure that all three of those tasks are run consecutively
+utilization we would need to carefully schedule our tasks to ensure that all three of those tasks are run consecutively
 and assigned to the same CPU core.
 
 To avoid this problem we design tasks that run through as many nodes as possible before the task ends.  This sequence
