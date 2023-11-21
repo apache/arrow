@@ -122,7 +122,7 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   /// run-ends) necessary to represent the logical range of values from offset
   /// to length.
   ///
-  /// Avoid calling this function if the physical length can be estabilished in
+  /// Avoid calling this function if the physical length can be established in
   /// some other way (e.g. when iterating over the runs sequentially until the
   /// end). This function uses binary-search, so it has a O(log N) cost.
   int64_t FindPhysicalLength() const;
