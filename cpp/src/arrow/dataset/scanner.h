@@ -230,7 +230,7 @@ struct ARROW_DS_EXPORT ScanV2Options : public acero::ExecNodeOptions {
   /// for example, if scanning a parquet file that has batches with 100MiB of data
   /// then the actual readahead will be at least 100MiB
   ///
-  /// Set to 0 to disable readhead.  When disabled, the scanner will read the
+  /// Set to 0 to disable readahead.  When disabled, the scanner will read the
   /// dataset one batch at a time
   ///
   /// This limit applies across all fragments.  If the limit is 32MiB and the
