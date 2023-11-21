@@ -521,7 +521,7 @@ any particular engine design.  For example, the hash join node uses utilities su
 and an exec batch builder.  Other places share implementations of sequencing queues and row segmenters.  The node
 itself should be kept minimal and simply maps from Acero to the abstraction.
 
-This helps to decouple designs from Acero's design details and allows them to be more resilant to changes in the
+This helps to decouple designs from Acero's design details and allows them to be more resilient to changes in the
 engine.  It also helps to promote these abstractions as capabilities on their own.  Either for use in other engines
 or for potential new additions to pyarrow as compute utilities.
 
