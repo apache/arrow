@@ -144,7 +144,7 @@ resulting assembly.
   function, ends with something akin to `MOVD R0, num+32(FP)`. Where `num` is the
   local variable name of the return value, and `32` is the byte size of the arguments.
 
-To faciliate some automation, a `script.sed` file is provided in this directory which
+To facilitate some automation, a `script.sed` file is provided in this directory which
 can be run against the generated assembly from `c2goasm` as 
 `sed -f _lib/script.sed -i bit_packing_neon_arm64.s` which will perform several of 
 these steps on the generated assembly such as converting `b.le`/etc calls with labels
