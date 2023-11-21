@@ -412,7 +412,7 @@ Ordered Execution
 =================
 
 Some nodes either establish an ordering to their outgoing batches or they need to be able to process batches in order.
-Acero handles ordering using the `batch_index` property on an ExecBatch.  If a node has a determinstic output order
+Acero handles ordering using the `batch_index` property on an ExecBatch.  If a node has a deterministic output order
 then it should apply a batch index on batches that it emits.  For example, the OrderByNode applies a new ordering to
 batches (regardless of the incoming ordering).  The scan node is able to attach an implicit ordering to batches which
 reflects the order of the rows in the files being scanned.
