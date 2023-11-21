@@ -149,7 +149,7 @@ ScanOptions:
 
     ScanOptions options = new ScanOptions(32768, Optional.empty());
 
-Or use shortcut construtor:
+Or use shortcut constructor:
 
 .. code-block:: Java
 

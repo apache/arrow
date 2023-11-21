@@ -38,7 +38,7 @@ ExecNode is an abstract class with several pure virtual methods that control how
 --------------------------------
 
 This method is called once at the start of the plan.  Most nodes ignore this method (any
-neccesary initialization should happen in the construtor or Init).  However, source nodes
+neccesary initialization should happen in the constructor or Init).  However, source nodes
 will typically provide a custom implementation.  Source nodes should schedule whatever tasks
 are needed to start reading and providing the data.  Source nodes are usually the primary
 creator of tasks in a plan.
