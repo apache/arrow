@@ -48,17 +48,17 @@ public class FlightClient {
     private func writeBatches(
         _ requestStream: GRPCAsyncRequestStreamWriter<Arrow_Flight_Protocol_FlightData>,
         descriptor: FlightDescriptor,
-        recordBatchs: [RecordBatch]
+        recordBatches: [RecordBatch]
     ) async throws {
         let writer = ArrowWriter()
-        switch writer.toMessage(recordBatchs[0].schema) {
+        switch writer.toMessage(recordBatches[0].schema) {
         case .success(let schemaData):
             try await requestStream.send(
                 FlightData(
                     schemaData,
                     dataBody: Data(),
                     flightDescriptor: descriptor).toProtocol())
-            for recordBatch in recordBatchs {
+            for recordBatch in recordBatches {
                 switch writer.toMessage(recordBatch) {
                 case .success(let data):
                     try await requestStream.send(
@@ -122,14 +122,14 @@ public class FlightClient {
 
     public func doPut(
         _ descriptor: FlightDescriptor,
-        recordBatchs: [RecordBatch],
+        recordBatches: [RecordBatch],
         closure: (FlightPutResult) throws -> Void) async throws {
-        if recordBatchs.isEmpty {
+        if recordBatches.isEmpty {
             throw ArrowFlightError.emptyCollection
         }
 
         let putCall = client.makeDoPutCall()
-        try await writeBatches(putCall.requestStream, descriptor: descriptor, recordBatchs: recordBatchs)
+        try await writeBatches(putCall.requestStream, descriptor: descriptor, recordBatches: recordBatches)
         var closureCalled = false
         for try await response in putCall.responseStream {
             try closure(FlightPutResult(response))
@@ -158,14 +158,14 @@ public class FlightClient {
 
     public func doExchange(
         _ descriptor: FlightDescriptor,
-        recordBatchs: [RecordBatch],
+        recordBatches: [RecordBatch],
         closure: (ArrowReader.ArrowReaderResult) throws -> Void) async throws {
-        if recordBatchs.isEmpty {
+        if recordBatches.isEmpty {
             throw ArrowFlightError.emptyCollection
         }
 
         let exchangeCall = client.makeDoExchangeCall()
-        try await writeBatches(exchangeCall.requestStream, descriptor: descriptor, recordBatchs: recordBatchs)
+        try await writeBatches(exchangeCall.requestStream, descriptor: descriptor, recordBatches: recordBatches)
         try closure(try await readMessages(exchangeCall.responseStream))
     }
 
