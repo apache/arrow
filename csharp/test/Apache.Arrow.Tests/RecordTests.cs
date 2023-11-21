@@ -74,7 +74,25 @@ namespace Apache.Arrow.Tests
             StructArray level2Array = new StructArray(level2, stringArray.Length, new[] { level1Array }, nulls);
             RecordBatch batch = new RecordBatch(schema, new IArrowArray[] { level2Array }, stringArray.Length);
 
+            var visitor3 = new TestArrayVisitor1();
+            visitor3.Visit(batch);
+            Assert.Equal("111utf8", visitor3.stringBuilder.ToString());
+            var visitor4 = new TestArrayVisitor2();
+            visitor4.Visit(batch);
+            Assert.Equal("322utf8", visitor4.stringBuilder.ToString());
+        }
 
+        [Fact]
+        public void LazyStructInitialization()
+        {
+            StringArray stringArray = new StringArray.Builder().Append("one").AppendNull().AppendNull().Append("four").Build();
+            Field stringField = new Field("column1", StringType.Default, true);
+            StructType structType = new StructType(new[] { stringField });
+            ArrayData structData = new ArrayData(structType, stringArray.Length, 0, 0, new[] { ArrowBuffer.Empty }, new[] { stringArray.Data });
+            IArrowRecord structArray = new StructArray(structData);
+
+            Assert.Equal(1, structArray.ColumnCount);
+            Assert.Equal(structArray.Length, structArray.Column(0).Length);
         }
 
         private class TestTypeVisitor1 : IArrowTypeVisitor, IArrowTypeVisitor<IRecordType>
