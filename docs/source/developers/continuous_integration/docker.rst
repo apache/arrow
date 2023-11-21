@@ -199,7 +199,7 @@ For detailed examples see the docker-compose.yml.
 Build Scripts
 ~~~~~~~~~~~~~
 
-The scripts maintainted under ci/scripts directory should be kept
+The scripts maintained under ci/scripts directory should be kept
 parametrizable but reasonably minimal to clearly encapsulate the tasks it is
 responsible for. Like:
 
