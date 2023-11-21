@@ -314,7 +314,7 @@ func infoFromTags(f reflect.StructTag) *taggedInfo {
 	return nil
 }
 
-// typeToNode recurseively converts a physical type and the tag info into parquet Nodes
+// typeToNode recursively converts a physical type and the tag info into parquet Nodes
 //
 // to avoid having to propagate errors up potentially high numbers of recursive calls
 // we use panics and then recover in the public function NewSchemaFromStruct so that a
