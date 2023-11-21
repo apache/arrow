@@ -97,4 +97,4 @@ RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
-# RUN unzip Dependencies_x64_Release.zip -d Dependencies && setx path "%path%;C:\Depencencies"
+# RUN unzip Dependencies_x64_Release.zip -d Dependencies && setx path "%path%;C:\Dependencies"
