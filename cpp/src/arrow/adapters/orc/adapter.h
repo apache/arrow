@@ -256,7 +256,7 @@ class ARROW_EXPORT ORCFileReader {
   int64_t GetFileLength();
 
   /// \brief Get the serialized file tail.
-  ///         Usefull if another reader of the same file wants to avoid re-reading
+  ///         Useful if another reader of the same file wants to avoid re-reading
   ///         the file tail. See ReadOptions.SetSerializedFileTail().
   ///
   /// \return a string of bytes with the file tail
