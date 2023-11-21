@@ -1870,7 +1870,7 @@ class TestSchemaElementConstruction : public ::testing::Test {
     if (expect_logicalType_) {
       ASSERT_TRUE(element_->__isset.logicalType)
           << node_->logical_type()->ToString()
-          << " logical type unexpectedly failed to genverate a logicalType in the Thrift "
+          << " logical type unexpectedly failed to generate a logicalType in the Thrift "
              "intermediate object";
       ASSERT_TRUE(check_logicalType_())
           << node_->logical_type()->ToString()
