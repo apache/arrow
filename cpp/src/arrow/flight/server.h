@@ -262,7 +262,7 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Retrieve the current status of the target query
   /// \param[in] context The call context.
   /// \param[in] request the dataset request or a descriptor returned by a
-  /// prioir PollFlightInfo call
+  /// prior PollFlightInfo call
   /// \param[out] info the returned retry info provider
   /// \return Status
   virtual Status PollFlightInfo(const ServerCallContext& context,
