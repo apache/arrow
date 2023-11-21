@@ -392,7 +392,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 					return err
 				}
 			} else {
-				// no data conversion neccessary
+				// no data conversion necessary
 				if leafArr.Data().Buffers()[1] != nil {
 					data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 					data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
