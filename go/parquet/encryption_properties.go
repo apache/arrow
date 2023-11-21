@@ -379,7 +379,7 @@ func WithPrefixVerifier(verifier AADPrefixVerifier) FileDecryptionOption {
 // It's also possible to set a key retriever on this property object.
 //
 // Upon file decryption, availability of explicit keys is checked before invocation
-// of the retreiver callback.
+// of the retriever callback.
 //
 // If an explicit key is available for a footer or a column, its key metadata will be ignored.
 func WithColumnKeys(decrypt ColumnPathToDecryptionPropsMap) FileDecryptionOption {
