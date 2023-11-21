@@ -520,7 +520,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
-  // Verify UBSAN is ok with casting out of range metdata version.
+  // Verify UBSAN is ok with casting out of range metadata version.
   EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
 }
 
