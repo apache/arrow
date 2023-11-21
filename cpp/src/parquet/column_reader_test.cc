@@ -372,7 +372,7 @@ TEST_F(TestPrimitiveReader, TestSkipRepeatedField) {
   InitReader(&descr);
   Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
 
-  // Vecotrs to hold read values, definition levels, and repetition levels.
+  // Vectors to hold read values, definition levels, and repetition levels.
   std::vector<int32_t> read_vals(4, -1);
   std::vector<int16_t> read_defs(4, -1);
   std::vector<int16_t> read_reps(4, -1);
