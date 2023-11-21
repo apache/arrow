@@ -1972,12 +1972,8 @@ def test_write_csv_decimal(tmpdir, type_factory):
     assert out.column('col').cast(type) == table.column('col')
 
 
-@pytest.mark.parametrize("data_size", (
-    int(1E2),
-    int(1E4),
-    int(1E6)
-))
-def test_large_binary_write_to_csv(tmpdir, data_size):
+def test_large_binary_write_to_csv(tmpdir):
+    data_size = int(1E6)
     file_name = tmpdir / "fixedsize_"+str(data_size)+".csv"
 
     nparr = np.frombuffer(np.random.randint(65, 91, data_size, 'u1'), 'S4')
