@@ -71,9 +71,9 @@ class SelectKComparator<SortOrder::Descending> {
   }
 };
 
-class ArraySelecter : public TypeVisitor {
+class ArraySelector : public TypeVisitor {
  public:
-  ArraySelecter(ExecContext* ctx, const Array& array, const SelectKOptions& options,
+  ArraySelector(ExecContext* ctx, const Array& array, const SelectKOptions& options,
                 Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
@@ -163,9 +163,9 @@ struct TypedHeapItem {
   ArrayType* array;
 };
 
-class ChunkedArraySelecter : public TypeVisitor {
+class ChunkedArraySelector : public TypeVisitor {
  public:
-  ChunkedArraySelecter(ExecContext* ctx, const ChunkedArray& chunked_array,
+  ChunkedArraySelector(ExecContext* ctx, const ChunkedArray& chunked_array,
                        const SelectKOptions& options, Datum* output)
       : TypeVisitor(),
         chunked_array_(chunked_array),
@@ -272,13 +272,13 @@ class ChunkedArraySelecter : public TypeVisitor {
   Datum* output_;
 };
 
-class RecordBatchSelecter : public TypeVisitor {
+class RecordBatchSelector : public TypeVisitor {
  private:
   using ResolvedSortKey = ResolvedRecordBatchSortKey;
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
  public:
-  RecordBatchSelecter(ExecContext* ctx, const RecordBatch& record_batch,
+  RecordBatchSelector(ExecContext* ctx, const RecordBatch& record_batch,
                       const SelectKOptions& options, Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
@@ -390,7 +390,7 @@ class RecordBatchSelecter : public TypeVisitor {
   Comparator comparator_;
 };
 
-class TableSelecter : public TypeVisitor {
+class TableSelector : public TypeVisitor {
  private:
   struct ResolvedSortKey {
     ResolvedSortKey(const std::shared_ptr<ChunkedArray>& chunked_array,
@@ -419,7 +419,7 @@ class TableSelecter : public TypeVisitor {
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
 
  public:
-  TableSelecter(ExecContext* ctx, const Table& table, const SelectKOptions& options,
+  TableSelector(ExecContext* ctx, const Table& table, const SelectKOptions& options,
                 Datum* output)
       : TypeVisitor(),
         ctx_(ctx),
@@ -609,32 +609,32 @@ class SelectKUnstableMetaFunction : public MetaFunction {
   Result<Datum> SelectKth(const Array& array, const SelectKOptions& options,
                           ExecContext* ctx) const {
     Datum output;
-    ArraySelecter selecter(ctx, array, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    ArraySelector selector(ctx, array, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
 
   Result<Datum> SelectKth(const ChunkedArray& chunked_array,
                           const SelectKOptions& options, ExecContext* ctx) const {
     Datum output;
-    ChunkedArraySelecter selecter(ctx, chunked_array, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    ChunkedArraySelector selector(ctx, chunked_array, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
   Result<Datum> SelectKth(const RecordBatch& record_batch, const SelectKOptions& options,
                           ExecContext* ctx) const {
     ARROW_RETURN_NOT_OK(CheckConsistency(*record_batch.schema(), options.sort_keys));
     Datum output;
-    RecordBatchSelecter selecter(ctx, record_batch, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    RecordBatchSelector selector(ctx, record_batch, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
   Result<Datum> SelectKth(const Table& table, const SelectKOptions& options,
                           ExecContext* ctx) const {
     ARROW_RETURN_NOT_OK(CheckConsistency(*table.schema(), options.sort_keys));
     Datum output;
-    TableSelecter selecter(ctx, table, options, &output);
-    ARROW_RETURN_NOT_OK(selecter.Run());
+    TableSelector selector(ctx, table, options, &output);
+    ARROW_RETURN_NOT_OK(selector.Run());
     return output;
   }
 };
