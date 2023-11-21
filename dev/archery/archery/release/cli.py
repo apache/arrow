@@ -32,7 +32,7 @@ from .core import IssueTracker, Release
               help='OAuth token for GitHub authentication')
 @click.pass_obj
 def release(obj, src, github_token):
-    """Release releated commands."""
+    """Release related commands."""
 
     obj['issue_tracker'] = IssueTracker(github_token=github_token)
     obj['repo'] = src.path
