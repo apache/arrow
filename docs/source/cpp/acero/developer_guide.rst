@@ -680,7 +680,7 @@ Because of this, we highly recommend taking the following steps:
 
 * Any PR will need to have the following:
 
-  * Unit tests convering the new functionality
+  * Unit tests converting the new functionality
 
   * Microbenchmarks if there is any significant compute work going on
 

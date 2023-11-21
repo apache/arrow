@@ -147,7 +147,7 @@ resulting assembly.
 To faciliate some automation, a `script.sed` file is provided in this directory which
 can be run against the generated assembly from `c2goasm` as 
 `sed -f _lib/script.sed -i bit_packing_neon_arm64.s` which will perform several of 
-these steps on the generated assembly such as convering `b.le`/etc calls with labels
+these steps on the generated assembly such as converting `b.le`/etc calls with labels
 to proper `BLE LBB0_....` lines, and converting `adrp`/`ldr` pairs to `VMOVD` and 
 `VMOVQ` instructions.
 
