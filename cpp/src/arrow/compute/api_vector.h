@@ -402,7 +402,7 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 
 /// \brief Return indices that partition an array around n-th sorted element.
 ///
-/// This overload takes a PartitionNthOptions specifiying the pivot index
+/// This overload takes a PartitionNthOptions specifying the pivot index
 /// and the null handling.
 ///
 /// \param[in] values array to be partitioned
@@ -453,7 +453,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
 
 /// \brief Return the indices that would sort an array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] array array to sort
@@ -487,7 +487,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 /// \brief Return the indices that would sort a chunked array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] chunked_array chunked array to sort
