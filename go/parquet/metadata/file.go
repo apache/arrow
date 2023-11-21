@@ -472,7 +472,7 @@ func (f *FileMetaData) Version() parquet.Version {
 	case 2:
 		return parquet.V2_LATEST
 	default:
-		// imporperly set version, assume parquet 1.0
+		// improperly set version, assume parquet 1.0
 		return parquet.V1_0
 	}
 }
