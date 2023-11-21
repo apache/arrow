@@ -873,7 +873,7 @@ _repository = None
 # Files to exclude from linting. This is set by the --exclude flag.
 _excludes = None
 
-# Whether to supress all PrintInfo messages, UNRELATED to --quiet flag
+# Whether to suppress all PrintInfo messages, UNRELATED to --quiet flag
 _quiet = False
 
 # The allowed line length of files.

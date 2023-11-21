@@ -61,8 +61,8 @@ static const int64_t kMillisInAMinute = 60000;
 static const int64_t kMillisInASecond = 1000;
 
 static void return_error_with_cause(ExecutionContext* context, std::string& data,
-                                    int32_t supression_error) {
-  if (supression_error != 0) {
+                                    int32_t suppression_error) {
+  if (suppression_error != 0) {
     return;
   }
 

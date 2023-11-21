@@ -406,7 +406,7 @@ Parquet C++ 1.0.0
     * [PARQUET-874] - [C++] Use default memory allocator from Arrow
     * [PARQUET-267] - Detach thirdparty code from build configuration.
     * [PARQUET-418] - Add a utility to print contents of a Parquet file to stdout
-    * [PARQUET-519] - Disable compiler warning supressions and fix all DEBUG build warnings
+    * [PARQUET-519] - Disable compiler warning suppressions and fix all DEBUG build warnings
     * [PARQUET-447] - Add Debug and Release build types and associated compiler flags
     * [PARQUET-868] - C++: Build snappy with optimizations
     * [PARQUET-894] - Fix compilation warning
