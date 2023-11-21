@@ -53,7 +53,7 @@ namespace Apache.Arrow.Flight
         }        
 
         /// <summary>
-        /// Get the application metadata from the latest recieved record batch
+        /// Get the application metadata from the latest received record batch
         /// </summary>
         public IReadOnlyList<ByteString> ApplicationMetadata => _arrowReaderImplementation.ApplicationMetadata;
 
