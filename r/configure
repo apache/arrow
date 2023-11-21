@@ -413,7 +413,7 @@ CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
 CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
 TEST_CMD="${CXX17} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
-echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
+TEST_ERROR=$(echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} -o /dev/null 2>&1)
 
 if [ $? -eq 0 ]; then
   # Prepend PKG_DIRS to PKG_LIBS and write to Makevars
@@ -428,7 +428,12 @@ else
   echo "------------------------- NOTE ---------------------------"
   echo "There was an issue preparing the Arrow C++ libraries."
   echo "See https://arrow.apache.org/docs/r/articles/install.html"
-  echo "---------------------------------------------------------"
+  echo "----------------------------------------------------------"
+  echo ""
+  echo "Test compile error: ${TEST_ERROR}"
+  echo "Failing compile command: ${TEST_CMD}"
+  echo "PKG_CFLAGS=$PKG_CFLAGS"
+  echo "PKG_LIBS=$PKG_LIBS"
   PKG_LIBS=""
   PKG_CFLAGS=""
   exit 1
