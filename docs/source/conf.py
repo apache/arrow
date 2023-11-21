@@ -139,7 +139,7 @@ autodoc_default_options = {
 breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
 breathe_default_project = "arrow_cpp"
 
-# Overriden conditionally below
+# Overridden conditionally below
 autodoc_mock_imports = []
 
 # copybutton configuration
