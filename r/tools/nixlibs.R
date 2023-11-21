@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#### Fuctions #### check end of file for main logic
+#### Functions #### check end of file for main logic
 env_is <- function(var, value) identical(tolower(Sys.getenv(var)), value)
 
 # Log messages in the style of the configure script
