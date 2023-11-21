@@ -274,7 +274,7 @@ type BaseServer struct {
 	sqlInfoToResult SqlInfoResultMap
 	// Alloc allows specifying a particular allocator to use for any
 	// allocations done by the base implementation.
-	// Will use memory.DefaultAlloctor if nil
+	// Will use memory.DefaultAllocator if nil
 	Alloc memory.Allocator
 }
 
