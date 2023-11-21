@@ -1271,7 +1271,7 @@ class _CppLintState(object):
     self._filters_backup = self.filters[:]
     self.counting = 'total'  # In what way are we counting errors?
     self.errors_by_category = {}  # string to int dict storing error counts
-    self.quiet = False  # Suppress non-error messagess?
+    self.quiet = False  # Suppress non-error messages?
 
     # output format:
     # "emacs" - format that emacs can parse (default)
