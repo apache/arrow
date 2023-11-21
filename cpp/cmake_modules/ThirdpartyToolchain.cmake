@@ -4238,7 +4238,7 @@ macro(build_google_cloud_cpp_storage)
   target_include_directories(google-cloud-cpp::common BEFORE
                              INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   # Refer to https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/google_cloud_cpp_common.cmake
-  # (subsitute `main` for the SHA of the version we use)
+  # (substitute `main` for the SHA of the version we use)
   # Version 1.39.0 is at a different place (they refactored after):
   # https://github.com/googleapis/google-cloud-cpp/blob/29e5af8ca9b26cec62106d189b50549f4dc1c598/google/cloud/CMakeLists.txt#L146-L155
   target_link_libraries(google-cloud-cpp::common
