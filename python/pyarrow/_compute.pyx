@@ -1468,7 +1468,7 @@ cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
 
         if isinstance(indices, (list, tuple)) and not len(indices):
-            # Allow empty indices; effecitively return same array
+            # Allow empty indices; effectively return same array
             self.wrapped.reset(
                 new CStructFieldOptions(<vector[int]>indices))
             return
