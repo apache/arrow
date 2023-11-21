@@ -2918,7 +2918,7 @@ TEST(ArrowReadWrite, DecimalStats) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_grop_size=*/100,
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_group_size=*/100,
                                              default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
