@@ -378,7 +378,7 @@ yet had to address this problem.  Let's go through some common situations:
    locality.  However, since Acero uses a task-per-pipeline model there isn't much lost opportunity for cache
    parallelism that a scheduler could reclaim.  Tasks only end when there is no more work that can be done with the data.
 
-While there is not much prioritzation in place in Acero today we do have the tools to apply it should we need to.
+While there is not much prioritization in place in Acero today we do have the tools to apply it should we need to.
 
 .. note::
    In addition to the AsyncTaskScheduler there is another class called the TaskScheduler.  This class predates the
