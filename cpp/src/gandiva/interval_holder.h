@@ -108,13 +108,13 @@ class GANDIVA_EXPORT IntervalDaysHolder : public IntervalHolder<IntervalDaysHold
       : IntervalHolder<IntervalDaysHolder>(supress_errors) {}
 
  private:
-  /// Retrieves the day interval from the number of milliseconds enconded as
+  /// Retrieves the day interval from the number of milliseconds encoded as
   /// a string
   static int64_t GetIntervalDayFromMillis(ExecutionContext* context,
                                           std::string& number_as_string,
                                           int32_t suppress_errors, bool* out_valid);
 
-  /// Retrieves the day interval from the number of weeks enconded as
+  /// Retrieves the day interval from the number of weeks encoded as
   /// a string.
   static int64_t GetIntervalDayFromWeeks(ExecutionContext* context,
                                          std::string& number_as_string,
