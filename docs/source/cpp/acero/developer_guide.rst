@@ -264,7 +264,7 @@ have 20 files and 10 cores and you want to read and sort all the data.  You coul
 2 files to read and sort those files.  Then you could create one extra plan that takes the input from these
 10 child plans and merges the 10 input streams in a sorted fashion.
 
-This approach is popular because it is how queries are distributed across mulitple servers and so it
+This approach is popular because it is how queries are distributed across multiple servers and so it
 is widely supported and well understood.  Acero does not do this today but there is no reason to prevent it.
 Adding shuffle & partition nodes to Acero should be a high priority and would enable Acero to be used by
 distributed systems.  Once that has been done then it should be possible to do a local shuffle (local
