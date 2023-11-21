@@ -112,7 +112,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
             % Verifies ChunkedArrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. Their NumElements properties ar eequal
+            %  2. Their NumElements properties ar equal
             %  3. The same elements are considered null
             %  4. All corresponding valid elements have the same values
             %
