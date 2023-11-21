@@ -1334,7 +1334,7 @@ TEST(Substrait, GetRecordBatchReader) {
     ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
-    // in case of a test failure, re-evalaute the content in the file
+    // in case of a test failure, re-evaluate the content in the file
     EXPECT_EQ(table->num_rows(), 12);
   });
 }
