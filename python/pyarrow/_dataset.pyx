@@ -853,7 +853,7 @@ cdef class Dataset(_Weakrefable):
             Which suffix to add to right column names. This prevents confusion
             when the columns in left and right datasets have colliding names.
         right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
+            Which suffix to add to the left column names. This prevents confusion
             when the columns in left and right datasets have colliding names.
         coalesce_keys : bool, default True
             If the duplicated keys should be omitted from one of the sides
