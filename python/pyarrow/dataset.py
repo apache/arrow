@@ -511,7 +511,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
                     partitioning=None, partition_base_dir=None):
     """
     Create a FileSystemDataset from a `_metadata` file created via
-    `pyarrrow.parquet.write_metadata`.
+    `pyarrow.parquet.write_metadata`.
 
     Parameters
     ----------
