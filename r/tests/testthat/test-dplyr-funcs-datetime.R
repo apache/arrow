@@ -1961,7 +1961,7 @@ test_that("`as.Date()` and `as_date()`", {
   # `as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
   # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
-  # passsed if`tz` is NULL
+  # passed if`tz` is NULL
   compare_dplyr_binding(
     .input %>%
       transmute(
