@@ -185,7 +185,7 @@ struct ARROW_EXPORT S3Options {
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
 
-  /// Configure with credentials from role assumed using a web identitiy token
+  /// Configure with credentials from role assumed using a web identity token
   void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;
