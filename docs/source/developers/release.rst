@@ -183,7 +183,7 @@ Build source and binaries and submit them
     
     # Sign and upload the Java artifacts
     #
-    # Note that you need to press the "Close" button manually by Web interfacec
+    # Note that you need to press the "Close" button manually by Web interface
     # after you complete the script:
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
