@@ -705,7 +705,7 @@ const (
 	// - return 6 (\b110)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
 	// - return 7 (\b111)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
 	// Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetConcurrency`.
-	SqlInfoSupportedConcurrenciesForResultSetScrollInensitive = SqlInfo(pb.SqlInfo_SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE)
+	SqlInfoSupportedConcurrenciesForResultSetScrollInsensitive = SqlInfo(pb.SqlInfo_SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE)
 
 	// Retrieves a boolean value indicating whether this database supports batch updates.
 	//
