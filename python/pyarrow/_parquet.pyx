@@ -487,7 +487,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def total_compressed_size(self):
-        """Compresssed size in bytes (int)."""
+        """Compressed size in bytes (int)."""
         return self.metadata.total_compressed_size()
 
     @property
