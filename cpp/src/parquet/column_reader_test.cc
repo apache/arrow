@@ -269,7 +269,7 @@ TEST_F(TestPrimitiveReader, TestInt32FlatRepeated) {
 }
 
 // Tests skipping around page boundaries.
-TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundries) {
+TEST_F(TestPrimitiveReader, TestSkipAroundPageBoundaries) {
   int levels_per_page = 100;
   int num_pages = 7;
   max_def_level_ = 0;
