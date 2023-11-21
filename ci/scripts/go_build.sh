@@ -21,6 +21,8 @@ set -ex
 
 source_dir=${1}/go
 
+export GOFLAGS="${GOFLAGS} -gcflags=-d=checkptr"
+
 pushd ${source_dir}/arrow
 
 if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
