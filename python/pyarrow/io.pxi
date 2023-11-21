@@ -1134,6 +1134,8 @@ cdef class OSFile(NativeFile):
             self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
         elif mode in ('w', 'wb'):
             self._open_writable(c_path)
+        elif mode in ('a', 'ab'):
+            self._open_writable(c_path, append=True)
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
@@ -1146,9 +1148,9 @@ cdef class OSFile(NativeFile):
         self.is_readable = True
         self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
 
-    cdef _open_writable(self, c_string path):
+    cdef _open_writable(self, c_string path, c_bool append=False):
         with nogil:
-            self.output_stream = GetResultValue(FileOutputStream.Open(path))
+            self.output_stream = GetResultValue(FileOutputStream.Open(path, append))
         self.is_writable = True
 
     def fileno(self):

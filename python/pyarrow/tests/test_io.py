@@ -1114,6 +1114,13 @@ def test_os_file_writer(tmpdir):
 
     with pytest.raises(IOError):
         f2.read(5)
+    f2.close()
+
+    # Append
+    with pa.OSFile(path, mode='ab') as f4:
+        f4.write(b'bar')
+    with pa.OSFile(path) as f5:
+        assert f5.size() == 6  # foo + bar
 
 
 def test_native_file_write_reject_unicode():
