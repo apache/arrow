@@ -205,7 +205,7 @@ class RustCDataExporter(CDataExporter, _CDataBase):
         return True
 
     def record_allocation_state(self):
-        # FIXME is it possible to measure the amount of Rust-allocated memory?
+        # FIXME we should track the amount of Rust-allocated memory (GH-38822)
         return 0
 
 
