@@ -278,7 +278,7 @@ Parquet C++ 1.0.0
     * [PARQUET-614] - C++: Remove unneeded LZ4-related code
     * [PARQUET-604] - Install writer.h headers
     * [PARQUET-621] - C++: Uninitialised DecimalMetadata is read
-    * [PARQUET-620] - C++: Duplicate calls to ParquetFileWriter::Close cause duplicate metdata writes
+    * [PARQUET-620] - C++: Duplicate calls to ParquetFileWriter::Close cause duplicate metadata writes
     * [PARQUET-599] - ColumnWriter::RleEncodeLevels' size estimation might be wrong
     * [PARQUET-617] - C++: Enable conda build to work on systems with non-default C++ toolchains
     * [PARQUET-627] - Ensure that thrift headers are generated before source compilation
