@@ -25,7 +25,7 @@ connection pooling, transactions combined with ease of use (see (#usage)).
 
 ---------------------------------------
 
-* [Prerequisits](#prerequisits)
+* [Prerequisites](#prerequisites)
 * [Usage](#usage)
 * [Data Source Name (DSN)](#data-source-name-dsn)
 * [Driver config usage](#driver-config-usage)
