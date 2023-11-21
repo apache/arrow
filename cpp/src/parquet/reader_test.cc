@@ -425,7 +425,7 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   ASSERT_FALSE(col->HasNext());
 }
 
-TEST_F(TestAllTypesPlain, RowGroupColumnBoundchecking) {
+TEST_F(TestAllTypesPlain, RowGroupColumnBoundsChecking) {
   // Part of PARQUET-1857
   ASSERT_THROW(reader_->RowGroup(reader_->metadata()->num_row_groups()),
                ParquetException);
