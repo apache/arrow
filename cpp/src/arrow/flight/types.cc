@@ -17,9 +17,11 @@
 
 #include "arrow/flight/types.h"
 
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -473,22 +475,35 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
   return out;
 }
 
+static const char* const SetSessionOptionStatusNames[] = {
+    "Unspecified", "Ok", "OkMapped", "InvalidName", "InvalidValue", "Error"};
+static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
+                                                      "NotClosable"};
+
+// Helpers for stringifying maps containing various types
+std::string ToString(const SetSessionOptionStatus& status) {
+  return SetSessionOptionStatusNames[static_cast<int>(status)];
+}
+
 std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& status) {
-  os << SetSessionOptionStatusNames[static_cast<int>(status)];
+  os << ToString(status);
   return os;
+}
+
+std::string ToString(const CloseSessionStatus& status) {
+  return CloseSessionStatusNames[static_cast<int>(status)];
 }
 
 std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status) {
-  os << CloseSessionStatusNames[static_cast<int>(status)];
+  os << ToString(status);
   return os;
 }
 
-// Helpers for stringifying maps containing various types
 std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
   os << '[';
   std::string sep = "";
   for (const auto& v : values) {
-    os << sep << '"' << v << '"';
+    os << sep << std::quoted(v);
     sep = ", ";
   }
   os << ']';
@@ -510,9 +525,17 @@ template <typename T>
 std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
   os << '{';
   std::string sep = "";
-  for (const auto& [k, v] : m) {
-    os << sep << '[' << k << "]: '" << v << '\'';
-    sep = ", ";
+  if constexpr(std::is_convertible_v<T, std::string_view>) {
+    // std::string, char*, std::string_view
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << std::quoted(v) << '"';
+      sep = ", ";
+    }
+  } else {
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << v;
+      sep = ", ";
+    }
   }
   os << '}';
 

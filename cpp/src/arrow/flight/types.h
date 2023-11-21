@@ -787,6 +787,7 @@ enum class SetSessionOptionStatus : int8_t {
   /// \brief The session option cannot be set.
   kError
 };
+std::string ToString(const SetSessionOptionStatus& status);
 std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& status);
 
 /// \brief The result of closing a session.
@@ -809,12 +810,8 @@ enum class CloseSessionStatus : int8_t {
   // The client should not retry the request.
   kNotClosable
 };
+std::string ToString(const CloseSessionStatus& status);
 std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
-
-static const char* const SetSessionOptionStatusNames[] = {
-    "Unspecified", "Ok", "OkMapped", "InvalidName", "InvalidValue", "Error"};
-static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
-                                                      "NotClosable"};
 
 /// \brief A request to set a set of session options by name/value.
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
