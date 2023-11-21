@@ -148,7 +148,7 @@ class MainRThread {
 // lifecycle of the signal handlers. The general approach is to register
 // the signal handlers only when we are evaluating code outside the R thread
 // (when we are evaluating code *on* the R thread, R's signal handlers are
-// sufficient and will signal an interupt condition that will propagate
+// sufficient and will signal an interrupt condition that will propagate
 // via a cpp11::unwind_exception).
 class WithSignalHandlerContext {
  public:
