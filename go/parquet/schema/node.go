@@ -148,7 +148,7 @@ type PrimitiveNode struct {
 	decimalMetaData DecimalMetadata
 }
 
-// NewPrimitiveNodeLogical constructs a Primtive node using the provided logical type for a given
+// NewPrimitiveNodeLogical constructs a Primitive node using the provided logical type for a given
 // physical type and typelength.
 func NewPrimitiveNodeLogical(name string, repetition parquet.Repetition, logicalType LogicalType, physicalType parquet.Type, typeLen int, id int32) (*PrimitiveNode, error) {
 	n := &PrimitiveNode{
