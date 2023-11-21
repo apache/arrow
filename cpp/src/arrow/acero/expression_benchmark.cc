@@ -107,7 +107,7 @@ static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression 
 }
 
 /// \brief Baseline benchmarks are implemented in pure C++ without arrow for performance
-/// comparision.
+/// comparison.
 template <typename BenchmarkType>
 void ExecuteScalarExpressionBaseline(benchmark::State& state) {
   const auto rows_per_batch = static_cast<int32_t>(state.range(0));
