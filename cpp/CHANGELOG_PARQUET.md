@@ -4,7 +4,7 @@ Parquet C++ 1.5.0
     * [PARQUET-979] - [C++] Limit size of min, max or disable stats for long binary types
     * [PARQUET-1071] - [C++] parquet::arrow::FileWriter::Close is not idempotent
     * [PARQUET-1349] - [C++] PARQUET_RPATH_ORIGIN is not picked by the build
-    * [PARQUET-1334] - [C++] memory_map parameter seems missleading in parquet file opener
+    * [PARQUET-1334] - [C++] memory_map parameter seems misleading in parquet file opener
     * [PARQUET-1333] - [C++] Reading of files with dictionary size 0 fails on Windows with bad_alloc
     * [PARQUET-1283] - [C++] FormatStatValue appends trailing space to string and int96
     * [PARQUET-1270] - [C++] Executable tools do not get installed
