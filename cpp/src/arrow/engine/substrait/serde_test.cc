@@ -4223,7 +4223,7 @@ TEST(Substrait, ReadRelWithGlobFiles) {
       }
     }]
   })"));
-  // To avoid unnecessar metadata columns being included in the final result
+  // To avoid unnecessary metadata columns being included in the final result
   std::vector<int> include_columns = {0, 1, 2};
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
   CheckRoundTripResult(std::move(expected_table), buf, std::move(include_columns),
