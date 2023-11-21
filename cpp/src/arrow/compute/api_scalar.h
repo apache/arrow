@@ -1589,7 +1589,7 @@ ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
 ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
                                         ExecContext* ctx = NULLPTR);
 
-/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// \brief Month Day Nano Between finds the number of months, days, and nanoseconds
 /// between two values
 ///
 /// \param[in] left input treated as the start time
