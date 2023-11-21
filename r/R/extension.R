@@ -184,7 +184,7 @@ ExtensionType <- R6Class("ExtensionType",
     },
     ToString = function() {
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
-      # and it's confusing to error when printing the object. This herustic
+      # and it's confusing to error when printing the object. This heuristic
       # isn't perfect (but subclasses should override this method anyway)
       metadata_raw <- self$extension_metadata()
 
