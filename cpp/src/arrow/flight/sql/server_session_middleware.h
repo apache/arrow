@@ -59,6 +59,8 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
   /// \brief Is there an existing session (either existing or new)
   virtual bool HasSession() const = 0;
   /// \brief Get existing or new call-associated session
+  ///
+  /// May return NULLPTR if there is an id generation collision.
   virtual std::shared_ptr<FlightSqlSession> GetSession() = 0;
   /// \brief Get request headers, in lieu of a provided or created session.
   virtual const CallHeaders& GetCallHeaders() const = 0;
