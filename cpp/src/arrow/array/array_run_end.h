@@ -59,7 +59,7 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   ///
   /// The length and offset parameters refer to the dimensions of the logical
   /// array which is the array we would get after expanding all the runs into
-  /// repeated values. As such, length can be much greater than the lenght of
+  /// repeated values. As such, length can be much greater than the length of
   /// the child run_ends and values arrays.
   RunEndEncodedArray(const std::shared_ptr<DataType>& type, int64_t length,
                      const std::shared_ptr<Array>& run_ends,
@@ -69,7 +69,7 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
   ///
   /// The length and offset parameters refer to the dimensions of the logical
   /// array which is the array we would get after expanding all the runs into
-  /// repeated values. As such, length can be much greater than the lenght of
+  /// repeated values. As such, length can be much greater than the length of
   /// the child run_ends and values arrays.
   static Result<std::shared_ptr<RunEndEncodedArray>> Make(
       const std::shared_ptr<DataType>& type, int64_t logical_length,
