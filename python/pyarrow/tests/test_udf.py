@@ -486,7 +486,7 @@ def test_function_doc_validation():
                                     func_doc, in_types,
                                     out_type)
 
-    # doc with no decription
+    # doc with no description
     func_doc = {
         "summary": "test summary"
     }
