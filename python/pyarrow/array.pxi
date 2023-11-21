@@ -3415,7 +3415,7 @@ cdef class RunEndEncodedArray(Array):
         Find the physical offset of this REE array.
 
         This is the offset of the run that contains the value of the first
-        logical element of this array considering its offet.
+        logical element of this array considering its offset.
 
         This function uses binary-search, so it has a O(log N) cost.
         """
