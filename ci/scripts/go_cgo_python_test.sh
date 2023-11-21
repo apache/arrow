@@ -21,7 +21,7 @@ set -ex
 
 source_dir=${1}/go
 
-export GOFLAGS="${GOFLAGS} -gcflags=-d=checkptr"
+export GOFLAGS="${GOFLAGS} -gcflags=all=-d=checkptr"
 
 pushd ${source_dir}/arrow/cdata/test
 
