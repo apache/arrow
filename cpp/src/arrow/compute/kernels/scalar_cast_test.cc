@@ -2826,19 +2826,19 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options1_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullable = {
         std::make_shared<Field>("a", int64(), false),
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullble);
+    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullable);
     const auto options2_non_nullable = CastOptions::Safe(dest2_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options2_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullable = {
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullble);
+    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullable);
     const auto options3_non_nullable = CastOptions::Safe(dest3_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,

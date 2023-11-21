@@ -59,7 +59,7 @@ class TestGandivaNativeFunction < Test::Unit::TestCase
                  modulo.to_s)
   end
 
-  sub_test_case("get_result_nullbale_type") do
+  sub_test_case("get_result_nullable_type") do
     def test_if_null
       assert_equal(Gandiva::ResultNullableType::IF_NULL,
                    @not.result_nullable_type)
