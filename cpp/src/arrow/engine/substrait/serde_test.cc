@@ -6108,7 +6108,7 @@ TEST(Substrait, ExtendedExpressionSerialization) {
 
 TEST(Substrait, ExtendedExpressionInvalidPlans) {
   // The schema defines the type as {"x", "y"} but output_names has {"a", "y"}
-  constexpr std::string_view kBadOuptutNames = R"(
+  constexpr std::string_view kBadOutputNames = R"(
     {
       "referredExpr":[
         {
@@ -6159,7 +6159,7 @@ TEST(Substrait, ExtendedExpressionInvalidPlans) {
   )";
 
   ASSERT_OK_AND_ASSIGN(
-      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOuptutNames));
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOutputNames));
 
   ASSERT_THAT(DeserializeExpressions(*buf),
               Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));

@@ -1609,7 +1609,7 @@ cdef class CompressedInputStream(NativeFile):
 
     Examples
     --------
-    Create an ouput stream wich compresses the data:
+    Create an output stream wich compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
@@ -1666,7 +1666,7 @@ cdef class CompressedOutputStream(NativeFile):
 
     Examples
     --------
-    Create an ouput stream wich compresses the data:
+    Create an output stream wich compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"

@@ -155,7 +155,7 @@ class ProjectNodeOptions(_ProjectNodeOptions):
         List of expressions to evaluate against the source batch. This must
         be scalar expressions.
     names : list of str, optional
-        List of names for each of the ouptut columns (same length as
+        List of names for each of the output columns (same length as
         `expressions`). If `names` is not provided, the string
         representations of exprs will be used.
     """
