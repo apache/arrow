@@ -121,7 +121,7 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kNanoseconds>::
      {"minutes", /*minutes_in_hours=*/60},
      {"seconds", /*seconds_in_minute=*/60},
      {"milliseconds", /*milliseconds_in_seconds*/ 1000},
-     {"microseconds", /*microseconds_in_millseconds=*/1000},
+     {"microseconds", /*microseconds_in_milliseconds=*/1000},
      {"nanoseconds", /*nanoseconds_in_microseconds=*/1000},
      {nullptr, 0}};
 
