@@ -174,7 +174,7 @@ func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties,
 				return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis or micros", props.Version())
 			}
 		} else if target == arrow.Second {
-			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestampts to millis, micros or nanos", props.Version())
+			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis, micros or nanos", props.Version())
 		}
 		return physical, logicalType, nil
 	}
