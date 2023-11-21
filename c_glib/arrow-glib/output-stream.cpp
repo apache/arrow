@@ -395,13 +395,13 @@ namespace garrow {
                         int64_t n_bytes) override {
       GError *error = NULL;
       gsize n_written_bytes;
-      auto successed = g_output_stream_write_all(output_stream_,
+      auto succeeded = g_output_stream_write_all(output_stream_,
                                                  data,
                                                  n_bytes,
                                                  &n_written_bytes,
                                                  NULL,
                                                  &error);
-      if (successed) {
+      if (succeeded) {
         position_ += n_written_bytes;
         return arrow::Status::OK();
       } else {
@@ -415,8 +415,8 @@ namespace garrow {
 
     arrow::Status Flush() override {
       GError *error = NULL;
-      auto successed = g_output_stream_flush(output_stream_, NULL, &error);
-      if (successed) {
+      auto succeeded = g_output_stream_flush(output_stream_, NULL, &error);
+      if (succeeded) {
         return arrow::Status::OK();
       } else {
         return garrow_error_to_status(error,
