@@ -411,6 +411,11 @@ func (t *TimestampType) GetZone() (*time.Location, error) {
 	t.mx.RUnlock()
 	t.mx.Lock()
 	defer t.mx.Unlock()
+	// in case we got run in between releasing the read lock and
+	// getting the write lock
+	if t.loc != nil {
+		return t.loc, nil
+	}
 	// the TimeZone string is allowed to be either a valid tzdata string
 	// such as "America/New_York" or an absolute offset of the form -XX:XX
 	// or +XX:XX
