@@ -171,7 +171,7 @@ can support all of these cases and can even support unique and custom situations
 
 There are pre-defined source nodes that cover the most common input scenarios.  These are listed below.  However,
 if your source data is unique then you will need to use the generic ``source`` node.  This node expects you to
-provide an asycnhronous stream of batches and is covered in more detail :ref:`here <stream_execution_source_docs>`.
+provide an asynchronous stream of batches and is covered in more detail :ref:`here <stream_execution_source_docs>`.
 
 .. _ExecNode List:
 
