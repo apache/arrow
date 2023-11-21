@@ -130,7 +130,7 @@ struct ARROW_EXPORT S3Options {
   std::string role_arn;
   /// Optional identifier for an assumed role session.
   std::string session_name;
-  /// Optional external idenitifer to pass to STS when assuming a role
+  /// Optional external identifier to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
   int load_frequency = 900;
