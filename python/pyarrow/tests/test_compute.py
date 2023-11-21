@@ -3501,7 +3501,7 @@ def test_expression_call_function():
     assert str(pc.add(field, 1)) == "add(field, 1)"
     assert str(pc.add(field, pa.scalar(1))) == "add(field, 1)"
 
-    # Invalid pc.scalar input gives original erorr message
+    # Invalid pc.scalar input gives original error message
     msg = "only other expressions allowed as arguments"
     with pytest.raises(TypeError, match=msg):
         pc.add(field, object)
