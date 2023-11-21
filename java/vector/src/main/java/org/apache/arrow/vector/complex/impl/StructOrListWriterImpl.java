@@ -88,7 +88,7 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    *
    * @param name Unused.
    */
-  public StructOrListWriter listoftstruct(final String name) {
+  public StructOrListWriter listofstruct(final String name) {
     assert list != null;
     return new StructOrListWriterImpl(list.struct());
   }
