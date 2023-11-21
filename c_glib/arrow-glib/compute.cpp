@@ -230,7 +230,7 @@ G_BEGIN_DECLS
  * #GArrowUTF8NormalizeOptions is a class to customize the
  * `utf8_normalize` function.
  *
- * #GArrowQuantileOptions is a class to customize the `qunatile`
+ * #GArrowQuantileOptions is a class to customize the `quantile`
  * function.
  *
  * #GArrowIndexOptions is a class to customize the `index` function.
