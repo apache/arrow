@@ -141,7 +141,7 @@ class MainRThread {
   MainRThread() : initialized_(false), executor_(nullptr), stop_source_(nullptr) {}
 };
 
-// This object is used to ensure that signal hanlders are registered when
+// This object is used to ensure that signal handlers are registered when
 // RunWithCapturedR launches its background thread to call Arrow and is
 // cleaned up however this exits. Note that the lifecycle of the StopSource,
 // which is registered at package load, is not necessarily tied to the
