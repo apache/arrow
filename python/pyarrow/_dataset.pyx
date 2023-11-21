@@ -1016,7 +1016,7 @@ cdef class FileSystemDataset(Dataset):
         elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
-                "Epression, got {0})".format(type(root_partition))
+                "Expression, got {0})".format(type(root_partition))
             )
 
         for fragment in fragments:

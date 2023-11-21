@@ -2591,7 +2591,7 @@ TEST(ScanNode, MinimalEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression project_expr = field_ref("a");
   options->projection =
@@ -2686,7 +2686,7 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression project_expr = field_ref("a");
   options->projection =
@@ -2778,7 +2778,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression a = field_ref("a");
   compute::Expression b = field_ref("b");
