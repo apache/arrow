@@ -302,7 +302,7 @@ def raising_func_fixture():
 @pytest.fixture(scope="session")
 def unary_vector_func_fixture():
     """
-    Reigster a vector function
+    Register a vector function
     """
     def pct_rank(ctx, x):
         # copy here to get around pandas 1.0 issue
@@ -319,7 +319,7 @@ def unary_vector_func_fixture():
 @pytest.fixture(scope="session")
 def struct_vector_func_fixture():
     """
-    Reigster a vector function that returns a struct array
+    Register a vector function that returns a struct array
     """
     def pivot(ctx, k, v, c):
         df = pa.RecordBatch.from_arrays([k, v, c], names=['k', 'v', 'c']).to_pandas()
