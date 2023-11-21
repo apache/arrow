@@ -604,7 +604,7 @@ struct BasicTest {
     auto r0_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
     auto r1_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
 
-    // sample a limited number of type-combinations to keep the runnning time reasonable
+    // sample a limited number of type-combinations to keep the running time reasonable
     // the scoped-traces below help reproduce a test failure, should it happen
     auto start_time = std::chrono::system_clock::now();
     auto seed = start_time.time_since_epoch().count();
