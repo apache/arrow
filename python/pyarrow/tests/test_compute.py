@@ -2385,7 +2385,7 @@ def _check_temporal_rounding(ts, values, unit):
 
         # Check rounding with calendar_based_origin=True.
         # Note: rounding to month is not supported in Pandas so we can't
-        # approximate this functionallity and exclude unit == "day".
+        # approximate this functionality and exclude unit == "day".
         if unit != "day":
             options = pc.RoundTemporalOptions(
                 value, unit, calendar_based_origin=True)
