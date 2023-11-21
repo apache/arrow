@@ -369,7 +369,7 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
-            public void NegtativeCapacityThrows()
+            public void NegativeCapacityThrows()
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
