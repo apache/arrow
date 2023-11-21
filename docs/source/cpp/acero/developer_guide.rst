@@ -38,7 +38,7 @@ ExecNode is an abstract class with several pure virtual methods that control how
 --------------------------------
 
 This method is called once at the start of the plan.  Most nodes ignore this method (any
-neccesary initialization should happen in the constructor or Init).  However, source nodes
+necessary initialization should happen in the constructor or Init).  However, source nodes
 will typically provide a custom implementation.  Source nodes should schedule whatever tasks
 are needed to start reading and providing the data.  Source nodes are usually the primary
 creator of tasks in a plan.
@@ -458,7 +458,7 @@ Profiling & Tracing
 ===================
 
 Acero's tracing is currently half-implemented and there are major gaps in profiling tools.  However, there has been some
-effort at tracing with open telemetry and most of the neccesary pieces are in place.  The main thing currently lacking is
+effort at tracing with open telemetry and most of the necessary pieces are in place.  The main thing currently lacking is
 some kind of effective visualization of the tracing results.
 
 In order to use the tracing that is present today you will need to build with Arrow with `ARROW_WITH_OPENTELEMETRY=ON`.
