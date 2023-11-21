@@ -1716,8 +1716,9 @@ services:
     environment:
       <<: [*common, *ccache]
       ARCHERY_INTEGRATION_WITH_RUST: 0
-      # Tell Archery where the arrow C++ binaries are located
+      # Tell Archery where Arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
+      ARROW_RUST_EXE_PATH: /build/rust/debug
     command:
       ["/arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]

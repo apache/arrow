@@ -18,9 +18,18 @@
 import cffi
 from contextlib import contextmanager
 import functools
+import os
+import sys
 
 from .tester import CDataExporter, CDataImporter
 
+
+if sys.platform == "darwin":
+    dll_suffix = ".dylib"
+elif os.name == "nt":
+    dll_suffix = ".dll"
+else:
+    dll_suffix = ".so"
 
 _c_data_decls = """
     struct ArrowSchema {

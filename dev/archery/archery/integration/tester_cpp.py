@@ -18,7 +18,6 @@
 import contextlib
 import functools
 import os
-import sys
 import subprocess
 
 from . import cdata
@@ -42,15 +41,8 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
-if sys.platform == "darwin":
-    _dll_suffix = ".dylib"
-elif os.name == "nt":
-    _dll_suffix = ".dll"
-else:
-    _dll_suffix = ".so"
-
 _DLL_PATH = _EXE_PATH
-_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + _dll_suffix)
+_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + cdata.dll_suffix)
 
 
 class CppTester(Tester):

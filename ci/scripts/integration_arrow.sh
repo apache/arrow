@@ -43,6 +43,7 @@ fi
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
 
+
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \
     --run-c-data \
