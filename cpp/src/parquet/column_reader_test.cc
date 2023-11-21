@@ -1240,7 +1240,7 @@ TEST_P(RecordReaderPrimitiveTypeTest, SkipRepeatedConsumeBufferFirst) {
     ASSERT_EQ(records_skipped, 12);
     CheckState(/*values_written=*/0, /*null_count=*/0, /*levels_written=*/12,
                /*levels_position=*/0);
-    // Everthing is empty because we reset the reader before this skip.
+    // Everything is empty because we reset the reader before this skip.
     CheckReadValues(/*expected_values=*/{}, /*expected_def_levels=*/{},
                     /*expected_rep_levels=*/{});
   }
