@@ -19,7 +19,7 @@ module Helper
   module Readable
     def read_table(input, type: :file)
       if input.is_a?(Arrow::Buffer)
-        input_stream = Arrow::BufferIntputStream.new(input)
+        input_stream = Arrow::BufferInputStream.new(input)
       else
         input_stream = Arrow::FileInputStream.new(input)
       end
