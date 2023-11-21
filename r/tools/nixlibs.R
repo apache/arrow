@@ -99,10 +99,10 @@ download_binary <- function(lib) {
   libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
-      lg("Successfully retrieved C++ binaries (%s)", lib)
+      lg("Successfully retrieved libarrow (%s)", lib)
   } else {
       lg(
-        "Downloading libarrow binary failed for version %s (%s)\n    at %s",
+        "Downloading libarrow failed for version %s (%s)\n    at %s",
         VERSION, lib, binary_url
       )
     libfile <- NULL
@@ -136,11 +136,11 @@ download_binary <- function(lib) {
     checksum_ok <- system2(checksum_cmd, args = checksum_args)
 
     if (checksum_ok != 0) {
-      lg("Checksum validation failed for libarrow binary: %s/%s", lib, libfile)
+      lg("Checksum validation failed for libarrow: %s/%s", lib, libfile)
       unlink(libfile)
       libfile <- NULL
     } else {
-      lg("Checksum validated successfully for libarrow binary: %s/%s", lib, libfile)
+      lg("Checksum validated successfully for libarrow: %s/%s", lib, libfile)
     }
   }
 
