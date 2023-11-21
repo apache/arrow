@@ -100,7 +100,7 @@ struct PARQUET_EXPORT LevelInfo {
     }
   }
 
-  /// Incremetns level for a optional node.
+  /// Increments level for a optional node.
   void IncrementOptional() { def_level++; }
 
   /// Increments levels for the repeated node.  Returns
