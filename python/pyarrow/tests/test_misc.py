@@ -57,7 +57,7 @@ def test_io_thread_count():
 
 
 def test_env_var_io_thread_count():
-    # Test that the number of IO threads can be overriden with the
+    # Test that the number of IO threads can be overridden with the
     # ARROW_IO_THREADS environment variable.
     code = """if 1:
         import pyarrow as pa
