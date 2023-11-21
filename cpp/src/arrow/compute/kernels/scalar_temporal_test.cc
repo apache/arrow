@@ -2601,7 +2601,7 @@ TEST_F(ScalarTemporalTestStrictCeil, TestCeilTemporalStrictCeil) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilUTC) {
   std::string op = "ceil_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* ceil_15_nanosecond =
@@ -2989,7 +2989,7 @@ TEST_F(ScalarTemporalTest, TestFloorTemporal) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorUTC) {
   std::string op = "floor_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* floor_15_nanosecond =
@@ -3402,7 +3402,7 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundUTC) {
   std::string op = "round_temporal";
 
-  // Data for tests below was generaed via lubridate with the exception
+  // Data for tests below was generated via lubridate with the exception
   // of week data because lubridate currently does not support rounding to
   // multiple of week.
   const char* round_15_nanosecond =
