@@ -215,7 +215,7 @@ export enum BufferType {
     OFFSET = 0,
 
     /**
-     * actual data, either wixed width primitive types in slots or variable width delimited by an OFFSET vector
+     * actual data, either fixed width primitive types in slots or variable width delimited by an OFFSET vector
      */
     DATA = 1,
 
