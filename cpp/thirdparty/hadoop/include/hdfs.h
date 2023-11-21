@@ -521,7 +521,7 @@ extern  "C" {
 
 
     /**
-     * hdfsExists - Checks if a given path exsits on the filesystem
+     * hdfsExists - Checks if a given path exists on the filesystem
      * @param fs The configured filesystem handle.
      * @param path The path to look for
      * @return Returns 0 on success, -1 on error.
