@@ -559,7 +559,7 @@ enum RoundType {
                           // else if -ve and trailing value is >= half of base, -1.
 };
 
-// Compute the rounding delta for the givven rounding type.
+// Compute the rounding delta for the given rounding type.
 static int32_t ComputeRoundingDelta(const BasicDecimal128& x, int32_t x_scale,
                                     int32_t out_scale, RoundType type) {
   if (type == kRoundTypeTrunc ||  // no rounding for this type.
