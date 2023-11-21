@@ -1390,7 +1390,7 @@ class TakeOptions(_TakeOptions):
     ----------
     boundscheck : boolean, default True
         Whether to check indices are within bounds. If False and an
-        index is out of boundes, behavior is undefined (the process
+        index is out of bounds, behavior is undefined (the process
         may crash).
     """
 
