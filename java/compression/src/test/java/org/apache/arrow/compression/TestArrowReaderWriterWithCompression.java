@@ -20,6 +20,7 @@ package org.apache.arrow.compression;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SeekableByteChannel;
@@ -35,6 +36,8 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.GenerateSampleData;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionCodec.Factory;
 import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
@@ -57,181 +60,171 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestArrowReaderWriterWithCompression {
+
   private BufferAllocator allocator;
-  private VarCharVector dictionaryVector1;
-  private Dictionary dictionary1;
+  private ByteArrayOutputStream out;
+  private VectorSchemaRoot root;
 
   @Before
-  public void init() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
+  public void setup() {
+    allocator = new RootAllocator(Integer.MAX_VALUE);
+    out = new ByteArrayOutputStream();
+  }
 
-    dictionaryVector1 = (VarCharVector)
-        FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector("f1", allocator, null);
+  @After
+  public void tearDown() {
+    if (root != null) {
+      root.close();
+    }
+    if (allocator != null) {
+      allocator.close();
+    }
+    out.reset();
+  }
 
-    setVector(dictionaryVector1,
+  private void createAndWriteArrowFile(DictionaryProvider provider,
+      CompressionUtil.CodecType codecType) throws IOException {
+    List<Field> fields = new ArrayList<>();
+    fields.add(new Field("col", FieldType.notNullable(new ArrowType.Utf8()), new ArrayList<>()));
+    root = VectorSchemaRoot.create(new Schema(fields), allocator);
+
+    final int rowCount = 10;
+    GenerateSampleData.generateTestData(root.getVector(0), rowCount);
+    root.setRowCount(rowCount);
+
+    try (final ArrowFileWriter writer = new ArrowFileWriter(root, provider, Channels.newChannel(out),
+        new HashMap<>(), IpcOption.DEFAULT, CommonsCompressionFactory.INSTANCE, codecType, Optional.of(7))) {
+      writer.start();
+      writer.writeBatch();
+      writer.end();
+    }
+  }
+
+  private void readArrowFile(Factory factory, boolean expectSuccess, String expectedErrorMessage)
+      throws IOException {
+    try (ArrowFileReader reader =
+        new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()), allocator, factory)) {
+      Assert.assertEquals(1, reader.getRecordBlocks().size());
+      if (expectSuccess) {
+        Assert.assertTrue(reader.loadNextBatch());
+        Assert.assertTrue(root.equals(reader.getVectorSchemaRoot()));
+        Assert.assertFalse(reader.loadNextBatch());
+      } else {
+        Exception exception = Assert.assertThrows(IllegalArgumentException.class, reader::loadNextBatch);
+        Assert.assertEquals(expectedErrorMessage, exception.getMessage());
+      }
+    }
+  }
+
+  private Dictionary createDictionary(VarCharVector dictionaryVector) {
+    setVector(dictionaryVector,
         "foo".getBytes(StandardCharsets.UTF_8),
         "bar".getBytes(StandardCharsets.UTF_8),
         "baz".getBytes(StandardCharsets.UTF_8));
 
-    dictionary1 = new Dictionary(dictionaryVector1,
+    return new Dictionary(dictionaryVector,
         new DictionaryEncoding(/*id=*/1L, /*ordered=*/false, /*indexType=*/null));
   }
 
-  @After
-  public void terminate() throws Exception {
-    dictionaryVector1.close();
-    allocator.close();
+  private VarCharVector createVarCharVector(String name, BufferAllocator allocator) {
+    VarCharVector vector = (VarCharVector) FieldType
+        .nullable(new ArrowType.Utf8()).createNewSingleVector(name, allocator, null);
+    vector.allocateNewSafe();
+    vector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
+    vector.setValueCount(6);
+    return vector;
   }
-  
-  @Test
-  public void testArrowFileZstdRoundTrip() throws Exception {
-    // Prepare sample data
-    final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+
+  private List<Field> createFields(Dictionary dictionary, BufferAllocator allocator) {
+    VarCharVector vector = createVarCharVector("D1", allocator);
+    FieldVector encodedVector = (FieldVector) DictionaryEncoder.encode(vector, dictionary);
+    vector.close();
+
     List<Field> fields = new ArrayList<>();
     fields.add(new Field("col", FieldType.notNullable(new ArrowType.Utf8()), new ArrayList<>()));
-    VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(fields), allocator);
-    final int rowCount = 10;
-    GenerateSampleData.generateTestData(root.getVector(0), rowCount);
-    root.setRowCount(rowCount);
+    fields.add(encodedVector.getField());
 
-    // Write an in-memory compressed arrow file
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (final ArrowFileWriter writer =
-           new ArrowFileWriter(root, null, Channels.newChannel(out), new HashMap<>(),
-             IpcOption.DEFAULT, CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD, Optional.of(7))) {
+    return fields;
+  }
+
+  private File writeArrowStream(VectorSchemaRoot root, DictionaryProvider provider,
+      CompressionUtil.CodecType codecType) throws IOException {
+    File tempFile = File.createTempFile("dictionary_compression", ".arrow");
+    try (FileOutputStream fileOut = new FileOutputStream(tempFile);
+        ArrowStreamWriter writer = new ArrowStreamWriter(root, provider,
+            Channels.newChannel(fileOut), IpcOption.DEFAULT,
+            CommonsCompressionFactory.INSTANCE, codecType, Optional.of(7))) {
       writer.start();
       writer.writeBatch();
       writer.end();
     }
+    return tempFile;
+  }
 
-    // Read the in-memory compressed arrow file with CommonsCompressionFactory provided
-    try (ArrowFileReader reader =
-           new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
-             allocator, CommonsCompressionFactory.INSTANCE)) {
-      Assert.assertEquals(1, reader.getRecordBlocks().size());
-      Assert.assertTrue(reader.loadNextBatch());
-      Assert.assertTrue(root.equals(reader.getVectorSchemaRoot()));
-      Assert.assertFalse(reader.loadNextBatch());
+  private void readArrowStream(File tempFile, BufferAllocator allocator,
+      CompressionCodec.Factory compressionFactory,
+      boolean shouldSucceed, String expectedExceptionMessage) throws IOException {
+    try (SeekableByteChannel channel = FileChannel.open(tempFile.toPath());
+        ArrowStreamReader reader = new ArrowStreamReader(channel, allocator, compressionFactory)) {
+      if (shouldSucceed) {
+        Assert.assertTrue(reader.loadNextBatch());
+        Assert.assertTrue(root.equals(reader.getVectorSchemaRoot()));
+        Assert.assertFalse(reader.loadNextBatch());
+      } else {
+        Exception exception = Assert.assertThrows(IllegalArgumentException.class,
+            () -> reader.loadNextBatch());
+        Assert.assertEquals(expectedExceptionMessage, exception.getMessage());
+      }
     }
+  }
 
-    // Read the in-memory compressed arrow file without CompressionFactory provided
-    try (ArrowFileReader reader =
-           new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
-             allocator, NoCompressionCodec.Factory.INSTANCE)) {
-      Assert.assertEquals(1, reader.getRecordBlocks().size());
-      Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
-      String expectedMessage = "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD";
-      Assert.assertEquals(expectedMessage, exception.getMessage());
-    }
+
+  @Test
+  public void testArrowFileZstdRoundTrip() throws Exception {
+    createAndWriteArrowFile(null, CompressionUtil.CodecType.ZSTD);
+    readArrowFile(CommonsCompressionFactory.INSTANCE, true, null);
+    readArrowFile(NoCompressionCodec.Factory.INSTANCE, false,
+        "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD");
   }
 
   @Test
   public void testArrowFileZstdRoundTripWithDictionary() throws Exception {
-    // Prepare sample data
+    VarCharVector dictionaryVector = (VarCharVector)
+        FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector("f1", allocator, null);
+    Dictionary dictionary = createDictionary(dictionaryVector);
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    provider.put(dictionary1);
+    provider.put(dictionary);
 
-    final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    List<Field> fields = new ArrayList<>();
-    fields.add(new Field("col", FieldType.notNullable(new ArrowType.Utf8()), new ArrayList<>()));
-
-    VarCharVector vector1 = (VarCharVector)
-        FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector("D1", allocator, null);
-    vector1.allocateNewSafe();
-    vector1.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    vector1.setValueCount(6);
-    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
-    vector1.close();
-    fields.add(encodedVector1.getField());
-
-    VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(fields), allocator);
-    final int rowCount = 10;
-    GenerateSampleData.generateTestData(root.getVector(0), rowCount);
-    root.setRowCount(rowCount);
-
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (final ArrowFileWriter writer =
-           new ArrowFileWriter(root, provider, Channels.newChannel(out), new HashMap<>(),
-             IpcOption.DEFAULT, CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD, Optional.of(7))) {
-      writer.start();
-      writer.writeBatch();
-      writer.end();
-    }
-
-    // Read the in-memory compressed arrow file with CommonsCompressionFactory provided
-    try (ArrowFileReader reader =
-           new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
-             allocator, CommonsCompressionFactory.INSTANCE)) {
-      Assert.assertEquals(1, reader.getRecordBlocks().size());
-      Assert.assertTrue(reader.loadNextBatch());
-      Assert.assertTrue(root.equals(reader.getVectorSchemaRoot()));
-      Assert.assertFalse(reader.loadNextBatch());
-    }
-    // Read the in-memory compressed arrow file without CompressionFactory provided
-    try (ArrowFileReader reader =
-           new ArrowFileReader(new ByteArrayReadableSeekableByteChannel(out.toByteArray()),
-             allocator, NoCompressionCodec.Factory.INSTANCE)) {
-      String expectedMessage = "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD";
-      Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
-      Assert.assertEquals(expectedMessage, exception.getMessage());
-    }
+    createAndWriteArrowFile(provider, CompressionUtil.CodecType.ZSTD);
+    readArrowFile(CommonsCompressionFactory.INSTANCE, true, null);
+    readArrowFile(NoCompressionCodec.Factory.INSTANCE, false,
+        "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD");
+    dictionaryVector.close();
   }
 
   @Test
   public void testArrowStreamZstdRoundTrip() throws Exception {
-    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    provider.put(dictionary1);
-
     final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    List<Field> fields = new ArrayList<>();
-    fields.add(new Field("col", FieldType.notNullable(new ArrowType.Utf8()), new ArrayList<>()));
+    VarCharVector dictionaryVector = createVarCharVector("f1", allocator);
+    Dictionary dictionary = createDictionary(dictionaryVector);
+    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+    provider.put(dictionary);
 
-    VarCharVector vector1 = (VarCharVector)
-        FieldType.nullable(new ArrowType.Utf8()).createNewSingleVector("D1", allocator, null);
-    vector1.allocateNewSafe();
-    vector1.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-    vector1.setValueCount(6);
-    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector1, dictionary1);
-    vector1.close();
-    fields.add(encodedVector1.getField());
+    List<Field> fields = createFields(dictionary, allocator);
 
-    VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(fields), allocator);
-    final int rowCount = 3;
+    root = VectorSchemaRoot.create(new Schema(fields), allocator);
+    final int rowCount = 10;
     GenerateSampleData.generateTestData(root.getVector(0), rowCount);
     root.setRowCount(rowCount);
 
-    // Write an in-memory compressed arrow file
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    File tempFile = File.createTempFile("dictionary_compression", ".arrow");
-    FileOutputStream fileOut = new FileOutputStream(tempFile);
-    try (final ArrowStreamWriter writer =
-             new ArrowStreamWriter(root, provider, Channels.newChannel(fileOut), IpcOption.DEFAULT,
-                 CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD,
-                 Optional.of(7))) {
-      writer.start();
-      writer.writeBatch();
-      writer.end();
-    }
-
+    File tempFile = writeArrowStream(root, provider, CompressionUtil.CodecType.ZSTD);
     // Read the on-disk compressed arrow file with CommonsCompressionFactory provided
-    try (SeekableByteChannel channel = FileChannel.open(tempFile.toPath());
-        ArrowStreamReader reader =
-             new ArrowStreamReader(channel, allocator, CommonsCompressionFactory.INSTANCE)) {
-      org.apache.arrow.vector.types.pojo.Schema schema = reader.getVectorSchemaRoot().getSchema();
-      Assert.assertTrue(reader.loadNextBatch());
-      Assert.assertTrue(root.equals(reader.getVectorSchemaRoot()));
-      Assert.assertFalse(reader.loadNextBatch());
-
-    }
-
+    readArrowStream(tempFile, allocator, CommonsCompressionFactory.INSTANCE, true, null);
     // Read the on-disk compressed arrow file without CompressionFactory provided
-    try (SeekableByteChannel channel = FileChannel.open(tempFile.toPath());
-        ArrowStreamReader reader =
-             new ArrowStreamReader(channel, allocator, NoCompressionCodec.Factory.INSTANCE)) {
-      Exception exception = Assert.assertThrows(IllegalArgumentException.class, () -> reader.loadNextBatch());
-      String expectedMessage = "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD";
-      Assert.assertEquals(expectedMessage, exception.getMessage());
-    }
+    readArrowStream(tempFile, allocator,
+        NoCompressionCodec.Factory.INSTANCE, false,
+        "Please add arrow-compression module to use CommonsCompressionFactory for ZSTD");
+    dictionaryVector.close();
   }
 
   public static void setVector(VarCharVector vector, byte[]... values) {
