@@ -102,16 +102,10 @@ ServerSessionMiddlewareFactory::ParseCookieString(const std::string_view& s) {
   size_t cur = 0;
   while (cur < s.length()) {
     const size_t end = s.find(list_sep, cur);
-    size_t len;
-    if (end == std::string::npos) {
-      // No (further) list delimiters
-      len = std::string::npos;
-      cur = s.length();
-    } else {
-      len = end - cur;
-      cur = end;
-    }
+    const bool further_pairs = end != std::string::npos;
+    const size_t len = further_pairs ? end - cur : std::string::npos;
     const std::string_view tok = s.substr(cur, len);
+    cur = further_pairs ? end + 2 : s.length();
 
     const size_t val_pos = tok.find(pair_sep);
     if (val_pos == std::string::npos) {
