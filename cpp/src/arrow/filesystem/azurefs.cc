@@ -629,7 +629,7 @@ class ObjectAppendStream final : public io::OutputStream {
                   std::shared_ptr<Buffer> owned_buffer = nullptr) {
     RETURN_NOT_OK(CheckClosed("append"));
     auto append_data = reinterpret_cast<const uint8_t*>(data);
-    auto block_content = Azure::Core::IO::MemoryBodyStream(append_data, nbytes);
+    Azure::Core::IO::MemoryBodyStream block_content(append_data, nbytes);
     if (block_content.Length() == 0) {
       return Status::OK();
     }
@@ -639,7 +639,7 @@ class ObjectAppendStream final : public io::OutputStream {
     // New block ID must always be distinct from the existing block IDs. Otherwise we
     // will accidentally replace the content of existing blocks, causing corruption.
     // We will use monotonically increasing integers.
-    std::string new_block_id = std::to_string(n_block_ids);
+    auto new_block_id = std::to_string(n_block_ids);
 
     // Pad to 5 digits, because Azure allows a maximum of 50,000 blocks.
     const size_t target_number_of_digits = 5;

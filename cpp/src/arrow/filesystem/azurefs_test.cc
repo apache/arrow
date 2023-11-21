@@ -686,8 +686,7 @@ TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
 
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamSmall) {
   const auto path = PreexistingContainerPath() + "test-write-object";
-  std::shared_ptr<io::OutputStream> output;
-  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
   const std::string_view expected(kLoremIpsum);
   ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
