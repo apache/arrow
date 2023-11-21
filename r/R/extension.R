@@ -286,7 +286,7 @@ ExtensionType$create <- function(storage_type,
 #'   "dot" syntax (i.e., "some_package.some_type"). The namespace "arrow"
 #'    is reserved for extension types defined by the Apache Arrow libraries.
 #' @param extension_metadata A [raw()] or [character()] vector containing the
-#'   serialized version of the type. Chatacter vectors must be length 1 and
+#'   serialized version of the type. Character vectors must be length 1 and
 #'   are converted to UTF-8 before converting to [raw()].
 #' @param type_class An [R6::R6Class] whose `$new()` class method will be
 #'   used to construct a new instance of the type.
