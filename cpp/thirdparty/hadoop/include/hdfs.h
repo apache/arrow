@@ -174,7 +174,7 @@ extern  "C" {
      * Connect to the hdfs.
      * @param nn   The NameNode.  See hdfsBuilderSetNameNode for details.
      * @param port The port on which the server is listening.
-     * @param user the user name (this is hadoop domain user). Or NULL is equivelant to hhdfsConnect(host, port)
+     * @param user the user name (this is hadoop domain user). Or NULL is equivalent to hhdfsConnect(host, port)
      * @return Returns a handle to the filesystem or NULL on error.
      * @deprecated Use hdfsBuilderConnect instead.
      */
