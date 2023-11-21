@@ -169,7 +169,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     Returns
     -------
     Partitioning or PartitioningFactory
-        The partioning scheme
+        The partitioning scheme
 
     Examples
     --------
