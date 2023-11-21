@@ -3076,7 +3076,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     UdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
-    correspoding to the schema.
+    corresponding to the schema.
 
     Parameters
     ----------
