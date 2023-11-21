@@ -68,7 +68,7 @@
 }
 
 /* This is the bootstrap CSS style for "table-striped". Since the theme does
-not yet provide an easy way to configure this globaly, it easier to simply
+not yet provide an easy way to configure this globally, it easier to simply
 include this snippet here than updating each table in all rst files to
 add ":class: table-striped" */
 
