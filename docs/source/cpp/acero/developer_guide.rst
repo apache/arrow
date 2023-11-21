@@ -52,7 +52,7 @@ Examples
 ^^^^^^^^
 
 * In the ``table_source`` node the input table is divided into batches.  A task is created for
-  each batch and that task calls ``InputRecieved`` on the node's output.
+  each batch and that task calls ``InputReceived`` on the node's output.
 * In the ``scan`` node a task is created to start listing fragments from the dataset.  Each listing
   task then creates tasks to read batches from the fragment, asynchronously.  When the batch is
   full read in then a continuation schedules a new task with the exec plan.  This task calls
@@ -173,7 +173,7 @@ There is no expectation or requirement that a node sends any remaining data it h
 schedules tasks (e.g. a source node) should stop producing new data.
 
 In addition to plan-wide cancellation, a node may call this method on its input if it has decided
-that it has recevied all the data that it needs.  However, because of parallelism, a node may still
+that it has received all the data that it needs.  However, because of parallelism, a node may still
 receive a few calls to ``InputReceived`` after it has stopped its input.
 
 If any external reosurces are used then cleanup should happen as part of this call.
