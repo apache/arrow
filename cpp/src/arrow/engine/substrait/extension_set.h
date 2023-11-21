@@ -86,7 +86,7 @@ struct ARROW_ENGINE_EXPORT IdHashEq {
 /// \brief Owning storage for ids
 ///
 /// Substrait plans may reuse URIs and names in many places.  For convenience
-/// and performance Substarit ids are typically passed around as views.  As we
+/// and performance Substrait ids are typically passed around as views.  As we
 /// convert a plan from Substrait to Arrow we need to copy these strings out of
 /// the Substrait buffer and into owned storage.  This class serves as that owned
 /// storage.
