@@ -91,7 +91,7 @@ write_feather <- function(x,
     }
   }
   if (is.null(compression_level)) {
-    # Use -1 as sentinal for "default"
+    # Use -1 as sentinel for "default"
     compression_level <- -1L
   }
   compression_level <- as.integer(compression_level)
