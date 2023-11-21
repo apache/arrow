@@ -218,7 +218,7 @@ configuration. In this case you need to call `RegisterTLSConfig()` in your code
     ...
 ```
 
-This will register the custom configuration, constraining the minimim TLS
+This will register the custom configuration, constraining the minimum TLS
 version, as `myconfig` and then references the registered configuration by
 name in the DSN. You can reuse the same TLS configuration by registering once
 and then reference in multiple DSNs. Registering multiple configurations with
