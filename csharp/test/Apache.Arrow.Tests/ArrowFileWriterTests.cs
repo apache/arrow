@@ -57,7 +57,7 @@ namespace Apache.Arrow.Tests
         /// </summary>
         /// <returns></returns>
         [Fact]
-        public async Task WritesFooterAlignedMulitpleOf8()
+        public async Task WritesFooterAlignedMultipleOf8()
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
 
@@ -85,7 +85,7 @@ namespace Apache.Arrow.Tests
         /// </summary>
         /// <returns></returns>
         [Fact]
-        public async Task WritesFooterAlignedMulitpleOf8Async()
+        public async Task WritesFooterAlignedMultipleOf8Async()
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
 
