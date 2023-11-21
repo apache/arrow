@@ -1329,7 +1329,7 @@ macro(build_snappy)
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
   # Snappy unconditionaly enables Werror when building with clang this can lead
-  # to build failues by way of new compiler warnings. This adds a flag to disable
+  # to build failures by way of new compiler warnings. This adds a flag to disable
   # Werror to the very end of the invocation to override the snappy internal setting.
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
