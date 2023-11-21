@@ -350,7 +350,7 @@ type FileDecryptionOption func(*fileDecryptConfig)
 // metadata the metadata will be ignored, the footer will be decrypted/verified with this key.
 //
 // If the explicit key is not set, footer key will be fetched from the key retriever.
-// With explcit keys or AAD prefix, new encryption properties object must be created for each
+// With explicit keys or AAD prefix, new encryption properties object must be created for each
 // encrypted file.
 //
 // Explicit encryption keys (footer and column) are cloned.
