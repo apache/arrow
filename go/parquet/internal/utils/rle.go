@@ -479,7 +479,7 @@ func (r *RleEncoder) Flush() int {
 		if r.repCount > 0 && allRep {
 			r.flushRepeated()
 		} else {
-			// buffer the last grou pof literals to 8 by padding with 0s
+			// buffer the last group of literals to 8 by padding with 0s
 			for len(r.buffer) != 0 && len(r.buffer) < 8 {
 				r.buffer = append(r.buffer, 0)
 			}
