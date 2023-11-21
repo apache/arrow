@@ -75,7 +75,7 @@ The following guide depends on GitHub, but theoretically any git
 server can be used.
 
 If you are not using the `ursacomputing/crossbow`_
-repository, you will need to complete the first two steps, otherwise procede
+repository, you will need to complete the first two steps, otherwise proceed
 to step 3:
 
 1. `Create the queue repository`_
