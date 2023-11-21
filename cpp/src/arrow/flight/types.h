@@ -604,7 +604,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \return Arrrow result with the reconstructed Schema
+  /// \return Arrow result with the reconstructed Schema
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
 
