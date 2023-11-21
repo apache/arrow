@@ -1546,7 +1546,7 @@ class ObjectOutputStream final : public io::OutputStream {
       nbytes -= offset;
     };
 
-    // Handle case where we have some bytes bufferred from prior calls.
+    // Handle case where we have some bytes buffered from prior calls.
     if (current_part_size_ > 0) {
       // Try to fill current buffer
       const int64_t to_copy = std::min(nbytes, kPartUploadSize - current_part_size_);
