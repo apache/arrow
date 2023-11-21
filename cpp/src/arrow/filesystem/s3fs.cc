@@ -3007,7 +3007,7 @@ S3GlobalOptions S3GlobalOptions::Defaults() {
   auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
 
   if (result.ok()) {
-    // Extract, trim, and downcase the value of the enivronment variable
+    // Extract, trim, and downcase the value of the environment variable
     auto value =
         arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
 
