@@ -57,7 +57,7 @@ type MemoTable interface {
 	// and a boolean indicating whether or not the value was found in
 	// the table (if false, the value was inserted). An error is returned
 	// if val is not the appropriate type for the table. This function is intended to be used by
-	// the BinaryMemoTable to prevent uncessary allocations of the data when converting from a []byte to interface{}.
+	// the BinaryMemoTable to prevent unnecessary allocations of the data when converting from a []byte to interface{}.
 	GetOrInsertBytes(val []byte) (idx int, existed bool, err error)
 	// GetOrInsertNull returns the index of the null value in the table,
 	// inserting one if it hasn't already been inserted. It returns a boolean
