@@ -169,9 +169,9 @@ public class FlightClient {
         try closure(try await readMessages(exchangeCall.responseStream))
     }
 
-    public func doExchange(fligthData: FlightData, closure: (FlightData) throws -> Void) async throws {
+    public func doExchange(flightData: FlightData, closure: (FlightData) throws -> Void) async throws {
         let exchangeCall = client.makeDoExchangeCall()
-        try await exchangeCall.requestStream.send(fligthData.toProtocol())
+        try await exchangeCall.requestStream.send(flightData.toProtocol())
         exchangeCall.requestStream.finish()
         for try await response in exchangeCall.responseStream {
             try closure(FlightData(response))
