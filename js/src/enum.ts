@@ -21,7 +21,7 @@
 // v4 doesn't seem to be able to tree-shake the rest of those exports.
 //
 // We will have to keep these enums in sync when we re-generate the flatbuffers
-// code from the shchemas. See js/DEVELOP.md for info on how to run flatbuffers
+// code from the schemas. See js/DEVELOP.md for info on how to run flatbuffers
 // code generation.
 //
 ////
