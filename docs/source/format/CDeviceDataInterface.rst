@@ -61,7 +61,7 @@ Goals
 * Make it easy for third-party projects to implement support with little
   initial investment.
 * Allow zero-copy sharing of Arrow formatted device memory between
-  independant runtimes and components running in the same process.
+  independent runtimes and components running in the same process.
 * Avoid the need for one-to-one adaptation layers such as the
   `CUDA Array Interface`_ for Python processes to pass CUDA data.
 * Enable integration without explicit dependencies (either at compile-time
@@ -629,7 +629,7 @@ Result lifetimes
 ''''''''''''''''
 
 The data returned by the ``get_schema`` and ``get_next`` callbacks must be
-released independantly. Their lifetimes are not tied to that of
+released independently. Their lifetimes are not tied to that of
 ``ArrowDeviceArrayStream``.
 
 Stream lifetime
