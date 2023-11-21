@@ -481,7 +481,7 @@ class PyValue {
 
   // The binary-like intermediate representation is PyBytesView because it keeps temporary
   // python objects alive (non-contiguous memoryview) and stores whether the original
-  // object was unicode encoded or not, which is used for unicode -> bytes coersion if
+  // object was unicode encoded or not, which is used for unicode -> bytes coercion if
   // there is a non-unicode object observed.
 
   static Status Convert(const BaseBinaryType*, const O&, I obj, PyBytesView& view) {
