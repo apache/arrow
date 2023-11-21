@@ -275,7 +275,7 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
     }
   }
 
-  // same as ApplyGrouping in parition.cc
+  // same as ApplyGrouping in partition.cc
   // replicated the code here to avoid complicating the dependencies
   static Result<RecordBatchVector> ApplyGroupings(
       const ListArray& groupings, const std::shared_ptr<RecordBatch>& batch) {
