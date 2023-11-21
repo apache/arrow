@@ -1705,7 +1705,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     return in1_len;
   }
 
-  // arr_larger and arr_smaller is one pointer for entrys
+  // arr_larger and arr_smaller is one pointer for entries
   const char* arr_larger;
   const char* arr_smaller;
   // len_larger and len_smaller is one copy from lengths
