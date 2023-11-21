@@ -523,7 +523,7 @@ Arrow arrays and tables can be easily concatenated:
 ## Other improvements and fixes
 
 * Many of the vignettes have been reorganized, restructured and expanded to improve their usefulness and clarity.
-* Code to generate schemas (and individual data type specficiations) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
+* Code to generate schemas (and individual data type specifications) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
 * Arrow `Duration` type has been mapped to R's `difftime` class.
 * The `decimal256()` type is supported. The `decimal()` function has been revised to call either `decimal256()` or `decimal128()` based on the value of the `precision` argument.
 * `write_parquet()` uses a reasonable guess at `chunk_size` instead of always writing a single chunk. This improves the speed of reading and writing large Parquet files.
