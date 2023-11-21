@@ -307,7 +307,7 @@ Sys.unsetenv("AWS_S3_ENDPOINT")
 ```
 
 By default, the AWS SDK tries to retrieve metadata about user configuration, 
-which can cause conficts when passing in connection details via URI (for example
+which can cause conflicts when passing in connection details via URI (for example
 when accessing a MINIO bucket).  To disable the use of AWS environment 
 variables, you can set environment variable `AWS_EC2_METADATA_DISABLED` to 
 `TRUE`.
