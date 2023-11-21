@@ -46,7 +46,7 @@ func getExtTypeRegistry() *sync.Map {
 }
 
 // RegisterExtensionType registers the provided ExtensionType by calling ExtensionName
-// to use as a Key for registrying the type. If a type with the same name is already
+// to use as a Key for registering the type. If a type with the same name is already
 // registered then this will return an error saying so, otherwise it will return nil
 // if successful registering the type.
 // This function is safe to call from multiple goroutines simultaneously.
