@@ -58,7 +58,7 @@ A Library for Data Scientists
 Acero is not intended to be used directly by data scientists.  It is expected that
 end users will typically be using some kind of frontend.  For example, Pandas, Ibis,
 or SQL.  The API for Acero is focused around capabilities and available algorithms.
-However, such users may be intersted in knowing more about how Acero works so that
+However, such users may be interested in knowing more about how Acero works so that
 they can better understand how the backend processing for their libraries operates.
 
 A Database
