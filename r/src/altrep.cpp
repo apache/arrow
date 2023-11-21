@@ -747,7 +747,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   // Helper class to convert to R strings. We declare one of these for the
   // class to avoid having to stack-allocate one for every STRING_ELT call.
   // This class does not own a reference to any arrays: it is the caller's
-  // responsibility to ensure the Array lifetime exeeds that of the viewer.
+  // responsibility to ensure the Array lifetime exceeds that of the viewer.
   struct RStringViewer {
     RStringViewer() : strip_out_nuls_(false), nul_was_stripped_(false) {}
 
