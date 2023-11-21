@@ -1622,7 +1622,7 @@ def test_read_table_schema(tempdir):
     expected = pa.table({'a': [1, 2, 3]}, schema=schema)
     assert result.equals(expected)
 
-    # reading multiple fiels
+    # reading multiple fields
     result = pq.read_table(tempdir, schema=schema)
     expected = pa.table({'a': [1, 2, 3, 1, 2, 3]}, schema=schema)
     assert result.equals(expected)
