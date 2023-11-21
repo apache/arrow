@@ -688,7 +688,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     pre_buffer : bool, default True
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
-        filesystems (e.g. S3, GCS) by coalesing and issuing file reads in
+        filesystems (e.g. S3, GCS) by coalescing and issuing file reads in
         parallel using a background I/O thread pool.
         Set to False if you want to prioritize minimal memory usage
         over maximum speed.
