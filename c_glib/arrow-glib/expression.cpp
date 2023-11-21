@@ -166,7 +166,7 @@ garrow_field_expression_class_init(GArrowFieldExpressionClass *klass)
  * @reference: A field name or dot path.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowFieldExpression on sucess, %NULL on
+ * Returns: A newly created #GArrowFieldExpression on success, %NULL on
  *   error.
  *
  * Since: 6.0.0
