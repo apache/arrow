@@ -715,7 +715,7 @@ AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generato
 /// generator() once before it returns.  The returned generator will otherwise
 /// mirror the source.
 ///
-/// This generator forwards aysnc-reentrant pressure to the source
+/// This generator forwards async-reentrant pressure to the source
 /// This generator buffers one item (the first result) until it is delivered.
 template <typename T>
 AsyncGenerator<T> MakeAutoStartingGenerator(AsyncGenerator<T> generator) {
