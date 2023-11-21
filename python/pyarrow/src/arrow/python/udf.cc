@@ -600,7 +600,7 @@ Status RegisterScalarAggregateFunction(PyObject* function, UdfWrapperCallback cb
 /// \param options User provided udf options
 UdfOptions AdjustForHashAggregate(const UdfOptions& options) {
   UdfOptions hash_options;
-  // Append hash_ before the function name to seperate from the scalar
+  // Append hash_ before the function name to separate from the scalar
   // version
   hash_options.func_name = "hash_" + options.func_name;
   // Extend input types with group id. Group id is appended by the group
