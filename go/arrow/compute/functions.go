@@ -179,7 +179,7 @@ func (b *baseFunction) checkArity(nargs int) error {
 	return nil
 }
 
-// kernelType is a type contstraint interface that is used for funcImpl
+// kernelType is a type constraint interface that is used for funcImpl
 // generic definitions. It will be extended as other kernel types
 // are defined.
 //
