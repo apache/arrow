@@ -256,7 +256,7 @@ test_that("RecordBatch can roundtrip extension types", {
   )
 
   # check both column orders, since column order should stay in the same
-  # order whether the colunns are extension types or not
+  # order whether the columns are extension types or not
   mixed_record_batch2 <- record_batch(
     normal = normal_vctr,
     custom = custom_array
@@ -296,7 +296,7 @@ test_that("Table can roundtrip extension types", {
   )
 
   # check both column orders, since column order should stay in the same
-  # order whether the colunns are extension types or not
+  # order whether the columns are extension types or not
   mixed_table2 <- arrow_table(
     normal = normal_vctr,
     custom = custom_array
