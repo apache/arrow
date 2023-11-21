@@ -51,7 +51,7 @@ class TestFlightClientOptions < Test::Unit::TestCase
     assert_equal(100, @options.write_size_limit_bytes)
   end
 
-  def test_disable_server_verifiation
+  def test_disable_server_verification
     assert do
       not @options.disable_server_verification?
     end
