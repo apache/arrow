@@ -88,7 +88,7 @@ std::string lz4_raw_compressed_larger() {
   return data_file("lz4_raw_compressed_larger.parquet");
 }
 
-std::string overflow_i16_page_oridinal() {
+std::string overflow_i16_page_ordinal() {
   return data_file("overflow_i16_page_cnt.parquet");
 }
 
@@ -1285,7 +1285,7 @@ INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_code
 // INT16_MAX pages. (GH-15074).
 TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
   ReaderProperties reader_props;
-  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_oridinal(),
+  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_ordinal(),
                                                  /*memory_map=*/false, reader_props);
   auto metadata_ptr = file_reader->metadata();
   EXPECT_EQ(1, metadata_ptr->num_row_groups());
