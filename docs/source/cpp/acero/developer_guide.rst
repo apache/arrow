@@ -642,7 +642,7 @@ OrderBySink and SelectKSink
 ---------------------------
 
 These two exec nodes provided custom sink implementations.  They were written before ordered execution
-was added to Acero and were the only way to generate ordered ouptut.  However, they had to be placed
+was added to Acero and were the only way to generate ordered output.  However, they had to be placed
 at the end of a plan and the fact that they were custom sink nodes made them difficult to describe with
 Declaration.  The OrderByNode and FetchNode replace these.  These are kept at the moment until existing
 bindings move away from them.
