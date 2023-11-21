@@ -373,7 +373,7 @@ type FieldList []Node
 // Len is equivalent to len(fieldlist)
 func (f FieldList) Len() int { return len(f) }
 
-// GroupNode is for mananging nested nodes like List, Map, etc.
+// GroupNode is for managing nested nodes like List, Map, etc.
 type GroupNode struct {
 	node
 	fields    FieldList
