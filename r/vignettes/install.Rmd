@@ -225,7 +225,7 @@ already present (when set to `AUTO`, the default).
 These dependencies vary by platform; however, if you wish to install these
 yourself prior to libarrow installation, we recommend that you take a look at
 the [docker file for whichever of our CI builds](https://github.com/apache/arrow/tree/main/ci/docker)
-(the ones ending in "cpp" are for building Arrow's C++ libaries, aka libarrow)
+(the ones ending in "cpp" are for building Arrow's C++ libraries, aka libarrow)
 corresponds most closely to your setup.  This will contain the most up-to-date
 information about dependencies and minimum versions.
 
