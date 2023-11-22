@@ -194,7 +194,7 @@ func GetDataType[T NumericTypes | bool | string | []byte | float16.Num]() arrow.
 	return typMap[reflect.TypeOf(z)]
 }
 
-// GetType returns the appropriate arrow.Type type T, only for non-parameteric
+// GetType returns the appropriate arrow.Type type T, only for non-parametric
 // types. This uses a map and reflection internally so don't call this in
 // a tight loop, instead call it once and then use a closure with the result.
 func GetType[T NumericTypes | bool | string]() arrow.Type {
