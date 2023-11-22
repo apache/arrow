@@ -1898,7 +1898,7 @@ TYPED_TEST(TestStringKernels, Strptime) {
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
 #ifdef __EMSCRIPTEN__
   GTEST_SKIP()
-      << "Emscripten bug https://github.com/emscripten-core/emscripten/issues/20467 ";
+      << "Emscripten bug https://github.com/emscripten-core/emscripten/issues/20467";
 #endif
 
   if (!arrow::internal::kStrptimeSupportsZone) {

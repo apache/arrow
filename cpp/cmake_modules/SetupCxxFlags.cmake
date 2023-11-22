@@ -746,7 +746,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # flags for creating shared libraries (only used in pyarrow, because
   # Emscripten builds libarrow as static)
   # flags are:
-  # 1) Tell it to use javascript / webassembly 64 bit number support.
+  # 1) Tell it to use JavaScript / WebAssembly 64 bit number support.
   # 2) Tell it to build with support for C++ exceptions
   # 3) Skip linker flags error which happens with -soname parameter
   set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
