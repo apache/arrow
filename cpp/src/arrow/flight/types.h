@@ -575,7 +575,7 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   std::string raw_schema_;
 };
 
-/// \brief The access coordinates for retireval of a dataset, returned by
+/// \brief The access coordinates for retrieval of a dataset, returned by
 /// GetFlightInfo
 class ARROW_FLIGHT_EXPORT FlightInfo {
  public:
