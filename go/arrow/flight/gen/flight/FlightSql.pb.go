@@ -1704,7 +1704,7 @@ func (SqlSupportsConvert) EnumDescriptor() ([]byte, []int) {
 
 //*
 // The JDBC/ODBC-defined type of any object.
-// All the values here are the sames as in the JDBC and ODBC specs.
+// All the values here are the same as in the JDBC and ODBC specs.
 type XdbcDataType int32
 
 const (
