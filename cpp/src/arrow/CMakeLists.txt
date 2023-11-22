@@ -229,6 +229,7 @@ set(ARROW_SRCS
     util/hashing.cc
     util/int_util.cc
     util/io_util.cc
+    util/list_util.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -790,6 +791,7 @@ add_arrow_test(array_test
                array/array_binary_test.cc
                array/array_dict_test.cc
                array/array_list_test.cc
+               array/array_list_view_test.cc
                array/array_run_end_test.cc
                array/array_struct_test.cc
                array/array_union_test.cc

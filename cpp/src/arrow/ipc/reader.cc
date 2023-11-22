@@ -330,6 +330,22 @@ class ArrayLoader {
     return LoadChildren(type.fields());
   }
 
+  template <typename TYPE>
+  Status LoadListView(const TYPE& type) {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[2]));
+
+    const int num_children = type.num_fields();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.fields());
+  }
+
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
     DCHECK_NE(out_, nullptr);
     ArrayData* parent = out_;
@@ -390,6 +406,11 @@ class ArrayLoader {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return LoadListView(type);
   }
 
   Status Visit(const MapType& type) {
