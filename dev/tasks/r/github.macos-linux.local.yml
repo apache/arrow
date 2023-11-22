@@ -41,7 +41,7 @@ jobs:
         if: contains(matrix.os, 'macOS')
         run: |
           brew install openssl
-          # disable sccache on macos as it timesout for unknown reasons
+          # disable sccache on macos as it times out for unknown reasons
           # see GH-33721
           # brew install sccache
       - name: Configure dependencies (linux)
