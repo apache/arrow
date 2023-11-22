@@ -270,19 +270,7 @@ Status PutListViewOffsets(const ArrayData& input, offset_type* sizes, const Buff
     internal::BitBlockCount block = bit_counter.NextBlock();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (sizes[position] > 0) {
-          // NOTE: Concatenate can be called during IPC reads to append delta
-          // dictionaries. Avoid UB on non-validated input by doing the addition in the
-          // unsigned domain. (the result can later be validated using
-          // Array::ValidateFull)
-          const auto displaced_offset = SafeSignedAdd(offsets[position], displacement);
-          // displaced_offset>=0 is guaranteed by RangeOfValuesUsed returning the
-          // smallest offset of valid and non-empty list-views.
-          DCHECK_GE(displaced_offset, 0);
-          dst[position] = displaced_offset;
-        } else {
-          // Do nothing to leave dst[position] as 0.
-        }
+        visit_not_null(position);
       }
     } else if (block.NoneSet()) {
       // NOTE: we don't have to do anything for the null entries regarding the
