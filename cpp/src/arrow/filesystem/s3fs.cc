@@ -2408,7 +2408,11 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
                   std::vector<std::string> file_paths;
                   for (const auto& file_info : file_infos) {
                     DCHECK_GT(file_info.path().size(), bucket.size());
-                    file_paths.push_back(file_info.path().substr(bucket.size() + 1));
+                    auto file_path = file_info.path().substr(bucket.size() + 1);
+                    if (file_info.IsDirectory()) {
+                      file_path = file_path + kSep;
+                    }
+                    file_paths.push_back(file_path);
                   }
                   scheduler->AddSimpleTask(
                       [=, file_paths = std::move(file_paths)] {
