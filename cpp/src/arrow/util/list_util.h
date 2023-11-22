@@ -38,7 +38,7 @@ ARROW_EXPORT Result<std::pair<int64_t, int64_t>> RangeOfValuesUsed(
 
 /// \brief Calculate the sum of the sizes of all valid lists or list-views
 ///
-/// This is usally the same as the length of the RangeOfValuesUsed() range, but
+/// This is usually the same as the length of the RangeOfValuesUsed() range, but
 /// it can be:
 /// - Smaller: when the child array constains many values that are not
 /// referenced by the lists or list-views in the parent array
