@@ -23,11 +23,11 @@
 
 namespace arrow {
 
-DLDataType getDLDataType(const std::shared_ptr<Array>& arr, Status* status) {
+DLDataType getDLDataType(const std::shared_ptr<DataType>& type, Status* status) {
   DLDataType dtype;
   dtype.lanes = 1;
-  dtype.bits = arr->type()->bit_width();
-  switch (arr->type()->id()) {
+  dtype.bits = type->bit_width();
+  switch (type->id()) {
     case Type::INT8:
     case Type::INT16:
     case Type::INT32:
@@ -46,7 +46,10 @@ DLDataType getDLDataType(const std::shared_ptr<Array>& arr, Status* status) {
       dtype.code = DLDataTypeCode::kDLFloat;
       break;
     case Type::BOOL:
-      dtype.code = DLDataTypeCode::kDLBool;
+      // DLPack supports byte-packed boolean values
+      // dtype.code = DLDataTypeCode::kDLBool;
+      *status =
+          Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
       break;
     default:
       *status = Status::TypeError("Can only use __dlpack__ on primitive arrays.");
@@ -79,7 +82,7 @@ DLManagedTensor* ExportToDLPack(const std::shared_ptr<Array>& arr) {
   // Return null pointer if the data type is not supported
   // by the protocol. Supported data types: int, uint, float
   // and bool
-  DLDataType arr_type = getDLDataType(arr, &status);
+  DLDataType arr_type = getDLDataType(arr->type(), &status);
   if (!status.ok()) {
     return NULLPTR;
   }

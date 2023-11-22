@@ -48,6 +48,6 @@ cpdef object to_dlpack(Array arr) except *:
 
     if dlm_tensor == nullptr:
         raise TypeError(
-            "Can only use __dlpack__ on primitive types with no validity buffer.")
+            "Can only use __dlpack__ on primitive types (byte-packed booleans) with no validity buffer.")
 
     return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
