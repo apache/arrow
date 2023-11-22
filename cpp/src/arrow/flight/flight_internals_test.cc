@@ -333,17 +333,17 @@ TEST(FlightTypes, SchemaResult) {
 
 TEST(FlightTypes, SetSessionOptionsRequest) {
   std::vector<SetSessionOptionsRequest> values = {
-      {},                // comments
-      {{"foo", 3.0}},    // to
-      {{"foo", 3.0f}},   // silence
-      {{"foo", 3.0}, {"bar": "3"}}  // linter
+      {},
+      {{"foo", 3.0}},
+      {{"foo", 3.0f}},
+      {{"foo", 3.0}, {"bar": "3"}},
   };
 
   std::vector<std::string> reprs =  {
       "<SetSessionOptionsRequest session_options={}>",
       "<SetSessionOptionsRequest session_options={[foo]: 3}>",
       "<SetSessionOptionsRequest session_options={[foo]: 3}>",
-      "<SetSessionOptionsRequest session_options={[foo]: 3, [bar]: \"3\"}>"
+      "<SetSessionOptionsRequest session_options={[foo]: 3, [bar]: \"3\"}>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundTrip<pb::SetSessionOptionsRequest>(values, reprs));
