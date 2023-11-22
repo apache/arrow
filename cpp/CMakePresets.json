@@ -69,11 +69,7 @@
         "ARROW_WITH_BROTLI": "ON",
         "ARROW_WITH_OPENTELEMETRY": "OFF",
         "ARROW_WITH_SNAPPY": "ON",
-        "CMAKE_C_BYTE_ORDER": "LITTLE_ENDIAN",
-        "CMAKE_PROJECT_INCLUDE": {
-          "type": "PATH",
-          "value": "${sourceDir}/cmake_modules/EmscriptenOverrides.cmake"
-        }
+        "CMAKE_C_BYTE_ORDER": "LITTLE_ENDIAN"
       }
     },
     {
