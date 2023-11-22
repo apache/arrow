@@ -123,7 +123,7 @@ gparquet_arrow_file_reader_class_init(GParquetArrowFileReaderClass *klass)
 /**
  * gparquet_arrow_file_reader_new_arrow:
  * @source: Arrow source to be read.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GParquetArrowFileReader.
  *
@@ -152,7 +152,7 @@ gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source,
 /**
  * gparquet_arrow_file_reader_new_path:
  * @path: Path to be read.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GParquetArrowFileReader.
  *
@@ -189,7 +189,7 @@ gparquet_arrow_file_reader_new_path(const gchar *path,
 /**
  * gparquet_arrow_file_reader_read_table:
  * @reader: A #GParquetArrowFileReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable): A read #GArrowTable.
  *
@@ -220,7 +220,7 @@ gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
  *   If an index is negative, the index is counted backward from the
  *   end of the columns. `-1` means the last column.
  * @n_column_indices: The number of elements of @column_indices.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable): A read #GArrowTable.
  *
@@ -273,7 +273,7 @@ gparquet_arrow_file_reader_read_row_group(GParquetArrowFileReader *reader,
 /**
  * gparquet_arrow_file_reader_get_schema:
  * @reader: A #GParquetArrowFileReader.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable): A got #GArrowSchema.
  *
@@ -302,7 +302,7 @@ gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
  * @i: The index of the column to be read.
  *   If an index is negative, the index is counted backward from the
  *   end of the columns. `-1` means the last column.
- * @error: (nullable): Return locatipcn for a #GError or %NULL.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable): A read #GArrowChunkedArray.
  *
