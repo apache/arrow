@@ -34,7 +34,7 @@ When the arrow package converts between R data and Arrow data, it will first che
 knitr::include_graphics("./data_types.png")
 ```
 
-In this image, black boxes refer to R data types and light blue boxes refer to Arrow data types. Directional arrows specify conversions (e.g., the bidirectional arrow between the logical R type and the boolean Arrow type means that R logicals convert to Arrow booleans and vice versa). Solid lines indicate that the this conversion rule is always the default; dashed lines mean that it only sometimes applies (the rules and special cases are described below). 
+In this image, black boxes refer to R data types and light blue boxes refer to Arrow data types. Directional arrows specify conversions (e.g., the bidirectional arrow between the logical R type and the boolean Arrow type means that the logical R converts to an Arrow boolean and vice versa). Solid lines indicate that the this conversion rule is always the default; dashed lines mean that it only sometimes applies (the rules and special cases are described below). 
 
 ## Logical/boolean types
 
