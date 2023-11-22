@@ -733,14 +733,13 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # flags are:
-  # 1) We are building library code
-  # 2) We force *everything* to build as position independent
-  # 3) And with support for C++ exceptions
+  # 1) We force *everything* to build as position independent
+  # 2) And with support for C++ exceptions
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -fexceptions")
   # size_t is 32 bit in emscripten wasm32 - ignore conversion errors
   # deprecated-literal-operator error is thrown in datetime (vendored lib in arrow)
   set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=shorten-64-to-32 -Wno-error=deprecated-literal-operator"
+      "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=deprecated-literal-operator"
   )
 
   # flags for creating shared libraries (only used in pyarrow, because
