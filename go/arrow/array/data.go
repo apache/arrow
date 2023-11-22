@@ -191,26 +191,31 @@ func (d *Data) SetDictionary(dict arrow.ArrayData) {
 }
 
 // Returns the size of Data in bytes
-func (d *Data) Size() uint64 {
+func (d *Data) SizeInBytes() uint64 {
 	var size uint64
 
-    if d == nil {
-        return 0
-    }
+	if d == nil {
+		return 0
+	}
 
-    for _, b := range d.Buffers() {
-        size += uint64(b.Len())
-    }
-    for _, c := range d.Children() {
-        size += c.Size()
-    }
-    size += d.Dictionary().Size()
-    return size
+	for _, b := range d.Buffers() {
+		size += uint64(b.Len())
+	}
+	for _, c := range d.Children() {
+		size += c.SizeInBytes()
+	}
+	if dict := d.Dictionary(); dict != nil {
+		size += dict.SizeInBytes()
+	}
+
+	return size
 }
 
 // NewSliceData returns a new slice that shares backing data with the input.
 // The returned Data slice starts at i and extends j-i elements, such as:
-//    slice := data[i:j]
+//
+//	slice := data[i:j]
+//
 // The returned value must be Release'd after use.
 //
 // NewSliceData panics if the slice is outside the valid range of the input Data.
