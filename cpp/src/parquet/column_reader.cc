@@ -1373,7 +1373,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t records_read = 0;
 
     if (has_values_to_process()) {
-      records_read += ReadRecordData(num_records);
+      records_read += ReadRecordDataWithSkipCheck(num_records);
     }
 
     int64_t level_batch_size = std::max<int64_t>(kMinLevelBatchSize, num_records);
@@ -1427,11 +1427,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         }
 
         levels_written_ += levels_read;
-        records_read += ReadRecordData(num_records - records_read);
+        records_read += ReadRecordDataWithSkipCheck(num_records - records_read);
       } else {
         // No repetition or definition levels
         batch_size = std::min(num_records - records_read, batch_size);
-        records_read += ReadRecordData(batch_size);
+        records_read += ReadRecordDataWithSkipCheck(batch_size);
       }
     }
 
@@ -1634,10 +1634,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // Top level required field. Number of records equals to number of levels,
     // and there is not read-ahead for levels.
-    if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
-      return this->Skip(num_records);
-    }
     int64_t skipped_records = 0;
+    if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
+      skipped_records =  this->Skip(num_records);
+      current_rg_processed_records += skipped_records;
+      return skipped_records;
+    }
     if (this->max_rep_level_ == 0) {
       // Non-repeated optional field.
       // First consume whatever is in the buffer.
@@ -1653,6 +1655,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     } else {
       skipped_records += this->SkipRecordsRepeated(num_records);
     }
+
+    current_rg_processed_records += skipped_records;
     return skipped_records;
   }
 
@@ -1984,7 +1988,26 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       this->ConsumeBufferedValues(values_to_read);
     }
 
+    current_rg_processed_records += records_read;
     return records_read;
+  }
+
+  int64_t ReadRecordDataWithSkipCheck(const int64_t num_records) {
+    if (!skipper) {
+      return ReadRecordData(num_records);
+    }
+
+    while (true) {
+      const auto advise = skipper->advise_next(current_rg_processed_records);
+      std::cout << "advise got after current_rg_processed_records: " << current_rg_processed_records  << " is: " << advise <<std::endl;
+      if (advise == 0) {
+        return 0;
+      }
+      if (advise > 0) {
+        return ReadRecordData(std::min(num_records, advise));
+      }
+      SkipRecords(-advise);
+    }
   }
 
   void DebugPrintState() override {

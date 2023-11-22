@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "parquet/file_reader.h"
+#include "parquet/column_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 
@@ -187,6 +188,11 @@ class PARQUET_EXPORT FileReader {
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
+  virtual ::arrow::Status GetRecordBatchReader(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+      std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
   /// \brief Return a RecordBatchReader of row groups selected from
   /// row_group_indices, whose columns are selected by column_indices.
   ///
@@ -199,6 +205,10 @@ class PARQUET_EXPORT FileReader {
   ///
   /// \returns error Status if either row_group_indices or column_indices
   ///     contains an invalid index
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       const std::vector<int>& column_indices,
+                                       const std::shared_ptr<std::map<int, RowRangesPtr>>& row_ranges_map,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,
                                        std::shared_ptr<::arrow::RecordBatchReader>* out);
