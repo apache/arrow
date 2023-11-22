@@ -44,7 +44,7 @@ cdef void pycapsule_deleter(object dltensor) noexcept:
 
 
 cpdef object to_dlpack(Array arr) except *:
-    dlm_tensor = toDLPack(deref(pyarrow_unwrap_array(arr).get()))
+    dlm_tensor = toDLPack(pyarrow_unwrap_array(arr))
 
     if dlm_tensor == nullptr:
         raise TypeError(

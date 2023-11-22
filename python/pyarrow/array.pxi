@@ -3590,13 +3590,6 @@ class FixedShapeTensorArray(ExtensionArray):
             FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
         )
 
-    def __dlpack__(self, stream=None):
-        if len(self.buffers()) > 3 or self.buffers()[0] or self.buffers()[1]:
-            raise ArrowTypeError(
-                "Can only use __dlpack__ on fixed shape tensor array with no validity buffers.")
-        # return fixed_shape_tensor_to_dlpack(self)
-        return None
-
 
 cdef dict _array_classes = {
     _Type_NA: NullArray,

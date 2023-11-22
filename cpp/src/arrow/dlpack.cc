@@ -23,11 +23,11 @@
 
 namespace arrow {
 
-DLDataType getDLDataType(const Array& arr, Status* status) {
+DLDataType getDLDataType(const std::shared_ptr<Array>& arr, Status* status) {
   DLDataType dtype;
   dtype.lanes = 1;
-  dtype.bits = arr.type()->bit_width();
-  switch (arr.type()->id()) {
+  dtype.bits = arr->type()->bit_width();
+  switch (arr->type()->id()) {
     case Type::INT8:
     case Type::INT16:
     case Type::INT32:
@@ -65,11 +65,11 @@ static void deleter(DLManagedTensor* arg) {
   delete static_cast<DLMTensorCtx*>(arg->manager_ctx);
 }
 
-DLManagedTensor* toDLPack(const Array& arr) {
+DLManagedTensor* toDLPack(const std::shared_ptr<Array>& arr) {
   Status status = Status::OK();
 
   // Return null pointer if the array has a validity bitmap
-  if (arr.null_bitmap() != NULLPTR) {
+  if (arr->null_bitmap() != NULLPTR) {
     status =
         Status::TypeError("Can only use __dlpack__ on arrays with no validity buffer.");
     return NULLPTR;
@@ -86,7 +86,7 @@ DLManagedTensor* toDLPack(const Array& arr) {
 
   // Create DLMTensorCtx struct with the reference to
   // the data of the array
-  std::shared_ptr<ArrayData> array_ref = arr.data();
+  std::shared_ptr<ArrayData> array_ref = arr->data();
   DLMTensorCtx* DLMTensor = new DLMTensorCtx;
   DLMTensor->ref = array_ref;
 
@@ -98,7 +98,7 @@ DLManagedTensor* toDLPack(const Array& arr) {
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
-  if (arr.length() == 0) {
+  if (arr->length() == 0) {
     dlm_tensor->dl_tensor.data = NULL;
   } else {
     dlm_tensor->dl_tensor.data = const_cast<void*>(
@@ -115,7 +115,7 @@ DLManagedTensor* toDLPack(const Array& arr) {
   dlm_tensor->dl_tensor.dtype = arr_type;
   std::vector<int64_t>* shape_arr = &DLMTensor->shape;
   shape_arr->resize(1);
-  (*shape_arr)[0] = arr.length();
+  (*shape_arr)[0] = arr->length();
   dlm_tensor->dl_tensor.shape = shape_arr->data();
   dlm_tensor->dl_tensor.strides = NULL;
   dlm_tensor->dl_tensor.byte_offset = 0;

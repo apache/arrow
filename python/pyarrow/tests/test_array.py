@@ -3565,59 +3565,50 @@ def PyCapsule_IsValid(capsule, name):
 def test_dlpack(value_type, np_type):
     if Version(np.__version__) < Version("1.22.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
-    arr = pa.array([1, 2, 3], type=value_type)
 
+    arr = pa.array([1, 2, 3], type=value_type)
     DLTensor = arr.__dlpack__()
     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-
     expected = np.array([1, 2, 3])
     result = np.from_dlpack(arr)
     np.testing.assert_array_equal(result, expected)
 
-    arr = pa.array([], type=value_type)
+    # arr_sliced = arr.slice(1, 1)
+    # DLTensor = arr_sliced.__dlpack__()
+    # assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+    # expected = np.array([2], dtype=np_type)
+    # result = np.from_dlpack(arr_sliced)
+    # np.testing.assert_array_equal(result, expected)
 
-    DLTensor = arr.__dlpack__()
+    arr_zero = pa.array([], type=value_type)
+    DLTensor = arr_zero.__dlpack__()
     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-
     expected = np.array([], dtype=np_type)
-    result = np.from_dlpack(arr)
+    result = np.from_dlpack(arr_zero)
     np.testing.assert_array_equal(result, expected)
-
-
-# @pytest.mark.parametrize(
-#     'value_type',
-#     [pa.uint8(), pa.uint32(), pa.int16(), pa.float32()]
-# )
-# def test_dlpack_on_fixed_shape_tensor(value_type):
-#     if Version(np.__version__) < Version("1.22.0"):
-#         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
-#     tensor_type = pa.fixed_shape_tensor(value_type, [2, 2])
-#     arr = [[1, 2, 3, 4], [10, 20, 30, 40], [1, 2, 3, 4]]
-#     storage = pa.array(arr, pa.list_(value_type, 4))
-#     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-
-#     DLTensor = arr.__dlpack__()
-#     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-
-#     expected = arr.to_numpy_ndarray()
-#     result = np.from_dlpack(arr)
-#     np.testing.assert_array_equal(result, expected)
 
 
 def test_dlpack_not_supported():
     if Version(np.__version__) < Version("1.22.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
-    with pytest.raises(TypeError):
+
+    with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive"):
         arr = pa.array([1, None, 3])
         np.from_dlpack(arr)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive"):
         arr = pa.array(
             [[0, 1], [3, 4]],
             type=pa.list_(pa.int32())
         )
         np.from_dlpack(arr)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive"):
         arr = pa.array([])
+        np.from_dlpack(arr)
+
+    # DLPack doesn't support bit-packed boolean values
+    # Should we cast to uint8?
+    with pytest.raises(RuntimeError, match="Unsupported dtype in DLTensor"):
+        arr = pa.array([True, False, True])
         np.from_dlpack(arr)
