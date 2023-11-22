@@ -1706,7 +1706,8 @@ services:
       args:
         repo: ${REPO}
         arch: ${ARCH}
-        jdk: ${JDK}
+        # Use a newer JDK as it seems to improve stability
+        jdk: 17
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
         maven: 3.5
