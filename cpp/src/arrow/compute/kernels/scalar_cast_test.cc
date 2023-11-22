@@ -2104,6 +2104,11 @@ TEST(Cast, BinaryToString) {
     // ARROW-16757: we no longer zero copy, but the contents are equal
     ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
     ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+
+    // ARROW-35901: check that casting with first buffer being a `nullptr` works
+    auto fixed_array_null = ArrayFromJSON(from_type, "[]");
+    fixed_array_null->data()->buffers[0] = NULLPTR;
+    CheckCast(fixed_array_null, ArrayFromJSON(string_type, "[]"));
   }
 }
 
