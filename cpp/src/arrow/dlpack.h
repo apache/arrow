@@ -27,6 +27,6 @@ namespace arrow {
 /// Returns pointer to the DLManagedTensor class defined by
 // the DLPack protocol
 ARROW_EXPORT
-DLManagedTensor* toDLPack(const std::shared_ptr<Array>& arr);
+DLManagedTensor* ExportToDLPack(const std::shared_ptr<Array>& arr);
 
 }  // namespace arrow

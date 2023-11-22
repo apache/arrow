@@ -65,7 +65,7 @@ static void deleter(DLManagedTensor* arg) {
   delete static_cast<DLMTensorCtx*>(arg->manager_ctx);
 }
 
-DLManagedTensor* toDLPack(const std::shared_ptr<Array>& arr) {
+DLManagedTensor* ExportToDLPack(const std::shared_ptr<Array>& arr) {
   Status status = Status::OK();
 
   // Return null pointer if the array has a validity bitmap
