@@ -56,6 +56,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
@@ -92,9 +93,15 @@ class AzuriteEnv : public ::testing::Environment {
       return;
     }
     auto temp_dir_ = *TemporaryDir::Make("azurefs-test-");
-    server_process_ = bp::child(boost::this_process::environment(), exe_path, "--silent",
-                                "--location", temp_dir_->path().ToString(), "--debug",
-                                temp_dir_->path().ToString() + "/debug.log");
+    auto debug_log_path_result = temp_dir_->path().Join("debug.log");
+    if (!debug_log_path_result.ok()) {
+      status_ = debug_log_path_result.status();
+      return;
+    }
+    debug_log_path_ = *debug_log_path_result;
+    server_process_ =
+        bp::child(boost::this_process::environment(), exe_path, "--silent", "--location",
+                  temp_dir_->path().ToString(), "--debug", debug_log_path_.ToString());
     if (!(server_process_.valid() && server_process_.running())) {
       auto error = "Could not start Azurite emulator.";
       server_process_.terminate();
@@ -110,6 +117,30 @@ class AzuriteEnv : public ::testing::Environment {
     server_process_.wait();
   }
 
+  Status DumpDebugLog() {
+    ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
+    if (!exists) {
+      return Status::OK();
+    }
+    ARROW_ASSIGN_OR_RAISE(auto file_descriptor,
+                          arrow::internal::FileOpenReadable(debug_log_path_));
+    std::vector<uint8_t> buffer;
+    const int64_t buffer_size = 4096;
+    buffer.reserve(buffer_size);
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto n_read_bytes,
+          arrow::internal::FileRead(file_descriptor.fd(), buffer.data(), buffer_size));
+      if (n_read_bytes <= 0) {
+        break;
+      }
+      std::cerr << std::string_view(reinterpret_cast<const char*>(buffer.data()),
+                                    n_read_bytes);
+    }
+    std::cerr << std::endl;
+    return Status::OK();
+  }
+
   const std::string& account_name() const { return account_name_; }
   const std::string& account_key() const { return account_key_; }
   const Status status() const { return status_; }
@@ -120,6 +151,7 @@ class AzuriteEnv : public ::testing::Environment {
   bp::child server_process_;
   Status status_;
   std::unique_ptr<TemporaryDir> temp_dir_;
+  arrow::internal::PlatformFilename debug_log_path_;
 };
 
 auto* azurite_env = ::testing::AddGlobalTestEnvironment(new AzuriteEnv);
@@ -252,6 +284,13 @@ class AzuriteFileSystemTest : public AzureFileSystemTest {
     ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
         GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key()));
     return options;
+  }
+
+  void TearDown() override {
+    AzureFileSystemTest::TearDown();
+    if (HasFailure()) {
+      ARROW_IGNORE_EXPR(GetAzuriteEnv()->DumpDebugLog());
+    }
   }
 };
 
