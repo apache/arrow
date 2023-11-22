@@ -1816,7 +1816,7 @@ extension Arrow_Flight_Protocol_Sql_SqlSupportsConvert: CaseIterable {
 
 ///*
 /// The JDBC/ODBC-defined type of any object.
-/// All the values here are the sames as in the JDBC and ODBC specs.
+/// All the values here are the same as in the JDBC and ODBC specs.
 enum Arrow_Flight_Protocol_Sql_XdbcDataType: SwiftProtobuf.Enum {
   typealias RawValue = Int
   case xdbcUnknownType // = 0
