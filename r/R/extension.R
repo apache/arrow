@@ -83,7 +83,7 @@ ExtensionArray$create <- function(x, type) {
 #' - `$WrapArray(array)`: Wraps a storage [Array] into an [ExtensionArray]
 #'   with this extension type.
 #'
-#' In addition, subclasses may override the following methos to customize
+#' In addition, subclasses may override the following methods to customize
 #' the behaviour of extension classes.
 #'
 #' - `$deserialize_instance()`: This method is called when a new [ExtensionType]
