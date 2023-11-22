@@ -610,7 +610,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  // setup anunequal one with unequal values
+  // setup an unequal one with unequal values
   ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
                                   list_is_valid.data()));
