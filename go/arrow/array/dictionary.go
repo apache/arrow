@@ -739,7 +739,7 @@ func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("dictionary builder must upack from json array, found %s", delim)
+		return fmt.Errorf("dictionary builder must unpack from json array, found %s", delim)
 	}
 
 	return b.Unmarshal(dec)
