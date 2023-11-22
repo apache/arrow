@@ -3386,7 +3386,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         else:
             use_legacy_dataset = False
 
-    # Check for conflicting kewords
+    # Check for conflicting keywords
     msg_confl_0 = (
         "The '{0}' argument is not supported by use_legacy_dataset={2}. "
         "Use only '{1}' instead."
