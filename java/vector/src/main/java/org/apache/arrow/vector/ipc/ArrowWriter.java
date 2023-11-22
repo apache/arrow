@@ -136,10 +136,7 @@ public abstract class ArrowWriter implements AutoCloseable {
         Collections.singletonList(vector.getField()),
         Collections.singletonList(vector),
         count);
-    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true,
-        this.compressionLevel.isPresent() ?
-            this.compressionFactory.createCodec(this.codecType, this.compressionLevel.get()) :
-            this.compressionFactory.createCodec(this.codecType),
+    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true, getCodec(),
         /*alignBuffers*/ true);
     ArrowRecordBatch batch = unloader.getRecordBatch();
     ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
