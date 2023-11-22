@@ -823,10 +823,12 @@ cdef class RecordBatchReader(_Weakrefable):
 
         Parameters
         ----------
-        requested_schema: Schema, default None
-            The schema to which the stream should be casted. Currently, this is
-            not supported and will raise a NotImplementedError if the schema 
-            doesn't match the current schema.
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+            Currently, this is not supported and will raise a
+            NotImplementedError if the schema doesn't match the current schema.
 
         Returns
         -------
