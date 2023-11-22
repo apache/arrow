@@ -276,7 +276,7 @@ class AzureFileSystemTest : public ::testing::Test {
 };
 
 class AzuriteFileSystemTest : public AzureFileSystemTest {
-  Result<AzureOptions> MakeOptions() {
+  Result<AzureOptions> MakeOptions() override {
     EXPECT_THAT(GetAzuriteEnv(), NotNull());
     ARROW_EXPECT_OK(GetAzuriteEnv()->status());
     AzureOptions options;
