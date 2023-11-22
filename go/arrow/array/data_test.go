@@ -74,7 +74,16 @@ func TestSizeInBytes(t *testing.T) {
 		t.Errorf("expected size %d, got %d", expectedSize, actualSize)
 	}
 
-	// test 3: data with buffers and dictionary
+	// test 3: data with buffers and nested child data
+	var dataWithChildArrayData arrow.ArrayData = dataWithChild
+	var dataWithNestedChild arrow.ArrayData = NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{dataWithChildArrayData}, 0, 0)
+	// 45 bytes in buffers, 90 bytes in nested child data
+	expectedSize = uint64(135)
+	if actualSize := dataWithNestedChild.SizeInBytes(); actualSize != expectedSize {
+		t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+	}
+
+	// test 4: data with buffers and dictionary
 	dictData := data
 	dataWithDict := NewDataWithDictionary(&arrow.StringType{}, 10, buffers1, 0, 0, dictData)
 	// 45 bytes in buffers, 45 bytes in dictionary
