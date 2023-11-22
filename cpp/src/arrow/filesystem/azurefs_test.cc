@@ -543,7 +543,7 @@ TEST_F(AzuriteFileSystemTest, DeleteDirSuccessHaveBlobs) {
       internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
   // We must use 257 or more blobs here to test pagination of ListBlobs().
   // Because we can't add 257 or more delete blob requests to one SubmitBatch().
-  int64_t n_blobs = 300;
+  int64_t n_blobs = 257;
   for (int64_t i = 0; i < n_blobs; ++i) {
     const auto blob_path =
         internal::ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
