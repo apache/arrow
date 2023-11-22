@@ -444,6 +444,10 @@ struct SchemaExporter {
 
   Status Visit(const LargeListType& type) { return SetFormat("+L"); }
 
+  Status Visit(const ListViewType& type) { return SetFormat("+vl"); }
+
+  Status Visit(const LargeListViewType& type) { return SetFormat("+vL"); }
+
   Status Visit(const FixedSizeListType& type) {
     return SetFormat("+w:" + ToChars(type.list_size()));
   }
@@ -1100,6 +1104,16 @@ struct SchemaImporter {
         return ProcessListLike<ListType>();
       case 'L':
         return ProcessListLike<LargeListType>();
+      case 'v': {
+        RETURN_NOT_OK(f_parser_.CheckHasNext());
+        switch (f_parser_.Next()) {
+          case 'l':
+            return ProcessListView<ListViewType>();
+          case 'L':
+            return ProcessListView<LargeListViewType>();
+        }
+        break;
+      }
       case 'w':
         return ProcessFixedSizeList();
       case 's':
@@ -1201,6 +1215,15 @@ struct SchemaImporter {
     RETURN_NOT_OK(CheckNumChildren(1));
     ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
     type_ = std::make_shared<ListType>(field);
+    return Status::OK();
+  }
+
+  template <typename ListViewType>
+  Status ProcessListView() {
+    RETURN_NOT_OK(f_parser_.CheckAtEnd());
+    RETURN_NOT_OK(CheckNumChildren(1));
+    ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
+    type_ = std::make_shared<ListViewType>(std::move(field));
     return Status::OK();
   }
 
@@ -1572,6 +1595,10 @@ struct ArrayImporter {
 
   Status Visit(const LargeListType& type) { return ImportListLike(type); }
 
+  Status Visit(const ListViewType& type) { return ImportListView(type); }
+
+  Status Visit(const LargeListViewType& type) { return ImportListView(type); }
+
   Status Visit(const FixedSizeListType& type) {
     RETURN_NOT_OK(CheckNumChildren(1));
     RETURN_NOT_OK(CheckNumBuffers(1));
@@ -1667,6 +1694,18 @@ struct ArrayImporter {
     return Status::OK();
   }
 
+  template <typename ListViewType>
+  Status ImportListView(const ListViewType& type) {
+    using offset_type = typename ListViewType::offset_type;
+    RETURN_NOT_OK(CheckNumChildren(1));
+    RETURN_NOT_OK(CheckNumBuffers(3));
+    RETURN_NOT_OK(AllocateArrayData());
+    RETURN_NOT_OK(ImportNullBitmap());
+    RETURN_NOT_OK((ImportOffsetsBuffer<offset_type, /*with_extra_offset=*/false>(1)));
+    RETURN_NOT_OK(ImportSizesBuffer<offset_type>(2));
+    return Status::OK();
+  }
+
   Status CheckNoChildren() { return CheckNumChildren(0); }
 
   Status CheckNumChildren(int64_t n_children) {
@@ -1735,11 +1774,18 @@ struct ArrayImporter {
     return ImportBuffer(buffer_id, buffer_size);
   }
 
-  template <typename OffsetType>
+  template <typename OffsetType, bool with_extra_offset = true>
   Status ImportOffsetsBuffer(int32_t buffer_id) {
     // Compute visible size of buffer
-    int64_t buffer_size =
-        sizeof(OffsetType) * (c_struct_->length + c_struct_->offset + 1);
+    int64_t buffer_size = sizeof(OffsetType) * (c_struct_->length + c_struct_->offset +
+                                                (with_extra_offset ? 1 : 0));
+    return ImportBuffer(buffer_id, buffer_size);
+  }
+
+  template <typename OffsetType>
+  Status ImportSizesBuffer(int32_t buffer_id) {
+    // Compute visible size of buffer
+    int64_t buffer_size = sizeof(OffsetType) * (c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
 

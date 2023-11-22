@@ -40,37 +40,46 @@ namespace arrow {
 /// @{
 
 // ----------------------------------------------------------------------
-// List builder
+// VarLengthListLikeBuilder
 
 template <typename TYPE>
-class BaseListBuilder : public ArrayBuilder {
+class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
-  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-                  const std::shared_ptr<DataType>& type,
-                  int64_t alignment = kDefaultBufferAlignment)
+  VarLengthListLikeBuilder(MemoryPool* pool,
+                           std::shared_ptr<ArrayBuilder> const& value_builder,
+                           const std::shared_ptr<DataType>& type,
+                           int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
         offsets_builder_(pool, alignment),
         value_builder_(value_builder),
         value_field_(type->field(0)->WithType(NULLPTR)) {}
 
-  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-                  int64_t alignment = kDefaultBufferAlignment)
-      : BaseListBuilder(pool, value_builder, list(value_builder->type()), alignment) {}
+  VarLengthListLikeBuilder(MemoryPool* pool,
+                           std::shared_ptr<ArrayBuilder> const& value_builder,
+                           int64_t alignment = kDefaultBufferAlignment)
+      : VarLengthListLikeBuilder(pool, value_builder,
+                                 std::make_shared<TYPE>(value_builder->type()),
+                                 alignment) {}
+
+  ~VarLengthListLikeBuilder() override = default;
 
   Status Resize(int64_t capacity) override {
     if (ARROW_PREDICT_FALSE(capacity > maximum_elements())) {
-      return Status::CapacityError("List array cannot reserve space for more than ",
+      return Status::CapacityError(type_name(),
+                                   " array cannot reserve space for more than ",
                                    maximum_elements(), " got ", capacity);
     }
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
 
-    // One more than requested for offsets
-    ARROW_RETURN_NOT_OK(offsets_builder_.Resize(capacity + 1));
+    // One more than requested for list offsets
+    const int64_t offsets_capacity =
+        is_list_view(TYPE::type_id) ? capacity : capacity + 1;
+    ARROW_RETURN_NOT_OK(offsets_builder_.Resize(offsets_capacity));
     return ArrayBuilder::Resize(capacity);
   }
 
@@ -80,56 +89,98 @@ class BaseListBuilder : public ArrayBuilder {
     value_builder_->Reset();
   }
 
-  /// \brief Vector append
-  ///
-  /// If passed, valid_bytes is of equal length to values, and any zero byte
-  /// will be considered as a null for that slot
-  Status AppendValues(const offset_type* offsets, int64_t length,
-                      const uint8_t* valid_bytes = NULLPTR) {
-    ARROW_RETURN_NOT_OK(Reserve(length));
-    UnsafeAppendToBitmap(valid_bytes, length);
-    offsets_builder_.UnsafeAppend(offsets, length);
-    return Status::OK();
-  }
-
   /// \brief Start a new variable-length list slot
   ///
-  /// This function should be called before beginning to append elements to the
-  /// value builder
-  Status Append(bool is_valid = true) {
+  /// This function should be called before appending elements to the
+  /// value builder. Elements appended to the value builder before this function
+  /// is called for the first time, will not be members of any list value.
+  ///
+  /// After this function is called, list_length elements SHOULD be appended to
+  /// the values builder. If this contract is violated, the behavior is defined by
+  /// the concrete builder implementation and SHOULD NOT be relied upon unless
+  /// the caller is specifically building a [Large]List or [Large]ListView array.
+  ///
+  /// For [Large]List arrays, the list slot length will be the number of elements
+  /// appended to the values builder before the next call to Append* or Finish. For
+  /// [Large]ListView arrays, the list slot length will be exactly list_length, but if
+  /// Append* is called before at least list_length elements are appended to the values
+  /// builder, the current list slot will share elements with the next list
+  /// slots or an invalid [Large]ListView array will be generated because there
+  /// aren't enough elements in the values builder to fill the list slots.
+  ///
+  /// If you're building a [Large]List and don't need to be compatible
+  /// with [Large]ListView, then `BaseListBuilder::Append(bool is_valid)`
+  /// is a simpler API.
+  ///
+  /// \pre if is_valid is false, list_length MUST be 0
+  /// \param is_valid Whether the new list slot is valid
+  /// \param list_length The number of elements in the list
+  Status Append(bool is_valid, int64_t list_length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
+    assert(is_valid || list_length == 0);
     UnsafeAppendToBitmap(is_valid);
-    UnsafeAppendNextOffset();
+    UnsafeAppendDimensions(/*offset=*/value_builder_->length(), /*size=*/list_length);
     return Status::OK();
   }
 
-  Status AppendNull() final { return Append(false); }
+  Status AppendNull() final {
+    // Append() a null list slot with list_length=0.
+    //
+    // When building [Large]List arrays, elements being appended to the values builder
+    // before the next call to Append* or Finish will extend the list slot length, but
+    // that is totally fine because list arrays admit non-empty null list slots.
+    //
+    // In the case of [Large]ListViews that's not a problem either because the
+    // list slot length remains zero.
+    return Append(false, 0);
+  }
 
   Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(length, false);
-    const int64_t num_values = value_builder_->length();
-    for (int64_t i = 0; i < length; ++i) {
-      offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_values));
-    }
+    UnsafeAppendEmptyDimensions(/*num_values=*/length);
     return Status::OK();
   }
 
-  Status AppendEmptyValue() final { return Append(true); }
+  /// \brief Append an empty list slot
+  ///
+  /// \post Another call to Append* or Finish should be made before appending to
+  /// the values builder to ensure list slot remains empty
+  Status AppendEmptyValue() final { return Append(true, 0); }
 
+  /// \brief Append an empty list slot
+  ///
+  /// \post Another call to Append* or Finish should be made before appending to
+  /// the values builder to ensure the last list slot remains empty
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(length, true);
-    const int64_t num_values = value_builder_->length();
-    for (int64_t i = 0; i < length; ++i) {
-      offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_values));
-    }
+    UnsafeAppendEmptyDimensions(/*num_values=*/length);
     return Status::OK();
   }
+
+  /// \brief Vector append
+  ///
+  /// For list-array builders, the sizes are inferred from the offsets.
+  /// BaseListBuilder<T> provides an implementation that doesn't take sizes, but
+  /// this virtual function allows dispatching calls to both list-array and
+  /// list-view-array builders (which need the sizes)
+  ///
+  /// \param offsets The offsets of the variable-length lists
+  /// \param sizes The sizes of the variable-length lists
+  /// \param length The number of offsets, sizes, and validity bits to append
+  /// \param valid_bytes If passed, valid_bytes is of equal length to values,
+  /// and any zero byte will be considered as a null for that slot
+  virtual Status AppendValues(const offset_type* offsets, const offset_type* sizes,
+                              int64_t length, const uint8_t* valid_bytes) = 0;
 
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     const offset_type* offsets = array.GetValues<offset_type>(1);
+    [[maybe_unused]] const offset_type* sizes = NULLPTR;
+    if constexpr (is_list_view(TYPE::type_id)) {
+      sizes = array.GetValues<offset_type>(2);
+    }
     const bool all_valid = !array.MayHaveLogicalNulls();
     const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -137,43 +188,28 @@ class BaseListBuilder : public ArrayBuilder {
       const bool is_valid =
           all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
           array.IsValid(row);
-      UnsafeAppendToBitmap(is_valid);
-      UnsafeAppendNextOffset();
+      int64_t size = 0;
       if (is_valid) {
-        int64_t slot_length = offsets[row + 1] - offsets[row];
-        ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(array.child_data[0],
-                                                             offsets[row], slot_length));
+        if constexpr (is_list_view(TYPE::type_id)) {
+          size = sizes[row];
+        } else {
+          size = offsets[row + 1] - offsets[row];
+        }
+      }
+      UnsafeAppendToBitmap(is_valid);
+      UnsafeAppendDimensions(/*offset=*/value_builder_->length(), size);
+      if (is_valid) {
+        ARROW_RETURN_NOT_OK(
+            value_builder_->AppendArraySlice(array.child_data[0], offsets[row], size));
       }
     }
-    return Status::OK();
-  }
-
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    ARROW_RETURN_NOT_OK(AppendNextOffset());
-
-    // Offset padding zeroed by BufferBuilder
-    std::shared_ptr<Buffer> offsets, null_bitmap;
-    ARROW_RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
-    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-
-    if (value_builder_->length() == 0) {
-      // Try to make sure we get a non-null values buffer (ARROW-2744)
-      ARROW_RETURN_NOT_OK(value_builder_->Resize(0));
-    }
-
-    std::shared_ptr<ArrayData> items;
-    ARROW_RETURN_NOT_OK(value_builder_->FinishInternal(&items));
-
-    *out = ArrayData::Make(type(), length_, {null_bitmap, offsets}, {std::move(items)},
-                           null_count_);
-    Reset();
     return Status::OK();
   }
 
   Status ValidateOverflow(int64_t new_elements) const {
     auto new_length = value_builder_->length() + new_elements;
     if (ARROW_PREDICT_FALSE(new_length > maximum_elements())) {
-      return Status::CapacityError("List array cannot contain more than ",
+      return Status::CapacityError(type_name(), " array cannot contain more than ",
                                    maximum_elements(), " elements, have ", new_elements);
     } else {
       return Status::OK();
@@ -191,20 +227,136 @@ class BaseListBuilder : public ArrayBuilder {
     return std::make_shared<TYPE>(value_field_->WithType(value_builder_->type()));
   }
 
+ private:
+  static constexpr const char* type_name() {
+    if constexpr (is_list_view(TYPE::type_id)) {
+      return "ListView";
+    } else {
+      return "List";
+    }
+  }
+
  protected:
+  /// \brief Append dimensions for num_values empty list slots.
+  ///
+  /// ListViewBuilder overrides this to also append the sizes.
+  virtual void UnsafeAppendEmptyDimensions(int64_t num_values) {
+    const int64_t offset = value_builder_->length();
+    for (int64_t i = 0; i < num_values; ++i) {
+      offsets_builder_.UnsafeAppend(static_cast<offset_type>(offset));
+    }
+  }
+
+  /// \brief Append dimensions for a single list slot.
+  ///
+  /// ListViewBuilder overrides this to also append the size.
+  virtual void UnsafeAppendDimensions(int64_t offset, int64_t size) {
+    offsets_builder_.UnsafeAppend(static_cast<offset_type>(offset));
+  }
+
   TypedBufferBuilder<offset_type> offsets_builder_;
   std::shared_ptr<ArrayBuilder> value_builder_;
   std::shared_ptr<Field> value_field_;
+};
 
-  Status AppendNextOffset() {
-    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
-    const int64_t num_values = value_builder_->length();
-    return offsets_builder_.Append(static_cast<offset_type>(num_values));
+// ----------------------------------------------------------------------
+// ListBuilder / LargeListBuilder
+
+template <typename TYPE>
+class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
+ private:
+  using BASE = VarLengthListLikeBuilder<TYPE>;
+
+ public:
+  using TypeClass = TYPE;
+  using offset_type = typename BASE::offset_type;
+
+  using BASE::BASE;
+
+  using BASE::Append;
+
+  ~BaseListBuilder() override = default;
+
+  /// \brief Start a new variable-length list slot
+  ///
+  /// This function should be called before beginning to append elements to the
+  /// value builder
+  Status Append(bool is_valid = true) {
+    // The value_length parameter to BASE::Append(bool, int64_t) is ignored when
+    // building a list array, so we can pass 0 here.
+    return BASE::Append(is_valid, 0);
   }
 
-  void UnsafeAppendNextOffset() {
-    const int64_t num_values = value_builder_->length();
-    offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_values));
+  /// \brief Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
+  Status AppendValues(const offset_type* offsets, int64_t length,
+                      const uint8_t* valid_bytes = NULLPTR) {
+    ARROW_RETURN_NOT_OK(this->Reserve(length));
+    this->UnsafeAppendToBitmap(valid_bytes, length);
+    this->offsets_builder_.UnsafeAppend(offsets, length);
+    return Status::OK();
+  }
+
+  Status AppendValues(const offset_type* offsets, const offset_type* sizes,
+                      int64_t length, const uint8_t* valid_bytes) final {
+    // Offsets are assumed to be valid, but the first length-1 sizes have to be
+    // consistent with the offsets to partially rule out the possibility that the
+    // caller is passing sizes that could work if building a list-view, but don't
+    // work on building a list that requires offsets to be non-decreasing.
+    //
+    // CAUTION: the last size element (`sizes[length - 1]`) is not
+    // validated and could be inconsistent with the offsets given in a
+    // subsequent call to AppendValues.
+#ifndef NDEBUG
+    if (sizes) {
+      for (int64_t i = 0; i < length - 1; ++i) {
+        if (ARROW_PREDICT_FALSE(offsets[i] != offsets[i + 1] - sizes[i])) {
+          if (!valid_bytes || valid_bytes[i]) {
+            return Status::Invalid(
+                "BaseListBuilder: sizes are inconsistent with offsets provided");
+          }
+        }
+      }
+    }
+#endif
+    return AppendValues(offsets, length, valid_bytes);
+  }
+
+  Status AppendValues(const offset_type* offsets, const offset_type* sizes,
+                      int64_t length) {
+    return AppendValues(offsets, sizes, length, /*valid_bytes=*/NULLPTR);
+  }
+
+  Status AppendNextOffset() {
+    ARROW_RETURN_NOT_OK(this->ValidateOverflow(0));
+    const int64_t num_values = this->value_builder_->length();
+    return this->offsets_builder_.Append(static_cast<offset_type>(num_values));
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    ARROW_RETURN_NOT_OK(AppendNextOffset());
+
+    // Offset padding zeroed by BufferBuilder
+    std::shared_ptr<Buffer> offsets;
+    std::shared_ptr<Buffer> null_bitmap;
+    ARROW_RETURN_NOT_OK(this->offsets_builder_.Finish(&offsets));
+    ARROW_RETURN_NOT_OK(this->null_bitmap_builder_.Finish(&null_bitmap));
+
+    if (this->value_builder_->length() == 0) {
+      // Try to make sure we get a non-null values buffer (ARROW-2744)
+      ARROW_RETURN_NOT_OK(this->value_builder_->Resize(0));
+    }
+
+    std::shared_ptr<ArrayData> items;
+    ARROW_RETURN_NOT_OK(this->value_builder_->FinishInternal(&items));
+
+    *out = ArrayData::Make(this->type(), this->length_,
+                           {std::move(null_bitmap), std::move(offsets)},
+                           {std::move(items)}, this->null_count_);
+    this->Reset();
+    return Status::OK();
   }
 };
 
@@ -245,6 +397,116 @@ class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
   /// \endcond
 
   Status Finish(std::shared_ptr<LargeListArray>* out) { return FinishTyped(out); }
+};
+
+// ----------------------------------------------------------------------
+// ListViewBuilder / LargeListViewBuilder
+
+template <typename TYPE>
+class ARROW_EXPORT BaseListViewBuilder : public VarLengthListLikeBuilder<TYPE> {
+ private:
+  using BASE = VarLengthListLikeBuilder<TYPE>;
+
+ public:
+  using TypeClass = TYPE;
+  using offset_type = typename BASE::offset_type;
+
+  using BASE::BASE;
+
+  ~BaseListViewBuilder() override = default;
+
+  Status Resize(int64_t capacity) override {
+    ARROW_RETURN_NOT_OK(BASE::Resize(capacity));
+    return sizes_builder_.Resize(capacity);
+  }
+
+  void Reset() override {
+    BASE::Reset();
+    sizes_builder_.Reset();
+  }
+
+  /// \brief Vector append
+  ///
+  /// If passed, valid_bytes is of equal length to values, and any zero byte
+  /// will be considered as a null for that slot
+  Status AppendValues(const offset_type* offsets, const offset_type* sizes,
+                      int64_t length, const uint8_t* valid_bytes) final {
+    ARROW_RETURN_NOT_OK(this->Reserve(length));
+    this->UnsafeAppendToBitmap(valid_bytes, length);
+    this->offsets_builder_.UnsafeAppend(offsets, length);
+    this->sizes_builder_.UnsafeAppend(sizes, length);
+    return Status::OK();
+  }
+
+  Status AppendValues(const offset_type* offsets, const offset_type* sizes,
+                      int64_t length) {
+    return AppendValues(offsets, sizes, length, /*valid_bytes=*/NULLPTR);
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    // Offset and sizes padding zeroed by BufferBuilder
+    std::shared_ptr<Buffer> null_bitmap;
+    std::shared_ptr<Buffer> offsets;
+    std::shared_ptr<Buffer> sizes;
+    ARROW_RETURN_NOT_OK(this->null_bitmap_builder_.Finish(&null_bitmap));
+    ARROW_RETURN_NOT_OK(this->offsets_builder_.Finish(&offsets));
+    ARROW_RETURN_NOT_OK(this->sizes_builder_.Finish(&sizes));
+
+    if (this->value_builder_->length() == 0) {
+      // Try to make sure we get a non-null values buffer (ARROW-2744)
+      ARROW_RETURN_NOT_OK(this->value_builder_->Resize(0));
+    }
+
+    std::shared_ptr<ArrayData> items;
+    ARROW_RETURN_NOT_OK(this->value_builder_->FinishInternal(&items));
+
+    *out = ArrayData::Make(this->type(), this->length_,
+                           {std::move(null_bitmap), std::move(offsets), std::move(sizes)},
+                           {std::move(items)}, this->null_count_);
+    this->Reset();
+    return Status::OK();
+  }
+
+ protected:
+  void UnsafeAppendEmptyDimensions(int64_t num_values) override {
+    for (int64_t i = 0; i < num_values; ++i) {
+      this->offsets_builder_.UnsafeAppend(0);
+    }
+    for (int64_t i = 0; i < num_values; ++i) {
+      this->sizes_builder_.UnsafeAppend(0);
+    }
+  }
+
+  void UnsafeAppendDimensions(int64_t offset, int64_t size) override {
+    this->offsets_builder_.UnsafeAppend(static_cast<offset_type>(offset));
+    this->sizes_builder_.UnsafeAppend(static_cast<offset_type>(size));
+  }
+
+ private:
+  TypedBufferBuilder<offset_type> sizes_builder_;
+};
+
+class ARROW_EXPORT ListViewBuilder final : public BaseListViewBuilder<ListViewType> {
+ public:
+  using BaseListViewBuilder::BaseListViewBuilder;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<ListViewArray>* out) { return FinishTyped(out); }
+};
+
+class ARROW_EXPORT LargeListViewBuilder final
+    : public BaseListViewBuilder<LargeListViewType> {
+ public:
+  using BaseListViewBuilder::BaseListViewBuilder;
+
+  /// \cond FALSE
+  using ArrayBuilder::Finish;
+  /// \endcond
+
+  Status Finish(std::shared_ptr<LargeListViewArray>* out) { return FinishTyped(out); }
 };
 
 // ----------------------------------------------------------------------

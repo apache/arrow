@@ -531,6 +531,20 @@ struct ARROW_EXPORT LargeListScalar : public BaseListScalar {
   explicit LargeListScalar(std::shared_ptr<Array> value, bool is_valid = true);
 };
 
+struct ARROW_EXPORT ListViewScalar : public BaseListScalar {
+  using TypeClass = ListViewType;
+  using BaseListScalar::BaseListScalar;
+
+  explicit ListViewScalar(std::shared_ptr<Array> value, bool is_valid = true);
+};
+
+struct ARROW_EXPORT LargeListViewScalar : public BaseListScalar {
+  using TypeClass = LargeListViewType;
+  using BaseListScalar::BaseListScalar;
+
+  explicit LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid = true);
+};
+
 struct ARROW_EXPORT MapScalar : public BaseListScalar {
   using TypeClass = MapType;
   using BaseListScalar::BaseListScalar;

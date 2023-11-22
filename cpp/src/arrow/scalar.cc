@@ -587,6 +587,12 @@ ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, large_list(value->type()), is_valid) {}
 
+ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+    : BaseListScalar(value, list_view(value->type()), is_valid) {}
+
+LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+    : BaseListScalar(value, large_list_view(value->type()), is_valid) {}
+
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
   ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
   ARROW_CHECK_EQ(pair_type->num_fields(), 2);
@@ -776,14 +782,6 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
-  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
-  Status VisitListLike(const T& type, int64_t value_size = 0) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value,
-                          MakeArrayOfNull(type.value_type(), value_size));
-    out_ = std::make_shared<ScalarType>(std::move(value), type_, /*is_valid=*/false);
-    return Status::OK();
-  }
-
   Status Visit(const FixedSizeBinaryType& type) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> value,
                           AllocateBuffer(type.byte_width()));
@@ -794,11 +792,25 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
+  Status VisitListLike(const T& type, int64_t list_size = 0) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value,
+                          MakeArrayOfNull(type.value_type(), list_size));
+    out_ = std::make_shared<ScalarType>(std::move(value), type_, /*is_valid=*/false);
+    return Status::OK();
+  }
+
   Status Visit(const ListType& type) { return VisitListLike<ListType>(type); }
+
+  Status Visit(const LargeListType& type) { return VisitListLike<LargeListType>(type); }
 
   Status Visit(const MapType& type) { return VisitListLike<MapType>(type); }
 
-  Status Visit(const LargeListType& type) { return VisitListLike<LargeListType>(type); }
+  Status Visit(const ListViewType& type) { return VisitListLike<ListViewType>(type); }
+
+  Status Visit(const LargeListViewType& type) {
+    return VisitListLike<LargeListViewType>(type);
+  }
 
   Status Visit(const FixedSizeListType& type) {
     return VisitListLike<FixedSizeListType>(type, type.list_size());

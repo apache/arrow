@@ -55,6 +55,7 @@ add_arrow_test(utility-test
                int_util_test.cc
                ${IO_UTIL_TEST_SOURCES}
                iterator_test.cc
+               list_util_test.cc
                logging_test.cc
                queue_test.cc
                range_test.cc

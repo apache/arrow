@@ -74,6 +74,8 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   batches.push_back(batch);
   RETURN_NOT_OK(test::MakeListRecordBatch(&batch));
   batches.push_back(batch);
+  RETURN_NOT_OK(test::MakeListViewRecordBatch(&batch));
+  batches.push_back(batch);
   RETURN_NOT_OK(test::MakeDictionary(&batch));
   batches.push_back(batch);
   RETURN_NOT_OK(test::MakeTimestamps(&batch));
