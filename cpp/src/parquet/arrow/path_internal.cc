@@ -312,7 +312,7 @@ struct NullableTerminalNode {
 // at least one other node).
 //
 // Type parameters:
-//    |RangeSelector| - A strategy for determine the the range of the child node to
+//    |RangeSelector| - A strategy for determine the range of the child node to
 //    process.
 //       this varies depending on the type of list (int32_t* offsets, int64_t* offsets of
 //       fixed.
@@ -450,6 +450,17 @@ struct FixedSizedRangeSelector {
   int list_size;
 };
 
+template <typename OffsetType>
+struct VarRangeViewSelector {
+  ElementRange GetRange(int64_t index) const {
+    return ElementRange{offsets[index], offsets[index] + sizes[index]};
+  }
+
+  // Either int32_t* or int64_t*.
+  const OffsetType* offsets;
+  const OffsetType* sizes;
+};
+
 // An intermediate node that handles null values.
 class NullableNode {
  public:
@@ -510,6 +521,8 @@ class NullableNode {
 
 using ListNode = ListPathNode<VarRangeSelector<int32_t>>;
 using LargeListNode = ListPathNode<VarRangeSelector<int64_t>>;
+using ListViewNode = ListPathNode<VarRangeViewSelector<int32_t>>;
+using LargeListViewNode = ListPathNode<VarRangeViewSelector<int64_t>>;
 using FixedSizeListNode = ListPathNode<FixedSizedRangeSelector>;
 
 // Contains static information derived from traversing the schema.
@@ -517,9 +530,9 @@ struct PathInfo {
   // The vectors are expected to the same length info.
 
   // Note index order matters here.
-  using Node =
-      std::variant<NullableTerminalNode, ListNode, LargeListNode, FixedSizeListNode,
-                   NullableNode, AllPresentTerminalNode, AllNullsTerminalNode>;
+  using Node = std::variant<NullableTerminalNode, ListNode, LargeListNode, ListViewNode,
+                            LargeListViewNode, FixedSizeListNode, NullableNode,
+                            AllPresentTerminalNode, AllNullsTerminalNode>;
 
   std::vector<Node> path;
   std::shared_ptr<Array> primitive_array;
@@ -579,13 +592,19 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
       IterationResult operator()(NullableNode& node) {
         return node.Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(ListNode& node) {
-        return node.Run(stack_position, stack_position + 1, context);
-      }
       IterationResult operator()(NullableTerminalNode& node) {
         return node.Run(*stack_position, context);
       }
+      IterationResult operator()(ListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
+      }
       IterationResult operator()(FixedSizeListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
+      }
+      IterationResult operator()(ListViewNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
+      }
+      IterationResult operator()(LargeListViewNode& node) {
         return node.Run(stack_position, stack_position + 1, context);
       }
       IterationResult operator()(AllPresentTerminalNode& node) {
@@ -651,6 +670,8 @@ struct FixupVisitor {
   void operator()(ListNode& node) { HandleListNode(node); }
   void operator()(LargeListNode& node) { HandleListNode(node); }
   void operator()(FixedSizeListNode& node) { HandleListNode(node); }
+  void operator()(ListViewNode& node) { HandleListNode(node); }
+  void operator()(LargeListViewNode& node) { HandleListNode(node); }
 
   // For non-list intermediate nodes.
   template <typename T>
@@ -724,19 +745,31 @@ class PathBuilder {
 
   template <typename T>
   ::arrow::enable_if_t<std::is_same<::arrow::ListArray, T>::value ||
-                           std::is_same<::arrow::LargeListArray, T>::value,
+                           std::is_same<::arrow::LargeListArray, T>::value ||
+                           std::is_same<::arrow::ListViewArray, T>::value ||
+                           std::is_same<::arrow::LargeListViewArray, T>::value,
                        Status>
   Visit(const T& array) {
     MaybeAddNullable(array);
     // Increment necessary due to empty lists.
     info_.max_def_level++;
     info_.max_rep_level++;
-    // raw_value_offsets() accounts for any slice offset.
-    ListPathNode<VarRangeSelector<typename T::offset_type>> node(
-        VarRangeSelector<typename T::offset_type>{array.raw_value_offsets()},
-        info_.max_rep_level, info_.max_def_level - 1);
-    info_.path.emplace_back(std::move(node));
-    nullable_in_parent_ = array.list_type()->value_field()->nullable();
+    // raw_value_offsets() and raw_value_sizes() accounts for any slice offset/size.
+    if constexpr (std::is_same<::arrow::ListViewArray, T>::value ||
+                  std::is_same<::arrow::LargeListViewArray, T>::value) {
+      ListPathNode<VarRangeViewSelector<typename T::offset_type>> node(
+          VarRangeViewSelector<typename T::offset_type>{array.raw_value_offsets(),
+                                                        array.raw_value_sizes()},
+          info_.max_rep_level, info_.max_def_level - 1);
+      info_.path.emplace_back(std::move(node));
+      nullable_in_parent_ = array.list_view_type()->value_field()->nullable();
+    } else {
+      ListPathNode<VarRangeSelector<typename T::offset_type>> node(
+          VarRangeSelector<typename T::offset_type>{array.raw_value_offsets()},
+          info_.max_rep_level, info_.max_def_level - 1);
+      info_.path.emplace_back(std::move(node));
+      nullable_in_parent_ = array.list_type()->value_field()->nullable();
+    }
     return VisitInline(*array.values());
   }
 
@@ -830,8 +863,6 @@ class PathBuilder {
   // Types not yet supported in Parquet.
   NOT_IMPLEMENTED_VISIT(Union)
   NOT_IMPLEMENTED_VISIT(RunEndEncoded);
-  NOT_IMPLEMENTED_VISIT(ListView);
-  NOT_IMPLEMENTED_VISIT(LargeListView);
 
 #undef NOT_IMPLEMENTED_VISIT
   std::vector<PathInfo>& paths() { return paths_; }

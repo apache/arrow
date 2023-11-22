@@ -78,6 +78,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const WriterProperties& properties,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out);
 
+// TODO(mwish): handle LIST_VIEW
 Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
                   const std::string& name, bool nullable, int field_id,
                   const WriterProperties& properties,
@@ -839,6 +840,7 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred);
 
+// TODO(mwish): handle {LARGE_}LIST_VIEW here.
 std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
     const ArrowType& origin_type, const ArrowType& inferred_type) {
   switch (inferred_type.id()) {
