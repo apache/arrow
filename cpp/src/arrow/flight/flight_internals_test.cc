@@ -336,7 +336,7 @@ TEST(FlightTypes, SetSessionOptionsRequest) {
       {},
       {{"foo", 3.0}},
       {{"foo", 3.0f}},
-      {{"foo", 3.0}, {"bar": "3"}},
+      {{"foo", 3.0}, {"bar", "3"}},
   };
 
   std::vector<std::string> reprs =  {
