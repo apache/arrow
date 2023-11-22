@@ -49,3 +49,37 @@ func TestDataReset(t *testing.T) {
 		data.Reset(&arrow.Int64Type{}, 5, data.Buffers(), nil, 1, 2)
 	}
 }
+
+func TestSizeInBytes(t *testing.T) {
+
+	var buffers1 = make([]*memory.Buffer, 0, 3)
+
+	for i := 0; i < cap(buffers1); i++ {
+		buffers1 = append(buffers1, memory.NewBufferBytes([]byte("15-bytes-buffer")))
+	}
+
+	// test 1: data with buffers only
+	data := NewData(&arrow.StringType{}, 10, buffers1, nil, 0, 0)
+	expectedSize := uint64(45)
+	if actualSize := data.SizeInBytes(); actualSize != expectedSize {
+		t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+	}
+
+	// test 2: data with buffers and child data
+	var child arrow.ArrayData = data
+	dataWithChild := NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{child}, 0, 0)
+	// 45 bytes in buffers, 45 bytes in child data
+	expectedSize = uint64(90)
+	if actualSize := dataWithChild.SizeInBytes(); actualSize != expectedSize {
+		t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+	}
+
+	// test 3: data with buffers and dictionary
+	dictData := data
+	dataWithDict := NewDataWithDictionary(&arrow.StringType{}, 10, buffers1, 0, 0, dictData)
+	// 45 bytes in buffers, 45 bytes in dictionary
+	expectedSize = uint64(90)
+	if actualSize := dataWithDict.SizeInBytes(); actualSize != expectedSize {
+		t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+	}
+}
