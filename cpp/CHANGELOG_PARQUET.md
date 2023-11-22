@@ -236,7 +236,7 @@ Parquet C++ 1.1.0
     * [PARQUET-954] - C++: Use Brotli 0.6 release
     * [PARQUET-953] - [C++] Change arrow::FileWriter API to be initialized from a Schema, and provide for writing multiple tables
     * [PARQUET-941] - [C++] Stop needless Boost static library detection for CentOS 7 support
-    * [PARQUET-942] - [C++] Fix wrong variabe use in FindSnappy
+    * [PARQUET-942] - [C++] Fix wrong variable use in FindSnappy
     * [PARQUET-939] - [C++] Support Thrift_HOME CMake variable like FindSnappy does as Snappy_HOME
     * [PARQUET-940] - [C++] Fix Arrow library path detection
     * [PARQUET-937] - [C++] Support CMake < 3.4 again for Arrow detection
