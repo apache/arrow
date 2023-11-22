@@ -43,6 +43,11 @@ fi
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
 
+# Due to how Go reads environment variables, we have to set them from the calling
+# process, or they would get ignored.
+# (see https://forum.golangbridge.org/t/are-godebug-and-other-env-vars-ignored-when-loading-a-go-dll-from-foreign-code/33694)
+export GOMEMLIMIT=200MiB
+export GODEBUG=gctrace=1,clobberfree=1
 
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \

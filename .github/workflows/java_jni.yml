@@ -48,7 +48,6 @@ env:
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
-
   docker:
     name: AMD64 manylinux2014 Java JNI
     runs-on: ubuntu-latest

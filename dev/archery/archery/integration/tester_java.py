@@ -34,11 +34,13 @@ def load_version_from_pom():
     return version_tag.text
 
 
-# XXX Should we add "-Darrow.memory.debug.allocator=true"? It adds a couple
-# minutes to total CPU usage of the integration test suite.
+# NOTE: we don't add "-Darrow.memory.debug.allocator=true" here as it adds a
+# couple minutes to total CPU usage of the integration test suite
+# (see setup_jpype() below).
 _JAVA_OPTS = [
     "-Dio.netty.tryReflectionSetAccessible=true",
     "-Darrow.struct.conflict.policy=CONFLICT_APPEND",
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
 ]
 
 _arrow_version = load_version_from_pom()
@@ -80,7 +82,12 @@ def setup_jpype():
     jar_path = f"{_ARROW_TOOLS_JAR}:{_ARROW_C_DATA_JAR}"
     # XXX Didn't manage to tone down the logging level here (DEBUG -> INFO)
     jpype.startJVM(jpype.getDefaultJVMPath(),
-                   "-Djava.class.path=" + jar_path, *_JAVA_OPTS)
+                   "-Djava.class.path=" + jar_path,
+                   # This flag is too heavy for IPC and Flight tests
+                   "-Darrow.memory.debug.allocator=true",
+                   # Reduce internal use of signals by the JVM
+                   "-Xrs",
+                   *_JAVA_OPTS)
 
 
 class _CDataBase:

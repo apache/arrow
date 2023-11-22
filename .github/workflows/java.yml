@@ -48,7 +48,6 @@ env:
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
-
   ubuntu:
     name: AMD64 Ubuntu 22.04 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
     runs-on: ubuntu-latest
