@@ -2524,10 +2524,10 @@ macro(build_zlib)
       execute_process(COMMAND embuilder --pic --force build zlib)
     endif()
     add_library(ZLIB::ZLIB INTERFACE IMPORTED)
-    # We need -fPIC in target_compile_options() too
+    # We need -sRELOCATABLE=1 in target_compile_options() too
     # to stop it using non-PIC libz.a in linking.
-    target_compile_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -fPIC)
-    target_link_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -fPIC)
+    target_compile_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -sRELOCATABLE=1)
+    target_link_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -sRELOCATABLE=1)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     if(MSVC)
