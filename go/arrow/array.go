@@ -81,6 +81,8 @@ type ArrayData interface {
 	// Dictionary returns the ArrayData object for the dictionary if this is a
 	// dictionary array, otherwise it will be nil.
 	Dictionary() ArrayData
+	// Size() returns the size of the ArrayData in bytes.
+	Size() uint64
 }
 
 // Array represents an immutable sequence of values using the Arrow in-memory format.

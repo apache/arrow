@@ -190,6 +190,24 @@ func (d *Data) SetDictionary(dict arrow.ArrayData) {
 	}
 }
 
+// Returns the size of Data in bytes
+func (d *Data) Size() uint64 {
+	var size uint64
+
+    if d == nil {
+        return 0
+    }
+
+    for _, b := range d.Buffers() {
+        size += uint64(b.Len())
+    }
+    for _, c := range d.Children() {
+        size += c.Size()
+    }
+    size += d.Dictionary().Size()
+    return size
+}
+
 // NewSliceData returns a new slice that shares backing data with the input.
 // The returned Data slice starts at i and extends j-i elements, such as:
 //    slice := data[i:j]
