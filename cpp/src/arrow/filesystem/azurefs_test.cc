@@ -117,13 +117,27 @@ class AzuriteEnv : public ::testing::Environment {
     server_process_.wait();
   }
 
-  Status DumpDebugLog() {
+  Result<int64_t> GetDebugLogSize() {
+    ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
+    if (!exists) {
+      return 0;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto file_descriptor,
+                          arrow::internal::FileOpenReadable(debug_log_path_));
+    ARROW_RETURN_NOT_OK(arrow::internal::FileSeek(file_descriptor.fd(), 0, SEEK_END));
+    return arrow::internal::FileTell(file_descriptor.fd());
+  }
+
+  Status DumpDebugLog(int64_t position = 0) {
     ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
     if (!exists) {
       return Status::OK();
     }
     ARROW_ASSIGN_OR_RAISE(auto file_descriptor,
                           arrow::internal::FileOpenReadable(debug_log_path_));
+    if (position > 0) {
+      ARROW_RETURN_NOT_OK(arrow::internal::FileSeek(file_descriptor.fd(), position));
+    }
     std::vector<uint8_t> buffer;
     const int64_t buffer_size = 4096;
     buffer.reserve(buffer_size);
@@ -279,6 +293,7 @@ class AzuriteFileSystemTest : public AzureFileSystemTest {
   Result<AzureOptions> MakeOptions() override {
     EXPECT_THAT(GetAzuriteEnv(), NotNull());
     ARROW_EXPECT_OK(GetAzuriteEnv()->status());
+    ARROW_ASSIGN_OR_RAISE(debug_log_start_, GetAzuriteEnv()->GetDebugLogSize());
     AzureOptions options;
     options.backend = AzureBackend::Azurite;
     ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
@@ -289,9 +304,14 @@ class AzuriteFileSystemTest : public AzureFileSystemTest {
   void TearDown() override {
     AzureFileSystemTest::TearDown();
     if (HasFailure()) {
-      ARROW_IGNORE_EXPR(GetAzuriteEnv()->DumpDebugLog());
+      // XXX: This may not include all logs in the target test because
+      // Azurite doesn't flush debug logs immediately... You may want
+      // to check the log manually...
+      ARROW_IGNORE_EXPR(GetAzuriteEnv()->DumpDebugLog(debug_log_start_));
     }
   }
+
+  int64_t debug_log_start_ = 0;
 };
 
 class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
