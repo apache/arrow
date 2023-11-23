@@ -1204,7 +1204,7 @@ struct ArrowBinaryHelper<ByteArrayType> {
     RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
     if (estimated_data_length.has_value()) {
       RETURN_NOT_OK(acc_->builder->ReserveData(
-          std::min<int64_t>(*estimated_data_length, ::arrow::kBinaryMemoryLimit)));
+          std::min<int64_t>(*estimated_data_length, this->chunk_space_remaining_)));
     }
     return Status::OK();
   }
@@ -1921,7 +1921,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     constexpr int32_t kBufferSize = 1024;
     int32_t indices[kBufferSize];
 
-    ArrowBinaryHelper<ByteArrayType> helper(out, std::min(num_values, this->num_values_));
+    ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
     // The `len_` in the ByteArrayDictDecoder is the total length of the
     // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
     // space for binary data.
@@ -1992,7 +1992,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int32_t indices[kBufferSize];
     int values_decoded = 0;
 
-    ArrowBinaryHelper<ByteArrayType> helper(out, std::min(num_values, this->num_values_));
+    ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
     // The `len_` in the ByteArrayDictDecoder is the total length of the
     // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
     // space for binary data.
