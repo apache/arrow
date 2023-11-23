@@ -598,6 +598,10 @@ TEST_F(AzuriteFileSystemTest, DeleteDirSuccessNonexistent) {
 }
 
 TEST_F(AzuriteFileSystemTest, DeleteDirSuccessHaveBlobs) {
+#ifdef __APPLE__
+  GTEST_SKIP() << "This test fails by an Azurite problem: "
+                  "https://github.com/Azure/Azurite/pull/2302";
+#endif
   const auto directory_path =
       internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
   // We must use 257 or more blobs here to test pagination of ListBlobs().
