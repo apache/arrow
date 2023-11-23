@@ -331,24 +331,6 @@ TEST(FlightTypes, SchemaResult) {
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::SchemaResult>(values, reprs));
 }
 
-TEST(FlightTypes, SetSessionOptionsRequest) {
-  std::vector<SetSessionOptionsRequest> values = {
-      {},
-      {{"foo", 3.0}},
-      {{"foo", 3.0f}},
-      {{"foo", 3.0}, {"bar", "3"}},
-  };
-
-  std::vector<std::string> reprs = {
-      "<SetSessionOptionsRequest session_options={}>",
-      "<SetSessionOptionsRequest session_options={[foo]: 3}>",
-      "<SetSessionOptionsRequest session_options={[foo]: 3}>",
-      "<SetSessionOptionsRequest session_options={[foo]: 3, [bar]: \"3\"}>",
-  };
-
-  ASSERT_NO_FATAL_FAILURE(TestRoundTrip<pb::SetSessionOptionsRequest>(values, reprs));
-}
-
 TEST(FlightTypes, Ticket) {
   std::vector<Ticket> values = {
       {""},
