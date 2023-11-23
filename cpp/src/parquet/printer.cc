@@ -314,6 +314,34 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
              << "\"UncompressedSize\": \"" << column_chunk->total_uncompressed_size()
              << "\", \"CompressedSize\": \"" << column_chunk->total_compressed_size();
 
+      if (column_chunk->bloom_filter_offset()) {
+        // Output BloomFilter {offset, length}
+        stream << "\", BloomFilter {"
+               << "\"offset\": \"" << column_chunk->bloom_filter_offset().value();
+        if (column_chunk->bloom_filter_length()) {
+          stream << "\", \"length\": \"" << column_chunk->bloom_filter_length().value();
+        }
+        stream << "\"}";
+      }
+
+      if (column_chunk->GetOffsetIndexLocation()) {
+        auto location = column_chunk->GetOffsetIndexLocation().value();
+        // Output OffsetIndex {offset, length}
+        stream << "\", OffsetIndex {"
+               << "\"offset\": \"" << location.offset;
+        stream << "\", \"length\": \"" << location.length;
+        stream << "\"}";
+      }
+
+      if (column_chunk->GetColumnIndexLocation()) {
+        auto location = column_chunk->GetColumnIndexLocation().value();
+        // Output ColumnIndex {offset, length}
+        stream << "\", ColumnIndex {"
+               << "\"offset\": \"" << location.offset;
+        stream << "\", \"length\": \"" << location.length;
+        stream << "\"}";
+      }
+
       // end of a ColumnChunk
       stream << "\" }";
       c1++;

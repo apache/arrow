@@ -313,7 +313,8 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @param input_stream The input stream from which to construct the Bloom filter.
   /// @return The BlockSplitBloomFilter.
   static BlockSplitBloomFilter Deserialize(const ReaderProperties& properties,
-                                           ArrowInputStream* input_stream);
+                                           ArrowInputStream* input_stream,
+                                           std::optional<int64_t> bloom_filter_length);
 
  private:
   inline void InsertHashImpl(uint64_t hash);

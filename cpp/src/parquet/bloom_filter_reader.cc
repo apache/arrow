@@ -63,9 +63,16 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
   if (file_size <= *bloom_filter_offset) {
     throw ParquetException("file size less or equal than bloom offset");
   }
+  std::optional<int64_t> bloom_filter_length = col_chunk->bloom_filter_length();
+  if (bloom_filter_length.has_value() &&
+      *bloom_filter_length + *bloom_filter_offset > file_size) {
+    throw ParquetException(
+        "bloom filter length + bloom filter offset greater than file size");
+  }
   auto stream = ::arrow::io::RandomAccessFile::GetStream(
       input_, *bloom_filter_offset, file_size - *bloom_filter_offset);
-  auto bloom_filter = BlockSplitBloomFilter::Deserialize(properties_, stream->get());
+  auto bloom_filter =
+      BlockSplitBloomFilter::Deserialize(properties_, stream->get(), bloom_filter_length);
   return std::make_unique<BlockSplitBloomFilter>(std::move(bloom_filter));
 }
 
