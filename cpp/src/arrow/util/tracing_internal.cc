@@ -35,6 +35,7 @@
 #include <opentelemetry/exporters/otlp/otlp_http_exporter.h>
 #include <opentelemetry/exporters/otlp/otlp_recordable_utils.h>
 #include <opentelemetry/sdk/trace/batch_span_processor.h>
+#include <opentelemetry/sdk/trace/batch_span_processor_options.h>
 #include <opentelemetry/sdk/trace/recordable.h>
 #include <opentelemetry/sdk/trace/span_data.h>
 #include <opentelemetry/sdk/trace/tracer_provider.h>
