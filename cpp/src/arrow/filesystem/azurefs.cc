@@ -1048,8 +1048,14 @@ class AzureFileSystem::Impl {
           std::vector<std::string> failed_blob_names;
           for (size_t i = 0; i < deferred_responses.size(); ++i) {
             const auto& deferred_response = deferred_responses[i];
-            auto delete_response = deferred_response.GetResponse();
-            if (!delete_response.Value.Deleted) {
+            bool success = true;
+            try {
+              auto delete_result = deferred_response.GetResponse();
+              success = delete_result.Value.Deleted;
+            } catch (const Azure::Storage::StorageException& exception) {
+              success = false;
+            }
+            if (!success) {
               const auto& blob_item = list_response.Blobs[i];
               failed_blob_names.push_back(blob_item.Name);
             }
