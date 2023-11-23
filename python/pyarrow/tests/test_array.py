@@ -3557,9 +3557,16 @@ def PyCapsule_IsValid(capsule, name):
 @pytest.mark.parametrize(
     ('value_type', 'np_type'),
     [
-        (pa.uint8(), np.int8),
+        (pa.uint8(), np.uint8),
+        (pa.uint16(), np.uint16),
         (pa.uint32(), np.uint32),
-        (pa.float32(), np.float32)
+        (pa.uint64(), np.uint64),
+        (pa.int8(), np.int8),
+        (pa.int16(), np.int16),
+        (pa.int32(), np.int32),
+        (pa.int64(), np.int64),
+        (pa.float32(), np.float32),
+        (pa.float64(), np.float64),
     ]
 )
 def test_dlpack(value_type, np_type):
@@ -3569,23 +3576,35 @@ def test_dlpack(value_type, np_type):
     arr = pa.array([1, 2, 3], type=value_type)
     DLTensor = arr.__dlpack__()
     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-    expected = np.array([1, 2, 3])
+    expected = np.array([1, 2, 3], dtype=np_type)
     result = np.from_dlpack(arr)
-    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(result, expected, strict=True)
 
     # arr_sliced = arr.slice(1, 1)
     # DLTensor = arr_sliced.__dlpack__()
     # assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
     # expected = np.array([2], dtype=np_type)
     # result = np.from_dlpack(arr_sliced)
-    # np.testing.assert_array_equal(result, expected)
+    # np.testing.assert_array_equal(result, expected, strict=True)
 
     arr_zero = pa.array([], type=value_type)
     DLTensor = arr_zero.__dlpack__()
     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
     expected = np.array([], dtype=np_type)
     result = np.from_dlpack(arr_zero)
-    np.testing.assert_array_equal(result, expected)
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+
+def test_dlpack_float_16():
+    if Version(np.__version__) < Version("1.22.0"):
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+
+    expected = np.array([1, 2, 3], dtype=np.float16)
+    arr = pa.array(expected, type=pa.float16())
+    DLTensor = arr.__dlpack__()
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+    result = np.from_dlpack(arr)
+    np.testing.assert_array_equal(result, expected, strict=True)
 
 
 def test_dlpack_not_supported():
