@@ -159,6 +159,8 @@ class ARROW_EXPORT BufferReader
   BufferReader(const uint8_t* data, int64_t size);
 
   /// \brief Instantiate from std::string_view. Does not own data
+  /// \deprecated Deprecated in 14.0.0. Use FromString or
+  /// BufferReader(std::shared_ptr<Buffer> buffer) instead.
   ARROW_DEPRECATED(
       "Deprecated in 14.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
       "buffer) instead.")
