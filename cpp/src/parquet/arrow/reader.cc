@@ -22,6 +22,7 @@
 #include <zconf.h>
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <unordered_set>
 #include <utility>
@@ -566,6 +567,7 @@ class LeafReader : public ColumnReaderImpl {
  private:
   std::shared_ptr<ChunkedArray> out_;
   void NextRowGroup() {
+    std::cout << "Entering NextRowGroup" << std::endl;
     std::unique_ptr<PageReader> page_reader = input_->NextChunk();
 
     /// using page index to reduce cost

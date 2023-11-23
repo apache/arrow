@@ -56,7 +56,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
   std::shared_ptr<arrow::Array> arr_c;
   std::vector<std::string> strs;
   for (size_t i = 0; i < 100; i++) {
-    strs.push_back("" + std::to_string(i));
+    strs.push_back(std::to_string(i));
   }
   ARROW_RETURN_NOT_OK(string_builder.AppendValues(strs));
   ARROW_RETURN_NOT_OK(string_builder.Finish(&arr_c));
@@ -108,7 +108,7 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> WriteFullFile() {
 }
 
 void check_rb(std::shared_ptr<arrow::RecordBatchReader> rb_reader, size_t expect_rows,
-              int64_t expect_sum_of_b) {
+              int64_t expect_sum_of_b, const std::vector<int>& column_indices) {
   size_t total_rows = 0;
   int64_t sum_a = 0;
   int64_t sum_b = 0;
@@ -117,77 +117,91 @@ void check_rb(std::shared_ptr<arrow::RecordBatchReader> rb_reader, size_t expect
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     total_rows += batch->num_rows();
 
-    auto a_array = std::dynamic_pointer_cast<arrow::ListArray>(batch->column(0));
-    ASSERT_OK_AND_ASSIGN(auto flatten_a_array, a_array->Flatten());
-    auto a_array_values = std::dynamic_pointer_cast<arrow::Int32Array>(flatten_a_array);
-    for (auto iter = a_array_values->begin(); iter != a_array_values->end(); ++iter) {
-      sum_a += (*iter).value();
+    if (std::find(column_indices.begin(), column_indices.end(), 0) !=
+        column_indices.end()) {
+      auto a_array =
+          std::dynamic_pointer_cast<arrow::ListArray>(batch->GetColumnByName("a"));
+      ASSERT_OK_AND_ASSIGN(auto flatten_a_array, a_array->Flatten());
+      auto a_array_values = std::dynamic_pointer_cast<arrow::Int32Array>(flatten_a_array);
+      for (auto iter = a_array_values->begin(); iter != a_array_values->end(); ++iter) {
+        sum_a += (*iter).value();
+      }
     }
 
-    auto b_array = std::dynamic_pointer_cast<arrow::Int32Array>(batch->column(1));
-    for (auto iter = b_array->begin(); iter != b_array->end(); ++iter) {
-      sum_b += (*iter).value();
+    if (std::find(column_indices.begin(), column_indices.end(), 1) !=
+        column_indices.end()) {
+      auto b_array =
+          std::dynamic_pointer_cast<arrow::Int32Array>(batch->GetColumnByName("b"));
+      for (auto iter = b_array->begin(); iter != b_array->end(); ++iter) {
+        sum_b += (*iter).value();
+      }
     }
 
-    auto c_array = std::dynamic_pointer_cast<arrow::StringArray>(batch->column(2));
-    for (auto iter = c_array->begin(); iter != c_array->end(); ++iter) {
-      sum_c += std::stoi(std::string((*iter).value()));
+    if (std::find(column_indices.begin(), column_indices.end(), 2) !=
+        column_indices.end()) {
+      auto c_array =
+          std::dynamic_pointer_cast<arrow::StringArray>(batch->GetColumnByName("c"));
+      for (auto iter = c_array->begin(); iter != c_array->end(); ++iter) {
+        sum_c += std::stoi(std::string((*iter).value()));
+      }
     }
   }
   ASSERT_EQ(expect_rows, total_rows);
-  ASSERT_EQ(expect_sum_of_b * 3, sum_a);
-  ASSERT_EQ(expect_sum_of_b, sum_b);
-  ASSERT_EQ(expect_sum_of_b, sum_c);
+
+  if (std::find(column_indices.begin(), column_indices.end(), 0) != column_indices.end())
+    ASSERT_EQ(expect_sum_of_b * 3, sum_a);
+  if (std::find(column_indices.begin(), column_indices.end(), 1) != column_indices.end())
+    ASSERT_EQ(expect_sum_of_b, sum_b);
+  if (std::find(column_indices.begin(), column_indices.end(), 2) != column_indices.end())
+    ASSERT_EQ(expect_sum_of_b, sum_c);
 }
 
 class TestRecordBatchReaderWithRanges : public ::testing::Test {
-public:
+ public:
   void SetUp() {
+    ASSERT_OK_AND_ASSIGN(auto buffer, WriteFullFile());
 
+    arrow::MemoryPool* pool = arrow::default_memory_pool();
+
+    auto reader_properties = parquet::ReaderProperties(pool);
+    reader_properties.set_buffer_size(4096 * 4);
+    reader_properties.enable_buffered_stream();
+
+    auto arrow_reader_props = parquet::ArrowReaderProperties();
+    // arrow_reader_props.set_batch_size(64 * 1024);  // default 64 * 1024
+    arrow_reader_props.set_batch_size(10);  // default 64 * 1024
+
+    parquet::arrow::FileReaderBuilder reader_builder;
+    auto in_file = std::make_shared<::arrow::io::BufferReader>(buffer);
+    ASSERT_OK(reader_builder.Open(in_file, /*memory_map=*/reader_properties));
+    reader_builder.memory_pool(pool);
+    reader_builder.properties(arrow_reader_props);
+
+    ASSERT_OK_AND_ASSIGN(arrow_reader, reader_builder.Build());
   }
 
   void TearDown() {}
 
-protected:
-
+ protected:
+  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
 };
 
-TEST(TestRecordBatchReaderWithRanges2, Normal) {
-  ASSERT_OK_AND_ASSIGN(auto buffer, WriteFullFile());
+TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
+  // case 1: row_ranges_map contains only RG {0}, other RGs should be skipped
+  {
+    std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+    auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+    std::vector<parquet::Range> ranges;
+    for (int64_t i = 0; i < 30; i++) {
+      if (i % 2 == 0) ranges.push_back({i, i});
+    }
+    row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
+    std::vector column_indices{0, 1, 2};
+    ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
+                                                 row_ranges_map, &rb_reader));
 
-  arrow::MemoryPool* pool = arrow::default_memory_pool();
-
-  auto reader_properties = parquet::ReaderProperties(pool);
-  reader_properties.set_buffer_size(4096 * 4);
-  reader_properties.enable_buffered_stream();
-
-  auto arrow_reader_props = parquet::ArrowReaderProperties();
-  // arrow_reader_props.set_batch_size(64 * 1024);  // default 64 * 1024
-  arrow_reader_props.set_batch_size(10);  // default 64 * 1024
-
-  parquet::arrow::FileReaderBuilder reader_builder;
-  auto in_file = std::make_shared<::arrow::io::BufferReader>(buffer);
-  ASSERT_OK(reader_builder.Open(in_file, /*memory_map=*/reader_properties));
-  reader_builder.memory_pool(pool);
-  reader_builder.properties(arrow_reader_props);
-
-  ASSERT_OK_AND_ASSIGN(auto arrow_reader, reader_builder.Build());
-
-  // // case 1: row_ranges_map contains only RG {0}, other RGs should be skipped
-  // {
-  //   std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
-  //   auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
-  //   std::vector<parquet::Range> ranges;
-  //   for (int64_t i = 0; i < 30; i++) {
-  //     if (i % 2 == 0) ranges.push_back({i, i});
-  //   }
-  //   row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
-  //   ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, {0, 1, 2},
-  //   row_ranges_map,
-  //                                                &rb_reader));
-  //
-  //   check_rb(rb_reader, 15, 210);  // 0 + 2 + ... + 28 = 210
-  // }
+    check_rb(rb_reader, 15, 210, column_indices);  // 0 + 2 + ... + 28 = 210
+  }
 
   // case 2: row_ranges_map contains only RG {0,2}, other RGs should be skipped
   {
@@ -199,9 +213,47 @@ TEST(TestRecordBatchReaderWithRanges2, Normal) {
     }
     row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
     row_ranges_map->insert({2, std::make_shared<parquet::RowRanges>(ranges)});
-    ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, {0, 1, 2}, row_ranges_map,
-                                                 &rb_reader));
+    std::vector column_indices{0, 1, 2};
+    ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
+                                                 row_ranges_map, &rb_reader));
 
-    check_rb(rb_reader, 30, 1320); // (0 + 2 + ... + 28) + (60 + 62 ... + 88) = 1320
+    check_rb(rb_reader, 30, 1320,
+             column_indices);  // (0 + 2 + ... + 28) + (60 + 62 ... + 88) = 1320
   }
+}
+
+TEST_F(TestRecordBatchReaderWithRanges, SelectSomePageForEachRG) {
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+  row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
+  row_ranges_map->insert(
+      {1, std::make_shared<parquet::RowRanges>(parquet::Range{10, 19})});
+  row_ranges_map->insert(
+      {2, std::make_shared<parquet::RowRanges>(parquet::Range{20, 29})});
+  row_ranges_map->insert({3, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
+
+  std::vector column_indices{0, 1, 2};
+  ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
+                                               row_ranges_map, &rb_reader));
+
+  // (0+...+9) + (40+...+49) + (80+...+89) + (90+...+99) = 2280
+  check_rb(rb_reader, 40, 2280, column_indices);
+}
+
+TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+  row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
+  row_ranges_map->insert(
+      {1, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
+  row_ranges_map->insert(
+      {2, std::make_shared<parquet::RowRanges>(parquet::Range{0, 29})});
+  row_ranges_map->insert({3, std::make_shared<parquet::RowRanges>(parquet::Range{0, 9})});
+
+  std::vector column_indices{0, 1, 2};
+  ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
+                                               row_ranges_map, &rb_reader));
+
+  // (0+...+99) = 4950
+  check_rb(rb_reader, 100, 4950, column_indices);
 }

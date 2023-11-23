@@ -552,7 +552,7 @@ class PARQUET_EXPORT RecordSkipper {
     adjust_ranges(skip_pages, row_ranges);
     // adjust_ranges(skip_pages, will_process_pages);
 
-    total_rows_to_process = pages.rowCount() - skip_pages.rowCount() + 1;
+    total_rows_to_process = pages.rowCount() - skip_pages.rowCount();
   }
 
   /// \brief Return the number of records to read or to skip
