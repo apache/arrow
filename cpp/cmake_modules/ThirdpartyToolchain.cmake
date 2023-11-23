@@ -4154,6 +4154,10 @@ macro(build_google_cloud_cpp_storage)
   set(GOOGLE_CLOUD_CPP_INSTALL_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_ep-install")
   set(GOOGLE_CLOUD_CPP_INCLUDE_DIR "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/include")
+  list(APPEND GOOGLE_CLOUD_CPP_ENABLE "storage")
+  if(ARROW_WITH_OPENTELEMETRY)
+    list(APPEND GOOGLE_CLOUD_CPP_ENABLE "experimental-opentelemetry")
+  endif()
   set(GOOGLE_CLOUD_CPP_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
@@ -4162,7 +4166,7 @@ macro(build_google_cloud_cpp_storage)
       # Compile only the storage library and its dependencies. To enable
       # other services (Spanner, Bigtable, etc.) add them (as a list) to this
       # parameter. Each has its own `google-cloud-cpp::*` library.
-      -DGOOGLE_CLOUD_CPP_ENABLE=storage
+      -DGOOGLE_CLOUD_CPP_ENABLE=${GOOGLE_CLOUD_CPP_ENABLE}
       # We need this to build with OpenSSL 3.0.
       # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
       -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF
