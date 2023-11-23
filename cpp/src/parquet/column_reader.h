@@ -503,17 +503,19 @@ namespace internal {
 
 class PARQUET_EXPORT RecordSkipper {
  public:
-  RecordSkipper(RowRanges& pages, RowRanges& row_ranges_) : row_ranges(row_ranges_) {
+  RecordSkipper(RowRanges& pages, RowRanges& row_ranges_)
+      : row_ranges(row_ranges_) {  // copy row_ranges
     RowRanges will_process_pages, skip_pages;
     for (auto& page : pages.getRanges()) {
-      if (row_ranges.isOverlapping(page)) {
-        // will_process_pages.add(page);
-      } else {
+      if (!row_ranges.isOverlapping(page)) {
         skip_pages.add(page, false);
       }
     }
+
+    /// Since the skipped pages will be slienly skipped without updating
+    /// current_rg_processed_records or records_read_, we need to pre-process the row
+    /// ranges as if these skipped pages never existed
     adjust_ranges(skip_pages, row_ranges);
-    // adjust_ranges(skip_pages, will_process_pages);
 
     total_rows_to_process = pages.rowCount() - skip_pages.rowCount();
   }
@@ -547,16 +549,12 @@ class PARQUET_EXPORT RecordSkipper {
 
  private:
   /// Keep copy of ranges, because advise_next() will modify them
-  // RowRanges will_process_pages;
   RowRanges row_ranges;
 
   size_t row_range_idx = 0;
 
   size_t total_rows_to_process = 0;
 
-  /// Since the skipped pages will be slienly skipped without updating
-  /// current_rg_processed_records or records_read_, we need to pre-process the row ranges
-  /// as if these skipped pages never existed
   void adjust_ranges(RowRanges& skip_pages, RowRanges& to_adjust) {
     size_t skipped_rows = 0;
     auto iter = to_adjust.getRanges().begin();
