@@ -304,254 +304,234 @@ class TypedColumnReader : public ColumnReader {
 };
 
 struct Range {
-    static Range unionRange(const Range&left, const Range&right) {
-        if (left.from <= right.from) {
-            if (left.to + 1 >= right.from) {
-                return {left.from, std::max(left.to, right.to)};
-            }
-        }
-        else if (right.to + 1 >= left.from) {
-            return {right.from, std::max(left.to, right.to)};
-        }
-        return {-1, -1};
+  static Range unionRange(const Range& left, const Range& right) {
+    if (left.from <= right.from) {
+      if (left.to + 1 >= right.from) {
+        return {left.from, std::max(left.to, right.to)};
+      }
+    } else if (right.to + 1 >= left.from) {
+      return {right.from, std::max(left.to, right.to)};
     }
+    return {-1, -1};
+  }
 
-    static Range intersection(const Range&left, const Range&right) {
-        if (left.from <= right.from) {
-            if (left.to >= right.from) {
-                return {right.from, std::min(left.to, right.to)};
-            }
-        }
-        else if (right.to >= left.from) {
-            return {left.from, std::min(left.to, right.to)};
-        }
-        return {-1, -1}; // Return a default Range object if no intersection range found
+  static Range intersection(const Range& left, const Range& right) {
+    if (left.from <= right.from) {
+      if (left.to >= right.from) {
+        return {right.from, std::min(left.to, right.to)};
+      }
+    } else if (right.to >= left.from) {
+      return {left.from, std::min(left.to, right.to)};
     }
+    return {-1, -1};  // Return a default Range object if no intersection range found
+  }
 
-    int64_t from;
-    int64_t to;
+  int64_t from;
+  int64_t to;
 
-    Range(const int64_t from_, const int64_t to_) : from(from_), to(to_) {
-        assert(from <= to);
-    }
+  Range(const int64_t from_, const int64_t to_) : from(from_), to(to_) {
+    assert(from <= to);
+  }
 
-    size_t count() const {
-        return to - from + 1;
-    }
+  size_t count() const { return to - from + 1; }
 
-    bool isBefore(const Range&other) const {
-        return to < other.from;
-    }
+  bool isBefore(const Range& other) const { return to < other.from; }
 
-    bool isAfter(const Range&other) const {
-        return from > other.to;
-    }
+  bool isAfter(const Range& other) const { return from > other.to; }
 
-    bool isOverlap(const Range&other) const {
-        return !isBefore(other) && !isAfter(other);
-    }
+  bool isOverlap(const Range& other) const { return !isBefore(other) && !isAfter(other); }
 
-    std::string toString() const {
-        return "[" + std::to_string(from) + ", " + std::to_string(to) + "]";
-    }
+  std::string toString() const {
+    return "[" + std::to_string(from) + ", " + std::to_string(to) + "]";
+  }
 };
 
 class RowRanges {
-    std::vector<Range> ranges;
+  std::vector<Range> ranges;
 
-public:
-    RowRanges() = default;
+ public:
+  RowRanges() = default;
 
-    explicit RowRanges(const Range&range) {
-        ranges.push_back(range);
-    }
+  explicit RowRanges(const Range& range) { ranges.push_back(range); }
 
-    RowRanges(const std::vector<Range>&ranges) {
-        this->ranges = ranges;
-    }
+  RowRanges(const std::vector<Range>& ranges) { this->ranges = ranges; }
 
-    //copy cstr
-    RowRanges(const RowRanges&other) {
-        ranges = other.ranges;
-    }
+  // copy cstr
+  RowRanges(const RowRanges& other) { ranges = other.ranges; }
 
-    RowRanges(RowRanges&&other) noexcept {
-        ranges = std::move(other.ranges);
-    }
+  RowRanges(RowRanges&& other) noexcept { ranges = std::move(other.ranges); }
 
-    static RowRanges createSingle(const size_t rowCount) {
-        return RowRanges({Range(0L, rowCount - 1L)});
-    }
+  static RowRanges createSingle(const size_t rowCount) {
+    return RowRanges({Range(0L, rowCount - 1L)});
+  }
 
-    // static RowRanges create(size_t rowCount, const std::vector<int>& pageIndexes, const OffsetIndex& offsetIndex) {
-    //     RowRanges ranges;
-    //     for (int pageIndex : pageIndexes) {
-    //         ranges.add(Range(offsetIndex.getFirstRowIndex(pageIndex), offsetIndex.getLastRowIndex(pageIndex, rowCount)));
-    //     }
-    //     return ranges;
-    // }
+  // static RowRanges create(size_t rowCount, const std::vector<int>& pageIndexes, const
+  // OffsetIndex& offsetIndex) {
+  //     RowRanges ranges;
+  //     for (int pageIndex : pageIndexes) {
+  //         ranges.add(Range(offsetIndex.getFirstRowIndex(pageIndex),
+  //         offsetIndex.getLastRowIndex(pageIndex, rowCount)));
+  //     }
+  //     return ranges;
+  // }
 
-    static RowRanges unionRanges(const RowRanges&left, const RowRanges&right) {
-        RowRanges result;
-        auto it1 = left.ranges.begin();
-        auto it2 = right.ranges.begin();
-        if (it2 != right.ranges.end()) {
-            Range range2 = *it2;
-            while (it1 != left.ranges.end()) {
-                Range range1 = *it1;
-                if (range1.isAfter(range2)) {
-                    result.add(range2);
-                    range2 = range1;
-                    const auto tmp = it1;
-                    it1 = it2;
-                    it2 = tmp;
-                }
-                else {
-                    result.add(range1);
-                }
-                ++it1;
-            }
-            result.add(range2);
+  static RowRanges unionRanges(const RowRanges& left, const RowRanges& right) {
+    RowRanges result;
+    auto it1 = left.ranges.begin();
+    auto it2 = right.ranges.begin();
+    if (it2 != right.ranges.end()) {
+      Range range2 = *it2;
+      while (it1 != left.ranges.end()) {
+        Range range1 = *it1;
+        if (range1.isAfter(range2)) {
+          result.add(range2);
+          range2 = range1;
+          const auto tmp = it1;
+          it1 = it2;
+          it2 = tmp;
+        } else {
+          result.add(range1);
         }
-        else {
-            it2 = it1;
+        ++it1;
+      }
+      result.add(range2);
+    } else {
+      it2 = it1;
+    }
+    while (it2 != right.ranges.end()) {
+      result.add(*it2);
+      ++it2;
+    }
+
+    return result;
+  }
+
+  static RowRanges intersection(const RowRanges& left, const RowRanges& right) {
+    RowRanges result;
+
+    size_t rightIndex = 0;
+    for (const Range& l : left.ranges) {
+      for (size_t i = rightIndex, n = right.ranges.size(); i < n; ++i) {
+        const Range& r = right.ranges[i];
+        if (l.isBefore(r)) {
+          break;
+        } else if (l.isAfter(r)) {
+          rightIndex = i + 1;
+          continue;
         }
-        while (it2 != right.ranges.end()) {
-            result.add(*it2);
-            ++it2;
-        }
-
-        return result;
+        result.add(Range::intersection(l, r));
+      }
     }
 
-    static RowRanges intersection(const RowRanges&left, const RowRanges&right) {
-        RowRanges result;
+    return result;
+  }
 
-        size_t rightIndex = 0;
-        for (const Range&l: left.ranges) {
-            for (size_t i = rightIndex, n = right.ranges.size(); i < n; ++i) {
-                const Range&r = right.ranges[i];
-                if (l.isBefore(r)) {
-                    break;
-                }
-                else if (l.isAfter(r)) {
-                    rightIndex = i + 1;
-                    continue;
-                }
-                result.add(Range::intersection(l, r));
-            }
-        }
-
-        return result;
+  RowRanges slice(const int64_t from, const int64_t to) const {
+    RowRanges result;
+    for (const Range& range : ranges) {
+      if (range.from >= from && range.to <= to) {
+        result.add(range);
+      }
     }
+    return result;
+  }
 
-    RowRanges slice(const int64_t from, const int64_t to) const {
-        RowRanges result;
-        for (const Range&range: ranges) {
-            if (range.from >= from && range.to <= to) {
-                result.add(range);
-            }
-        }
-        return result;
+  void add(const Range& range, bool merge = true) {
+    Range rangeToAdd = range;
+    if (merge) {
+      for (int i = static_cast<int>(ranges.size()) - 1; i >= 0; --i) {
+        Range last = ranges[i];
+        assert(!last.isAfter(range));
+        const Range u = Range::unionRange(last, rangeToAdd);
+        assert(u.from != -1 && u.to != -1);
+        rangeToAdd = u;
+        ranges.erase(ranges.begin() + i);
+      }
+    } else {
+      if (ranges.size() > 1) assert(rangeToAdd.from > ranges.back().to);
     }
+    ranges.push_back(rangeToAdd);
+  }
 
-    void add(const Range&range, bool merge = true) {
-        Range rangeToAdd = range;
-        if(merge) {
-            for (int i = static_cast<int>(ranges.size()) - 1; i >= 0; --i) {
-                Range last = ranges[i];
-                assert(!last.isAfter(range));
-                const Range u = Range::unionRange(last, rangeToAdd);
-                assert (u.from != -1 && u.to != -1);
-                rangeToAdd = u;
-                ranges.erase(ranges.begin() + i);
-            }
-        }
-        ranges.push_back(rangeToAdd);
+  size_t rowCount() const {
+    size_t cnt = 0;
+    for (const Range& range : ranges) {
+      cnt += range.count();
     }
+    return cnt;
+  }
 
-    size_t rowCount() const {
-        size_t cnt = 0;
-        for (const Range&range: ranges) {
-            cnt += range.count();
-        }
-        return cnt;
+  //
+  // class Iterator {
+  // private:
+  //     int currentRangeIndex;
+  //     Range currentRange;
+  //     long next;
+  //     std::vector<Range> ranges;
+  //
+  //     long findNext() {
+  //         if (currentRangeIndex < ranges.size()) {
+  //             currentRange = ranges[++currentRangeIndex];
+  //             next = currentRange.from;
+  //         } else {
+  //             return -1;
+  //         }
+  //         return next;
+  //     }
+  //
+  // public:
+  //     Iterator(const std::vector<Range>& ranges) {
+  //         this->ranges = ranges;
+  //         currentRangeIndex = -1;
+  //         next = findNext();
+  //     }
+  //
+  //     bool hasNext() const {
+  //         return next >= 0;
+  //     }
+  //
+  //     long nextLong() {
+  //         long ret = next;
+  //         if (ret < 0) {
+  //             throw std::out_of_range("No such element");
+  //         }
+  //         next = findNext();
+  //         return ret;
+  //     }
+  // };
+  //
+  // Iterator iterator() const {
+  //     return Iterator(ranges);
+  // }
+
+  bool isOverlapping(int64_t from, int64_t to) const {
+    const Range searchRange(from, to);
+    return isOverlapping(searchRange);
+  }
+
+  bool isOverlapping(const Range& searchRange) const {
+    auto it = std::lower_bound(
+        ranges.begin(), ranges.end(), searchRange,
+        [](const Range& r1, const Range& r2) { return r1.isBefore(r2); });
+    return it != ranges.end() && !(*it).isAfter(searchRange);
+  }
+
+  std::vector<Range>& getRanges() { return ranges; }
+
+  const Range& operator[](size_t index) const { return ranges[index]; }
+
+  std::string toString() const {
+    std::string result = "[";
+    for (const Range& range : ranges) {
+      result +=
+          "(" + std::to_string(range.from) + ", " + std::to_string(range.to) + "), ";
     }
-
-    //
-    // class Iterator {
-    // private:
-    //     int currentRangeIndex;
-    //     Range currentRange;
-    //     long next;
-    //     std::vector<Range> ranges;
-    //
-    //     long findNext() {
-    //         if (currentRangeIndex < ranges.size()) {
-    //             currentRange = ranges[++currentRangeIndex];
-    //             next = currentRange.from;
-    //         } else {
-    //             return -1;
-    //         }
-    //         return next;
-    //     }
-    //
-    // public:
-    //     Iterator(const std::vector<Range>& ranges) {
-    //         this->ranges = ranges;
-    //         currentRangeIndex = -1;
-    //         next = findNext();
-    //     }
-    //
-    //     bool hasNext() const {
-    //         return next >= 0;
-    //     }
-    //
-    //     long nextLong() {
-    //         long ret = next;
-    //         if (ret < 0) {
-    //             throw std::out_of_range("No such element");
-    //         }
-    //         next = findNext();
-    //         return ret;
-    //     }
-    // };
-    //
-    // Iterator iterator() const {
-    //     return Iterator(ranges);
-    // }
-
-    bool isOverlapping(int64_t from, int64_t to) const {
-        const Range searchRange(from, to);
-        return isOverlapping(searchRange);
+    if (!ranges.empty()) {
+      result = result.substr(0, result.size() - 2);
     }
-
-    bool isOverlapping(const Range&searchRange) const {
-        auto it = std::lower_bound(ranges.begin(), ranges.end(), searchRange, [](const Range&r1, const Range&r2) {
-            return r1.isBefore(r2);
-        });
-        return it != ranges.end() && !(*it).isAfter(searchRange);
-    }
-
-    std::vector<Range>& getRanges() {
-        return ranges;
-    }
-
-    const Range& operator[](size_t index) const {
-        return ranges[index];
-    }
-
-    std::string toString() const {
-        std::string result = "[";
-        for (const Range&range: ranges) {
-            result += "(" + std::to_string(range.from) + ", " + std::to_string(range.to) + "), ";
-        }
-        if (!ranges.empty()) {
-            result = result.substr(0, result.size() - 2);
-        }
-        result += "]";
-        return result;
-    }
+    result += "]";
+    return result;
+  }
 };
 
 using RowRangesPtr = std::shared_ptr<RowRanges>;
@@ -559,74 +539,75 @@ using RowRangesPtr = std::shared_ptr<RowRanges>;
 namespace internal {
 
 class PARQUET_EXPORT RecordSkipper {
-public:
-    RecordSkipper(RowRanges & pages, RowRanges & row_ranges_) : row_ranges(row_ranges_) {
-        RowRanges will_process_pages, skip_pages;
-        for(auto & page : pages.getRanges()) {
-            if(row_ranges.isOverlapping(page)) {
-                // will_process_pages.add(page);
-            } else {
-                skip_pages.add(page, false);
-            }
-        }
-        adjust_ranges(skip_pages, row_ranges);
-        // adjust_ranges(skip_pages, will_process_pages);
+ public:
+  RecordSkipper(RowRanges& pages, RowRanges& row_ranges_) : row_ranges(row_ranges_) {
+    RowRanges will_process_pages, skip_pages;
+    for (auto& page : pages.getRanges()) {
+      if (row_ranges.isOverlapping(page)) {
+        // will_process_pages.add(page);
+      } else {
+        skip_pages.add(page, false);
+      }
+    }
+    adjust_ranges(skip_pages, row_ranges);
+    // adjust_ranges(skip_pages, will_process_pages);
+
+    total_rows_to_process = pages.rowCount() - skip_pages.rowCount() + 1;
+  }
+
+  /// \brief Return the number of records to read or to skip
+  /// if return values is positive, it means to read N records
+  /// if return values is negative, it means to skip N records
+  /// if return values is 0, it means end of RG
+  int64_t advise_next(const int64_t current_rg_procesed) {
+    if (row_ranges.getRanges().size() == row_range_idx) {
+      return 0;
     }
 
-    /// \brief Return the number of records to read or to skip
-    /// if return values is positive, it means to read N records
-    /// if return values is negative, it means to skip N records
-    /// if return values is 0, it means to skip all records in this row group
-    int64_t advise_next(const int64_t current_rg_procesed)
-    {
-        if (row_ranges.getRanges().size() == row_range_idx)
-        {
-            return 0;
-        }
-
-        if (row_ranges[row_range_idx].to < current_rg_procesed)
-        {
-            row_range_idx++;
-            if (row_ranges.getRanges().size() == row_range_idx)
-            {
-                return 0;
-            }
-        }
-
-        if (row_ranges[row_range_idx].from > current_rg_procesed)
-        {
-            // return negative
-            return current_rg_procesed - row_ranges[row_range_idx].from;
-        }
-
-        const auto ret = row_ranges[row_range_idx].to - current_rg_procesed + 1;
-        assert(ret >= 1);
-        return ret;
+    if (row_ranges[row_range_idx].to < current_rg_procesed) {
+      row_range_idx++;
+      if (row_ranges.getRanges().size() == row_range_idx) {
+        // negative, skip the ramaining rows
+        return current_rg_procesed - total_rows_to_process;
+      }
     }
-private:
-    /// Keep copy of ranges, because advise_next() will modify them
-    // RowRanges will_process_pages;
-    RowRanges row_ranges;
 
-    size_t row_range_idx = 0;
-
-    /// Since the skipped pages will be slienly skipped without updating current_rg_processed_records
-    /// or records_read_, we need to pre-process the row ranges as if these skipped pages never existed
-    void adjust_ranges(RowRanges & skip_pages, RowRanges & to_adjust) {
-        size_t skipped_rows = 0;
-        auto iter = to_adjust.getRanges().begin();
-        auto skip_iter = skip_pages.getRanges().begin();
-        while(iter != to_adjust.getRanges().end()) {
-            while(skip_iter != skip_pages.getRanges().end() &&
-                skip_iter->isBefore(*iter)) {
-                skipped_rows += skip_iter->count();
-                ++skip_iter;
-            }
-            iter->from -= skipped_rows;
-            iter->to -= skipped_rows;
-            ++iter;
-        }
+    if (row_ranges[row_range_idx].from > current_rg_procesed) {
+      // negative, skip
+      return current_rg_procesed - row_ranges[row_range_idx].from;
     }
+
+    const auto ret = row_ranges[row_range_idx].to - current_rg_procesed + 1;
+    assert(ret > 0);
+    return ret;
+  }
+
+ private:
+  /// Keep copy of ranges, because advise_next() will modify them
+  // RowRanges will_process_pages;
+  RowRanges row_ranges;
+
+  size_t row_range_idx = 0;
+
+  size_t total_rows_to_process = 0;
+
+  /// Since the skipped pages will be slienly skipped without updating
+  /// current_rg_processed_records or records_read_, we need to pre-process the row ranges
+  /// as if these skipped pages never existed
+  void adjust_ranges(RowRanges& skip_pages, RowRanges& to_adjust) {
+    size_t skipped_rows = 0;
+    auto iter = to_adjust.getRanges().begin();
+    auto skip_iter = skip_pages.getRanges().begin();
+    while (iter != to_adjust.getRanges().end()) {
+      while (skip_iter != skip_pages.getRanges().end() && skip_iter->isBefore(*iter)) {
+        skipped_rows += skip_iter->count();
+        ++skip_iter;
+      }
+      iter->from -= skipped_rows;
+      iter->to -= skipped_rows;
+      ++iter;
+    }
+  }
 };
 
 /// \brief Stateful column reader that delimits semantic records for both flat
@@ -751,7 +732,7 @@ class PARQUET_EXPORT RecordReader {
   bool at_record_start_;
   int64_t records_read_;
 
-  int64_t current_rg_processed_records; // counting both read and skip records
+  int64_t current_rg_processed_records;  // counting both read and skip records
 
   /// \brief Stores values. These values are populated based on each ReadRecords
   /// call. No extra values are buffered for the next call. SkipRecords will not
