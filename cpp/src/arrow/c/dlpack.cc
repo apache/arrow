@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dlpack.h"
+#include "arrow/c/dlpack.h"
 
 #include "arrow/array/array_base.h"
-#include "arrow/dlpack_structure.h"
+#include "arrow/c/dlpack_structure.h"
 #include "arrow/type.h"
 
 namespace arrow {
+
+namespace dlpack {
 
 DLDataType getDLDataType(const std::shared_ptr<DataType>& type, Status* status) {
   DLDataType dtype;
@@ -68,7 +70,7 @@ static void deleter(DLManagedTensor* arg) {
   delete static_cast<DLMTensorCtx*>(arg->manager_ctx);
 }
 
-DLManagedTensor* ExportToDLPack(const std::shared_ptr<Array>& arr) {
+DLManagedTensor* Export(const std::shared_ptr<Array>& arr) {
   Status status = Status::OK();
 
   // Return null pointer if the array has a validity bitmap
@@ -125,5 +127,7 @@ DLManagedTensor* ExportToDLPack(const std::shared_ptr<Array>& arr) {
 
   return dlm_tensor;
 }
+
+}  // namespace dlpack
 
 }  // namespace arrow

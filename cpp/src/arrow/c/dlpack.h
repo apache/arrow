@@ -18,15 +18,19 @@
 #pragma once
 
 #include "arrow/array/array_base.h"
-#include "arrow/dlpack_structure.h"
+#include "arrow/c/dlpack_structure.h"
 
 namespace arrow {
+
+namespace dlpack {
 
 /// \brief DLPack protocol for producing DLManagedTensor
 ///
 /// Returns pointer to the DLManagedTensor class defined by
 // the DLPack protocol
 ARROW_EXPORT
-DLManagedTensor* ExportToDLPack(const std::shared_ptr<Array>& arr);
+DLManagedTensor* Export(const std::shared_ptr<Array>& arr);
+
+}  // namespace dlpack
 
 }  // namespace arrow

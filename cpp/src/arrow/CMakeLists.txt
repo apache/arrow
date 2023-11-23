@@ -174,7 +174,6 @@ set(ARROW_SRCS
     config.cc
     datum.cc
     device.cc
-    dlpack.cc
     extension_type.cc
     memory_pool.cc
     pretty_print.cc
@@ -193,6 +192,7 @@ set(ARROW_SRCS
     type_traits.cc
     visitor.cc
     c/bridge.cc
+    c/dlpack.cc
     io/buffered.cc
     io/caching.cc
     io/compressed.cc

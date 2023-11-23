@@ -1199,7 +1199,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
 
 
-cdef extern from "arrow/dlpack_structure.h" nogil:
+cdef extern from "arrow/c/dlpack_structure.h" nogil:
     cdef enum DLDeviceType:
         kDLCPU = 1
         kDLCUDA = 2
@@ -1249,8 +1249,8 @@ cdef extern from "arrow/dlpack_structure.h" nogil:
         void (*deleter)(DLManagedTensor*)
 
 
-cdef extern from "arrow/dlpack.h" namespace "arrow" nogil:
-    DLManagedTensor* ExportToDLPack(const shared_ptr[CArray]& arr)
+cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    DLManagedTensor* ExportToDLPack" arrow::dlpack::Export"(const shared_ptr[CArray]& arr)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
