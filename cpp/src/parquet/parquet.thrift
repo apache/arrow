@@ -20,7 +20,6 @@
 /**
  * File format description for the parquet file format
  */
-
 cpp_include "parquet/windows_compatibility.h"
 namespace cpp parquet.format
 namespace java org.apache.parquet.format
@@ -194,6 +193,52 @@ enum FieldRepetitionType {
 }
 
 /**
+ * A structure for capturing metadata for estimating the unencoded,
+ * uncompressed size of data written. This is useful for readers to estimate
+ * how much memory is needed to reconstruct data in their memory model and for
+ * fine grained filter pushdown on nested structures (the histograms contained
+ * in this structure can help determine the number of nulls at a particular
+ * nesting level and maximum length of lists).
+ */
+struct SizeStatistics {
+   /**
+    * The number of physical bytes stored for BYTE_ARRAY data values assuming
+    * no encoding. This is exclusive of the bytes needed to store the length of
+    * each byte array. In other words, this field is equivalent to the `(size
+    * of PLAIN-ENCODING the byte array values) - (4 bytes * number of values
+    * written)`. To determine unencoded sizes of other types readers can use
+    * schema information multiplied by the number of non-null and null values.
+    * The number of null/non-null values can be inferred from the histograms
+    * below.
+    *
+    * For example, if a column chunk is dictionary-encoded with dictionary
+    * ["a", "bc", "cde"], and a data page contains the indices [0, 0, 1, 2],
+    * then this value for that data page should be 7 (1 + 1 + 2 + 3).
+    *
+    * This field should only be set for types that use BYTE_ARRAY as their
+    * physical type.
+    */
+   1: optional i64 unencoded_byte_array_data_bytes;
+   /**
+    * When present, there is expected to be one element corresponding to each
+    * repetition (i.e. size=max repetition_level+1) where each element
+    * represents the number of times the repetition level was observed in the
+    * data.
+    *
+    * This field may be omitted if max_repetition_level is 0 without loss
+    * of information.
+    **/
+   2: optional list<i64> repetition_level_histogram;
+   /**
+    * Same as repetition_level_histogram except for definition levels.
+    *
+    * This field may be omitted if max_definition_level is 0 or 1 without
+    * loss of information.
+    **/
+   3: optional list<i64> definition_level_histogram;
+}
+
+/**
  * Statistics per row group and per page
  * All fields are optional.
  */
@@ -218,13 +263,23 @@ struct Statistics {
    /** count of distinct values occurring */
    4: optional i64 distinct_count;
    /**
-    * Min and max values for the column, determined by its ColumnOrder.
+    * Lower and upper bound values for the column, determined by its ColumnOrder.
+    *
+    * These may be the actual minimum and maximum values found on a page or column
+    * chunk, but can also be (more compact) values that do not exist on a page or
+    * column chunk. For example, instead of storing "Blart Versenwald III", a writer
+    * may set min_value="B", max_value="C". Such more compact values must still be
+    * valid values within the column's logical type.
     *
     * Values are encoded using PLAIN encoding, except that variable-length byte
     * arrays do not include a length prefix.
     */
    5: optional binary max_value;
    6: optional binary min_value;
+   /** If true, max_value is the actual maximum value for a column */
+   7: optional bool is_max_value_exact;
+   /** If true, min_value is the actual minimum value for a column */
+   8: optional bool is_min_value_exact;
 }
 
 /** Empty structs to use as logical type annotations */
@@ -234,7 +289,7 @@ struct MapType {}     // see LogicalTypes.md
 struct ListType {}    // see LogicalTypes.md
 struct EnumType {}    // allowed for BINARY, must be encoded with UTF-8
 struct DateType {}    // allowed for INT32
-struct Float16Type{}  // allowed for FIXED[2], must encode raw FLOAT16 bytes
+struct Float16Type {} // allowed for FIXED[2], must encoded raw FLOAT16 bytes
 
 /**
  * Logical type to annotate a column that is always null.
@@ -247,6 +302,9 @@ struct NullType {}    // allowed for any physical type, only null values stored
 
 /**
  * Decimal logical type annotation
+ *
+ * Scale must be zero or a positive integer less than or equal to the precision.
+ * Precision must be a non-zero positive integer.
  *
  * To maintain forward-compatibility in v1, implementations using this logical
  * type must also set scale and precision on the annotated SchemaElement.
@@ -530,7 +588,7 @@ struct DataPageHeader {
   /** Encoding used for repetition levels **/
   4: required Encoding repetition_level_encoding;
 
-  /** Optional statistics for the data in this page**/
+  /** Optional statistics for the data in this page **/
   5: optional Statistics statistics;
 }
 
@@ -572,19 +630,19 @@ struct DataPageHeaderV2 {
 
   // repetition levels and definition levels are always using RLE (without size in it)
 
-  /** length of the definition levels */
+  /** Length of the definition levels */
   5: required i32 definition_levels_byte_length;
-  /** length of the repetition levels */
+  /** Length of the repetition levels */
   6: required i32 repetition_levels_byte_length;
 
-  /**  whether the values are compressed.
+  /**  Whether the values are compressed.
   Which means the section of the page between
   definition_levels_byte_length + repetition_levels_byte_length + 1 and compressed_page_size (included)
   is compressed with the compression_codec.
   If missing it is considered compressed */
-  7: optional bool is_compressed = 1;
+  7: optional bool is_compressed = true;
 
-  /** optional statistics for the data in this page **/
+  /** Optional statistics for the data in this page **/
   8: optional Statistics statistics;
 }
 
@@ -597,11 +655,11 @@ union BloomFilterAlgorithm {
 }
 
 /** Hash strategy type annotation. xxHash is an extremely fast non-cryptographic hash
- * algorithm. It uses 64 bits version of xxHash. 
+ * algorithm. It uses 64 bits version of xxHash.
  **/
 struct XxHash {}
 
-/** 
+/**
  * The hash function used in Bloom filter. This function takes the hash of a column value
  * using plain encoding.
  **/
@@ -757,6 +815,22 @@ struct ColumnMetaData {
 
   /** Byte offset from beginning of file to Bloom filter data. **/
   14: optional i64 bloom_filter_offset;
+
+  /** Size of Bloom filter data including the serialized header, in bytes.
+   * Added in 2.10 so readers may not read this field from old files and
+   * it can be obtained after the BloomFilterHeader has been deserialized.
+   * Writers should write this field so readers can read the bloom filter
+   * in a single I/O.
+   */
+  15: optional i32 bloom_filter_length;
+
+  /**
+   * Optional statistics to help estimate total memory when converted to in-memory
+   * representations. The histograms contained in these statistics can
+   * also be useful in some cases for more fine-grained nullability/list length
+   * filter pushdown.
+   */
+  16: optional SizeStatistics size_statistics;
 }
 
 struct EncryptionWithFooterKey {
@@ -765,7 +839,7 @@ struct EncryptionWithFooterKey {
 struct EncryptionWithColumnKey {
   /** Column path in schema **/
   1: required list<string> path_in_schema
-  
+
   /** Retrieval metadata of column encryption key **/
   2: optional binary key_metadata
 }
@@ -804,7 +878,7 @@ struct ColumnChunk {
 
   /** Crypto metadata of encrypted columns **/
   8: optional ColumnCryptoMetaData crypto_metadata
-  
+
   /** Encrypted column metadata for this chunk **/
   9: optional binary encrypted_column_metadata
 }
@@ -897,7 +971,7 @@ union ColumnOrder {
    *     - If the min is +0, the row group may contain -0 values as well.
    *     - If the max is -0, the row group may contain +0 values as well.
    *     - When looking for NaN values, min and max should be ignored.
-   *
+   * 
    *     When writing statistics the following rules should be followed:
    *     - NaNs should not be written to min or max statistics fields.
    *     - If the computed max value is zero (whether negative or positive),
@@ -931,6 +1005,13 @@ struct OffsetIndex {
    * that page_locations[i].first_row_index < page_locations[i+1].first_row_index.
    */
   1: required list<PageLocation> page_locations
+  /**
+   * Unencoded/uncompressed size for BYTE_ARRAY types.
+   *
+   * See documention for unencoded_byte_array_data_bytes in SizeStatistics for
+   * more details on this field.
+   */
+  2: optional list<i64> unencoded_byte_array_data_bytes
 }
 
 /**
@@ -970,6 +1051,25 @@ struct ColumnIndex {
 
   /** A list containing the number of null values for each page **/
   5: optional list<i64> null_counts
+
+  /**
+   * Contains repetition level histograms for each page
+   * concatenated together.  The repetition_level_histogram field on
+   * SizeStatistics contains more details.
+   *
+   * When present the length should always be (number of pages *
+   * (max_repetition_level + 1)) elements.
+   *
+   * Element 0 is the first element of the histogram for the first page.
+   * Element (max_repetition_level + 1) is the first element of the histogram
+   * for the second page.
+   **/
+   6: optional list<i64> repetition_level_histograms;
+   /**
+    * Same as repetition_level_histograms except for definitions levels.
+    **/
+   7: optional list<i64> definition_level_histograms;
+
 }
 
 struct AesGcmV1 {
@@ -978,7 +1078,7 @@ struct AesGcmV1 {
 
   /** Unique file identifier part of AAD suffix **/
   2: optional binary aad_file_unique
-  
+
   /** In files encrypted with AAD prefix without storing it,
    * readers must supply the prefix **/
   3: optional bool supply_aad_prefix
@@ -990,7 +1090,7 @@ struct AesGcmCtrV1 {
 
   /** Unique file identifier part of AAD suffix **/
   2: optional binary aad_file_unique
-  
+
   /** In files encrypted with AAD prefix without storing it,
    * readers must supply the prefix **/
   3: optional bool supply_aad_prefix
