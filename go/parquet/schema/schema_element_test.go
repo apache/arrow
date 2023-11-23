@@ -19,8 +19,8 @@ package schema
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v14/parquet"
-	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -158,6 +158,10 @@ func (s *SchemaElementConstructionSuite) TestSimple() {
 		{"uuid", &schemaElementConstructArgs{
 			"uuid", UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 16, false, ConvertedTypes.NA, true,
 			func(e *format.SchemaElement) bool { return e.LogicalType.IsSetUUID() },
+		}, nil},
+		{"float16", &schemaElementConstructArgs{
+			"float16", Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2, false, ConvertedTypes.NA, true,
+			func(e *format.SchemaElement) bool { return e.LogicalType.IsSetFLOAT16() },
 		}, nil},
 		{"none", &schemaElementConstructArgs{
 			"none", NoLogicalType{}, parquet.Types.Int64, -1, false, ConvertedTypes.NA, false,
@@ -425,7 +429,8 @@ func TestSchemaElementNestedSerialization(t *testing.T) {
 	timestampNode := MustPrimitive(NewPrimitiveNodeLogical("timestamp" /*name */, parquet.Repetitions.Required, NewTimestampLogicalType(false /* adjustedToUTC */, TimeUnitNanos), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */))
 	intNode := MustPrimitive(NewPrimitiveNodeLogical("int" /*name */, parquet.Repetitions.Required, NewIntLogicalType(64 /* bitWidth */, false /* signed */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */))
 	decimalNode := MustPrimitive(NewPrimitiveNodeLogical("decimal" /*name */, parquet.Repetitions.Required, NewDecimalLogicalType(16 /* precision */, 6 /* scale */), parquet.Types.Int64, -1 /* type len */, -1 /* fieldID */))
-	listNode := MustGroup(NewGroupNodeLogical("list" /*name */, parquet.Repetitions.Repeated, []Node{strNode, dateNode, jsonNode, uuidNode, timestampNode, intNode, decimalNode}, NewListLogicalType(), -1 /* fieldID */))
+	float16Node := MustPrimitive(NewPrimitiveNodeLogical("float16" /*name */, parquet.Repetitions.Required, Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2 /* type len */, - /* fieldID */ 1))
+	listNode := MustGroup(NewGroupNodeLogical("list" /*name */, parquet.Repetitions.Repeated, []Node{strNode, dateNode, jsonNode, uuidNode, timestampNode, intNode, decimalNode, float16Node}, NewListLogicalType(), -1 /* fieldID */))
 
 	listElems := ToThrift(listNode)
 	assert.Equal(t, "list", listElems[0].Name)
@@ -440,6 +445,7 @@ func TestSchemaElementNestedSerialization(t *testing.T) {
 	assert.True(t, listElems[5].LogicalType.IsSetTIMESTAMP())
 	assert.True(t, listElems[6].LogicalType.IsSetINTEGER())
 	assert.True(t, listElems[7].LogicalType.IsSetDECIMAL())
+	assert.True(t, listElems[8].LogicalType.IsSetFLOAT16())
 
 	mapNode := MustGroup(NewGroupNodeLogical("map" /* name */, parquet.Repetitions.Required, []Node{}, MapLogicalType{}, -1 /* fieldID */))
 	mapElems := ToThrift(mapNode)
@@ -486,6 +492,7 @@ func TestLogicalTypeSerializationRoundTrip(t *testing.T) {
 		{"json", JSONLogicalType{}, parquet.Types.ByteArray, -1},
 		{"bson", BSONLogicalType{}, parquet.Types.ByteArray, -1},
 		{"uuid", UUIDLogicalType{}, parquet.Types.FixedLenByteArray, 16},
+		{"float16", Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2},
 		{"none", NoLogicalType{}, parquet.Types.Boolean, -1},
 	}
 

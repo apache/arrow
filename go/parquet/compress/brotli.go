@@ -21,7 +21,7 @@ import (
 	"io"
 
 	"github.com/andybalholm/brotli"
-	"github.com/apache/arrow/go/v14/parquet/internal/debug"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
 )
 
 type brotliCodec struct{}

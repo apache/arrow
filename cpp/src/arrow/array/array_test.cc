@@ -382,10 +382,12 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       float64(),
       binary(),
       large_binary(),
+      binary_view(),
       fixed_size_binary(3),
       decimal(16, 4),
       utf8(),
       large_utf8(),
+      utf8_view(),
       list(utf8()),
       list(int64()),  // NOTE: Regression case for ARROW-9071/MakeArrayOfNull
       list(large_utf8()),
@@ -396,6 +398,8 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       large_list(list(large_utf8())),
       fixed_size_list(utf8(), 3),
       fixed_size_list(int64(), 4),
+      list_view(utf8()),
+      large_list_view(utf8()),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
       sparse_union(union_fields1, union_type_codes),
@@ -601,16 +605,21 @@ static ScalarVector GetScalars() {
       std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
       std::make_shared<BinaryScalar>(hello),
       std::make_shared<LargeBinaryScalar>(hello),
+      std::make_shared<BinaryViewScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
       std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
       std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
       std::make_shared<StringScalar>(hello),
       std::make_shared<LargeStringScalar>(hello),
+      std::make_shared<StringViewScalar>(hello),
+      std::make_shared<StringViewScalar>(Buffer::FromString("long string; not inlined")),
       std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
       ScalarFromJSON(map(int8(), utf8()), R"([[1, "foo"], [2, "bar"]])"),
       std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
+      std::make_shared<ListViewScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
+      std::make_shared<LargeListViewScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<StructScalar>(
           ScalarVector{
               std::make_shared<Int32Scalar>(2),
@@ -647,13 +656,14 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
+      ARROW_SCOPED_TRACE("scalar type: ", scalar->type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, length));
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
 
       // test case for ARROW-13321
-      for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
+      for (int64_t i : {int64_t{0}, length / 2, length - 1}) {
         ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
         AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
       }
@@ -746,9 +756,9 @@ TEST_F(TestArray, TestFillFromScalar) {
 
       ArraySpan span(*scalar);
       auto roundtripped_array = span.ToArray();
-      AssertArraysEqual(*array, *roundtripped_array);
-
       ASSERT_OK(roundtripped_array->ValidateFull());
+
+      AssertArraysEqual(*array, *roundtripped_array);
       ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
       AssertScalarsEqual(*scalar, *roundtripped_scalar);
     }
@@ -3520,6 +3530,8 @@ DataTypeVector SwappableTypes() {
                         large_utf8(),
                         list(int16()),
                         large_list(int16()),
+                        list_view(int16()),
+                        large_list_view(int16()),
                         dictionary(int16(), utf8())};
 }
 

@@ -18,11 +18,11 @@ package file
 
 import (
     "fmt"
-    
-    "github.com/apache/arrow/go/v14/parquet"
-    "github.com/apache/arrow/go/v14/parquet/metadata"
-    "github.com/apache/arrow/go/v14/parquet/internal/encoding"
-    format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
+
+    "github.com/apache/arrow/go/v15/parquet"
+    "github.com/apache/arrow/go/v15/parquet/metadata"
+    "github.com/apache/arrow/go/v15/parquet/internal/encoding"
+    format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
 )
 
 {{range .In}}
@@ -83,7 +83,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, r
   // writes a large number of values, the DataPage size can be much above the limit.
   // The purpose of this chunking is to bound this. Even if a user writes large number
   // of values, the chunking will ensure the AddDataPage() is called at a reasonable
-  // pagesize limit  
+  // pagesize limit
   var n int64
   switch {
   case defLevels != nil:
@@ -107,7 +107,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, r
     valueOffset += toWrite
     w.checkDictionarySizeLimit()
   })
-  return 
+  return
 }
 
 // WriteBatchSpaced writes a batch of repetition levels, definition levels, and values to the
@@ -132,7 +132,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatchSpaced(values []{{.name}}, defLev
     length = len(values)
   }
   doBatches(int64(length), w.props.WriteBatchSize(), func(offset, batch int64) {
-    var vals []{{.name}}    
+    var vals []{{.name}}
     info := w.maybeCalculateValidityBits(levelSliceOrNil(defLevels, offset, batch), batch)
 
     w.writeLevelsSpaced(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -165,7 +165,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLe
       }
     }
   }()
-  
+
   valueOffset := int64(0)
   length := len(defLevels)
   if defLevels == nil {
@@ -193,14 +193,22 @@ func (w *{{.Name}}ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLe
 
     valueOffset += info.numSpaced()
   })
-  
+
   return
 }
 
 func (w *{{.Name}}ColumnChunkWriter) writeValues(values []{{.name}}, numNulls int64) {
   w.currentEncoder.(encoding.{{.Name}}Encoder).Put(values)
   if w.pageStatistics != nil {
+{{- if ne .Name "FixedLenByteArray"}}
     w.pageStatistics.(*metadata.{{.Name}}Statistics).Update(values, numNulls)
+{{- else}}
+    if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
+      w.pageStatistics.(*metadata.Float16Statistics).Update(values, numNulls)
+    } else {
+      w.pageStatistics.(*metadata.{{.Name}}Statistics).Update(values, numNulls)
+    }
+{{- end}}
   }
 }
 
@@ -212,7 +220,15 @@ func (w *{{.Name}}ColumnChunkWriter) writeValuesSpaced(spacedValues []{{.name}},
   }
   if w.pageStatistics != nil {
     nulls := numValues - numRead
+{{- if ne .Name "FixedLenByteArray"}}
     w.pageStatistics.(*metadata.{{.Name}}Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+{{- else}}
+    if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
+      w.pageStatistics.(*metadata.Float16Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+    } else {
+      w.pageStatistics.(*metadata.{{.Name}}Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+    }
+{{- end}}
   }
 }
 

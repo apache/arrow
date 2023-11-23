@@ -42,7 +42,9 @@ go install -v ./...
 
 popd
 
-if [[ -n "${ARROW_GO_INTEGRATION}" ]]; then
+: ${ARROW_INTEGRATION_GO:=ON}
+
+if [ "${ARROW_INTEGRATION_GO}" == "ON" ]; then
     pushd ${source_dir}/arrow/internal/cdata_integration
 
     case "$(uname)" in

@@ -68,52 +68,52 @@ class CDataExporter(ABC):
         Whether the implementation is able to release memory deterministically.
 
         Here, "release memory" means that, after the `release` callback of
-        a C Data Interface export is called, `compare_allocation_state` is
-        able to trigger the deallocation of the memory underlying the export
-        (for example buffer data).
+        a C Data Interface export is called, `run_gc` is able to trigger
+        the deallocation of the memory underlying the export (such as buffer data).
 
-        If false, then `record_allocation_state` and `compare_allocation_state`
-        are allowed to raise NotImplementedError.
+        If false, then `record_allocation_state` is allowed to raise
+        NotImplementedError.
         """
 
     def record_allocation_state(self) -> object:
         """
-        Record the current memory allocation state.
+        Return the current memory allocation state.
 
         Returns
         -------
         state : object
-            Opaque object representing the allocation state,
-            for example the number of allocated bytes.
+            Equality-comparable object representing the allocation state,
+            for example the number of allocated or exported bytes.
         """
         raise NotImplementedError
 
-    def compare_allocation_state(self, recorded: object,
-                                 gc_until: typing.Callable[[_Predicate], bool]
-                                 ) -> bool:
+    def run_gc(self):
         """
-        Compare the current memory allocation state with the recorded one.
+        Run the GC if necessary.
 
-        Parameters
-        ----------
-        recorded : object
-            The previous allocation state returned by
-            `record_allocation_state()`
-        gc_until : callable
-            A callable itself accepting a callable predicate, and
-            returning a boolean.
-            `gc_until` should try to release memory until the predicate
-            becomes true, or until it decides to give up. The final value
-            of the predicate should be returned.
-            `gc_until` is typically provided by the C Data Interface importer.
-
-        Returns
-        -------
-        success : bool
-            Whether memory allocation state finally reached its previously
-            recorded value.
+        This should ensure that any temporary objects and data created by
+        previous exporter calls are collected.
         """
-        raise NotImplementedError
+
+    @property
+    def required_gc_runs(self):
+        """
+        The maximum number of calls to `run_gc` that need to be issued to
+        ensure proper deallocation. Some implementations may require this
+        to be greater than one.
+        """
+        return 1
+
+    def close(self):
+        """
+        Final cleanup after usage.
+        """
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
 
 class CDataImporter(ABC):
@@ -163,32 +163,40 @@ class CDataImporter(ABC):
         """
         Whether the implementation is able to release memory deterministically.
 
-        Here, "release memory" means calling the `release` callback of
-        a C Data Interface export (which should then trigger a deallocation
-        mechanism on the exporter).
-
-        If false, then `gc_until` is allowed to raise NotImplementedError.
+        Here, "release memory" means `run_gc()` is able to trigger the
+        `release` callback of a C Data Interface export (which would then
+        induce a deallocation mechanism on the exporter).
         """
 
-    def gc_until(self, predicate: _Predicate):
+    def run_gc(self):
         """
-        Try to release memory until the predicate becomes true, or fail.
+        Run the GC if necessary.
 
-        Depending on the CDataImporter implementation, this may for example
-        try once, or run a garbage collector a given number of times, or
-        any other implementation-specific strategy for releasing memory.
-
-        The running time should be kept reasonable and compatible with
-        execution of multiple C Data integration tests.
-
-        This should not raise if `supports_releasing_memory` is true.
-
-        Returns
-        -------
-        success : bool
-            The final value of the predicate.
+        This should ensure that any imported data has its release callback called.
         """
-        raise NotImplementedError
+
+    @property
+    def required_gc_runs(self):
+        """
+        The maximum number of calls to `run_gc` that need to be issued to
+        ensure release callbacks are triggered. Some implementations may
+        require this to be greater than one.
+        """
+        return 1
+
+    def close(self):
+        """
+        Final cleanup after usage.
+        """
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        # Make sure any exported data is released.
+        for i in range(self.required_gc_runs):
+            self.run_gc()
+        self.close()
 
 
 class Tester:
@@ -217,11 +225,12 @@ class Tester:
         self.args = args
         self.debug = debug
 
-    def run_shell_command(self, cmd):
+    def run_shell_command(self, cmd, **kwargs):
         cmd = ' '.join(cmd)
         if self.debug:
             log(cmd)
-        subprocess.check_call(cmd, shell=True)
+        kwargs.update(shell=True)
+        subprocess.check_call(cmd, **kwargs)
 
     def json_to_file(self, json_path, arrow_path):
         """

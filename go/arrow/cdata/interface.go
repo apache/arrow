@@ -22,10 +22,10 @@ package cdata
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/arrio"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/arrio"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -116,6 +116,7 @@ func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (arrow.Rec
 	if err != nil {
 		return nil, err
 	}
+	defer imp.data.Release()
 
 	st := array.NewStructData(imp.data)
 	defer st.Release()

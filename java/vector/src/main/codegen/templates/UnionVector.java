@@ -144,8 +144,8 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     int count = 0;
     for (Field child: children) {
       int typeId = Types.getMinorTypeForArrowType(child.getType()).ordinal();
-      if (fieldType != null) {
-        int[] typeIds = ((ArrowType.Union)fieldType.getType()).getTypeIds();
+      if (this.fieldType != null) {
+        int[] typeIds = ((ArrowType.Union)this.fieldType.getType()).getTypeIds();
         if (typeIds != null) {
           typeId = typeIds[count++];
         }
@@ -496,6 +496,16 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return getTransferPair(field, allocator, null);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new org.apache.arrow.vector.complex.UnionVector.TransferImpl(field, allocator, callBack);
+  }
+
+  @Override
   public TransferPair makeTransferPair(ValueVector target) {
     return new TransferImpl((UnionVector) target);
   }
@@ -544,6 +554,11 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
       to = new UnionVector(name, allocator, /* field type */ null, callBack);
+      internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      to = new UnionVector(field.getName(), allocator, null, callBack);
       internalStructVectorTransferPair = internalStruct.makeTransferPair(to.internalStruct);
     }
 

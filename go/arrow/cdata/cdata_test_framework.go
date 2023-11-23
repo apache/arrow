@@ -26,25 +26,20 @@ package cdata
 // #include "arrow/c/helpers.h"
 //
 // void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out);
-// struct ArrowArray* get_test_arr() {
+// static struct ArrowArray* get_test_arr() {
 //   struct ArrowArray* array = (struct ArrowArray*)malloc(sizeof(struct ArrowArray));
 //   memset(array, 0, sizeof(*array));
 //   return array;
 // }
-// struct ArrowArrayStream* get_test_stream() {
+// static struct ArrowArrayStream* get_test_stream() {
 //	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
 //	memset(out, 0, sizeof(struct ArrowArrayStream));
 //	return out;
 // }
 //
-// void release_test_arr(struct ArrowArray* arr) {
-//  for (int i = 0; i < arr->n_buffers; ++i) {
-//		free((void*)arr->buffers[i]);
-//	}
-//  ArrowArrayMarkReleased(arr);
-// }
+// void release_test_arr(struct ArrowArray* arr);
 //
-// int32_t* get_data() {
+// static int32_t* get_data() {
 //	int32_t* data = malloc(sizeof(int32_t)*10);
 //  for (int i = 0; i < 10; ++i) { data[i] = i+1; }
 //	return data;
@@ -62,16 +57,22 @@ package cdata
 // int test_exported_stream(struct ArrowArrayStream* stream);
 // void test_stream_schema_fallible(struct ArrowArrayStream* stream);
 // int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed);
+// extern void releaseTestArr(struct ArrowArray* array);
+// extern void goReleaseTestArray(struct ArrowArray* array);
 import "C"
+
 import (
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
+	"runtime/cgo"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/memory/mallocator"
 )
 
 const (
@@ -227,50 +228,103 @@ func testSchema(fmts, names []string, flags []int64) **CArrowSchema {
 	return C.test_schema((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
 }
 
-func freeTestArr(carr *CArrowArray) {
-	C.free(unsafe.Pointer(carr))
+func freeAny[T any](alloc *mallocator.Mallocator, p *T, n int) {
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(p)), int(unsafe.Sizeof(*p))*n)
+	alloc.Free(raw)
 }
 
-func createCArr(arr arrow.Array) *CArrowArray {
+func freeTestMallocatorArr(carr *CArrowArray, alloc *mallocator.Mallocator) {
+	freeAny(alloc, carr, 1)
+}
+
+func getTestArr(alloc *mallocator.Mallocator) *CArrowArray {
+	raw := alloc.Allocate(C.sizeof_struct_ArrowArray)
+	return (*CArrowArray)(unsafe.Pointer(&raw[0]))
+}
+
+type testReleaser struct {
+	alloc *mallocator.Mallocator
+	bufs  [][]byte
+}
+
+//export releaseTestArr
+func releaseTestArr(arr *CArrowArray) {
+	if C.ArrowArrayIsReleased(arr) == 1 {
+		return
+	}
+	defer C.ArrowArrayMarkReleased(arr)
+
+	h := getHandle(arr.private_data)
+	tr := h.Value().(*testReleaser)
+
+	alloc := tr.alloc
+	for _, b := range tr.bufs {
+		alloc.Free(b)
+	}
+
+	if arr.n_buffers > 0 {
+		freeAny(alloc, arr.buffers, int(arr.n_buffers))
+	}
+
+	if arr.dictionary != nil {
+		C.ArrowArrayRelease(arr.dictionary)
+		freeAny(alloc, arr.dictionary, 1)
+	}
+
+	if arr.n_children > 0 {
+		children := unsafe.Slice(arr.children, arr.n_children)
+		for _, c := range children {
+			C.ArrowArrayRelease(c)
+			freeTestMallocatorArr(c, alloc)
+		}
+
+		freeAny(alloc, arr.children, int(arr.n_children))
+	}
+
+	h.Delete()
+	C.free(unsafe.Pointer(arr.private_data))
+}
+
+func allocateBufferMallocatorPtrArr(alloc *mallocator.Mallocator, n int) []*C.void {
+	raw := alloc.Allocate(int(unsafe.Sizeof((*C.void)(nil))) * n)
+	return unsafe.Slice((**C.void)(unsafe.Pointer(&raw[0])), n)
+}
+
+func allocateChildrenPtrArr(alloc *mallocator.Mallocator, n int) []*CArrowArray {
+	raw := alloc.Allocate(int(unsafe.Sizeof((*CArrowArray)(nil))) * n)
+	return unsafe.Slice((**CArrowArray)(unsafe.Pointer(&raw[0])), n)
+}
+
+func createCArr(arr arrow.Array, alloc *mallocator.Mallocator) *CArrowArray {
 	var (
-		carr      = C.get_test_arr()
+		carr      = getTestArr(alloc)
 		children  = (**CArrowArray)(nil)
 		nchildren = C.int64_t(0)
 	)
 
 	switch arr := arr.(type) {
-	case *array.List:
-		clist := []*CArrowArray{createCArr(arr.ListValues())}
-		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
-		nchildren += 1
-	case *array.LargeList:
-		clist := []*CArrowArray{createCArr(arr.ListValues())}
-		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
-		nchildren += 1
-	case *array.FixedSizeList:
-		clist := []*CArrowArray{createCArr(arr.ListValues())}
+	case array.ListLike:
+		clist := allocateChildrenPtrArr(alloc, 1)
+		clist[0] = createCArr(arr.ListValues(), alloc)
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
 	case *array.Struct:
-		clist := []*CArrowArray{}
+		clist := allocateChildrenPtrArr(alloc, arr.NumField())
 		for i := 0; i < arr.NumField(); i++ {
-			clist = append(clist, createCArr(arr.Field(i)))
+			clist[i] = createCArr(arr.Field(i), alloc)
 			nchildren += 1
 		}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
-	case *array.Map:
-		clist := []*CArrowArray{createCArr(arr.ListValues())}
-		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
-		nchildren += 1
 	case *array.RunEndEncoded:
-		clist := []*CArrowArray{createCArr(arr.RunEndsArr()),
-			createCArr(arr.Values())}
+		clist := allocateChildrenPtrArr(alloc, 2)
+		clist[0] = createCArr(arr.RunEndsArr(), alloc)
+		clist[1] = createCArr(arr.Values(), alloc)
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 2
 	case array.Union:
-		clist := []*CArrowArray{}
+		clist := allocateChildrenPtrArr(alloc, arr.NumFields())
 		for i := 0; i < arr.NumFields(); i++ {
-			clist = append(clist, createCArr(arr.Field(i)))
+			clist[i] = createCArr(arr.Field(i), alloc)
 			nchildren += 1
 		}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
@@ -282,21 +336,36 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	carr.length = C.int64_t(arr.Len())
 	carr.null_count = C.int64_t(arr.NullN())
 	carr.offset = C.int64_t(arr.Data().Offset())
-	carr.release = (*[0]byte)(C.release_test_arr)
+	carr.release = (*[0]byte)(C.goReleaseTestArray)
+	tr := &testReleaser{alloc: alloc}
+	h := cgo.NewHandle(tr)
+	carr.private_data = createHandle(h)
 
 	buffers := arr.Data().Buffers()
-	if len(buffers) == 0 {
+	bufOffset, nbuffers := 0, len(buffers)
+	hasValidityBitmap := internal.DefaultHasValidityBitmap(arr.DataType().ID())
+	if nbuffers > 0 && !hasValidityBitmap {
+		nbuffers--
+		bufOffset++
+	}
+
+	if nbuffers == 0 {
 		return carr
 	}
 
-	cbufs := allocateBufferPtrArr(len(buffers))
-	for i, b := range buffers {
+	tr.bufs = make([][]byte, 0, nbuffers)
+	cbufs := allocateBufferMallocatorPtrArr(alloc, nbuffers)
+	for i, b := range buffers[bufOffset:] {
 		if b != nil {
-			cbufs[i] = (*C.void)(C.CBytes(b.Bytes()))
+			raw := alloc.Allocate(b.Len())
+			copy(raw, b.Bytes())
+			tr.bufs = append(tr.bufs, raw)
+			cbufs[i] = (*C.void)(unsafe.Pointer(&raw[0]))
 		} else {
 			cbufs[i] = nil
 		}
 	}
+
 	carr.n_buffers = C.int64_t(len(cbufs))
 	if len(cbufs) > 0 {
 		carr.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cbufs[0]))

@@ -23,11 +23,11 @@ import (
 	"io"
 	"sort"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v14/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -322,6 +322,16 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		fv.dtype = flatbuf.TypeLargeUtf8
 		flatbuf.LargeUtf8Start(fv.b)
 		fv.offset = flatbuf.LargeUtf8End(fv.b)
+
+	case *arrow.BinaryViewType:
+		fv.dtype = flatbuf.TypeBinaryView
+		flatbuf.BinaryViewStart(fv.b)
+		fv.offset = flatbuf.BinaryViewEnd(fv.b)
+
+	case *arrow.StringViewType:
+		fv.dtype = flatbuf.TypeUtf8View
+		flatbuf.Utf8ViewStart(fv.b)
+		fv.offset = flatbuf.Utf8ViewEnd(fv.b)
 
 	case *arrow.Date32Type:
 		fv.dtype = flatbuf.TypeDate
@@ -712,6 +722,12 @@ func concreteTypeFromFB(typ flatbuf.Type, data flatbuffers.Table, children []arr
 
 	case flatbuf.TypeLargeUtf8:
 		return arrow.BinaryTypes.LargeString, nil
+
+	case flatbuf.TypeUtf8View:
+		return arrow.BinaryTypes.StringView, nil
+
+	case flatbuf.TypeBinaryView:
+		return arrow.BinaryTypes.BinaryView, nil
 
 	case flatbuf.TypeBool:
 		return arrow.FixedWidthTypes.Boolean, nil
@@ -1168,15 +1184,15 @@ func writeFileFooter(schema *arrow.Schema, dicts, recs []fileBlock, w io.Writer)
 	return err
 }
 
-func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) *memory.Buffer {
+func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType, variadicCounts []int64) *memory.Buffer {
 	b := flatbuffers.NewBuilder(0)
-	recFB := recordToFB(b, size, bodyLength, fields, meta, codec)
+	recFB := recordToFB(b, size, bodyLength, fields, meta, codec, variadicCounts)
 	return writeMessageFB(b, mem, flatbuf.MessageHeaderRecordBatch, recFB, bodyLength)
 }
 
-func writeDictionaryMessage(mem memory.Allocator, id int64, isDelta bool, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) *memory.Buffer {
+func writeDictionaryMessage(mem memory.Allocator, id int64, isDelta bool, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType, variadicCounts []int64) *memory.Buffer {
 	b := flatbuffers.NewBuilder(0)
-	recFB := recordToFB(b, size, bodyLength, fields, meta, codec)
+	recFB := recordToFB(b, size, bodyLength, fields, meta, codec, variadicCounts)
 
 	flatbuf.DictionaryBatchStart(b)
 	flatbuf.DictionaryBatchAddId(b, id)
@@ -1186,7 +1202,7 @@ func writeDictionaryMessage(mem memory.Allocator, id int64, isDelta bool, size, 
 	return writeMessageFB(b, mem, flatbuf.MessageHeaderDictionaryBatch, dictFB, bodyLength)
 }
 
-func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) flatbuffers.UOffsetT {
+func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType, variadicCounts []int64) flatbuffers.UOffsetT {
 	fieldsFB := writeFieldNodes(b, fields, flatbuf.RecordBatchStartNodesVector)
 	metaFB := writeBuffers(b, meta, flatbuf.RecordBatchStartBuffersVector)
 	var bodyCompressFB flatbuffers.UOffsetT
@@ -1194,10 +1210,24 @@ func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMe
 		bodyCompressFB = writeBodyCompression(b, codec)
 	}
 
+	var vcFB *flatbuffers.UOffsetT
+	if len(variadicCounts) > 0 {
+		flatbuf.RecordBatchStartVariadicBufferCountsVector(b, len(variadicCounts))
+		for i := len(variadicCounts) - 1; i >= 0; i-- {
+			b.PrependInt64(variadicCounts[i])
+		}
+		vcFBVal := b.EndVector(len(variadicCounts))
+		vcFB = &vcFBVal
+	}
+
 	flatbuf.RecordBatchStart(b)
 	flatbuf.RecordBatchAddLength(b, size)
 	flatbuf.RecordBatchAddNodes(b, fieldsFB)
 	flatbuf.RecordBatchAddBuffers(b, metaFB)
+	if vcFB != nil {
+		flatbuf.RecordBatchAddVariadicBufferCounts(b, *vcFB)
+	}
+
 	if codec != -1 {
 		flatbuf.RecordBatchAddCompression(b, bodyCompressFB)
 	}

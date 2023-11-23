@@ -148,6 +148,8 @@ struct DictionaryBuilderCase {
   Status Visit(const StringType&) { return CreateFor<StringType>(); }
   Status Visit(const LargeBinaryType&) { return CreateFor<LargeBinaryType>(); }
   Status Visit(const LargeStringType&) { return CreateFor<LargeStringType>(); }
+  Status Visit(const BinaryViewType&) { return CreateFor<BinaryViewType>(); }
+  Status Visit(const StringViewType&) { return CreateFor<StringViewType>(); }
   Status Visit(const FixedSizeBinaryType&) { return CreateFor<FixedSizeBinaryType>(); }
   Status Visit(const Decimal128Type&) { return CreateFor<Decimal128Type>(); }
   Status Visit(const Decimal256Type&) { return CreateFor<Decimal256Type>(); }
@@ -190,7 +192,7 @@ struct DictionaryBuilderCase {
 
 struct MakeBuilderImpl {
   template <typename T>
-  enable_if_not_nested<T, Status> Visit(const T&) {
+  enable_if_not_nested<T, Status> Visit(const T& t) {
     out.reset(new typename TypeTraits<T>::BuilderType(type, pool));
     return Status::OK();
   }
@@ -216,6 +218,20 @@ struct MakeBuilderImpl {
     std::shared_ptr<DataType> value_type = list_type.value_type();
     ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(value_type));
     out.reset(new LargeListBuilder(pool, std::move(value_builder), type));
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewType& list_view_type) {
+    std::shared_ptr<DataType> value_type = list_view_type.value_type();
+    ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(value_type));
+    out.reset(new ListViewBuilder(pool, std::move(value_builder), std::move(type)));
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewType& large_list_view_type) {
+    std::shared_ptr<DataType> value_type = large_list_view_type.value_type();
+    ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(value_type));
+    out.reset(new LargeListViewBuilder(pool, std::move(value_builder), std::move(type)));
     return Status::OK();
   }
 

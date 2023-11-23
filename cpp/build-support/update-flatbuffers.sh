@@ -27,13 +27,14 @@ SOURCE_DIR="$CWD/../src"
 PYTHON_SOURCE_DIR="$CWD/../../python"
 FORMAT_DIR="$CWD/../../format"
 TOP="$FORMAT_DIR/.."
-FLATC="flatc"
+FLATC="flatc --cpp --cpp-std c++11 --scoped-enums"
 
 OUT_DIR="$SOURCE_DIR/generated"
 FILES=($(find $FORMAT_DIR -name '*.fbs'))
 FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
-$FLATC --cpp --cpp-std c++11 \
-  --scoped-enums \
-  -o "$OUT_DIR" \
-  "${FILES[@]}"
+$FLATC -o "$OUT_DIR" "${FILES[@]}"
+
+# Skyhook flatbuffers
+$FLATC -o "$SOURCE_DIR/skyhook/protocol" \
+  "$SOURCE_DIR/skyhook/protocol/ScanRequest.fbs"

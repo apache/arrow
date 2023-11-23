@@ -116,7 +116,7 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
             numFields = obj.NumFields;
 
             if numFields > 0
-                text = arrow.tabular.internal.displaySchema(obj);
+                text = "    " + arrow.tabular.internal.display.getSchemaString(obj);
                 disp(text + newline);
             end
 

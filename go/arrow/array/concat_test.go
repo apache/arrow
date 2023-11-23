@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -84,6 +84,7 @@ func TestConcatenate(t *testing.T) {
 		{arrow.StructOf()},
 		{arrow.MapOf(arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int8)},
 		{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.PrimitiveTypes.Float64}},
+		{arrow.BinaryTypes.StringView},
 	}
 
 	for _, tt := range tests {
@@ -150,6 +151,8 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Arra
 		return cts.rng.String(size, 0, 15, nullprob)
 	case arrow.LARGE_STRING:
 		return cts.rng.LargeString(size, 0, 15, nullprob)
+	case arrow.STRING_VIEW:
+		return cts.rng.StringView(size, 0, 20, nullprob)
 	case arrow.LIST:
 		valuesSize := size * 4
 		values := cts.rng.Int8(valuesSize, 0, 127, nullprob).(*array.Int8)

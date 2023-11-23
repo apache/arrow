@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -1132,6 +1133,26 @@ public class TestListVector {
       // Note: allocator rounds up and can be greater than the requested allocation.
       assertTrue(vector.getValueCapacity() >= 10);
       assertTrue(vector.getDataVector().getValueCapacity() >= 100);
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    try (ListVector fromVector = ListVector.empty("input", allocator)) {
+      UnionListWriter writer = fromVector.getWriter();
+      writer.allocate();
+      writer.setPosition(0); // optional
+      writer.startList();
+      writer.bigInt().writeBigInt(1);
+      writer.bigInt().writeBigInt(2);
+      writer.bigInt().writeBigInt(3);
+      writer.endList();
+      writer.setValueCount(1);
+      final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(),
+          allocator);
+      final ListVector toVector = (ListVector) transferPair.getTo();
+      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      assertSame(toVector.getField(), fromVector.getField());
     }
   }
 

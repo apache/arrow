@@ -25,14 +25,14 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/internal"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/arrow/scalar"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
 )
 
 // ExecCtx holds simple contextual information for execution
@@ -171,6 +171,8 @@ func addComputeDataPrealloc(dt arrow.DataType, widths []bufferPrealloc) []buffer
 		return append(widths, bufferPrealloc{bitWidth: 32, addLen: 1})
 	case arrow.LARGE_BINARY, arrow.LARGE_STRING, arrow.LARGE_LIST:
 		return append(widths, bufferPrealloc{bitWidth: 64, addLen: 1})
+	case arrow.STRING_VIEW, arrow.BINARY_VIEW:
+		return append(widths, bufferPrealloc{bitWidth: arrow.ViewHeaderSizeBytes * 8})
 	}
 	return widths
 }
@@ -1007,9 +1009,10 @@ func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	case <-ctx.Done():
 		return nil
 	case output = <-out:
-		if output == nil {
+		if output == nil || ctx.Err() != nil {
 			return nil
 		}
+
 		// if the inputs contained at least one chunked array
 		// then we want to return chunked output
 		if hasChunked {

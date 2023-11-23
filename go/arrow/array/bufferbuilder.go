@@ -18,10 +18,12 @@ package array
 
 import (
 	"sync/atomic"
+	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type bufBuilder interface {
@@ -150,4 +152,110 @@ func (b *bufferBuilder) Finish() (buffer *memory.Buffer) {
 func (b *bufferBuilder) unsafeAppend(data []byte) {
 	copy(b.bytes[b.length:], data)
 	b.length += len(data)
+}
+
+type multiBufferBuilder struct {
+	refCount  int64
+	blockSize int
+
+	mem              memory.Allocator
+	blocks           []*memory.Buffer
+	currentOutBuffer int
+}
+
+// Retain increases the reference count by 1.
+// Retain may be called simultaneously from multiple goroutines.
+func (b *multiBufferBuilder) Retain() {
+	atomic.AddInt64(&b.refCount, 1)
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+// Release may be called simultaneously from multiple goroutines.
+func (b *multiBufferBuilder) Release() {
+	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&b.refCount, -1) == 0 {
+		b.Reset()
+	}
+}
+
+func (b *multiBufferBuilder) Reserve(nbytes int) {
+	if len(b.blocks) == 0 {
+		out := memory.NewResizableBuffer(b.mem)
+		if nbytes < b.blockSize {
+			nbytes = b.blockSize
+		}
+		out.Reserve(nbytes)
+		b.currentOutBuffer = 0
+		b.blocks = []*memory.Buffer{out}
+		return
+	}
+
+	curBuf := b.blocks[b.currentOutBuffer]
+	remain := curBuf.Cap() - curBuf.Len()
+	if nbytes <= remain {
+		return
+	}
+
+	// search for underfull block that has enough bytes
+	for i, block := range b.blocks {
+		remaining := block.Cap() - block.Len()
+		if nbytes <= remaining {
+			b.currentOutBuffer = i
+			return
+		}
+	}
+
+	// current buffer doesn't have enough space, no underfull buffers
+	// make new buffer and set that as our current.
+	newBuf := memory.NewResizableBuffer(b.mem)
+	if nbytes < b.blockSize {
+		nbytes = b.blockSize
+	}
+
+	newBuf.Reserve(nbytes)
+	b.currentOutBuffer = len(b.blocks)
+	b.blocks = append(b.blocks, newBuf)
+}
+
+func (b *multiBufferBuilder) RemainingBytes() int {
+	if len(b.blocks) == 0 {
+		return 0
+	}
+
+	buf := b.blocks[b.currentOutBuffer]
+	return buf.Cap() - buf.Len()
+}
+
+func (b *multiBufferBuilder) Reset() {
+	b.currentOutBuffer = 0
+	for _, block := range b.Finish() {
+		block.Release()
+	}
+}
+
+func (b *multiBufferBuilder) UnsafeAppend(hdr *arrow.ViewHeader, val []byte) {
+	buf := b.blocks[b.currentOutBuffer]
+	idx, offset := b.currentOutBuffer, buf.Len()
+	hdr.SetIndexOffset(int32(idx), int32(offset))
+
+	n := copy(buf.Buf()[offset:], val)
+	buf.ResizeNoShrink(offset + n)
+}
+
+func (b *multiBufferBuilder) UnsafeAppendString(hdr *arrow.ViewHeader, val string) {
+	// create a byte slice with zero-copies
+	// in go1.20 this would be equivalent to unsafe.StringData
+	v := *(*[]byte)(unsafe.Pointer(&struct {
+		string
+		int
+	}{val, len(val)}))
+	b.UnsafeAppend(hdr, v)
+}
+
+func (b *multiBufferBuilder) Finish() (out []*memory.Buffer) {
+	b.currentOutBuffer = 0
+	out, b.blocks = b.blocks, nil
+	return
 }
