@@ -566,8 +566,59 @@ class LeafReader : public ColumnReaderImpl {
 
  private:
   std::shared_ptr<ChunkedArray> out_;
+
+  void checkAndGetPageRanges(const std::shared_ptr<RowRanges>& row_ranges,
+                             std::shared_ptr<RowRanges>& page_ranges) {
+    // check offset exists
+    auto rg_pg_index_reader =
+        ctx_->reader->GetPageIndexReader()->RowGroup(input_->current_row_group());
+
+    if (!rg_pg_index_reader) {
+      throw ParquetException(
+          "Attempting to read with Ranges but Page Index is not found for Row "
+          "Group: " +
+          std::to_string(input_->current_row_group()));
+    }
+    auto offset_index = rg_pg_index_reader->GetOffsetIndex(input_->column_index());
+
+    if (!offset_index) {
+      throw ParquetException(
+          "Attempting to read with Ranges but Offset index is not found for "
+          "column: " +
+          field_->name());
+    }
+
+    if (!row_ranges->isValid()) {
+      throw ParquetException(
+          "The provided row range is invalid, keep it monotone and non-interleaving: " +
+          row_ranges->toString());
+    }
+
+    const auto page_locations = offset_index->page_locations();
+    page_ranges = std::make_shared<RowRanges>();
+    for (size_t i = 0; i < page_locations.size() - 1; i++) {
+      page_ranges->add(
+          {page_locations[i].first_row_index, page_locations[i + 1].first_row_index - 1},
+          false);
+    }
+    if (page_locations.size() >= 1) {
+      page_ranges->add(
+          {page_locations[page_locations.size() - 1].first_row_index,
+           ctx_->reader->metadata()->RowGroup(input_->current_row_group())->num_rows() -
+               1},
+          false);
+    }
+
+    if (row_ranges->getRanges().size() > 0) {
+      if ((*row_ranges).getRanges().back().to > page_ranges->getRanges().back().to) {
+        throw ParquetException(
+            "The provided row range " + row_ranges->toString() +
+            " exceeds last page :" + page_ranges->getRanges().back().toString());
+      }
+    }
+  }
+
   void NextRowGroup() {
-    std::cout << "Entering NextRowGroup" << std::endl;
     std::unique_ptr<PageReader> page_reader = input_->NextChunk();
 
     /// using page index to reduce cost
@@ -578,30 +629,8 @@ class LeafReader : public ColumnReaderImpl {
       // if specific row range is provided for this rg
       if (const auto iter = ctx_->row_ranges_map->find(input_->current_row_group());
           iter != ctx_->row_ranges_map->end()) {
-        // check offset exists
-        auto offset_index = ctx_->reader->GetPageIndexReader()
-                                ->RowGroup(input_->current_row_group())
-                                ->GetOffsetIndex(input_->column_index());
-        if (!offset_index) {
-          throw ParquetException("Attempting to filter pages but Offset index is not found for column: " +
-                                 field_->name());
-        }
-
-        const auto page_locations = offset_index->page_locations();
-        auto page_ranges = std::make_shared<RowRanges>();
-        for (size_t i = 0; i < page_locations.size() - 1; i++) {
-          page_ranges->add({page_locations[i].first_row_index,
-                            page_locations[i + 1].first_row_index - 1},
-                           false);
-        }
-        if (page_locations.size() >= 1) {
-          page_ranges->add({page_locations[page_locations.size() - 1].first_row_index,
-                            ctx_->reader->metadata()
-                                    ->RowGroup(input_->current_row_group())
-                                    ->num_rows() -
-                                1},
-                           false);
-        }
+        std::shared_ptr<RowRanges> page_ranges;
+        checkAndGetPageRanges(iter->second, page_ranges);
 
         // part 1, skip decompressing & decoding unnecessary pages
         page_reader->set_data_page_filter(RowRangesPageFilter(iter->second, page_ranges));

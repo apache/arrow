@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <gmock/gmock-matchers.h>
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -354,26 +355,14 @@ class RowRanges {
 
   explicit RowRanges(const Range& range) { ranges.push_back(range); }
 
-  RowRanges(const std::vector<Range>& ranges) { this->ranges = ranges; }
+  RowRanges(const std::vector<Range>& ranges) {
+    this->ranges = ranges;
+  }
 
   // copy cstr
   RowRanges(const RowRanges& other) { ranges = other.ranges; }
 
   RowRanges(RowRanges&& other) noexcept { ranges = std::move(other.ranges); }
-
-  static RowRanges createSingle(const size_t rowCount) {
-    return RowRanges({Range(0L, rowCount - 1L)});
-  }
-
-  // static RowRanges create(size_t rowCount, const std::vector<int>& pageIndexes, const
-  // OffsetIndex& offsetIndex) {
-  //     RowRanges ranges;
-  //     for (int pageIndex : pageIndexes) {
-  //         ranges.add(Range(offsetIndex.getFirstRowIndex(pageIndex),
-  //         offsetIndex.getLastRowIndex(pageIndex, rowCount)));
-  //     }
-  //     return ranges;
-  // }
 
   static RowRanges unionRanges(const RowRanges& left, const RowRanges& right) {
     RowRanges result;
@@ -441,9 +430,14 @@ class RowRanges {
     if (merge) {
       for (int i = static_cast<int>(ranges.size()) - 1; i >= 0; --i) {
         Range last = ranges[i];
-        assert(!last.isAfter(range));
+        if (last.isAfter(range)) {
+          throw ParquetException(range.toString() + " cannot be added to " +
+                                 this->toString());
+        }
         const Range u = Range::unionRange(last, rangeToAdd);
-        assert(u.from != -1 && u.to != -1);
+        if (u.from == -1 && u.to == -1) {
+          break;
+        }
         rangeToAdd = u;
         ranges.erase(ranges.begin() + i);
       }
@@ -461,48 +455,20 @@ class RowRanges {
     return cnt;
   }
 
-  //
-  // class Iterator {
-  // private:
-  //     int currentRangeIndex;
-  //     Range currentRange;
-  //     long next;
-  //     std::vector<Range> ranges;
-  //
-  //     long findNext() {
-  //         if (currentRangeIndex < ranges.size()) {
-  //             currentRange = ranges[++currentRangeIndex];
-  //             next = currentRange.from;
-  //         } else {
-  //             return -1;
-  //         }
-  //         return next;
-  //     }
-  //
-  // public:
-  //     Iterator(const std::vector<Range>& ranges) {
-  //         this->ranges = ranges;
-  //         currentRangeIndex = -1;
-  //         next = findNext();
-  //     }
-  //
-  //     bool hasNext() const {
-  //         return next >= 0;
-  //     }
-  //
-  //     long nextLong() {
-  //         long ret = next;
-  //         if (ret < 0) {
-  //             throw std::out_of_range("No such element");
-  //         }
-  //         next = findNext();
-  //         return ret;
-  //     }
-  // };
-  //
-  // Iterator iterator() const {
-  //     return Iterator(ranges);
-  // }
+  bool isValid() const {
+    if (ranges.size() == 0) {
+      return false;
+    }
+    if (ranges[0].from < 0) {
+      return false;
+    }
+    for (size_t i = 1; i < ranges.size(); i++) {
+      if (ranges[i].from <= ranges[i - 1].to) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   bool isOverlapping(int64_t from, int64_t to) const {
     const Range searchRange(from, to);
