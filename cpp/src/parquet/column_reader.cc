@@ -1636,7 +1636,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // and there is not read-ahead for levels.
     int64_t skipped_records = 0;
     if (this->max_rep_level_ == 0 && this->max_def_level_ == 0) {
-      skipped_records =  this->Skip(num_records);
+      skipped_records = this->Skip(num_records);
       current_rg_processed_records += skipped_records;
       return skipped_records;
     }
@@ -1999,7 +1999,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     while (true) {
       const auto advise = skipper->advise_next(current_rg_processed_records);
-      std::cout << "advise got after current_rg_processed_records: " << current_rg_processed_records  << " is: " << advise <<std::endl;
       if (advise == 0) {
         return 0;
       }

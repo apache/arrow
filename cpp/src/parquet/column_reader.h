@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <gmock/gmock-matchers.h>
 #include <cassert>
 #include <cstdint>
 #include <memory>
@@ -355,9 +354,7 @@ class RowRanges {
 
   explicit RowRanges(const Range& range) { ranges.push_back(range); }
 
-  RowRanges(const std::vector<Range>& ranges) {
-    this->ranges = ranges;
-  }
+  RowRanges(const std::vector<Range>& ranges) { this->ranges = ranges; }
 
   // copy cstr
   RowRanges(const RowRanges& other) { ranges = other.ranges; }

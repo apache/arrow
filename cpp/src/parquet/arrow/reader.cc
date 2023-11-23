@@ -19,10 +19,8 @@
 
 #include <parquet/page_index.h>
 
-#include <zconf.h>
 #include <algorithm>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <unordered_set>
 #include <utility>

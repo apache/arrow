@@ -147,7 +147,7 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> WriteFullFile(
   // {
   //   // output to a local file for debugging
   //   ARROW_ASSIGN_OR_RAISE(auto outfile, arrow::io::FileOutputStream::Open(
-  //                                           "/tmp/filtered_reader_test.parquet"));
+  //                                           "/tmp/range_reader_test.parquet"));
   //
   //   ARROW_RETURN_NOT_OK(
   //       parquet::arrow::WriteTable(*table.get(), arrow::default_memory_pool(), outfile,
