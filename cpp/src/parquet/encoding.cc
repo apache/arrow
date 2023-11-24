@@ -1925,7 +1925,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     // The `len_` in the ByteArrayDictDecoder is the total length of the
     // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
     // space for binary data.
-    RETURN_NOT_OK(helper.Prepare());
+    // RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
     int values_decoded = 0;
@@ -1996,7 +1996,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     // The `len_` in the ByteArrayDictDecoder is the total length of the
     // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
     // space for binary data.
-    RETURN_NOT_OK(helper.Prepare());
+    // RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
