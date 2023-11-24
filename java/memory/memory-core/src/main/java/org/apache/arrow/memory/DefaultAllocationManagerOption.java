@@ -19,6 +19,8 @@ package org.apache.arrow.memory;
 
 import java.lang.reflect.Field;
 
+import org.apache.arrow.util.VisibleForTesting;
+
 /**
  * A class for choosing the default allocation manager.
  */
@@ -61,7 +63,12 @@ public class DefaultAllocationManagerOption {
     Unknown,
   }
 
-  static AllocationManagerType getDefaultAllocationManagerType() {
+  /**
+   * Returns the default allocation manager type.
+   * @return the default allocation manager type.
+   */
+  @VisibleForTesting
+  public static AllocationManagerType getDefaultAllocationManagerType() {
     AllocationManagerType ret = AllocationManagerType.Unknown;
 
     try {
@@ -115,7 +122,7 @@ public class DefaultAllocationManagerOption {
 
   private static AllocationManager.Factory getUnsafeFactory() {
     try {
-      return getFactory("org.apache.arrow.memory.UnsafeAllocationManager");
+      return getFactory("org.apache.arrow.memory.unsafe.UnsafeAllocationManager");
     } catch (RuntimeException e) {
       throw new RuntimeException("Please add arrow-memory-unsafe to your classpath," +
           " No DefaultAllocationManager found to instantiate an UnsafeAllocationManager", e);
@@ -124,7 +131,7 @@ public class DefaultAllocationManagerOption {
 
   private static AllocationManager.Factory getNettyFactory() {
     try {
-      return getFactory("org.apache.arrow.memory.NettyAllocationManager");
+      return getFactory("org.apache.arrow.memory.netty.NettyAllocationManager");
     } catch (RuntimeException e) {
       throw new RuntimeException("Please add arrow-memory-netty to your classpath," +
           " No DefaultAllocationManager found to instantiate an NettyAllocationManager", e);
