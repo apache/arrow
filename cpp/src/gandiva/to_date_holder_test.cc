@@ -16,7 +16,6 @@
 // under the License.
 
 #include <memory>
-#include <vector>
 
 #include "arrow/testing/gtest_util.h"
 
@@ -45,8 +44,7 @@ class TestToDateHolder : public ::testing::Test {
 };
 
 TEST_F(TestToDateHolder, TestSimpleDateTime) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 1, &to_date_holder));
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 1));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
@@ -86,8 +84,7 @@ TEST_F(TestToDateHolder, TestSimpleDateTime) {
 }
 
 TEST_F(TestToDateHolder, TestSimpleDate) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY-MM-DD", 1, &to_date_holder));
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM-DD", 1));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
@@ -119,10 +116,7 @@ TEST_F(TestToDateHolder, TestSimpleDate) {
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-
-  auto status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 0, &to_date_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM-DD HH:MI:SS", 0));
   auto& to_date = *to_date_holder;
   bool out_valid;
 
@@ -132,8 +126,7 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
   EXPECT_EQ(0, millis_since_epoch);
   std::string expected_error =
       "Error parsing value 1986-01-40 01:01:01 +0800 for given format";
-  EXPECT_TRUE(execution_context_.get_error().find(expected_error) != std::string::npos)
-      << status.message();
+  EXPECT_TRUE(execution_context_.get_error().find(expected_error) != std::string::npos);
 
   // not valid should not return error
   execution_context_.Reset();
@@ -143,15 +136,13 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateTimeMakeError) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
   // reject time stamps for now.
-  auto status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0, &to_date_holder);
+  auto const status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0).status();
   EXPECT_EQ(status.IsInvalid(), true) << status.message();
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateYearMonth) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY-MM", 1, &to_date_holder));
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY-MM", 1));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
@@ -167,8 +158,7 @@ TEST_F(TestToDateHolder, TestSimpleDateYearMonth) {
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateYear) {
-  std::shared_ptr<ToDateHolder> to_date_holder;
-  ASSERT_OK(ToDateHolder::Make("YYYY", 1, &to_date_holder));
+  EXPECT_OK_AND_ASSIGN(auto to_date_holder, ToDateHolder::Make("YYYY", 1));
 
   auto& to_date = *to_date_holder;
   bool out_valid;
