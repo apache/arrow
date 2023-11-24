@@ -371,6 +371,17 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.arrow.maven.plugins</groupId>
+        <artifactId>module-info-compiler-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>module-info-compile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -545,6 +556,11 @@
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.arrow.maven.plugins</groupId>
+          <artifactId>module-info-compiler-maven-plugin</artifactId>
+          <version>${project.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -735,6 +751,7 @@
   </reporting>
 
   <modules>
+    <module>maven</module>
     <module>bom</module>
     <module>format</module>
     <module>memory</module>
@@ -1236,7 +1253,6 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 
 </project>
