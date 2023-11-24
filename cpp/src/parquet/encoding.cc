@@ -1213,6 +1213,7 @@ struct ArrowBinaryHelper<ByteArrayType> {
     if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
       // This element would exceed the capacity of a chunk
       RETURN_NOT_OK(PushChunk());
+      RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
     }
     return Status::OK();
   }
@@ -1286,8 +1287,12 @@ struct ArrowBinaryHelper<FLBAType> {
     return acc_->Reserve(entries_remaining_);
   }
 
+  Status PrepareNextInput(int64_t next_value_length) {
+    return Status::OK();
+  }
+
   Status PrepareNextInput(int64_t next_value_length,
-                          std::optional<int64_t> estimated_remaining_data_length = {}) {
+                          int64_t estimated_remaining_data_length) {
     return Status::OK();
   }
 
@@ -1933,7 +1938,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     // The `len_` in the ByteArrayDictDecoder is the total length of the
     // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
     // space for binary data.
-    // RETURN_NOT_OK(helper.Prepare());
+    RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
     int values_decoded = 0;
@@ -2004,7 +2009,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     // The `len_` in the ByteArrayDictDecoder is the total length of the
     // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
     // space for binary data.
-    // RETURN_NOT_OK(helper.Prepare());
+    RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
