@@ -17,6 +17,10 @@
 
 package org.apache.arrow.memory;
 
+import org.apache.arrow.memory.AllocationListener;
+import org.apache.arrow.memory.AllocationOutcome;
+import org.apache.arrow.memory.BufferAllocator;
+
 /**
  * Counting allocation listener.
  * It counts the number of times it has been invoked, and how much memory allocation it has seen
