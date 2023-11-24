@@ -1209,18 +1209,26 @@ struct ArrowBinaryHelper<ByteArrayType> {
     return Status::OK();
   }
 
+  Status PrepareNextInput(int64_t next_value_length) {
+    if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
+      // This element would exceed the capacity of a chunk
+      RETURN_NOT_OK(PushChunk());
+    }
+    return Status::OK();
+  }
+
   // If estimated_remaining_data_length is provided, it will also reserve the estimated
   // data length, and the caller should better call `UnsafeAppend` instead of
   // `Append` to avoid double-checking the data length.
   Status PrepareNextInput(int64_t next_value_length,
-                          std::optional<int64_t> estimated_remaining_data_length = {}) {
+                          int64_t estimated_remaining_data_length) {
     if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
       // This element would exceed the capacity of a chunk
       RETURN_NOT_OK(PushChunk());
       RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
-      if (estimated_remaining_data_length.has_value()) {
+      if (estimated_remaining_data_length) {
         RETURN_NOT_OK(acc_->builder->ReserveData(
-            std::min<int64_t>(*estimated_remaining_data_length, chunk_space_remaining_)));
+            std::min<int64_t>(estimated_remaining_data_length, chunk_space_remaining_)));
       }
     }
     return Status::OK();
