@@ -111,7 +111,7 @@ TEST(BasicTest, TestBloomFilter) {
 
     ReaderProperties reader_properties;
     BlockSplitBloomFilter de_bloom =
-        BlockSplitBloomFilter::Deserialize(reader_properties, &source);
+        BlockSplitBloomFilter::Deserialize(reader_properties, &source, std::nullopt);
 
     // Lookup previously inserted values
     for (const auto v : kIntInserts) {

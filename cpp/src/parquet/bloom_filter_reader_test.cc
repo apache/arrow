@@ -25,31 +25,41 @@
 namespace parquet::test {
 
 TEST(BloomFilterReader, ReadBloomFilter) {
-  std::string dir_string(parquet::test::get_data_dir());
-  std::string path = dir_string + "/data_index_bloom_encoding_stats.parquet";
-  auto reader = ParquetFileReader::OpenFile(path, false);
-  auto file_metadata = reader->metadata();
-  EXPECT_FALSE(file_metadata->is_encryption_algorithm_set());
-  auto& bloom_filter_reader = reader->GetBloomFilterReader();
-  auto row_group_0 = bloom_filter_reader.RowGroup(0);
-  ASSERT_NE(nullptr, row_group_0);
-  EXPECT_THROW(bloom_filter_reader.RowGroup(1), ParquetException);
-  auto bloom_filter = row_group_0->GetColumnBloomFilter(0);
-  ASSERT_NE(nullptr, bloom_filter);
-  EXPECT_THROW(row_group_0->GetColumnBloomFilter(1), ParquetException);
+  struct BloomFilterTestFile {
+    std::string filename;
+    bool has_bloom_filter_length;
+  };
+  std::vector<BloomFilterTestFile> files = {
+      {"data_index_bloom_encoding_stats.parquet", false},
+      {"data_index_bloom_encoding_with_length.parquet", false},
+  };
+  for (const auto& test_file : files) {
+    std::string dir_string(parquet::test::get_data_dir());
+    std::string path = dir_string + "/" + test_file.filename;
+    auto reader = ParquetFileReader::OpenFile(path, false);
+    auto file_metadata = reader->metadata();
+    EXPECT_FALSE(file_metadata->is_encryption_algorithm_set());
+    auto& bloom_filter_reader = reader->GetBloomFilterReader();
+    auto row_group_0 = bloom_filter_reader.RowGroup(0);
+    ASSERT_NE(nullptr, row_group_0);
+    EXPECT_THROW(bloom_filter_reader.RowGroup(1), ParquetException);
+    auto bloom_filter = row_group_0->GetColumnBloomFilter(0);
+    ASSERT_NE(nullptr, bloom_filter);
+    EXPECT_THROW(row_group_0->GetColumnBloomFilter(1), ParquetException);
 
-  // assert exists
-  {
-    std::string_view sv = "Hello";
-    ByteArray ba{sv};
-    EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
-  }
+    // assert exists
+    {
+      std::string_view sv = "Hello";
+      ByteArray ba{sv};
+      EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
+    }
 
-  // no exists
-  {
-    std::string_view sv = "NOT_EXISTS";
-    ByteArray ba{sv};
-    EXPECT_FALSE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
+    // no exists
+    {
+      std::string_view sv = "NOT_EXISTS";
+      ByteArray ba{sv};
+      EXPECT_FALSE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
+    }
   }
 }
 
