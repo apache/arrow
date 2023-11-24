@@ -310,8 +310,8 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// a Bloom filter from a parquet filter.
   ///
   /// @param properties The parquet reader properties.
-  /// @param input_stream The input stream from which to construct the Bloom filter.
-  /// @param bloom_filter_length The length of the Serialized Bloom filter including
+  /// @param input_stream The input stream from which to construct the bloom filter.
+  /// @param bloom_filter_length The length of the serialized bloom filter including
   /// header.
   /// @return The BlockSplitBloomFilter.
   static BlockSplitBloomFilter Deserialize(

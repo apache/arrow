@@ -324,19 +324,19 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
         stream << "\"}";
       }
 
-      if (column_chunk->GetOffsetIndexLocation()) {
-        auto location = column_chunk->GetOffsetIndexLocation().value();
-        // Output OffsetIndex {offset, length}
-        stream << "\", OffsetIndex {"
+      if (column_chunk->GetColumnIndexLocation()) {
+        auto location = column_chunk->GetColumnIndexLocation().value();
+        // Output ColumnIndex {offset, length}
+        stream << "\", ColumnIndex {"
                << "\"offset\": \"" << location.offset;
         stream << "\", \"length\": \"" << location.length;
         stream << "\"}";
       }
 
-      if (column_chunk->GetColumnIndexLocation()) {
-        auto location = column_chunk->GetColumnIndexLocation().value();
-        // Output ColumnIndex {offset, length}
-        stream << "\", ColumnIndex {"
+      if (column_chunk->GetOffsetIndexLocation()) {
+        auto location = column_chunk->GetOffsetIndexLocation().value();
+        // Output OffsetIndex {offset, length}
+        stream << "\", OffsetIndex {"
                << "\"offset\": \"" << location.offset;
         stream << "\", \"length\": \"" << location.length;
         stream << "\"}";
