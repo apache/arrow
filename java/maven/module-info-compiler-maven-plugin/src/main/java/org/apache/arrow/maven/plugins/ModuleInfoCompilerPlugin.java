@@ -83,7 +83,7 @@ public class ModuleInfoCompilerPlugin extends AbstractMojo {
       return Optional.empty();
     }
 
-    return sourceDirectories.stream().map(Path::of)
+    return sourceDirectories.stream().map(Paths::get)
         .map(sourcePath ->
             sourcePath.toFile().listFiles(file ->
                 file.getName().equals("module-info.java")))
