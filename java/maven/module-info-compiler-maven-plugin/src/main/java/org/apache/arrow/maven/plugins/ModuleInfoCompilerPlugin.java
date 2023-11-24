@@ -25,6 +25,7 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -57,7 +58,7 @@ public class ModuleInfoCompilerPlugin extends AbstractMojo {
     Optional<File> moduleInfoFile = findFirstModuleInfo(compileSourceRoots);
     if (moduleInfoFile.isPresent()) {
       // The compiled module-info.class file goes into target/classes/module-info/main
-      Path outputDir = Path.of(project.getBuild().getOutputDirectory());
+      Path outputDir = Paths.get(project.getBuild().getOutputDirectory());
 
       outputDir.toFile().mkdirs();
       Path targetPath = outputDir.resolve("module-info.class");
