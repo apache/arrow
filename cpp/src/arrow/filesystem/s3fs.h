@@ -144,8 +144,8 @@ struct ARROW_EXPORT S3Options {
   /// Type of credentials being used. Set along with credentials_provider.
   S3CredentialsKind credentials_kind = S3CredentialsKind::Default;
 
-  /// Whether to use virtual addressing (bucket.s3.amazonaws.com) or path-style
-  bool use_virtual_addressing = false;
+  /// Whether to use virtual addressing of buckets
+  bool force_virtual_addressing = false;
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
