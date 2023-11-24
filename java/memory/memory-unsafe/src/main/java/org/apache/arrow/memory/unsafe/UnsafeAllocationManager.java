@@ -15,8 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.memory;
+package org.apache.arrow.memory.unsafe;
 
+import org.apache.arrow.memory.AllocationManager;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.MemoryUtil;
 
 /**

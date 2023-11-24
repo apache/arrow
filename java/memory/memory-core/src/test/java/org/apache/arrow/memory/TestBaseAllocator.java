@@ -31,22 +31,16 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
-import org.slf4j.LoggerFactory;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
-import io.netty.buffer.PooledByteBufAllocatorL;
 import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
@@ -448,73 +442,73 @@ public class TestBaseAllocator {
   @Test
   public void testRootAllocator_listeners() throws Exception {
     CountingAllocationListener l1 = new CountingAllocationListener();
-    assertEquals(0, l1.getNumPreCalls());
-    assertEquals(0, l1.getNumCalls());
-    assertEquals(0, l1.getNumReleaseCalls());
-    assertEquals(0, l1.getNumChildren());
-    assertEquals(0, l1.getTotalMem());
+    Assert.assertEquals(0, l1.getNumPreCalls());
+    Assert.assertEquals(0, l1.getNumCalls());
+    Assert.assertEquals(0, l1.getNumReleaseCalls());
+    Assert.assertEquals(0, l1.getNumChildren());
+    Assert.assertEquals(0, l1.getTotalMem());
     CountingAllocationListener l2 = new CountingAllocationListener();
-    assertEquals(0, l2.getNumPreCalls());
-    assertEquals(0, l2.getNumCalls());
-    assertEquals(0, l2.getNumReleaseCalls());
-    assertEquals(0, l2.getNumChildren());
-    assertEquals(0, l2.getTotalMem());
+    Assert.assertEquals(0, l2.getNumPreCalls());
+    Assert.assertEquals(0, l2.getNumCalls());
+    Assert.assertEquals(0, l2.getNumReleaseCalls());
+    Assert.assertEquals(0, l2.getNumChildren());
+    Assert.assertEquals(0, l2.getTotalMem());
     // root and first-level child share the first listener
     // second-level and third-level child share the second listener
     try (final RootAllocator rootAllocator = new RootAllocator(l1, MAX_ALLOCATION)) {
       try (final BufferAllocator c1 = rootAllocator.newChildAllocator("c1", 0, MAX_ALLOCATION)) {
-        assertEquals(1, l1.getNumChildren());
+        Assert.assertEquals(1, l1.getNumChildren());
         final ArrowBuf buf1 = c1.buffer(16);
         assertNotNull("allocation failed", buf1);
-        assertEquals(1, l1.getNumPreCalls());
-        assertEquals(1, l1.getNumCalls());
-        assertEquals(0, l1.getNumReleaseCalls());
-        assertEquals(16, l1.getTotalMem());
+        Assert.assertEquals(1, l1.getNumPreCalls());
+        Assert.assertEquals(1, l1.getNumCalls());
+        Assert.assertEquals(0, l1.getNumReleaseCalls());
+        Assert.assertEquals(16, l1.getTotalMem());
         buf1.getReferenceManager().release();
         try (final BufferAllocator c2 = c1.newChildAllocator("c2", l2, 0, MAX_ALLOCATION)) {
-          assertEquals(2, l1.getNumChildren()); // c1 got a new child, so c1's listener (l1) is notified
-          assertEquals(0, l2.getNumChildren());
+          Assert.assertEquals(2, l1.getNumChildren()); // c1 got a new child, so c1's listener (l1) is notified
+          Assert.assertEquals(0, l2.getNumChildren());
           final ArrowBuf buf2 = c2.buffer(32);
           assertNotNull("allocation failed", buf2);
-          assertEquals(1, l1.getNumCalls());
-          assertEquals(16, l1.getTotalMem());
-          assertEquals(1, l2.getNumPreCalls());
-          assertEquals(1, l2.getNumCalls());
-          assertEquals(0, l2.getNumReleaseCalls());
-          assertEquals(32, l2.getTotalMem());
+          Assert.assertEquals(1, l1.getNumCalls());
+          Assert.assertEquals(16, l1.getTotalMem());
+          Assert.assertEquals(1, l2.getNumPreCalls());
+          Assert.assertEquals(1, l2.getNumCalls());
+          Assert.assertEquals(0, l2.getNumReleaseCalls());
+          Assert.assertEquals(32, l2.getTotalMem());
           buf2.getReferenceManager().release();
           try (final BufferAllocator c3 = c2.newChildAllocator("c3", 0, MAX_ALLOCATION)) {
-            assertEquals(2, l1.getNumChildren());
-            assertEquals(1, l2.getNumChildren());
+            Assert.assertEquals(2, l1.getNumChildren());
+            Assert.assertEquals(1, l2.getNumChildren());
             final ArrowBuf buf3 = c3.buffer(64);
             assertNotNull("allocation failed", buf3);
-            assertEquals(1, l1.getNumPreCalls());
-            assertEquals(1, l1.getNumCalls());
-            assertEquals(1, l1.getNumReleaseCalls());
-            assertEquals(16, l1.getTotalMem());
-            assertEquals(2, l2.getNumPreCalls());
-            assertEquals(2, l2.getNumCalls());
-            assertEquals(1, l2.getNumReleaseCalls());
-            assertEquals(32 + 64, l2.getTotalMem());
+            Assert.assertEquals(1, l1.getNumPreCalls());
+            Assert.assertEquals(1, l1.getNumCalls());
+            Assert.assertEquals(1, l1.getNumReleaseCalls());
+            Assert.assertEquals(16, l1.getTotalMem());
+            Assert.assertEquals(2, l2.getNumPreCalls());
+            Assert.assertEquals(2, l2.getNumCalls());
+            Assert.assertEquals(1, l2.getNumReleaseCalls());
+            Assert.assertEquals(32 + 64, l2.getTotalMem());
             buf3.getReferenceManager().release();
           }
-          assertEquals(2, l1.getNumChildren());
-          assertEquals(0, l2.getNumChildren()); // third-level child removed
+          Assert.assertEquals(2, l1.getNumChildren());
+          Assert.assertEquals(0, l2.getNumChildren()); // third-level child removed
         }
-        assertEquals(1, l1.getNumChildren()); // second-level child removed
-        assertEquals(0, l2.getNumChildren());
+        Assert.assertEquals(1, l1.getNumChildren()); // second-level child removed
+        Assert.assertEquals(0, l2.getNumChildren());
       }
-      assertEquals(0, l1.getNumChildren()); // first-level child removed
+      Assert.assertEquals(0, l1.getNumChildren()); // first-level child removed
 
-      assertEquals(2, l2.getNumReleaseCalls());
+      Assert.assertEquals(2, l2.getNumReleaseCalls());
     }
   }
 
   @Test
   public void testRootAllocator_listenerAllocationFail() throws Exception {
     CountingAllocationListener l1 = new CountingAllocationListener();
-    assertEquals(0, l1.getNumCalls());
-    assertEquals(0, l1.getTotalMem());
+    Assert.assertEquals(0, l1.getNumCalls());
+    Assert.assertEquals(0, l1.getTotalMem());
     // Test attempts to allocate too much from a child whose limit is set to half of the max
     // allocation. The listener's callback triggers, expanding the child allocator's limit, so then
     // the allocation succeeds.
@@ -527,14 +521,14 @@ public class TestBaseAllocator {
         } catch (OutOfMemoryException e) {
           // expected
         }
-        assertEquals(0, l1.getNumCalls());
-        assertEquals(0, l1.getTotalMem());
+        Assert.assertEquals(0, l1.getNumCalls());
+        Assert.assertEquals(0, l1.getTotalMem());
 
         l1.setExpandOnFail(c1, MAX_ALLOCATION);
         ArrowBuf arrowBuf = c1.buffer(MAX_ALLOCATION);
         assertNotNull("allocation failed", arrowBuf);
-        assertEquals(1, l1.getNumCalls());
-        assertEquals(MAX_ALLOCATION, l1.getTotalMem());
+        Assert.assertEquals(1, l1.getNumCalls());
+        Assert.assertEquals(MAX_ALLOCATION, l1.getTotalMem());
         arrowBuf.getReferenceManager().release();
       }
     }
@@ -1095,42 +1089,6 @@ public class TestBaseAllocator {
       });
       exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
-    }
-  }
-
-  @Test
-  public void testMemoryUsage() {
-    ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
-    Logger logger = (Logger) LoggerFactory.getLogger("arrow.allocator");
-    try {
-      logger.setLevel(Level.TRACE);
-      logger.addAppender(memoryLogsAppender);
-      memoryLogsAppender.start();
-      try (ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
-          1024, new PooledByteBufAllocatorL().empty.memoryAddress())) {
-        buf.memoryAddress();
-      }
-      boolean result = false;
-      long startTime = System.currentTimeMillis();
-      while ((System.currentTimeMillis() - startTime) < 10000) { // 10 seconds maximum for time to read logs
-        result = memoryLogsAppender.list.stream()
-            .anyMatch(
-                log -> log.toString().contains("Memory Usage: \n") &&
-                    log.toString().contains("Large buffers outstanding: ") &&
-                    log.toString().contains("Normal buffers outstanding: ") &&
-                    log.getLevel().equals(Level.TRACE)
-            );
-        if (result) {
-          break;
-        }
-      }
-      assertTrue("Log messages are:\n" +
-          memoryLogsAppender.list.stream().map(ILoggingEvent::toString).collect(Collectors.joining("\n")),
-          result);
-    } finally {
-      memoryLogsAppender.stop();
-      logger.detachAppender(memoryLogsAppender);
-      logger.setLevel(null);
     }
   }
 
