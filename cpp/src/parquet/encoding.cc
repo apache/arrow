@@ -1287,9 +1287,7 @@ struct ArrowBinaryHelper<FLBAType> {
     return acc_->Reserve(entries_remaining_);
   }
 
-  Status PrepareNextInput(int64_t next_value_length) {
-    return Status::OK();
-  }
+  Status PrepareNextInput(int64_t next_value_length) { return Status::OK(); }
 
   Status PrepareNextInput(int64_t next_value_length,
                           int64_t estimated_remaining_data_length) {
