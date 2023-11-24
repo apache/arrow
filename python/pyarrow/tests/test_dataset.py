@@ -984,6 +984,11 @@ def test_make_fragment(multisourcefs):
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_make_fragment_with_size(s3_example_simple):
+    """
+    Test passing file_size to make_fragment. Not all FS implementations make use
+    of the file size (by implementing an OpenInputFile that takes a FileInfo), but
+    s3 does, which is why it's used here.
+    """
     table, path, fs, uri, host, port, access_key, secret_key = s3_example_simple
 
     file_format = ds.ParquetFileFormat()
