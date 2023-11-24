@@ -739,8 +739,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   # size_t is 32 bit in emscripten wasm32 - ignore conversion errors
   # deprecated-literal-operator error is thrown in datetime (vendored lib in arrow)
   set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=deprecated-literal-operator"
-  )
+      "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=deprecated-literal-operator")
 
   # flags for creating shared libraries (only used in pyarrow, because
   # Emscripten builds libarrow as static)
