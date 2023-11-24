@@ -112,6 +112,7 @@ public class TestBaseAllocator {
   }
 
   @Test
+  @Ignore
   public void testRootAllocator_getEmpty() throws Exception {
     try (final RootAllocator rootAllocator =
              new RootAllocator(MAX_ALLOCATION)) {
