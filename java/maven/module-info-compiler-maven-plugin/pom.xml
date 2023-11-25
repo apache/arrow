@@ -39,7 +39,6 @@
       <groupId>org.glavo</groupId>
       <artifactId>module-info-compiler</artifactId>
       <version>2.0</version>
-      <type>jar</type>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -103,6 +102,28 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>analyze-only</goal>
+            </goals>
+            <configuration>
+              <!--
+                The dependency on org.glavo.module-info-compile is incorrectly
+                being reported as unused when running the Windows 2022 CI agent only.
+                Ignoring this dependency specifically is not happening on that agent either
+                so skip the plugin entirely.
+              -->
+              <skip>true</skip>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-plugin-plugin</artifactId>
