@@ -437,16 +437,16 @@ struct ARROW_EXPORT ArraySpan {
   // Access a buffer's data as a span
   template <typename T>
   util::span<const T> GetSpan(int i) const {
-    return util::span(buffers[i].data_as<T>(),
-                      static_cast<size_t>(buffers[i].size) / sizeof(T))
-        .subspan(offset);
+    util::span<const T> data_span(buffers[i].data_as<T>(),
+                      static_cast<size_t>(buffers[i].size) / sizeof(T));
+    return data_span.subspan(offset);
   }
 
   template <typename T>
   util::span<T> GetSpan(int i) {
-    return util::span(buffers[i].mutable_data_as<T>(),
-                      static_cast<size_t>(buffers[i].size) / sizeof(T))
-        .subspan(offset);
+    util::span<T> data_span(buffers[i].mutable_data_as<T>(),
+                      static_cast<size_t>(buffers[i].size) / sizeof(T));
+    return data_span.subspan(offset);
   }
 
   inline bool IsNull(int64_t i) const { return !IsValid(i); }
