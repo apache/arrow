@@ -72,15 +72,12 @@ std::string SliceAbstractPath(const std::string& s, int offset, int length, char
     return "";
   }
   std::vector<std::string> components = SplitAbstractPath(s, sep);
-  std::stringstream combined;
   if (offset >= static_cast<int>(components.size())) {
     return "";
   }
-  int end = offset + length;
-  if (end > static_cast<int>(components.size())) {
-    end = static_cast<int>(components.size());
-  }
-  for (int i = offset; i < end; i++) {
+  const size_t end = std::min(static_cast<size_t>(offset) + length, components.size());
+  std::stringstream combined;
+  for (auto i = static_cast<size_t>(offset); i < end; i++) {
     combined << components[i];
     if (i < end - 1) {
       combined << sep;
