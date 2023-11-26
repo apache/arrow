@@ -41,7 +41,10 @@ class GANDIVA_EXPORT Engine {
   llvm::LLVMContext* context() { return context_.get(); }
   llvm::IRBuilder<>* ir_builder() { return ir_builder_.get(); }
   LLVMTypes* types() { return &types_; }
-  llvm::Module* module() { return module_.get(); }
+
+  /// Retrieve LLVM module in the engine.
+  /// This should only be called before `FinalizeModule` is called
+  llvm::Module* module();
 
   /// Factory method to create and initialize the engine object.
   ///

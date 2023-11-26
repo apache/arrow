@@ -277,6 +277,11 @@ static arrow::Status VerifyAndLinkModule(
   return Status::OK();
 }
 
+llvm::Module* Engine::module() {
+  DCHECK(!module_finalized_) << "module cannot be accessed after finalized";
+  return module_.get();
+}
+
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
   auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
