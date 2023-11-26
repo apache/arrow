@@ -106,10 +106,12 @@ static std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
 template <typename T>
-static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected) {
+static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
+                                      const std::string& error_context = "") {
   if (!expected) {
     std::string str;
     llvm::raw_string_ostream stream(str);
+    stream << error_context;
     stream << expected.takeError();
     return Status::CodeGenError(stream.str());
   }
@@ -127,17 +129,6 @@ static Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
       conf.optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
   jtmb.setCodeGenOptLevel(opt_level);
   return jtmb;
-}
-
-static Result<llvm::TargetIRAnalysis> GetTargetIRAnalysis(
-    llvm::orc::JITTargetMachineBuilder& jtmb) {
-  auto maybe_tm = jtmb.createTargetMachine();
-  if (auto err = maybe_tm.takeError()) {
-    return Status::CodeGenError("Could not create target machine: ",
-                                llvm::toString(std::move(err)));
-  }
-  auto target_machine = cantFail(std::move(maybe_tm));
-  return target_machine->getTargetIRAnalysis();
 }
 
 void Engine::InitOnce() {
@@ -168,7 +159,7 @@ void Engine::InitOnce() {
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
                std::unique_ptr<llvm::LLVMContext> ctx,
                std::unique_ptr<llvm::orc::LLJIT> lljit,
-               llvm::TargetIRAnalysis ir_analysis, bool cached)
+               std::unique_ptr<llvm::TargetMachine> target_machine, bool cached)
     : context_(std::move(ctx)),
       lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
@@ -177,7 +168,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       optimize_(conf->optimize()),
       cached_(cached),
       function_registry_(conf->function_registry()),
-      target_ir_analysis_(std::move(ir_analysis)),
+      target_machine_(std::move(target_machine)),
       conf_(conf) {}
 
 Status Engine::Init() {
@@ -208,15 +199,14 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf, bool cached,
   auto jit_builder = llvm::orc::LLJITBuilder();
   ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
   auto maybe_jit = llvm::orc::LLJITBuilder().setJITTargetMachineBuilder(jtmb).create();
-  if (auto err = maybe_jit.takeError()) {
-    return Status::CodeGenError("Could not create LLJIT instance: ",
-                                llvm::toString(maybe_jit.takeError()));
-  }
-  auto jit = llvm::cantFail(std::move(maybe_jit));
+  ARROW_ASSIGN_OR_RAISE(auto jit,
+                        AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
 
-  ARROW_ASSIGN_OR_RAISE(auto target_ir_analysis, GetTargetIRAnalysis(jtmb));
+  auto maybe_tm = jtmb.createTargetMachine();
+  ARROW_ASSIGN_OR_RAISE(auto target_machine,
+                        AsArrowResult(maybe_tm, "Could not create target machine: "));
   std::unique_ptr<Engine> engine{new Engine(conf, std::move(ctx), std::move(jit),
-                                            std::move(target_ir_analysis), cached)};
+                                            std::move(target_machine), cached)};
 
   ARROW_RETURN_NOT_OK(engine->Init());
   *out = std::move(engine);
@@ -260,7 +250,9 @@ static void SetDataLayout(llvm::Module* module) {
 static arrow::Status VerifyAndLinkModule(
     llvm::Module& dest_module,
     llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
-  ARROW_ASSIGN_OR_RAISE(auto src_ir_module, AsArrowResult(src_module_or_error));
+  ARROW_ASSIGN_OR_RAISE(
+      auto src_ir_module,
+      AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
 
   // set dataLayout
   SetDataLayout(src_ir_module.get());
@@ -418,9 +410,10 @@ Status Engine::FinalizeModule() {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
     if (optimize_) {
+      auto target_ir_analysis = target_machine_->getTargetIRAnalysis();
 // misc passes to allow for inlining, vectorization, ..
 #if LLVM_VERSION_MAJOR >= 14
-      OptimizeModuleWithNewPassManager(*module_, target_ir_analysis_);
+      OptimizeModuleWithNewPassManager(*module_, target_ir_analysis);
 #else
       OptimizeModuleWithLegacyPassManager(*module_, target_ir_analysis_);
 #endif
