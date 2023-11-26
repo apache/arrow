@@ -71,7 +71,7 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
   std::unique_ptr<LLVMGenerator> generator;
-  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
+  ASSERT_OK(LLVMGenerator::Make(TestConfigWithIrDumping(), false, &generator));
   Annotator annotator;
 
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());

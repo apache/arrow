@@ -116,6 +116,7 @@ class GANDIVA_EXPORT Engine {
   bool cached_;
   bool functions_loaded_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
+  std::string module_ir_;
   std::unique_ptr<llvm::TargetMachine> target_machine_;
   const std::shared_ptr<Configuration> conf_;
 };

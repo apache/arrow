@@ -52,6 +52,7 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
+#include <llvm/Transforms/Utils/Cloning.h>
 #if LLVM_VERSION_MAJOR >= 17
 #include <llvm/TargetParser/SubtargetFeature.h>
 #else
@@ -129,6 +130,13 @@ static Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
       conf.optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
   jtmb.setCodeGenOptLevel(opt_level);
   return jtmb;
+}
+
+static std::string GetModuleIR(const llvm::Module& module) {
+  std::string ir;
+  llvm::raw_string_ostream stream(ir);
+  module.print(stream, nullptr);
+  return ir;
 }
 
 void Engine::InitOnce() {
@@ -423,6 +431,11 @@ Status Engine::FinalizeModule() {
                     Status::CodeGenError("Module verification failed after optimizer"));
   }
 
+  // copy the module if IR dumping is needed since the module will be moved to construct
+  // LLJIT instance, and it is not available after LLJIT instance is constructed
+  if (conf_->needs_ir_dumping()) {
+    module_ir_ = GetModuleIR(*module_);
+  }
   // do the compilation
   llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
   auto error = lljit_->addIRModule(std::move(tsm));
@@ -466,10 +479,9 @@ arrow::Status Engine::AddGlobalMappings() {
 }
 
 std::string Engine::DumpIR() {
-  std::string ir;
-  llvm::raw_string_ostream stream(ir);
-  module_->print(stream, nullptr);
-  return ir;
+  DCHECK(!module_ir_.empty())
+      << "needs_ir_dumping in Configuration must be set for dumping IR";
+  return module_ir_;
 }
 
 }  // namespace gandiva
