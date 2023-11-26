@@ -626,24 +626,16 @@ class DatasetWriter::DatasetWriterImpl {
           break;
         }
       }
-      auto clean_up_back_pressure = [&]() {
-        writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
-        if (will_open_file) {
-          writer_state_.open_files_throttle.Release(1);
-        }
-      };
       auto s = dir_queue->StartWrite(next_chunk);
       if (!s.ok()) {
-        clean_up_back_pressure();
+        // If `StartWrite` succeeded, it will Release the
+        // `rows_in_flight_throttle` when the write task is finished.
+        writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
         return s;
       }
       batch = std::move(remainder);
       if (batch) {
-        s = dir_queue->FinishCurrentFile();
-        if (!s.ok()) {
-          clean_up_back_pressure();
-          return s;
-        }
+        RETURN_NOT_OK(dir_queue->FinishCurrentFile());
       }
     }
 
