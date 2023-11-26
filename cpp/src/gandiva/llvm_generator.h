@@ -88,7 +88,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   FRIEND_TEST(TestLLVMGenerator, VerifyPCFunctions);
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
-  FRIEND_TEST(TestLLVMGenerator, VerifyExtendedPCFunctions);
+  friend class TestLLVMGenerator;
 
   llvm::LLVMContext* context() { return engine_->context(); }
   llvm::IRBuilder<>* ir_builder() { return engine_->ir_builder(); }

@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//#pragma once
-
 #include "gandiva/gdv_function_stubs.h"
 
 #include <utf8proc.h>
@@ -761,7 +759,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
 namespace gandiva {
 
-void ExportedStringFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedStringFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -988,5 +986,6 @@ void ExportedStringFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("translate_utf8_utf8_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(translate_utf8_utf8_utf8));
+  return arrow::Status::OK();
 }
 }  // namespace gandiva

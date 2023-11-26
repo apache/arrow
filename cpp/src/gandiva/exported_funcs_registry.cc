@@ -21,10 +21,11 @@
 
 namespace gandiva {
 
-void ExportedFuncsRegistry::AddMappings(Engine* engine) {
+arrow::Status ExportedFuncsRegistry::AddMappings(Engine* engine) {
   for (const auto& entry : *registered()) {
-    entry->AddMappings(engine);
+    ARROW_RETURN_NOT_OK(entry->AddMappings(engine));
   }
+  return arrow::Status::OK();
 }
 
 const ExportedFuncsRegistry::list_type& ExportedFuncsRegistry::Registered() {

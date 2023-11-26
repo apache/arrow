@@ -64,7 +64,7 @@ FunctionRegistry::iterator FunctionRegistry::back() const {
 
 const NativeFunction* FunctionRegistry::LookupSignature(
     const FunctionSignature& signature) const {
-  auto got = pc_registry_map_.find(&signature);
+  auto const got = pc_registry_map_.find(&signature);
   return got == pc_registry_map_.end() ? nullptr : got->second;
 }
 
@@ -109,9 +109,32 @@ arrow::Status FunctionRegistry::Register(const std::vector<NativeFunction>& func
   return Status::OK();
 }
 
+arrow::Status FunctionRegistry::Register(
+    NativeFunction func, void* c_function_ptr,
+    std::optional<FunctionHolderMaker> function_holder_maker) {
+  if (function_holder_maker.has_value()) {
+    // all signatures should have the same base name, use the first signature's base name
+    auto const& func_base_name = func.signatures().begin()->base_name();
+    ARROW_RETURN_NOT_OK(holder_maker_registry_.Register(
+        func_base_name, std::move(function_holder_maker).value()));
+  }
+  c_functions_.emplace_back(func, c_function_ptr);
+  return FunctionRegistry::Add(std::move(func));
+}
+
 const std::vector<std::shared_ptr<arrow::Buffer>>& FunctionRegistry::GetBitcodeBuffers()
     const {
   return bitcode_memory_buffers_;
+}
+
+const std::vector<std::pair<NativeFunction, void*>>& FunctionRegistry::GetCFunctions()
+    const {
+  return c_functions_;
+}
+
+const FunctionHolderMakerRegistry& FunctionRegistry::GetFunctionHolderMakerRegistry()
+    const {
+  return holder_maker_registry_;
 }
 
 arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {

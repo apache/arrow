@@ -79,9 +79,15 @@ find_latest_nightly <- function(description_version,
 }
 
 try_download <- function(from_url, to_file, hush = quietly) {
+  # We download some fairly large files, so ensure the timeout is set appropriately.
+  # This assumes a static library size of 100 MB (generous) and a download speed
+  # of 1 MB/s (slow).
+  opts <- options(timeout = max(100, getOption("timeout")))
+  on.exit(options(opts))
+
   status <- try(
     suppressWarnings(
-      download.file(from_url, to_file, quiet = hush)
+      download.file(from_url, to_file, quiet = hush, mode = "wb")
     ),
     silent = hush
   )
@@ -93,16 +99,12 @@ download_binary <- function(lib) {
   libfile <- paste0("arrow-", VERSION, ".zip")
   binary_url <- paste0(arrow_repo, "bin/", lib, "/arrow-", VERSION, ".zip")
   if (try_download(binary_url, libfile)) {
-    if (!quietly) {
-      lg("Successfully retrieved C++ binaries (%s)", lib)
-    }
+      lg("Successfully retrieved libarrow (%s)", lib)
   } else {
-    if (!quietly) {
       lg(
-        "Downloading libarrow binary failed for version %s (%s)\n    at %s",
+        "Downloading libarrow failed for version %s (%s)\n    at %s",
         VERSION, lib, binary_url
       )
-    }
     libfile <- NULL
   }
   # Explicitly setting the env var to "false" will skip checksum validation
@@ -134,11 +136,11 @@ download_binary <- function(lib) {
     checksum_ok <- system2(checksum_cmd, args = checksum_args)
 
     if (checksum_ok != 0) {
-      cat("*** Checksum validation failed for libarrow binary: ", libfile, "\n")
+      lg("Checksum validation failed for libarrow: %s/%s", lib, libfile)
       unlink(libfile)
       libfile <- NULL
     } else {
-      cat("*** Checksum validated successfully for libarrow binary: ", libfile, "\n")
+      lg("Checksum validated successfully for libarrow: %s/%s", lib, libfile)
     }
   }
 
