@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -50,9 +52,12 @@ class GANDIVA_EXPORT Engine {
   ///
   /// \param[in] config the engine configuration
   /// \param[in] cached flag to mark if the module is already compiled and cached
+  /// \param[in] object_cache an optional object_cache used for building the module
   /// \param[out] engine the created engine
-  static Status Make(const std::shared_ptr<Configuration>& config, bool cached,
-                     std::unique_ptr<Engine>* engine);
+  static Status Make(
+      const std::shared_ptr<Configuration>& config, bool cached,
+      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
+      std::unique_ptr<Engine>* engine);
 
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.
@@ -63,12 +68,6 @@ class GANDIVA_EXPORT Engine {
 
   /// Optimise and compile the module.
   Status FinalizeModule();
-
-  /// Set LLVM ObjectCache.
-  void SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-    // FIXME: support object cache
-    //    execution_engine_->setObjectCache(&object_cache);
-  }
 
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(std::string& function);

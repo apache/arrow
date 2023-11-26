@@ -107,14 +107,20 @@ static std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
 template <typename T>
+static std::string ErrorToString(llvm::Expected<T>& expected,
+                                 const std::string& error_context = "") {
+  std::string str;
+  llvm::raw_string_ostream stream(str);
+  stream << error_context;
+  stream << expected.takeError();
+  return stream.str();
+}
+
+template <typename T>
 static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
                                       const std::string& error_context = "") {
   if (!expected) {
-    std::string str;
-    llvm::raw_string_ostream stream(str);
-    stream << error_context;
-    stream << expected.takeError();
-    return Status::CodeGenError(stream.str());
+    return Status::CodeGenError(ErrorToString(expected, error_context));
   }
   return std::move(expected.get());
 }
@@ -198,15 +204,29 @@ Status Engine::LoadFunctionIRs() {
 }
 
 /// factory method to construct the engine.
-Status Engine::Make(const std::shared_ptr<Configuration>& conf, bool cached,
-                    std::unique_ptr<Engine>* out) {
+Status Engine::Make(
+    const std::shared_ptr<Configuration>& conf, bool cached,
+    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
+    std::unique_ptr<Engine>* out) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
   auto ctx = std::make_unique<llvm::LLVMContext>();
 
-  auto jit_builder = llvm::orc::LLJITBuilder();
   ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
-  auto maybe_jit = llvm::orc::LLJITBuilder().setJITTargetMachineBuilder(jtmb).create();
+  auto lljit_builder = llvm::orc::LLJITBuilder();
+  if (object_cache.has_value()) {
+    lljit_builder.setCompileFunctionCreator(
+        [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
+            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+          auto target_machine = JTMB.createTargetMachine();
+          if (!target_machine) {
+            return target_machine.takeError();
+          }
+          return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+              std::move(*target_machine), &object_cache.value().get());
+        });
+  }
+  auto maybe_jit = lljit_builder.setJITTargetMachineBuilder(jtmb).create();
   ARROW_ASSIGN_OR_RAISE(auto jit,
                         AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
 
@@ -309,7 +329,7 @@ Status Engine::LoadPreCompiledIR() {
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
   auto data = reinterpret_cast<const char*>(arrow_buffer.data());
   auto size = arrow_buffer.size();
-  return llvm::MemoryBufferRef(llvm::StringRef(data, size), "external_bitcode");
+  return {llvm::StringRef(data, size), "external_bitcode"};
 }
 
 Status Engine::LoadExternalPreCompiledIR() {
@@ -456,7 +476,8 @@ Status Engine::FinalizeModule() {
 void* Engine::CompiledFunction(std::string& function) {
   DCHECK(module_finalized_);
   auto sym = lljit_->lookup(function);
-  DCHECK(sym) << "Failed to look up function: " << function;
+  DCHECK(sym) << "Failed to look up function: " << function
+              << " error: " << ErrorToString(sym);
 
   return (void*)sym.get().getAddress();
 }

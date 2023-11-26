@@ -66,7 +66,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // Build LLVM generator, and generate code for the specified expression
   std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
+  ARROW_RETURN_NOT_OK(
+      LLVMGenerator::Make(configuration, is_cached, obj_cache, &llvm_gen));
 
   if (!is_cached) {
     // Run the validation on the expression.
@@ -75,9 +76,6 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                                  configuration->function_registry());
     ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
   }
-
-  // Set the object cache for LLVM
-  llvm_gen->SetLLVMObjectCache(obj_cache);
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
 

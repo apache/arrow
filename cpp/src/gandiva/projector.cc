@@ -81,7 +81,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
 
   // Build LLVM generator, and generate code for the specified expressions
   std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
+  ARROW_RETURN_NOT_OK(
+      LLVMGenerator::Make(configuration, is_cached, obj_cache, &llvm_gen));
 
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
@@ -93,9 +94,6 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
       ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
     }
   }
-
-  // Set the object cache for LLVM
-  llvm_gen->SetLLVMObjectCache(obj_cache);
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 

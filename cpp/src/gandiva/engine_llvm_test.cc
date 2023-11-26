@@ -24,14 +24,14 @@
 
 namespace gandiva {
 
-typedef int64_t (*add_vector_func_t)(int64_t* data, int n);
+using add_vector_func_t = int64_t (*)(int64_t*, int);
 
 class TestEngine : public ::testing::Test {
  protected:
-  std::string BuildVecAdd(Engine* engine) {
-    auto types = engine->types();
-    llvm::IRBuilder<>* builder = engine->ir_builder();
-    llvm::LLVMContext* context = engine->context();
+  static std::string BuildVecAdd(Engine* gdv_engine) {
+    auto types = gdv_engine->types();
+    llvm::IRBuilder<>* builder = gdv_engine->ir_builder();
+    llvm::LLVMContext* context = gdv_engine->context();
 
     // Create fn prototype :
     //   int64_t add_longs(int64_t *elements, int32_t nelements)
@@ -43,9 +43,9 @@ class TestEngine : public ::testing::Test {
 
     // Create fn
     std::string func_name = "add_longs";
-    engine->AddFunctionToCompile(func_name);
+    gdv_engine->AddFunctionToCompile(func_name);
     llvm::Function* fn = llvm::Function::Create(
-        prototype, llvm::GlobalValue::ExternalLinkage, func_name, engine->module());
+        prototype, llvm::GlobalValue::ExternalLinkage, func_name, gdv_engine->module());
     assert(fn != nullptr);
 
     // Name the arguments
@@ -99,7 +99,9 @@ class TestEngine : public ::testing::Test {
     return func_name;
   }
 
-  void BuildEngine() { ASSERT_OK(Engine::Make(TestConfiguration(), false, &engine)); }
+  void BuildEngine() {
+    ASSERT_OK(Engine::Make(TestConfiguration(), false, std::nullopt, &engine));
+  }
 
   std::unique_ptr<Engine> engine;
   std::shared_ptr<Configuration> configuration = TestConfiguration();

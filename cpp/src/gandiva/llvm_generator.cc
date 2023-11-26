@@ -42,12 +42,15 @@ LLVMGenerator::LLVMGenerator(bool cached,
       function_registry_(std::move(function_registry)),
       enable_ir_traces_(false) {}
 
-Status LLVMGenerator::Make(const std::shared_ptr<Configuration>& config, bool cached,
-                           std::unique_ptr<LLVMGenerator>* llvm_generator) {
+Status LLVMGenerator::Make(
+    const std::shared_ptr<Configuration>& config, bool cached,
+    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
+    std::unique_ptr<LLVMGenerator>* llvm_generator) {
   std::unique_ptr<LLVMGenerator> llvmgen_obj(
       new LLVMGenerator(cached, config->function_registry()));
 
-  ARROW_RETURN_NOT_OK(Engine::Make(config, cached, &(llvmgen_obj->engine_)));
+  ARROW_RETURN_NOT_OK(
+      Engine::Make(config, cached, object_cache, &(llvmgen_obj->engine_)));
   *llvm_generator = std::move(llvmgen_obj);
 
   return Status::OK();
@@ -60,10 +63,6 @@ LLVMGenerator::GetCache() {
           Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>();
 
   return shared_cache;
-}
-
-void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  engine_->SetLLVMObjectCache(object_cache);
 }
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
