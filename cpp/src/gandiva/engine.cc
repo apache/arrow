@@ -46,7 +46,6 @@
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
@@ -103,8 +102,43 @@ extern const size_t kPrecompiledBitcodeSize;
 std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
 static llvm::StringRef cpu_name;
-static llvm::SmallVector<std::string, 10> cpu_attrs;
+static std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
+
+template <typename T>
+static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected) {
+  if (!expected) {
+    std::string str;
+    llvm::raw_string_ostream stream(str);
+    stream << expected.takeError();
+    return Status::CodeGenError(stream.str());
+  }
+  return std::move(expected.get());
+}
+
+static Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
+    const Configuration& conf) {
+  llvm::orc::JITTargetMachineBuilder jtmb((llvm::Triple(llvm::sys::getProcessTriple())));
+  if (conf.target_host_cpu()) {
+    jtmb.setCPU(cpu_name.str());
+    jtmb.addFeatures(cpu_attrs);
+  }
+  auto opt_level =
+      conf.optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
+  jtmb.setCodeGenOptLevel(opt_level);
+  return jtmb;
+}
+
+static Result<llvm::TargetIRAnalysis> GetTargetIRAnalysis(
+    llvm::orc::JITTargetMachineBuilder& jtmb) {
+  auto maybe_tm = jtmb.createTargetMachine();
+  if (auto err = maybe_tm.takeError()) {
+    return Status::CodeGenError("Could not create target machine: ",
+                                llvm::toString(std::move(err)));
+  }
+  auto target_machine = cantFail(std::move(maybe_tm));
+  return target_machine->getTargetIRAnalysis();
+}
 
 void Engine::InitOnce() {
   DCHECK_EQ(llvm_init, false);
@@ -133,16 +167,18 @@ void Engine::InitOnce() {
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
                std::unique_ptr<llvm::LLVMContext> ctx,
-               std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module,
-               bool cached)
+               std::unique_ptr<llvm::orc::LLJIT> lljit,
+               llvm::TargetIRAnalysis ir_analysis, bool cached)
     : context_(std::move(ctx)),
-      execution_engine_(std::move(engine)),
+      lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
-      module_(module),
+      module_(std::make_unique<llvm::Module>("codegen", *context_)),
       types_(*context_),
       optimize_(conf->optimize()),
       cached_(cached),
-      function_registry_(conf->function_registry()) {}
+      function_registry_(conf->function_registry()),
+      target_ir_analysis_(std::move(ir_analysis)),
+      conf_(conf) {}
 
 Status Engine::Init() {
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
@@ -168,39 +204,20 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf, bool cached,
   std::call_once(llvm_init_once_flag, InitOnce);
 
   auto ctx = std::make_unique<llvm::LLVMContext>();
-  auto module = std::make_unique<llvm::Module>("codegen", *ctx);
 
-  // Capture before moving, ExecutionEngine does not allow retrieving the
-  // original Module.
-  auto module_ptr = module.get();
-
-  auto opt_level =
-      conf->optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
-
-  // Note that the lifetime of the error string is not captured by the
-  // ExecutionEngine but only for the lifetime of the builder. Found by
-  // inspecting LLVM sources.
-  std::string builder_error;
-
-  llvm::EngineBuilder engine_builder(std::move(module));
-
-  engine_builder.setEngineKind(llvm::EngineKind::JIT)
-      .setOptLevel(opt_level)
-      .setErrorStr(&builder_error);
-
-  if (conf->target_host_cpu()) {
-    engine_builder.setMCPU(cpu_name);
-    engine_builder.setMAttrs(cpu_attrs);
+  auto jit_builder = llvm::orc::LLJITBuilder();
+  ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
+  auto maybe_jit = llvm::orc::LLJITBuilder().setJITTargetMachineBuilder(jtmb).create();
+  if (auto err = maybe_jit.takeError()) {
+    return Status::CodeGenError("Could not create LLJIT instance: ",
+                                llvm::toString(maybe_jit.takeError()));
   }
-  std::unique_ptr<llvm::ExecutionEngine> exec_engine{engine_builder.create()};
+  auto jit = llvm::cantFail(std::move(maybe_jit));
 
-  if (exec_engine == nullptr) {
-    return Status::CodeGenError("Could not instantiate llvm::ExecutionEngine: ",
-                                builder_error);
-  }
+  ARROW_ASSIGN_OR_RAISE(auto target_ir_analysis, GetTargetIRAnalysis(jtmb));
+  std::unique_ptr<Engine> engine{new Engine(conf, std::move(ctx), std::move(jit),
+                                            std::move(target_ir_analysis), cached)};
 
-  std::unique_ptr<Engine> engine{
-      new Engine(conf, std::move(ctx), std::move(exec_engine), module_ptr, cached)};
   ARROW_RETURN_NOT_OK(engine->Init());
   *out = std::move(engine);
   return Status::OK();
@@ -240,19 +257,8 @@ static void SetDataLayout(llvm::Module* module) {
 }
 // end of the modified method from MLIR
 
-template <typename T>
-static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected) {
-  if (!expected) {
-    std::string str;
-    llvm::raw_string_ostream stream(str);
-    stream << expected.takeError();
-    return Status::CodeGenError(stream.str());
-  }
-  return std::move(expected.get());
-}
-
 static arrow::Status VerifyAndLinkModule(
-    llvm::Module* dest_module,
+    llvm::Module& dest_module,
     llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
   ARROW_ASSIGN_OR_RAISE(auto src_ir_module, AsArrowResult(src_module_or_error));
 
@@ -265,7 +271,7 @@ static arrow::Status VerifyAndLinkModule(
       llvm::verifyModule(*src_ir_module, &error_stream),
       Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
 
-  ARROW_RETURN_IF(llvm::Linker::linkModules(*dest_module, std::move(src_ir_module)),
+  ARROW_RETURN_IF(llvm::Linker::linkModules(dest_module, std::move(src_ir_module)),
                   Status::CodeGenError("failed to link IR Modules"));
 
   return Status::OK();
@@ -291,7 +297,7 @@ Status Engine::LoadPreCompiledIR() {
       llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
   // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
   // (ARROW-5148)
-  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
+  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
   return Status::OK();
 }
 
@@ -306,7 +312,7 @@ Status Engine::LoadExternalPreCompiledIR() {
   for (auto const& buffer : buffers) {
     auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
     auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
-    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
+    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(*module_, std::move(module_or_error)));
   }
 
   return Status::OK();
@@ -386,7 +392,8 @@ static void OptimizeModuleWithLegacyPassManager(llvm::Module& module,
   std::unique_ptr<llvm::legacy::PassManager> pass_manager(
       new llvm::legacy::PassManager());
 
-  pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
+  pass_manager->add(
+      llvm::createTargetTransformInfoWrapperPass(std::move(target_analysis)));
   pass_manager->add(llvm::createFunctionInliningPass());
   pass_manager->add(llvm::createInstructionCombiningPass());
   pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
@@ -411,13 +418,11 @@ Status Engine::FinalizeModule() {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
     if (optimize_) {
-      auto target_analysis = execution_engine_->getTargetMachine()->getTargetIRAnalysis();
-
 // misc passes to allow for inlining, vectorization, ..
 #if LLVM_VERSION_MAJOR >= 14
-      OptimizeModuleWithNewPassManager(*module_, target_analysis);
+      OptimizeModuleWithNewPassManager(*module_, target_ir_analysis_);
 #else
-      OptimizeModuleWithLegacyPassManager(*module_, target_analysis);
+      OptimizeModuleWithLegacyPassManager(*module_, target_ir_analysis_);
 #endif
     }
 
@@ -426,7 +431,12 @@ Status Engine::FinalizeModule() {
   }
 
   // do the compilation
-  execution_engine_->finalizeObject();
+  llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
+  auto error = lljit_->addIRModule(std::move(tsm));
+  if (error) {
+    return Status::CodeGenError("Failed to add module to LLJIT: ",
+                                llvm::toString(std::move(error)));
+  }
   module_finalized_ = true;
 
   return Status::OK();
@@ -434,7 +444,10 @@ Status Engine::FinalizeModule() {
 
 void* Engine::CompiledFunction(std::string& function) {
   DCHECK(module_finalized_);
-  return reinterpret_cast<void*>(execution_engine_->getFunctionAddress(function));
+  auto sym = lljit_->lookup(function);
+  DCHECK(sym) << "Failed to look up function: " << function;
+
+  return (void*)sym.get().getAddress();
 }
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
@@ -443,8 +456,14 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   constexpr bool is_var_arg = false;
   auto prototype = llvm::FunctionType::get(ret_type, args, is_var_arg);
   constexpr auto linkage = llvm::GlobalValue::ExternalLinkage;
-  auto fn = llvm::Function::Create(prototype, linkage, name, module());
-  execution_engine_->addGlobalMapping(fn, function_ptr);
+  llvm::Function::Create(prototype, linkage, name, module());
+
+  llvm::JITEvaluatedSymbol symbol((llvm::JITTargetAddress)function_ptr,
+                                  llvm::JITSymbolFlags::Exported);
+  llvm::orc::MangleAndInterner mangle(lljit_->getExecutionSession(),
+                                      lljit_->getDataLayout());
+  cantFail(lljit_->getMainJITDylib().define(
+      llvm::orc::absoluteSymbols({{mangle(name), symbol}})));
 }
 
 arrow::Status Engine::AddGlobalMappings() {

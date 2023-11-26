@@ -22,6 +22,9 @@
 #include <string>
 #include <vector>
 
+#include <llvm/Analysis/TargetTransformInfo.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "gandiva/configuration.h"
@@ -38,7 +41,7 @@ class GANDIVA_EXPORT Engine {
   llvm::LLVMContext* context() { return context_.get(); }
   llvm::IRBuilder<>* ir_builder() { return ir_builder_.get(); }
   LLVMTypes* types() { return &types_; }
-  llvm::Module* module() { return module_; }
+  llvm::Module* module() { return module_.get(); }
 
   /// Factory method to create and initialize the engine object.
   ///
@@ -60,7 +63,8 @@ class GANDIVA_EXPORT Engine {
 
   /// Set LLVM ObjectCache.
   void SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-    execution_engine_->setObjectCache(&object_cache);
+    // FIXME: support object cache
+    //    execution_engine_->setObjectCache(&object_cache);
   }
 
   /// Get the compiled function corresponding to the irfunction.
@@ -78,16 +82,13 @@ class GANDIVA_EXPORT Engine {
 
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
-         std::unique_ptr<llvm::LLVMContext> ctx,
-         std::unique_ptr<llvm::ExecutionEngine> engine, llvm::Module* module,
-         bool cached);
+         std::unique_ptr<llvm::LLVMContext> ctx, std::unique_ptr<llvm::orc::LLJIT> lljit,
+         llvm::TargetIRAnalysis ir_analysis, bool cached);
 
   // Post construction init. This _must_ be called after the constructor.
   Status Init();
 
   static void InitOnce();
-
-  llvm::ExecutionEngine& execution_engine() { return *execution_engine_; }
 
   /// load pre-compiled IR modules from precompiled_bitcode.cc and merge them into
   /// the main module.
@@ -103,9 +104,9 @@ class GANDIVA_EXPORT Engine {
   Status RemoveUnusedFunctions();
 
   std::unique_ptr<llvm::LLVMContext> context_;
-  std::unique_ptr<llvm::ExecutionEngine> execution_engine_;
+  std::unique_ptr<llvm::orc::LLJIT> lljit_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
-  llvm::Module* module_;
+  std::unique_ptr<llvm::Module> module_;
   LLVMTypes types_;
 
   std::vector<std::string> functions_to_compile_;
@@ -115,6 +116,8 @@ class GANDIVA_EXPORT Engine {
   bool cached_;
   bool functions_loaded_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
+  llvm::TargetIRAnalysis target_ir_analysis_;
+  const std::shared_ptr<Configuration> conf_;
 };
 
 }  // namespace gandiva
