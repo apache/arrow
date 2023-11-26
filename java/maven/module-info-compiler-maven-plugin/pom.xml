@@ -19,7 +19,6 @@
     <version>15.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>module-info-compiler-maven-plugin</artifactId>
-  <version>15.0.0-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
 
   <name>Module Info Compiler Maven Plugin</name>
