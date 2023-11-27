@@ -18,7 +18,7 @@
 #include "arrow/c/dlpack.h"
 
 #include "arrow/array/array_base.h"
-#include "arrow/c/dlpack_structure.h"
+#include "arrow/c/dlpack_abi.h"
 #include "arrow/type.h"
 
 namespace arrow {

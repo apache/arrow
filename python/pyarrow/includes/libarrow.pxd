@@ -1199,7 +1199,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
 
 
-cdef extern from "arrow/c/dlpack_structure.h" nogil:
+cdef extern from "arrow/c/dlpack_abi.h" nogil:
     cdef enum DLDeviceType:
         kDLCPU = 1
         kDLCUDA = 2

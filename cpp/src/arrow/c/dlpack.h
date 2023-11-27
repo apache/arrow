@@ -18,7 +18,7 @@
 #pragma once
 
 #include "arrow/array/array_base.h"
-#include "arrow/c/dlpack_structure.h"
+#include "arrow/c/dlpack_abi.h"
 
 namespace arrow {
 
