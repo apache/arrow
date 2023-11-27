@@ -152,7 +152,7 @@ struct AltrepVectorBase {
     const char* class_name = CHAR(PRINTNAME(data_class_sym));
 
     if (IsMaterialized(alt)) {
-      Rprintf("materialized %s len=%d\n", class_name,
+      Rprintf("materialized %s len=%ld\n", class_name,
               static_cast<long>(Rf_xlength(Representation(alt))));  // NOLINT: runtime/int
     } else {
       const auto& chunked_array = GetChunkedArray(alt);
