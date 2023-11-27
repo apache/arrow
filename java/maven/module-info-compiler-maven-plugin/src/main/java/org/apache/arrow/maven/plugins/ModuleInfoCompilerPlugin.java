@@ -50,11 +50,19 @@ public class ModuleInfoCompilerPlugin extends AbstractMojo {
       required = true)
   private final List<String> compileSourceRoots = new ArrayList<>();
 
+  @Parameter(defaultValue = "false", property = "skip", required = false)
+  private boolean skip = false;
+
   @Parameter(defaultValue = "${project}", readonly = true, required = true)
   private MavenProject project;
 
   @Override
   public void execute() throws MojoExecutionException {
+    if (skip) {
+      getLog().info("Skipping module-info-compiler-maven-plugin");
+      return;
+    }
+
     Optional<File> moduleInfoFile = findFirstModuleInfo(compileSourceRoots);
     if (moduleInfoFile.isPresent()) {
       // The compiled module-info.class file goes into target/classes/module-info/main
@@ -69,9 +77,12 @@ public class ModuleInfoCompilerPlugin extends AbstractMojo {
           StandardCharsets.UTF_8);
            OutputStream output = Files.newOutputStream(targetPath)) {
         compiler.compile(reader, output);
+        getLog().info("Successfully wrote module-info.class file.");
       } catch (IOException ex) {
         throw new MojoExecutionException("Error compiling module-info.java", ex);
       }
+    } else {
+      getLog().info("No module-info.java file found. module-info.class file was not generated.");
     }
   }
 
