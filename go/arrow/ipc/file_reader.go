@@ -730,6 +730,7 @@ func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker
 	bodyCompress := data.Compression(nil)
 	if bodyCompress != nil {
 		codec = getDecompressor(bodyCompress.Codec())
+		defer codec.Close()
 	}
 
 	id := md.Id()
