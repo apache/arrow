@@ -212,8 +212,12 @@ void io___BufferOutputStream__Write(
 class RConnectionFileInterface : public virtual arrow::io::FileInterface {
  public:
   explicit RConnectionFileInterface(cpp11::sexp connection_sexp)
-      : connection_sexp_(connection_sexp), closed_(false) {
+      : connection_sexp_(connection_sexp),
+        closed_(false),
+        seekable_(false),
+        bytes_written_(0) {
     check_closed();
+    seekable_ = check_seekable();
   }
 
   arrow::Status Close() {
@@ -230,6 +234,10 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
   arrow::Result<int64_t> Tell() const {
     if (closed()) {
       return arrow::Status::IOError("R connection is closed");
+    }
+
+    if (!seekable_) {
+      return bytes_written_;
     }
 
     return SafeCallIntoR<int64_t>(
@@ -294,6 +302,7 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
 
           cpp11::function write_bin = cpp11::package("base")["writeBin"];
           write_bin(data_raw, connection_sexp_);
+          bytes_written_ += nbytes;
         },
         "writeBin() on R connection");
   }
@@ -312,6 +321,8 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
 
  private:
   bool closed_;
+  bool seekable_;
+  int64_t bytes_written_;
 
   bool check_closed() {
     if (closed_) {
@@ -332,6 +343,15 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
     }
 
     return closed_;
+  }
+
+  bool check_seekable() {
+    auto is_seekable_result = SafeCallIntoR<bool>([&] {
+      cpp11::sexp result = cpp11::package("base")["isSeekable"](connection_sexp_);
+      return cpp11::as_cpp<bool>(result);
+    });
+
+    return is_seekable_result.ok() && *is_seekable_result;
   }
 };
 
