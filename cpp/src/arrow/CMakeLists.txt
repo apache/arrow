@@ -223,6 +223,7 @@ set(ARROW_SRCS
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
+    util/dict_util.cc
     util/float16.cc
     util/formatting.cc
     util/future.cc
