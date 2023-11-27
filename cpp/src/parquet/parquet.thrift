@@ -1008,7 +1008,7 @@ struct OffsetIndex {
   /**
    * Unencoded/uncompressed size for BYTE_ARRAY types.
    *
-   * See documention for unencoded_byte_array_data_bytes in SizeStatistics for
+   * See documentation for unencoded_byte_array_data_bytes in SizeStatistics for
    * more details on this field.
    */
   2: optional list<i64> unencoded_byte_array_data_bytes
