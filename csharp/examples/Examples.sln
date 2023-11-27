@@ -7,6 +7,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FluentBuilderExample", "Flu
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow", "..\src\Apache.Arrow\Apache.Arrow.csproj", "{1FE1DE95-FF6E-4895-82E7-909713C53524}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlightAspServerExample", "FlightAspServerExample\FlightAspServerExample.csproj", "{51701AC8-5C3C-47EA-B481-56F46B8C5673}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlightClientExample", "FlightClientExample\FlightClientExample.csproj", "{9F54DCD2-68C2-47A9-ABE2-816068176328}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{1FE1DE95-FF6E-4895-82E7-909713C53524}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1FE1DE95-FF6E-4895-82E7-909713C53524}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1FE1DE95-FF6E-4895-82E7-909713C53524}.Release|Any CPU.Build.0 = Release|Any CPU
+		{51701AC8-5C3C-47EA-B481-56F46B8C5673}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{51701AC8-5C3C-47EA-B481-56F46B8C5673}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{51701AC8-5C3C-47EA-B481-56F46B8C5673}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{51701AC8-5C3C-47EA-B481-56F46B8C5673}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F54DCD2-68C2-47A9-ABE2-816068176328}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F54DCD2-68C2-47A9-ABE2-816068176328}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F54DCD2-68C2-47A9-ABE2-816068176328}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F54DCD2-68C2-47A9-ABE2-816068176328}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -24,13 +24,13 @@ namespace Apache.Arrow.Ipc
     {
         private readonly Dictionary<long, IArrowArray> _idToDictionary;
         private readonly Dictionary<long, IArrowType> _idToValueType;
-        private readonly Dictionary<Field, long> _fieldToId;
+        private readonly Dictionary<string, long> _fieldToId;
 
         public DictionaryMemo()
         {
             _idToDictionary = new Dictionary<long, IArrowArray>();
             _idToValueType = new Dictionary<long, IArrowType>();
-            _fieldToId = new Dictionary<Field, long>();
+            _fieldToId = new Dictionary<string, long>();
         }
 
         public IArrowType GetDictionaryType(long id)
@@ -53,7 +53,7 @@ namespace Apache.Arrow.Ipc
 
         public void AddField(long id, Field field)
         {
-            if (_fieldToId.ContainsKey(field))
+            if (_fieldToId.ContainsKey(field.Name))
             {
                 throw new ArgumentException($"Field {field.Name} is already in Memo");
             }
@@ -73,13 +73,13 @@ namespace Apache.Arrow.Ipc
                 }
             }
 
-            _fieldToId.Add(field, id);
+            _fieldToId.Add(field.Name, id);
             _idToValueType.Add(id, valueType);
         }
 
         public long GetId(Field field)
         {
-            if (!_fieldToId.TryGetValue(field, out long id))
+            if (!_fieldToId.TryGetValue(field.Name, out long id))
             {
                 throw new ArgumentException($"Field with name {field.Name} not found");
             }
@@ -88,7 +88,7 @@ namespace Apache.Arrow.Ipc
 
         public long GetOrAssignId(Field field)
         {
-            if (!_fieldToId.TryGetValue(field, out long id))
+            if (!_fieldToId.TryGetValue(field.Name, out long id))
             {
                 id = _fieldToId.Count + 1;
                 AddField(id, field);

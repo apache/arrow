@@ -20,6 +20,7 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight.TestWeb;
 using Apache.Arrow.Tests;
+using Apache.Arrow.Types;
 using Google.Protobuf;
 using Grpc.Core.Utils;
 using Xunit;
@@ -52,6 +53,10 @@ namespace Apache.Arrow.Flight.Tests
                 builder.Append(startValue + i);
             }
             batchBuilder.Append("test", true, builder.Build());
+            var keys = new UInt16Array.Builder().AppendRange(Enumerable.Range(startValue, length).Select(i => (ushort)i)).Build();
+            var dictionary = new StringArray.Builder().AppendRange(Enumerable.Range(startValue, length).Select(i => i.ToString())).Build();
+            var dictArray = new DictionaryArray(new DictionaryType(UInt16Type.Default, StringType.Default, false), keys, dictionary);
+            batchBuilder.Append("dict", true, dictArray);
             return batchBuilder.Build();
         }
 
@@ -187,8 +192,8 @@ namespace Apache.Arrow.Flight.Tests
 
             var getStream = _flightClient.GetStream(endpoint.Ticket);
 
-            List<ByteString> actualMetadata = new List<ByteString>(); 
-            while(await getStream.ResponseStream.MoveNext(default))
+            List<ByteString> actualMetadata = new List<ByteString>();
+            while (await getStream.ResponseStream.MoveNext(default))
             {
                 actualMetadata.AddRange(getStream.ResponseStream.ApplicationMetadata);
             }
