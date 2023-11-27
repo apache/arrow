@@ -152,12 +152,15 @@ struct AltrepVectorBase {
     const char* class_name = CHAR(PRINTNAME(data_class_sym));
 
     if (IsMaterialized(alt)) {
-      Rprintf("materialized %s len=%d\n", class_name, Rf_xlength(Representation(alt)));
+      Rprintf("materialized %s len=%d\n", class_name,
+              static_cast<long>(Rf_xlength(Representation(alt))));
     } else {
       const auto& chunked_array = GetChunkedArray(alt);
-      Rprintf("%s<%p, %s, %d chunks, %d nulls> len=%d\n", class_name, chunked_array.get(),
+      Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", class_name,
+              reinterpret_cast<void*>(chunked_array.get()),
               chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
-              chunked_array->null_count(), chunked_array->length());
+              static_cast<long>(chunked_array->null_count()),
+              static_cast<long>(chunked_array->length()));
     }
 
     return TRUE;
@@ -819,7 +822,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
           "'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul "
           "= TRUE)";
 
-      Rf_error(stripped_string_.c_str());
+      Rf_error("%s", stripped_string_.c_str());
     }
 
     void SetArray(const std::shared_ptr<Array>& array) {
