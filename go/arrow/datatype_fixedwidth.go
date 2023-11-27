@@ -411,7 +411,7 @@ func (t *TimestampType) GetZone() (*time.Location, error) {
 	t.mx.RUnlock()
 	t.mx.Lock()
 	defer t.mx.Unlock()
-	// in case we got run in between releasing the read lock and
+	// in case GetZone() was called in between releasing the read lock and
 	// getting the write lock
 	if t.loc != nil {
 		return t.loc, nil
