@@ -245,7 +245,7 @@ class JsonScanMixin {
 
 // Use a reduced number of rows in valgrind to avoid timeouts.
 #ifndef ARROW_VALGRIND
-constexpr static int64_t kTestMaxNumRows = json::kMaxParserNumRows;
+constexpr static int64_t kTestMaxNumRows = (1UL << 17);
 #else
 constexpr static int64_t kTestMaxNumRows = 1024;
 #endif
