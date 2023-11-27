@@ -257,7 +257,7 @@ class ArrayLoader {
     int64_t count = variadic_counts->Get(i);
     if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
       return Status::IOError(
-          "variadic_count must be represenable as a positive int32_t, got ", count, ".");
+          "variadic_count must be representable as a positive int32_t, got ", count, ".");
     }
     return static_cast<size_t>(count);
   }
