@@ -153,14 +153,14 @@ struct AltrepVectorBase {
 
     if (IsMaterialized(alt)) {
       Rprintf("materialized %s len=%d\n", class_name,
-              static_cast<long>(Rf_xlength(Representation(alt))));
+              static_cast<long>(Rf_xlength(Representation(alt))));  // NOLINT: runtime/int
     } else {
       const auto& chunked_array = GetChunkedArray(alt);
       Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", class_name,
               reinterpret_cast<void*>(chunked_array.get()),
               chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
-              static_cast<long>(chunked_array->null_count()),
-              static_cast<long>(chunked_array->length()));
+              static_cast<long>(chunked_array->null_count()),  // NOLINT: runtime/int
+              static_cast<long>(chunked_array->length()));     // NOLINT: runtime/int
     }
 
     return TRUE;
