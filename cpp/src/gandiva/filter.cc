@@ -77,6 +77,9 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
     ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
   }
 
+  // Set the object cache for LLVM
+  llvm_gen->SetLLVMObjectCache(obj_cache);
+
   ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
 
   // Instantiate the filter with the completely built llvm generator

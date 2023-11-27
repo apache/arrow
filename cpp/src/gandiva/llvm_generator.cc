@@ -65,6 +65,10 @@ LLVMGenerator::GetCache() {
   return shared_cache;
 }
 
+void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+  engine_->SetLLVMObjectCache(object_cache);
+}
+
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
   // decompose the expression to separate out value and validities.

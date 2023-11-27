@@ -69,6 +69,9 @@ class GANDIVA_EXPORT Engine {
   /// Optimise and compile the module.
   Status FinalizeModule();
 
+  /// Set LLVM ObjectCache.
+  void SetLLVMObjectCache(GandivaObjectCache& object_cache);
+
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(std::string& function);
 

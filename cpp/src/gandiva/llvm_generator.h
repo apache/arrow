@@ -58,6 +58,9 @@ class GANDIVA_EXPORT LLVMGenerator {
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
   GetCache();
 
+  /// \brief Set LLVM ObjectCache.
+  void SetLLVMObjectCache(GandivaObjectCache& object_cache);
+
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
   Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);

@@ -106,13 +106,12 @@ static llvm::StringRef cpu_name;
 static std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
-template <typename T>
-static std::string ErrorToString(llvm::Expected<T>& expected,
+static std::string ErrorToString(const llvm::Error& error,
                                  const std::string& error_context = "") {
   std::string str;
   llvm::raw_string_ostream stream(str);
   stream << error_context;
-  stream << expected.takeError();
+  stream << error;
   return stream.str();
 }
 
@@ -120,7 +119,7 @@ template <typename T>
 static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
                                       const std::string& error_context = "") {
   if (!expected) {
-    return Status::CodeGenError(ErrorToString(expected, error_context));
+    return Status::CodeGenError(ErrorToString(expected.takeError(), error_context));
   }
   return std::move(expected.get());
 }
@@ -145,6 +144,14 @@ static std::string GetModuleIR(const llvm::Module& module) {
   return ir;
 }
 
+void Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+  auto cached_buffer = object_cache.getObject(nullptr);
+  if (cached_buffer) {
+    auto error = lljit_->addObjectFile(std::move(cached_buffer));
+    DCHECK(!error) << "Failed to load object cache" << ErrorToString(error);
+  }
+}
+
 void Engine::InitOnce() {
   DCHECK_EQ(llvm_init, false);
 
@@ -166,7 +173,7 @@ void Engine::InitOnce() {
     }
   }
   ARROW_LOG(INFO) << "Detected CPU Name : " << cpu_name.str();
-  ARROW_LOG(INFO) << "Detected CPU Features:" << cpu_attrs_str;
+  ARROW_LOG(INFO) << "Detected CPU Features: [" << cpu_attrs_str << "]";
   llvm_init = true;
 }
 
@@ -212,8 +219,9 @@ Status Engine::Make(
 
   auto ctx = std::make_unique<llvm::LLVMContext>();
 
-  ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
   auto lljit_builder = llvm::orc::LLJITBuilder();
+  ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
+  lljit_builder.setJITTargetMachineBuilder(jtmb);
   if (object_cache.has_value()) {
     lljit_builder.setCompileFunctionCreator(
         [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
@@ -222,11 +230,12 @@ Status Engine::Make(
           if (!target_machine) {
             return target_machine.takeError();
           }
+          // after compilation, the object code will be stored into the given object cache
           return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
               std::move(*target_machine), &object_cache.value().get());
         });
   }
-  auto maybe_jit = lljit_builder.setJITTargetMachineBuilder(jtmb).create();
+  auto maybe_jit = lljit_builder.create();
   ARROW_ASSIGN_OR_RAISE(auto jit,
                         AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
 
@@ -448,25 +457,26 @@ Status Engine::FinalizeModule() {
 #if LLVM_VERSION_MAJOR >= 14
       OptimizeModuleWithNewPassManager(*module_, target_ir_analysis);
 #else
-      OptimizeModuleWithLegacyPassManager(*module_, target_ir_analysis_);
+      OptimizeModuleWithLegacyPassManager(*module_, target_ir_analysis);
 #endif
     }
 
     ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                     Status::CodeGenError("Module verification failed after optimizer"));
-  }
 
-  // copy the module if IR dumping is needed since the module will be moved to construct
-  // LLJIT instance, and it is not available after LLJIT instance is constructed
-  if (conf_->needs_ir_dumping()) {
-    module_ir_ = GetModuleIR(*module_);
-  }
-  // do the compilation
-  llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
-  auto error = lljit_->addIRModule(std::move(tsm));
-  if (error) {
-    return Status::CodeGenError("Failed to add module to LLJIT: ",
-                                llvm::toString(std::move(error)));
+    // copy the module if IR dumping is needed since the module will be moved to construct
+    // LLJIT instance, and it is not available after LLJIT instance is constructed
+    if (conf_->needs_ir_dumping()) {
+      module_ir_ = GetModuleIR(*module_);
+      ARROW_LOG(INFO) << "MODULE_IR : " << module_ir_;
+    }
+    // do the compilation
+    llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
+    auto error = lljit_->addIRModule(std::move(tsm));
+    if (error) {
+      return Status::CodeGenError("Failed to add module to LLJIT: ",
+                                  llvm::toString(std::move(error)));
+    }
   }
   module_finalized_ = true;
 
@@ -477,7 +487,7 @@ void* Engine::CompiledFunction(std::string& function) {
   DCHECK(module_finalized_);
   auto sym = lljit_->lookup(function);
   DCHECK(sym) << "Failed to look up function: " << function
-              << " error: " << ErrorToString(sym);
+              << " error: " << ErrorToString(sym.takeError());
 
   return (void*)sym.get().getAddress();
 }
@@ -488,7 +498,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   constexpr bool is_var_arg = false;
   auto prototype = llvm::FunctionType::get(ret_type, args, is_var_arg);
   constexpr auto linkage = llvm::GlobalValue::ExternalLinkage;
-  llvm::Function::Create(prototype, linkage, name, module());
+  llvm::Function::Create(prototype, linkage, name);
 
   llvm::JITEvaluatedSymbol symbol((llvm::JITTargetAddress)function_ptr,
                                   llvm::JITSymbolFlags::Exported);
