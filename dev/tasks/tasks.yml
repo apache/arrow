@@ -96,6 +96,9 @@ groups:
   ruby:
     - test-*ruby*
 
+  go:
+    - test*-go-*
+
   vcpkg:
     - test-*vcpkg*
 
