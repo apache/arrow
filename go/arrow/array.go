@@ -81,7 +81,7 @@ type ArrayData interface {
 	// Dictionary returns the ArrayData object for the dictionary if this is a
 	// dictionary array, otherwise it will be nil.
 	Dictionary() ArrayData
-	// SizeInBytes() returns the size of the ArrayData in bytes.
+	// SizeInBytes returns the size of the ArrayData buffers and any children and/or dictionary in bytes.
 	SizeInBytes() uint64
 }
 
