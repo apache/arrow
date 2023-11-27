@@ -37,6 +37,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /**
@@ -234,6 +235,14 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
           ValueVector leftInner, ValueVector rightInner,
           BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
     return new RangeEqualsVisitor(leftInner, rightInner, typeComparator);
+  }
+
+  @Override
+  public Boolean visit(RunEndEncodedVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
+    return true; // TODO
   }
 
   protected boolean compareUnionVectors(Range range) {

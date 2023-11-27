@@ -35,6 +35,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
@@ -242,5 +243,10 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     vector.getUnderlyingVector().accept(this, value);
     return null;
+  }
+
+  @Override
+  public Void visit(RunEndEncodedVector vector, Void value) {
+    return null; // TODO
   }
 }

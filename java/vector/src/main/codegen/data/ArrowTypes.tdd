@@ -119,6 +119,11 @@
        name: "Duration",
        fields: [{name: "unit", type: short, valueType: TimeUnit}],
        complex: false
+    },
+    {
+       name: "RunEndEncoded",
+       fields: [],
+       complex: true
     }
   ]
 }
