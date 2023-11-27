@@ -96,7 +96,7 @@ export class GetBuilderCtor extends Visitor {
     public visitDurationSecond() { return DurationSecondBuilder; }
     public visitDurationMillisecond() { return DurationMillisecondBuilder; }
     public visitDurationMicrosecond() { return DurationMicrosecondBuilder; }
-    public visistDurationNanosecond() { return DurationNanosecondBuilder; }
+    public visitDurationNanosecond() { return DurationNanosecondBuilder; }
     public visitFixedSizeList() { return FixedSizeListBuilder; }
     public visitMap() { return MapBuilder; }
 }

@@ -185,7 +185,7 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
 
 //
 // Since TS is a structural type system, we define the following subclass stubs
-// so that concrete types exist to associate with with the interfaces below.
+// so that concrete types exist to associate with the interfaces below.
 //
 // The implementation for each RecordBatchReader is hidden away in the set of
 // `RecordBatchReaderImpl` classes in the second half of this file. This allows

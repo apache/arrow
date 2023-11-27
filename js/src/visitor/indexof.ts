@@ -144,7 +144,7 @@ function indexOfValue<T extends DataType>(data: Data<T>, searchElement?: T['TVal
 function indexOfUnion<T extends DataType>(data: Data<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     // Unions are special -- they do have a nullBitmap, but so can their children.
     // If the searchElement is null, we don't know whether it came from the Union's
-    // bitmap or one of its childrens'. So we don't interrogate the Union's bitmap,
+    // bitmap or one of its children's. So we don't interrogate the Union's bitmap,
     // since that will report the wrong index if a child has a null before the Union.
     const get = getVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);

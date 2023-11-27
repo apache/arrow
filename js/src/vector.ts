@@ -302,8 +302,8 @@ export class Vector<T extends DataType = any> {
      * values.
      *
      * Memoization is very useful when decoding a value is expensive such as
-     * Uft8. The memoization creates a cache of the size of the Vector and
-     * therfore increases memory usage.
+     * Utf8. The memoization creates a cache of the size of the Vector and
+     * therefore increases memory usage.
      *
      * @returns A new vector that memoizes calls to {@link get}.
      */
