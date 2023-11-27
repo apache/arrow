@@ -77,6 +77,9 @@ groups:
   c-glib:
     - test-*c-glib*
 
+  java:
+    - "*java*"
+
   python:
     - test-*python*
 
@@ -92,6 +95,9 @@ groups:
 
   ruby:
     - test-*ruby*
+
+  go:
+    - test*-go-*
 
   vcpkg:
     - test-*vcpkg*
@@ -487,7 +493,7 @@ tasks:
 
 {############################## Wheel OSX ####################################}
 
-{% for macos_version, macos_codename in [("10.14", "mojave")] %}
+{% for macos_version, macos_codename in [("10.15", "catalina")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -557,7 +563,8 @@ tasks:
                   "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
-                  "ubuntu-lunar"] %}
+                  "ubuntu-lunar",
+                  "ubuntu-mantic"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     ci: github

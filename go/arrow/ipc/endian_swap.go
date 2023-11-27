@@ -18,6 +18,7 @@ package ipc
 
 import (
 	"errors"
+	"fmt"
 	"math/bits"
 
 	"github.com/apache/arrow/go/v15/arrow"
@@ -119,7 +120,10 @@ func swapType(dt arrow.DataType, data *array.Data) (err error) {
 		return swapType(dt.IndexType, data)
 	case arrow.FixedWidthDataType:
 		byteSwapBuffer(dt.BitWidth(), data.Buffers()[1])
+	default:
+		err = fmt.Errorf("%w: swapping endianness of %s", arrow.ErrNotImplemented, dt)
 	}
+
 	return
 }
 

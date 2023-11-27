@@ -737,12 +737,15 @@ TEST_F(TestIfElseKernel, Decimal) {
   }
 }
 
+using ListAndListViewArrowTypes =
+    ::testing::Types<ListType, LargeListType, ListViewType, LargeListViewType>;
+
 template <typename Type>
-class TestIfElseList : public ::testing::Test {};
+class TestIfElseVarLengthListLike : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestIfElseList, ListArrowTypes);
+TYPED_TEST_SUITE(TestIfElseVarLengthListLike, ListAndListViewArrowTypes);
 
-TYPED_TEST(TestIfElseList, ListOfInt) {
+TYPED_TEST(TestIfElseVarLengthListLike, ListOfInt) {
   auto type = std::make_shared<TypeParam>(int32());
   CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, false, false]"),
                            ArrayFromJSON(type, "[[], null, [1, null], [2, 3]]"),
@@ -755,7 +758,7 @@ TYPED_TEST(TestIfElseList, ListOfInt) {
                            ArrayFromJSON(type, "[null, null, null, null]"));
 }
 
-TYPED_TEST(TestIfElseList, ListOfString) {
+TYPED_TEST(TestIfElseVarLengthListLike, ListOfString) {
   auto type = std::make_shared<TypeParam>(utf8());
   CheckWithDifferentShapes(
       ArrayFromJSON(boolean(), "[true, true, false, false]"),

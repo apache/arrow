@@ -376,10 +376,12 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &MakeIntRecordBatch,
     &MakeListRecordBatch,
+    &MakeListViewRecordBatch,
     &MakeFixedSizeListRecordBatch,
     &MakeNonNullRecordBatch,
     &MakeZeroLengthRecordBatch,
     &MakeDeeplyNestedList,
+    &MakeDeeplyNestedListView,
     &MakeStringTypesRecordBatchWithNulls,
     &MakeStruct,
     &MakeUnion,
@@ -974,6 +976,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   ASSERT_OK(MakeListRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
+  ASSERT_OK(MakeListViewRecordBatch(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
   ASSERT_OK(MakeZeroLengthRecordBatch(&batch));
   TestGetRecordBatchSize(options_, batch);
 
@@ -981,6 +986,9 @@ TEST_F(TestWriteRecordBatch, IntegerGetRecordBatchSize) {
   TestGetRecordBatchSize(options_, batch);
 
   ASSERT_OK(MakeDeeplyNestedList(&batch));
+  TestGetRecordBatchSize(options_, batch);
+
+  ASSERT_OK(MakeDeeplyNestedListView(&batch));
   TestGetRecordBatchSize(options_, batch);
 }
 
@@ -2162,6 +2170,43 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
 
   io::BufferReader garbage_reader(garbage);
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
+}
+
+namespace {
+class EndlessCollectListener : public CollectListener {
+ public:
+  EndlessCollectListener() : CollectListener(), decoder_(nullptr) {}
+
+  void SetDecoder(StreamDecoder* decoder) { decoder_ = decoder; }
+
+  arrow::Status OnEOS() override { return decoder_->Reset(); }
+
+ private:
+  StreamDecoder* decoder_;
+};
+};  // namespace
+
+TEST(TestStreamDecoder, Reset) {
+  auto listener = std::make_shared<EndlessCollectListener>();
+  StreamDecoder decoder(listener);
+  listener->SetDecoder(&decoder);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto all_buffer, ConcatenateBuffers({writer_helper.buffer_,
+                                                            writer_helper.buffer_}));
+  // Consume by Buffer
+  ASSERT_OK(decoder.Consume(all_buffer));
+  ASSERT_EQ(2, listener->num_record_batches());
+
+  // Consume by raw data
+  ASSERT_OK(decoder.Consume(all_buffer->data(), all_buffer->size()));
+  ASSERT_EQ(4, listener->num_record_batches());
 }
 
 TEST(TestStreamDecoder, NextRequiredSize) {

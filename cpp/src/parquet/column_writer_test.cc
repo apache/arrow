@@ -308,8 +308,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_codec_options(codec_options);
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
@@ -557,7 +558,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
 
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
                                  LARGE_SIZE);

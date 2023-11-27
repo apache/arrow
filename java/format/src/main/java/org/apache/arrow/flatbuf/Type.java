@@ -47,8 +47,13 @@ public final class Type {
   public static final byte LargeBinary = 19;
   public static final byte LargeUtf8 = 20;
   public static final byte LargeList = 21;
+  public static final byte RunEndEncoded = 22;
+  public static final byte BinaryView = 23;
+  public static final byte Utf8View = 24;
+  public static final byte ListView = 25;
+  public static final byte LargeListView = 26;
 
-  public static final String[] names = { "NONE", "Null", "Int", "FloatingPoint", "Binary", "Utf8", "Bool", "Decimal", "Date", "Time", "Timestamp", "Interval", "List", "Struct_", "Union", "FixedSizeBinary", "FixedSizeList", "Map", "Duration", "LargeBinary", "LargeUtf8", "LargeList", };
+  public static final String[] names = { "NONE", "Null", "Int", "FloatingPoint", "Binary", "Utf8", "Bool", "Decimal", "Date", "Time", "Timestamp", "Interval", "List", "Struct_", "Union", "FixedSizeBinary", "FixedSizeList", "Map", "Duration", "LargeBinary", "LargeUtf8", "LargeList", "RunEndEncoded", "BinaryView", "Utf8View", "ListView", "LargeListView", };
 
   public static String name(int e) { return names[e]; }
 }

@@ -3039,9 +3039,12 @@ cdef class RecordBatch(_Tabular):
 
         Parameters
         ----------
-        requested_schema : pyarrow.lib.Schema, default None
-            A schema to attempt to cast the streamed data to. This is currently
-            unsupported and will raise an error.
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+            Currently, this is not supported and will raise a
+            NotImplementedError if the schema doesn't match the current schema.
 
         Returns
         -------
@@ -4859,9 +4862,12 @@ cdef class Table(_Tabular):
 
         Parameters
         ----------
-        requested_schema : pyarrow.lib.Schema, default None
-            A schema to attempt to cast the streamed data to. This is currently
-            unsupported and will raise an error.
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+            Currently, this is not supported and will raise a
+            NotImplementedError if the schema doesn't match the current schema.
 
         Returns
         -------
@@ -5226,7 +5232,8 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
 
     if "promote" in kwargs:
         warnings.warn(
-            "promote has been superseded by mode='default'.", FutureWarning, stacklevel=2)
+            "promote has been superseded by promote_options='default'.",
+            FutureWarning, stacklevel=2)
         if kwargs['promote'] is True:
             promote_options = "default"
 
