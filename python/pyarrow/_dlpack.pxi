@@ -28,9 +28,12 @@ cdef void pycapsule_deleter(object dltensor) noexcept:
     cdef PyObject* err_value
     cdef PyObject* err_traceback
 
+    # Do nothing if the capsule has been consumed
     if cpython.PyCapsule_IsValid(dltensor, "used_dltensor"):
         return
 
+    # An exception may be in-flight, we must save it in case
+    # we create another one
     cpython.PyErr_Fetch(&err_type, &err_value, &err_traceback)
 
     if cpython.PyCapsule_IsValid(dltensor, 'dltensor'):
@@ -40,6 +43,7 @@ cdef void pycapsule_deleter(object dltensor) noexcept:
     else:
         cpython.PyErr_WriteUnraisable(dltensor)
 
+    # Set the error indicator from err_type, err_value, err_traceback
     cpython.PyErr_Restore(err_type, err_value, err_traceback)
 
 
