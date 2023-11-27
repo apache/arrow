@@ -3571,7 +3571,9 @@ def PyCapsule_IsValid(capsule, name):
 )
 def test_dlpack(value_type, np_type):
     if Version(np.__version__) < Version("1.22.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
+                    "strict keyward in assert_array_equal added in numpy version "
+                    "1.24.0")
 
     arr = pa.array([1, 2, 3], type=value_type)
     DLTensor = arr.__dlpack__()
@@ -3597,7 +3599,9 @@ def test_dlpack(value_type, np_type):
 
 def test_dlpack_float_16():
     if Version(np.__version__) < Version("1.22.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
+        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
+                    "strict keyward in assert_array_equal added in numpy version "
+                    "1.24.0")
 
     expected = np.array([1, 2, 3], dtype=np.float16)
     arr = pa.array(expected, type=pa.float16())
