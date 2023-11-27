@@ -25,7 +25,7 @@ namespace arrow {
 
 namespace dlpack {
 
-DLDataType getDLDataType(const std::shared_ptr<DataType>& type, Status* status) {
+Status getDLDataType(const std::shared_ptr<DataType>& type, DLDataType* out) {
   DLDataType dtype;
   dtype.lanes = 1;
   dtype.bits = type->bit_width();
@@ -35,29 +35,29 @@ DLDataType getDLDataType(const std::shared_ptr<DataType>& type, Status* status) 
     case Type::INT32:
     case Type::INT64:
       dtype.code = DLDataTypeCode::kDLInt;
-      break;
+      *out = dtype;
+      return Status::OK();
     case Type::UINT8:
     case Type::UINT16:
     case Type::UINT32:
     case Type::UINT64:
       dtype.code = DLDataTypeCode::kDLUInt;
-      break;
+      *out = dtype;
+      return Status::OK();
     case Type::HALF_FLOAT:
     case Type::FLOAT:
     case Type::DOUBLE:
       dtype.code = DLDataTypeCode::kDLFloat;
-      break;
+      *out = dtype;
+      return Status::OK();
     case Type::BOOL:
       // DLPack supports byte-packed boolean values
-      // dtype.code = DLDataTypeCode::kDLBool;
-      *status =
-          Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
-      break;
+      return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
     default:
-      *status = Status::TypeError("Can only use __dlpack__ on primitive arrays.");
-      break;
+      return Status::TypeError(
+          "Can only use __dlpack__ on primitive arrays without NullType and Decimal "
+          "types.");
   }
-  return dtype;
 }
 
 struct DLMTensorCtx {
@@ -70,24 +70,16 @@ static void deleter(DLManagedTensor* arg) {
   delete static_cast<DLMTensorCtx*>(arg->manager_ctx);
 }
 
-DLManagedTensor* Export(const std::shared_ptr<Array>& arr) {
-  Status status = Status::OK();
-
-  // Return null pointer if the array has a validity bitmap
+Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
   if (arr->null_bitmap() != NULLPTR) {
-    status =
-        Status::TypeError("Can only use __dlpack__ on arrays with no validity buffer.");
-    return NULLPTR;
+    return Status::TypeError(
+        "Can only use __dlpack__ on arrays with no validity buffer.");
   }
 
   // Define the DLDataType struct
-  // Return null pointer if the data type is not supported
-  // by the protocol. Supported data types: int, uint, float
-  // and bool
-  DLDataType arr_type = getDLDataType(arr->type(), &status);
-  if (!status.ok()) {
-    return NULLPTR;
-  }
+  // Supported data types: int, uint, float
+  DLDataType arr_type;
+  RETURN_NOT_OK(getDLDataType(arr->type(), &arr_type));
 
   // Create DLMTensorCtx struct with the reference to
   // the data of the array
@@ -125,7 +117,8 @@ DLManagedTensor* Export(const std::shared_ptr<Array>& arr) {
   dlm_tensor->dl_tensor.strides = NULL;
   dlm_tensor->dl_tensor.byte_offset = 0;
 
-  return dlm_tensor;
+  *out = dlm_tensor;
+  return Status::OK();
 }
 
 }  // namespace dlpack

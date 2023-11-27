@@ -44,10 +44,8 @@ cdef void pycapsule_deleter(object dltensor) noexcept:
 
 
 cpdef object to_dlpack(Array arr) except *:
-    dlm_tensor = ExportToDLPack(pyarrow_unwrap_array(arr))
 
-    if dlm_tensor == nullptr:
-        raise TypeError(
-            "Can only use __dlpack__ on primitive types (byte-packed booleans) with no validity buffer.")
+    cdef DLManagedTensor* dlm_tensor
+    check_status(ExportToDLPack(pyarrow_unwrap_array(arr), &dlm_tensor))
 
     return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)

@@ -1250,7 +1250,8 @@ cdef extern from "arrow/c/dlpack_structure.h" nogil:
 
 
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
-    DLManagedTensor* ExportToDLPack" arrow::dlpack::Export"(const shared_ptr[CArray]& arr)
+    CStatus ExportToDLPack" arrow::dlpack::ExportArray"(const shared_ptr[CArray]& arr,
+                                                        DLManagedTensor** out)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:

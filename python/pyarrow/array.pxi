@@ -1779,7 +1779,26 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(array)
 
     def __dlpack__(self, stream=None):
-        return to_dlpack(self)
+        """Export a primitive array as a DLPack capsule.
+
+        Parameters
+        ----------
+        stream : int, optional
+            A Python integer representing a pointer to a stream. Currently not supported.
+            Stream is provided by the consumer to the producer to instruct the producer
+            to ensure that operations can safely be performed on the array.
+
+        Returns
+        -------
+        capsule : PyCapsule
+            A DLPack capsule for the array, containing a DLPackManagedTensor.
+        """
+        if stream is None:
+            return to_dlpack(self)
+        else:
+            raise NotImplementedError(
+                "Only stream=None is supported."
+            )
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):

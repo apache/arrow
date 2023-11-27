@@ -26,10 +26,22 @@ namespace dlpack {
 
 /// \brief DLPack protocol for producing DLManagedTensor
 ///
-/// Returns pointer to the DLManagedTensor class defined by
-// the DLPack protocol
+/// DLMangedTensor is produced from an array as defined by
+/// the DLPack protocol, see https://dmlc.github.io/dlpack/latest/.
+///
+/// Data types for which the protocol is supported are
+/// primitive data types without NullType, BooleanType and
+/// Decimal types.
+///
+/// DLPack protocol only supports arrays with one contiguous
+/// memory region which means Arrow Arrays with validity buffers
+/// are not supported.
+///
+/// \param[in] arr Arrow array
+/// \param[out] out DLManagedTensor struct
+/// \return Status
 ARROW_EXPORT
-DLManagedTensor* Export(const std::shared_ptr<Array>& arr);
+Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out);
 
 }  // namespace dlpack
 

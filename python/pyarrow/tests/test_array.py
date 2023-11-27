@@ -3611,25 +3611,24 @@ def test_dlpack_not_supported():
     if Version(np.__version__) < Version("1.22.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
 
-    msg = ("use __dlpack__ on primitive types \\(byte-packed booleans\\) "
-           "with no validity buffer")
-    with pytest.raises(TypeError, match=msg):
+    with pytest.raises(TypeError, match="Can only use __dlpack__ "
+                       "on arrays with no validity buffer."):
         arr = pa.array([1, None, 3])
         np.from_dlpack(arr)
 
-    with pytest.raises(TypeError, match=msg):
+    with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive arrays"):
         arr = pa.array(
             [[0, 1], [3, 4]],
             type=pa.list_(pa.int32())
         )
         np.from_dlpack(arr)
 
-    with pytest.raises(TypeError, match=msg):
+    with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive arrays"):
         arr = pa.array([])
         np.from_dlpack(arr)
 
     # DLPack doesn't support bit-packed boolean values
-    # Should we cast to uint8?
-    with pytest.raises(TypeError, match=msg):
+    with pytest.raises(TypeError, match="Bit-packed boolean data type "
+                       "not supported by DLPack."):
         arr = pa.array([True, False, True])
         np.from_dlpack(arr)
