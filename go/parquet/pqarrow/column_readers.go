@@ -895,7 +895,7 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arro
 
 			rec := in.Value(i)
 			if len(rec) <= 0 {
-				return nil, fmt.Errorf("invalud BYTEARRAY length for type: %s", dt)
+				return nil, fmt.Errorf("invalid BYTEARRAY length for type: %s", dt)
 			}
 			out[i], err = bigEndianToDecimal128(rec)
 			if err != nil {

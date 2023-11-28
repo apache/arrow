@@ -165,7 +165,7 @@ func (s *BaseFlightServer) Handshake(stream flight.FlightService_HandshakeServer
 }
 
 // CustomerServerMiddleware is a helper interface for more easily defining custom
-// grpc middlware without having to expose or understand all the grpc bells and whistles.
+// grpc middleware without having to expose or understand all the grpc bells and whistles.
 type CustomServerMiddleware interface {
 	// StartCall will be called with the current context of the call, grpc.SetHeader can be used to add outgoing headers
 	// if the returned context is non-nil, then it will be used as the new context being passed through the calls
@@ -224,7 +224,7 @@ type server struct {
 // the utility of the helpers
 //
 // Deprecated: prefer to use NewServerWithMiddleware, due to auth handler middleware
-// this function will be problematic if any of the grpc options specify other middlewares.
+// this function will be problematic if any of the grpc options specify other middleware.
 func NewFlightServer(opt ...grpc.ServerOption) Server {
 	opt = append([]grpc.ServerOption{
 		grpc.ChainStreamInterceptor(serverAuthStreamInterceptor),

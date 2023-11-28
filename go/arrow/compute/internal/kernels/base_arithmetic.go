@@ -795,7 +795,7 @@ func getArithmeticOpDecimalImpl[T decimal128.Num | decimal256.Num](op Arithmetic
 			return int64(fns.Sign(arg))
 		})
 	}
-	debug.Assert(false, "unimplemented arithemtic op")
+	debug.Assert(false, "unimplemented arithmetic op")
 	return nil
 }
 

@@ -293,7 +293,7 @@ type resultPair struct {
 	err  error
 }
 
-//! This is Super complicated.  I would simpify the pattern, but it works and hesitant to change what works.
+//! This is Super complicated.  I would simplify the pattern, but it works and hesitant to change what works.
 
 // ReadRowGroups is for generating an array.Table from the file but filtering to only read the requested
 // columns and row groups rather than the entire file which ReadTable does.

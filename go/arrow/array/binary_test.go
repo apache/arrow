@@ -705,7 +705,7 @@ func TestBinaryViewStringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	values := []string{"a", "bc", "", "", "supercalifragilistic", "", "expeallodocious"}
+	values := []string{"a", "bc", "", "", "supercalifragilistic", "", "expialidocious"}
 	valid := []bool{true, true, false, false, true, true, true}
 
 	b := NewBinaryViewBuilder(mem)

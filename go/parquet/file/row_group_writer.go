@@ -52,7 +52,7 @@ type SerialRowGroupWriter interface {
 	RowGroupWriter
 	NextColumn() (ColumnChunkWriter, error)
 	// returns the current column being built, if buffered it will equal NumColumns
-	// if serialized then it will return which column is currenly being written
+	// if serialized then it will return which column is currently being written
 	CurrentColumn() int
 }
 

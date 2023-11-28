@@ -265,7 +265,7 @@ func NewFlightClient(addr string, auth ClientAuthHandler, opts ...grpc.DialOptio
 	return &client{conn: conn, FlightServiceClient: flight.NewFlightServiceClient(conn), authHandler: auth}, nil
 }
 
-// NewClientWithMiddleware takes a slice of middlewares in addition to the auth and address which will be
+// NewClientWithMiddleware takes a slice of middleware in addition to the auth and address which will be
 // used by grpc and chained, the first middleware will be the outer most with the last middleware
 // being the inner most wrapper around the actual call. It also passes along the dialoptions passed in such
 // as TLS certs and so on.

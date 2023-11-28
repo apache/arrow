@@ -1790,7 +1790,7 @@ func (m *flightSqlScenarioTester) GetSchemaPreparedStatement(ctx context.Context
 	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
 		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
 	}
-	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStaement %s",
+	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStatement %s",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 

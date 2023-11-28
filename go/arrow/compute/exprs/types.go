@@ -35,7 +35,7 @@ const (
 	// URI for official Arrow Substrait Extension Types
 	ArrowExtTypesUri          = "https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml"
 	SubstraitDefaultURIPrefix = extensions.SubstraitDefaultURIPrefix
-	// URI for official Substrait Arithemetic funcs extensions
+	// URI for official Substrait Arithmetic funcs extensions
 	SubstraitArithmeticFuncsURI = SubstraitDefaultURIPrefix + "functions_arithmetic.yaml"
 	// URI for official Substrait Comparison funcs extensions
 	SubstraitComparisonFuncsURI = SubstraitDefaultURIPrefix + "functions_comparison.yaml"
@@ -235,7 +235,7 @@ func encodeOptionlessOverflowableArithmetic(id extensions.ID) arrowToSubstrait {
 	}
 }
 
-// NewExtensionSetDefault is a convenince function to create a new extension
+// NewExtensionSetDefault is a convenience function to create a new extension
 // set using the Default arrow extension ID registry.
 //
 // See NewExtensionSet for more info.

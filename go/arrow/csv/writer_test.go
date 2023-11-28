@@ -316,7 +316,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 		t.Fatal(err)
 	}
 
-	bdata, err := expectedOutout(data)
+	bdata, err := expectedOutput(data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 	}
 }
 
-func expectedOutout(data [][]string) (*bytes.Buffer, error) {
+func expectedOutput(data [][]string) (*bytes.Buffer, error) {
 	b := bytes.NewBuffer(nil)
 	w := ecsv.NewWriter(b)
 	w.Comma = separator

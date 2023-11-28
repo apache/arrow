@@ -492,7 +492,7 @@ func TestDecimalToReal(t *testing.T) {
 			checkDecimalToFloat(t, "9223373136366403584", float64(9.223373136366404e+18), 0)
 			checkDecimalToFloat(t, "-9223373136366403584", float64(-9.223373136366404e+18), 0)
 
-			// 2**64 - 2**11 (exactly represntable in a float64)
+			// 2**64 - 2**11 (exactly representable in a float64)
 			checkDecimalToFloat(t, "18446746272732807168", float64(1.8446746272732807e+19), 0)
 			checkDecimalToFloat(t, "-18446746272732807168", float64(-1.8446746272732807e+19), 0)
 

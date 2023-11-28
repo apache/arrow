@@ -90,7 +90,7 @@ func (w *Writer) Close() error {
 	enc := json.NewEncoder(w.w)
 	enc.SetIndent("", jsonIndent)
 	// ensure that we don't convert <, >, !, etc. to their unicode equivalents
-	// in the output json since we're not using this in an HTML context so that
+	// in the output json since we aren't using this in an HTML context so that
 	// we can make sure that the json files match.
 	enc.SetEscapeHTML(false)
 	return enc.Encode(w.raw)

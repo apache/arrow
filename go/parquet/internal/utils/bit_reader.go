@@ -152,7 +152,7 @@ func (b *BitReader) GetAligned(nbytes int, v interface{}) bool {
 	if n != nbytes {
 		return false
 	}
-	// zero pad the the bytes
+	// zero pad the bytes
 	memory.Set(b.raw[n:typBytes], 0)
 
 	switch v := v.(type) {
@@ -215,7 +215,7 @@ func (b *BitReader) GetBatchIndex(bits uint, out []IndexType) (i int, err error)
 	var val uint64
 
 	length := len(out)
-	// if we're not currently byte-aligned, read bits until we are byte-aligned.
+	// if we aren't currently byte-aligned, read bits until we are byte-aligned.
 	for ; i < length && b.bitoffset != 0; i++ {
 		val, err = b.next(bits)
 		out[i] = IndexType(val)

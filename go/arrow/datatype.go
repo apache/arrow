@@ -144,7 +144,7 @@ const (
 	// like BINARY but with 64-bit offsets, not yet implemented
 	LARGE_BINARY
 
-	// like LIST but with 64-bit offsets. not yet implmented
+	// like LIST but with 64-bit offsets. not yet implemented
 	LARGE_LIST
 
 	// calendar interval with three fields

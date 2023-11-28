@@ -694,7 +694,7 @@ func TestConcatAlmostOverflowRunEndEncoding(t *testing.T) {
 			defer bldr.Release()
 			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
-			// max is not evently divisible by 4, so we add one to each
+			// max is not evenly divisible by 4, so we add one to each
 			// to account for that so our final concatenate will overflow
 			bldr.Append((tt.max / 4) + 1)
 			valBldr.Append("foo")
@@ -741,7 +741,7 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 			defer bldr.Release()
 			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
-			// max is not evently divisible by 4, so we add one to each
+			// max is not evenly divisible by 4, so we add one to each
 			// to account for that so our final concatenate will overflow
 			bldr.Append((tt.max / 4) + 1)
 			valBldr.Append("foo")

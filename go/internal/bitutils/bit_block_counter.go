@@ -165,7 +165,7 @@ func (b *BitBlockCounter) NextWord() BitBlockCount {
 }
 
 // OptionalBitBlockCounter is a useful counter to iterate through a possibly
-// non-existent validity bitmap to allow us to write one code path for both
+// nonexistent validity bitmap to allow us to write one code path for both
 // the with-nulls and no-nulls cases without giving up a lot of performance.
 type OptionalBitBlockCounter struct {
 	hasBitmap bool

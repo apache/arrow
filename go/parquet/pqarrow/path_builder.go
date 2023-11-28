@@ -665,7 +665,7 @@ func fillRepLevels(count int, repLvl int16, ctx *pathWriteCtx) {
 
 	fillCount := count
 	// this condition occurs (rep and def levels equals), in one of a few cases:
-	// 1. before any list is encounted
+	// 1. before any list is encountered
 	// 2. after rep-level has been filled in due to null/empty values above
 	// 3. after finishing a list
 	if !ctx.equalRepDeflevlsLen() {

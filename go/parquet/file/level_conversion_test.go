@@ -66,7 +66,7 @@ func TestDefLevelsToBitmap(t *testing.T) {
 	assert.Equal(t, curByte, validBits[1])
 }
 
-func TestDefLevelstToBitmapPowerOf2(t *testing.T) {
+func TestDefLevelsToBitmapPowerOf2(t *testing.T) {
 	defLevels := []int16{3, 3, 3, 2, 3, 3, 3, 3}
 	validBits := []byte{1, 0}
 

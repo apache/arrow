@@ -541,7 +541,7 @@ func TestListArraySlice(t *testing.T) {
 	}
 }
 
-func TestLisViewtArraySlice(t *testing.T) {
+func TestListViewArraySlice(t *testing.T) {
 	tests := []struct {
 		typeID  arrow.Type
 		offsets interface{}

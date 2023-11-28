@@ -486,7 +486,7 @@ func (rr *recordReader) delimitRecords(numRecords int64) (recordsRead, valsToRea
 			// if at record start, we are seeing the start of a record
 			// for the second time, such as after repeated calls to delimitrecords.
 			// in this case we must continue until we find another record start
-			// or exaust the column chunk
+			// or exhaust the column chunk
 			if !rr.atRecStart {
 				// end of a record, increment count
 				recordsRead++

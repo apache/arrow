@@ -268,7 +268,7 @@ func (Dict{{.Name}}Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
   vals := shared_utils.MinInt(len(out), d.nvals)

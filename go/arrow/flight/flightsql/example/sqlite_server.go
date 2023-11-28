@@ -684,7 +684,7 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoPrimaryKeys(_ context.Context, cmd 
 }
 
 func (s *SQLiteFlightSQLServer) DoGetPrimaryKeys(ctx context.Context, cmd flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	// the field key_name can not be recovered by sqlite so it is
+	// the field key_name cannot be recovered by sqlite so it is
 	// being set to null following the same pattern for catalog name and schema_name
 	var b strings.Builder
 
