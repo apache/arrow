@@ -667,6 +667,10 @@ TEST_F(AzuriteFileSystemTest, DeleteDirUri) {
 }
 
 TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessExist) {
+#ifdef __APPLE__
+  GTEST_SKIP() << "This test fails by an Azurite problem: "
+                  "https://github.com/Azure/Azurite/pull/2302";
+#endif
   const auto directory_path =
       internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
   const auto sub_directory_path = internal::ConcatAbstractPath(directory_path, "new-sub");
