@@ -72,7 +72,7 @@ static void deleter(DLManagedTensor* arg) {
 }
 
 Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
-  if (arr->null_bitmap() != NULLPTR) {
+  if (arr->null_count() > 0) {
     return Status::TypeError(
         "Can only use __dlpack__ on arrays with no validity buffer.");
   }
