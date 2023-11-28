@@ -3582,12 +3582,26 @@ def test_dlpack(value_type, np_type):
     result = np.from_dlpack(arr)
     np.testing.assert_array_equal(result, expected, strict=True)
 
-    # arr_sliced = arr.slice(1, 1)
-    # DLTensor = arr_sliced.__dlpack__()
-    # assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-    # expected = np.array([2], dtype=np_type)
-    # result = np.from_dlpack(arr_sliced)
-    # np.testing.assert_array_equal(result, expected, strict=True)
+    arr_sliced = arr.slice(1, 1)
+    DLTensor = arr_sliced.__dlpack__()
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+    expected = np.array([2], dtype=np_type)
+    result = np.from_dlpack(arr_sliced)
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+    arr_sliced = arr.slice(0, 1)
+    DLTensor = arr_sliced.__dlpack__()
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+    expected = np.array([1], dtype=np_type)
+    result = np.from_dlpack(arr_sliced)
+    np.testing.assert_array_equal(result, expected, strict=True)
+
+    arr_sliced = arr.slice(1)
+    DLTensor = arr_sliced.__dlpack__()
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+    expected = np.array([2, 3], dtype=np_type)
+    result = np.from_dlpack(arr_sliced)
+    np.testing.assert_array_equal(result, expected, strict=True)
 
     arr_zero = pa.array([], type=value_type)
     DLTensor = arr_zero.__dlpack__()

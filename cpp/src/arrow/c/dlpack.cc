@@ -95,9 +95,17 @@ Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
   dlm_tensor->deleter = &deleter;
 
   // Define the data pointer to the DLTensor
-  // If array is of length 0, data pointer should be NULL
+  // If array is of length 0, data poin ter should be NULL
   if (arr->length() == 0) {
     dlm_tensor->dl_tensor.data = NULL;
+  } else if (arr->offset() > 0) {
+    const auto byte_width = arr->type()->byte_width();
+    const auto start = arr->offset() * byte_width;
+    ARROW_ASSIGN_OR_RAISE(
+            auto sliced_buffer,
+            SliceBufferSafe(array_ref->buffers[1], start));
+    dlm_tensor->dl_tensor.data = const_cast<void*>(
+        reinterpret_cast<const void*>(sliced_buffer->address()));
   } else {
     dlm_tensor->dl_tensor.data = const_cast<void*>(
         reinterpret_cast<const void*>(array_ref->buffers[1]->address()));
