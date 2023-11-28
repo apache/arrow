@@ -194,6 +194,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
 
 Status Engine::Init() {
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
+
   // Add mappings for global functions that can be accessed from LLVM/IR module.
   ARROW_RETURN_NOT_OK(AddGlobalMappings());
 
@@ -451,6 +452,11 @@ Status Engine::FinalizeModule() {
   if (!cached_) {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
+    auto& data_layout = module_->getDataLayout();
+    lljit_->getMainJITDylib().addGenerator(
+        cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+            data_layout.getGlobalPrefix())));
+
     if (optimize_) {
       auto target_ir_analysis = target_machine_->getTargetIRAnalysis();
 // misc passes to allow for inlining, vectorization, ..
@@ -471,6 +477,7 @@ Status Engine::FinalizeModule() {
       ARROW_LOG(INFO) << "MODULE_IR : " << module_ir_;
     }
     // do the compilation
+
     llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
     auto error = lljit_->addIRModule(std::move(tsm));
     if (error) {
