@@ -116,7 +116,7 @@ func (p *PrimitiveTypedTest) UpdateStatsSpaced(stat metadata.TypedStatistics, nu
 	case *metadata.FixedLenByteArrayStatistics:
 		s.UpdateSpaced(p.Values.([]parquet.FixedLenByteArray), validBits, validBitsOffset, numNull)
 	default:
-		panic("uninplemented")
+		panic("unimplemented")
 	}
 }
 

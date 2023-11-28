@@ -380,7 +380,7 @@ func (s *SchemaConverterSuite) TestZeroColumns() {
 func (s *SchemaConverterSuite) TestInvalidRoot() {
 	// According to the Parquet spec, the first element in the list<SchemaElement>
 	// is a group whose children (and their descendants) contain all of the rest of
-	// the flattened schema elments. If the first element is not a group, it is malformed
+	// the flattened schema elements. If the first element is not a group, it is malformed
 	elements := []*format.SchemaElement{NewPrimitive("not-a-group" /* name */, format.FieldRepetitionType_REQUIRED,
 		format.Type_INT32, 0 /* fieldID */), format.NewSchemaElement()}
 	s.Panics(func() { s.convert(elements) })
