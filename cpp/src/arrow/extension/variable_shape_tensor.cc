@@ -217,8 +217,15 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   ARROW_CHECK_OK(
       internal::ComputeStrides(this->value_type(), shape, this->permutation(), &strides));
 
-  const auto buffer =
-      std::static_pointer_cast<BaseListScalar>(data)->value->data()->buffers[1];
+  const auto array = std::static_pointer_cast<FixedSizeListScalar>(data)->value;
+  const auto byte_width = this->value_type()->byte_width();
+  const auto start_position = array->offset() * byte_width;
+  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
+                                    std::multiplies<>());
+
+  // Create a slice of the buffer
+  std::shared_ptr<arrow::Buffer> buffer =
+      arrow::SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
 
   return Tensor::Make(this->value_type(), buffer, shape, strides, this->dim_names());
 }

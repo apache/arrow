@@ -696,9 +696,6 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(tensor->type(), t->type());
   ASSERT_EQ(tensor->is_contiguous(), t->is_contiguous());
   ASSERT_EQ(tensor->is_column_major(), t->is_column_major());
-
-  // tensor's data == {10, 11, 12, 13, 14, 15, 16, 17, 18}
-  // t's data == {1, 1, 2, 3, 4, 5, 6, 7, 8}
   ASSERT_TRUE(tensor->Equals(*t));
 }
 
