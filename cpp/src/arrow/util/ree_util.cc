@@ -61,6 +61,62 @@ int64_t LogicalNullCount(const ArraySpan& span) {
   return LogicalNullCount<int64_t>(span);
 }
 
+namespace internal {
+
+/// \pre 0 <= i < array_span.length()
+template <typename RunEndCType>
+int64_t FindPhysicalIndexImpl(PhysicalIndexFinder<RunEndCType>& self, int64_t i) {
+  DCHECK_LT(i, self.array_span.length);
+  const int64_t run_ends_size = ree_util::RunEndsArray(self.array_span).length;
+  DCHECK_LT(self.last_physical_index, run_ends_size);
+  // This access to self.run_ends[last_physical_index] is alwas safe because:
+  // 1. 0 <= i < array_span.length() implies there is at least one run and the initial
+  //    value 0 will be safe to index with.
+  // 2. last_physical_index > 0 is always the result of a valid call to
+  //    internal::FindPhysicalIndex.
+  if (ARROW_PREDICT_TRUE(self.array_span.offset + i <
+                         self.run_ends[self.last_physical_index])) {
+    // The cached value is an upper-bound, but is it the least upper-bound?
+    if (self.last_physical_index == 0 ||
+        self.array_span.offset + i >= self.run_ends[self.last_physical_index - 1]) {
+      return self.last_physical_index;
+    }
+    // last_physical_index - 1 is a candidate for the least upper-bound,
+    // so search for the least upper-bound in the range that includes it.
+    const int64_t j = ree_util::internal::FindPhysicalIndex<RunEndCType>(
+        self.run_ends, /*run_ends_size=*/self.last_physical_index, i,
+        self.array_span.offset);
+    DCHECK_LT(j, self.last_physical_index);
+    return self.last_physical_index = j;
+  }
+
+  // last_physical_index is not an upper-bound, and the logical index i MUST be
+  // in the runs that follow it. Since i is a valid logical index, we know that at least
+  // one extra run is present.
+  DCHECK_LT(self.last_physical_index + 1, run_ends_size);
+  const int64_t min_physical_index = self.last_physical_index + 1;
+
+  const int64_t j = ree_util::internal::FindPhysicalIndex<RunEndCType>(
+      /*run_ends=*/self.run_ends + min_physical_index,
+      /*run_ends_size=*/run_ends_size - min_physical_index, i, self.array_span.offset);
+  DCHECK_LT(min_physical_index + j, run_ends_size);
+  return self.last_physical_index = min_physical_index + j;
+}
+
+int64_t FindPhysicalIndexImpl16(PhysicalIndexFinder<int16_t>& self, int64_t i) {
+  return FindPhysicalIndexImpl(self, i);
+}
+
+int64_t FindPhysicalIndexImpl32(PhysicalIndexFinder<int32_t>& self, int64_t i) {
+  return FindPhysicalIndexImpl(self, i);
+}
+
+int64_t FindPhysicalIndexImpl64(PhysicalIndexFinder<int64_t>& self, int64_t i) {
+  return FindPhysicalIndexImpl(self, i);
+}
+
+}  // namespace internal
+
 int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_offset) {
   const auto type_id = RunEndsArray(span).type->id();
   if (type_id == Type::INT16) {

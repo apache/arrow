@@ -24,11 +24,14 @@
 namespace parquet::encryption::openssl {
 
 void EnsureInitialized() {
+// OpenSSL 1.1 doesn't provide OPENSSL_INIT_ENGINE_ALL_BUILTIN.
+#ifdef OPENSSL_INIT_ENGINE_ALL_BUILTIN
   // Initialize ciphers and random engines
   if (!OPENSSL_init_crypto(OPENSSL_INIT_ENGINE_ALL_BUILTIN | OPENSSL_INIT_ADD_ALL_CIPHERS,
                            NULL)) {
     throw ParquetException("OpenSSL initialization failed");
   }
+#endif
 }
 
 }  // namespace parquet::encryption::openssl

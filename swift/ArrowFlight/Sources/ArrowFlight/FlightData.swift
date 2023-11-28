@@ -18,29 +18,32 @@
 import Foundation
 
 public class FlightData {
-    let flight_data: Arrow_Flight_Protocol_FlightData
+    let flightData: Arrow_Flight_Protocol_FlightData
     public var flightDescriptor: FlightDescriptor? {
-        get { return flight_data.hasFlightDescriptor ? FlightDescriptor(flight_data.flightDescriptor) : nil }
+        return flightData.hasFlightDescriptor ? FlightDescriptor(flightData.flightDescriptor) : nil
     }
-    
-    public var dataBody: Data { flight_data.dataBody }
-    
-    init(_ flight_data: Arrow_Flight_Protocol_FlightData) {
-        self.flight_data = flight_data
+
+    public var dataHeader: Data { flightData.dataHeader }
+
+    public var dataBody: Data { flightData.dataBody }
+
+    init(_ flightData: Arrow_Flight_Protocol_FlightData) {
+        self.flightData = flightData
     }
-    
-    public init(_ dataBody: Data, flightDescriptor: FlightDescriptor? = nil) {
+
+    public init(_ dataHeader: Data, dataBody: Data, flightDescriptor: FlightDescriptor? = nil) {
         if flightDescriptor != nil {
-            self.flight_data = Arrow_Flight_Protocol_FlightData.with {
+            self.flightData = Arrow_Flight_Protocol_FlightData.with {
+                $0.dataHeader = dataHeader
                 $0.dataBody = dataBody
                 $0.flightDescriptor = flightDescriptor!.toProtocol()
             }
         } else {
-            self.flight_data = Arrow_Flight_Protocol_FlightData.with {
+            self.flightData = Arrow_Flight_Protocol_FlightData.with {
                 $0.dataBody = dataBody
             }
         }
     }
-    
-    func toProtocol() -> Arrow_Flight_Protocol_FlightData { self.flight_data }
+
+    func toProtocol() -> Arrow_Flight_Protocol_FlightData { self.flightData }
 }

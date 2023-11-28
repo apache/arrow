@@ -334,7 +334,7 @@ TYPED_TEST(TestSerialize, SmallFileBrotli) {
 }
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
 TYPED_TEST(TestSerialize, SmallFileGzip) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::GZIP));
 }

@@ -21,6 +21,9 @@ set -ex
 
 source_dir=${1}/go
 
+# Need "all=" as per https://github.com/golang/go/issues/42131#issuecomment-713917379
+export GOFLAGS="${GOFLAGS} -gcflags=all=-d=checkptr"
+
 pushd ${source_dir}/arrow
 
 if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
@@ -42,7 +45,9 @@ go install -v ./...
 
 popd
 
-if [[ -n "${ARROW_GO_INTEGRATION}" ]]; then
+: ${ARROW_INTEGRATION_GO:=ON}
+
+if [ "${ARROW_INTEGRATION_GO}" == "ON" ]; then
     pushd ${source_dir}/arrow/internal/cdata_integration
 
     case "$(uname)" in

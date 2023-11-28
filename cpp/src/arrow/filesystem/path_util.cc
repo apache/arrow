@@ -191,18 +191,15 @@ std::string_view RemoveLeadingSlash(std::string_view key) {
 }
 
 Status AssertNoTrailingSlash(std::string_view key) {
-  if (key.back() == '/') {
+  if (HasTrailingSlash(key)) {
     return NotAFile(key);
   }
   return Status::OK();
 }
 
-bool HasLeadingSlash(std::string_view key) {
-  if (key.front() != '/') {
-    return false;
-  }
-  return true;
-}
+bool HasTrailingSlash(std::string_view key) { return key.back() == '/'; }
+
+bool HasLeadingSlash(std::string_view key) { return key.front() == '/'; }
 
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
                                              const std::string& path) {

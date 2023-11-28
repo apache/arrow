@@ -33,7 +33,9 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "parquet/column_reader.h"
+#include "parquet/test_util.h"
 
 namespace parquet {
 
@@ -70,7 +72,14 @@ template <class ArrowType>
     size_t size, std::shared_ptr<Array>* out) {
   using c_type = typename ArrowType::c_type;
   std::vector<c_type> values;
-  ::arrow::random_real(size, 0, static_cast<c_type>(0), static_cast<c_type>(1), &values);
+  if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
+    values.resize(size);
+    test::random_float16_numbers(static_cast<int>(size), 0, ::arrow::util::Float16(0.0f),
+                                 ::arrow::util::Float16(1.0f), values.data());
+  } else {
+    ::arrow::random_real(size, 0, static_cast<c_type>(0), static_cast<c_type>(1),
+                         &values);
+  }
   ::arrow::NumericBuilder<ArrowType> builder;
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size()));
   return builder.Finish(out);
@@ -201,8 +210,14 @@ template <typename ArrowType>
     size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Array>* out) {
   using c_type = typename ArrowType::c_type;
   std::vector<c_type> values;
-  ::arrow::random_real(size, seed, static_cast<c_type>(-1e10), static_cast<c_type>(1e10),
-                       &values);
+  if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
+    values.resize(size);
+    test::random_float16_numbers(static_cast<int>(size), 0, ::arrow::util::Float16(-1e4f),
+                                 ::arrow::util::Float16(1e4f), values.data());
+  } else {
+    ::arrow::random_real(size, seed, static_cast<c_type>(-1e10),
+                         static_cast<c_type>(1e10), &values);
+  }
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {

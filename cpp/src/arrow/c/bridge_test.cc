@@ -33,6 +33,7 @@
 #include "arrow/c/util_internal.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -395,6 +396,14 @@ TEST_F(TestSchemaExport, List) {
   TestNested(fixed_size_list(int64(), 2), {"+w:2", "l"}, {"", "item"});
 
   TestNested(list(large_list(int32())), {"+l", "+L", "i"}, {"", "item", "item"});
+}
+
+TEST_F(TestSchemaExport, ListView) {
+  TestNested(list_view(int8()), {"+vl", "c"}, {"", "item"});
+  TestNested(large_list_view(uint16()), {"+vL", "S"}, {"", "item"});
+
+  TestNested(list_view(large_list_view(int32())), {"+vl", "+vL", "i"},
+             {"", "item", "item"});
 }
 
 TEST_F(TestSchemaExport, Struct) {
@@ -945,6 +954,33 @@ TEST_F(TestArrayExport, ListSliced) {
   }
 }
 
+TEST_F(TestArrayExport, ListView) {
+  TestNested(list_view(int8()), "[[1, 2], [3, null], null]");
+  TestNested(large_list_view(uint16()), "[[1, 2], [3, null], null]");
+  TestNested(fixed_size_list(int64(), 2), "[[1, 2], [3, null], null]");
+
+  TestNested(list_view(large_list_view(int32())), "[[[1, 2], [3], null], null]");
+}
+
+TEST_F(TestArrayExport, ListViewSliced) {
+  {
+    auto factory = []() {
+      return ArrayFromJSON(list_view(int8()), "[[1, 2], [3, null], [4, 5, 6], null]")
+          ->Slice(1, 2);
+    };
+    TestNested(factory);
+  }
+  {
+    auto factory = []() {
+      auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
+      auto offsets = ArrayFromJSON(int32(), "[5, 2, 0, 3]")->Slice(1, 2);
+      auto sizes = ArrayFromJSON(int32(), "[2, 3, 6, 1]")->Slice(1, 2);
+      return ListViewArray::FromArrays(*offsets, *sizes, *values);
+    };
+    TestNested(factory);
+  }
+}
+
 TEST_F(TestArrayExport, Struct) {
   const char* data = R"([[1, "foo"], [2, null]])";
   auto type = struct_({field("a", int8()), field("b", utf8())});
@@ -1490,6 +1526,45 @@ TEST_F(TestDeviceArrayExport, ListSliced) {
   }
 }
 
+TEST_F(TestDeviceArrayExport, ListView) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  TestNested(mm, list_view(int8()), "[[1, 2], [3, null], null]");
+  TestNested(mm, large_list_view(uint16()), "[[1, 2], [3, null], null]");
+
+  TestNested(mm, list_view(large_list_view(int32())), "[[[1, 2], [3], null], null]");
+}
+
+TEST_F(TestDeviceArrayExport, ListViewSliced) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  {
+    auto factory = [=]() {
+      return (*ToDevice(mm, *ArrayFromJSON(list_view(int8()),
+                                           "[[1, 2], [3, null], [4, 5, 6], null]")
+                                 ->data()))
+          ->Slice(1, 2);
+    };
+    TestNested(factory);
+  }
+  {
+    auto factory = [=]() {
+      auto values =
+          (*ToDevice(mm,
+                     *ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->data()))
+              ->Slice(1, 6);
+      auto offsets =
+          (*ToDevice(mm, *ArrayFromJSON(int32(), "[5, 2, 0, 3]")->data()))->Slice(1, 2);
+      auto sizes =
+          (*ToDevice(mm, *ArrayFromJSON(int32(), "[2, 3, 6, 1]")->data()))->Slice(1, 2);
+      return ListViewArray::FromArrays(*offsets, *sizes, *values);
+    };
+    TestNested(factory);
+  }
+}
+
 TEST_F(TestDeviceArrayExport, Struct) {
   std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
   auto mm = device->default_memory_manager();
@@ -1930,6 +2005,33 @@ TEST_F(TestSchemaImport, NestedList) {
   CheckImport(list(fixed_size_list(int8(), 3)));
 }
 
+TEST_F(TestSchemaImport, ListView) {
+  FillPrimitive(AddChild(), "c");
+  FillListLike("+vl");
+  CheckImport(list_view(int8()));
+
+  FillPrimitive(AddChild(), "s", "item", 0);
+  FillListLike("+vl");
+  CheckImport(list_view(field("item", int16(), /*nullable=*/false)));
+
+  // Large list-view
+  FillPrimitive(AddChild(), "s");
+  FillListLike("+vL");
+  CheckImport(large_list_view(int16()));
+}
+
+TEST_F(TestSchemaImport, NestedListView) {
+  FillPrimitive(AddChild(), "c");
+  FillListLike(AddChild(), "+vl");
+  FillListLike("+vL");
+  CheckImport(large_list_view(list_view(int8())));
+
+  FillPrimitive(AddChild(), "c");
+  FillListLike(AddChild(), "+w:3");
+  FillListLike("+vl");
+  CheckImport(list_view(fixed_size_list(int8(), 3)));
+}
+
 TEST_F(TestSchemaImport, Struct) {
   FillPrimitive(AddChild(), "u", "strs");
   FillPrimitive(AddChild(), "S", "ints");
@@ -2325,6 +2427,18 @@ static const int64_t large_list_offsets_buffer1[] = {0, 2, 2, 5, 6, 8};
 static const void* large_list_buffers_no_nulls1[2] = {nullptr,
                                                       large_list_offsets_buffer1};
 
+static const int32_t list_view_offsets_buffer1[] = {0, 2, 2, 5, 6};
+static const int32_t list_view_sizes_buffer1[] = {2, 0, 3, 1, 2};
+static const void* list_view_buffers_no_nulls1[3] = {nullptr, list_view_offsets_buffer1,
+                                                     list_view_sizes_buffer1};
+static const void* list_view_buffers_nulls1[3] = {bits_buffer1, list_view_offsets_buffer1,
+                                                  list_view_sizes_buffer1};
+
+static const int64_t large_list_view_offsets_buffer1[] = {0, 2, 2, 5, 6};
+static const int64_t large_list_view_sizes_buffer1[] = {2, 0, 3, 1, 2};
+static const void* large_list_view_buffers_no_nulls1[3] = {
+    nullptr, large_list_view_offsets_buffer1, large_list_view_sizes_buffer1};
+
 static const int8_t type_codes_buffer1[] = {42, 42, 43, 43, 42};
 static const int32_t union_offsets_buffer1[] = {0, 1, 0, 1, 2};
 static const void* sparse_union_buffers1_legacy[2] = {nullptr, type_codes_buffer1};
@@ -2407,6 +2521,17 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(1, c);
   }
 
+  void FillListView(struct ArrowArray* c, int64_t length, int64_t null_count,
+                    int64_t offset, const void** buffers) {
+    c->length = length;
+    c->null_count = null_count;
+    c->offset = offset;
+    c->n_buffers = 3;
+    c->buffers = buffers;
+    c->n_children = 1;
+    c->children = NLastChildren(1, c);
+  }
+
   void FillFixedSizeListLike(struct ArrowArray* c, int64_t length, int64_t null_count,
                              int64_t offset, const void** buffers) {
     c->length = length;
@@ -2461,6 +2586,11 @@ class TestArrayImport : public ::testing::Test {
   void FillListLike(int64_t length, int64_t null_count, int64_t offset,
                     const void** buffers) {
     FillListLike(&c_struct_, length, null_count, offset, buffers);
+  }
+
+  void FillListView(int64_t length, int64_t null_count, int64_t offset,
+                    const void** buffers) {
+    FillListView(&c_struct_, length, null_count, offset, buffers);
   }
 
   void FillFixedSizeListLike(int64_t length, int64_t null_count, int64_t offset,
@@ -2820,6 +2950,53 @@ TEST_F(TestArrayImport, ListWithOffset) {
                             "[[6, 7, 8], [9, 10, 11], [12, 13, 14]]"));
 }
 
+TEST_F(TestArrayImport, ListView) {
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(5, 0, 0, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[1, 2], [], [3, 4, 5], [6], [7, 8]]"));
+  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
+  FillListView(3, 1, 0, list_view_buffers_nulls1);
+  CheckImport(
+      ArrayFromJSON(list_view(int16()), "[[513, 1027], null, [1541, 2055, 2569]]"));
+
+  // Large list-view
+  FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls1_16);
+  FillListView(3, 0, 0, large_list_view_buffers_no_nulls1);
+  CheckImport(
+      ArrayFromJSON(large_list_view(int16()), "[[513, 1027], [], [1541, 2055, 2569]]"));
+}
+
+TEST_F(TestArrayImport, NestedListView) {
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(AddChild(), 5, 0, 0, list_view_buffers_no_nulls1);
+  FillListView(3, 0, 0, large_list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(large_list_view(list_view(int8())),
+                            "[[[1, 2], []], [], [[3, 4, 5], [6], [7, 8]]]"));
+
+  FillPrimitive(AddChild(), 6, 0, 0, primitive_buffers_no_nulls1_8);
+  FillFixedSizeListLike(AddChild(), 2, 0, 0, buffers_no_nulls_no_data);
+  FillListView(2, 0, 0, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(fixed_size_list(int8(), 3)),
+                            "[[[1, 2, 3], [4, 5, 6]], []]"));
+}
+
+TEST_F(TestArrayImport, ListViewWithOffset) {
+  // Offset in child
+  FillPrimitive(AddChild(), 8, 0, 1, primitive_buffers_no_nulls1_8);
+  FillListView(5, 0, 0, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[2, 3], [], [4, 5, 6], [7], [8, 9]]"));
+
+  // Offset in parent
+  FillPrimitive(AddChild(), 8, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(4, 0, 1, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[], [3, 4, 5], [6], [7, 8]]"));
+
+  // Both
+  FillPrimitive(AddChild(), 8, 0, 2, primitive_buffers_no_nulls1_8);
+  FillListView(4, 0, 1, list_view_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[[], [5, 6, 7], [8], [9, 10]]"));
+}
+
 TEST_F(TestArrayImport, Struct) {
   FillStringLike(AddChild(), 3, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_16);
@@ -3117,6 +3294,17 @@ TEST_F(TestArrayImport, ListError) {
   CheckImportError(list(int8()));
 }
 
+TEST_F(TestArrayImport, ListViewNoError) {
+  // Unlike with lists, importing a length-0 list-view with all buffers ommitted is
+  // not an error. List-views don't need an extra offset value, so an empty offsets
+  // buffer is valid in this case.
+
+  // Null offsets pointer
+  FillPrimitive(AddChild(), 0, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListView(0, 0, 0, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(list_view(int8()), "[]"));
+}
+
 TEST_F(TestArrayImport, MapError) {
   // Bad number of (struct) children in map child
   FillStringLike(AddChild(), 5, 0, 0, string_buffers_no_nulls1);
@@ -3368,6 +3556,12 @@ TEST_F(TestSchemaRoundtrip, List) {
   TestWithTypeFactory([]() { return large_list(list(utf8())); });
   TestWithTypeFactory([]() { return fixed_size_list(utf8(), 5); });
   TestWithTypeFactory([]() { return list(fixed_size_list(utf8(), 5)); });
+}
+
+TEST_F(TestSchemaRoundtrip, ListView) {
+  TestWithTypeFactory([]() { return list_view(utf8()); });
+  TestWithTypeFactory([]() { return large_list_view(list_view(utf8())); });
+  TestWithTypeFactory([]() { return list_view(fixed_size_list(utf8(), 5)); });
 }
 
 TEST_F(TestSchemaRoundtrip, Struct) {
@@ -3629,6 +3823,31 @@ TEST_F(TestArrayRoundtrip, List) {
 
   TestWithJSONSliced(list(int32()), "[[4, 5], [6, null], null]");
   TestWithJSONSliced(fixed_size_list(int32(), 3), "[[4, 5, 6], null, [7, 8, null]]");
+}
+
+TEST_F(TestArrayRoundtrip, ListView) {
+  TestWithJSON(list_view(int32()), "[]");
+  TestWithJSON(list_view(int32()), "[[4, 5], [6, null], null]");
+
+  TestWithJSONSliced(list_view(int32()), "[[4, 5], [6, null], null]");
+
+  // Out-of-order offsets
+  TestWithArrayFactory([this]() -> Result<std::shared_ptr<Array>> {
+    std::shared_ptr<Array> offsets;
+    ArrayFromVector<Int32Type>(int32(),
+                               std::vector<bool>{false, true, true, true, false, true},
+                               std::vector<int32_t>{4, 2, 1, 3, 3, 2}, &offsets);
+
+    std::shared_ptr<Array> sizes;
+    ArrayFromVector<Int32Type>(std::vector<int32_t>{2, 2, 3, 1, 2, 0}, &sizes);
+
+    auto values = ArrayFromJSON(int8(), "[4, 5, 6, null, 8, null]");
+    auto result = ListViewArray::FromArrays(*offsets, *sizes, *values, pool_);
+    if (result.ok()) {
+      RETURN_NOT_OK((*result)->ValidateFull());
+    }
+    return result;
+  });
 }
 
 TEST_F(TestArrayRoundtrip, Struct) {

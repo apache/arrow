@@ -23,13 +23,13 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/encoded"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/bitutils"
-	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/encoded"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 // Concatenate creates a new arrow.Array which is the concatenation of the
@@ -600,6 +600,35 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 		}
 	case arrow.FixedWidthDataType:
 		out.buffers[1] = concatBuffers(gatherBuffersFixedWidthType(data, 1, dt), mem)
+	case arrow.BinaryViewDataType:
+		out.buffers = out.buffers[:2]
+		for _, d := range data {
+			for _, buf := range d.Buffers()[2:] {
+				buf.Retain()
+				out.buffers = append(out.buffers, buf)
+			}
+		}
+
+		out.buffers[1] = concatBuffers(gatherFixedBuffers(data, 1, arrow.ViewHeaderSizeBytes), mem)
+
+		var (
+			s                  = arrow.ViewHeaderTraits.CastFromBytes(out.buffers[1].Bytes())
+			i                  = data[0].Len()
+			precedingBufsCount int
+		)
+
+		for idx := 1; idx < len(data); idx++ {
+			precedingBufsCount += len(data[idx-1].Buffers()) - 2
+
+			for end := i + data[idx].Len(); i < end; i++ {
+				if s[i].IsInline() {
+					continue
+				}
+
+				bufIndex := s[i].BufferIndex() + int32(precedingBufsCount)
+				s[i].SetIndexOffset(bufIndex, s[i].BufferOffset())
+			}
+		}
 	case arrow.BinaryDataType:
 		offsetWidth := dt.Layout().Buffers[1].ByteWidth
 		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
@@ -739,7 +768,6 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 			out.childData[0].Release()
 			return nil, err
 		}
-
 	default:
 		return nil, fmt.Errorf("concatenate not implemented for type %s", dt)
 	}

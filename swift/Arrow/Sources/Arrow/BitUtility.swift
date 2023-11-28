@@ -38,4 +38,3 @@ class BitUtility {
         buffer.rawPointer.storeBytes(of: theByte, toByteOffset: Int(byteIndex), as: UInt8.self)
     }
 }
-

@@ -2,7 +2,7 @@
   "name": "apache-arrow",
   "description": "Apache Arrow columnar in-memory format",
   "bin": {
-    "arrow2csv": "bin/arrow2csv.js"
+    "arrow2csv": "bin/arrow2csv.cjs"
   },
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "build": "cross-env NODE_NO_WARNINGS=1 gulp build",
     "clean": "cross-env NODE_NO_WARNINGS=1 gulp clean",
     "debug": "cross-env NODE_NO_WARNINGS=1 gulp debug",
-    "perf": "node --loader ts-node/esm/transpile-only ./perf/index.ts",
-    "test:integration": "node ./bin/integration.js --mode validate",
+    "perf": "perf/index.ts",
+    "test:integration": "bin/integration.ts --mode validate",
     "release": "./npm-release.sh",
     "clean:all": "yarn clean && yarn clean:testdata",
     "clean:testdata": "gulp clean:testdata",
@@ -52,23 +52,25 @@
     "jest.config.js"
   ],
   "dependencies": {
-    "@types/command-line-args": "5.2.0",
-    "@types/command-line-usage": "5.0.2",
-    "@types/node": "20.3.0",
-    "@types/pad-left": "2.1.1",
-    "command-line-args": "5.2.1",
-    "command-line-usage": "7.0.1",
-    "flatbuffers": "23.5.26",
+    "@swc/helpers": "^0.5.2",
+    "@types/command-line-args": "^5.2.1",
+    "@types/command-line-usage": "^5.0.2",
+    "@types/node": "^20.6.0",
+    "@types/pad-left": "^2.1.1",
+    "command-line-args": "^5.2.1",
+    "command-line-usage": "^7.0.1",
+    "flatbuffers": "^23.5.26",
     "json-bignum": "^0.0.3",
     "pad-left": "^2.1.0",
-    "tslib": "^2.5.3"
+    "tslib": "^2.6.2"
   },
   "devDependencies": {
     "@openpgp/web-stream-tools": "0.0.13",
     "@rollup/plugin-alias": "5.0.0",
     "@rollup/plugin-node-resolve": "15.1.0",
-    "@rollup/stream": "3.0.0",
-    "@types/benchmark": "2.1.2",
+    "@rollup/stream": "3.0.1",
+    "@swc/core": "1.3.82",
+    "@types/benchmark": "2.1.4",
     "@types/glob": "8.1.0",
     "@types/jest": "29.5.3",
     "@types/randomatic": "3.1.3",
@@ -81,7 +83,7 @@
     "del-cli": "5.1.0",
     "esbuild": "0.19.2",
     "esbuild-plugin-alias": "0.2.1",
-    "eslint": "8.42.0",
+    "eslint": "8.52.0",
     "eslint-plugin-jest": "27.4.2",
     "eslint-plugin-unicorn": "47.0.0",
     "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",
@@ -103,7 +105,8 @@
     "mkdirp": "3.0.1",
     "multistream": "4.1.0",
     "randomatic": "3.1.1",
-    "rollup": "3.25.0",
+    "regenerator-runtime": "0.14.0",
+    "rollup": "4.3.0",
     "rxjs": "7.8.1",
     "ts-jest": "29.1.1",
     "ts-node": "10.9.1",
@@ -121,5 +124,5 @@
   "engines": {
     "node": ">=12.0"
   },
-  "version": "14.0.0-SNAPSHOT"
+  "version": "15.0.0-SNAPSHOT"
 }

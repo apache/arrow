@@ -53,4 +53,20 @@ namespace arrow::matlab::index {
         }
         return arrow::Status::OK();
     }
+
+    arrow::Status validateSliceOffset(const int64_t matlab_offset) {
+        if (matlab_offset < 1) {
+            const std::string msg = "Slice offset must be positive";
+            return arrow::Status::Invalid(std::move(msg));
+        }
+        return arrow::Status::OK();
+    }
+
+        arrow::Status validateSliceLength(const int64_t length) {
+        if (length < 0) {
+            const std::string msg = "Slice length must be nonnegative";
+            return arrow::Status::Invalid(std::move(msg));
+        }
+        return arrow::Status::OK();
+    }
 }

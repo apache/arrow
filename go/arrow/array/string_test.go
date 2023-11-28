@@ -21,10 +21,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -618,4 +618,177 @@ func TestStringValueLen(t *testing.T) {
 	for i, v := range vs {
 		assert.Equal(t, len(v), slice.ValueLen(i))
 	}
+}
+func TestStringViewArray(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		// only the last string is long enough to not get inlined
+		want   = []string{"hello", "世界", "", "say goodbye daffy"}
+		valids = []bool{true, true, false, true}
+	)
+
+	sb := array.NewStringViewBuilder(mem)
+	defer sb.Release()
+
+	sb.Retain()
+	sb.Release()
+
+	assert.NoError(t, sb.AppendValueFromString(want[0]))
+	sb.AppendValues(want[1:2], nil)
+
+	sb.AppendNull()
+	sb.Append(want[3])
+
+	if got, want := sb.Len(), len(want); got != want {
+		t.Fatalf("invalid len: got=%d, want=%d", got, want)
+	}
+
+	if got, want := sb.NullN(), 1; got != want {
+		t.Fatalf("invalid nulls: got=%d, want=%d", got, want)
+	}
+
+	arr := sb.NewStringViewArray()
+	defer arr.Release()
+
+	arr.Retain()
+	arr.Release()
+
+	assert.Equal(t, "hello", arr.ValueStr(0))
+
+	if got, want := arr.Len(), len(want); got != want {
+		t.Fatalf("invalid len: got=%d, want=%d", got, want)
+	}
+
+	if got, want := arr.NullN(), 1; got != want {
+		t.Fatalf("invalid nulls: got=%d, want=%d", got, want)
+	}
+
+	for i := range want {
+		if arr.IsNull(i) != !valids[i] {
+			t.Fatalf("arr[%d]-validity: got=%v want=%v", i, !arr.IsNull(i), valids[i])
+		}
+		switch {
+		case arr.IsNull(i):
+		default:
+			got := arr.Value(i)
+			if got != want[i] {
+				t.Fatalf("arr[%d]: got=%q, want=%q", i, got, want[i])
+			}
+		}
+	}
+
+	sub := array.MakeFromData(arr.Data())
+	defer sub.Release()
+
+	if sub.DataType().ID() != arrow.STRING_VIEW {
+		t.Fatalf("invalid type: got=%q, want=string view", sub.DataType().Name())
+	}
+
+	if _, ok := sub.(*array.StringView); !ok {
+		t.Fatalf("could not type-assert to array.String")
+	}
+
+	if got, want := arr.String(), `["hello" "世界" (null) "say goodbye daffy"]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	// only the last string gets stuck into a buffer the rest are inlined
+	// in the headers.
+	if !bytes.Equal([]byte(`say goodbye daffy`), arr.Data().Buffers()[2].Bytes()) {
+		t.Fatalf("got=%q, want=%q", string(arr.Data().Buffers()[2].Bytes()), `say goodbye daffy`)
+	}
+
+	// check the prefix for the non-inlined value
+	if [4]byte{'s', 'a', 'y', ' '} != arr.ValueHeader(3).Prefix() {
+		t.Fatalf("got=%q, want=%q", arr.ValueHeader(3).Prefix(), `say `)
+	}
+
+	slice := array.NewSliceData(arr.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.StringView)
+	if !ok {
+		t.Fatalf("could not type-assert to array.StringView")
+	}
+
+	if got, want := v.String(), `[(null) "say goodbye daffy"]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+
+	if !bytes.Equal([]byte(`say goodbye daffy`), v.Data().Buffers()[2].Bytes()) {
+		t.Fatalf("got=%q, want=%q", string(v.Data().Buffers()[2].Bytes()), `say goodbye daffy`)
+	}
+
+	// check the prefix for the non-inlined value
+	if [4]byte{'s', 'a', 'y', ' '} != v.ValueHeader(1).Prefix() {
+		t.Fatalf("got=%q, want=%q", v.ValueHeader(1).Prefix(), `say `)
+	}
+}
+
+func TestStringViewBuilder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	want := []string{"hello", "世界", "", "say goodbye daffy"}
+
+	ab := array.NewStringViewBuilder(mem)
+	defer ab.Release()
+
+	stringValues := func(a *array.StringView) []string {
+		vs := make([]string, a.Len())
+		for i := range vs {
+			vs[i] = a.Value(i)
+		}
+		return vs
+	}
+
+	ab.AppendValues([]string{}, nil)
+	a := ab.NewStringViewArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	a = ab.NewStringViewArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues([]string{}, nil)
+	ab.AppendValues(want, nil)
+	a = ab.NewStringViewArray()
+	assert.Equal(t, want, stringValues(a))
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	ab.AppendValues([]string{}, nil)
+	a = ab.NewStringViewArray()
+	assert.Equal(t, want, stringValues(a))
+	a.Release()
+}
+
+// TestStringReset tests the Reset() method on the String type by creating two different Strings and then
+// reseting the contents of string2 with the values from string1.
+func TestStringViewReset(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	sb1 := array.NewStringViewBuilder(mem)
+	sb2 := array.NewStringViewBuilder(mem)
+	defer sb1.Release()
+	defer sb2.Release()
+
+	sb1.Append("string1")
+	sb1.AppendNull()
+
+	var (
+		string1 = sb1.NewStringViewArray()
+		string2 = sb2.NewStringViewArray()
+
+		string1Data = string1.Data()
+	)
+	string2.Reset(string1Data)
+
+	assert.Equal(t, "string1", string2.Value(0))
 }

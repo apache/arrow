@@ -1520,8 +1520,7 @@ def generate_decimal128_case():
         for i, precision in enumerate(range(3, 39))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     # 'decimal' is the original name for the test, and it must match
     # provide "gold" files that test backwards compatibility, so they
     # can be appropriately skipped.
@@ -1535,8 +1534,7 @@ def generate_decimal256_case():
         for i, precision in enumerate(range(37, 70))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     return _generate_file('decimal256', fields, batch_sizes)
 
 
@@ -1856,12 +1854,13 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_binary_view_case()
-        .skip_tester('C++')
         .skip_tester('C#')
         .skip_tester('Go')
         .skip_tester('Java')
         .skip_tester('JS')
-        .skip_tester('Rust'),
+        .skip_tester('Rust')
+        .skip_format(SKIP_C_SCHEMA, 'C++')
+        .skip_format(SKIP_C_ARRAY, 'C++'),
 
         generate_extension_case()
         .skip_tester('C#')

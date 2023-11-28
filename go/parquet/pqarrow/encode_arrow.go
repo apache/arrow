@@ -25,16 +25,16 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
 )
 
 // get the count of the number of leaf arrays for the type
@@ -65,25 +65,25 @@ func nullableRoot(manifest *SchemaManifest, field *SchemaField) bool {
 	return nullable
 }
 
-// ArrowColumnWriter is a convenience object for easily writing arrow data to a specific
+// arrowColumnWriter is a convenience object for easily writing arrow data to a specific
 // set of columns in a parquet file. Since a single arrow array can itself be a nested type
 // consisting of multiple columns of data, this will write to all of the appropriate leaves in
 // the parquet file, allowing easy writing of nested columns.
-type ArrowColumnWriter struct {
+type arrowColumnWriter struct {
 	builders  []*multipathLevelBuilder
 	leafCount int
 	colIdx    int
 	rgw       file.RowGroupWriter
 }
 
-// NewArrowColumnWriter returns a new writer using the chunked array to determine the number of leaf columns,
+// newArrowColumnWriter returns a new writer using the chunked array to determine the number of leaf columns,
 // and the provided schema manifest to determine the paths for writing the columns.
 //
 // Using an arrow column writer is a convenience to avoid having to process the arrow array yourself
 // and determine the correct definition and repetition levels manually.
-func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, col int) (ArrowColumnWriter, error) {
+func newArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, leafColIdx int) (arrowColumnWriter, error) {
 	if data.Len() == 0 {
-		return ArrowColumnWriter{leafCount: calcLeafCount(data.DataType()), rgw: rgw}, nil
+		return arrowColumnWriter{leafCount: calcLeafCount(data.DataType()), rgw: rgw}, nil
 	}
 
 	var (
@@ -109,7 +109,7 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 	}
 
 	if absPos >= int64(data.Len()) {
-		return ArrowColumnWriter{}, errors.New("cannot write data at offset past end of chunked array")
+		return arrowColumnWriter{}, errors.New("cannot write data at offset past end of chunked array")
 	}
 
 	leafCount := calcLeafCount(data.DataType())
@@ -118,9 +118,9 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 	// which is the one this instance will start writing for
 	// colIdx := rgw.CurrentColumn() + 1
 
-	schemaField, err := manifest.GetColumnField(col)
+	schemaField, err := manifest.GetColumnField(leafColIdx)
 	if err != nil {
-		return ArrowColumnWriter{}, err
+		return arrowColumnWriter{}, err
 	}
 	isNullable = nullableRoot(manifest, schemaField)
 
@@ -138,10 +138,10 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 		if arrToWrite.Len() > 0 {
 			bldr, err := newMultipathLevelBuilder(arrToWrite, isNullable)
 			if err != nil {
-				return ArrowColumnWriter{}, nil
+				return arrowColumnWriter{}, nil
 			}
 			if leafCount != bldr.leafCount() {
-				return ArrowColumnWriter{}, fmt.Errorf("data type leaf_count != builder leafcount: %d - %d", leafCount, bldr.leafCount())
+				return arrowColumnWriter{}, fmt.Errorf("data type leaf_count != builder leafcount: %d - %d", leafCount, bldr.leafCount())
 			}
 			builders = append(builders, bldr)
 		}
@@ -153,10 +153,10 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 		values += chunkWriteSize
 	}
 
-	return ArrowColumnWriter{builders: builders, leafCount: leafCount, rgw: rgw, colIdx: col}, nil
+	return arrowColumnWriter{builders: builders, leafCount: leafCount, rgw: rgw, colIdx: leafColIdx}, nil
 }
 
-func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
+func (acw *arrowColumnWriter) Write(ctx context.Context) error {
 	arrCtx := arrowCtxFromContext(ctx)
 	for leafIdx := 0; leafIdx < acw.leafCount; leafIdx++ {
 		var (
@@ -578,6 +578,31 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				for idx := range data {
 					if arr.IsValid(idx) {
 						data[idx] = fixDecimalEndianness(arr.Value(idx))
+					}
+				}
+				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
+			}
+		case *arrow.Float16Type:
+			typeLen := wr.Descr().TypeLength()
+			if typeLen != arrow.Float16SizeBytes {
+				return fmt.Errorf("%w: invalid FixedLenByteArray length to write from float16 column: %d", arrow.ErrInvalid, typeLen)
+			}
+
+			arr := leafArr.(*array.Float16)
+			rawValues := arrow.Float16Traits.CastToBytes(arr.Values())
+			data := make([]parquet.FixedLenByteArray, arr.Len())
+
+			if arr.NullN() == 0 {
+				for idx := range data {
+					offset := idx * typeLen
+					data[idx] = rawValues[offset : offset+typeLen]
+				}
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
+			} else {
+				for idx := range data {
+					if arr.IsValid(idx) {
+						offset := idx * typeLen
+						data[idx] = rawValues[offset : offset+typeLen]
 					}
 				}
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))

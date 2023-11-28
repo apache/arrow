@@ -35,7 +35,25 @@ typedef int64_t (*add_vector_func_t)(int64_t* elements, int nelements);
 
 class TestLLVMGenerator : public ::testing::Test {
  protected:
-  FunctionRegistry registry_;
+  std::shared_ptr<FunctionRegistry> registry_ = default_function_registry();
+
+ public:
+  // create a Configuration with the given registry and verify that the given function
+  // exists in the module.
+  static void VerifyFunctionMapping(
+      const std::string& function_name,
+      const std::function<std::shared_ptr<Configuration>(
+          std::shared_ptr<FunctionRegistry>)>& config_factory) {
+    auto external_registry = std::make_shared<FunctionRegistry>();
+    auto config = config_factory(std::move(external_registry));
+
+    std::unique_ptr<LLVMGenerator> generator;
+    ASSERT_OK(LLVMGenerator::Make(config, false, &generator));
+
+    auto module = generator->module();
+    ASSERT_OK(generator->engine_->LoadFunctionIRs());
+    EXPECT_NE(module->getFunction(function_name), nullptr);
+  }
 };
 
 // Verify that a valid pc function exists for every function in the registry.
@@ -45,7 +63,7 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 
   llvm::Module* module = generator->module();
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
-  for (auto& iter : registry_) {
+  for (auto& iter : *registry_) {
     EXPECT_NE(module->getFunction(iter.pc_name()), nullptr);
   }
 }
@@ -73,7 +91,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   FunctionSignature signature(func_desc->name(), func_desc->params(),
                               func_desc->return_type());
   const NativeFunction* native_func =
-      generator->function_registry_.LookupSignature(signature);
+      generator->function_registry_->LookupSignature(signature);
 
   std::vector<ValueValidityPairPtr> pairs{pair0, pair1};
   auto func_dex = std::make_shared<NonNullableFuncDex>(
@@ -113,6 +131,22 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 
   EXPECT_THAT(out, testing::ElementsAre(6, 8, 10, 12));
   EXPECT_EQ(out_bitmap, 0ULL);
+}
+
+TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
+  VerifyFunctionMapping("multiply_by_two_int32", [](auto registry) {
+    return TestConfigWithFunctionRegistry(std::move(registry));
+  });
+}
+
+TEST_F(TestLLVMGenerator, VerifyExtendedCFunctions) {
+  VerifyFunctionMapping("multiply_by_three_int32", [](auto registry) {
+    return TestConfigWithCFunction(std::move(registry));
+  });
+
+  VerifyFunctionMapping("multiply_by_n_int32_int32", [](auto registry) {
+    return TestConfigWithHolderFunction(std::move(registry));
+  });
 }
 
 }  // namespace gandiva

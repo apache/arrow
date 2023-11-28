@@ -65,7 +65,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     lz4
     nlohmann_json
     opentelemetry-cpp
-    ORC
+    orc
     re2
     Protobuf
     RapidJSON
@@ -92,6 +92,14 @@ endif()
 # upstream uses "re2" not "RE2" as package name.
 if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
+endif()
+
+# For backward compatibility. We use "ORC_SOURCE" if "orc_SOURCE"
+# isn't specified and "ORC_SOURCE" is specified.
+# We renamed "ORC" dependency name to "orc" in 15.0.0 because
+# upstream uses "orc" not "ORC" as package name.
+if("${orc_SOURCE}" STREQUAL "" AND NOT "${ORC_SOURCE}" STREQUAL "")
+  set(orc_SOURCE ${ORC_SOURCE})
 endif()
 
 # For backward compatibility. We use "RE2_ROOT" if "re2_ROOT"
@@ -193,7 +201,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_nlohmann_json()
   elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
     build_opentelemetry()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "orc")
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
@@ -222,18 +230,21 @@ macro(build_dependency DEPENDENCY_NAME)
   endif()
 endmacro()
 
-# Find modules are needed by the consumer in case of a static build, or if the
-# linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
-  set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
-  if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+function(provide_cmake_module MODULE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  set(module "${CMAKE_SOURCE_DIR}/cmake_modules/${MODULE_NAME}.cmake")
+  if(EXISTS "${module}")
+    message(STATUS "Providing CMake module for ${MODULE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
     )
-    install(FILES "${module_}"
+    install(FILES "${module}"
             DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
-  unset(module_)
-endmacro()
+endfunction()
+
+# Find modules are needed by the consumer in case of a static build, or if the
+# linkage is PUBLIC or INTERFACE.
+function(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  provide_cmake_module("Find${PACKAGE_NAME}" ${ARROW_CMAKE_PACKAGE_NAME})
+endfunction()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
@@ -4423,31 +4434,31 @@ macro(build_orc)
 
   set(ORC_VENDORED 1)
 
-  add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(orc::liborc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
-  target_include_directories(orc::liborc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
-  set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  add_library(orc::orc STATIC IMPORTED)
+  set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
+  target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
+  target_link_libraries(orc::orc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
+                                           ${Snappy_TARGET})
   # Protobuf generated files may use ABSL_DCHECK*() and
   # absl::log_internal_check_op is needed for them.
   if(TARGET absl::log_internal_check_op)
-    list(APPEND ORC_LINK_LIBRARIES absl::log_internal_check_op)
+    target_link_libraries(orc::orc INTERFACE absl::log_internal_check_op)
   endif()
   if(NOT MSVC)
     if(NOT APPLE AND ARROW_ENABLE_THREADING)
-      list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
+      target_link_libraries(orc::orc INTERFACE Threads::Threads)
     endif()
-    list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
+    target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
   endif()
-  target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
 
   add_dependencies(toolchain orc_ep)
-  add_dependencies(orc::liborc orc_ep)
+  add_dependencies(orc::orc orc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::liborc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
 endmacro()
 
 if(ARROW_ORC)
-  resolve_dependency(ORC)
+  resolve_dependency(orc HAVE_ALT TRUE)
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
@@ -5052,6 +5063,9 @@ if(ARROW_S3)
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
       endif()
       string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
+      if(APPLE)
+        string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
+      endif()
     endif()
   endif()
 

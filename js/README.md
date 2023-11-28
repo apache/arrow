@@ -151,7 +151,7 @@ Strings can be encoded as UTF-8 or dictionary encoded UTF-8. Dictionary encoding
 ```js
 import { makeVector, vectorFromArray, Dictionary, Uint8, Utf8 } from "apache-arrow";
 
-const uft8Vector = vectorFromArray(['foo', 'bar', 'baz'], new Utf8);
+const utf8Vector = vectorFromArray(['foo', 'bar', 'baz'], new Utf8);
 
 const dictionaryVector1 = vectorFromArray(
     ['foo', 'bar', 'baz', 'foo', 'bar']
@@ -159,7 +159,7 @@ const dictionaryVector1 = vectorFromArray(
 
 const dictionaryVector2 = makeVector({
     data: [0, 1, 2, 0, 1],  // indexes into the dictionary
-    dictionary: uft8Vector,
+    dictionary: utf8Vector,
     type: new Dictionary(new Utf8, new Uint8)
 });
 ```

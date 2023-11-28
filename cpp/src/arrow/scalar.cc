@@ -263,6 +263,12 @@ struct ScalarValidateImpl {
 
   Status Visit(const StringScalar& s) { return ValidateStringScalar(s); }
 
+  Status Visit(const BinaryViewScalar& s) { return ValidateBinaryScalar(s); }
+
+  Status Visit(const StringViewScalar& s) { return ValidateStringScalar(s); }
+
+  Status Visit(const LargeBinaryScalar& s) { return ValidateBinaryScalar(s); }
+
   Status Visit(const LargeStringScalar& s) { return ValidateStringScalar(s); }
 
   template <typename ScalarType>
@@ -548,17 +554,8 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
-BinaryScalar::BinaryScalar(std::string s)
-    : BinaryScalar(Buffer::FromString(std::move(s))) {}
-
-StringScalar::StringScalar(std::string s)
-    : StringScalar(Buffer::FromString(std::move(s))) {}
-
-LargeBinaryScalar::LargeBinaryScalar(std::string s)
-    : LargeBinaryScalar(Buffer::FromString(std::move(s))) {}
-
-LargeStringScalar::LargeStringScalar(std::string s)
-    : LargeStringScalar(Buffer::FromString(std::move(s))) {}
+BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type)
+    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
                                              std::shared_ptr<DataType> type,
@@ -589,6 +586,12 @@ ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
 
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, large_list(value->type()), is_valid) {}
+
+ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+    : BaseListScalar(value, list_view(value->type()), is_valid) {}
+
+LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+    : BaseListScalar(value, large_list_view(value->type()), is_valid) {}
 
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
   ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
@@ -779,14 +782,6 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
-  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
-  Status VisitListLike(const T& type, int64_t value_size = 0) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value,
-                          MakeArrayOfNull(type.value_type(), value_size));
-    out_ = std::make_shared<ScalarType>(std::move(value), type_, /*is_valid=*/false);
-    return Status::OK();
-  }
-
   Status Visit(const FixedSizeBinaryType& type) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> value,
                           AllocateBuffer(type.byte_width()));
@@ -797,11 +792,25 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
+  Status VisitListLike(const T& type, int64_t list_size = 0) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value,
+                          MakeArrayOfNull(type.value_type(), list_size));
+    out_ = std::make_shared<ScalarType>(std::move(value), type_, /*is_valid=*/false);
+    return Status::OK();
+  }
+
   Status Visit(const ListType& type) { return VisitListLike<ListType>(type); }
+
+  Status Visit(const LargeListType& type) { return VisitListLike<LargeListType>(type); }
 
   Status Visit(const MapType& type) { return VisitListLike<MapType>(type); }
 
-  Status Visit(const LargeListType& type) { return VisitListLike<LargeListType>(type); }
+  Status Visit(const ListViewType& type) { return VisitListLike<ListViewType>(type); }
+
+  Status Visit(const LargeListViewType& type) {
+    return VisitListLike<LargeListViewType>(type);
+  }
 
   Status Visit(const FixedSizeListType& type) {
     return VisitListLike<FixedSizeListType>(type, type.list_size());

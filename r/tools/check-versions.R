@@ -23,8 +23,8 @@ test_mode <- exists("TESTING")
 check_versions <- function(r_version, cpp_version) {
   r_parsed <- package_version(r_version)
   r_dev_version <- r_parsed[1, 4]
-  r_is_dev <- !is.na(r_dev_version) && r_dev_version > 100
-  r_is_patch <- !is.na(r_dev_version) && r_dev_version <= 100
+  r_is_dev <- !is.na(r_dev_version) && r_dev_version > "100"
+  r_is_patch <- !is.na(r_dev_version) && r_dev_version <= "100"
   cpp_is_dev <- grepl("SNAPSHOT$", cpp_version)
   cpp_parsed <- package_version(sub("-SNAPSHOT$", "", cpp_version))
 

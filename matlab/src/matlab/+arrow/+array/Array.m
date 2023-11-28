@@ -62,8 +62,21 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     end
 
     methods (Access=protected)
+        function header = getHeader(obj)
+            name = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            numElements = obj.NumElements;
+            % TODO: Add NumValid and NumNull as properties to Array to
+            % avoid materializing the Valid property. This will improve
+            % performance for large arrays.
+            numNulls = nnz(~obj.Valid);
+            header = arrow.array.internal.display.getHeader(name, numElements, numNulls);
+        end
+
         function displayScalarObject(obj)
-            disp(obj.toString());
+            disp(getHeader(obj));
+            if obj.NumElements > 0
+                disp(toString(obj) + newline);
+            end
         end
     end
 
@@ -85,5 +98,14 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             tf = obj.Proxy.isEqual(proxyIDs);
         end
     end
-end
 
+    methods (Hidden)
+        function array = slice(obj, offset, length)
+            sliceStruct = struct(Offset=offset, Length=length);
+            arrayStruct = obj.Proxy.slice(sliceStruct);
+            traits = arrow.type.traits.traits(arrow.type.ID(arrayStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=arrayStruct.ProxyID);
+            array = traits.ArrayConstructor(proxy);
+        end
+    end
+end

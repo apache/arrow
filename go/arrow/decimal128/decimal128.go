@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 const (
@@ -261,28 +261,40 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 	var precInBits = uint(math.Round(float64(prec+scale+1)/math.Log10(2))) + 1
 
 	var out *big.Float
-	out, _, err = big.ParseFloat(v, 10, 127, big.ToNearestEven)
+	out, _, err = big.ParseFloat(v, 10, 128, big.ToNearestEven)
 	if err != nil {
 		return
 	}
 
-	// Since we're going to truncate this to get an integer, we need to round
-	// the value instead because of edge cases so that we match how other implementations
-	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
-	// we're positive we'll add 0.5.
-	out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits)
-	if out.Signbit() {
-		out.Sub(out, pt5)
+	if scale < 0 {
+		var tmp big.Int
+		val, _ := out.Int(&tmp)
+		if val.BitLen() > 127 {
+			return Num{}, errors.New("bitlen too large for decimal128")
+		}
+		n = FromBigInt(val)
+		n, _ = n.Div(scaleMultipliers[-scale])
 	} else {
-		out.Add(out, pt5)
+		// Since we're going to truncate this to get an integer, we need to round
+		// the value instead because of edge cases so that we match how other implementations
+		// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
+		// we're positive we'll add 0.5.
+		p := (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt())
+		out.SetPrec(precInBits).Mul(out, p)
+		if out.Signbit() {
+			out.Sub(out, pt5)
+		} else {
+			out.Add(out, pt5)
+		}
+
+		var tmp big.Int
+		val, _ := out.Int(&tmp)
+		if val.BitLen() > 127 {
+			return Num{}, errors.New("bitlen too large for decimal128")
+		}
+		n = FromBigInt(val)
 	}
 
-	var tmp big.Int
-	val, _ := out.Int(&tmp)
-	if val.BitLen() > 127 {
-		return Num{}, errors.New("bitlen too large for decimal128")
-	}
-	n = FromBigInt(val)
 	if !n.FitsInPrecision(prec) {
 		err = fmt.Errorf("val %v doesn't fit in precision %d", n, prec)
 	}
@@ -505,7 +517,11 @@ func (n Num) FitsInPrecision(prec int32) bool {
 
 func (n Num) ToString(scale int32) string {
 	f := (&big.Float{}).SetInt(n.BigInt())
-	f.Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	if scale < 0 {
+		f.SetPrec(128).Mul(f, (&big.Float{}).SetInt(scaleMultipliers[-scale].BigInt()))
+	} else {
+		f.SetPrec(128).Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	}
 	return f.Text('f', int(scale))
 }
 

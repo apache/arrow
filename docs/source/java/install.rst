@@ -83,6 +83,40 @@ arrow-vector, and arrow-memory-netty.
         </dependencies>
     </project>
 
+A bill of materials (BOM) module has been provided to simplify adding
+Arrow modules. This eliminates the need to specify the version for
+every module. An alternative to the above would be:
+
+.. code-block:: xml
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <project xmlns="http://maven.apache.org/POM/4.0.0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>org.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <properties>
+            <arrow.version>15.0.0</arrow.version>
+        </properties>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-bom</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
+            </dependency>
+        </dependencies>
+    </project>
+
 To use the Arrow Flight dependencies, also add the ``os-maven-plugin``
 plugin. This plugin generates useful platform-dependent properties
 such as ``os.detected.name`` and ``os.detected.arch`` needed to resolve
