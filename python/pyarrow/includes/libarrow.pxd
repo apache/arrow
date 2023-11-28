@@ -2778,6 +2778,8 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
     cdef cppclass CVariableShapeTensorType \
             " arrow::extension::VariableShapeTensorType"(CExtensionType):
 
+        CResult[shared_ptr[CTensor]] GetTensor(const shared_ptr[CExtensionScalar]& scalar) const
+
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
                                             const uint32_t ndim,
