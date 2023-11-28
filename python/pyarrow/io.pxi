@@ -1113,6 +1113,17 @@ cdef class OSFile(NativeFile):
     'rb'
     b'OSFile'
 
+    Open the file to append:
+
+    >>> with pa.OSFile('example_osfile.arrow', mode='ab') as f:
+    ...     f.write(b' is super!')
+    ...
+    10
+    >>> with pa.OSFile('example_osfile.arrow') as f:
+    ...     f.read()
+    ...
+    b'OSFile is super!'
+
     Inspect created OSFile:
 
     >>> pa.OSFile('example_osfile.arrow')
