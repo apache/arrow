@@ -407,6 +407,14 @@ if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
   set_pkg_vars ${_LIBARROW_FOUND}
 fi
 
+if [ -z "${PKG_LIBS// }" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ] && arrow_built_with ARROW_S3; then
+  echo "*** pkg-config failed to find libcurl, but S3 is enabled. Running detection without pkg-config."
+  S3_LIBS="-lcurl -lssl -lcrypto"
+  GCS_LIBS="-lcurl -lssl -lcrypto"
+  set_lib_dir_without_pc ${_LIBARROW_FOUND}
+  set_pkg_vars_without_pc ${_LIBARROW_FOUND}
+fi
+
 # Test that we can compile something with those flags
 CXX17="`${R_HOME}/bin/R CMD config CXX17` -E"
 CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
