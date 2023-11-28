@@ -159,7 +159,7 @@ func (s *Stmt) NumInput() int {
 	// If NumInput returns >= 0, the sql package will sanity check argument
 	// counts from callers and return errors to the caller before the
 	// statement's Exec or Query methods are called.
-	return len(schema.Fields())
+	return schema.NumFields()
 }
 
 // Exec executes a query that doesn't return rows, such

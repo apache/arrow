@@ -53,7 +53,7 @@ func makeExecBatch(ctx context.Context, schema *arrow.Schema, partial compute.Da
 		partialBatch := partial.(*compute.RecordDatum).Value
 		batchSchema := partialBatch.Schema()
 
-		out.Values = make([]compute.Datum, len(schema.Fields()))
+		out.Values = make([]compute.Datum, schema.NumFields())
 		out.Len = partialBatch.NumRows()
 
 		for i, field := range schema.Fields() {
@@ -99,7 +99,7 @@ func makeExecBatch(ctx context.Context, schema *arrow.Schema, partial compute.Da
 			return makeExecBatch(ctx, schema, compute.NewDatumWithoutOwning(batch))
 		case *compute.ScalarDatum:
 			out.Len = 1
-			out.Values = make([]compute.Datum, len(schema.Fields()))
+			out.Values = make([]compute.Datum, schema.NumFields())
 
 			s := part.Value.(*scalar.Struct)
 			dt := s.Type.(*arrow.StructType)

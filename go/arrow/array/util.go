@@ -428,7 +428,7 @@ func (n *nullArrayFactory) create() *Data {
 	}
 
 	if nf, ok := dt.(arrow.NestedType); ok {
-		childData = make([]arrow.ArrayData, len(nf.Fields()))
+		childData = make([]arrow.ArrayData, nf.NumFields())
 	}
 
 	switch dt := dt.(type) {

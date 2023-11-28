@@ -1181,7 +1181,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 
-		fields := make([]arrow.ArrayData, len(dt.Fields()))
+		fields := make([]arrow.ArrayData, dt.NumFields())
 		for i := range fields {
 			child := arrayFromJSON(mem, dt.Field(i).Type, arr.Children[i])
 			defer child.Release()
@@ -1328,7 +1328,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		return array.NewData(dt, arr.Count, []*memory.Buffer{nil}, []arrow.ArrayData{runEnds, values}, 0, 0)
 
 	case arrow.UnionType:
-		fields := make([]arrow.ArrayData, len(dt.Fields()))
+		fields := make([]arrow.ArrayData, dt.NumFields())
 		for i, f := range dt.Fields() {
 			child := arrayFromJSON(mem, f.Type, arr.Children[i])
 			defer child.Release()
@@ -1620,7 +1620,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Name:     field.Name,
 			Count:    arr.Len(),
 			Valids:   validsToJSON(arr),
-			Children: make([]Array, len(dt.Fields())),
+			Children: make([]Array, dt.NumFields()),
 		}
 		for i := range o.Children {
 			o.Children[i] = arrayToJSON(dt.Field(i), arr.Field(i))
@@ -1741,7 +1741,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Count:    arr.Len(),
 			Valids:   validsToJSON(arr),
 			TypeID:   arr.RawTypeCodes(),
-			Children: make([]Array, len(dt.Fields())),
+			Children: make([]Array, dt.NumFields()),
 		}
 		if dt.Mode() == arrow.DenseMode {
 			o.Offset = arr.(*array.DenseUnion).RawValueOffsets()

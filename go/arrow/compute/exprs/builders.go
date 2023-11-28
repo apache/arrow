@@ -162,7 +162,7 @@ func NewFieldRefFromDotPath(dotpath string, rootSchema *arrow.Schema) (expr.Refe
 			idx, _ := strconv.Atoi(dotpath[:subend])
 			switch ct := curType.(type) {
 			case *arrow.StructType:
-				if idx > len(ct.Fields()) {
+				if idx > ct.NumFields() {
 					return nil, fmt.Errorf("%w: field out of bounds in dotpath", arrow.ErrIndex)
 				}
 				curType = ct.Field(idx).Type
