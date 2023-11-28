@@ -412,6 +412,7 @@ if [ -z "${PKG_LIBS// }" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ] && arrow_buil
   S3_LIBS="-lcurl -lssl -lcrypto"
   GCS_LIBS="-lcurl -lssl -lcrypto"
   set_lib_dir_without_pc ${_LIBARROW_FOUND}
+  add_feature_flags
   set_pkg_vars_without_pc ${_LIBARROW_FOUND}
 fi
 
