@@ -161,6 +161,13 @@ func (e *ExtensionBase) Fields() []Field {
 	return nil
 }
 
+func (e *ExtensionBase) NumFields() int {
+	if nested, ok := e.Storage.(NestedType); ok {
+		return nested.NumFields()
+	}
+	return 0
+}
+
 func (e *ExtensionBase) Layout() DataTypeLayout { return e.Storage.Layout() }
 
 // this no-op exists to ensure that this type must be embedded in any user-defined extension type.
