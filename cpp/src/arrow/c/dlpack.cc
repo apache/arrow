@@ -19,6 +19,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/c/dlpack_abi.h"
+#include "arrow/device.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -104,8 +105,13 @@ Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
 
   // Define DLDevice struct
   DLDevice ctx;
-  ctx.device_id = 0;
-  ctx.device_type = DLDeviceType::kDLCPU;
+  if (array_ref->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
+    ctx.device_id = 0;
+    ctx.device_type = DLDeviceType::kDLCPU;
+  } else {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
   dlm_tensor->dl_tensor.device = ctx;
 
   dlm_tensor->dl_tensor.ndim = 1;

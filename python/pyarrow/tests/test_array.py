@@ -3636,3 +3636,19 @@ def test_dlpack_not_supported():
                        "not supported by DLPack."):
         arr = pa.array([True, False, True])
         np.from_dlpack(arr)
+
+def test_dlpack_cuda_not_supported():
+    cuda = pytest.importorskip("pyarrow.cuda")
+
+    schema = pa.schema([pa.field('f0', pa.int16())])
+    a0 = pa.array([1, 2, 3], type = pa.int16())
+    batch = pa.record_batch([a0], schema=schema)
+
+    cbuf = cuda.serialize_record_batch(batch, cuda.Context(0))
+    cbatch = cuda.read_record_batch(cbuf, batch.schema)
+    carr = cbatch["a0"]
+
+    # CudaBuffers not yet supported
+    with pytest.raises(NotImplementedError, match="DLPack support is implemented "
+                       "only for buffers on CPU device."):
+        np.from_dlpack(carr)
