@@ -260,7 +260,7 @@ func (s *Schema) AddField(i int, field Field) (*Schema, error) {
 func (s *Schema) String() string {
 	o := new(strings.Builder)
 	fmt.Fprintf(o, "schema:\n  fields: %d\n", s.NumFields())
-	for i, f := range s.Fields() {
+	for i, f := range s.fields {
 		if i > 0 {
 			o.WriteString("\n")
 		}
@@ -282,7 +282,7 @@ func (s *Schema) Fingerprint() string {
 
 	var b strings.Builder
 	b.WriteString("S{")
-	for _, f := range s.Fields() {
+	for _, f := range s.fields {
 		fieldFingerprint := f.Fingerprint()
 		if fieldFingerprint == "" {
 			return ""

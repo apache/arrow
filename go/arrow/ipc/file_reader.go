@@ -352,8 +352,8 @@ func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, 
 
 	pos := dictutils.NewFieldPos()
 	cols := make([]arrow.Array, schema.NumFields())
-	for i, field := range schema.Fields() {
-		data := ctx.loadArray(field.Type)
+	for i := 0; i < schema.NumFields(); i++ {
+		data := ctx.loadArray(schema.Field(i).Type)
 		defer data.Release()
 
 		if err := dictutils.ResolveFieldDict(memo, data, pos.Child(int32(i)), mem); err != nil {

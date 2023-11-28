@@ -1102,8 +1102,8 @@ func schemaFromFB(schema *flatbuf.Schema, memo *dictutils.Memo) (*arrow.Schema, 
 func schemaToFB(b *flatbuffers.Builder, schema *arrow.Schema, memo *dictutils.Mapper) flatbuffers.UOffsetT {
 	fields := make([]flatbuffers.UOffsetT, schema.NumFields())
 	pos := dictutils.NewFieldPos()
-	for i, field := range schema.Fields() {
-		fields[i] = fieldToFB(b, pos.Child(int32(i)), field, memo)
+	for i := 0; i < schema.NumFields(); i++ {
+		fields[i] = fieldToFB(b, pos.Child(int32(i)), schema.Field(i), memo)
 	}
 
 	flatbuf.SchemaStartFieldsVector(b, len(fields))
