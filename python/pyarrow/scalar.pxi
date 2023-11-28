@@ -1041,44 +1041,22 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
     """
 
     def to_numpy_ndarray(self):
-        # TODO: allow any permutation
         """
         Convert variable shape tensor extension scalar to a numpy array.
-        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
-
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.permutation))):
-            shape = self.value[0].values.to_pylist()
-            np_flat = np.asarray(self.value[1].values)
-            return np_flat.reshape(shape)
-        else:
-            raise ValueError(
-                'Only non-permuted tensors can be converted to numpy tensors.')
+        self.to_tensor().to_numpy()
 
     def to_tensor(self):
         """
         Convert variable shape tensor extension scalar to a pyarrow.Tensor.
         """
         cdef:
+            CVariableShapeTensorType* c_type = static_pointer_cast[CVariableShapeTensorType, CDataType](
+                self.wrapped.get().type).get()
+            shared_ptr[CExtensionScalar] scalar = static_pointer_cast[CExtensionScalar, CScalar](self.wrapped)
             shared_ptr[CTensor] ctensor
-            vector[int64_t] strides
-            vector[c_string] dim_names
 
-            shared_ptr[CVariableShapeTensorType] typ = static_pointer_cast[CVariableShapeTensorType, CDataType](
-                self.wrapped.get().type)
-
-            shared_ptr[CDataType] ty = typ.get().value_type()
-            # TODO: this accesses the full buffer instead of a slice
-            shared_ptr[CBuffer] data = pyarrow_unwrap_buffer(self.value[1].values.buffers()[1])
-            vector[int64_t] shape = self.value[0].values.to_pylist()
-            vector[int64_t] permutation = self.type.permutation
-
-        for name in self.type.dim_names:
-            dim_names.push_back(tobytes(name))
-
-        check_status(ComputeStrides(ty, shape, permutation, &strides))
-        ctensor = make_shared[CTensor](ty, data, shape, strides, dim_names)
-
+        ctensor = GetResultValue(c_type.GetTensor(scalar))
         return pyarrow_wrap_tensor(ctensor)
 
 

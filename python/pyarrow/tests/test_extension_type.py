@@ -1517,6 +1517,9 @@ def test_variable_shape_tensor_class_methods(value_type):
     expected_0 = np.array([[1, 2, 3], [4, 5, 6]], dtype=value_type)
     expected_1 = np.array([[7], [8]], dtype=value_type)
 
+    np.testing.assert_array_equal(arr[0].to_tensor().to_numpy(), expected_0)
+    np.testing.assert_array_equal(arr[1].to_tensor().to_numpy(), expected_1)
+
     np.testing.assert_array_equal(arr[0].to_numpy_ndarray(), expected_0)
     np.testing.assert_array_equal(arr[1].to_numpy_ndarray(), expected_1)
 
