@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.2"]
+        r: ["release"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -216,7 +216,7 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           # Note: RTools must be 40 here because RTools40 + ucrt is how we build the Arrow C++
-          # static library. The r-version is not used here but R 4.1 was the last R to use
+          # static library. The R is not used here but R 4.1 was the last R to use
           # Rtools40.
           r-version: "4.1"
           rtools-version: 40
@@ -319,7 +319,7 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        if: ${{ matrix.config.rversion == '4.2' }}
+        if: ${{ matrix.config.rversion == 'release' }}
         env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
