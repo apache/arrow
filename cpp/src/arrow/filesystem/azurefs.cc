@@ -988,7 +988,10 @@ class AzureFileSystem::Impl {
       if (!missing_dir_ok && list_response.Blobs.empty()) {
         return PathNotFound(location);
       }
-      while (list_response.HasPage() && !list_response.Blobs.empty()) {
+      for (; list_response.HasPage(); list_response.MoveToNextPage()) {
+        if (list_response.Blobs.empty()) {
+          continue;
+        }
         auto batch = container_client.CreateBatch();
         std::vector<Azure::Storage::DeferredResponse<
             Azure::Storage::Blobs::Models::DeleteBlobResult>>
@@ -1029,7 +1032,6 @@ class AzureFileSystem::Impl {
                                    "]: " + container_client.GetUrl());
           }
         }
-        list_response.MoveToNextPage();
       }
     } catch (const Azure::Storage::StorageException& exception) {
       return internal::ExceptionToStatus(
@@ -1108,7 +1110,7 @@ class AzureFileSystem::Impl {
       auto directory_client = file_system_client.GetDirectoryClient(location.path);
       try {
         auto list_response = directory_client.ListPaths(false);
-        while (list_response.HasPage() && !list_response.Paths.empty()) {
+        for (; list_response.HasPage(); list_response.MoveToNextPage()) {
           for (const auto& path : list_response.Paths) {
             if (path.IsDirectory) {
               auto sub_directory_client =
@@ -1133,7 +1135,6 @@ class AzureFileSystem::Impl {
               }
             }
           }
-          list_response.MoveToNextPage();
         }
       } catch (const Azure::Storage::StorageException& exception) {
         if (missing_dir_ok &&
