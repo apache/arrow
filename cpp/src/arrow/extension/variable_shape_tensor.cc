@@ -17,7 +17,7 @@
 
 #include <sstream>
 
-#include "arrow/extension/fixed_shape_tensor.h"
+#include "arrow/extension/tensor_internal.h"
 #include "arrow/extension/variable_shape_tensor.h"
 
 #include "arrow/array/array_nested.h"
@@ -191,17 +191,16 @@ std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.variable_shape_tensor",
-            static_cast<const ExtensionType&>(*data->type).extension_name());
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
 }
 
 Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
     const std::shared_ptr<ExtensionScalar>& scalar) const {
   const auto& tensor_scalar = internal::checked_cast<const StructScalar&>(*scalar->value);
-  const auto& fields = this->storage_type()->fields();
 
-  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(0));
-  ARROW_ASSIGN_OR_RAISE(const auto data, tensor_scalar->field(1));
+  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar.field(0));
+  ARROW_ASSIGN_OR_RAISE(const auto data, tensor_scalar.field(1));
   const auto shape_array =
       std::static_pointer_cast<FixedSizeListScalar>(shape_scalar)->value;
 
@@ -217,7 +216,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   ARROW_CHECK_OK(
       internal::ComputeStrides(this->value_type(), shape, this->permutation(), &strides));
 
-  const auto& array = checked_cast<const BaseListScalar&>(*data)->value;
+  const auto& array = internal::checked_cast<const BaseListScalar&>(*data).value;
   const auto byte_width = this->value_type()->byte_width();
   const auto start_position = array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
@@ -227,7 +226,8 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   std::shared_ptr<arrow::Buffer> buffer =
       arrow::SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
 
-  return Tensor::Make(this->value_type(), std::move(buffer), std::move(shape), std::move(strides), this->dim_names());
+  return Tensor::Make(this->value_type(), std::move(buffer), std::move(shape),
+                      std::move(strides), this->dim_names());
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
