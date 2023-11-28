@@ -436,7 +436,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  protected short _getShortLE(int index) {
+  @VisibleForTesting
+  public short _getShortLE(int index) {
     short s = getShort(index);
     return Short.reverseBytes(s);
   }
@@ -452,7 +453,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  protected int _getIntLE(int index) {
+  @VisibleForTesting
+  public int _getIntLE(int index) {
     int value = getInt(index);
     return Integer.reverseBytes(value);
   }
@@ -468,7 +470,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  protected long _getLongLE(int index) {
+  @VisibleForTesting
+  public long _getLongLE(int index) {
     long value = getLong(index);
     return Long.reverseBytes(value);
   }
@@ -509,7 +512,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  protected void _setShort(int index, int value) {
+  @VisibleForTesting
+  public void _setShort(int index, int value) {
     setShort(index, value);
   }
 
@@ -581,7 +585,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   @VisibleForTesting
-  protected void _setInt(int index, int value) {
+  public void _setInt(int index, int value) {
     setInt(index, value);
   }
 
@@ -599,7 +603,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   @Override
-  protected void _setLong(int index, long value) {
+  @VisibleForTesting
+  public void _setLong(int index, long value) {
     setLong(index, value);
   }
 
