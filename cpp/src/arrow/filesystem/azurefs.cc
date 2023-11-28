@@ -1090,7 +1090,8 @@ class AzureFileSystem::Impl {
             exception);
       }
     } else {
-      return DeleteDirContentsWihtoutHierarchicalNamespace(location, true);
+      return DeleteDirContentsWihtoutHierarchicalNamespace(location,
+                                                           /*missing_dir_ok=*/true);
     }
   }
 
