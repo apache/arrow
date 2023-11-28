@@ -96,7 +96,7 @@ def _get_parquet_symbol(name):
     return _dataset_pq and getattr(_dataset_pq, name)
 
 
-cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int64_t file_size=-1):
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, object file_size=None):
 
     cdef:
         CFileSource c_source
@@ -105,6 +105,7 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int6
         c_string c_path
         shared_ptr[CRandomAccessFile] c_file
         shared_ptr[CBuffer] c_buffer
+        int64_t c_size
 
     if isinstance(file, Buffer):
         c_buffer = pyarrow_unwrap_buffer(file)
@@ -116,10 +117,9 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None, int6
         c_filesystem = filesystem.unwrap()
         c_path = tobytes(_stringify_path(file))
 
-        if file_size >= 0:
+        if file_size is not None:
             c_size = file_size
-            info = FileInfo(c_path, size=c_size)
-            c_info = info.unwrap()
+            c_info = FileInfo(c_path, size=c_size).unwrap()
             c_source = CFileSource(move(c_info), move(c_filesystem))
         else:
             c_source = CFileSource(move(c_path), move(c_filesystem))
@@ -1236,7 +1236,7 @@ cdef class FileFormat(_Weakrefable):
             The schema inferred from the file
         """
         cdef:
-            CFileSource c_source = _make_file_source(file, filesystem=filesystem)
+            CFileSource c_source = _make_file_source(file, filesystem, file_size=None)
             CResult[shared_ptr[CSchema]] c_result
         with nogil:
             c_result = self.format.Inspect(c_source)
@@ -1268,14 +1268,9 @@ cdef class FileFormat(_Weakrefable):
         fragment : Fragment
             The file fragment
         """
-        cdef:
-            # default value, will not be passed to constructor
-            int64_t c_size = -1
         if partition_expression is None:
             partition_expression = _true
-        if file_size is not None:
-            c_size = file_size
-        c_source = _make_file_source(file, filesystem=filesystem, file_size=c_size)
+        c_source = _make_file_source(file, filesystem, file_size)
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
             self.format.MakeFragment(move(c_source),
                                      partition_expression.unwrap(),
