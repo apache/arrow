@@ -40,14 +40,14 @@ class ARROW_EXPORT VariableShapeTensorArray : public ExtensionArray {
 /// See: https://arrow.apache.org/docs/format/CanonicalExtensions.html
 class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
  public:
-  VariableShapeTensorType(const std::shared_ptr<DataType>& value_type,
-                          const uint32_t& ndim,
-                          const std::vector<int64_t>& permutation = {},
-                          const std::vector<std::string>& dim_names = {},
-                          const std::vector<std::optional<int64_t>>& uniform_shape = {})
-      : ExtensionType(struct_({::arrow::field("shape", fixed_size_list(uint32(), ndim)),
+  VariableShapeTensorType(const std::shared_ptr<DataType>& value_type, const int32_t ndim,
+                          const std::vector<int64_t> permutation = {},
+                          const std::vector<std::string> dim_names = {},
+                          const std::vector<std::optional<int64_t>> uniform_shape = {})
+      : ExtensionType(struct_({::arrow::field("shape", fixed_size_list(int32(), ndim)),
                                ::arrow::field("data", list(value_type))})),
-        value_type_(value_type),
+        value_type_(std::move(value_type)),
+        ndim_(ndim),
         permutation_(permutation),
         dim_names_(dim_names),
         uniform_shape_(uniform_shape) {}
@@ -55,10 +55,7 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   std::string extension_name() const override { return "arrow.variable_shape_tensor"; }
 
   /// Number of dimensions of tensor elements
-  uint32_t ndim() const {
-    std::shared_ptr<DataType> storage_type = this->storage_type()->field(0)->type();
-    return std::static_pointer_cast<FixedSizeListType>(storage_type)->list_size();
-  }
+  uint32_t ndim() const { return ndim_; }
 
   /// Value type of tensor elements
   const std::shared_ptr<DataType>& value_type() const { return value_type_; }
@@ -99,6 +96,7 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
  private:
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
+  int32_t ndim_;
   std::vector<int64_t> permutation_;
   std::vector<std::string> dim_names_;
   std::vector<std::optional<int64_t>> uniform_shape_;

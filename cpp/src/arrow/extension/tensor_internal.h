@@ -16,9 +16,12 @@
 // under the License.
 
 #pragma once
+#include "arrow/extension/tensor_internal.h"
 
-#include <cstdint>
-#include <vector>
+#include "arrow/tensor.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
+#include "arrow/util/sort_internal.h"
 
 #include "arrow/status.h"
 #include "arrow/util/print_internal.h"
@@ -38,6 +41,46 @@ inline Status IsPermutationValid(const std::vector<int64_t>& permutation) {
     }
     dim_seen[p] = 1;
   }
+  return Status::OK();
+}
+
+inline Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                      const std::vector<int64_t>& shape,
+                      const std::vector<int64_t>& permutation,
+                      std::vector<int64_t>* strides) {
+  auto fixed_width_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
+  if (permutation.empty()) {
+    return internal::ComputeRowMajorStrides(*fixed_width_type.get(), shape, strides);
+  }
+  const int byte_width = value_type->byte_width();
+
+  int64_t remaining = 0;
+  if (!shape.empty() && shape.front() > 0) {
+    remaining = byte_width;
+    for (auto i : permutation) {
+      if (i > 0) {
+        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
+          return Status::Invalid(
+              "Strides computed from shape would not fit in 64-bit integer");
+        }
+      }
+    }
+  }
+
+  if (remaining == 0) {
+    strides->assign(shape.size(), byte_width);
+    return Status::OK();
+  }
+
+  strides->push_back(remaining);
+  for (auto i : permutation) {
+    if (i > 0) {
+      remaining /= shape[i];
+      strides->push_back(remaining);
+    }
+  }
+  internal::Permute(permutation, strides);
+
   return Status::OK();
 }
 
