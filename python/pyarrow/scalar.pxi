@@ -1044,7 +1044,7 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
         """
         Convert variable shape tensor extension scalar to a numpy array.
         """
-        self.to_tensor().to_numpy()
+        return self.to_tensor().to_numpy()
 
     def to_tensor(self):
         """
