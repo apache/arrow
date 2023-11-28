@@ -44,7 +44,7 @@ func TestFieldPathBasics(t *testing.T) {
 	assert.Nil(t, f)
 	assert.ErrorIs(t, err, compute.ErrEmpty)
 
-	f, err = compute.FieldPath{len(s.Fields()) * 2}.Get(s)
+	f, err = compute.FieldPath{s.NumFields() * 2}.Get(s)
 	assert.Nil(t, f)
 	assert.ErrorIs(t, err, compute.ErrIndexRange)
 }
@@ -63,7 +63,7 @@ func TestFieldRefBasics(t *testing.T) {
 	}
 
 	// out of range index results in failure to match
-	assert.Empty(t, compute.FieldRefIndex(len(s.Fields())*2).FindAll(s.Fields()))
+	assert.Empty(t, compute.FieldRefIndex(s.NumFields()*2).FindAll(s.Fields()))
 
 	// lookup by name returns the indices of both matching fields
 	assert.Equal(t, []compute.FieldPath{{0}, {2}}, compute.FieldRefName("alpha").FindAll(s.Fields()))

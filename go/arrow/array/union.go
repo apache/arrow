@@ -896,7 +896,7 @@ func NewEmptySparseUnionBuilder(mem memory.Allocator) *SparseUnionBuilder {
 // children and type codes. Builders will be constructed for each child
 // using the fields in typ
 func NewSparseUnionBuilder(mem memory.Allocator, typ *arrow.SparseUnionType) *SparseUnionBuilder {
-	children := make([]Builder, len(typ.Fields()))
+	children := make([]Builder, typ.NumFields())
 	for i, f := range typ.Fields() {
 		children[i] = NewBuilder(mem, f.Type)
 		defer children[i].Release()
@@ -1129,7 +1129,7 @@ func NewEmptyDenseUnionBuilder(mem memory.Allocator) *DenseUnionBuilder {
 // children and type codes. Builders will be constructed for each child
 // using the fields in typ
 func NewDenseUnionBuilder(mem memory.Allocator, typ *arrow.DenseUnionType) *DenseUnionBuilder {
-	children := make([]Builder, 0, len(typ.Fields()))
+	children := make([]Builder, 0, typ.NumFields())
 	defer func() {
 		for _, child := range children {
 			child.Release()

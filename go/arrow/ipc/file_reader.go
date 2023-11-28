@@ -351,7 +351,7 @@ func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, 
 	}
 
 	pos := dictutils.NewFieldPos()
-	cols := make([]arrow.Array, len(schema.Fields()))
+	cols := make([]arrow.Array, schema.NumFields())
 	for i, field := range schema.Fields() {
 		data := ctx.loadArray(field.Type)
 		defer data.Release()
@@ -663,7 +663,7 @@ func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData 
 	field, buffers := ctx.loadCommon(dt.ID(), 1)
 	defer releaseBuffers(buffers)
 
-	subs := make([]arrow.ArrayData, len(dt.Fields()))
+	subs := make([]arrow.ArrayData, dt.NumFields())
 	for i, f := range dt.Fields() {
 		subs[i] = ctx.loadChild(f.Type)
 	}
@@ -705,7 +705,7 @@ func (ctx *arrayLoaderContext) loadUnion(dt arrow.UnionType) arrow.ArrayData {
 	}
 
 	defer releaseBuffers(buffers)
-	subs := make([]arrow.ArrayData, len(dt.Fields()))
+	subs := make([]arrow.ArrayData, dt.NumFields())
 	for i, f := range dt.Fields() {
 		subs[i] = ctx.loadChild(f.Type)
 	}

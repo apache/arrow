@@ -594,7 +594,7 @@ func ToSubstraitType(dt arrow.DataType, nullable bool, ext ExtensionIDSet) (type
 			Precision: dt.GetPrecision(), Scale: dt.GetScale()}, nil
 	case arrow.STRUCT:
 		dt := dt.(*arrow.StructType)
-		fields := make([]types.Type, len(dt.Fields()))
+		fields := make([]types.Type, dt.NumFields())
 		var err error
 		for i, f := range dt.Fields() {
 			fields[i], err = ToSubstraitType(f.Type, f.Nullable, ext)

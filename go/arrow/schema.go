@@ -259,7 +259,7 @@ func (s *Schema) AddField(i int, field Field) (*Schema, error) {
 
 func (s *Schema) String() string {
 	o := new(strings.Builder)
-	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(s.Fields()))
+	fmt.Fprintf(o, "schema:\n  fields: %d\n", s.NumFields())
 	for i, f := range s.Fields() {
 		if i > 0 {
 			o.WriteString("\n")

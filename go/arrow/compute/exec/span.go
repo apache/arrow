@@ -633,7 +633,7 @@ func FillZeroLength(dt arrow.DataType, span *ArraySpan) {
 		return
 	}
 
-	span.resizeChildren(len(nt.Fields()))
+	span.resizeChildren(nt.NumFields())
 	for i, f := range nt.Fields() {
 		FillZeroLength(f.Type, &span.Children[i])
 	}

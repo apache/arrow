@@ -285,7 +285,7 @@ func NewRecordBuilder(mem memory.Allocator, schema *arrow.Schema) *RecordBuilder
 		refCount: 1,
 		mem:      mem,
 		schema:   schema,
-		fields:   make([]Builder, len(schema.Fields())),
+		fields:   make([]Builder, schema.NumFields()),
 	}
 
 	for i, f := range schema.Fields() {
