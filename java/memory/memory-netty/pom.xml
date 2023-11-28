@@ -59,27 +59,6 @@
 
   <profiles>
     <profile>
-      <id>patch-netty-modules</id>
-      <activation>
-        <jdk>[9,]</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <configuration>
-              <!-- For this step only, use JDK 9 to patch Netty's module-info -->
-              <release>9</release>
-              <compilerArgs combine.children="append">
-                <arg>--patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar</arg>
-              </compilerArgs>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-    <profile>
       <!-- This profile turns on integration testing. It activates the failsafe plugin and will run any tests
       with the 'IT' prefix. This should be run in a separate CI build or on developers machines as it potentially
       uses quite a bit of memory. Activate the tests by adding -Pintegration-tests to your maven command line -->
