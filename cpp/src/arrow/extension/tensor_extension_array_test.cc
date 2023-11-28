@@ -538,7 +538,7 @@ TEST_F(TestVariableShapeTensorType, CreateExtensionType) {
   ASSERT_EQ(ext_type_->extension_name(), "arrow.variable_shape_tensor");
   ASSERT_TRUE(ext_type_->Equals(*exact_ext_type));
   auto expected_type = struct_({
-      ::arrow::field("shape", fixed_size_list(uint32(), ndim_)),
+      ::arrow::field("shape", fixed_size_list(int32(), ndim_)),
       ::arrow::field("data", list(value_type_)),
   });
 
