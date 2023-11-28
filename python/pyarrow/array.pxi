@@ -4349,8 +4349,8 @@ cdef class VariableShapeTensorArray(ExtensionArray):
 
     Create an extension array
 
-    >>> shapes = pa.array([[2, 3], [1, 2]], pa.list_(pa.uint32(), 2))
-    >>> values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(pa.int32()))
+    >>> shapes = pa.array([[2, 3], [1, 2]], pa.list_(pa.int32(), 2))
+    >>> values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(pa.float64()))
     >>> arr = pa.StructArray.from_arrays([shapes, values], names=["shape", "data"])
     >>> pa.ExtensionArray.from_storage(tensor_type, arr)
     <pyarrow.lib.VariableShapeTensorArray object at ...>
