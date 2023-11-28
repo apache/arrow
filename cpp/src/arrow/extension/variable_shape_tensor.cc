@@ -217,7 +217,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   ARROW_CHECK_OK(
       internal::ComputeStrides(this->value_type(), shape, this->permutation(), &strides));
 
-  const auto array = std::static_pointer_cast<FixedSizeListScalar>(data)->value;
+  const auto& array = checked_cast<const BaseListScalar&>(*data)->value;
   const auto byte_width = this->value_type()->byte_width();
   const auto start_position = array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
