@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.netty.buffer;
+package org.apache.arrow.io.netty.buffer;
 
 import java.nio.ByteBuffer;
 
