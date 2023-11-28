@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["release"]
+        r: ["4.3"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -72,16 +72,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Cache Docker Volumes
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
-        with:
-          path: .docker
-          # As this key is identical on both matrix builds only one will be able to successfully cache,
-          # this is fine as there are no differences in the build
-          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
-          restore-keys: |
-            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
-            ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
         uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
