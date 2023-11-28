@@ -3651,11 +3651,12 @@ def test_dlpack_not_supported():
         arr = pa.array([True, False, True])
         np.from_dlpack(arr)
 
+
 def test_dlpack_cuda_not_supported():
     cuda = pytest.importorskip("pyarrow.cuda")
 
     schema = pa.schema([pa.field('f0', pa.int16())])
-    a0 = pa.array([1, 2, 3], type = pa.int16())
+    a0 = pa.array([1, 2, 3], type=pa.int16())
     batch = pa.record_batch([a0], schema=schema)
 
     cbuf = cuda.serialize_record_batch(batch, cuda.Context(0))
