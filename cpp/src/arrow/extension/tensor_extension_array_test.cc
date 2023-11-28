@@ -652,11 +652,6 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 3, 1}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 8, 8}));
 
-  ASSERT_OK_AND_ASSIGN(auto sc, ext_array->GetScalar(0));
-
-  auto vt = internal::checked_pointer_cast<VariableShapeTensorType>(sc->type);
-  auto it = vt->value_type();
-
   std::vector<int64_t> shape = {2, 3, 1};
   std::vector<int64_t> strides = {sizeof(int64_t) * 3, sizeof(int64_t) * 1,
                                   sizeof(int64_t) * 1};
@@ -687,6 +682,23 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(tensor->type(), t->type());
   ASSERT_EQ(tensor->is_contiguous(), t->is_contiguous());
   ASSERT_EQ(tensor->is_column_major(), t->is_column_major());
+  ASSERT_TRUE(tensor->Equals(*t));
+
+  auto exact_ext_type =
+      internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);
+
+  ASSERT_OK_AND_ASSIGN(auto sc, ext_arr->GetScalar(2));
+  auto s = internal::checked_pointer_cast<ExtensionScalar>(sc);
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(s));
+  ASSERT_EQ(tensor->strides(), t->strides());
+  ASSERT_EQ(tensor->shape(), t->shape());
+  ASSERT_EQ(tensor->dim_names(), t->dim_names());
+  ASSERT_EQ(tensor->type(), t->type());
+  ASSERT_EQ(tensor->is_contiguous(), t->is_contiguous());
+  ASSERT_EQ(tensor->is_column_major(), t->is_column_major());
+
+  // tensor's data == {10, 11, 12, 13, 14, 15, 16, 17, 18}
+  // t's data == {1, 1, 2, 3, 4, 5, 6, 7, 8}
   ASSERT_TRUE(tensor->Equals(*t));
 }
 

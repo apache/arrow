@@ -85,6 +85,10 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   /// Create a VariableShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
+  /// Convert an ExtensionScalar to a Tensor
+  Result<std::shared_ptr<Tensor>> GetTensor(
+      const std::shared_ptr<ExtensionScalar>&) const;
+
   /// \brief Create a VariableShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(
       const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
