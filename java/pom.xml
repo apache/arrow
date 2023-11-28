@@ -889,7 +889,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
-              <argLine>--add-opens java.base/jdk.internal.misc=io.netty.common --patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar --add-opens=java.base/java.nio=org.apache.arrow.memory.core,io.netty.common,ALL-UNNAMED</argLine>
+              <argLine>--add-opens java.base/jdk.internal.misc=io.netty.common --patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar --add-opens=java.base/java.nio=org.apache.arrow.memory.core,io.netty.common,ALL-UNNAMED --add-opens=java.base/java.lang.reflect=org.apache.arrow.memory.core</argLine>
             </configuration>
           </plugin>
         </plugins>
