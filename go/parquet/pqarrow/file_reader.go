@@ -363,7 +363,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	close(ch)
 
 	// output slice of columns
-	columns := make([]arrow.Column, len(sc.Fields()))
+	columns := make([]arrow.Column, sc.NumFields())
 	defer releaseColumns(columns)
 	for data := range results {
 		if data.err != nil {

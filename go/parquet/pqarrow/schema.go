@@ -233,11 +233,11 @@ func repFromNullable(isnullable bool) parquet.Repetition {
 }
 
 func structToNode(typ *arrow.StructType, name string, nullable bool, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (schema.Node, error) {
-	if len(typ.Fields()) == 0 {
+	if typ.NumFields() == 0 {
 		return nil, fmt.Errorf("cannot write struct type '%s' with no children field to parquet. Consider adding a dummy child", name)
 	}
 
-	children := make(schema.FieldList, 0, len(typ.Fields()))
+	children := make(schema.FieldList, 0, typ.NumFields())
 	for _, f := range typ.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -440,7 +440,7 @@ func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops Arrow
 		props = parquet.NewWriterProperties()
 	}
 
-	nodes := make(schema.FieldList, 0, len(sc.Fields()))
+	nodes := make(schema.FieldList, 0, sc.NumFields())
 	for _, f := range sc.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -1002,7 +1002,7 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		err = xerrors.New("unimplemented type")
 	case arrow.STRUCT:
 		typ := origin.Type.(*arrow.StructType)
-		if nchildren != len(typ.Fields()) {
+		if nchildren != typ.NumFields() {
 			return
 		}
 

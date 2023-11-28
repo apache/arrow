@@ -111,7 +111,7 @@ type SqlBatchReader struct {
 }
 
 func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, rows *sql.Rows) (*SqlBatchReader, error) {
-	rowdest := make([]interface{}, len(schema.Fields()))
+	rowdest := make([]interface{}, schema.NumFields())
 	for i, f := range schema.Fields() {
 		switch f.Type.ID() {
 		case arrow.DENSE_UNION, arrow.SPARSE_UNION:
