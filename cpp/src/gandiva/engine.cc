@@ -106,27 +106,19 @@ static llvm::StringRef cpu_name;
 static std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
-static std::string ErrorToString(const llvm::Error& error,
-                                 const std::string& error_context = "") {
-  std::string str;
-  llvm::raw_string_ostream stream(str);
-  stream << error_context;
-  stream << error;
-  return stream.str();
-}
-
 template <typename T>
 static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
                                       const std::string& error_context = "") {
   if (!expected) {
-    return Status::CodeGenError(ErrorToString(expected.takeError(), error_context));
+    return Status::CodeGenError(error_context, llvm::toString(expected.takeError()));
   }
   return std::move(expected.get());
 }
 
 static Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
     const Configuration& conf) {
-  llvm::orc::JITTargetMachineBuilder jtmb((llvm::Triple(llvm::sys::getProcessTriple())));
+  llvm::orc::JITTargetMachineBuilder jtmb(
+      (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
   if (conf.target_host_cpu()) {
     jtmb.setCPU(cpu_name.str());
     jtmb.addFeatures(cpu_attrs);
@@ -144,11 +136,46 @@ static std::string GetModuleIR(const llvm::Module& module) {
   return ir;
 }
 
+// add current process symbol to dylib
+// LLVM >= 18 does this automatically
+static void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
+  lljit.getMainJITDylib().addGenerator(
+      cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+          lljit.getDataLayout().getGlobalPrefix())));
+}
+
+static Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
+    llvm::orc::JITTargetMachineBuilder jtmb,
+    std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
+  auto jit_builder = llvm::orc::LLJITBuilder();
+
+  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
+  if (object_cache.has_value()) {
+    jit_builder.setCompileFunctionCreator(
+        [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
+            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+          auto target_machine = JTMB.createTargetMachine();
+          if (!target_machine) {
+            return target_machine.takeError();
+          }
+          // after compilation, the object code will be stored into the given object cache
+          return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
+              std::move(*target_machine), &object_cache.value().get());
+        });
+  }
+  auto maybe_jit = jit_builder.create();
+  ARROW_ASSIGN_OR_RAISE(auto jit,
+                        AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
+
+  AddProcessSymbol(*jit);
+  return jit;
+}
+
 void Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   auto cached_buffer = object_cache.getObject(nullptr);
   if (cached_buffer) {
     auto error = lljit_->addObjectFile(std::move(cached_buffer));
-    DCHECK(!error) << "Failed to load object cache" << ErrorToString(error);
+    DCHECK(!error) << "Failed to load object cache" << llvm::toString(std::move(error));
   }
 }
 
@@ -178,10 +205,9 @@ void Engine::InitOnce() {
 }
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
-               std::unique_ptr<llvm::LLVMContext> ctx,
                std::unique_ptr<llvm::orc::LLJIT> lljit,
                std::unique_ptr<llvm::TargetMachine> target_machine, bool cached)
-    : context_(std::move(ctx)),
+    : context_(std::make_unique<llvm::LLVMContext>()),
       lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
       module_(std::make_unique<llvm::Module>("codegen", *context_)),
@@ -197,7 +223,6 @@ Status Engine::Init() {
 
   // Add mappings for global functions that can be accessed from LLVM/IR module.
   ARROW_RETURN_NOT_OK(AddGlobalMappings());
-
   return Status::OK();
 }
 
@@ -218,72 +243,19 @@ Status Engine::Make(
     std::unique_ptr<Engine>* out) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
-  auto ctx = std::make_unique<llvm::LLVMContext>();
-
-  auto lljit_builder = llvm::orc::LLJITBuilder();
   ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
-  lljit_builder.setJITTargetMachineBuilder(jtmb);
-  if (object_cache.has_value()) {
-    lljit_builder.setCompileFunctionCreator(
-        [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
-            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
-          auto target_machine = JTMB.createTargetMachine();
-          if (!target_machine) {
-            return target_machine.takeError();
-          }
-          // after compilation, the object code will be stored into the given object cache
-          return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
-              std::move(*target_machine), &object_cache.value().get());
-        });
-  }
-  auto maybe_jit = lljit_builder.create();
-  ARROW_ASSIGN_OR_RAISE(auto jit,
-                        AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
-
+  ARROW_ASSIGN_OR_RAISE(auto jit, BuildJIT(jtmb, object_cache));
   auto maybe_tm = jtmb.createTargetMachine();
   ARROW_ASSIGN_OR_RAISE(auto target_machine,
                         AsArrowResult(maybe_tm, "Could not create target machine: "));
-  std::unique_ptr<Engine> engine{new Engine(conf, std::move(ctx), std::move(jit),
-                                            std::move(target_machine), cached)};
+
+  std::unique_ptr<Engine> engine{
+      new Engine(conf, std::move(jit), std::move(target_machine), cached)};
 
   ARROW_RETURN_NOT_OK(engine->Init());
   *out = std::move(engine);
   return Status::OK();
 }
-
-// This method was modified from its original version for a part of MLIR
-// Original source from
-// https://github.com/llvm/llvm-project/blob/9f2ce5b915a505a5488a5cf91bb0a8efa9ddfff7/mlir/lib/ExecutionEngine/ExecutionEngine.cpp
-// The original copyright notice follows.
-
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
-static void SetDataLayout(llvm::Module* module) {
-  auto target_triple = llvm::sys::getDefaultTargetTriple();
-  std::string error_message;
-  auto target = llvm::TargetRegistry::lookupTarget(target_triple, error_message);
-  if (!target) {
-    return;
-  }
-
-  std::string cpu(llvm::sys::getHostCPUName());
-  llvm::SubtargetFeatures features;
-  llvm::StringMap<bool> host_features;
-
-  if (llvm::sys::getHostCPUFeatures(host_features)) {
-    for (auto& f : host_features) {
-      features.AddFeature(f.first(), f.second);
-    }
-  }
-
-  std::unique_ptr<llvm::TargetMachine> machine(
-      target->createTargetMachine(target_triple, cpu, features.getString(), {}, {}));
-
-  module->setDataLayout(machine->createDataLayout());
-}
-// end of the modified method from MLIR
 
 static arrow::Status VerifyAndLinkModule(
     llvm::Module& dest_module,
@@ -292,8 +264,7 @@ static arrow::Status VerifyAndLinkModule(
       auto src_ir_module,
       AsArrowResult(src_module_or_error, "Failed to verify and link module: "));
 
-  // set dataLayout
-  SetDataLayout(src_ir_module.get());
+  src_ir_module->setDataLayout(dest_module.getDataLayout());
 
   std::string error_info;
   llvm::raw_string_ostream error_stream(error_info);
@@ -452,18 +423,13 @@ Status Engine::FinalizeModule() {
   if (!cached_) {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
-    auto& data_layout = module_->getDataLayout();
-    lljit_->getMainJITDylib().addGenerator(
-        cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
-            data_layout.getGlobalPrefix())));
-
     if (optimize_) {
-      auto target_ir_analysis = target_machine_->getTargetIRAnalysis();
+      auto target_analysis = target_machine_->getTargetIRAnalysis();
 // misc passes to allow for inlining, vectorization, ..
 #if LLVM_VERSION_MAJOR >= 14
-      OptimizeModuleWithNewPassManager(*module_, target_ir_analysis);
+      OptimizeModuleWithNewPassManager(*module_, std::move(target_analysis));
 #else
-      OptimizeModuleWithLegacyPassManager(*module_, target_ir_analysis);
+      OptimizeModuleWithLegacyPassManager(*module_, std::move(target_analysis));
 #endif
     }
 
@@ -474,14 +440,13 @@ Status Engine::FinalizeModule() {
     // LLJIT instance, and it is not available after LLJIT instance is constructed
     if (conf_->needs_ir_dumping()) {
       module_ir_ = GetModuleIR(*module_);
-      ARROW_LOG(INFO) << "MODULE_IR : " << module_ir_;
     }
-    // do the compilation
 
+    // do the compilation
     llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
     auto error = lljit_->addIRModule(std::move(tsm));
     if (error) {
-      return Status::CodeGenError("Failed to add module to LLJIT: ",
+      return Status::CodeGenError("Failed to add IR module to LLJIT: ",
                                   llvm::toString(std::move(error)));
     }
   }
@@ -494,7 +459,7 @@ void* Engine::CompiledFunction(std::string& function) {
   DCHECK(module_finalized_);
   auto sym = lljit_->lookup(function);
   DCHECK(sym) << "Failed to look up function: " << function
-              << " error: " << ErrorToString(sym.takeError());
+              << " error: " << llvm::toString(sym.takeError());
 
   return (void*)sym.get().getAddress();
 }
@@ -505,7 +470,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   constexpr bool is_var_arg = false;
   auto prototype = llvm::FunctionType::get(ret_type, args, is_var_arg);
   constexpr auto linkage = llvm::GlobalValue::ExternalLinkage;
-  llvm::Function::Create(prototype, linkage, name);
+  llvm::Function::Create(prototype, linkage, name, module());
 
   llvm::JITEvaluatedSymbol symbol((llvm::JITTargetAddress)function_ptr,
                                   llvm::JITSymbolFlags::Exported);
