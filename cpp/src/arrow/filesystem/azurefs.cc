@@ -986,8 +986,7 @@ class AzureFileSystem::Impl {
     try {
       auto list_response = container_client.ListBlobs(options);
       if (!missing_dir_ok && list_response.Blobs.empty()) {
-        return Status::IOError("Specified directory doesn't exist: ", location.path, ": ",
-                               container_client.GetUrl());
+        return PathNotFound(location);
       }
       while (list_response.HasPage() && !list_response.Blobs.empty()) {
         auto batch = container_client.CreateBatch();
