@@ -262,17 +262,13 @@ cdef class ParquetFileFormat(FileFormat):
         """
         cdef:
             vector[int] c_row_groups
-            # default value, will not be passed to constructor
-            int64_t c_size = -1
         if partition_expression is None:
             partition_expression = _true
-        if file_size is not None:
-            c_size = file_size
         if row_groups is None:
             return super().make_fragment(file, filesystem,
                                          partition_expression, file_size=file_size)
 
-        c_source = _make_file_source(file, filesystem, file_size=c_size)
+        c_source = _make_file_source(file, filesystem, file_size)
         c_row_groups = [<int> row_group for row_group in set(row_groups)]
 
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
