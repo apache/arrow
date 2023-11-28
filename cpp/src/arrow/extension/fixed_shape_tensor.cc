@@ -19,6 +19,7 @@
 #include <sstream>
 
 #include "arrow/extension/fixed_shape_tensor.h"
+#include "arrow/extension/tensor_internal.h"
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
@@ -36,50 +37,6 @@
 namespace rj = arrow::rapidjson;
 
 namespace arrow {
-
-namespace internal {
-
-Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                      const std::vector<int64_t>& shape,
-                      const std::vector<int64_t>& permutation,
-                      std::vector<int64_t>* strides) {
-  auto fixed_width_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
-  if (permutation.empty()) {
-    return internal::ComputeRowMajorStrides(*fixed_width_type.get(), shape, strides);
-  }
-  const int byte_width = value_type->byte_width();
-
-  int64_t remaining = 0;
-  if (!shape.empty() && shape.front() > 0) {
-    remaining = byte_width;
-    for (auto i : permutation) {
-      if (i > 0) {
-        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
-          return Status::Invalid(
-              "Strides computed from shape would not fit in 64-bit integer");
-        }
-      }
-    }
-  }
-
-  if (remaining == 0) {
-    strides->assign(shape.size(), byte_width);
-    return Status::OK();
-  }
-
-  strides->push_back(remaining);
-  for (auto i : permutation) {
-    if (i > 0) {
-      remaining /= shape[i];
-      strides->push_back(remaining);
-    }
-  }
-  internal::Permute(permutation, strides);
-
-  return Status::OK();
-}
-
-}  // namespace internal
 
 namespace extension {
 
@@ -200,7 +157,7 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.fixed_shape_tensor",
-            static_cast<const ExtensionType&>(*data->type).extension_name());
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
 }
 
