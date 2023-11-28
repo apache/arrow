@@ -227,7 +227,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   std::shared_ptr<arrow::Buffer> buffer =
       arrow::SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
 
-  return Tensor::Make(this->value_type(), buffer, shape, strides, this->dim_names());
+  return Tensor::Make(this->value_type(), std::move(buffer), std::move(shape), std::move(strides), this->dim_names());
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
