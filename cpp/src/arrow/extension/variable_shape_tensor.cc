@@ -197,8 +197,8 @@ std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
 
 Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
     const std::shared_ptr<ExtensionScalar>& scalar) const {
-  const auto tensor_scalar = internal::checked_pointer_cast<StructScalar>(scalar->value);
-  const auto fields = this->storage_type()->fields();
+  const auto& tensor_scalar = internal::checked_cast<const StructScalar&>(*scalar->value);
+  const auto& fields = this->storage_type()->fields();
 
   ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(0));
   ARROW_ASSIGN_OR_RAISE(const auto data, tensor_scalar->field(1));
