@@ -315,5 +315,14 @@ test_that("schema extraction", {
 
   adq <- as_adq(example_data)
   expect_equal(schema(adq), adq$.data$schema)
+})
 
+test_that("schema print truncation", {
+  tbl <- arrow_table(example_data)
+  out <- print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 1)
+  expect_output(
+    cat(out),
+    "int: int32\n...\nUse `schema()` to see entire schema",
+    fixed = TRUE
+  )
 })

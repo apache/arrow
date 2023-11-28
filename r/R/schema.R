@@ -81,8 +81,8 @@
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
   public = list(
-    ToString = function() {
-      fields <- print_schema_fields(self)
+    ToString = function(truncate = FALSE) {
+      fields <- print_schema_fields(self, truncate)
       if (self$HasMetadata) {
         fields <- paste0(fields, "\n\nSee $metadata for additional Schema metadata")
       }
@@ -224,9 +224,16 @@ prepare_key_value_metadata <- function(metadata) {
   map_chr(metadata, as.character)
 }
 
-print_schema_fields <- function(s) {
-  # Alternative to Schema__ToString that doesn't print metadata
-  paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
+# Alternative to Schema__ToString that doesn't print metadata
+print_schema_fields <- function(s, truncate = FALSE, max_fields = 20) {
+  if (truncate && length(s$fields) > max_fields) {
+    fields_out <- paste(map_chr(s$fields[1:max_fields], ~ .$ToString()), collapse = "\n")
+    fields_out <- paste0(fields_out, "\n...\n")
+    fields_out <- paste0(fields_out, "Use `schema()` to see entire schema")
+  } else {
+    fields_out <- paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
+  }
+  fields_out
 }
 
 #' Create a schema or extract one from an object.
