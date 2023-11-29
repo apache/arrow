@@ -17,6 +17,12 @@
 
 package org.apache.arrow.flight;
 
+/**
+ * A container
+ */
 public interface SessionOptionValue {
+    /**
+     *
+     */
     void visit(SessionOptionValueVisitor);
 }

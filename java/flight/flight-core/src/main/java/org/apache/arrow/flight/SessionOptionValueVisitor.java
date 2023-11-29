@@ -22,44 +22,37 @@ package org.apache.arrow.flight;
  */
 public interface SessionOptionValueVisitor {
     /**
-     * Callback to handle SessionOptionValue containing a String.
-     * @param value The contained value being accessed.
+     * A callback to handle SessionOptionValue containing a String.
      */
     void visit(String value);
 
     /**
-     * Callback to handle SessionOptionValue containing a boolean.
-     * @param value The contained value being accessed.
+     * A callback to handle SessionOptionValue containing a boolean.
      */
     void visit(boolean value);
 
     /**
-     * Callback to handle SessionOptionValue containing an int.
-     * @param value The contained value being accessed.
+     * A callback to handle SessionOptionValue containing an int.
      */
     void visit(int value);
 
     /**
-     * Callback to handle SessionOptionValue containing a long.
-     * @param value The contained value being accessed.
+     * A callback to handle SessionOptionValue containing a long.
      */
     void visit(long value);
 
     /**
-     * Callback to handle SessionOptionValue containing a float.
-     * @param value The contained value being accessed.
+     * A callback to handle SessionOptionValue containing a float.
      */
     void visit(float value);
 
     /**
-     * Callback to handle SessionOptionValue containing a double.
-     * @param value The contained value being accessed.
+     * A callback to handle SessionOptionValue containing a double.
      */
     void visit(double value);
 
     /**
-     * Callback to handle SessionOptionValue containing an array of String.
-     * @param value The contained value being accessed.
+     * A callback to handle SessionOptionValue containing an array of String.
      */
     void visit(String[] value);
 }
