@@ -1220,15 +1220,6 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
         DLDeviceType device_type
         int32_t device_id
 
-    cdef enum DLDataTypeCode:
-        kDLInt = 0
-        kDLUInt = 1
-        kDLFloat = 2
-        kDLOpaqueHandle = 3
-        kDLBfloat = 4
-        kDLComplex = 5
-        kDLBool = 6
-
     ctypedef struct DLDataType:
         uint8_t code
         uint8_t bits
