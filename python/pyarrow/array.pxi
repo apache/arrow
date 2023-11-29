@@ -4355,7 +4355,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
     >>> pa.ExtensionArray.from_storage(tensor_type, arr)
     <pyarrow.lib.VariableShapeTensorArray object at ...>
     -- is_valid: all not null
-    -- child 0 type: fixed_size_list<item: uint32>[2]
+    -- child 0 type: fixed_size_list<item: int32>[2]
       [
         [
           2,
@@ -4366,19 +4366,19 @@ cdef class VariableShapeTensorArray(ExtensionArray):
           2
         ]
       ]
-    -- child 1 type: list<item: int32>
+    -- child 1 type: list<item: float64>
       [
         [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0
         ],
         [
-          7,
-          8
+          7.0,
+          8.0
         ]
       ]
     """
@@ -4436,7 +4436,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         >>> pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list)
         <pyarrow.lib.VariableShapeTensorArray object at ...>
         -- is_valid: all not null
-        -- child 0 type: fixed_size_list<item: uint32>[2]
+        -- child 0 type: fixed_size_list<item: int32>[2]
           [
             [
               2,
@@ -4470,14 +4470,14 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         ndim = obj[0].ndim
 
         if not all([o.dtype == numpy_type for o in obj]):
-            raise ValueError('All numpy arrays need to have the same dtype.')
+            raise TypeError('All numpy arrays need to have the same dtype.')
 
         if not all([o.ndim == ndim for o in obj]):
             raise ValueError('All numpy arrays need to have the same ndim.')
 
         arrow_type = from_numpy_dtype(numpy_type)
         values = array([np.ravel(o, order='C') for o in obj], list_(arrow_type))
-        shapes = array([o.shape for o in obj], list_(uint32(), list_size=ndim))
+        shapes = array([o.shape for o in obj], list_(int32(), list_size=ndim))
         struct_arr = StructArray.from_arrays([shapes, values], names=["shape", "data"])
 
         return ExtensionArray.from_storage(

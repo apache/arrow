@@ -2782,7 +2782,7 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
-                                            const uint32_t ndim,
+                                            const int32_t ndim,
                                             const vector[int64_t]& permutation,
                                             const vector[c_string]& dim_names,
                                             const vector[optional[int64_t]]& uniform_shape)
@@ -2793,7 +2793,7 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
         c_string Serialize() const
 
         const shared_ptr[CDataType] value_type()
-        const uint32_t ndim()
+        const int32_t ndim()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
         const vector[optional[int64_t]] uniform_shape()
@@ -2822,12 +2822,6 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[int64_t] shape()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
-
-cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::internal" nogil:
-    cdef CStatus ComputeStrides(const shared_ptr[CDataType]& value_type,
-                                const vector[int64_t]& shape,
-                                const vector[int64_t]& permutation,
-                                vector[int64_t]* strides)
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":

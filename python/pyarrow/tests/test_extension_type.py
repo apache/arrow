@@ -1327,6 +1327,7 @@ def test_tensor_type():
     assert tensor_type.ndim == 2
     assert tensor_type.dim_names is None
     assert tensor_type.permutation is None
+    assert tensor_type.uniform_shape == [None, None]
 
     tensor_type = pa.variable_shape_tensor(pa.int64(), 3, dim_names=['C', 'H', 'W'])
     expected_storage_type = pa.struct([
@@ -1338,11 +1339,24 @@ def test_tensor_type():
     assert tensor_type.ndim == 3
     assert tensor_type.dim_names == ['C', 'H', 'W']
     assert tensor_type.permutation is None
+    assert tensor_type.uniform_shape == [None, None]
 
     tensor_type = pa.variable_shape_tensor(pa.bool_(), 2, permutation=[1, 0])
     expected_storage_type = pa.struct([
         pa.field("shape", pa.list_(pa.uint32(), 2)),
         pa.field("data", pa.list_(pa.bool_()))
+    ])
+    assert tensor_type.extension_name == "arrow.variable_shape_tensor"
+    assert tensor_type.storage_type == expected_storage_type
+    assert tensor_type.ndim == 2
+    assert tensor_type.dim_names is None
+    assert tensor_type.permutation == [1, 0]
+    assert tensor_type.uniform_shape == [None, None]
+
+    tensor_type = pa.variable_shape_tensor(pa.float64(), 2, uniform_shape=[1, None])
+    expected_storage_type = pa.struct([
+        pa.field("shape", pa.list_(pa.uint32(), 2)),
+        pa.field("data", pa.list_(pa.float64()))
     ])
     assert tensor_type.extension_name == "arrow.variable_shape_tensor"
     assert tensor_type.storage_type == expected_storage_type
@@ -1470,7 +1484,7 @@ def test_tensor_array_from_numpy(value_type):
 @pytest.mark.parametrize("value_type", (np.int8, np.int32, np.int64, np.float64))
 def test_variable_shape_tensor_class_methods(value_type):
     ndim = 2
-    shape_type = pa.list_(pa.uint32(), ndim)
+    shape_type = pa.list_(pa.int32(), ndim)
     arrow_type = pa.from_numpy_dtype(value_type)
     tensor_type = pa.variable_shape_tensor(
         arrow_type,
@@ -1526,7 +1540,6 @@ def test_variable_shape_tensor_class_methods(value_type):
     assert arr[0].to_tensor().equals(
         pa.Tensor.from_numpy(expected_0, dim_names=["H", "W"]))
 
-    # TODO: due to wrong offset this would return [[1], [2]] instead of [[7], [8]]
     assert arr[1].to_tensor().equals(
         pa.Tensor.from_numpy(expected_1, dim_names=["H", "W"]))
 
