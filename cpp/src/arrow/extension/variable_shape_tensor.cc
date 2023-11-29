@@ -50,7 +50,7 @@ const Result<std::shared_ptr<Tensor>> VariableShapeTensorArray::GetTensor(
   std::vector<int64_t> shape;
   for (int64_t j = 0; j < ndim; ++j) {
     ARROW_ASSIGN_OR_RAISE(auto size, shapes->GetScalar(j));
-    shape.push_back(std::static_pointer_cast<UInt32Scalar>(size)->value);
+    shape.push_back(std::static_pointer_cast<Int32Scalar>(size)->value);
   }
 
   std::vector<int64_t> strides;
@@ -210,13 +210,13 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
 
   ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar.field(0));
   ARROW_ASSIGN_OR_RAISE(const auto data, tensor_scalar.field(1));
-  const auto& shape_array =
-      checked_cast<const Int32Array&>(*checked_cast<const FixedSizeListScalar&>(*shape_scalar)->value);
+  const auto& shape_array = internal::checked_cast<const Int32Array&>(
+      *internal::checked_cast<const FixedSizeListScalar&>(*shape_scalar).value);
 
   std::vector<int64_t> shape;
   for (int32_t j = 0; j < this->ndim(); ++j) {
-    ARROW_ASSIGN_OR_RAISE(const auto size, shape_array->GetScalar(j));
-    const auto size_value = internal::checked_pointer_cast<UInt32Scalar>(size)->value;
+    ARROW_ASSIGN_OR_RAISE(const auto size, shape_array.GetScalar(j));
+    const auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
     ARROW_DCHECK_GE(size_value, 0);
     shape.push_back(size_value);
   }
