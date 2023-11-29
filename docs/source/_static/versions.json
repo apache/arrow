@@ -11,11 +11,6 @@
         "preferred": true
     },
     {
-        "name": "14.0",
-        "version": "14.0/",
-        "url": "https://arrow.apache.org/docs/14.0/"
-    },
-    {
         "name": "13.0",
         "version": "13.0/",
         "url": "https://arrow.apache.org/docs/13.0/"
