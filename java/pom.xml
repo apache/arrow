@@ -411,6 +411,7 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <excludes>**/module-info.java</excludes>
             <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
