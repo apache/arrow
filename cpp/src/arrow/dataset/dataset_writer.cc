@@ -630,6 +630,9 @@ class DatasetWriter::DatasetWriterImpl {
       if (!s.ok()) {
         // If `StartWrite` succeeded, it will Release the
         // `rows_in_flight_throttle` when the write task is finished.
+        //
+        // `open_files_throttle` will be handed by `DatasetWriterDirectoryQueue`
+        // so we don't need to release it here.
         writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
         return s;
       }
