@@ -3565,6 +3565,7 @@ def PyCapsule_IsValid(capsule, name):
         (pa.int16(), np.int16),
         (pa.int32(), np.int32),
         (pa.int64(), np.int64),
+        (pa.float16(), np.float16),
         (pa.float32(), np.float32),
         (pa.float64(), np.float64),
     ]
@@ -3575,10 +3576,10 @@ def test_dlpack(value_type, np_type):
                     "strict keyward in assert_array_equal added in numpy version "
                     "1.24.0")
 
-    arr = pa.array([1, 2, 3], type=value_type)
+    expected = np.array([1, 2, 3], dtype=np_type)
+    arr = pa.array(expected, type=value_type)
     DLTensor = arr.__dlpack__()
     assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-    expected = np.array([1, 2, 3], dtype=np_type)
     result = np.from_dlpack(arr)
     np.testing.assert_array_equal(result, expected, strict=True)
 
@@ -3611,44 +3612,30 @@ def test_dlpack(value_type, np_type):
     np.testing.assert_array_equal(result, expected, strict=True)
 
 
-def test_dlpack_float_16():
-    if Version(np.__version__) < Version("1.24.0"):
-        pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
-                    "strict keyward in assert_array_equal added in numpy version "
-                    "1.24.0")
-
-    expected = np.array([1, 2, 3], dtype=np.float16)
-    arr = pa.array(expected, type=pa.float16())
-    DLTensor = arr.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-    result = np.from_dlpack(arr)
-    np.testing.assert_array_equal(result, expected, strict=True)
-
-
 def test_dlpack_not_supported():
     if Version(np.__version__) < Version("1.22.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
 
+    arr = pa.array([1, None, 3])
     with pytest.raises(TypeError, match="Can only use __dlpack__ "
                        "on arrays with no validity buffer."):
-        arr = pa.array([1, None, 3])
         np.from_dlpack(arr)
 
+    arr = pa.array(
+        [[0, 1], [3, 4]],
+        type=pa.list_(pa.int32())
+    )
     with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive arrays"):
-        arr = pa.array(
-            [[0, 1], [3, 4]],
-            type=pa.list_(pa.int32())
-        )
         np.from_dlpack(arr)
 
+    arr = pa.array([])
     with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive arrays"):
-        arr = pa.array([])
         np.from_dlpack(arr)
 
     # DLPack doesn't support bit-packed boolean values
+    arr = pa.array([True, False, True])
     with pytest.raises(TypeError, match="Bit-packed boolean data type "
                        "not supported by DLPack."):
-        arr = pa.array([True, False, True])
         np.from_dlpack(arr)
 
 
