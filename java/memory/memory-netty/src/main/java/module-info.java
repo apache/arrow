@@ -16,6 +16,8 @@
  */
 
 module org.apache.arrow.memory.netty {
+  exports org.apache.arrow.memory.netty to org.apache.arrow.memory.core;
+  
   requires org.apache.arrow.memory.core;
   requires io.netty.buffer;
   requires io.netty.common;
