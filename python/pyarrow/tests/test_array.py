@@ -3618,7 +3618,7 @@ def test_dlpack_not_supported():
 
     arr = pa.array([1, None, 3])
     with pytest.raises(TypeError, match="Can only use __dlpack__ "
-                       "on arrays with no validity buffer."):
+                       "on arrays with no nulls."):
         np.from_dlpack(arr)
 
     arr = pa.array(
