@@ -986,17 +986,17 @@ const ActionType ActionType::kSetSessionOptions =
     ActionType{"SetSessionOptions",
                "Set client session options by name/value pairs.\n"
                "Request Message: SetSessionOptionsRequest\n"
-               "Response Message: SetSessionOptionsResult\n"};
+               "Response Message: SetSessionOptionsResult"};
 const ActionType ActionType::kGetSessionOptions =
     ActionType{"GetSessionOptions",
                "Get current client session options\n"
                "Request Message: GetSessionOptionsRequest\n"
-               "Response Message: GetSessionOptionsResult\n"};
+               "Response Message: GetSessionOptionsResult"};
 const ActionType ActionType::kCloseSession =
     ActionType{"CloseSession",
                "Explicitly close/invalidate the cookie-specified client session.\n"
                "Request Message: CloseSessionRequest\n"
-               "Response Message: CloseSessionResult\n"};
+               "Response Message: CloseSessionResult"};
 
 bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
