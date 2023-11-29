@@ -35,4 +35,18 @@ public interface FlightConstants {
       "Extend expiration time of the given FlightEndpoint.\n" +
           "Request Message: RenewFlightEndpointRequest\n" +
           "Response Message: Renewed FlightEndpoint");
+
+  ActionType SET_SESSION_OPTIONS = new ActionType("SetSessionOptions",
+          "Set client session options by name/value pairs.\n"
+          "Request Message: SetSessionOptionsRequest\n"
+          "Response Message: SetSessionOptionsResult");
+
+  ActionType GET_SESSION_OPTIONS = new ActionType("GetSessionOptions",
+          "Get current client session options\n"
+          "Request Message: GetSessionOptionsRequest\n"
+          "Response Message: GetSessionOptionsResult");
+  ActionType CLOSE_SESSION = new ActionType("CloseSession",
+          "Explicitly close/invalidate the cookie-specified client session.\n"
+          "Request Message: CloseSessionRequest\n"
+          "Response Message: CloseSessionResult");
 }
