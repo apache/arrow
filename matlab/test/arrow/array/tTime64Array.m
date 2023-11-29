@@ -128,7 +128,7 @@ classdef tTime64Array < matlab.unittest.TestCase
         function TestValid(testCase, Unit)
             % Verify the Valid property returns the expected logical vector.
             times = seconds([100 200 NaN 355 NaN 400]);
-            array = testCase.ArrowArrayConstructorFcn(times, TImeUnit=Unit);
+            array = testCase.ArrowArrayConstructorFcn(times, TimeUnit=Unit);
             testCase.verifyEqual(array.Valid, [true; true; false; true; false; true]);
             testCase.verifyEqual(toMATLAB(array), times');
             testCase.verifyEqual(duration(array), times');
