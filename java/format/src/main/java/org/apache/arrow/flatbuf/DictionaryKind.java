@@ -25,6 +25,7 @@ package org.apache.arrow.flatbuf;
  * Dictionaries might be explicit maps between integers and values
  * allowing for non-contiguous index values
  */
+@SuppressWarnings("unused")
 public final class DictionaryKind {
   private DictionaryKind() { }
   public static final short DenseArray = 0;
