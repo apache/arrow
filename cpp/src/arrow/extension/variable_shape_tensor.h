@@ -46,16 +46,16 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
                           const std::vector<std::optional<int64_t>> uniform_shape = {})
       : ExtensionType(struct_({::arrow::field("shape", fixed_size_list(int32(), ndim)),
                                ::arrow::field("data", list(value_type))})),
-        value_type_(std::move(value_type)),
-        ndim_(ndim),
-        permutation_(permutation),
-        dim_names_(dim_names),
-        uniform_shape_(uniform_shape) {}
+        value_type_(value_type),
+        ndim_(std::move(ndim)),
+        permutation_(std::move(permutation)),
+        dim_names_(std::move(dim_names)),
+        uniform_shape_(std::move(uniform_shape)) {}
 
   std::string extension_name() const override { return "arrow.variable_shape_tensor"; }
 
   /// Number of dimensions of tensor elements
-  uint32_t ndim() const { return ndim_; }
+  int32_t ndim() const { return ndim_; }
 
   /// Value type of tensor elements
   const std::shared_ptr<DataType>& value_type() const { return value_type_; }
@@ -88,10 +88,10 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
 
   /// \brief Create a VariableShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(
-      const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
-      const std::vector<int64_t>& permutation = {},
-      const std::vector<std::string>& dim_names = {},
-      const std::vector<std::optional<int64_t>>& uniform_shape = {});
+      const std::shared_ptr<DataType>& value_type, const int32_t ndim,
+      const std::vector<int64_t> permutation = {},
+      const std::vector<std::string> dim_names = {},
+      const std::vector<std::optional<int64_t>> uniform_shape = {});
 
  private:
   std::shared_ptr<DataType> storage_type_;
@@ -104,10 +104,10 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
 
 /// \brief Return a VariableShapeTensorType instance.
 ARROW_EXPORT std::shared_ptr<DataType> variable_shape_tensor(
-    const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
-    const std::vector<int64_t>& permutation = {},
-    const std::vector<std::string>& dim_names = {},
-    const std::vector<std::optional<int64_t>>& uniform_shape = {});
+    const std::shared_ptr<DataType>& value_type, const int32_t ndim,
+    const std::vector<int64_t> permutation = {},
+    const std::vector<std::string> dim_names = {},
+    const std::vector<std::optional<int64_t>> uniform_shape = {});
 
 }  // namespace extension
 }  // namespace arrow
