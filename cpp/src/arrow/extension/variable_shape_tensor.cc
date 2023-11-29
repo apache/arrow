@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sstream>
+#include <set>
 
 #include "arrow/extension/tensor_internal.h"
 #include "arrow/extension/variable_shape_tensor.h"
@@ -244,10 +245,22 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const int32_t ndim,
     const std::vector<int64_t> permutation, const std::vector<std::string> dim_names,
     const std::vector<std::optional<int64_t>> uniform_shape) {
-  if (!permutation.empty() && permutation.size() != static_cast<size_t>(ndim)) {
-    return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
-                           " Got: ", permutation.size());
+  if (!permutation.empty()) {
+    if (permutation.size() != static_cast<size_t>(ndim)) {
+      return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
+                             " Got: ", permutation.size());
+    }
+    const std::set<int> permutation_set(permutation.begin(), permutation.end());
+    if (permutation_set.size() != permutation.size()) {
+      return Status::Invalid("permutation must be a valid permutation vector");
+    }
+    for (auto p : permutation) {
+      if (p < 0 || ndim <= p) {
+        return Status::Invalid("permutation must be a valid permutation vector");
+      }
+    }
   }
+
   if (!dim_names.empty() && dim_names.size() != static_cast<size_t>(ndim)) {
     return Status::Invalid("dim_names size must match ndim. Expected: ", ndim,
                            " Got: ", dim_names.size());
