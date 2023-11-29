@@ -1099,9 +1099,6 @@ class AzureFileSystem::Impl {
     if (location.container.empty()) {
       return internal::InvalidDeleteDirContents(location.all);
     }
-    if (location.path.empty()) {
-      return internal::InvalidDeleteDirContents(location.all);
-    }
 
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
                           hierarchical_namespace_.Enabled(location.container));

@@ -666,7 +666,39 @@ TEST_F(AzuriteFileSystemTest, DeleteDirUri) {
   ASSERT_RAISES(Invalid, fs_->DeleteDir("abfs://" + PreexistingContainerPath()));
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessExist) {
+TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessContainer) {
+#ifdef __APPLE__
+  GTEST_SKIP() << "This test fails by an Azurite problem: "
+                  "https://github.com/Azure/Azurite/pull/2302";
+#endif
+  const auto container_path = RandomContainerName();
+  const auto directory_path =
+      internal::ConcatAbstractPath(container_path, RandomDirectoryName());
+  const auto sub_directory_path = internal::ConcatAbstractPath(directory_path, "new-sub");
+  const auto sub_blob_path = internal::ConcatAbstractPath(sub_directory_path, "sub.txt");
+  const auto top_blob_path = internal::ConcatAbstractPath(directory_path, "top.txt");
+  ASSERT_OK(fs_->CreateDir(sub_directory_path, true));
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(sub_blob_path));
+  ASSERT_OK(output->Write(std::string_view("sub")));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(top_blob_path));
+  ASSERT_OK(output->Write(std::string_view("top")));
+  ASSERT_OK(output->Close());
+
+  arrow::fs::AssertFileInfo(fs_.get(), container_path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), sub_directory_path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), sub_blob_path, FileType::File);
+  arrow::fs::AssertFileInfo(fs_.get(), top_blob_path, FileType::File);
+  ASSERT_OK(fs_->DeleteDirContents(container_path));
+  arrow::fs::AssertFileInfo(fs_.get(), container_path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), sub_directory_path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), sub_blob_path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), top_blob_path, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessDirectory) {
 #ifdef __APPLE__
   GTEST_SKIP() << "This test fails by an Azurite problem: "
                   "https://github.com/Azure/Azurite/pull/2302";
