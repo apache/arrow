@@ -3648,7 +3648,7 @@ def test_dlpack_cuda_not_supported():
 
     cbuf = cuda.serialize_record_batch(batch, cuda.Context(0))
     cbatch = cuda.read_record_batch(cbuf, batch.schema)
-    carr = cbatch["a0"]
+    carr = cbatch["f0"]
 
     # CudaBuffers not yet supported
     with pytest.raises(NotImplementedError, match="DLPack support is implemented "
