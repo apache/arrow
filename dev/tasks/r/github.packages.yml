@@ -248,7 +248,11 @@ jobs:
       - name: Install dependencies self-hosted
         if: {{ "${{ contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         shell: Rscript {0}
-        run: devtools::install_dev_deps('./arrow')
+        run: |
+          if (!requireNamespace("devtools", quietly = TRUE)) {
+            install.packages("devtools")
+          }
+          devtools::install_dev_deps('./arrow')
       - name: Set CRAN like openssl
         if: contains(matrix.platform.runs_on, 'arm64')
         run: |
