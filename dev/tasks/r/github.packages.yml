@@ -252,6 +252,8 @@ jobs:
           if (!requireNamespace("devtools", quietly = TRUE)) {
             install.packages("devtools")
           }
+          # CRAN doesn't have binaries for 4.1 see #38761
+          options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
           devtools::install_dev_deps('./arrow')
       - name: Set CRAN like openssl
         if: contains(matrix.platform.runs_on, 'arm64')
