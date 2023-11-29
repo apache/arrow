@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/almalinux:8.8
+FROM ${arch}/almalinux:8
 
 COPY dev/release/setup-rhel-rebuilds.sh /
 RUN /setup-rhel-rebuilds.sh && \

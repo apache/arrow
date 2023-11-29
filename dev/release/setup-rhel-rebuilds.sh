@@ -54,5 +54,5 @@ dnf -y install \
 
 npm install -g yarn
 
-python3 -m pip install -U pip
+python3 -m ensurepip --upgrade
 alternatives --set python /usr/bin/python3
