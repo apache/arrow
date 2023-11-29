@@ -39,7 +39,7 @@ else:
     release_type = "patch"
 
 # Update main docs version script only when compatible version of the
-# stable version isn't change. Compatible version is ${MAJOR}.${MINOR}
+# stable version isn't changed. Compatible version is ${MAJOR}.${MINOR}
 # version.
 if release_type != "patch":
     with open(main_versions_path) as json_file:
