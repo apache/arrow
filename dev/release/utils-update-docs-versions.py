@@ -53,8 +53,8 @@ if release_type != "patch":
     #
     # 13.Y.Z (13.Y) -> 14.0.0 (14.0): Update
     # 14.0.0 (14.0) -> 14.0.1 (14.0): Not update
-    # 13.Y.Z (13.Y) -> 14.0.0 (14.0): Update
-    # 14.0.0 (14.0) -> 14.0.1 (14.0): Not update
+    # 14.0.0 (14.0) -> 14.1.0 (14.1): Update
+    # 14.0.1 (14.0) -> 14.1.0 (14.1): Update
     if stable_compatible_version != previous_compatible_version:
         # Create new versions
         new_versions = [
