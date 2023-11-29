@@ -1802,20 +1802,6 @@ cdef class VariableShapeTensorType(BaseExtensionType):
 
         return uniform_shape
 
-    def __arrow_ext_serialize__(self):
-        """
-        Serialized representation of metadata to reconstruct the type object.
-        """
-        return self.tensor_ext_type.Serialize()
-
-    @classmethod
-    def __arrow_ext_deserialize__(self, storage_type, serialized):
-        """
-        Return an VariableShapeTensor type instance from the storage type and serialized
-        metadata.
-        """
-        return self.tensor_ext_type.Deserialize(storage_type, serialized)
-
     def __arrow_ext_class__(self):
         return VariableShapeTensorArray
 
