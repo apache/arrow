@@ -477,6 +477,13 @@ public class RoundtripTest {
   }
 
   @Test
+  public void testNullVector() {
+    try (final NullVector vector = new NullVector("v", 1024)) {
+      assertTrue(roundtrip(vector, NullVector.class));
+    }
+  }
+
+  @Test
   public void testVarBinaryVector() {
     try (final VarBinaryVector vector = new VarBinaryVector("v", allocator)) {
       setVector(vector, "abc".getBytes(), "def".getBytes(), null);
