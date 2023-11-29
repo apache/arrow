@@ -148,7 +148,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     // We know the bloom filter data size, but the real size is different.
     std::stringstream ss;
     ss << "Bloom filter length (" << bloom_filter_length.value()
-       << ") is not enough to read the entire bloom filter (size: "
+       << ") does not match the actual bloom filter (size: "
        << bloom_filter_size + header_size << ").";
     throw ParquetException(ss.str());
   }
