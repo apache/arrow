@@ -278,7 +278,7 @@ public class FlightClientTester {
         let descriptor = FlightDescriptor(cmd: cmd.data(using: .utf8)!)
         let rb = try makeRecordBatch()
         var numCall = 0
-        try await client?.doPut(descriptor, recordBatchs: [rb], closure: { _ in
+        try await client?.doPut(descriptor, recordBatches: [rb], closure: { _ in
             numCall += 1
         })
 
@@ -289,7 +289,7 @@ public class FlightClientTester {
         let descriptor = FlightDescriptor(cmd: "flight_ticket".data(using: .utf8)!)
         let rb = try makeRecordBatch()
         var numCall = 0
-        try await client?.doExchange(descriptor, recordBatchs: [rb], closure: { result in
+        try await client?.doExchange(descriptor, recordBatches: [rb], closure: { result in
             numCall += 1
             XCTAssertEqual(result.schema?.fields.count, 3)
             XCTAssertEqual(result.batches[0].length, 4)

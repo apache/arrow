@@ -590,7 +590,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Commit/rollback a transaction.
   /// \param[in] context  The call context.
-  /// \param[in] request  The tranaction.
+  /// \param[in] request  The transaction.
   virtual Status EndTransaction(const ServerCallContext& context,
                                 const ActionEndTransactionRequest& request);
 

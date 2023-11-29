@@ -25,13 +25,13 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Internal
 {
-    internal class RecordBatcReaderImplementation : ArrowReaderImplementation
+    internal class RecordBatchReaderImplementation : ArrowReaderImplementation
     {
         private readonly IAsyncStreamReader<Protocol.FlightData> _flightDataStream;
         private FlightDescriptor _flightDescriptor;
         private readonly List<ByteString> _applicationMetadatas;
 
-        public RecordBatcReaderImplementation(IAsyncStreamReader<Protocol.FlightData> streamReader)
+        public RecordBatchReaderImplementation(IAsyncStreamReader<Protocol.FlightData> streamReader)
         {
             _flightDataStream = streamReader;
             _applicationMetadatas = new List<ByteString>();
