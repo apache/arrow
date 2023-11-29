@@ -234,17 +234,21 @@ jobs:
           rig default {{ '${{ matrix.r_version.r }}' }}$rig_arch
 
           rig system setup-user-lib
-          rig system add-pak
       {{ macros.github_setup_local_r_repo(false, true, true)|indent }}
       - name: Prepare Dependency Installation
         shell: bash
         run: |
           tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
       - name: Install dependencies
+        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
+      - name: Install dependencies self-hosted
+        if: {{ "${{ contains(matrix.platform.runs_on, 'self-hosted') }}" }}
+        shell: Rscript {0}
+        run: devtools::install_dev_deps('./arrow')
       - name: Set CRAN like openssl
         if: contains(matrix.platform.runs_on, 'arm64')
         run: |
