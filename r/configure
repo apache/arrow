@@ -405,15 +405,20 @@ find_or_build_libarrow
 # Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
 if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
   set_pkg_vars ${_LIBARROW_FOUND}
-fi
 
-if [ -z "${PKG_LIBS// }" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ] && arrow_built_with ARROW_S3; then
-  echo "*** pkg-config failed to find libcurl, but S3 is enabled. Running detection without pkg-config."
-  S3_LIBS="-lcurl -lssl -lcrypto"
-  GCS_LIBS="-lcurl -lssl -lcrypto"
-  set_lib_dir_without_pc ${_LIBARROW_FOUND}
-  add_feature_flags
-  set_pkg_vars_without_pc ${_LIBARROW_FOUND}
+  # If we didn't find any libraries with pkg-config, try again without pkg-config
+  if [ -z "${PKG_LIBS// }" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+    echo "*** pkg-config failed to find libraries. Running detection without pkg-config."
+    if arrow_built_with ARROW_S3 || arrow_built_with ARROW_GCS; then
+      S3_LIBS="-lcurl -lssl -lcrypto"
+      GCS_LIBS="-lcurl -lssl -lcrypto"
+    fi
+    PKG_CONFIG_AVAILABLE="false"
+    set_pkg_vars ${_LIBARROW_FOUND}
+  fi
+  # To make it easier to debug which code path was taken add a specific 
+  # message to the log in addition to the 'NOTE'
+  echo "*** Failed to find Arrow C++ libraries."
 fi
 
 # Test that we can compile something with those flags
