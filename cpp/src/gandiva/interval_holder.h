@@ -39,8 +39,8 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
   ~IntervalHolder() override = default;
 
  protected:
-  static Status Make(const FunctionNode& node, std::shared_ptr<INTERVAL_TYPE>* holder,
-                     const std::string& function_name) {
+  static Result<std::shared_ptr<INTERVAL_TYPE>> Make(const FunctionNode& node,
+                                                     const std::string& function_name) {
     ARROW_RETURN_IF(node.children().size() != 1 && node.children().size() != 2,
                     Status::Invalid(function_name + " requires one or two parameters"));
 
@@ -63,14 +63,11 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
       suppress_errors = std::get<int>(literal_suppress_errors->holder());
     }
 
-    return Make(suppress_errors, holder);
+    return Make(suppress_errors);
   }
 
-  static Status Make(int32_t suppress_errors, std::shared_ptr<INTERVAL_TYPE>* holder) {
-    auto lholder = std::make_shared<INTERVAL_TYPE>(suppress_errors);
-
-    *holder = lholder;
-    return Status::OK();
+  static Result<std::shared_ptr<INTERVAL_TYPE>> Make(int32_t suppress_errors) {
+    return std::make_shared<INTERVAL_TYPE>(suppress_errors);
   }
 
   explicit IntervalHolder(int32_t supress_errors) : suppress_errors_(supress_errors) {}
@@ -94,11 +91,9 @@ class GANDIVA_EXPORT IntervalDaysHolder : public IntervalHolder<IntervalDaysHold
  public:
   ~IntervalDaysHolder() override = default;
 
-  static Status Make(const FunctionNode& node,
-                     std::shared_ptr<IntervalDaysHolder>* holder);
+  static Result<std::shared_ptr<IntervalDaysHolder>> Make(const FunctionNode& node);
 
-  static Status Make(int32_t suppress_errors,
-                     std::shared_ptr<IntervalDaysHolder>* holder);
+  static Result<std::shared_ptr<IntervalDaysHolder>> Make(int32_t suppress_errors);
 
   /// Cast a generic string to an interval
   int64_t operator()(ExecutionContext* ctx, const char* data, int32_t data_len,
@@ -131,11 +126,9 @@ class GANDIVA_EXPORT IntervalYearsHolder : public IntervalHolder<IntervalYearsHo
  public:
   ~IntervalYearsHolder() override = default;
 
-  static Status Make(const FunctionNode& node,
-                     std::shared_ptr<IntervalYearsHolder>* holder);
+  static Result<std::shared_ptr<IntervalYearsHolder>> Make(const FunctionNode& node);
 
-  static Status Make(int32_t suppress_errors,
-                     std::shared_ptr<IntervalYearsHolder>* holder);
+  static Result<std::shared_ptr<IntervalYearsHolder>> Make(int32_t suppress_errors);
 
   /// Cast a generic string to an interval
   int32_t operator()(ExecutionContext* ctx, const char* data, int32_t data_len,
