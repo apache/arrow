@@ -53,7 +53,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-using internal::Zip;
 
 using internal::SmallVector;
 using internal::StaticVector;
@@ -595,8 +594,9 @@ struct ArrayExporter {
     if (need_variadic_buffer_sizes) {
       auto variadic_buffers = util::span(data->buffers).subspan(2);
       export_.variadic_buffer_sizes_.resize(variadic_buffers.size());
-      for (auto [size, buf] : Zip(export_.variadic_buffer_sizes_, variadic_buffers)) {
-        size = buf->size();
+      size_t i = 0;
+      for (const auto& buf : variadic_buffers) {
+        export_.variadic_buffer_sizes_[i++] = buf->size();
       }
       export_.buffers_.back() = export_.variadic_buffer_sizes_.data();
     }
@@ -1896,7 +1896,8 @@ struct ArrayImporter {
   std::shared_ptr<Buffer> zero_size_buffer_;
 
   std::shared_ptr<MemoryManager> memory_mgr_;
-  DeviceAllocationType device_type_{};
+  DeviceAllocationType device_type_{DeviceAllocationType::kCPU};
+;
 };
 
 }  // namespace

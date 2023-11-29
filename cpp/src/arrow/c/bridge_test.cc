@@ -126,7 +126,7 @@ class ReleaseCallback {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ReleaseCallback);
 
-  bool called_{};
+  bool called_{false};
   void (*orig_release_)(CType*);
   void* orig_private_data_;
 };
@@ -290,7 +290,7 @@ struct SchemaExportChecker {
   const std::vector<std::string> flattened_names_;
   std::vector<int64_t> flattened_flags_;
   const std::vector<std::string> flattened_metadata_;
-  size_t flattened_index_{};
+  size_t flattened_index_{0};
 };
 
 class TestSchemaExport : public ::testing::Test {
@@ -928,16 +928,23 @@ static const BinaryViewType::c_type binary_view_buffer1[] = {
     util::ToInlineBinaryView("quux"),
 };
 
-TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
-  auto length = static_cast<int64_t>(std::size(binary_view_buffer1));
-  auto arr = std::make_shared<BinaryViewArray>(
-      binary_view(), length, Buffer::Wrap(binary_view_buffer1, length),
+static auto MakeBinaryViewArrayWithMultipleDataBuffers() {
+  static const auto kLength = static_cast<int64_t>(std::size(binary_view_buffer1));
+  return std::make_shared<BinaryViewArray>(
+      binary_view(), kLength,
+      Buffer::FromVector(std::vector(binary_view_buffer1, binary_view_buffer1 + kLength)),
       BufferVector{
-          std::make_shared<Buffer>(binary_view_buffer_content0),
-          std::make_shared<Buffer>(binary_view_buffer_content1),
+          Buffer::FromString(std::string{binary_view_buffer_content0}),
+          Buffer::FromString(std::string{binary_view_buffer_content1}),
       });
-  TestNested([&] { return arr; });
-  TestNested([&] { return arr->Slice(1, length - 2); });
+}
+
+TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
+  TestPrimitive(MakeBinaryViewArrayWithMultipleDataBuffers);
+  TestPrimitive([&] {
+    auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return arr->Slice(1, arr->length() - 2);
+  });
 }
 
 TEST_F(TestArrayExport, Null) {
@@ -2913,12 +2920,7 @@ TEST_F(TestArrayImport, String) {
 
   auto length = static_cast<int64_t>(std::size(binary_view_buffer1));
   FillStringViewLike(length, 0, 0, binary_view_buffers_no_nulls1, 2);
-  CheckImport(std::make_shared<BinaryViewArray>(
-      binary_view(), length, Buffer::Wrap(binary_view_buffer1, length),
-      BufferVector{
-          std::make_shared<Buffer>(binary_view_buffer_content0),
-          std::make_shared<Buffer>(binary_view_buffer_content1),
-      }));
+  CheckImport(MakeBinaryViewArrayWithMultipleDataBuffers());
 
   // Empty array with null data pointers
   FillStringLike(0, 0, 0, string_buffers_omitted);
@@ -3625,6 +3627,7 @@ TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory([] { return fixed_size_binary(3); });
   TestWithTypeFactory(binary);
   TestWithTypeFactory(large_utf8);
+  TestWithTypeFactory(binary_view);
 }
 
 TEST_F(TestSchemaRoundtrip, Temporal) {
@@ -3887,6 +3890,14 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(month_day_nano_interval(),
                      R"([[4, 5, 6], [1, -600, 5000], null, null])");
+}
+
+TEST_F(TestArrayRoundtrip, BinaryViewMultipleBuffers) {
+  TestWithArrayFactory(MakeBinaryViewArrayWithMultipleDataBuffers);
+  TestWithArrayFactory([&] {
+    auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return arr->Slice(1, arr->length() - 2);
+  });
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {
