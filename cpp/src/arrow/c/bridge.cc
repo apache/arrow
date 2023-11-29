@@ -53,7 +53,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-
 using internal::SmallVector;
 using internal::StaticVector;
 
@@ -1897,7 +1896,6 @@ struct ArrayImporter {
 
   std::shared_ptr<MemoryManager> memory_mgr_;
   DeviceAllocationType device_type_{DeviceAllocationType::kCPU};
-;
 };
 
 }  // namespace
