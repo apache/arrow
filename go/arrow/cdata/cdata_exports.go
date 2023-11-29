@@ -274,7 +274,7 @@ func (exp *schemaExporter) export(field arrow.Field) {
 		exp.dict = new(schemaExporter)
 		exp.dict.export(arrow.Field{Type: dt.ValueType})
 	case arrow.NestedType:
-		exp.children = make([]schemaExporter, len(dt.Fields()))
+		exp.children = make([]schemaExporter, dt.NumFields())
 		for i, f := range dt.Fields() {
 			exp.children[i].export(f)
 		}

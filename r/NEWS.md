@@ -17,7 +17,17 @@
   under the License.
 -->
 
-# arrow 14.0.0.9000
+# arrow 14.0.1.9000
+
+# arrow 14.0.1
+
+# arrow 14.0.0.1
+
+## Minor improvements and fixes
+
+* Add more debug output for build failures (#38819)
+* Increase timeout during static library download (#38767)
+* Fix bug where rosetta detection was causing installation failure (#38754)
 
 # arrow 14.0.0
 

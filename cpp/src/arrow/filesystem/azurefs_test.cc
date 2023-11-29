@@ -56,6 +56,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
@@ -92,9 +93,15 @@ class AzuriteEnv : public ::testing::Environment {
       return;
     }
     auto temp_dir_ = *TemporaryDir::Make("azurefs-test-");
-    server_process_ = bp::child(boost::this_process::environment(), exe_path, "--silent",
-                                "--location", temp_dir_->path().ToString(), "--debug",
-                                temp_dir_->path().ToString() + "/debug.log");
+    auto debug_log_path_result = temp_dir_->path().Join("debug.log");
+    if (!debug_log_path_result.ok()) {
+      status_ = debug_log_path_result.status();
+      return;
+    }
+    debug_log_path_ = *debug_log_path_result;
+    server_process_ =
+        bp::child(boost::this_process::environment(), exe_path, "--silent", "--location",
+                  temp_dir_->path().ToString(), "--debug", debug_log_path_.ToString());
     if (!(server_process_.valid() && server_process_.running())) {
       auto error = "Could not start Azurite emulator.";
       server_process_.terminate();
@@ -110,6 +117,44 @@ class AzuriteEnv : public ::testing::Environment {
     server_process_.wait();
   }
 
+  Result<int64_t> GetDebugLogSize() {
+    ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
+    if (!exists) {
+      return 0;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto file_descriptor,
+                          arrow::internal::FileOpenReadable(debug_log_path_));
+    ARROW_RETURN_NOT_OK(arrow::internal::FileSeek(file_descriptor.fd(), 0, SEEK_END));
+    return arrow::internal::FileTell(file_descriptor.fd());
+  }
+
+  Status DumpDebugLog(int64_t position = 0) {
+    ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
+    if (!exists) {
+      return Status::OK();
+    }
+    ARROW_ASSIGN_OR_RAISE(auto file_descriptor,
+                          arrow::internal::FileOpenReadable(debug_log_path_));
+    if (position > 0) {
+      ARROW_RETURN_NOT_OK(arrow::internal::FileSeek(file_descriptor.fd(), position));
+    }
+    std::vector<uint8_t> buffer;
+    const int64_t buffer_size = 4096;
+    buffer.reserve(buffer_size);
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto n_read_bytes,
+          arrow::internal::FileRead(file_descriptor.fd(), buffer.data(), buffer_size));
+      if (n_read_bytes <= 0) {
+        break;
+      }
+      std::cerr << std::string_view(reinterpret_cast<const char*>(buffer.data()),
+                                    n_read_bytes);
+    }
+    std::cerr << std::endl;
+    return Status::OK();
+  }
+
   const std::string& account_name() const { return account_name_; }
   const std::string& account_key() const { return account_key_; }
   const Status status() const { return status_; }
@@ -120,6 +165,7 @@ class AzuriteEnv : public ::testing::Environment {
   bp::child server_process_;
   Status status_;
   std::unique_ptr<TemporaryDir> temp_dir_;
+  arrow::internal::PlatformFilename debug_log_path_;
 };
 
 auto* azurite_env = ::testing::AddGlobalTestEnvironment(new AzuriteEnv);
@@ -244,15 +290,28 @@ class AzureFileSystemTest : public ::testing::Test {
 };
 
 class AzuriteFileSystemTest : public AzureFileSystemTest {
-  Result<AzureOptions> MakeOptions() {
+  Result<AzureOptions> MakeOptions() override {
     EXPECT_THAT(GetAzuriteEnv(), NotNull());
     ARROW_EXPECT_OK(GetAzuriteEnv()->status());
+    ARROW_ASSIGN_OR_RAISE(debug_log_start_, GetAzuriteEnv()->GetDebugLogSize());
     AzureOptions options;
     options.backend = AzureBackend::Azurite;
     ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
         GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key()));
     return options;
   }
+
+  void TearDown() override {
+    AzureFileSystemTest::TearDown();
+    if (HasFailure()) {
+      // XXX: This may not include all logs in the target test because
+      // Azurite doesn't flush debug logs immediately... You may want
+      // to check the log manually...
+      ARROW_IGNORE_EXPR(GetAzuriteEnv()->DumpDebugLog(debug_log_start_));
+    }
+  }
+
+  int64_t debug_log_start_ = 0;
 };
 
 class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
@@ -508,6 +567,103 @@ TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessContainerAndDirectory) {
 
 TEST_F(AzuriteFileSystemTest, CreateDirUri) {
   ASSERT_RAISES(Invalid, fs_->CreateDir("abfs://" + RandomContainerName(), true));
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessContainer) {
+  const auto container_name = RandomContainerName();
+  ASSERT_OK(fs_->CreateDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+  ASSERT_OK(fs_->DeleteDir(container_name));
+  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessEmpty) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  // There is only virtual directory without hierarchical namespace
+  // support. So the CreateDir() and DeleteDir() do nothing.
+  ASSERT_OK(fs_->CreateDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessNonexistent) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  // There is only virtual directory without hierarchical namespace
+  // support. So the DeleteDir() for nonexistent directory does nothing.
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirSuccessHaveBlobs) {
+#ifdef __APPLE__
+  GTEST_SKIP() << "This test fails by an Azurite problem: "
+                  "https://github.com/Azure/Azurite/pull/2302";
+#endif
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  // We must use 257 or more blobs here to test pagination of ListBlobs().
+  // Because we can't add 257 or more delete blob requests to one SubmitBatch().
+  int64_t n_blobs = 257;
+  for (int64_t i = 0; i < n_blobs; ++i) {
+    const auto blob_path =
+        internal::ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
+    ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(blob_path));
+    ASSERT_OK(output->Write(std::string_view(std::to_string(i))));
+    ASSERT_OK(output->Close());
+    arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::File);
+  }
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  for (int64_t i = 0; i < n_blobs; ++i) {
+    const auto blob_path =
+        internal::ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
+    arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::NotFound);
+  }
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessEmpty) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_OK(fs_->CreateDir(directory_path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::Directory);
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirFailureNonexistent) {
+  const auto path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_RAISES(IOError, fs_->DeleteDir(path));
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveBlob) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  const auto blob_path = internal::ConcatAbstractPath(directory_path, "hello.txt");
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(blob_path));
+  ASSERT_OK(output->Write(std::string_view("hello")));
+  ASSERT_OK(output->Close());
+  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::File);
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::NotFound);
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveDirectory) {
+  const auto parent =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
+  ASSERT_OK(fs_->CreateDir(path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
+  ASSERT_OK(fs_->DeleteDir(parent));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirUri) {
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("abfs://" + PreexistingContainerPath()));
 }
 
 TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {

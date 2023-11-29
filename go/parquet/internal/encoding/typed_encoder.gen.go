@@ -192,7 +192,7 @@ func (DictInt32Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictInt32Decoder) Decode(out []int32) (int, error) {
 	vals := shared_utils.MinInt(len(out), d.nvals)
@@ -429,7 +429,7 @@ func (DictInt64Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictInt64Decoder) Decode(out []int64) (int, error) {
 	vals := shared_utils.MinInt(len(out), d.nvals)
@@ -644,7 +644,7 @@ func (DictInt96Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictInt96Decoder) Decode(out []parquet.Int96) (int, error) {
 	vals := shared_utils.MinInt(len(out), d.nvals)
@@ -869,7 +869,7 @@ func (DictFloat32Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictFloat32Decoder) Decode(out []float32) (int, error) {
 	vals := shared_utils.MinInt(len(out), d.nvals)
@@ -1094,7 +1094,7 @@ func (DictFloat64Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictFloat64Decoder) Decode(out []float64) (int, error) {
 	vals := shared_utils.MinInt(len(out), d.nvals)
@@ -1362,7 +1362,7 @@ func (DictByteArrayDecoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
 	vals := shared_utils.MinInt(len(out), d.nvals)
@@ -1541,7 +1541,7 @@ func (DictFixedLenByteArrayDecoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (int, error) {
 	vals := shared_utils.MinInt(len(out), d.nvals)

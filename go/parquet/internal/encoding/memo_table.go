@@ -100,7 +100,7 @@ type BinaryMemoTable interface {
 	Retain()
 	// Release decreases the reference count by 1 of the separately stored binary data
 	// kept alongside the table containing the values. When the reference count goes to
-	// 0, the memory is freed. This is safe to call across multiple goroutines simultaneoulsy.
+	// 0, the memory is freed. This is safe to call across multiple goroutines simultaneously.
 	Release()
 }
 

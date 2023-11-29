@@ -148,7 +148,7 @@ func (DeltaByteArrayDecoder) Type() parquet.Type {
 
 func (d *DeltaByteArrayDecoder) Allocator() memory.Allocator { return d.mem }
 
-// SetData expects the data passed in to be the prefix lengths, followed by the
+// SetData expects the passed in data to be the prefix lengths, followed by the
 // blocks of suffix data in order to initialize the decoder.
 func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	prefixLenDec := DeltaBitPackInt32Decoder{

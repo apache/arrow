@@ -81,7 +81,7 @@ func MaxRLEBufferSize(width, numValues int) int {
 // on a byte boundary without padding.
 // Given that we know it is a multiple of 8, we store the number of 8-groups rather than
 // the actual number of encoded ints. (This means that the total number of encoded values
-// can not be determined from the encoded data, since the number of values in the last
+// cannot be determined from the encoded data, since the number of values in the last
 // group may not be a multiple of 8). For the last group of literal runs, we pad
 // the group to 8 with zeros. This allows for 8 at a time decoding on the read side
 // without the need for additional checks.
@@ -479,7 +479,7 @@ func (r *RleEncoder) Flush() int {
 		if r.repCount > 0 && allRep {
 			r.flushRepeated()
 		} else {
-			// buffer the last grou pof literals to 8 by padding with 0s
+			// buffer the last group of literals to 8 by padding with 0s
 			for len(r.buffer) != 0 && len(r.buffer) < 8 {
 				r.buffer = append(r.buffer, 0)
 			}

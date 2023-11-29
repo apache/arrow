@@ -189,7 +189,7 @@ func TestStringBuilder_Empty(t *testing.T) {
 }
 
 // TestStringReset tests the Reset() method on the String type by creating two different Strings and then
-// reseting the contents of string2 with the values from string1.
+// resetting the contents of string2 with the values from string1.
 func TestStringReset(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	sb1 := array.NewStringBuilder(mem)
@@ -471,7 +471,7 @@ func TestLargeStringBuilder_Empty(t *testing.T) {
 }
 
 // TestStringReset tests the Reset() method on the String type by creating two different Strings and then
-// reseting the contents of string2 with the values from string1.
+// resetting the contents of string2 with the values from string1.
 func TestLargeStringReset(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	sb1 := array.NewLargeStringBuilder(mem)
@@ -771,7 +771,7 @@ func TestStringViewBuilder_Empty(t *testing.T) {
 }
 
 // TestStringReset tests the Reset() method on the String type by creating two different Strings and then
-// reseting the contents of string2 with the values from string1.
+// resetting the contents of string2 with the values from string1.
 func TestStringViewReset(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	sb1 := array.NewStringViewBuilder(mem)

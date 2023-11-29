@@ -36,9 +36,9 @@ areas ingesting potentially invalid or malicious data.
 Fuzz Targets and Utilities
 ==========================
 
-By passing the ``-DARROW_FUZZING=ON`` CMake option, you will build
-the fuzz targets corresponding to the aforementioned Arrow features, as well
-as additional related utilities.
+By passing the ``-DARROW_FUZZING=ON`` CMake option (or equivalently, using
+the ``fuzzing`` preset), you will build the fuzz targets corresponding to
+the aforementioned Arrow features, as well as additional related utilities.
 
 Generating the seed corpus
 --------------------------
@@ -85,11 +85,7 @@ various sanitizer checks enabled.
 
 .. code-block::
 
-   $ cmake .. -GNinja \
-       -DCMAKE_BUILD_TYPE=Debug \
-       -DARROW_USE_ASAN=on \
-       -DARROW_USE_UBSAN=on \
-       -DARROW_FUZZING=on
+   $ cmake .. --preset=fuzzing
 
 Then, assuming you have downloaded the crashing data file (let's call it
 ``testcase-arrow-ipc-file-fuzz-123465``), you can reproduce the crash
@@ -101,3 +97,15 @@ by running the affected fuzz target on that file:
 
 (you may want to run that command under a debugger so as to inspect the
 program state more closely)
+
+Using conda
+-----------
+
+The fuzzing executables must be compiled with clang and linked to libraries
+which provide a fuzzing runtime. If you are using conda to provide your
+dependencies, you may need to install these before building the fuzz targets:
+
+.. code-block::
+
+   $ conda install clang clangxx compiler-rt
+   $ cmake .. --preset=fuzzing
