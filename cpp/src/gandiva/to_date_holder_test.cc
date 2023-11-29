@@ -137,8 +137,7 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
 
 TEST_F(TestToDateHolder, TestSimpleDateTimeMakeError) {
   // reject time stamps for now.
-  auto const status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0).status();
-  EXPECT_EQ(status.IsInvalid(), true) << status.message();
+  ASSERT_RAISES(Invalid, ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0).status());
 }
 
 TEST_F(TestToDateHolder, TestSimpleDateYearMonth) {

@@ -79,8 +79,7 @@ TEST_F(TestLikeHolder, TestPcreSpecial) {
 
 TEST_F(TestLikeHolder, TestRegexEscape) {
   std::string res;
-  auto status = RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ARROW_EXPECT_OK(RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res));
 
   EXPECT_EQ(res, "%hello_abc.def#");
 }
@@ -224,8 +223,7 @@ TEST_F(TestLikeHolder, TestEmptyEscapeChar) {
 }
 
 TEST_F(TestLikeHolder, TestMultipleEscapeChar) {
-  auto status = LikeHolder::Make("ab\\_", "\\\\").status();
-  EXPECT_EQ(status.ok(), false) << status.message();
+  ASSERT_RAISES(Invalid, LikeHolder::Make("ab\\_", "\\\\").status());
 }
 
 class TestILikeHolder : public ::testing::Test {
@@ -368,9 +366,7 @@ TEST_F(TestReplaceHolder, TestReplaceSameSize) {
 }
 
 TEST_F(TestReplaceHolder, TestReplaceInvalidPattern) {
-  auto replace_holder = ReplaceHolder::Make("+");
-  EXPECT_EQ(replace_holder.ok(), false) << replace_holder.status().message();
-
+  ASSERT_RAISES(Invalid, ReplaceHolder::Make("+"));
   execution_context_.Reset();
 }
 
@@ -586,8 +582,7 @@ TEST_F(TestExtractHolder, TestInvalidRange) {
 }
 
 TEST_F(TestExtractHolder, TestExtractInvalidPattern) {
-  auto extract_holder = ExtractHolder::Make("+");
-  EXPECT_EQ(extract_holder.ok(), false) << extract_holder.status().message();
+  ASSERT_RAISES(Invalid, ExtractHolder::Make("+"));
   execution_context_.Reset();
 }
 
@@ -600,9 +595,9 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
       FunctionNode("regexp_extract", {field, pattern_node}, arrow::utf8());
 
   auto extract_holder = ExtractHolder::Make(function_node);
-  EXPECT_EQ(extract_holder.ok(), false);
-  EXPECT_THAT(extract_holder.status().message(),
-              ::testing::HasSubstr("'extract' function requires three parameters"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("'extract' function requires three parameters"),
+      extract_holder.status());
 
   execution_context_.Reset();
 
@@ -614,10 +609,11 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
       FunctionNode("regexp_extract", {field, pattern_node, index_node}, arrow::utf8());
 
   extract_holder = ExtractHolder::Make(function_node);
-  EXPECT_EQ(extract_holder.ok(), false);
-  EXPECT_THAT(extract_holder.status().message(),
-              ::testing::HasSubstr(
-                  "'extract' function requires a literal as the second parameter"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "'extract' function requires a literal as the second parameter"),
+      extract_holder.status());
 
   execution_context_.Reset();
 
@@ -630,10 +626,11 @@ TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
       FunctionNode("regexp_extract", {field, pattern_as_node, index_node}, arrow::utf8());
 
   extract_holder = ExtractHolder::Make(function_node);
-  EXPECT_EQ(extract_holder.ok(), false);
-  EXPECT_THAT(extract_holder.status().message(),
-              ::testing::HasSubstr(
-                  "'extract' function requires a literal as the second parameter"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "'extract' function requires a literal as the second parameter"),
+      extract_holder.status());
 
   execution_context_.Reset();
 }
