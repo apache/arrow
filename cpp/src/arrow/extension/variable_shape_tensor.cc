@@ -201,8 +201,8 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
 
   ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar.field(0));
   ARROW_ASSIGN_OR_RAISE(const auto data, tensor_scalar.field(1));
-  const auto shape_array =
-      std::static_pointer_cast<FixedSizeListScalar>(shape_scalar)->value;
+  const auto& shape_array =
+      checked_cast<const Int32Array&>(*checked_cast<const FixedSizeListScalar&>(*shape_scalar)->value);
 
   std::vector<int64_t> shape;
   for (uint32_t j = 0; j < this->ndim(); ++j) {
