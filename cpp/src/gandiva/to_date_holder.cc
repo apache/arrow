@@ -50,7 +50,7 @@ Result<std::shared_ptr<ToDateHolder>> ToDateHolder::Make(const FunctionNode& nod
   if (node.children().size() == 3) {
     auto literal_suppress_errors =
         dynamic_cast<LiteralNode*>(node.children().at(2).get());
-    if (literal_pattern == nullptr) {
+    if (literal_suppress_errors == nullptr) {
       return Status::Invalid(
           "The (optional) third parameter to 'to_date' function needs to an integer "
           "literal to indicate whether to suppress the error");
