@@ -272,7 +272,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getTicketStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(toList());
-    return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
+    return FlightInfo.builder(queryInfo.getKey(), flightDescriptor, endpoints)
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8))
+            .build();
   }
 
   @Override
@@ -295,7 +297,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getCommandPreparedStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(toList());
-    return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
+    return FlightInfo.builder(queryInfo.getKey(), flightDescriptor, endpoints)
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8))
+            .build();
   }
 
   @Override
