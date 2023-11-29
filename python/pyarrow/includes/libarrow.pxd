@@ -2787,11 +2787,6 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
                                             const vector[c_string]& dim_names,
                                             const vector[optional[int64_t]]& uniform_shape)
 
-        CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
-                                                   const c_string& serialized_data) const
-
-        c_string Serialize() const
-
         const shared_ptr[CDataType] value_type()
         const int32_t ndim()
         const vector[int64_t] permutation()
@@ -2812,11 +2807,6 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
                                             const vector[int64_t]& shape,
                                             const vector[int64_t]& permutation,
                                             const vector[c_string]& dim_names)
-
-        CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
-                                                   const c_string& serialized_data) const
-
-        c_string Serialize() const
 
         const shared_ptr[CDataType] value_type()
         const vector[int64_t] shape()
