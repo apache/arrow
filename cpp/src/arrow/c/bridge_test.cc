@@ -38,11 +38,13 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 
 // TODO(GH-37221): Remove these ifdef checks when compute dependency is removed
 #ifdef ARROW_COMPUTE
@@ -58,6 +60,7 @@ using internal::ArrayStreamExportTraits;
 using internal::checked_cast;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
+using internal::Zip;
 
 template <typename T>
 struct ExportTraits {};
@@ -91,7 +94,7 @@ class ReleaseCallback {
  public:
   using CType = typename Traits::CType;
 
-  explicit ReleaseCallback(CType* c_struct) : called_(false) {
+  explicit ReleaseCallback(CType* c_struct) {
     orig_release_ = c_struct->release;
     orig_private_data_ = c_struct->private_data;
     c_struct->release = StaticRelease;
@@ -123,7 +126,7 @@ class ReleaseCallback {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ReleaseCallback);
 
-  bool called_;
+  bool called_{false};
   void (*orig_release_)(CType*);
   void* orig_private_data_;
 };
@@ -238,8 +241,7 @@ struct SchemaExportChecker {
             flattened_flags.empty()
                 ? std::vector<int64_t>(flattened_formats_.size(), kDefaultFlags)
                 : std::move(flattened_flags)),
-        flattened_metadata_(std::move(flattened_metadata)),
-        flattened_index_(0) {}
+        flattened_metadata_(std::move(flattened_metadata)) {}
 
   void operator()(struct ArrowSchema* c_export, bool inner = false) {
     ASSERT_LT(flattened_index_, flattened_formats_.size());
@@ -288,7 +290,7 @@ struct SchemaExportChecker {
   const std::vector<std::string> flattened_names_;
   std::vector<int64_t> flattened_flags_;
   const std::vector<std::string> flattened_metadata_;
-  size_t flattened_index_;
+  size_t flattened_index_{0};
 };
 
 class TestSchemaExport : public ::testing::Test {
@@ -354,6 +356,8 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(large_binary(), "Z");
   TestPrimitive(utf8(), "u");
   TestPrimitive(large_utf8(), "U");
+  TestPrimitive(binary_view(), "vz");
+  TestPrimitive(utf8_view(), "vu");
 
   TestPrimitive(decimal(16, 4), "d:16,4");
   TestPrimitive(decimal256(16, 4), "d:16,4,256");
@@ -565,11 +569,23 @@ struct ArrayExportChecker {
       --expected_n_buffers;
       ++expected_buffers;
     }
-    ASSERT_EQ(c_export->n_buffers, expected_n_buffers);
+    bool has_variadic_buffer_sizes = expected_data.type->id() == Type::STRING_VIEW ||
+                                     expected_data.type->id() == Type::BINARY_VIEW;
+    ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
-    for (int64_t i = 0; i < c_export->n_buffers; ++i) {
+
+    for (int64_t i = 0; i < expected_n_buffers; ++i) {
       auto expected_ptr = expected_buffers[i] ? expected_buffers[i]->data() : nullptr;
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
+    }
+    if (has_variadic_buffer_sizes) {
+      auto variadic_buffers = util::span(expected_data.buffers).subspan(2);
+      auto variadic_buffer_sizes = util::span(
+          static_cast<const int64_t*>(c_export->buffers[c_export->n_buffers - 1]),
+          variadic_buffers.size());
+      for (auto [buf, size] : Zip(variadic_buffers, variadic_buffer_sizes)) {
+        ASSERT_EQ(buf->size(), size);
+      }
     }
 
     if (expected_data.dictionary != nullptr) {
@@ -883,6 +899,8 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(large_binary(), R"(["foo", "bar", null])");
   TestPrimitive(utf8(), R"(["foo", "bar", null])");
   TestPrimitive(large_utf8(), R"(["foo", "bar", null])");
+  TestPrimitive(binary_view(), R"(["foo", "bar", null])");
+  TestPrimitive(utf8_view(), R"(["foo", "bar", null])");
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
@@ -894,6 +912,39 @@ TEST_F(TestArrayExport, PrimitiveSliced) {
   auto factory = []() { return ArrayFromJSON(int16(), "[1, 2, null, -3]")->Slice(1, 2); };
 
   TestPrimitive(factory);
+}
+
+constexpr std::string_view binary_view_buffer_content0 = "12345foo bar baz quux",
+                           binary_view_buffer_content1 = "BinaryViewMultipleBuffers";
+
+static const BinaryViewType::c_type binary_view_buffer1[] = {
+    util::ToBinaryView(binary_view_buffer_content0, 0, 0),
+    util::ToInlineBinaryView("foo"),
+    util::ToBinaryView(binary_view_buffer_content1, 1, 0),
+    util::ToInlineBinaryView("bar"),
+    util::ToBinaryView(binary_view_buffer_content0.substr(5), 0, 5),
+    util::ToInlineBinaryView("baz"),
+    util::ToBinaryView(binary_view_buffer_content1.substr(6, 13), 1, 6),
+    util::ToInlineBinaryView("quux"),
+};
+
+static auto MakeBinaryViewArrayWithMultipleDataBuffers() {
+  static const auto kLength = static_cast<int64_t>(std::size(binary_view_buffer1));
+  return std::make_shared<BinaryViewArray>(
+      binary_view(), kLength,
+      Buffer::FromVector(std::vector(binary_view_buffer1, binary_view_buffer1 + kLength)),
+      BufferVector{
+          Buffer::FromString(std::string{binary_view_buffer_content0}),
+          Buffer::FromString(std::string{binary_view_buffer_content1}),
+      });
+}
+
+TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
+  TestPrimitive(MakeBinaryViewArrayWithMultipleDataBuffers);
+  TestPrimitive([&] {
+    auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return arr->Slice(1, arr->length() - 2);
+  });
 }
 
 TEST_F(TestArrayExport, Null) {
@@ -1220,13 +1271,16 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
 
 static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
 static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
-static const void* kMyEventPtr = reinterpret_cast<void*>(uintptr_t(0xBAADF00D));
+static const void* kMyEventPtr =
+    reinterpret_cast<void*>(static_cast<uintptr_t>(0xBAADF00D));
 
 class MyBuffer final : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
 
-  ~MyBuffer() { default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_); }
+  ~MyBuffer() override {
+    default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_);
+  }
 
   std::shared_ptr<Device::SyncEvent> device_sync_event() override { return device_sync_; }
 
@@ -1256,7 +1310,7 @@ class MyDevice : public Device {
     explicit MySyncEvent(void* sync_event, release_fn_t release_sync_event)
         : Device::SyncEvent(sync_event, release_sync_event) {}
 
-    virtual ~MySyncEvent() = default;
+    ~MySyncEvent() override = default;
     Status Wait() override { return Status::OK(); }
     Status Record(const Device::Stream&) override { return Status::OK(); }
   };
@@ -1966,6 +2020,10 @@ TEST_F(TestSchemaImport, String) {
   CheckImport(large_utf8());
   FillPrimitive("Z");
   CheckImport(large_binary());
+  FillPrimitive("vu");
+  CheckImport(utf8_view());
+  FillPrimitive("vz");
+  CheckImport(binary_view());
 
   FillPrimitive("w:3");
   CheckImport(fixed_size_binary(3));
@@ -2419,6 +2477,16 @@ static const void* large_string_buffers_no_nulls1[3] = {
 static const void* large_string_buffers_omitted[3] = {
     nullptr, large_string_offsets_buffer1, nullptr};
 
+constexpr int64_t binary_view_buffer_sizes1[] = {binary_view_buffer_content0.size(),
+                                                 binary_view_buffer_content1.size()};
+static const void* binary_view_buffers_no_nulls1[] = {
+    nullptr,
+    binary_view_buffer1,
+    binary_view_buffer_content0.data(),
+    binary_view_buffer_content1.data(),
+    binary_view_buffer_sizes1,
+};
+
 static const int32_t list_offsets_buffer1[] = {0, 2, 2, 5, 6, 8};
 static const void* list_buffers_no_nulls1[2] = {nullptr, list_offsets_buffer1};
 static const void* list_buffers_nulls1[2] = {bits_buffer1, list_offsets_buffer1};
@@ -2510,6 +2578,16 @@ class TestArrayImport : public ::testing::Test {
     c->buffers = buffers;
   }
 
+  void FillStringViewLike(struct ArrowArray* c, int64_t length, int64_t null_count,
+                          int64_t offset, const void** buffers,
+                          int32_t data_buffer_count) {
+    c->length = length;
+    c->null_count = null_count;
+    c->offset = offset;
+    c->n_buffers = 2 + data_buffer_count + 1;
+    c->buffers = buffers;
+  }
+
   void FillListLike(struct ArrowArray* c, int64_t length, int64_t null_count,
                     int64_t offset, const void** buffers) {
     c->length = length;
@@ -2581,6 +2659,12 @@ class TestArrayImport : public ::testing::Test {
   void FillStringLike(int64_t length, int64_t null_count, int64_t offset,
                       const void** buffers) {
     FillStringLike(&c_struct_, length, null_count, offset, buffers);
+  }
+
+  void FillStringViewLike(int64_t length, int64_t null_count, int64_t offset,
+                          const void** buffers, int32_t data_buffer_count) {
+    FillStringViewLike(&c_struct_, length, null_count, offset, buffers,
+                       data_buffer_count);
   }
 
   void FillListLike(int64_t length, int64_t null_count, int64_t offset,
@@ -2833,6 +2917,10 @@ TEST_F(TestArrayImport, String) {
   CheckImport(ArrayFromJSON(large_utf8(), R"(["foo", "", "bar", "quux"])"));
   FillStringLike(4, 0, 0, large_string_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(large_binary(), R"(["foo", "", "bar", "quux"])"));
+
+  auto length = static_cast<int64_t>(std::size(binary_view_buffer1));
+  FillStringViewLike(length, 0, 0, binary_view_buffers_no_nulls1, 2);
+  CheckImport(MakeBinaryViewArrayWithMultipleDataBuffers());
 
   // Empty array with null data pointers
   FillStringLike(0, 0, 0, string_buffers_omitted);
@@ -3530,15 +3618,16 @@ TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory(boolean);
   TestWithTypeFactory(float16);
 
-  TestWithTypeFactory(std::bind(decimal128, 19, 4));
-  TestWithTypeFactory(std::bind(decimal256, 19, 4));
-  TestWithTypeFactory(std::bind(decimal128, 19, 0));
-  TestWithTypeFactory(std::bind(decimal256, 19, 0));
-  TestWithTypeFactory(std::bind(decimal128, 19, -5));
-  TestWithTypeFactory(std::bind(decimal256, 19, -5));
-  TestWithTypeFactory(std::bind(fixed_size_binary, 3));
+  TestWithTypeFactory([] { return decimal128(19, 4); });
+  TestWithTypeFactory([] { return decimal256(19, 4); });
+  TestWithTypeFactory([] { return decimal128(19, 0); });
+  TestWithTypeFactory([] { return decimal256(19, 0); });
+  TestWithTypeFactory([] { return decimal128(19, -5); });
+  TestWithTypeFactory([] { return decimal256(19, -5); });
+  TestWithTypeFactory([] { return fixed_size_binary(3); });
   TestWithTypeFactory(binary);
   TestWithTypeFactory(large_utf8);
+  TestWithTypeFactory(binary_view);
 }
 
 TEST_F(TestSchemaRoundtrip, Temporal) {
@@ -3546,8 +3635,8 @@ TEST_F(TestSchemaRoundtrip, Temporal) {
   TestWithTypeFactory(day_time_interval);
   TestWithTypeFactory(month_interval);
   TestWithTypeFactory(month_day_nano_interval);
-  TestWithTypeFactory(std::bind(time64, TimeUnit::NANO));
-  TestWithTypeFactory(std::bind(duration, TimeUnit::MICRO));
+  TestWithTypeFactory([] { return time64(TimeUnit::NANO); });
+  TestWithTypeFactory([] { return duration(TimeUnit::MICRO); });
   TestWithTypeFactory([]() { return arrow::timestamp(TimeUnit::MICRO, "Europe/Paris"); });
 }
 
@@ -3801,6 +3890,14 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(month_day_nano_interval(),
                      R"([[4, 5, 6], [1, -600, 5000], null, null])");
+}
+
+TEST_F(TestArrayRoundtrip, BinaryViewMultipleBuffers) {
+  TestWithArrayFactory(MakeBinaryViewArrayWithMultipleDataBuffers);
+  TestWithArrayFactory([&] {
+    auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return arr->Slice(1, arr->length() - 2);
+  });
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {
@@ -4204,8 +4301,6 @@ TEST_F(TestDeviceArrayRoundtrip, Primitive) {
 
   TestWithJSON(mm, int32(), "[4, 5, null]");
 }
-
-// TODO C -> C++ -> C roundtripping tests?
 
 ////////////////////////////////////////////////////////////////////////////
 // Array stream export tests
