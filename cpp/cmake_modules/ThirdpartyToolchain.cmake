@@ -2388,10 +2388,10 @@ if(ARROW_USE_XSIMD)
   resolve_dependency(xsimd
                      FORCE_ANY_NEWER_VERSION
                      TRUE
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE
                      REQUIRED_VERSION
-                     "8.1.0"
-                     PC_PACKAGE_NAMES
-                     xsimd)
+                     "8.1.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(arrow::xsimd INTERFACE IMPORTED)
