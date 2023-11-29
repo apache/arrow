@@ -293,15 +293,15 @@ set_pkg_vars () {
 
 # If we have pkg-config, it will tell us what libarrow needs
 set_lib_dir_with_pc () {
-  LIB_DIR="`${PKG_CONFIG} --variable=libdir --silence-errors ${PKG_CONFIG_NAME}`"
+  LIB_DIR="`${PKG_CONFIG} --variable=libdir  ${PKG_CONFIG_NAME}`"
 }
 set_pkg_vars_with_pc () {
   pkg_config_names="${PKG_CONFIG_NAME} ${PKG_CONFIG_NAMES_FEATURES}"
-  PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${pkg_config_names}` $PKG_CFLAGS"
+  PKG_CFLAGS="`${PKG_CONFIG} --cflags  ${pkg_config_names}` $PKG_CFLAGS"
   PKG_CFLAGS="$PKG_CFLAGS $PKG_CFLAGS_FEATURES"
-  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${pkg_config_names}`
+  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other ${pkg_config_names}`
   PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
-  PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${pkg_config_names}`
+  PKG_DIRS=`${PKG_CONFIG} --libs-only-L  ${pkg_config_names}`
 }
 
 # If we don't have pkg-config, we can make some inferences
