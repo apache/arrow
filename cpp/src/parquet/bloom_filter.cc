@@ -144,9 +144,8 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     bloom_filter.Init(header_buf->data() + header_size, bloom_filter_size);
     return bloom_filter;
   }
-  if (bloom_filter_length && *bloom_filter_length < bloom_filter_size + header_size) {
-    // We know the bloom filter data size, but the length is not enough to read the
-    // entire bloom filter.
+  if (bloom_filter_length && *bloom_filter_length != bloom_filter_size + header_size) {
+    // We know the bloom filter data size, but the real size is different.
     std::stringstream ss;
     ss << "Bloom filter length (" << bloom_filter_length.value()
        << ") is not enough to read the entire bloom filter (size: "
