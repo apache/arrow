@@ -5319,7 +5319,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
     tensor_array: extension<arrow.variable_shape_tensor>
     ----
     tensor_array: [  -- is_valid: all not null
-      -- child 0 type: fixed_size_list<item: uint32>[2]
+      -- child 0 type: fixed_size_list<item: int32>[2]
     [[2,3],[1,2]]
       -- child 1 type: list<item: int32>
     [[1,2,3,4,5,6],[7,8]]]
