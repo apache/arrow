@@ -140,9 +140,13 @@ strings:
 +-----------------+---------------------------------------------------+------------+
 | ``Z``           | large binary                                      |            |
 +-----------------+---------------------------------------------------+------------+
+| ``vz``          | binary view                                       |            |
++-----------------+---------------------------------------------------+------------+
 | ``u``           | utf-8 string                                      |            |
 +-----------------+---------------------------------------------------+------------+
 | ``U``           | large utf-8 string                                |            |
++-----------------+---------------------------------------------------+------------+
+| ``vu``          | utf-8 view                                        |            |
 +-----------------+---------------------------------------------------+------------+
 | ``d:19,10``     | decimal128 [precision 19, scale 10]               |            |
 +-----------------+---------------------------------------------------+------------+
@@ -547,6 +551,14 @@ parameterized extension types).
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
+
+Binary view arrays
+------------------
+
+For binary or utf-8 view arrays, an extra buffer is appended which stores
+the lengths of each variadic data buffer as ``int64_t``. This buffer is
+necessary since these buffer lengths are not trivially extractable from
+other data in an array of binary or utf-8 view type.
 
 .. _c-data-interface-semantics:
 

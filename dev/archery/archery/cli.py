@@ -42,7 +42,7 @@ logging.basicConfig(level=logging.INFO)
 BOOL = ArrowBool()
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--debug", type=BOOL, is_flag=True, default=False,
               help="Increase logging with debugging output.")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
