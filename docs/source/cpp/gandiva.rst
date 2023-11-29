@@ -40,122 +40,13 @@ pre-compiled into LLVM IR (intermediate representation).
 .. _LLVM: https://llvm.org/
 
 
-Building Expressions
-====================
+Expression, Projector and Filter
+================================
+To effectively utilize Gandiva, you will construct expression trees with ``TreeExprBuilder``, 
+including the creation of function nodes, if-else logic, and boolean expressions. 
+Subsequently, leverage ``Projector`` or ``Filter`` execution kernels to efficiently evaluate these expressions.
+See :doc:`./gandiva/expr_projector_filter` for more details. 
 
-Gandiva provides a general expression representation where expressions are
-represented by a tree of nodes. The expression trees are built using
-:class:`TreeExprBuilder`. The leaves of the expression tree are typically
-field references, created by :func:`TreeExprBuilder::MakeField`, and
-literal values, created by :func:`TreeExprBuilder::MakeLiteral`. Nodes
-can be combined into more complex expression trees using:
-
-* :func:`TreeExprBuilder::MakeFunction` to create a function
-  node. (You can call :func:`GetRegisteredFunctionSignatures` to 
-  get a list of valid function signatures.)
-* :func:`TreeExprBuilder::MakeIf` to create if-else logic.
-* :func:`TreeExprBuilder::MakeAnd` and :func:`TreeExprBuilder::MakeOr`
-  to create boolean expressions. (For "not", use the ``not(bool)`` function in ``MakeFunction``.)
-* :func:`TreeExprBuilder::MakeInExpressionInt32` and the other "in expression"
-  functions to create set membership tests.
-
-Each of these functions create new composite nodes, which contain the leaf nodes
-(literals and field references) or other composite nodes as children. By 
-composing these, you can create arbitrarily complex expression trees.
-
-Once an expression tree is built, they are wrapped in either :class:`Expression`
-or :class:`Condition`, depending on how they will be used.
-``Expression`` is used in projections while ``Condition`` is used in filters.
-
-As an example, here is how to create an Expression representing ``x + 3`` and a
-Condition representing ``x < 3``:
-
-.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
-   :language: cpp
-   :start-after: (Doc section: Create expressions)
-   :end-before: (Doc section: Create expressions)
-   :dedent: 2
-
-
-Projectors and Filters
-======================
-
-Gandiva's two execution kernels are :class:`Projector` and
-:class:`Filter`. ``Projector`` consumes a record batch and projects
-into a new record batch. ``Filter`` consumes a record batch and produces a
-:class:`SelectionVector` containing the indices that matched the condition.
-
-For both ``Projector`` and ``Filter``, optimization of the expression IR happens
-when creating instances. They are compiled against a static schema, so the
-schema of the record batches must be known at this point.
-
-Continuing with the ``expression`` and ``condition`` created in the previous
-section, here is an example of creating a Projector and a Filter:
-
-.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
-   :language: cpp
-   :start-after: (Doc section: Create projector and filter)
-   :end-before: (Doc section: Create projector and filter)
-   :dedent: 2
-
-Once a Projector or Filter is created, it can be evaluated on Arrow record batches.
-These execution kernels are single-threaded on their own, but are designed to be
-reused to process distinct record batches in parallel.
-
-Evaluating projections
-----------------------
-
-Execution is performed with :func:`Projector::Evaluate`. This outputs 
-a vector of arrays, which can be passed along with the output schema to
-:func:`arrow::RecordBatch::Make()`.
-
-.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
-   :language: cpp
-   :start-after: (Doc section: Evaluate projection)
-   :end-before: (Doc section: Evaluate projection)
-   :dedent: 2
-
-Evaluating filters
-------------------
-
-:func:`Filter::Evaluate` produces :class:`SelectionVector`,
-a vector of row indices that matched the filter condition. The selection vector
-is a wrapper around an arrow integer array, parameterized by bitwidth. When 
-creating the selection vector (you must initialize it *before* passing to 
-``Evaluate()``), you must choose the bitwidth, which determines the max index 
-value it can hold, and the max number of slots, which determines how many indices
-it may contain. In general, the max number of slots should be set to your batch 
-size and the bitwidth the smallest integer size that can represent all integers 
-less than the batch size. For example, if your batch size is 100k, set the 
-maximum number of slots to 100k and the bitwidth to 32 (since 2^16 = 64k which 
-would be too small).
-
-Once ``Evaluate()`` has been run and the :class:`SelectionVector` is
-populated, use the :func:`SelectionVector::ToArray()` method to get
-the underlying array and then :func:`::arrow::compute::Take()` to materialize the
-output record batch.
-
-.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
-   :language: cpp
-   :start-after: (Doc section: Evaluate filter)
-   :end-before: (Doc section: Evaluate filter)
-   :dedent: 2
-
-Evaluating projections and filters
-----------------------------------
-
-Finally, you can also project while apply a selection vector, with 
-:func:`Projector::Evaluate()`. To do so, first make sure to initialize the
-:class:`Projector` with :func:`SelectionVector::GetMode()` so that the projector
-compiles with the correct bitwidth. Then you can pass the 
-:class:`SelectionVector` into the :func:`Projector::Evaluate()` method.
-
-
-.. literalinclude:: ../../../cpp/examples/arrow/gandiva_example.cc
-   :language: cpp
-   :start-after: (Doc section: Evaluate filter and projection)
-   :end-before: (Doc section: Evaluate filter and projection)
-   :dedent: 2
 
 External Functions Development
 ==============================
@@ -167,3 +58,9 @@ Gandiva provides the opportunity to develop and register their own external
 functions, thus allowing for a more tailored and flexible use of the Gandiva 
 environment.
 See :doc:`./gandiva/external_func` for more details. 
+
+.. toctree::
+   :maxdepth: 2
+
+   gandiva/expr_projector_filter
+   gandiva/external_func

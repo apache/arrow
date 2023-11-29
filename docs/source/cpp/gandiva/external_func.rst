@@ -29,9 +29,9 @@ Overview of External Function Types in Gandiva
 
 Gandiva supports two primary types of external functions:
 
-* C Functions: Functions conforming to the C calling convention. Developers can implement functions in various languages (like C++, Rust, C, or Zig) and expose them as C functions for Gandiva.
+* C Functions: Functions conforming to the C calling convention. Developers can implement functions in various languages (like C++, Rust, C, or Zig) and expose them as C functions to Gandiva.
 
-* IR Functions: Functions implemented in LLVM's Intermediate Representation (IR). These can be written in multiple languages and then compiled into LLVM IR to be registered in Gandiva.
+* IR Functions: Functions implemented in LLVM Intermediate Representation (LLVM IR). These can be written in multiple languages and then compiled into LLVM IR to be registered in Gandiva.
 
 Choosing the Right Type of External Function for Your Needs
 ---------------------------------------------------------------
@@ -43,17 +43,20 @@ When integrating external functions into Gandiva, it's crucial to select the typ
     * **Broad Applicability:** They are generally a go-to choice for a wide range of use cases due to their compatibility and ease of integration.
 
 * IR Functions
+    * **Recommended Use Cases:** IR functions excel in handling straightforward tasks that do not require elaborate logic or dependence on sophisticated third-party libraries. Unlike C functions, IR functions have the advantage of being inlinable, which is particularly beneficial for simple operations where the invocation overhead constitutes a significant expense. Additionally, they are an ideal choice for projects that are already integrated with the LLVM toolchain.
     * **IR Compilation Requirement:** For IR functions, the entire implementation, including any third-party libraries used, must be compiled into LLVM IR. This might affect performance, especially if the dependent libraries are complex.
     * **Limitations in Capabilities:** Certain advanced features, such as using thread-local variables, are not supported in IR functions. This is due to the limitations of the current JIT (Just-In-Time) engine utilized internally by Gandiva.
-    * **Recommended Use Cases:** IR functions are best suited for simpler tasks that don't demand intricate logic or reliance on complex third-party libraries. They are also a good fit if your project already incorporates the LLVM toolchain.
+
+.. image:: ./external_func.png
+   :alt: External C functions and IR functions integrating with Gandiva
 
 External function registration
 =================================
 
 To make a function available to Gandiva, you need to register it as an external function, providing both a function's metadata and its implementation to Gandiva.
 
-Using the NativeFunction Class
-----------------------------------
+Metadata Registration Using the ``NativeFunction`` Class
+--------------------------------------------------------
 
 To register a function in Gandiva, use the ``gandiva::NativeFunction`` class. This class captures both the signature and metadata of the external function.
 
@@ -80,6 +83,8 @@ The ``NativeFunction`` class is used to define the metadata for an external func
   * Typically, this name follows the convention ``{base_name}`` + ``_{param1_type}`` + ``{param2_type}`` + ... + ``{paramN_type}``. For example, if the base name is ``add`` and the function takes two ``int32`` parameters and returns an ``int32``, the precompiled function name would be ``add_int32_int32``, but this convention is not mandatory as long as you can guarantee its uniqueness.
 * ``flags``: Optional flags for additional function attributes (default is 0). Please check out ``NativeFunction::kNeedsContext``, ``NativeFunction::kNeedsFunctionHolder``, and ``NativeFunction::kCanReturnErrors`` for more details.
 
+After the function is registered, its implementation needs to be provided via either a C function pointer or a LLVM IR function.
+
 External C functions
 ------------------------
 
@@ -91,7 +96,7 @@ C Function Signature
 Signature Mapping
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following table lists the mapping between Gandiva external function signature types and the C function signature types:
+Not all Arrow data types are supported in Gandiva. The following table lists the mapping between Gandiva external function signature types and the C function signature types:
 
 +-------------------------------------+-------------------+
 | Gandiva type (arrow data type)      | C function type   |
@@ -126,6 +131,12 @@ The following table lists the mapping between Gandiva external function signatur
 +-------------------------------------+-------------------+
 | time32                              | int32_t           |
 +-------------------------------------+-------------------+
+| time64                              | int64_t           |
++-------------------------------------+-------------------+
+| interval_month                      | int32_t           |
++-------------------------------------+-------------------+
+| interval_day_time                   | int64_t           |
++-------------------------------------+-------------------+
 | utf8 (as parameter type)            | const char*,      |
 |                                     | uint32_t          |
 |                                     | [see next section]|
@@ -135,9 +146,19 @@ The following table lists the mapping between Gandiva external function signatur
 |                                     | uint32_t*         |
 |                                     | [see next section]|
 +-------------------------------------+-------------------+
+| binary (as parameter type)          | const char*,      |
+|                                     | uint32_t          |
+|                                     | [see next section]|
++-------------------------------------+-------------------+
+| utf8 (as return type)               | int64_t context,  |
+|                                     | const char*,      |
+|                                     | uint32_t*         |
+|                                     | [see next section]| 
++-------------------------------------+-------------------+
 
-Handling arrow::StringType (utf8 type)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Handling arrow::StringType (utf8 type) and arrow::BinaryType 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Both ``arrow::StringType`` and ``arrow::BinaryType`` are variable-length types. And they are handled similarly in external functions. Since ``arrow::StringType`` (utf8 type) is more commonly used, we will use it below as the example to explain how to handle variable-length types in external functions.
 
 Using ``arrow::StringType`` (also known as the ``utf8`` type) as function parameter or return value needs special handling in external functions. This section provides details on how to handle ``arrow::StringType``.
 
