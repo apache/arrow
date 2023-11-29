@@ -5311,7 +5311,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
 
     Create a table with variable shape tensor extension array:
 
-    >>> fields = [pa.field("shape", pa.list_(pa.uint32(), 2)), pa.field("data", pa.list_(pa.int32()))]
+    >>> fields = [pa.field("shape", pa.list_(pa.int32(), 2)), pa.field("data", pa.list_(pa.int32()))]
     >>> storage = pa.array([([2, 3], [1, 2, 3, 4, 5, 6]), ([1, 2], [7, 8])], type=pa.struct(fields))
     >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
     >>> pa.table([tensor], names=["tensor_array"])
