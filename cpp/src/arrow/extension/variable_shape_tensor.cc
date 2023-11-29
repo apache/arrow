@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <sstream>
 #include <set>
+#include <sstream>
 
 #include "arrow/extension/tensor_internal.h"
 #include "arrow/extension/variable_shape_tensor.h"
