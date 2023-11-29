@@ -5360,7 +5360,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
     """
 
     cdef:
-        uint32_t c_ndim
+        int32_t c_ndim
         vector[int64_t] c_permutation
         vector[c_string] c_dim_names
         vector[optional[int64_t]] c_uniform_shape
