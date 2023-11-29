@@ -116,6 +116,10 @@ std::string rle_dict_uncompressed_corrupt_checksum() {
   return data_file("rle-dict-uncompressed-corrupt-checksum.parquet");
 }
 
+std::string concatenated_gzip_members() {
+  return data_file("concatenated_gzip_members.parquet");
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -775,6 +779,25 @@ TEST_F(TestCheckDataPageCrc, CorruptDict) {
 
     CheckNextPageCorrupt(page_readers_[1].get());
     EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+  }
+}
+
+TEST(TestGzipMembersRead, TwoConcatenatedMembers) {
+  auto file_reader = ParquetFileReader::OpenFile(concatenated_gzip_members(),
+                                                 /*memory_map=*/false);
+  auto col_reader = std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(
+      file_reader->RowGroup(0)->Column(0));
+  int64_t num_values = 0;
+  int64_t num_repdef = 0;
+  std::vector<int16_t> reps(1024);
+  std::vector<int16_t> defs(1024);
+  std::vector<int64_t> vals(1024);
+
+  num_repdef =
+      col_reader->ReadBatch(1024, defs.data(), reps.data(), vals.data(), &num_values);
+  EXPECT_EQ(num_repdef, 513);
+  for (int64_t i = 0; i < num_repdef; i++) {
+    EXPECT_EQ(i + 1, vals[i]);
   }
 }
 
