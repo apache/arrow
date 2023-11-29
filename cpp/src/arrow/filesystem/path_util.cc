@@ -52,7 +52,7 @@ std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   }
 
   auto append_part = [&parts, &v](size_t start, size_t end) {
-    parts.push_back(std::string(v.substr(start, end - start)));
+    parts.emplace_back(v.substr(start, end - start));
   };
 
   size_t start = 0;
@@ -380,7 +380,7 @@ struct Globber::Impl {
 
 Globber::Globber(std::string pattern) : impl_(new Impl(pattern)) {}
 
-Globber::~Globber() {}
+Globber::~Globber() = default;
 
 bool Globber::Matches(const std::string& path) {
   return regex_match(path, impl_->pattern_);
