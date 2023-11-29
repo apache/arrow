@@ -1504,12 +1504,12 @@ cdef class BufferOutputStream(NativeFile):
     """
     An output stream that writes to a resizable buffer.
 
-    The buffer is produced as a result when ``get.value()`` is called.
+    The buffer is produced as a result when ``getvalue()`` is called.
 
     Examples
     --------
     Create an output stream, write data to it and finalize it with
-    ``get.value()``:
+    ``getvalue()``:
 
     >>> import pyarrow as pa
     >>> f = pa.BufferOutputStream()
