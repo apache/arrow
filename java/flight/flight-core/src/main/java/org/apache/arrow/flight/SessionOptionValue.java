@@ -18,11 +18,11 @@
 package org.apache.arrow.flight;
 
 /**
- * A container
+ * A union-like container interface for supported session option value types.
  */
 public interface SessionOptionValue {
     /**
-     *
+     * Value access via a caller-provided visitor/functor.
      */
     void visit(SessionOptionValueVisitor);
 }
