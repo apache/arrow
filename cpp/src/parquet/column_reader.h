@@ -453,9 +453,7 @@ class RowRanges {
   }
 
   bool isValid() const {
-    if (ranges.size() == 0) {
-      return false;
-    }
+    if (ranges.size() == 0) return true;
     if (ranges[0].from < 0) {
       return false;
     }
@@ -481,7 +479,10 @@ class RowRanges {
 
   std::vector<Range>& getRanges() { return ranges; }
 
-  const Range& operator[](size_t index) const { return ranges[index]; }
+  const Range& operator[](size_t index) const {
+    assert(index < ranges.size());
+    return ranges[index];
+  }
 
   std::string toString() const {
     std::string result = "[";

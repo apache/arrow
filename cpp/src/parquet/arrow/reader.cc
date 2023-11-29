@@ -469,9 +469,7 @@ struct RowRangesPageFilter {
   explicit RowRangesPageFilter(const RowRangesPtr& row_ranges_,
                                const RowRangesPtr& page_ranges_)
       : row_ranges(row_ranges_), page_ranges(page_ranges_) {
-    assert(row_ranges != nullptr);
     assert(page_ranges != nullptr);
-    assert(row_ranges->getRanges().size() > 0);
     assert(page_ranges->getRanges().size() > 0);
   }
 
@@ -568,7 +566,7 @@ class LeafReader : public ColumnReaderImpl {
   void checkAndGetPageRanges(const std::shared_ptr<RowRanges>& row_ranges,
                              std::shared_ptr<RowRanges>& page_ranges) {
     // check offset exists
-    auto rg_pg_index_reader =
+    const auto rg_pg_index_reader =
         ctx_->reader->GetPageIndexReader()->RowGroup(input_->current_row_group());
 
     if (!rg_pg_index_reader) {
@@ -577,7 +575,7 @@ class LeafReader : public ColumnReaderImpl {
           "Group: " +
           std::to_string(input_->current_row_group()));
     }
-    auto offset_index = rg_pg_index_reader->GetOffsetIndex(input_->column_index());
+    const auto offset_index = rg_pg_index_reader->GetOffsetIndex(input_->column_index());
 
     if (!offset_index) {
       throw ParquetException(
@@ -627,21 +625,24 @@ class LeafReader : public ColumnReaderImpl {
       // if specific row range is provided for this rg
       if (const auto iter = ctx_->row_ranges_map->find(input_->current_row_group());
           iter != ctx_->row_ranges_map->end()) {
-        std::shared_ptr<RowRanges> page_ranges;
-        checkAndGetPageRanges(iter->second, page_ranges);
+        if (iter->second != nullptr && iter->second->rowCount() != 0) {
+          std::shared_ptr<RowRanges> page_ranges;
+          checkAndGetPageRanges(iter->second, page_ranges);
 
-        // part 1, skip decompressing & decoding unnecessary pages
-        page_reader->set_data_page_filter(RowRangesPageFilter(iter->second, page_ranges));
+          // part 1, skip decompressing & decoding unnecessary pages
+          page_reader->set_data_page_filter(
+              RowRangesPageFilter(iter->second, page_ranges));
 
-        // part 2, skip unnecessary rows in necessary pages
-        record_reader_->set_record_skipper(
-            std::make_shared<parquet::internal::RecordSkipper>(*page_ranges,
-                                                               *iter->second));
-      } else {
-        // If row_ranges_map exists but no row_ranges is found for this RG, skip this RG
-        NextRowGroup();
-        return;
+          // part 2, skip unnecessary rows in necessary pages
+          record_reader_->set_record_skipper(
+              std::make_shared<parquet::internal::RecordSkipper>(*page_ranges,
+                                                                 *iter->second));
+        } else {
+          NextRowGroup();
+          return;
+        }
       }
+      // Else iff row_ranges_map exists but no row_ranges is found for this RG key, this RG will be read
     }
 
     record_reader_->reset_current_rg_processed_records();

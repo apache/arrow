@@ -292,18 +292,25 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectAllRange) {
 TEST_F(TestRecordBatchReaderWithRanges, SelectEmptyRange) {
   std::shared_ptr<arrow::RecordBatchReader> rb_reader;
   const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
+  // here we test four kinds of empty range:
+
+  // rg 0 not put into map -> will read
+  row_ranges_map->insert({1, nullptr});  // value is nullptr -> will skip
   row_ranges_map->insert(
-      {0, std::make_shared<parquet::RowRanges>(std::vector<parquet::Range>())});
+      {2, std::make_shared<parquet::RowRanges>(
+              std::vector<parquet::Range>())});  // value is empty -> will skip
+  row_ranges_map->insert({3, std::make_shared<parquet::RowRanges>()});  // value is empty -> will skip
+
   const std::vector column_indices{0, 1, 2, 3, 4};
   const auto status = arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                          row_ranges_map, &rb_reader);
-  ASSERT_NOT_OK(status);
-  EXPECT_TRUE(status.message().find("The provided row range is invalid, keep it monotone "
-                                    "and non-interleaving: []") != std::string::npos);
+  ASSERT_OK(status);
+  // (0+...29) = 435
+  check_rb(rb_reader, 30, 435);
 }
 
 TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
-  // case 1: row_ranges_map contains only RG {0}, other RGs should be skipped
+  // case 1: only care about RG 0
   {
     std::shared_ptr<arrow::RecordBatchReader> rb_reader;
     const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
@@ -312,6 +319,9 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
     row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map->insert({1, nullptr});
+    row_ranges_map->insert({2, nullptr});
+    row_ranges_map->insert({3, nullptr});
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                  row_ranges_map, &rb_reader));
@@ -319,7 +329,7 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
     check_rb(rb_reader, 15, 210);  // 0 + 2 + ... + 28 = 210
   }
 
-  // case 2: row_ranges_map contains only RG {0,2}, other RGs should be skipped
+  // case 2: care about RG 0 and 2
   {
     std::shared_ptr<arrow::RecordBatchReader> rb_reader;
     const auto row_ranges_map = std::make_shared<std::map<int, parquet::RowRangesPtr>>();
@@ -328,7 +338,9 @@ TEST_F(TestRecordBatchReaderWithRanges, SelectOneRowSkipOneRow) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
     row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map->insert({1, nullptr});
     row_ranges_map->insert({2, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map->insert({3, nullptr});
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                  row_ranges_map, &rb_reader));
@@ -465,7 +477,9 @@ TEST_F(TestRecordBatchReaderWithRangesWithNulls, SelectOneRowSkipOneRow) {
       if (i % 2 == 0) ranges.push_back({i, i});
     }
     row_ranges_map->insert({0, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map->insert({1, nullptr});
     row_ranges_map->insert({2, std::make_shared<parquet::RowRanges>(ranges)});
+    row_ranges_map->insert({3, nullptr});
     const std::vector column_indices{0, 1, 2, 3, 4};
     ASSERT_OK(arrow_reader->GetRecordBatchReader({0, 1, 2, 3}, column_indices,
                                                  row_ranges_map, &rb_reader));
