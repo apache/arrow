@@ -386,7 +386,7 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	//       }
 	//     }
 	//
-	// Instaed of the proper 3-level encoding which would be:
+	// Instead of the proper 3-level encoding which would be:
 	//
 	//     repeated group field_id=-1 schema {
 	//       optional group field_id=-1 answers (List) {

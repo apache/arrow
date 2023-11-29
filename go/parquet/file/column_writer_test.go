@@ -304,7 +304,7 @@ func (p *PrimitiveWriterTestSuite) writeRequiredWithSettings(encoding parquet.En
 	}
 	writer := p.buildWriter(nrows, columnProperties, parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValues(writer, nil, nil)
-	// behavior should be independant of the number of calls to Close
+	// behavior should be independent of the number of calls to Close
 	writer.Close()
 	writer.Close()
 }
@@ -321,7 +321,7 @@ func (p *PrimitiveWriterTestSuite) writeRequiredWithSettingsSpaced(encoding parq
 	}
 	writer := p.buildWriter(nrows, columnProperties, parquet.WithVersion(parquet.V1_0))
 	p.WriteBatchValuesSpaced(writer, nil, nil, validBits, 0)
-	// behavior should be independant from the number of close calls
+	// behavior should be independent from the number of close calls
 	writer.Close()
 	writer.Close()
 }

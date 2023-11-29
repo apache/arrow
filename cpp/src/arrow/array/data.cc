@@ -33,6 +33,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/dict_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ree_util.h"
@@ -90,6 +91,10 @@ bool UnionMayHaveLogicalNulls(const ArrayData& data) {
 }
 
 bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
+  return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+bool DictionaryMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
@@ -174,7 +179,7 @@ int64_t ArrayData::GetNullCount() const {
 }
 
 int64_t ArrayData::ComputeLogicalNullCount() const {
-  if (this->buffers[0]) {
+  if (this->buffers[0] && this->type->id() != Type::DICTIONARY) {
     return GetNullCount();
   }
   return ArraySpan(*this).ComputeLogicalNullCount();
@@ -542,6 +547,9 @@ int64_t ArraySpan::ComputeLogicalNullCount() const {
   if (t == Type::RUN_END_ENCODED) {
     return ree_util::LogicalNullCount(*this);
   }
+  if (t == Type::DICTIONARY) {
+    return dict_util::LogicalNullCount(*this);
+  }
   return GetNullCount();
 }
 
@@ -637,6 +645,10 @@ bool ArraySpan::UnionMayHaveLogicalNulls() const {
 
 bool ArraySpan::RunEndEncodedMayHaveLogicalNulls() const {
   return ree_util::ValuesArray(*this).MayHaveLogicalNulls();
+}
+
+bool ArraySpan::DictionaryMayHaveLogicalNulls() const {
+  return this->GetNullCount() != 0 || this->dictionary().GetNullCount() != 0;
 }
 
 // ----------------------------------------------------------------------

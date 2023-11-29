@@ -575,7 +575,7 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   std::string raw_schema_;
 };
 
-/// \brief The access coordinates for retireval of a dataset, returned by
+/// \brief The access coordinates for retrieval of a dataset, returned by
 /// GetFlightInfo
 class ARROW_FLIGHT_EXPORT FlightInfo {
  public:
@@ -604,7 +604,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \return Arrrow result with the reconstructed Schema
+  /// \return Arrow result with the reconstructed Schema
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
 

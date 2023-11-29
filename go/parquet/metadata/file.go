@@ -119,7 +119,7 @@ func (f *FileMetaDataBuilder) Finish() (*FileMetaData, error) {
 	createdBy := f.props.CreatedBy()
 	f.metadata.CreatedBy = &createdBy
 
-	// Users cannot set the `ColumnOrder` since we do not not have user defined sort order
+	// Users cannot set the `ColumnOrder` since we do not have user defined sort order
 	// in the spec yet.
 	//
 	// We always default to `TYPE_DEFINED_ORDER`. We can expose it in
@@ -401,7 +401,7 @@ func (f *FileMetaData) KeyValueMetadata() KeyValueMetadata {
 // Panics if f.FileDecryptor is nil
 func (f *FileMetaData) VerifySignature(signature []byte) bool {
 	if f.FileDecryptor == nil {
-		panic("decryption not set propertly, cannot verify signature")
+		panic("decryption not set properly, cannot verify signature")
 	}
 
 	serializer := thrift.NewThriftSerializer()
@@ -472,7 +472,7 @@ func (f *FileMetaData) Version() parquet.Version {
 	case 2:
 		return parquet.V2_LATEST
 	default:
-		// imporperly set version, assume parquet 1.0
+		// improperly set version, assume parquet 1.0
 		return parquet.V1_0
 	}
 }

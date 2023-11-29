@@ -237,7 +237,7 @@ func (f *Reader) handleAadPrefix(fileDecrypt *parquet.FileDecryptionProperties, 
 	aadPrefixInFile := algo.Aad.AadPrefix
 
 	if algo.Aad.SupplyAadPrefix && aadPrefixInProps == "" {
-		return "", xerrors.New("AAD Prefix used for file encryption but not stored in file and not suppliedin decryption props")
+		return "", xerrors.New("AAD Prefix used for file encryption but not stored in file and not supplied in decryption props")
 	}
 
 	if fileHasAadPrefix {

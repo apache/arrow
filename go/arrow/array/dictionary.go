@@ -739,7 +739,7 @@ func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 	}
 
 	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("dictionary builder must upack from json array, found %s", delim)
+		return fmt.Errorf("dictionary builder must unpack from json array, found %s", delim)
 	}
 
 	return b.Unmarshal(dec)
@@ -1533,7 +1533,7 @@ type DictionaryUnifier interface {
 	// values, an error will be returned instead. The new unified dictionary
 	// is returned.
 	GetResultWithIndexType(indexType arrow.DataType) (arrow.Array, error)
-	// Release should be called to clean up any allocated scrach memo-table used
+	// Release should be called to clean up any allocated scratch memo-table used
 	// for building the unified dictionary.
 	Release()
 }
