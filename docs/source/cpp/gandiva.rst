@@ -156,3 +156,14 @@ compiles with the correct bitwidth. Then you can pass the
    :start-after: (Doc section: Evaluate filter and projection)
    :end-before: (Doc section: Evaluate filter and projection)
    :dedent: 2
+
+External Functions Development
+==============================
+Gandiva offers the capability of integrating external functions, encompassing 
+both C functions and IR functions. This feature broadens the spectrum of 
+functions that can be applied within Gandiva expressions. For developers 
+looking to customize and enhance their computational solutions, 
+Gandiva provides the opportunity to develop and register their own external 
+functions, thus allowing for a more tailored and flexible use of the Gandiva 
+environment.
+See :doc:`./gandiva/external_func` for more details. 
