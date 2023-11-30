@@ -1070,13 +1070,10 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
         checked_cast<const DictionaryArray&>(*compacted_arr);
     const int64_t null_count = compacted_dict_arr.ComputeLogicalNullCount();
     const int64_t non_null_count = compacted_dict_arr.length() - null_count;
-    if (non_null_count == 0) {
-      return Status::OK();
-    }
 
     this->has_nulls |= null_count > 0;
     this->count += non_null_count;
-    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
+    if ((this->has_nulls && !options.skip_nulls) || (non_null_count == 0)) {
       return Status::OK();
     }
 
@@ -1092,7 +1089,7 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     auto&& other = checked_cast<ThisType&&>(src);
     this->has_nulls |= other.has_nulls;
     this->count += other.count;
-    if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
+    if ((this->has_nulls && !options.skip_nulls) || other.value_state == nullptr) {
       return Status::OK();
     }
 

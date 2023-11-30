@@ -2215,11 +2215,102 @@ TEST(TestDictionaryMinMaxKernel, IntegersValue) {
       ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
 
       options = ScalarAggregateOptions(/*skip_nulls=*/true);
-      CheckDictionaryMinMax(value_ty, chunked, "1", "5", options);
-      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",
+      CheckDictionaryMinMax(value_ty, chunked, "1", "5", options);       // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // noraml
                             R"([5, 1, 2, 3, 4])", "1", "5", options);
-      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",
-                            R"([5, 9, 2, 3, 4])", "2", "9", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "2", "9",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "2", "4", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "2", "3",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100, 101])",
+                            "1", "100", options);
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4);
+      CheckDictionaryMinMax(value_ty, chunked, "1", "5", options);       // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // noraml
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2])",  // too short
+                            R"([5, 1, 2])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "2", "9",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "null",
+                            "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced nulls 
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, null, 100, null, null])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100])",
+                            "1", "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced nulls
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([null, null, 2, null, 4, 100])",
+                            "null", "null", options);
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/false);
+      CheckDictionaryMinMax(value_ty, chunked, "null", "null", options);  // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",   // noraml
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "null", "null",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "null",
+                            "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced nulls 
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, null, 100, null, null])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100])",
+                            "1", "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced nulls
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([null, null, 2, null, 4, 100])",
+                            "null", "null", options);
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4);
+      CheckDictionaryMinMax(value_ty, chunked, "null", "null", options);       // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // noraml
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2])",  // too short
+                            R"([5, 1, 2])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "null", "null",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "null",
+                            "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced nulls 
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, null, 100, null, null])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100])",
+                            "1", "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced nulls
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([null, null, 2, null, 4, 100])",
+                            "null", "null", options);
     }
   }
 }
