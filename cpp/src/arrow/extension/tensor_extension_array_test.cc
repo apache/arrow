@@ -591,9 +591,10 @@ TEST_F(TestVariableShapeTensorType, MetadataSerializationRoundtrip) {
   using T = VariableShapeTensorType;
 
   CheckSerializationRoundtrip<T>(ext_type_);
-  CheckSerializationRoundtrip<T>(variable_shape_tensor(value_type_, {}, {}, {}));
-  CheckSerializationRoundtrip<T>(variable_shape_tensor(value_type_, {0}, {}, {}));
-  CheckSerializationRoundtrip<T>(variable_shape_tensor(value_type_, {1}, {0}, {"x"}));
+  CheckSerializationRoundtrip<T>(
+      variable_shape_tensor(value_type_, 3, {1, 2, 0}, {"x", "y", "z"}));
+  CheckSerializationRoundtrip<T>(variable_shape_tensor(value_type_, 0, {}, {}));
+  CheckSerializationRoundtrip<T>(variable_shape_tensor(value_type_, 1, {0}, {"x"}));
   CheckSerializationRoundtrip<T>(
       variable_shape_tensor(value_type_, 3, {0, 1, 2}, {"H", "W", "C"}));
   CheckSerializationRoundtrip<T>(
