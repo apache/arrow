@@ -445,13 +445,6 @@ struct FloatingDivide {
 
 struct FloatingDivideChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
-                                                    Arg1 right, Status* st) {
-    static_assert(std::is_same<Arg0, Arg1>::value);
-    return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_value<Arg0> Call(KernelContext*, Arg0 left, Arg1 right,
                                              Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value);
@@ -462,6 +455,12 @@ struct FloatingDivideChecked {
     return left / right;
   }
 
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
+                                                    Arg1 right, Status* st) {
+    static_assert(std::is_same<Arg0, Arg1>::value);
+    return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
+  }
   // TODO: Add decimal
 };
 
