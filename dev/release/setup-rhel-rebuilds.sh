@@ -44,8 +44,6 @@ dnf -y install \
   ninja-build \
   nodejs \
   openssl-devel \
-  python38-devel \
-  python38-pip \
   ruby-devel \
   sqlite-devel \
   vala-devel \
