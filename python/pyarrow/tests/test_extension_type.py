@@ -1515,7 +1515,8 @@ def test_variable_shape_tensor_class_methods(value_type):
         np.array([[1, 2, 3], [4, 5, 6]], dtype=value_type),
         np.array([[7], [8]], dtype=value_type),
     ]
-    assert all(zip(x == y for x, y in zip(arr.to_numpy_ndarray(), ndarray_list)))
+    list(np.testing.assert_array_equal(x, y) for x, y in
+         zip(arr.to_numpy_ndarray(), ndarray_list))
 
     assert pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list).equals(
         basic_arr
@@ -1683,7 +1684,7 @@ def test_extension_to_pandas_storage_type(registered_period_type):
         assert isinstance(result["ext"].dtype, pd.ArrowDtype)
 
 
-def test_tensor_type_is_picklable(pickle_module):
+def test_fixed_shape_tensor_type_is_picklable(pickle_module):
     # GH-35599
 
     expected_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
@@ -1694,6 +1695,22 @@ def test_tensor_type_is_picklable(pickle_module):
     arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
     storage = pa.array(arr, pa.list_(pa.int32(), 4))
     expected_arr = pa.ExtensionArray.from_storage(expected_type, storage)
+    result = pickle_module.loads(pickle_module.dumps(expected_arr))
+
+    assert result == expected_arr
+
+
+def test_variable_shape_tensor_type_is_picklable(pickle_module):
+    expected_type = pa.variable_shape_tensor(pa.int32(), 2)
+    result = pickle_module.loads(pickle_module.dumps(expected_type))
+
+    assert result == expected_type
+
+    shapes = pa.array([[2, 3], [1, 2]], pa.list_(pa.int32(), 2))
+    values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(pa.int32()))
+    arr = pa.StructArray.from_arrays([shapes, values], names=["shape", "data"])
+    expected_arr = pa.ExtensionArray.from_storage(expected_type, arr)
+
     result = pickle_module.loads(pickle_module.dumps(expected_arr))
 
     assert result == expected_arr
@@ -1716,20 +1733,6 @@ def test_tensor_type_is_picklable(pickle_module):
 def test_tensor_type_str(tensor_type, text, pickle_module):
     tensor_type_str = tensor_type.__str__()
     assert text in tensor_type_str
-
-    expected_type = pa.variable_shape_tensor(pa.int32(), 2)
-    result = pickle_module.loads(pickle_module.dumps(expected_type))
-
-    assert result == expected_type
-
-    shapes = pa.array([[2, 3], [1, 2]], pa.list_(pa.int32(), 2))
-    values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(pa.int32()))
-    arr = pa.StructArray.from_arrays([shapes, values], names=["shape", "data"])
-    expected_arr = pa.ExtensionArray.from_storage(expected_type, arr)
-
-    result = pickle_module.loads(pickle_module.dumps(expected_arr))
-
-    assert result == expected_arr
 
 
 def test_legacy_int_type():
