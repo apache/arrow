@@ -41,33 +41,17 @@ static std::vector<std::shared_ptr<DataType>> TestExportArrayAgainstTheseTypes()
   };
 }
 
-Result<uint8_t> getDLDataType(const std::shared_ptr<DataType>& type) {
-  switch (type->id()) {
-    case Type::INT8:
-    case Type::INT16:
-    case Type::INT32:
-    case Type::INT64:
-      return DLDataTypeCode::kDLInt;
-    case Type::UINT8:
-    case Type::UINT16:
-    case Type::UINT32:
-    case Type::UINT64:
-      return DLDataTypeCode::kDLUInt;
-    case Type::HALF_FLOAT:
-    case Type::FLOAT:
-    case Type::DOUBLE:
-      return DLDataTypeCode::kDLFloat;
-    case Type::BOOL:
-      return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
-    default:
-      return Status::TypeError(
-          "Can only use __dlpack__ on primitive arrays without NullType and Decimal "
-          "types.");
-  }
+static std::vector<DLDataTypeCode> TestExpectedDLPackDataTypes() {
+  return {
+      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,
+      DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,
+      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLFloat,
+      DLDataTypeCode::kDLFloat, DLDataTypeCode::kDLFloat,
+  };
 }
 
-auto check_dlptensor = [](const std::shared_ptr<Array>& arr, std::shared_ptr<DataType> t,
-                          int64_t length) {
+auto check_dlptensor = [](const std::shared_ptr<Array>& arr, std::shared_ptr<DataType> arrow_type,
+                          DLDataTypeCode dlpack_type, int64_t length) {
   DLManagedTensor* dlmtensor;
   ASSERT_OK(arrow::dlpack::ExportArray(arr, &dlmtensor));
   auto dltensor = dlmtensor->dl_tensor;
@@ -83,10 +67,9 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr, std::shared_ptr<Dat
   ASSERT_EQ(length, dltensor.shape[0]);
   ASSERT_EQ(1, dltensor.ndim);
 
-  ASSERT_OK_AND_ASSIGN(auto code, getDLDataType(t));
-  ASSERT_EQ(code, dltensor.dtype.code);
+  ASSERT_EQ(dlpack_type, dltensor.dtype.code);
 
-  ASSERT_EQ(t->bit_width(), dltensor.dtype.bits);
+  ASSERT_EQ(arrow_type->bit_width(), dltensor.dtype.bits);
   ASSERT_EQ(1, dltensor.dtype.lanes);
   ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
   ASSERT_EQ(0, dltensor.device.device_id);
@@ -95,16 +78,16 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr, std::shared_ptr<Dat
 TEST_F(TestExportArray, TestSupportedArray) {
   random::RandomArrayGenerator gen(0);
 
-  for (auto type : TestExportArrayAgainstTheseTypes()) {
-    const std::shared_ptr<Array> array = gen.ArrayOf(type, 10, 0);
-    check_dlptensor(array, type, 10);
+  for (int64_t i = 0; i < 11; ++i) {
+    const std::shared_ptr<Array> array = gen.ArrayOf(TestExportArrayAgainstTheseTypes()[i], 10, 0);
+    check_dlptensor(array, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 10);
     ASSERT_OK_AND_ASSIGN(auto sliced_1, array->SliceSafe(1, 5));
-    check_dlptensor(sliced_1, type, 5);
+    check_dlptensor(sliced_1, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_2, array->SliceSafe(0, 5));
-    check_dlptensor(sliced_2, type, 5);
+    check_dlptensor(sliced_2, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_3, array->SliceSafe(3));
-    check_dlptensor(sliced_3, type, 7);
-  };
+    check_dlptensor(sliced_3, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 7);
+  }
 }
 
 TEST_F(TestExportArray, TestUnSupportedArray) {
