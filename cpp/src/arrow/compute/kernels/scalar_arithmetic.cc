@@ -29,6 +29,7 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/registry.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -1513,7 +1514,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add divide(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
-    auto exec = ScalarBinaryNotNull<DoubleType, DoubleType, DoubleType, Divide>::Exec;
+    auto exec =
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloatingDivide>::Exec;
     DCHECK_OK(
         divide->AddKernel({duration(unit), duration(unit)}, float64(), std::move(exec)));
   }
@@ -1533,8 +1535,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add divide_checked(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
-    auto exec =
-        ScalarBinaryNotNull<DoubleType, DoubleType, DoubleType, DivideChecked>::Exec;
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type,
+                                    FloatingDivideChecked>::Exec;
     DCHECK_OK(divide_checked->AddKernel({duration(unit), duration(unit)}, float64(),
                                         std::move(exec)));
   }
