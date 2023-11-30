@@ -519,6 +519,7 @@ cdef class NativeFile(_Weakrefable):
         bint is_readable
         bint is_writable
         bint is_seekable
+        bint _is_appending
         bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
