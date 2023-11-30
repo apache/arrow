@@ -43,6 +43,7 @@ module org.apache.arrow.vector {
   requires flatbuffers.java;
   requires io.netty.common;
   requires java.sql;
+  requires jdk.unsupported;
   requires org.apache.arrow.format;
   requires org.apache.commons.codec;
   requires slf4j.api;
