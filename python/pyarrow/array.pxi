@@ -1803,6 +1803,12 @@ cdef class Array(_PandasConvertible):
     def __dlpack_device__(self):
         """
         Performs the operation __dlpack_device__.
+
+        Returns
+        -------
+        tuple : Tuple[DLDeviceType, int]
+            Tuple with enumerator specifying the type of the device
+            and index of the device which is 0 by default for CPU.
         """
         return dlpack_device(self)
 

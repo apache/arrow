@@ -3583,7 +3583,7 @@ def test_dlpack(value_type, np_type):
     result = np.from_dlpack(arr)
     np.testing.assert_array_equal(result, expected, strict=True)
 
-    assert arr.__dlpack_device__() == 1
+    assert arr.__dlpack_device__() == (1, 0)
 
     arr_sliced = arr.slice(1, 1)
     DLTensor = arr_sliced.__dlpack__()
@@ -3592,7 +3592,7 @@ def test_dlpack(value_type, np_type):
     result = np.from_dlpack(arr_sliced)
     np.testing.assert_array_equal(result, expected, strict=True)
 
-    assert arr.__dlpack_device__() == 1
+    assert arr.__dlpack_device__() == (1, 0)
 
     arr_sliced = arr.slice(0, 1)
     DLTensor = arr_sliced.__dlpack__()
@@ -3601,7 +3601,7 @@ def test_dlpack(value_type, np_type):
     result = np.from_dlpack(arr_sliced)
     np.testing.assert_array_equal(result, expected, strict=True)
 
-    assert arr.__dlpack_device__() == 1
+    assert arr.__dlpack_device__() == (1, 0)
 
     arr_sliced = arr.slice(1)
     DLTensor = arr_sliced.__dlpack__()
@@ -3610,7 +3610,7 @@ def test_dlpack(value_type, np_type):
     result = np.from_dlpack(arr_sliced)
     np.testing.assert_array_equal(result, expected, strict=True)
 
-    assert arr.__dlpack_device__() == 1
+    assert arr.__dlpack_device__() == (1, 0)
 
     arr_zero = pa.array([], type=value_type)
     DLTensor = arr_zero.__dlpack__()
@@ -3619,7 +3619,7 @@ def test_dlpack(value_type, np_type):
     result = np.from_dlpack(arr_zero)
     np.testing.assert_array_equal(result, expected, strict=True)
 
-    assert arr.__dlpack_device__() == 1
+    assert arr.__dlpack_device__() == (1, 0)
 
 
 def test_dlpack_not_supported():

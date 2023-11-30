@@ -133,9 +133,13 @@ Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
   return Status::OK();
 }
 
-Result<DLDeviceType> ExportDeviceType(const std::shared_ptr<Array>& arr) {
+Status ExportDevice(const std::shared_ptr<Array>& arr, DLDevice* out) {
+  DLDevice device;
   if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
-    return DLDeviceType::kDLCPU;
+    device.device_id = 0;
+    device.device_type = DLDeviceType::kDLCPU;
+    *out = device;
+    return Status::OK();
   } else {
     return Status::NotImplemented(
         "DLPack support is implemented only for buffers on CPU device.");

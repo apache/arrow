@@ -75,8 +75,10 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
   ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
   ASSERT_EQ(0, dltensor.device.device_id);
 
-  ASSERT_OK_AND_ASSIGN(auto device_type, arrow::dlpack::ExportDeviceType(arr));
-  ASSERT_EQ(DLDeviceType::kDLCPU, device_type);
+  DLDevice device;
+  ASSERT_OK(arrow::dlpack::ExportDevice(arr, &device));
+  ASSERT_EQ(DLDeviceType::kDLCPU, device.device_type);
+  ASSERT_EQ(0, device.device_id);
 };
 
 TEST_F(TestExportArray, TestSupportedArray) {
