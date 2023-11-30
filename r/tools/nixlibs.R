@@ -295,7 +295,7 @@ determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
     # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
     # openssl is < 3.0
-    lg("Found libcurl and OpenSSL >= 1.1")
+    lg("Found headers for libcurl and OpenSSL >= 1.1")
     return("openssl-1.1")
     # Else, check for dealbreakers:
   } else if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
@@ -303,13 +303,13 @@ determine_binary_from_stderr <- function(errs) {
     lg("Linux binaries incompatible with libc++")
     return(NULL)
   } else if (header_not_found("curl/curl", errs)) {
-    lg("libcurl not found")
+    lg("Headers for libcurl not found")
     return(NULL)
   } else if (header_not_found("openssl/opensslv", errs)) {
-    lg("OpenSSL not found")
+    lg("Headers for OpenSSL not found")
     return(NULL)
   } else if (any(grepl("OpenSSL version too old", errs))) {
-    lg("OpenSSL found but version >= 1.0.2 is required for some features")
+    lg("Headers for OpenSSL found but version >= 1.0.2 is required for some features")
     return(NULL)
     # Else, determine which other binary will work
   } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
@@ -317,10 +317,10 @@ determine_binary_from_stderr <- function(errs) {
       lg("OpenSSL 1.0 is not supported on macOS")
       return(NULL)
     }
-    lg("Found libcurl and OpenSSL < 1.1")
+    lg("Found headers for libcurl and OpenSSL < 1.1")
     return("openssl-1.0")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
-    lg("Found libcurl and OpenSSL >= 3.0.0")
+    lg("Found headers for libcurl and OpenSSL >= 3.0.0")
     return("openssl-3.0")
   }
   NULL
