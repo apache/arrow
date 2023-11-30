@@ -50,7 +50,8 @@ static std::vector<DLDataTypeCode> TestExpectedDLPackDataTypes() {
   };
 }
 
-auto check_dlptensor = [](const std::shared_ptr<Array>& arr, std::shared_ptr<DataType> arrow_type,
+auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
+                          std::shared_ptr<DataType> arrow_type,
                           DLDataTypeCode dlpack_type, int64_t length) {
   DLManagedTensor* dlmtensor;
   ASSERT_OK(arrow::dlpack::ExportArray(arr, &dlmtensor));
@@ -79,14 +80,19 @@ TEST_F(TestExportArray, TestSupportedArray) {
   random::RandomArrayGenerator gen(0);
 
   for (int64_t i = 0; i < 11; ++i) {
-    const std::shared_ptr<Array> array = gen.ArrayOf(TestExportArrayAgainstTheseTypes()[i], 10, 0);
-    check_dlptensor(array, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 10);
+    const std::shared_ptr<Array> array =
+        gen.ArrayOf(TestExportArrayAgainstTheseTypes()[i], 10, 0);
+    check_dlptensor(array, TestExportArrayAgainstTheseTypes()[i],
+                    TestExpectedDLPackDataTypes()[i], 10);
     ASSERT_OK_AND_ASSIGN(auto sliced_1, array->SliceSafe(1, 5));
-    check_dlptensor(sliced_1, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 5);
+    check_dlptensor(sliced_1, TestExportArrayAgainstTheseTypes()[i],
+                    TestExpectedDLPackDataTypes()[i], 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_2, array->SliceSafe(0, 5));
-    check_dlptensor(sliced_2, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 5);
+    check_dlptensor(sliced_2, TestExportArrayAgainstTheseTypes()[i],
+                    TestExpectedDLPackDataTypes()[i], 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_3, array->SliceSafe(3));
-    check_dlptensor(sliced_3, TestExportArrayAgainstTheseTypes()[i], TestExpectedDLPackDataTypes()[i], 7);
+    check_dlptensor(sliced_3, TestExportArrayAgainstTheseTypes()[i],
+                    TestExpectedDLPackDataTypes()[i], 7);
   }
 }
 
