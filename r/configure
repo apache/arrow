@@ -407,7 +407,8 @@ if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
   set_pkg_vars ${_LIBARROW_FOUND}
 
   # If we didn't find any libraries with pkg-config, try again without pkg-config
-  if [ -z "`echo "$PKG_LIBS" | tr -d '[:space:]'`" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+  FOUND_PKG_LIBS=`echo "$PKG_LIBS" | tr -d '[:space:]'`
+  if [ -z "$FOUND_PKG_LIBS" ] && [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
     echo "*** pkg-config failed to find libraries. Running detection without pkg-config."
     if arrow_built_with ARROW_S3 || arrow_built_with ARROW_GCS; then
       S3_LIBS="-lcurl -lssl -lcrypto"
