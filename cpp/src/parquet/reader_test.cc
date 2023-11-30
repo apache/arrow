@@ -783,6 +783,9 @@ TEST_F(TestCheckDataPageCrc, CorruptDict) {
 }
 
 TEST(TestGzipMembersRead, TwoConcatenatedMembers) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
   auto file_reader = ParquetFileReader::OpenFile(concatenated_gzip_members(),
                                                  /*memory_map=*/false);
   auto col_reader = std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(
