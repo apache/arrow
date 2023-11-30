@@ -369,6 +369,9 @@ TEST_P(CodecTest, CodecRoundtrip) {
 }
 
 TEST(CodecTest, CodecRoundtripGzipMembers) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
   std::unique_ptr<Codec> gzip_codec;
   ASSERT_OK_AND_ASSIGN(gzip_codec, Codec::Create(Compression::GZIP));
 
