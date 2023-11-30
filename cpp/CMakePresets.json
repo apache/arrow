@@ -11,7 +11,8 @@
       "hidden": true,
       "generator": "Ninja",
       "cacheVariables": {
-        "ARROW_BUILD_STATIC": "OFF"
+        "ARROW_BUILD_STATIC": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
@@ -429,6 +430,21 @@
       ],
       "displayName": "Benchmarking build with with everything enabled",
       "cacheVariables": {}
+    },
+    {
+      "name": "fuzzing",
+      "inherits": "base",
+      "displayName": "Debug build with IPC and Parquet fuzzing targets",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "ARROW_USE_ASAN": "ON",
+        "ARROW_USE_UBSAN": "ON",
+        "ARROW_IPC": "ON",
+        "ARROW_PARQUET": "ON",
+        "ARROW_FUZZING": "ON"
+      }
     }
   ]
 }

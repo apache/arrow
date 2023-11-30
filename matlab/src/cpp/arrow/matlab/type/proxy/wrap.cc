@@ -20,7 +20,12 @@
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
 #include "arrow/matlab/type/proxy/timestamp_type.h"
 #include "arrow/matlab/type/proxy/time32_type.h"
+#include "arrow/matlab/type/proxy/time64_type.h"
+#include "arrow/matlab/type/proxy/date32_type.h"
+#include "arrow/matlab/type/proxy/date64_type.h"
 #include "arrow/matlab/type/proxy/string_type.h"
+#include "arrow/matlab/type/proxy/list_type.h"
+#include "arrow/matlab/type/proxy/struct_type.h"
 
 namespace arrow::matlab::type::proxy {
 
@@ -53,8 +58,18 @@ namespace arrow::matlab::type::proxy {
                 return std::make_shared<TimestampType>(std::static_pointer_cast<arrow::TimestampType>(type));
             case ID::TIME32:
                 return std::make_shared<Time32Type>(std::static_pointer_cast<arrow::Time32Type>(type));
+            case ID::TIME64:
+                return std::make_shared<Time64Type>(std::static_pointer_cast<arrow::Time64Type>(type));
+            case ID::DATE32:
+                return std::make_shared<Date32Type>(std::static_pointer_cast<arrow::Date32Type>(type));
+            case ID::DATE64:
+                return std::make_shared<Date64Type>(std::static_pointer_cast<arrow::Date64Type>(type));
             case ID::STRING:
                 return std::make_shared<StringType>(std::static_pointer_cast<arrow::StringType>(type));
+            case ID::LIST:
+                return std::make_shared<ListType>(std::static_pointer_cast<arrow::ListType>(type));
+            case ID::STRUCT:
+                return std::make_shared<StructType>(std::static_pointer_cast<arrow::StructType>(type));
             default:
                 return arrow::Status::NotImplemented("Unsupported DataType: " + type->ToString());
         }

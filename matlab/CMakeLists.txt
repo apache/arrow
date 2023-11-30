@@ -17,9 +17,9 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# Build the Arrow C++ libraries.
+# Build the Arrow C++ libraries using ExternalProject_Add.
 function(build_arrow)
-  set(options BUILD_GTEST)
+  set(options)
   set(one_value_args)
   set(multi_value_args)
 
@@ -34,72 +34,53 @@ function(build_arrow)
 
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
   set(ARROW_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-build")
-  set(ARROW_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}"
-                       "-DCMAKE_INSTALL_LIBDIR=lib" "-DARROW_BUILD_STATIC=OFF")
+  set(ARROW_CMAKE_ARGS
+      "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=lib"
+      "-DARROW_BUILD_STATIC=OFF" "-DARROW_CSV=ON")
 
-  if(Arrow_FOUND
-     AND NOT GTest_FOUND
-     AND ARG_BUILD_GTEST)
-    # If find_package has already found a valid Arrow installation, then
-    # we don't want to link against the Arrow libraries that will be built
-    # from source.
-    #
-    # However, we still need to create a library target to trigger building
-    # of the arrow_ep target, which will ultimately build the bundled
-    # GoogleTest binaries.
-    add_library(arrow_shared_for_gtest SHARED IMPORTED)
-    set(ARROW_LIBRARY_TARGET arrow_shared_for_gtest)
+  add_library(arrow_shared SHARED IMPORTED)
+  set(ARROW_LIBRARY_TARGET arrow_shared)
+
+  # Set the runtime shared library (.dll, .so, or .dylib)
+  if(WIN32)
+    # The shared library (i.e. .dll) is located in the "bin" directory.
+    set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/bin")
   else()
-    add_library(arrow_shared SHARED IMPORTED)
-    set(ARROW_LIBRARY_TARGET arrow_shared)
-
-    # Set the runtime shared library (.dll, .so, or .dylib)
-    if(WIN32)
-      # The shared library (i.e. .dll) is located in the "bin" directory.
-      set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/bin")
-    else()
-      # The shared library (i.e. .so or .dylib) is located in the "lib" directory.
-      set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/lib")
-    endif()
-
-    set(ARROW_SHARED_LIB_FILENAME
-        "${CMAKE_SHARED_LIBRARY_PREFIX}arrow${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(ARROW_SHARED_LIB "${ARROW_SHARED_LIBRARY_DIR}/${ARROW_SHARED_LIB_FILENAME}")
-
-    set_target_properties(arrow_shared PROPERTIES IMPORTED_LOCATION ${ARROW_SHARED_LIB})
-
-    # Set the link-time import library (.lib)
-    if(WIN32)
-      # The import library (i.e. .lib) is located in the "lib" directory.
-      set(ARROW_IMPORT_LIB_FILENAME
-          "${CMAKE_IMPORT_LIBRARY_PREFIX}arrow${CMAKE_IMPORT_LIBRARY_SUFFIX}")
-      set(ARROW_IMPORT_LIB "${ARROW_PREFIX}/lib/${ARROW_IMPORT_LIB_FILENAME}")
-
-      set_target_properties(arrow_shared PROPERTIES IMPORTED_IMPLIB ${ARROW_IMPORT_LIB})
-    endif()
-
-    # Set the include directories
-    set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
-    file(MAKE_DIRECTORY "${ARROW_INCLUDE_DIR}")
-    set_target_properties(arrow_shared PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                  ${ARROW_INCLUDE_DIR})
-
-    # Set the build byproducts for the ExternalProject build
-    # The appropriate libraries need to be guaranteed to be available when linking the test
-    # executables.
-    if(WIN32)
-      set(ARROW_BUILD_BYPRODUCTS "${ARROW_IMPORT_LIB}")
-    else()
-      set(ARROW_BUILD_BYPRODUCTS "${ARROW_SHARED_LIB}")
-    endif()
+    # The shared library (i.e. .so or .dylib) is located in the "lib" directory.
+    set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/lib")
   endif()
 
-  # Building the Arrow C++ libraries and bundled GoogleTest binaries requires ExternalProject.
+  set(ARROW_SHARED_LIB_FILENAME
+      "${CMAKE_SHARED_LIBRARY_PREFIX}arrow${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(ARROW_SHARED_LIB "${ARROW_SHARED_LIBRARY_DIR}/${ARROW_SHARED_LIB_FILENAME}")
+
+  set_target_properties(arrow_shared PROPERTIES IMPORTED_LOCATION ${ARROW_SHARED_LIB})
+
+  # Set the link-time import library (.lib)
+  if(WIN32)
+    # The import library (i.e. .lib) is located in the "lib" directory.
+    set(ARROW_IMPORT_LIB_FILENAME
+        "${CMAKE_IMPORT_LIBRARY_PREFIX}arrow${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    set(ARROW_IMPORT_LIB "${ARROW_PREFIX}/lib/${ARROW_IMPORT_LIB_FILENAME}")
+
+    set_target_properties(arrow_shared PROPERTIES IMPORTED_IMPLIB ${ARROW_IMPORT_LIB})
+  endif()
+
+  # Set the include directories
+  set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
+  file(MAKE_DIRECTORY "${ARROW_INCLUDE_DIR}")
+  set_target_properties(arrow_shared PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                ${ARROW_INCLUDE_DIR})
+
+  # Set the build byproducts for the ExternalProject build
+  if(WIN32)
+    set(ARROW_BUILD_BYPRODUCTS "${ARROW_IMPORT_LIB}")
+  else()
+    set(ARROW_BUILD_BYPRODUCTS "${ARROW_SHARED_LIB}")
+  endif()
+
+  # Building the Arrow C++ libraries requires ExternalProject.
   include(ExternalProject)
-
-  if(ARG_BUILD_GTEST)
-    enable_gtest()
-  endif()
 
   externalproject_add(arrow_ep
                       SOURCE_DIR "${CMAKE_SOURCE_DIR}/../cpp"
@@ -109,91 +90,11 @@ function(build_arrow)
 
   add_dependencies(${ARROW_LIBRARY_TARGET} arrow_ep)
 
-  if(ARG_BUILD_GTEST)
-    build_gtest()
-  endif()
 endfunction()
-
-macro(enable_gtest)
-  set(ARROW_GTEST_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
-  set(ARROW_GTEST_MAIN_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
-
-  if(WIN32)
-    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/bin")
-    set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/bin")
-
-    set(ARROW_GTEST_LINK_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
-    set(ARROW_GTEST_LINK_LIB
-        "${ARROW_GTEST_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
-
-    set(ARROW_GTEST_MAIN_LINK_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
-    set(ARROW_GTEST_MAIN_LINK_LIB
-        "${ARROW_GTEST_MAIN_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest_main${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
-  else()
-    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
-    set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
-  endif()
-
-  set(ARROW_GTEST_INCLUDE_DIR "${ARROW_GTEST_PREFIX}/include")
-  set(ARROW_GTEST_SHARED_LIB
-      "${ARROW_GTEST_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}"
-  )
-
-  set(ARROW_GTEST_MAIN_INCLUDE_DIR "${ARROW_GTEST_MAIN_PREFIX}/include")
-  set(ARROW_GTEST_MAIN_SHARED_LIB
-      "${ARROW_GTEST_MAIN_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}"
-  )
-
-  list(APPEND ARROW_CMAKE_ARGS "-DARROW_BUILD_TESTS=ON")
-
-  # The appropriate libraries need to be guaranteed to be available when linking the test
-  # executables.
-  if(WIN32)
-    # On Windows, add the gtest link libraries as BUILD_BYPRODUCTS for arrow_ep.
-    list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_LINK_LIB}"
-         "${ARROW_GTEST_MAIN_LINK_LIB}")
-  else()
-    # On Linux and macOS, add the gtest shared libraries as BUILD_BYPRODUCTS for arrow_ep.
-    list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_SHARED_LIB}"
-         "${ARROW_GTEST_MAIN_SHARED_LIB}")
-  endif()
-endmacro()
-
-# Build the GoogleTest binaries that are bundled with the Arrow C++ libraries.
-macro(build_gtest)
-  file(MAKE_DIRECTORY "${ARROW_GTEST_INCLUDE_DIR}")
-
-  # Create target GTest::gtest
-  add_library(GTest::gtest SHARED IMPORTED)
-  set_target_properties(GTest::gtest
-                        PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_SHARED_LIB}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${ARROW_GTEST_INCLUDE_DIR})
-  if(WIN32)
-    set_target_properties(GTest::gtest PROPERTIES IMPORTED_IMPLIB ${ARROW_GTEST_LINK_LIB})
-  endif()
-
-  add_dependencies(GTest::gtest arrow_ep)
-
-  # Create target GTest::gtest_main
-  add_library(GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(GTest::gtest_main
-                        PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_MAIN_SHARED_LIB}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${ARROW_GTEST_MAIN_INCLUDE_DIR})
-  if(WIN32)
-    set_target_properties(GTest::gtest_main PROPERTIES IMPORTED_IMPLIB
-                                                       ${ARROW_GTEST_MAIN_LINK_LIB})
-  endif()
-
-  add_dependencies(GTest::gtest_main arrow_ep)
-endmacro()
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(MLARROW_VERSION "14.0.0-SNAPSHOT")
+set(MLARROW_VERSION "15.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" MLARROW_BASE_VERSION "${MLARROW_VERSION}")
 
 project(mlarrow VERSION "${MLARROW_BASE_VERSION}")
@@ -203,8 +104,6 @@ project(mlarrow VERSION "${MLARROW_BASE_VERSION}")
 if(WIN32)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 endif()
-
-option(MATLAB_BUILD_TESTS "Build the C++ tests for the MATLAB interface" OFF)
 
 # Add tools/cmake directory to the CMAKE_MODULE_PATH.
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/tools/cmake)
@@ -227,56 +126,9 @@ else()
   set(MATLAB_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}")
 endif()
 
-# Only build the MATLAB interface C++ tests if MATLAB_BUILD_TESTS=ON.
-if(MATLAB_BUILD_TESTS)
-  # find_package(GTest) supports custom GTEST_ROOT as well as package managers.
-  find_package(GTest)
-
-  if(NOT GTest_FOUND)
-    # find_package(Arrow) supports custom ARROW_HOME as well as package
-    # managers.
-    find_package(Arrow QUIET)
-    # Trigger an automatic build of the Arrow C++ libraries and bundled
-    # GoogleTest binaries. If a valid Arrow installation was not already
-    # found by find_package, then build_arrow will use the Arrow
-    # C++ libraries that are built from source.
-    build_arrow(BUILD_GTEST)
-  else()
-    # On Windows, IMPORTED_LOCATION needs to be set to indicate where the shared
-    # libraries live when GTest is found.
-    if(WIN32)
-      set(GTEST_SHARED_LIB_DIR "${GTEST_ROOT}/bin")
-      set(GTEST_SHARED_LIBRARY_FILENAME
-          "${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}")
-      set(GTEST_SHARED_LIBRARY_LIB
-          "${GTEST_SHARED_LIB_DIR}/${GTEST_SHARED_LIBRARY_FILENAME}")
-
-      set(GTEST_MAIN_SHARED_LIB_DIR "${GTEST_ROOT}/bin")
-      set(GTEST_MAIN_SHARED_LIBRARY_FILENAME
-          "${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}")
-      set(GTEST_MAIN_SHARED_LIBRARY_LIB
-          "${GTEST_MAIN_SHARED_LIB_DIR}/${GTEST_MAIN_SHARED_LIBRARY_FILENAME}")
-
-      set_target_properties(GTest::gtest PROPERTIES IMPORTED_LOCATION
-                                                    "${GTEST_SHARED_LIBRARY_LIB}")
-
-      set_target_properties(GTest::gtest_main
-                            PROPERTIES IMPORTED_LOCATION
-                                       "${GTEST_MAIN_SHARED_LIBRARY_LIB}")
-    endif()
-
-    find_package(Arrow QUIET)
-    if(NOT Arrow_FOUND)
-      # Trigger an automatic build of the Arrow C++ libraries.
-      build_arrow()
-    endif()
-  endif()
-
-else()
-  find_package(Arrow QUIET)
-  if(NOT Arrow_FOUND)
-    build_arrow()
-  endif()
+find_package(Arrow QUIET)
+if(NOT Arrow_FOUND)
+  build_arrow()
 endif()
 
 # MATLAB is Required
@@ -328,49 +180,6 @@ if(NOT Arrow_FOUND)
 else()
   # If not building Arrow, ARROW_INCLUDE_DIR derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
   message(STATUS "ARROW_INCLUDE_DIR: ${ARROW_INCLUDE_DIR}")
-endif()
-
-# ##############################################################################
-# C++ Tests
-# ##############################################################################
-# Only build the C++ tests if MATLAB_BUILD_TESTS=ON.
-if(MATLAB_BUILD_TESTS)
-  enable_testing()
-
-  # Define a test executable target. TODO: Remove the placeholder test. This is
-  # just for testing GoogleTest integration.
-  add_executable(placeholder_test ${CMAKE_SOURCE_DIR}/src/placeholder_test.cc)
-
-  # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
-  # targets.
-  target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
-
-  # Add test targets for C++ tests.
-  add_test(PlaceholderTestTarget placeholder_test)
-
-  # On Windows:
-  # Add the directory of gtest.dll and gtest_main.dll to the %PATH% for running
-  # all tests.
-  # Add the directory of libmx.dll, libmex.dll, and libarrow.dll to the %PATH% for running
-  # CheckNumArgsTestTarget.
-  # Note: When appending to the path using set_test_properties' ENVIRONMENT property,
-  #       make sure that we escape ';' to prevent CMake from interpreting the input as
-  #       a list of strings.
-  if(WIN32)
-    get_target_property(GTEST_SHARED_LIB GTest::gtest IMPORTED_LOCATION)
-    get_filename_component(GTEST_SHARED_LIB_DIR ${GTEST_SHARED_LIB} DIRECTORY)
-
-    get_target_property(GTEST_MAIN_SHARED_LIB GTest::gtest_main IMPORTED_LOCATION)
-    get_filename_component(GTEST_MAIN_SHARED_LIB_DIR ${GTEST_MAIN_SHARED_LIB} DIRECTORY)
-
-    set_tests_properties(PlaceholderTestTarget
-                         PROPERTIES ENVIRONMENT
-                                    "PATH=${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
-    )
-
-    get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
-    get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
-  endif()
 endif()
 
 # ##############################################################################

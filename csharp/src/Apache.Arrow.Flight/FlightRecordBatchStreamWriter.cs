@@ -27,12 +27,12 @@ namespace Apache.Arrow.Flight
     public abstract class FlightRecordBatchStreamWriter : IAsyncStreamWriter<RecordBatch>, IDisposable
     {
         private FlightDataStream _flightDataStream;
-        private readonly IAsyncStreamWriter<FlightData> _clientStreamWriter;
+        private readonly IAsyncStreamWriter<Protocol.FlightData> _clientStreamWriter;
         private readonly FlightDescriptor _flightDescriptor;
 
         private bool _disposed;
 
-        private protected FlightRecordBatchStreamWriter(IAsyncStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor)
+        private protected FlightRecordBatchStreamWriter(IAsyncStreamWriter<Protocol.FlightData> clientStreamWriter, FlightDescriptor flightDescriptor)
         {
             _clientStreamWriter = clientStreamWriter;
             _flightDescriptor = flightDescriptor;

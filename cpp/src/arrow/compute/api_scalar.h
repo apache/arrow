@@ -268,19 +268,49 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
+  /// How to handle null values.
+  enum NullMatchingBehavior {
+    /// MATCH, any null in `value_set` is successfully matched in
+    /// the input.
+    MATCH,
+    /// SKIP, any null in `value_set` is ignored and nulls in the input
+    /// produce null (IndexIn) or false (IsIn) values in the output.
+    SKIP,
+    /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
+    /// input produce null (IndexIn and IsIn) values in the output.
+    EMIT_NULL,
+    /// INCONCLUSIVE, null values are regarded as unknown values, which is
+    /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
+    /// values in the output. Besides, if `value_set` contains a null,
+    /// non-null unmatched values in the input also produce null values
+    /// (IndexIn and IsIn) in the output.
+    INCONCLUSIVE
+  };
+
+  explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
   SetLookupOptions();
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls);
+
   static constexpr char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
+
+  NullMatchingBehavior null_matching_behavior;
+
+  // DEPRECATED(will be removed after removing of skip_nulls)
+  NullMatchingBehavior GetNullMatchingBehavior() const;
+
+  // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.
   ///
   /// If true, any null in `value_set` is ignored and nulls in the input
   /// produce null (IndexIn) or false (IsIn) values in the output.
   /// If false, any null in `value_set` is successfully matched in
   /// the input.
-  bool skip_nulls;
+  std::optional<bool> skip_nulls;
 };
 
 /// Options for struct_field function

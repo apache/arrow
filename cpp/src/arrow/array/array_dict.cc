@@ -30,6 +30,7 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/api.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -211,6 +212,106 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
+struct CompactTransposeMapVistor {
+  const std::shared_ptr<ArrayData>& data;
+  arrow::MemoryPool* pool;
+  std::unique_ptr<Buffer> output_map;
+  std::shared_ptr<Array> out_compact_dictionary;
+
+  template <typename IndexArrowType>
+  Status CompactTransposeMapImpl() {
+    int64_t index_length = data->length;
+    int64_t dict_length = data->dictionary->length;
+    if (dict_length == 0) {
+      output_map = nullptr;
+      out_compact_dictionary = nullptr;
+      return Status::OK();
+    } else if (index_length == 0) {
+      ARROW_ASSIGN_OR_RAISE(out_compact_dictionary,
+                            MakeEmptyArray(data->dictionary->type, pool));
+      ARROW_ASSIGN_OR_RAISE(output_map, AllocateBuffer(0, pool))
+      return Status::OK();
+    }
+
+    using CType = typename IndexArrowType::c_type;
+    const CType* indices_data = data->GetValues<CType>(1);
+    std::vector<bool> dict_used(dict_length, false);
+    CType dict_len = static_cast<CType>(dict_length);
+    int64_t dict_used_count = 0;
+    for (int64_t i = 0; i < index_length; i++) {
+      if (data->IsNull(i)) {
+        continue;
+      }
+
+      CType current_index = indices_data[i];
+      if (current_index < 0 || current_index >= dict_len) {
+        return Status::IndexError(
+            "Index out of bounds while compacting dictionary array: ", current_index,
+            "(dictionary is ", dict_length, " long) at position ", i);
+      }
+      if (dict_used[current_index]) continue;
+      dict_used[current_index] = true;
+      dict_used_count++;
+
+      if (dict_used_count == dict_length) {
+        // The dictionary is already compact, so just return here
+        output_map = nullptr;
+        out_compact_dictionary = nullptr;
+        return Status::OK();
+      }
+    }
+
+    using BuilderType = NumericBuilder<IndexArrowType>;
+    using arrow::compute::Take;
+    using arrow::compute::TakeOptions;
+    BuilderType dict_indices_builder(pool);
+    ARROW_RETURN_NOT_OK(dict_indices_builder.Reserve(dict_used_count));
+    ARROW_ASSIGN_OR_RAISE(output_map,
+                          AllocateBuffer(dict_length * sizeof(int32_t), pool));
+    auto* output_map_raw = output_map->mutable_data_as<int32_t>();
+    int32_t current_index = 0;
+    for (CType i = 0; i < dict_len; i++) {
+      if (dict_used[i]) {
+        dict_indices_builder.UnsafeAppend(i);
+        output_map_raw[i] = current_index;
+        current_index++;
+      } else {
+        output_map_raw[i] = -1;
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
+                          dict_indices_builder.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto compacted_dict_res,
+                          Take(Datum(data->dictionary), compacted_dict_indices,
+                               TakeOptions::NoBoundsCheck()));
+    out_compact_dictionary = compacted_dict_res.make_array();
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_integer<Type, Status> Visit(const Type&) {
+    return CompactTransposeMapImpl<Type>();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("Expected an Index Type of Int or UInt");
+  }
+};
+
+Result<std::unique_ptr<Buffer>> CompactTransposeMap(
+    const std::shared_ptr<ArrayData>& data, MemoryPool* pool,
+    std::shared_ptr<Array>& out_compact_dictionary) {
+  if (data->type->id() != Type::DICTIONARY) {
+    return Status::TypeError("Expected dictionary type");
+  }
+
+  const auto& dict_type = checked_cast<const DictionaryType&>(*data->type);
+  CompactTransposeMapVistor vistor{data, pool, nullptr, nullptr};
+  RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &vistor));
+
+  out_compact_dictionary = vistor.out_compact_dictionary;
+  return std::move(vistor.output_map);
+}
 }  // namespace
 
 Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
@@ -220,6 +321,19 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
                         TransposeDictIndices(data_, data_->type, type, dictionary->data(),
                                              transpose_map, pool));
   return MakeArray(std::move(transposed));
+}
+
+Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
+  std::shared_ptr<Array> compact_dictionary;
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> transpose_map,
+                        CompactTransposeMap(this->data_, pool, compact_dictionary));
+
+  if (transpose_map == nullptr) {
+    return std::make_shared<DictionaryArray>(this->data_);
+  } else {
+    return this->Transpose(this->type(), compact_dictionary,
+                           transpose_map->data_as<int32_t>(), pool);
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -282,9 +396,9 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     *out_type = arrow::dictionary(index_type, value_type_);
 
     // Build unified dictionary array
-    std::shared_ptr<ArrayData> data;
-    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
-                                                     0 /* start_offset */, &data));
+    ARROW_ASSIGN_OR_RAISE(
+        auto data, DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
+                                                      0 /* start_offset */));
     *out_dict = MakeArray(data);
     return Status::OK();
   }
@@ -299,9 +413,9 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     }
 
     // Build unified dictionary array
-    std::shared_ptr<ArrayData> data;
-    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
-                                                     0 /* start_offset */, &data));
+    ARROW_ASSIGN_OR_RAISE(
+        auto data, DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
+                                                      0 /* start_offset */));
     *out_dict = MakeArray(data);
     return Status::OK();
   }

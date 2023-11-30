@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 type (
@@ -32,12 +32,18 @@ type (
 		// Fields method provides a copy of NestedType fields
 		// (so it can be safely mutated and will not result in updating the NestedType).
 		Fields() []Field
+		// NumFields provides the number of fields without allocating.
+		NumFields() int
 	}
 
 	ListLikeType interface {
 		DataType
 		Elem() DataType
 		ElemField() Field
+	}
+
+	VarLenListLikeType interface {
+		ListLikeType
 	}
 )
 
@@ -104,6 +110,8 @@ func (t *ListType) ElemField() Field {
 }
 
 func (t *ListType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (t *ListType) NumFields() int { return 1 }
 
 func (*ListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes)}}
@@ -238,9 +246,151 @@ func (t *FixedSizeListType) Fingerprint() string {
 
 func (t *FixedSizeListType) Fields() []Field { return []Field{t.ElemField()} }
 
+func (t *FixedSizeListType) NumFields() int { return 1 }
+
 func (*FixedSizeListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap()}}
 }
+
+type ListViewType struct {
+	elem Field
+}
+
+func ListViewOfField(f Field) *ListViewType {
+	if f.Type == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListViewType{elem: f}
+}
+
+// ListViewOf returns the list-view type with element type t.
+// For example, if t represents int32, ListViewOf(t) represents []int32.
+//
+// ListViewOf panics if t is nil or invalid. NullableElem defaults to true
+func ListViewOf(t DataType) *ListViewType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListViewType{elem: Field{Name: "item", Type: t, Nullable: true}}
+}
+
+// ListViewOfNonNullable is like ListViewOf but NullableElem defaults to false, indicating
+// that the child type should be marked as non-nullable.
+func ListViewOfNonNullable(t DataType) *ListViewType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListViewType{elem: Field{Name: "item", Type: t, Nullable: false}}
+}
+
+func (*ListViewType) ID() Type     { return LIST_VIEW }
+func (*ListViewType) Name() string { return "list_view" }
+
+func (t *ListViewType) String() string {
+	if t.elem.Nullable {
+		return fmt.Sprintf("list_view<%s: %s, nullable>", t.elem.Name, t.elem.Type)
+	}
+	return fmt.Sprintf("list_view<%s: %s>", t.elem.Name, t.elem.Type)
+}
+
+func (t *ListViewType) Fingerprint() string {
+	child := t.elem.Type.Fingerprint()
+	if len(child) > 0 {
+		return typeFingerprint(t) + "{" + child + "}"
+	}
+	return ""
+}
+
+func (t *ListViewType) SetElemMetadata(md Metadata) { t.elem.Metadata = md }
+
+func (t *ListViewType) SetElemNullable(n bool) { t.elem.Nullable = n }
+
+// Elem returns the ListViewType's element type.
+func (t *ListViewType) Elem() DataType { return t.elem.Type }
+
+func (t *ListViewType) ElemField() Field {
+	return t.elem
+}
+
+func (t *ListViewType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (t *ListViewType) NumFields() int { return 1 }
+
+func (*ListViewType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
+}
+
+func (*ListViewType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+
+type LargeListViewType struct {
+	elem Field
+}
+
+func LargeListViewOfField(f Field) *LargeListViewType {
+	if f.Type == nil {
+		panic("arrow: nil DataType")
+	}
+	return &LargeListViewType{elem: f}
+}
+
+// LargeListViewOf returns the list-view type with element type t.
+// For example, if t represents int32, LargeListViewOf(t) represents []int32.
+//
+// LargeListViewOf panics if t is nil or invalid. NullableElem defaults to true
+func LargeListViewOf(t DataType) *LargeListViewType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &LargeListViewType{elem: Field{Name: "item", Type: t, Nullable: true}}
+}
+
+// LargeListViewOfNonNullable is like LargeListViewOf but NullableElem defaults
+// to false, indicating that the child type should be marked as non-nullable.
+func LargeListViewOfNonNullable(t DataType) *LargeListViewType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &LargeListViewType{elem: Field{Name: "item", Type: t, Nullable: false}}
+}
+
+func (*LargeListViewType) ID() Type     { return LARGE_LIST_VIEW }
+func (*LargeListViewType) Name() string { return "large_list_view" }
+
+func (t *LargeListViewType) String() string {
+	if t.elem.Nullable {
+		return fmt.Sprintf("large_list_view<%s: %s, nullable>", t.elem.Name, t.elem.Type)
+	}
+	return fmt.Sprintf("large_list_view<%s: %s>", t.elem.Name, t.elem.Type)
+}
+
+func (t *LargeListViewType) Fingerprint() string {
+	child := t.elem.Type.Fingerprint()
+	if len(child) > 0 {
+		return typeFingerprint(t) + "{" + child + "}"
+	}
+	return ""
+}
+
+func (t *LargeListViewType) SetElemMetadata(md Metadata) { t.elem.Metadata = md }
+
+func (t *LargeListViewType) SetElemNullable(n bool) { t.elem.Nullable = n }
+
+// Elem returns the LargeListViewType's element type.
+func (t *LargeListViewType) Elem() DataType { return t.elem.Type }
+
+func (t *LargeListViewType) ElemField() Field {
+	return t.elem
+}
+
+func (t *LargeListViewType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (t *LargeListViewType) NumFields() int { return 1 }
+
+func (*LargeListViewType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int64SizeBytes), SpecFixedWidth(Int64SizeBytes)}}
+}
+
+func (*LargeListViewType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
 
 // StructType describes a nested type parameterized by an ordered sequence
 // of relative types, called its fields.
@@ -307,6 +457,8 @@ func (t *StructType) Fields() []Field {
 	return fields
 }
 
+func (t *StructType) NumFields() int { return len(t.fields) }
+
 func (t *StructType) Field(i int) Field { return t.fields[i] }
 
 // FieldByName gets the field with the given name.
@@ -324,7 +476,7 @@ func (t *StructType) FieldByName(name string) (Field, bool) {
 // FieldIdx gets the index of the field with the given name.
 //
 // If there are multiple fields with the given name, FieldIdx returns
-// the index of the first first such field.
+// the index of the first such field.
 func (t *StructType) FieldIdx(name string) (int, bool) {
 	i, ok := t.index[name]
 	if ok {
@@ -458,6 +610,8 @@ func (t *MapType) Fingerprint() string {
 
 func (t *MapType) Fields() []Field { return []Field{t.ElemField()} }
 
+func (t *MapType) NumFields() int { return 1 }
+
 func (t *MapType) Layout() DataTypeLayout {
 	return t.value.Layout()
 }
@@ -549,6 +703,8 @@ func (t *unionType) Fields() []Field {
 	copy(fields, t.children)
 	return fields
 }
+
+func (t *unionType) NumFields() int { return len(t.children) }
 
 func (t *unionType) TypeCodes() []UnionTypeCode { return t.typeCodes }
 func (t *unionType) ChildIDs() []int            { return t.childIDs[:] }
@@ -827,4 +983,11 @@ var (
 	_ ListLikeType = (*LargeListType)(nil)
 	_ ListLikeType = (*FixedSizeListType)(nil)
 	_ ListLikeType = (*MapType)(nil)
+
+	_ VarLenListLikeType = (*ListType)(nil)
+	_ VarLenListLikeType = (*LargeListType)(nil)
+	_ VarLenListLikeType = (*ListViewType)(nil)
+	_ VarLenListLikeType = (*LargeListViewType)(nil)
+	_ VarLenListLikeType = (*FixedSizeListType)(nil)
+	_ VarLenListLikeType = (*MapType)(nil)
 )

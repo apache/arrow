@@ -988,8 +988,10 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
     cdef shared_ptr[CMetadataRecordBatchReader] reader
 
     def __iter__(self):
-        while True:
-            yield self.read_chunk()
+        return self
+
+    def __next__(self):
+        return self.read_chunk()
 
     @property
     def schema(self):
@@ -1012,11 +1014,8 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         Returns
         -------
-        data : FlightStreamChunk
+        chunk : FlightStreamChunk
             The next FlightStreamChunk in the stream.
-        app_metadata : Buffer or None
-            Application-specific metadata for the batch as defined by
-            Flight.
 
         Raises
         ------
@@ -1699,7 +1698,9 @@ cdef class FlightClient(_Weakrefable):
 
     def close(self):
         """Close the client and disconnect."""
-        check_flight_status(self.client.get().Close())
+        client = self.client.get()
+        if client != NULL:
+            check_flight_status(client.Close())
 
     def __del__(self):
         # Not ideal, but close() wasn't originally present so
@@ -2663,7 +2664,7 @@ cdef class TracingServerMiddlewareFactory(ServerMiddlewareFactory):
 cdef class ServerMiddleware(_Weakrefable):
     """Server-side middleware for a call, instantiated per RPC.
 
-    Methods here should be fast and must be infalliable: they should
+    Methods here should be fast and must be infallible: they should
     not raise exceptions or stall indefinitely.
 
     """

@@ -145,42 +145,46 @@ void AssertScalarsApproxEqual(const Scalar& expected, const Scalar& actual, bool
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual,
-                        bool check_metadata) {
+                        bool check_metadata, const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.Equals(actual, check_metadata);
+                 return expected.Equals(actual, check_metadata, options);
                });
 }
 
-void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual) {
+void AssertBatchesApproxEqual(const RecordBatch& expected, const RecordBatch& actual,
+                              const EqualOptions& options) {
   AssertTsSame(expected, actual,
                [&](const RecordBatch& expected, const RecordBatch& actual) {
-                 return expected.ApproxEquals(actual);
+                 return expected.ApproxEquals(actual, options);
                });
 }
 
-void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual,
+                        const EqualOptions& options) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream diff;
     for (int i = 0; i < actual.num_chunks(); ++i) {
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
       diff << "# chunk " << i << std::endl;
-      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
+      ARROW_IGNORE_EXPR(c1->Equals(c2, options.diff_sink(&diff)));
     }
     FAIL() << diff.str();
   }
 }
 
-void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected) {
-  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual);
+void AssertChunkedEqual(const ChunkedArray& actual, const ArrayVector& expected,
+                        const EqualOptions& options) {
+  AssertChunkedEqual(ChunkedArray(expected, actual.type()), actual, options);
 }
 
-void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual) {
+void AssertChunkedEquivalent(const ChunkedArray& expected, const ChunkedArray& actual,
+                             const EqualOptions& options) {
   // XXX: AssertChunkedEqual in gtest_util.h does not permit the chunk layouts
   // to be different
-  if (!actual.Equals(expected)) {
+  if (!actual.Equals(expected, options)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
     ::arrow::PrettyPrintOptions options(/*indent=*/2);
@@ -214,7 +218,7 @@ void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expecte
   }
 }
 
-void AssertBufferEqual(const Buffer& buffer, const std::string& expected) {
+void AssertBufferEqual(const Buffer& buffer, std::string_view expected) {
   ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.length())
       << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();
@@ -321,21 +325,23 @@ ASSERT_EQUAL_IMPL(Field, Field, "fields")
 ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
-void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose) {
+void AssertDatumsEqual(const Datum& expected, const Datum& actual, bool verbose,
+                       const EqualOptions& options) {
   ASSERT_EQ(expected.kind(), actual.kind())
       << "expected:" << expected.ToString() << " got:" << actual.ToString();
 
   switch (expected.kind()) {
     case Datum::SCALAR:
-      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose);
+      AssertScalarsEqual(*expected.scalar(), *actual.scalar(), verbose, options);
       break;
     case Datum::ARRAY: {
       auto expected_array = expected.make_array();
       auto actual_array = actual.make_array();
-      AssertArraysEqual(*expected_array, *actual_array, verbose);
+      AssertArraysEqual(*expected_array, *actual_array, verbose, options);
     } break;
     case Datum::CHUNKED_ARRAY:
-      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array());
+      AssertChunkedEquivalent(*expected.chunked_array(), *actual.chunked_array(),
+                              options);
       break;
     default:
       // TODO: Implement better print
@@ -479,7 +485,7 @@ Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
-                       bool combine_chunks) {
+                       bool combine_chunks, const EqualOptions& options) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
 
   if (combine_chunks) {
@@ -487,13 +493,13 @@ void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chu
     ASSERT_OK_AND_ASSIGN(auto new_expected, expected.CombineChunks(pool));
     ASSERT_OK_AND_ASSIGN(auto new_actual, actual.CombineChunks(pool));
 
-    AssertTablesEqual(*new_expected, *new_actual, false, false);
+    AssertTablesEqual(*new_expected, *new_actual, false, false, options);
     return;
   }
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {
-      AssertChunkedEqual(*expected.column(i), *actual.column(i));
+      AssertChunkedEqual(*expected.column(i), *actual.column(i), options);
     }
   } else {
     std::stringstream ss;
@@ -533,17 +539,18 @@ void CompareBatchWith(const RecordBatch& left, const RecordBatch& right,
 }
 
 void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                  bool compare_metadata) {
+                  bool compare_metadata, const EqualOptions& options) {
   return CompareBatchWith(
       left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.Equals(right); });
+      [&](const Array& left, const Array& right) { return left.Equals(right, options); });
 }
 
 void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
-                        bool compare_metadata) {
-  return CompareBatchWith(
-      left, right, compare_metadata,
-      [](const Array& left, const Array& right) { return left.ApproxEquals(right); });
+                        bool compare_metadata, const EqualOptions& options) {
+  return CompareBatchWith(left, right, compare_metadata,
+                          [&](const Array& left, const Array& right) {
+                            return left.ApproxEquals(right, options);
+                          });
 }
 
 std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,

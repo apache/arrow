@@ -19,8 +19,8 @@ package array
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,4 +48,79 @@ func TestDataReset(t *testing.T) {
 		// before old ones are released.)
 		data.Reset(&arrow.Int64Type{}, 5, data.Buffers(), nil, 1, 2)
 	}
+}
+
+func TestSizeInBytes(t *testing.T) {
+	var buffers1 = make([]*memory.Buffer, 0, 3)
+
+	for i := 0; i < cap(buffers1); i++ {
+		buffers1 = append(buffers1, memory.NewBufferBytes([]byte("15-bytes-buffer")))
+	}
+	data := NewData(&arrow.StringType{}, 10, buffers1, nil, 0, 0)
+	var arrayData arrow.ArrayData = data
+	dataWithChild := NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{arrayData}, 0, 0)
+
+	t.Run("buffers only", func(t *testing.T) {
+		expectedSize := uint64(45)
+		if actualSize := data.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
+
+	t.Run("buffers and child data", func(t *testing.T) {
+		// 45 bytes in buffers, 45 bytes in child data
+		expectedSize := uint64(90)
+		if actualSize := dataWithChild.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
+
+	t.Run("buffers and nested child data", func(t *testing.T) {
+		var dataWithChildArrayData arrow.ArrayData = dataWithChild
+		var dataWithNestedChild arrow.ArrayData = NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{dataWithChildArrayData}, 0, 0)
+		// 45 bytes in buffers, 90 bytes in nested child data
+		expectedSize := uint64(135)
+		if actualSize := dataWithNestedChild.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
+
+	t.Run("buffers and dictionary", func(t *testing.T) {
+		dictData := data
+		dataWithDict := NewDataWithDictionary(&arrow.StringType{}, 10, buffers1, 0, 0, dictData)
+		// 45 bytes in buffers, 45 bytes in dictionary
+		expectedSize := uint64(90)
+		if actualSize := dataWithDict.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
+
+	t.Run("sliced data", func(t *testing.T) {
+		sliceData := NewSliceData(arrayData, 3, 5)
+		// offset is not taken into account in SizeInBytes()
+		expectedSize := uint64(45)
+		if actualSize := sliceData.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
+
+	t.Run("sliced data with children", func(t *testing.T) {
+		var dataWithChildArrayData arrow.ArrayData = dataWithChild
+		sliceData := NewSliceData(dataWithChildArrayData, 3, 5)
+		// offset is not taken into account in SizeInBytes()
+		expectedSize := uint64(90)
+		if actualSize := sliceData.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
+
+	t.Run("buffers with children which are sliced data", func(t *testing.T) {
+		sliceData := NewSliceData(arrayData, 3, 5)
+		dataWithSlicedChildren := NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{sliceData}, 0, 0)
+		// offset is not taken into account in SizeInBytes()
+		expectedSize := uint64(90)
+		if actualSize := dataWithSlicedChildren.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
 }

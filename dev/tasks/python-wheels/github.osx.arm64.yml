@@ -104,9 +104,9 @@ jobs:
           # the cffi wheel. We build cffi with the flags pointing to the correct libffi location.
           LDFLAGS=-L$(brew --prefix libffi)/lib CFLAGS=-I$(brew --prefix libffi)/include \
              pip install cffi --no-binary :all:
-           pip install -r arrow/python/requirements-wheel-test.txt
+          pip install -r arrow/python/requirements-wheel-test.txt
           PYTHON=python  arrow/ci/scripts/install_gcs_testbench.sh default
-           arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
+          arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       - name: Upload artifacts
         shell: bash

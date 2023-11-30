@@ -19,9 +19,10 @@ package arrow
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/internal/json"
 
 	"golang.org/x/xerrors"
 )
@@ -347,13 +348,14 @@ type TemporalWithUnit interface {
 }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
-// The zero-value is a nanosecond and time zone neutral. Time zone neutral can be
+// The zero-value is a second and time zone neutral. Time zone neutral can be
 // considered UTC without having "UTC" as a time zone.
 type TimestampType struct {
 	Unit     TimeUnit
 	TimeZone string
 
 	loc *time.Location
+	mx  sync.RWMutex
 }
 
 func (*TimestampType) ID() Type     { return TIMESTAMP }
@@ -374,9 +376,9 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
-func (TimestampType) Bytes() int { return Int64SizeBytes }
+func (*TimestampType) Bytes() int { return Int64SizeBytes }
 
-func (TimestampType) Layout() DataTypeLayout {
+func (*TimestampType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
 }
 
@@ -386,6 +388,8 @@ func (t *TimestampType) TimeUnit() TimeUnit { return t.Unit }
 // This should be called if you change the value of the TimeZone after having
 // potentially called GetZone.
 func (t *TimestampType) ClearCachedLocation() {
+	t.mx.Lock()
+	defer t.mx.Unlock()
 	t.loc = nil
 }
 
@@ -398,10 +402,20 @@ func (t *TimestampType) ClearCachedLocation() {
 // so if you change the value of TimeZone after calling this, make sure to call
 // ClearCachedLocation.
 func (t *TimestampType) GetZone() (*time.Location, error) {
+	t.mx.RLock()
 	if t.loc != nil {
+		defer t.mx.RUnlock()
 		return t.loc, nil
 	}
 
+	t.mx.RUnlock()
+	t.mx.Lock()
+	defer t.mx.Unlock()
+	// in case GetZone() was called in between releasing the read lock and
+	// getting the write lock
+	if t.loc != nil {
+		return t.loc, nil
+	}
 	// the TimeZone string is allowed to be either a valid tzdata string
 	// such as "America/New_York" or an absolute offset of the form -XX:XX
 	// or +XX:XX
@@ -415,7 +429,7 @@ func (t *TimestampType) GetZone() (*time.Location, error) {
 
 	if loc, err := time.LoadLocation(t.TimeZone); err == nil {
 		t.loc = loc
-		return t.loc, err
+		return loc, err
 	}
 
 	// at this point we know that the timezone isn't empty, and didn't match
@@ -444,15 +458,9 @@ func (t *TimestampType) GetToTimeFunc() (func(Timestamp) time.Time, error) {
 	case Second:
 		return func(v Timestamp) time.Time { return time.Unix(int64(v), 0).In(tz) }, nil
 	case Millisecond:
-		factor := int64(time.Second / time.Millisecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Millisecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMilli(int64(v)).In(tz) }, nil
 	case Microsecond:
-		factor := int64(time.Second / time.Microsecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Microsecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMicro(int64(v)).In(tz) }, nil
 	case Nanosecond:
 		return func(v Timestamp) time.Time { return time.Unix(0, int64(v)).In(tz) }, nil
 	}

@@ -24,11 +24,11 @@ import (
 	"math/bits"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 	"golang.org/x/exp/constraints"
 )
 
@@ -795,7 +795,7 @@ func getArithmeticOpDecimalImpl[T decimal128.Num | decimal256.Num](op Arithmetic
 			return int64(fns.Sign(arg))
 		})
 	}
-	debug.Assert(false, "unimplemented arithemtic op")
+	debug.Assert(false, "unimplemented arithmetic op")
 	return nil
 }
 

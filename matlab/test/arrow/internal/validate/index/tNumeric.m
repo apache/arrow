@@ -20,7 +20,7 @@ classdef tNumeric < matlab.unittest.TestCase
     methods (Test)
 
         function NonPositiveError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonPositive" if the index array provided
             % has non-positive values.
 
@@ -39,7 +39,7 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function NonIntegerError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonInteger" if the index array provided
             % has non-integer values.
 
@@ -61,7 +61,7 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function NonRealError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonReal" if the index array is
             % complex.
 
@@ -77,7 +77,7 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function ExceedsIntMaxError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:ExceedsIntMax" if the index array 
             % provided has values that exceed the intmax(intType).
 
@@ -122,13 +122,13 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function ErrorIfNonNumeric(testCase)
-            % Verify numeric() throws an error whose idenitifer is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonNumeric" if provided a non-numeric
             % array as the index.
 
             import arrow.internal.validate.index.numeric
 
-            fcn = @() numeric(false);
+            fcn = @() numeric(false, "int32");
             testCase.verifyError(fcn, "arrow:badsubscript:NonNumeric");
         end
 
@@ -159,6 +159,43 @@ classdef tNumeric < matlab.unittest.TestCase
             original = int8(reshape(1:8, 2, 2, 2));
             expected = int32(1:8)';
             actual = numeric(original, "int32");
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarTrue(testCase)
+            % Verify numeric() behaves as expected provided
+            % AllowNonScalar=true.
+
+            import arrow.internal.validate.index.numeric
+            
+            % Provide a nonscalar array
+            original = [1 2 3]';
+            expected = int32([1 2 3])';
+            actual = numeric(original, "int32", AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a scalar array
+            original = 1;
+            expected = int32(1);
+            actual = numeric(original, "int32", AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarFalse(testCase)
+            % Verify numeric() behaves as expected when provided
+            % AllowNonScalar=false.
+
+            import arrow.internal.validate.index.numeric
+            
+            % Should throw an error when provided a nonscalar double array
+            original = [1 2 3]';
+            fcn = @() numeric(original, "int32", AllowNonScalar=false);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
+
+            % Should not throw an error when provided a scalar double array
+            original = 1;
+            expected = int32(1);
+            actual = numeric(original, "int32", AllowNonScalar=true);
             testCase.verifyEqual(actual, expected);
         end
     end

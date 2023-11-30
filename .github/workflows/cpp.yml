@@ -29,6 +29,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
   pull_request:
     paths:
@@ -41,6 +42,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
 
 concurrency:
@@ -94,19 +96,20 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.image }}-
       - name: Setup Python
         run: |
-          sudo apt install -y --no-install-recommends python3 python3-pip
+          sudo apt update
+          sudo apt install -y --no-install-recommends python3 python3-dev python3-pip
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -136,7 +139,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -167,6 +170,7 @@ jobs:
       ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_S3: ON
+      ARROW_SUBSTRAIT: ON
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON
       ARROW_WITH_LZ4: ON
@@ -183,7 +187,7 @@ jobs:
           sysctl -a | grep cpu
           sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -200,6 +204,10 @@ jobs:
         run: |
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest /usr/local
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
       - name: Install Google Cloud Storage Testbench
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Install Azurite Storage Emulator
@@ -257,6 +265,7 @@ jobs:
       ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
+      ARROW_SUBSTRAIT: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: OFF
@@ -286,7 +295,7 @@ jobs:
       - name: Install Dependencies
         run: choco install -y --no-progress openssl
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -358,6 +367,7 @@ jobs:
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_S3: ON
+      ARROW_SUBSTRAIT: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: ON
@@ -388,7 +398,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -421,6 +431,10 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: |

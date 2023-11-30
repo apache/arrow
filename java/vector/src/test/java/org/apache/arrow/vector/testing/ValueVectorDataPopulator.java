@@ -19,6 +19,7 @@ package org.apache.arrow.vector.testing;
 
 import static org.junit.Assert.assertEquals;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
@@ -137,6 +139,34 @@ public class ValueVectorDataPopulator {
    * Populate values for DecimalVector.
    */
   public static void setVector(DecimalVector vector, Long... values) {
+    final int length = values.length;
+    vector.allocateNew(length);
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for Decimal256Vector.
+   */
+  public static void setVector(Decimal256Vector vector, Long... values) {
+    final int length = values.length;
+    vector.allocateNew(length);
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for Decimal256Vector.
+   */
+  public static void setVector(Decimal256Vector vector, BigDecimal... values) {
     final int length = values.length;
     vector.allocateNew(length);
     for (int i = 0; i < length; i++) {

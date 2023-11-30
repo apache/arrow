@@ -17,11 +17,16 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
-	"golang.org/x/xerrors"
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
+
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
 )
 
 // PlainBooleanDecoder is for the Plain Encoding type, there is no
@@ -103,7 +108,80 @@ func (dec *PlainBooleanDecoder) DecodeSpaced(out []bool, nullCount int, validBit
 			return 0, err
 		}
 		if valuesRead != toRead {
-			return valuesRead, xerrors.New("parquet: boolean decoder: number of values / definition levels read did not match")
+			return valuesRead, errors.New("parquet: boolean decoder: number of values / definition levels read did not match")
+		}
+		return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
+	}
+	return dec.Decode(out)
+}
+
+type RleBooleanDecoder struct {
+	decoder
+
+	rleDec *utils.RleDecoder
+}
+
+func (RleBooleanDecoder) Type() parquet.Type {
+	return parquet.Types.Boolean
+}
+
+func (dec *RleBooleanDecoder) SetData(nvals int, data []byte) error {
+	dec.nvals = nvals
+
+	if len(data) < 4 {
+		return fmt.Errorf("invalid length - %d (corrupt data page?)", len(data))
+	}
+
+	// load the first 4 bytes in little-endian which indicates the length
+	nbytes := binary.LittleEndian.Uint32(data[:4])
+	if nbytes > uint32(len(data)-4) {
+		return fmt.Errorf("received invalid number of bytes - %d (corrupt data page?)", nbytes)
+	}
+
+	dec.data = data[4:]
+	if dec.rleDec == nil {
+		dec.rleDec = utils.NewRleDecoder(bytes.NewReader(dec.data), 1)
+	} else {
+		dec.rleDec.Reset(bytes.NewReader(dec.data), 1)
+	}
+	return nil
+}
+
+func (dec *RleBooleanDecoder) Decode(out []bool) (int, error) {
+	max := shared_utils.MinInt(len(out), dec.nvals)
+
+	var (
+		buf [1024]uint64
+		n   = max
+	)
+
+	for n > 0 {
+		batch := shared_utils.MinInt(len(buf), n)
+		decoded := dec.rleDec.GetBatch(buf[:batch])
+		if decoded != batch {
+			return max - n, io.ErrUnexpectedEOF
+		}
+
+		for i := 0; i < batch; i++ {
+			out[i] = buf[i] != 0
+		}
+		n -= batch
+		out = out[batch:]
+	}
+
+	dec.nvals -= max
+	return max, nil
+}
+
+func (dec *RleBooleanDecoder) DecodeSpaced(out []bool, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
+	if nullCount > 0 {
+		toRead := len(out) - nullCount
+		valuesRead, err := dec.Decode(out[:toRead])
+		if err != nil {
+			return 0, err
+		}
+		if valuesRead != toRead {
+			return valuesRead, errors.New("parquet: rle boolean decoder: number of values / definition levels read did not match")
 		}
 		return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 	}

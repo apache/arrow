@@ -25,13 +25,13 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/float16"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
@@ -194,7 +194,7 @@ func GetDataType[T NumericTypes | bool | string | []byte | float16.Num]() arrow.
 	return typMap[reflect.TypeOf(z)]
 }
 
-// GetType returns the appropriate arrow.Type type T, only for non-parameteric
+// GetType returns the appropriate arrow.Type type T, only for non-parametric
 // types. This uses a map and reflection internally so don't call this in
 // a tight loop, instead call it once and then use a closure with the result.
 func GetType[T NumericTypes | bool | string]() arrow.Type {

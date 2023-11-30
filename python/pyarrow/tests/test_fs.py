@@ -463,7 +463,7 @@ def check_mtime_or_absent(file_info):
 
 
 def skip_fsspec_s3fs(fs):
-    if fs.type_name == "py::fsspec+s3":
+    if fs.type_name == "py::fsspec+('s3', 's3a')":
         pytest.xfail(reason="Not working with fsspec's s3fs")
 
 
@@ -631,7 +631,7 @@ def test_get_file_info(fs, pathfn):
     assert aaa_info.path == aaa
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
-    if fs.type_name == "py::fsspec+s3":
+    if fs.type_name == "py::fsspec+('s3', 's3a')":
         # s3fs doesn't create empty directories
         assert aaa_info.type == FileType.NotFound
     else:
@@ -646,7 +646,7 @@ def test_get_file_info(fs, pathfn):
     assert bb_info.type == FileType.File
     assert 'FileType.File' in repr(bb_info)
     assert bb_info.size == 0
-    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+('s3', 's3a')"]:
         check_mtime(bb_info)
 
     assert c_info.path == str(c)
@@ -655,7 +655,7 @@ def test_get_file_info(fs, pathfn):
     assert c_info.type == FileType.File
     assert 'FileType.File' in repr(c_info)
     assert c_info.size == 4
-    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+('s3', 's3a')"]:
         check_mtime(c_info)
 
     assert zzz_info.path == str(zzz)
@@ -698,11 +698,9 @@ def test_get_file_info_with_selector(fs, pathfn):
         assert selector.base_dir == base_dir
 
         infos = fs.get_file_info(selector)
-        if fs.type_name == "py::fsspec+s3":
-            # s3fs only lists directories if they are not empty, but depending
-            # on the s3fs/fsspec version combo, it includes the base_dir
-            # (https://github.com/dask/s3fs/issues/393)
-            assert (len(infos) == 4) or (len(infos) == 5)
+        if fs.type_name == "py::fsspec+('s3', 's3a')":
+            # s3fs only lists directories if they are not empty
+            len(infos) == 4
         else:
             assert len(infos) == 5
 
@@ -713,10 +711,6 @@ def test_get_file_info_with_selector(fs, pathfn):
             elif (info.path.rstrip("/").endswith(dir_a) or
                   info.path.rstrip("/").endswith(dir_b)):
                 assert info.type == FileType.Directory
-            elif (fs.type_name == "py::fsspec+s3" and
-                  info.path.rstrip("/").endswith("selector-dir")):
-                # s3fs can include base dir, see above
-                assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
             check_mtime_or_absent(info)
@@ -725,12 +719,9 @@ def test_get_file_info_with_selector(fs, pathfn):
         selector = FileSelector(base_dir, recursive=False)
 
         infos = fs.get_file_info(selector)
-        if fs.type_name == "py::fsspec+s3":
+        if fs.type_name == "py::fsspec+('s3', 's3a')":
             # s3fs only lists directories if they are not empty
-            # + for s3fs 0.5.2 all directories are dropped because of buggy
-            # side-effect of previous find() call
-            # (https://github.com/dask/s3fs/issues/410)
-            assert (len(infos) == 3) or (len(infos) == 2)
+            assert len(infos) == 3
         else:
             assert len(infos) == 4
 

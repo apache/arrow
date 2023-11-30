@@ -30,6 +30,65 @@ classdef tStringType < matlab.unittest.TestCase
             tc.verifyEqual(type.NumFields, int32(0));
         end
 
+        function IsEqualTrue(testCase)
+            % Verifies isequal method of arrow.type.StringType returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.StringType
+            % 2. All inputs have the same size
+
+            % Scalar StringType arrays
+            stringType1 = arrow.string();
+            stringType2 = arrow.string();
+            testCase.verifyTrue(isequal(stringType1, stringType2));
+
+            % Non-scalar StringType arrays
+            typeArray1 = [stringType1 stringType1];
+            typeArray2 = [stringType2 stringType2];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verifies the isequal method of arrow.type.StringType returns
+            % false when expected.
+            
+            % Pass a different arrow.type.Type subclass to isequal
+            stringType = arrow.string();
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(stringType, int32Type));
+            testCase.verifyFalse(isequal([stringType stringType], [int32Type int32Type]));
+
+            % StringType arrays have different sizes
+            typeArray1 = [stringType stringType];
+            typeArray2 = [stringType stringType]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+        end
+
+        function TestFieldsProperty(testCase)
+            % Verify Fields is a 0x0 arrow.type.Field array.
+            type = arrow.string();
+            fields = type.Fields;
+            testCase.verifyEqual(fields, arrow.type.Field.empty(0, 0));
+        end
+
+        function FieldsNoSetter(testCase)
+            % Verify the Fields property is not settable.
+            type = arrow.string();
+            testCase.verifyError(@() setfield(type, "Fields", "1"), "MATLAB:class:SetProhibited");
+        end
+
+        function InvalidFieldIndex(testCase)
+            % Verify the field() method throws the expected error message
+            % when given an invalid index.
+            type = arrow.string();
+
+            testCase.verifyError(@() type.field(0), "arrow:badsubscript:NonPositive");
+            testCase.verifyError(@() type.field("A"), "arrow:badsubscript:NonNumeric");
+
+            % NOTE: For StringType, Fields is always empty.
+            testCase.verifyError(@() type.field(1), "arrow:index:EmptyContainer");
+        end
+
     end
 
 end

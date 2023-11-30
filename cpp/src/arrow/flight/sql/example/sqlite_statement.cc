@@ -130,7 +130,7 @@ arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
       if (column_decltype != NULLPTR) {
         ARROW_ASSIGN_OR_RAISE(data_type, GetArrowType(column_decltype));
       } else {
-        // If it can not determine the actual column type, return a dense_union type
+        // If it cannot determine the actual column type, return a dense_union type
         // covering any type SQLite supports.
         data_type = GetUnknownColumnDataType();
       }

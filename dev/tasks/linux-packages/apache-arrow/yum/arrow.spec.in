@@ -273,14 +273,7 @@ License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
-%if %{use_flight}
-Requires:	c-ares-devel
-%endif
 Requires:	curl-devel
-%if %{have_grpc}
-Requires:	grpc-devel
-Requires:	grpc-plugins
-%endif
 %if %{use_gcs}
 Requires:	json-devel
 %endif
@@ -413,6 +406,11 @@ Summary:	Libraries and header files for Apache Arrow Flight.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
+Requires:	c-ares-devel
+%if %{have_grpc}
+Requires:	grpc-devel
+Requires:	grpc-plugins
+%endif
 
 %description flight-devel
 Libraries and header files for Apache Arrow Flight.
@@ -564,7 +562,7 @@ This package contains the libraries for Apache Arrow GLib.
 %package glib-devel
 Summary:	Libraries and header files for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	%{name}-devel = %{version}-%{release}
+Requires:	%{name}-acero-devel = %{version}-%{release}
 Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
 Requires:	glib2-devel
 Requires:	gobject-introspection-devel
@@ -866,6 +864,12 @@ Documentation for Apache Parquet GLib.
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Mon Nov 06 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.1-1
+- New upstream release.
+
+* Thu Oct 19 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.0-1
+- New upstream release.
+
 * Thu Aug 17 2023 Raúl Cumplido <raulcumplido@gmail.com> - 13.0.0-1
 - New upstream release.
 

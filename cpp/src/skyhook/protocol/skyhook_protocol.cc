@@ -73,10 +73,12 @@ arrow::Status DeserializeScanRequest(ceph::bufferlist& bl, ScanRequest* req) {
   req->partition_expression = partition_expression;
 
   arrow::ipc::DictionaryMemo empty_memo;
-  arrow::io::BufferReader projection_schema_reader(request->projection_schema()->data(),
-                                                   request->projection_schema()->size());
-  arrow::io::BufferReader dataset_schema_reader(request->dataset_schema()->data(),
-                                                request->dataset_schema()->size());
+  auto projection_schema_buffer = std::make_shared<arrow::Buffer>(
+      request->projection_schema()->data(), request->projection_schema()->size());
+  arrow::io::BufferReader projection_schema_reader(std::move(projection_schema_buffer));
+  auto dataset_schema_buffer = std::make_shared<arrow::Buffer>(
+      request->dataset_schema()->data(), request->dataset_schema()->size());
+  arrow::io::BufferReader dataset_schema_reader(std::move(dataset_schema_buffer));
 
   ARROW_ASSIGN_OR_RAISE(req->projection_schema,
                         arrow::ipc::ReadSchema(&projection_schema_reader, &empty_memo));

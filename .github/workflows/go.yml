@@ -23,6 +23,7 @@ on:
       - '.github/workflows/go.yml'
       - 'ci/docker/*_go.dockerfile'
       - 'ci/scripts/go_*'
+      - 'docker-compose.yml'
       - 'go/**'
   pull_request:
     paths:
@@ -30,6 +31,7 @@ on:
       - 'ci/docker/*_go.dockerfile'
       - 'ci/docker/**'
       - 'ci/scripts/go_*'
+      - 'docker-compose.yml'
       - 'go/**'
 
 concurrency:
@@ -52,37 +54,33 @@ jobs:
         include:
           - arch-label: AMD64
             arch: amd64
-            go: 1.17
+            go: 1.19
             runs-on: ubuntu-latest
-            staticcheck: v0.2.2
           - arch-label: AMD64
             arch: amd64
-            go: 1.18
+            go: '1.20'
             runs-on: ubuntu-latest
-            staticcheck: v0.3.3
           - arch-label: ARM64
             arch: arm64v8
-            go: 1.17
-            staticcheck: v0.2.2
+            go: 1.19
             runs-on: ["self-hosted", "arm", "linux"]
           - arch-label: ARM64
             arch: arm64v8
-            go: 1.18
-            staticcheck: v0.3.3
+            go: '1.20'
             runs-on: ["self-hosted", "arm", "linux"]
     env:
       ARCH: ${{ matrix.arch }}
       GO: ${{ matrix.go }}
-      STATICCHECK: ${{ matrix.staticcheck }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
         run: |
-          sudo apt install -y --no-install-recommends python3 python3-pip
+          sudo apt update
+          sudo apt install -y --no-install-recommends python3 python3-dev python3-pip
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -108,7 +106,7 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -137,13 +135,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.18
+          go-version: 1.19
           cache: true
           cache-dependency-path: go/go.sum
       - name: Run build
@@ -159,23 +157,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.17, 1.18]
-        include:
-          - go: 1.17
-            staticcheck: v0.2.2
-          - go: 1.18
-            staticcheck: v0.3.3
+        go: [1.19, '1.20']
     env:
       GO: ${{ matrix.go }}
-      STATICCHECK: ${{ matrix.staticcheck }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -206,22 +198,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.17, 1.18]
-        include:
-          - go: 1.17
-            staticcheck: v0.2.2
-          - go: 1.18
-            staticcheck: v0.3.3
+        go: [1.19, '1.20']
     env:
       GO: ${{ matrix.go }}
-      STATICCHECK: ${{ matrix.staticcheck }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -247,30 +233,28 @@ jobs:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        go: [1.17, 1.18]
-        include:
-          - go: 1.17
-            staticcheck: v0.2.2
-          - go: 1.18
-            staticcheck: v0.3.3
+        go: [1.19, '1.20']
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
+        shell: bash
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -286,26 +270,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.17, 1.18]
-        include:
-          - go: 1.17
-            staticcheck: v0.2.2
-          - go: 1.18
-            staticcheck: v0.3.3
+        go: [1.19, '1.20']
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
-      - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
+      - name: Install staticcheck      
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -318,7 +299,7 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: '3.10'
       - name: Run Benchmarks
@@ -347,17 +328,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.17, 1.18]
-        include:
-          - go: 1.17
-            staticcheck: v0.2.2
-          - go: 1.18
-            staticcheck: v0.3.3
+        go: [1.19, '1.20']
     env:
       ARROW_GO_TESTCGO: "1"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -371,7 +347,9 @@ jobs:
         shell: bash
         run: brew install apache-arrow pkg-config
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@${{ matrix.staticcheck }}
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Add To pkg config path
         shell: bash
         run: |
@@ -407,7 +385,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -428,11 +406,14 @@ jobs:
       - name: Install go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.18'
+          go-version: '1.19'
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.3.3
+        shell: bash
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -449,7 +430,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive

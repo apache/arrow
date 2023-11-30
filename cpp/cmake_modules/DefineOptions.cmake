@@ -340,12 +340,16 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
-  if(WIN32 OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
+  if(WIN32
+     OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD"
+     OR NOT ARROW_ENABLE_THREADING)
     # jemalloc is not supported on Windows.
     #
     # jemalloc is the default malloc implementation on FreeBSD and can't
     # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
     # is required on FreeBSD. Lazy-lock feature requires libdl.
+    #
+    # jemalloc requires thread.
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
   else()
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
@@ -469,6 +473,15 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_JEMALLOC_USE_SHARED
                 "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
+
+  if(MSVC)
+    # LLVM doesn't support shared library with MSVC.
+    set(ARROW_LLVM_USE_SHARED_DEFAULT OFF)
+  else()
+    set(ARROW_LLVM_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
+  endif()
+  define_option(ARROW_LLVM_USE_SHARED "Rely on LLVM shared libraries where relevant"
+                ${ARROW_LLVM_USE_SHARED_DEFAULT})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
@@ -738,7 +751,7 @@ if(NOT ARROW_GIT_ID)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+  execute_process(COMMAND "git" "describe" "--tags"
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   ERROR_QUIET
                   OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION

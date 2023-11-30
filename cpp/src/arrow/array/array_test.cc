@@ -80,6 +80,22 @@ class TestArray : public ::testing::Test {
   MemoryPool* pool_;
 };
 
+void CheckDictionaryNullCount(const std::shared_ptr<DataType>& dict_type,
+                              const std::string& input_dictionary_json,
+                              const std::string& input_index_json,
+                              const int64_t& expected_null_count,
+                              const int64_t& expected_logical_null_count,
+                              bool expected_may_have_nulls,
+                              bool expected_may_have_logical_nulls) {
+  std::shared_ptr<arrow::Array> arr =
+      DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
+
+  ASSERT_EQ(arr->null_count(), expected_null_count);
+  ASSERT_EQ(arr->ComputeLogicalNullCount(), expected_logical_null_count);
+  ASSERT_EQ(arr->data()->MayHaveNulls(), expected_may_have_nulls);
+  ASSERT_EQ(arr->data()->MayHaveLogicalNulls(), expected_may_have_logical_nulls);
+}
+
 TEST_F(TestArray, TestNullCount) {
   // These are placeholders
   auto data = std::make_shared<Buffer>(nullptr, 0);
@@ -127,6 +143,37 @@ TEST_F(TestArray, TestNullCount) {
   ASSERT_EQ(0, ree_no_nulls->ComputeLogicalNullCount());
   ASSERT_FALSE(ree_no_nulls->data()->MayHaveNulls());
   ASSERT_FALSE(ree_no_nulls->data()->MayHaveLogicalNulls());
+
+  // Dictionary type
+  std::shared_ptr<arrow::DataType> type;
+  std::shared_ptr<arrow::DataType> dict_type;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    type = boolean();
+    dict_type = dictionary(index_type, type);
+    // no null value
+    CheckDictionaryNullCount(dict_type, "[]", "[]", 0, 0, false, false);
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[0, 1, 0]", 0, 0, false, false);
+
+    // only indices contain null value
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[null, 0, 1]", 1, 1, true,
+                             true);
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[null, null]", 2, 2, true,
+                             true);
+
+    // only dictionary contains null value
+    CheckDictionaryNullCount(dict_type, "[null, true]", "[]", 0, 0, false, true);
+    CheckDictionaryNullCount(dict_type, "[null, true, false]", "[0, 1, 0]", 0, 2, false,
+                             true);
+
+    // both indices and dictionary contain null value
+    CheckDictionaryNullCount(dict_type, "[null, true, false]", "[0, 1, 0, null]", 1, 3,
+                             true, true);
+    CheckDictionaryNullCount(dict_type, "[null, true, null, false]", "[null, 1, 0, 2, 3]",
+                             1, 3, true, true);
+  }
 }
 
 TEST_F(TestArray, TestSlicePreservesAllNullCount) {
@@ -137,6 +184,16 @@ TEST_F(TestArray, TestSlicePreservesAllNullCount) {
   Int32Array arr(/*length=*/100, data, null_bitmap,
                  /*null_count*/ 100);
   EXPECT_EQ(arr.Slice(1, 99)->data()->null_count, arr.Slice(1, 99)->length());
+
+  // Dictionary type
+  std::shared_ptr<arrow::DataType> dict_type = dictionary(int64(), boolean());
+  std::shared_ptr<arrow::Array> dict_arr =
+      DictArrayFromJSON(dict_type, /*indices=*/"[null, 0, 0, 0, 0, 0, 1, 2, 0, 0]",
+                        /*dictionary=*/"[null, true, false]");
+  ASSERT_EQ(dict_arr->null_count(), 1);
+  ASSERT_EQ(dict_arr->ComputeLogicalNullCount(), 8);
+  ASSERT_EQ(dict_arr->Slice(2, 8)->null_count(), 0);
+  ASSERT_EQ(dict_arr->Slice(2, 8)->ComputeLogicalNullCount(), 6);
 }
 
 TEST_F(TestArray, TestLength) {
@@ -382,15 +439,24 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       float64(),
       binary(),
       large_binary(),
+      binary_view(),
       fixed_size_binary(3),
       decimal(16, 4),
       utf8(),
       large_utf8(),
+      utf8_view(),
       list(utf8()),
       list(int64()),  // NOTE: Regression case for ARROW-9071/MakeArrayOfNull
+      list(large_utf8()),
+      list(list(int64())),
+      list(list(large_utf8())),
+      large_list(utf8()),
       large_list(large_utf8()),
+      large_list(list(large_utf8())),
       fixed_size_list(utf8(), 3),
       fixed_size_list(int64(), 4),
+      list_view(utf8()),
+      large_list_view(utf8()),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
       sparse_union(union_fields1, union_type_codes),
@@ -596,16 +662,21 @@ static ScalarVector GetScalars() {
       std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
       std::make_shared<BinaryScalar>(hello),
       std::make_shared<LargeBinaryScalar>(hello),
+      std::make_shared<BinaryViewScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
       std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
       std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
       std::make_shared<StringScalar>(hello),
       std::make_shared<LargeStringScalar>(hello),
+      std::make_shared<StringViewScalar>(hello),
+      std::make_shared<StringViewScalar>(Buffer::FromString("long string; not inlined")),
       std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
       ScalarFromJSON(map(int8(), utf8()), R"([[1, "foo"], [2, "bar"]])"),
       std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
+      std::make_shared<ListViewScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
+      std::make_shared<LargeListViewScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<StructScalar>(
           ScalarVector{
               std::make_shared<Int32Scalar>(2),
@@ -642,13 +713,14 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
+      ARROW_SCOPED_TRACE("scalar type: ", scalar->type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, length));
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
 
       // test case for ARROW-13321
-      for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
+      for (int64_t i : {int64_t{0}, length / 2, length - 1}) {
         ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
         AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
       }
@@ -741,9 +813,9 @@ TEST_F(TestArray, TestFillFromScalar) {
 
       ArraySpan span(*scalar);
       auto roundtripped_array = span.ToArray();
-      AssertArraysEqual(*array, *roundtripped_array);
-
       ASSERT_OK(roundtripped_array->ValidateFull());
+
+      AssertArraysEqual(*array, *roundtripped_array);
       ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
       AssertScalarsEqual(*scalar, *roundtripped_scalar);
     }
@@ -3515,6 +3587,8 @@ DataTypeVector SwappableTypes() {
                         large_utf8(),
                         list(int16()),
                         large_list(int16()),
+                        list_view(int16()),
+                        large_list_view(int16()),
                         dictionary(int16(), utf8())};
 }
 

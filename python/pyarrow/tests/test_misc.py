@@ -22,6 +22,7 @@ import sys
 import pytest
 
 import pyarrow as pa
+from pyarrow.lib import ArrowInvalid
 
 
 def test_get_include():
@@ -114,6 +115,30 @@ def test_runtime_info():
                 info.detected_simd_level
             """
         subprocess.check_call([sys.executable, "-c", code], env=env)
+
+
+def test_import_at_shutdown():
+    # GH-38626: importing PyArrow at interpreter shutdown would crash
+    code = """if 1:
+        import atexit
+
+        def import_arrow():
+            import pyarrow
+
+        atexit.register(import_arrow)
+        """
+    subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Path to timezone database is not configurable "
+                           "on non-Windows platforms")
+def test_set_timezone_db_path_non_windows():
+    # set_timezone_db_path raises an error on non-Windows platforms
+    with pytest.raises(ArrowInvalid,
+                       match="Arrow was set to use OS timezone "
+                             "database at compile time"):
+        pa.set_timezone_db_path("path")
 
 
 @pytest.mark.parametrize('klass', [

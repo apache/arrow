@@ -35,4 +35,24 @@ namespace arrow::matlab::type {
             return arrow::Status::Invalid(msg);
         }
     }
+
+    template<>
+    arrow::Status validateTimeUnit<arrow::Time32Type>(arrow::TimeUnit::type unit) {
+        using arrow::TimeUnit;
+        if (unit == TimeUnit::type::SECOND || unit == TimeUnit::type::MILLI) {
+            return arrow::Status::OK();
+        } else {
+            return arrow::Status::Invalid("TimeUnit for Time32 must be Second or Millisecond"); 
+        }
+    }
+
+    template<>
+    arrow::Status validateTimeUnit<arrow::Time64Type>(arrow::TimeUnit::type unit) {
+        using arrow::TimeUnit;
+        if (unit == TimeUnit::type::MICRO || unit == TimeUnit::type::NANO) {
+            return arrow::Status::OK();
+        } else {
+            return arrow::Status::Invalid("TimeUnit for Time64 must be Microsecond or Nanosecond"); 
+        }
+    }
 }

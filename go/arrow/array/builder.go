@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 const (
@@ -86,6 +86,9 @@ type Builder interface {
 	// IsNull returns if a previously appended value at a given index is null or not.
 	IsNull(i int) bool
 
+	// SetNull sets the value at index i to null.
+	SetNull(i int)
+
 	UnsafeAppendBoolToBitmap(bool)
 
 	init(capacity int)
@@ -124,6 +127,13 @@ func (b *builder) NullN() int { return b.nulls }
 
 func (b *builder) IsNull(i int) bool {
 	return b.nullBitmap.Len() != 0 && bitutil.BitIsNotSet(b.nullBitmap.Bytes(), i)
+}
+
+func (b *builder) SetNull(i int) {
+	if i < 0 || i >= b.length {
+		panic("arrow/array: index out of range")
+	}
+	bitutil.ClearBit(b.nullBitmap.Bytes(), i)
 }
 
 func (b *builder) init(capacity int) {
@@ -332,6 +342,12 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.MAP:
 		typ := dtype.(*arrow.MapType)
 		return NewMapBuilderWithType(mem, typ)
+	case arrow.LIST_VIEW:
+		typ := dtype.(*arrow.ListViewType)
+		return NewListViewBuilderWithField(mem, typ.ElemField())
+	case arrow.LARGE_LIST_VIEW:
+		typ := dtype.(*arrow.LargeListViewType)
+		return NewLargeListViewBuilderWithField(mem, typ.ElemField())
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
 		bldr := NewExtensionBuilder(mem, typ)
@@ -348,6 +364,10 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.RUN_END_ENCODED:
 		typ := dtype.(*arrow.RunEndEncodedType)
 		return NewRunEndEncodedBuilder(mem, typ.RunEnds(), typ.Encoded())
+	case arrow.BINARY_VIEW:
+		return NewBinaryViewBuilder(mem)
+	case arrow.STRING_VIEW:
+		return NewStringViewBuilder(mem)
 	}
 	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/arrio"
-	"github.com/apache/arrow/go/v14/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/arrio"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 const (
@@ -90,7 +90,7 @@ func (w *Writer) Close() error {
 	enc := json.NewEncoder(w.w)
 	enc.SetIndent("", jsonIndent)
 	// ensure that we don't convert <, >, !, etc. to their unicode equivalents
-	// in the output json since we're not using this in an HTML context so that
+	// in the output json since we aren't using this in an HTML context so that
 	// we can make sure that the json files match.
 	enc.SetEscapeHTML(false)
 	return enc.Encode(w.raw)

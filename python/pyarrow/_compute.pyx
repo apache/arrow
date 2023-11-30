@@ -1682,6 +1682,9 @@ class StrptimeOptions(_StrptimeOptions):
     ----------
     format : str
         Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+        Note that the semantics of the format follow the C/C++ strptime, not the Python one.
+        There are differences in behavior, for example how the "%y" placeholder
+        handles years with less than four digits.
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
@@ -2145,7 +2148,8 @@ class QuantileOptions(_QuantileOptions):
     Parameters
     ----------
     q : double or sequence of double, default 0.5
-        Quantiles to compute. All values must be in [0, 1].
+        Probability levels of the quantiles to compute. All values must be in
+        [0, 1].
     interpolation : str, default "linear"
         How to break ties between competing data points for a given quantile.
         Accepted values are:
@@ -2182,7 +2186,8 @@ class TDigestOptions(_TDigestOptions):
     Parameters
     ----------
     q : double or sequence of double, default 0.5
-        Quantiles to approximate. All values must be in [0, 1].
+        Probability levels of the quantiles to approximate. All values must be
+        in [0, 1].
     delta : int, default 100
         Compression parameter for the T-digest algorithm.
     buffer_size : int, default 500
@@ -2364,7 +2369,7 @@ cdef class Expression(_Weakrefable):
       1,
       2,
       3
-    ], skip_nulls=false})>
+    ], null_matching_behavior=MATCH})>
     """
 
     def __init__(self):

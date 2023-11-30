@@ -35,18 +35,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           path: arrow
           # fetch the tags for version number generation
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: 3.8
       - name: Install Archery and Crossbow dependencies
         run: pip install -e arrow/dev/archery[bot]
-      - name: Handle Github comment event
+      - name: Handle GitHub comment event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
@@ -60,8 +60,8 @@ jobs:
     if: startsWith(github.event.comment.body, '@github-actions autotune')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: r-lib/actions/pr-fetch@v2
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - uses: r-lib/actions/pr-fetch@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: See what is different
@@ -121,7 +121,7 @@ jobs:
               --clang_format_binary=clang-format-${CLANG_TOOLS} \
               --exclude_glob=cpp/build-support/lint_exclusions.txt \
               --source_dir=r/src --quiet --fix
-      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
         if: env.R_DOCS == 'true' || env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
       - name: Update R docs
         if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
@@ -149,7 +149,7 @@ jobs:
           git config user.name "$(git log -1 --pretty=format:%an)"
           git config user.email "$(git log -1 --pretty=format:%ae)"
           git commit -a -m 'Autoformat/render all the things [automated commit]' || echo "No changes to commit"
-      - uses: r-lib/actions/pr-push@v2
+      - uses: r-lib/actions/pr-push@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -158,8 +158,8 @@ jobs:
     if: startsWith(github.event.comment.body, '@github-actions rebase')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: r-lib/actions/pr-fetch@v2
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      - uses: r-lib/actions/pr-fetch@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Rebase on ${{ github.repository }} default branch
@@ -170,7 +170,7 @@ jobs:
           git remote add upstream https://github.com/${{ github.repository }}
           git fetch --unshallow upstream ${{ github.event.repository.default_branch }}
           git rebase upstream/${{ github.event.repository.default_branch }}
-      - uses: r-lib/actions/pr-push@v2
+      - uses: r-lib/actions/pr-push@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           args: "--force"
@@ -182,7 +182,7 @@ jobs:
     if: github.event.comment.body == 'take'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v6
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

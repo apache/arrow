@@ -127,6 +127,15 @@ macro(append_runtime_avx2_src SRC)
   endif()
 endmacro()
 
+macro(append_runtime_avx2_bmi2_src SRC)
+  if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
+    list(APPEND ARROW_SRCS ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS
+                                                  "${ARROW_AVX2_FLAG} ${ARROW_BMI2_FLAG}")
+  endif()
+endmacro()
+
 macro(append_runtime_avx512_src SRC)
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ARROW_SRCS ${SRC})
@@ -214,11 +223,14 @@ set(ARROW_SRCS
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
+    util/dict_util.cc
+    util/float16.cc
     util/formatting.cc
     util/future.cc
     util/hashing.cc
     util/int_util.cc
     util/io_util.cc
+    util/list_util.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -324,11 +336,14 @@ if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_SRCS util/compression_zstd.cc)
 endif()
 
+set(ARROW_TESTING_SHARED_LINK_LIBS arrow::flatbuffers rapidjson::rapidjson arrow_shared
+                                   ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers rapidjson::rapidjson arrow_static
+                                   ${ARROW_GTEST_GTEST})
+
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
-    testing/json_integration.cc
-    testing/json_internal.cc
     testing/gtest_util.cc
     testing/random.cc
     testing/generator.cc
@@ -369,6 +384,14 @@ endif()
 #
 # Configure the base Arrow libraries
 #
+
+if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
+  list(APPEND
+       ARROW_SRCS
+       integration/c_data_integration_internal.cc
+       integration/json_integration.cc
+       integration/json_internal.cc)
+endif()
 
 if(ARROW_CSV)
   list(APPEND
@@ -426,10 +449,10 @@ list(APPEND
      compute/util.cc)
 
 append_runtime_avx2_src(compute/key_hash_avx2.cc)
-append_runtime_avx2_src(compute/key_map_avx2.cc)
+append_runtime_avx2_bmi2_src(compute/key_map_avx2.cc)
 append_runtime_avx2_src(compute/row/compare_internal_avx2.cc)
 append_runtime_avx2_src(compute/row/encode_internal_avx2.cc)
-append_runtime_avx2_src(compute/util_avx2.cc)
+append_runtime_avx2_bmi2_src(compute/util_avx2.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
@@ -482,8 +505,8 @@ if(ARROW_FILESYSTEM)
        filesystem/util_internal.cc)
 
   if(ARROW_AZURE)
-    list(APPEND ARROW_SRCS filesystem/azurefs.cc)
-    set_source_files_properties(filesystem/azurefs.cc
+    list(APPEND ARROW_SRCS filesystem/azurefs.cc filesystem/azurefs_internal.cc)
+    set_source_files_properties(filesystem/azurefs.cc filesystem/azurefs_internal.cc
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                            SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
@@ -497,22 +520,14 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
   endif()
   if(ARROW_S3)
-    try_compile(S3_HAS_CRT ${CMAKE_CURRENT_BINARY_DIR}/try_compile
-                SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/filesystem/try_compile/check_s3fs_crt.cc"
-                CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES ${AWSSDK_LINK_LIBRARIES} CXX_STANDARD 17)
-
-    if(S3_HAS_CRT)
-      message(STATUS "AWS SDK is new enough to have CRT support")
-      add_definitions(-DARROW_S3_HAS_CRT)
-    endif()
-
     list(APPEND ARROW_SRCS filesystem/s3fs.cc)
     set_source_files_properties(filesystem/s3fs.cc
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                            SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
+  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS ${ARROW_GTEST_GMOCK})
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS ${ARROW_GTEST_GMOCK})
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 
@@ -584,7 +599,7 @@ if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
                       IMPORTED_LOCATION)
   install(FILES ${arrow_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
           DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
+  string(PREPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
   list(INSERT ARROW_STATIC_INSTALL_INTERFACE_LIBS 0 "Arrow::arrow_bundled_dependencies")
 endif()
 
@@ -720,6 +735,9 @@ if(ARROW_TESTING)
   if(GTest_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
     list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+  else()
+    list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
+    list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
   endif()
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
@@ -735,17 +753,11 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
-                arrow::flatbuffers
-                rapidjson::rapidjson
-                arrow_shared
-                ${ARROW_GTEST_GTEST}
+                ${ARROW_TESTING_SHARED_LINK_LIBS}
                 SHARED_INSTALL_INTERFACE_LIBS
                 ${ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
-                arrow::flatbuffers
-                rapidjson::rapidjson
-                arrow_static
-                ${ARROW_GTEST_GTEST}
+                ${ARROW_TESTING_STATIC_LINK_LIBS}
                 STATIC_INSTALL_INTERFACE_LIBS
                 ${ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
 
@@ -780,6 +792,7 @@ add_arrow_test(array_test
                array/array_binary_test.cc
                array/array_dict_test.cc
                array/array_list_test.cc
+               array/array_list_view_test.cc
                array/array_run_end_test.cc
                array/array_struct_test.cc
                array/array_union_test.cc
@@ -842,12 +855,15 @@ add_subdirectory(tensor)
 add_subdirectory(util)
 add_subdirectory(vendored)
 
-if(ARROW_CSV)
-  add_subdirectory(csv)
+if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
+  # We build tests for the JSON integration machinery even if integration
+  # is not enabled, to ensure it's exercised in more builds than just the
+  # integration build.
+  add_subdirectory(integration)
 endif()
 
-if(ARROW_SUBSTRAIT)
-  add_subdirectory(engine)
+if(ARROW_CSV)
+  add_subdirectory(csv)
 endif()
 
 if(ARROW_ACERO)
@@ -881,6 +897,10 @@ endif()
 
 if(ARROW_ORC)
   add_subdirectory(adapters/orc)
+endif()
+
+if(ARROW_SUBSTRAIT)
+  add_subdirectory(engine)
 endif()
 
 if(ARROW_TENSORFLOW)

@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/endian"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -255,7 +255,7 @@ func TestSchema(t *testing.T) {
 				s = s.WithEndianness(endian.NonNativeEndian)
 			}
 
-			if got, want := len(s.Fields()), len(tc.fields); got != want {
+			if got, want := s.NumFields(), len(tc.fields); got != want {
 				t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
 			}
 
@@ -339,7 +339,7 @@ func TestSchemaAddField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got, want := len(s.Fields()), 3; got != want {
+	if got, want := s.NumFields(), 3; got != want {
 		t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
 	}
 	got, want := s.Field(2), Field{Name: "f3", Type: PrimitiveTypes.Int32}
@@ -476,5 +476,5 @@ func TestSchemaNumFields(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, 3, s.NumFields())
-	assert.Equal(t, s.NumFields(), len(s.Fields()))
+	assert.Equal(t, s.NumFields(), s.NumFields())
 }

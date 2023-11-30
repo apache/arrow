@@ -17,6 +17,10 @@
 #include <arch.h>
 #include <stdint.h>
 
+#if !defined(__ARM_NEON) && !defined(__ARM_NEON__)
+// don't compile this for ARM, the pure go lookup table version
+// is more performant anyways since ARM doesn't have a BMI2/pext_u64
+// instruction we can call directly.
 uint64_t FULL_NAME(extract_bits)(uint64_t bitmap, uint64_t select_bitmap) {
 #if defined(__BMI2__)
    return (uint64_t)(_pext_u64(bitmap, select_bitmap));
@@ -31,6 +35,8 @@ uint64_t FULL_NAME(extract_bits)(uint64_t bitmap, uint64_t select_bitmap) {
   return res;
 #endif
 }
+
+#endif
 
 uint64_t FULL_NAME(levels_to_bitmap)(const int16_t* levels, const int num_levels, const int16_t rhs) {
   uint64_t mask = 0;

@@ -1634,6 +1634,70 @@ TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
   }
 }
 
+// Test that the DELTA_BINARY_PACKED encoding works properply in the presence of values
+// that will cause integer overflow (see GH-37939).
+TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedWrapping) {
+  using T = typename TypeParam::c_type;
+
+  // Values that should wrap when converted to deltas, and then when converted to the
+  // frame of reference.
+  std::vector<T> int_values = {std::numeric_limits<T>::min(),
+                               std::numeric_limits<T>::max(),
+                               std::numeric_limits<T>::min(),
+                               std::numeric_limits<T>::max(),
+                               0,
+                               -1,
+                               0,
+                               1,
+                               -1,
+                               1};
+  const int num_values = static_cast<int>(int_values.size());
+
+  auto const encoder = MakeTypedEncoder<TypeParam>(
+      Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
+  encoder->Put(int_values, num_values);
+  auto const encoded = encoder->FlushValues();
+
+  auto const decoder =
+      MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, this->descr_.get());
+
+  std::vector<T> decoded(num_values);
+  decoder->SetData(num_values, encoded->data(), static_cast<int>(encoded->size()));
+
+  const int values_decoded = decoder->Decode(decoded.data(), num_values);
+
+  ASSERT_EQ(num_values, values_decoded);
+  ASSERT_NO_FATAL_FAILURE(
+      VerifyResults<T>(decoded.data(), int_values.data(), num_values));
+}
+
+// Test that the DELTA_BINARY_PACKED encoding does not use more bits to encode than
+// necessary (see GH-37939).
+TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedSize) {
+  using T = typename TypeParam::c_type;
+  constexpr int num_values = 128;
+  // 128 values should be <= 1 block of values encoded with 2 bits
+  // delta header should be 0x8001|0x8002 0x04 0x8001 0x02 (6 bytes)
+  // mini-block header should be 0x01 0x02020202 (5 bytes)
+  constexpr int encoded_size = 2 * num_values / 8 + 6 + 5;
+
+  // Create a run of {1, 0, -1, 0, 1, 0, ...}.
+  // min_delta is -1, max_delta is 1, max_delta - min_delta is 2, so this requires 2 bits
+  // to encode.
+  std::vector<T> int_values(num_values);
+  std::iota(int_values.begin(), int_values.end(), 0);
+  std::transform(int_values.begin(), int_values.end(), int_values.begin(), [](T idx) {
+    return (idx % 2) == 1 ? 0 : (idx % 4) == 0 ? 1 : -1;
+  });
+
+  auto const encoder = MakeTypedEncoder<TypeParam>(
+      Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
+  encoder->Put(int_values, num_values);
+  auto const encoded = encoder->FlushValues();
+
+  ASSERT_EQ(encoded->size(), encoded_size);
+}
+
 // ----------------------------------------------------------------------
 // Rle for Boolean encode/decode tests.
 

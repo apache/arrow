@@ -25,7 +25,9 @@
 namespace arrow::matlab::array::proxy {
 
         BooleanArray::BooleanArray(std::shared_ptr<arrow::BooleanArray> array) 
-            : arrow::matlab::array::proxy::Array{std::move(array)} {}
+            : arrow::matlab::array::proxy::Array{std::move(array)} {
+                REGISTER_METHOD(BooleanArray, toMATLAB);
+            }
 
         libmexclass::proxy::MakeResult BooleanArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             ::matlab::data::StructArray opts = constructor_arguments[0];
@@ -51,7 +53,7 @@ namespace arrow::matlab::array::proxy {
         void BooleanArray::toMATLAB(libmexclass::proxy::method::Context& context) {
             auto array_length = array->length();
             auto packed_logical_data_buffer = std::static_pointer_cast<arrow::BooleanArray>(array)->values();
-            auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length);
+            auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length, array->offset());
             context.outputs[0] = logical_array_mda;
         }
 }

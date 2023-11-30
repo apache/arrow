@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -216,4 +216,39 @@ func TestMapStringRoundTrip(t *testing.T) {
 	defer arr1.Release()
 
 	assert.True(t, array.Equal(arr, arr1))
+}
+
+func TestMapBuilder_SetNull(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		arr          *array.Map
+		equalValid   = []bool{true, true, true, true, true, true, true}
+		equalOffsets = []int32{0, 1, 2, 5, 6, 7, 8, 10}
+		equalKeys    = []string{"a", "a", "a", "b", "c", "a", "a", "a", "a", "b"}
+		equalValues  = []int32{1, 2, 3, 4, 5, 2, 2, 2, 5, 6}
+	)
+
+	bldr := array.NewMapBuilder(pool, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
+	defer bldr.Release()
+
+	kb := bldr.KeyBuilder().(*array.StringBuilder)
+	ib := bldr.ItemBuilder().(*array.Int32Builder)
+
+	bldr.AppendValues(equalOffsets, equalValid)
+	for _, k := range equalKeys {
+		kb.Append(k)
+	}
+	ib.AppendValues(equalValues, nil)
+
+	bldr.SetNull(0)
+	bldr.SetNull(3)
+
+	arr = bldr.NewMapArray()
+	defer arr.Release()
+
+	assert.True(t, arr.IsNull(0))
+	assert.True(t, arr.IsValid(1))
+	assert.True(t, arr.IsNull(3))
 }

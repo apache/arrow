@@ -299,7 +299,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \brief Request and poll a long running query
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request or a descriptor returned by a
-  /// prioir PollFlightInfo call
+  /// prior PollFlightInfo call
   /// \return Arrow result with the PollInfo describing the status of
   /// the requested query
   arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(

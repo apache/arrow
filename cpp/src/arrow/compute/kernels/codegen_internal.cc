@@ -251,6 +251,7 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
   bool saw_date32 = false;
   bool saw_date64 = false;
   bool saw_duration = false;
+  bool saw_time_since_midnight = false;
   const TypeHolder* end = begin + count;
   for (auto it = begin; it != end; it++) {
     auto id = it->type->id();
@@ -271,6 +272,18 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
         finest_unit = std::max(finest_unit, ty.unit());
         continue;
       }
+      case Type::TIME32: {
+        const auto& type = checked_cast<const Time32Type&>(*it->type);
+        finest_unit = std::max(finest_unit, type.unit());
+        saw_time_since_midnight = true;
+        continue;
+      }
+      case Type::TIME64: {
+        const auto& type = checked_cast<const Time64Type&>(*it->type);
+        finest_unit = std::max(finest_unit, type.unit());
+        saw_time_since_midnight = true;
+        continue;
+      }
       case Type::DURATION: {
         const auto& ty = checked_cast<const DurationType&>(*it->type);
         finest_unit = std::max(finest_unit, ty.unit());
@@ -282,15 +295,33 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
     }
   }
 
-  if (timezone) {
-    // At least one timestamp seen
-    return timestamp(finest_unit, *timezone);
-  } else if (saw_date64) {
-    return date64();
-  } else if (saw_date32) {
-    return date32();
-  } else if (saw_duration) {
-    return duration(finest_unit);
+  bool saw_timestamp_or_date = timezone || saw_date64 || saw_date32 || saw_duration;
+
+  if (saw_time_since_midnight && saw_timestamp_or_date) {
+    // Cannot find common type
+    return TypeHolder(nullptr);
+  }
+  if (saw_timestamp_or_date) {
+    if (timezone) {
+      // At least one timestamp seen
+      return timestamp(finest_unit, *timezone);
+    } else if (saw_date64) {
+      return date64();
+    } else if (saw_date32) {
+      return date32();
+    } else if (saw_duration) {
+      return duration(finest_unit);
+    }
+  }
+  if (saw_time_since_midnight) {
+    switch (finest_unit) {
+      case TimeUnit::SECOND:
+      case TimeUnit::MILLI:
+        return time32(finest_unit);
+      case TimeUnit::MICRO:
+      case TimeUnit::NANO:
+        return time64(finest_unit);
+    }
   }
   return TypeHolder(nullptr);
 }

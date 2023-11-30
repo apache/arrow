@@ -20,6 +20,7 @@ classdef tBooleanTraits < hTypeTraits
         ArrayConstructor = @arrow.array.BooleanArray
         ArrayClassName = "arrow.array.BooleanArray"
         ArrayProxyClassName = "arrow.array.proxy.BooleanArray"
+        ArrayStaticConstructor = @arrow.array.BooleanArray.fromMATLAB
         TypeConstructor = @arrow.type.BooleanType
         TypeClassName = "arrow.type.BooleanType"
         TypeProxyClassName = "arrow.type.proxy.BooleanType"

@@ -1184,6 +1184,7 @@ def test_is_boolean_value():
     assert pa.types.is_boolean_value(np.bool_(False))
 
 
+@h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
 @h.given(
     past.all_types |
     past.all_fields |
@@ -1224,3 +1225,17 @@ def test_types_come_back_with_specific_type():
         schema = pa.schema([pa.field("field_name", arrow_type)])
         type_back = schema.field("field_name").type
         assert type(type_back) is type(arrow_type)
+
+
+def test_schema_import_c_schema_interface():
+    class Wrapper:
+        def __init__(self, schema):
+            self.schema = schema
+
+        def __arrow_c_schema__(self):
+            return self.schema.__arrow_c_schema__()
+
+    schema = pa.schema([pa.field("field_name", pa.int32())])
+    wrapped_schema = Wrapper(schema)
+
+    assert pa.schema(wrapped_schema) == schema

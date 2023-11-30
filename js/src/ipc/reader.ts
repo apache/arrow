@@ -185,7 +185,7 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
 
 //
 // Since TS is a structural type system, we define the following subclass stubs
-// so that concrete types exist to associate with with the interfaces below.
+// so that concrete types exist to associate with the interfaces below.
 //
 // The implementation for each RecordBatchReader is hidden away in the set of
 // `RecordBatchReaderImpl` classes in the second half of this file. This allows
@@ -371,7 +371,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
         return dictionary.memoize();
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
-        return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
+        return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries, this.schema.metadataVersion).visitMany(types);
     }
 }
 
@@ -678,7 +678,7 @@ class RecordBatchJSONReaderImpl<T extends TypeMap = any> extends RecordBatchStre
         super(source, dictionaries);
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
-        return new JSONVectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
+        return new JSONVectorLoader(body, header.nodes, header.buffers, this.dictionaries, this.schema.metadataVersion).visitMany(types);
     }
 }
 

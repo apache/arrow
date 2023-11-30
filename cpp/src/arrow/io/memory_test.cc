@@ -168,11 +168,11 @@ TEST(TestBufferReader, FromStrings) {
   std::string data = "data123456";
   auto view = std::string_view(data);
 
-  BufferReader reader1(data);
-  BufferReader reader2(view);
+  std::unique_ptr<BufferReader> reader1 = BufferReader::FromString(data);
+  BufferReader reader2(std::make_shared<::arrow::Buffer>(view));
 
   std::shared_ptr<Buffer> piece;
-  ASSERT_OK_AND_ASSIGN(piece, reader1.Read(4));
+  ASSERT_OK_AND_ASSIGN(piece, reader1->Read(4));
   ASSERT_EQ(0, memcmp(piece->data(), data.data(), 4));
 
   ASSERT_OK(reader2.Seek(2));
@@ -191,17 +191,17 @@ TEST(TestBufferReader, FromNullBuffer) {
 TEST(TestBufferReader, Seeking) {
   std::string data = "data123456";
 
-  BufferReader reader(data);
-  ASSERT_OK_AND_EQ(0, reader.Tell());
+  std::unique_ptr<BufferReader> reader = BufferReader::FromString(data);
+  ASSERT_OK_AND_EQ(0, reader->Tell());
 
-  ASSERT_OK(reader.Seek(9));
-  ASSERT_OK_AND_EQ(9, reader.Tell());
+  ASSERT_OK(reader->Seek(9));
+  ASSERT_OK_AND_EQ(9, reader->Tell());
 
-  ASSERT_OK(reader.Seek(10));
-  ASSERT_OK_AND_EQ(10, reader.Tell());
+  ASSERT_OK(reader->Seek(10));
+  ASSERT_OK_AND_EQ(10, reader->Tell());
 
-  ASSERT_RAISES(IOError, reader.Seek(11));
-  ASSERT_OK_AND_EQ(10, reader.Tell());
+  ASSERT_RAISES(IOError, reader->Seek(11));
+  ASSERT_OK_AND_EQ(10, reader->Tell());
 }
 
 TEST(TestBufferReader, Peek) {
@@ -283,12 +283,37 @@ TEST(TestBufferReader, WillNeed) {
   }
   {
     std::string data = "data123456";
-    BufferReader reader(reinterpret_cast<const uint8_t*>(data.data()),
-                        static_cast<int64_t>(data.size()));
+    auto reader = BufferReader::FromString(data);
 
-    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
-    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+    ASSERT_OK(reader->WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_RAISES(IOError, reader->WillNeed({{11, 1}}));  // Out of bounds
   }
+}
+
+void TestBufferReaderLifetime(
+    std::function<std::unique_ptr<BufferReader>(std::string&)> fn) {
+  std::shared_ptr<Buffer> result;
+  std::string data = "data12345678910111213";
+  {
+    std::string data_inner = data;
+    std::unique_ptr<BufferReader> reader = fn(data_inner);
+    EXPECT_EQ(true, reader->supports_zero_copy());
+    ASSERT_OK_AND_ASSIGN(result, reader->Read(data.length()));
+  }
+  EXPECT_EQ(std::string_view(data), std::string_view(*result));
+}
+
+TEST(TestBufferReader, Lifetime) {
+  // BufferReader(std::shared_ptr<Buffer>)
+  TestBufferReaderLifetime([](std::string& data) -> std::unique_ptr<BufferReader> {
+    auto buffer = Buffer::FromString(std::move(data));
+    return std::make_unique<BufferReader>(std::move(buffer));
+  });
+
+  // BufferReader(std::string)
+  TestBufferReaderLifetime([](std::string& data) -> std::unique_ptr<BufferReader> {
+    return BufferReader::FromString(std::move(data));
+  });
 }
 
 TEST(TestRandomAccessFile, GetStream) {
@@ -730,7 +755,7 @@ TEST(RangeReadCache, Basics) {
   for (auto lazy : std::vector<bool>{false, true}) {
     SCOPED_TRACE(lazy);
     options.lazy = lazy;
-    auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+    auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
     internal::ReadRangeCache cache(file, {}, options);
 
     ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
@@ -808,7 +833,7 @@ TEST(RangeReadCache, Concurrency) {
 TEST(RangeReadCache, Lazy) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
   CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
@@ -849,7 +874,7 @@ TEST(RangeReadCache, Lazy) {
 TEST(RangeReadCache, LazyWithPrefetching) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
   CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 1;
   options.range_size_limit = 3;

@@ -25,17 +25,19 @@ import os
 import sys
 import tempfile
 import traceback
-from typing import Callable, List
+from typing import Callable, List, Optional
 
+from . import cdata
 from .scenario import Scenario
-from .tester import Tester
-from .tester_cpp import CPPTester
+from .tester import Tester, CDataExporter, CDataImporter
+from .tester_cpp import CppTester
 from .tester_go import GoTester
 from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
 from .tester_csharp import CSharpTester
-from .util import guid, SKIP_ARROW, SKIP_FLIGHT, printer
+from .util import guid, printer
+from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
 from ..utils.source import ARROW_ROOT_DEFAULT
 from . import datagen
 
@@ -68,6 +70,7 @@ class IntegrationRunner(object):
         self.serial = serial
         self.gold_dirs = gold_dirs
         self.failures: List[Outcome] = []
+        self.skips: List[Outcome] = []
         self.match = match
 
         if self.match is not None:
@@ -76,7 +79,7 @@ class IntegrationRunner(object):
             self.json_files = [json_file for json_file in self.json_files
                                if self.match in json_file.name]
 
-    def run(self):
+    def run_ipc(self):
         """
         Run Arrow IPC integration tests for the matrix of enabled
         implementations.
@@ -84,23 +87,24 @@ class IntegrationRunner(object):
         for producer, consumer in itertools.product(
                 filter(lambda t: t.PRODUCER, self.testers),
                 filter(lambda t: t.CONSUMER, self.testers)):
-            self._compare_implementations(
+            self._compare_ipc_implementations(
                 producer, consumer, self._produce_consume,
                 self.json_files)
         if self.gold_dirs:
             for gold_dir, consumer in itertools.product(
                     self.gold_dirs,
                     filter(lambda t: t.CONSUMER, self.testers)):
-                log('\n\n\n\n')
+                log('\n')
                 log('******************************************************')
                 log('Tests against golden files in {}'.format(gold_dir))
                 log('******************************************************')
 
                 def run_gold(_, consumer, test_case: datagen.File):
                     return self._run_gold(gold_dir, consumer, test_case)
-                self._compare_implementations(
+                self._compare_ipc_implementations(
                     consumer, consumer, run_gold,
                     self._gold_tests(gold_dir))
+        log('\n')
 
     def run_flight(self):
         """
@@ -112,6 +116,18 @@ class IntegrationRunner(object):
                          self.testers)
         for server, client in itertools.product(servers, clients):
             self._compare_flight_implementations(server, client)
+        log('\n')
+
+    def run_c_data(self):
+        """
+        Run Arrow C Data interface integration tests for the matrix of
+        enabled implementations.
+        """
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.testers),
+                filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.testers)):
+            self._compare_c_data_implementations(producer, consumer)
+        log('\n')
 
     def _gold_tests(self, gold_dir):
         prefix = os.path.basename(os.path.normpath(gold_dir))
@@ -125,27 +141,31 @@ class IntegrationRunner(object):
                 with open(out_path, "wb") as out:
                     out.write(i.read())
 
+            # Find the generated file with the same name as this gold file
             try:
-                skip = next(f for f in self.json_files
-                            if f.name == name).skip
+                equiv_json_file = next(f for f in self.json_files
+                                       if f.name == name)
             except StopIteration:
-                skip = set()
+                equiv_json_file = None
+
+            skip_testers = set()
             if name == 'union' and prefix == '0.17.1':
-                skip.add("Java")
+                skip_testers.add("Java")
+                skip_testers.add("JS")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
-                skip.add("C#")
-                skip.add("Java")
-                skip.add("JS")
-                skip.add("Rust")
+                skip_testers.add("C#")
+                skip_testers.add("Java")
+                skip_testers.add("JS")
+                skip_testers.add("Rust")
             if prefix == '2.0.0-compression':
-                skip.add("C#")
-                skip.add("JS")
+                skip_testers.add("C#")
+                skip_testers.add("JS")
 
             # See https://github.com/apache/arrow/pull/9822 for how to
             # disable specific compression type tests.
 
             if prefix == '4.0.0-shareddict':
-                skip.add("C#")
+                skip_testers.add("C#")
 
             quirks = set()
             if prefix in {'0.14.1', '0.17.1',
@@ -156,12 +176,18 @@ class IntegrationRunner(object):
                 quirks.add("no_date64_validate")
                 quirks.add("no_times_validate")
 
-            yield datagen.File(name, None, None, skip=skip, path=out_path,
-                               quirks=quirks)
+            json_file = datagen.File(name, schema=None, batches=None,
+                                     path=out_path,
+                                     skip_testers=skip_testers,
+                                     quirks=quirks)
+            if equiv_json_file is not None:
+                json_file.add_skips_from(equiv_json_file)
+            yield json_file
 
     def _run_test_cases(self,
                         case_runner: Callable[[datagen.File], Outcome],
-                        test_cases: List[datagen.File]) -> None:
+                        test_cases: List[datagen.File],
+                        *, serial: Optional[bool] = None) -> None:
         """
         Populate self.failures with the outcomes of the
         ``case_runner`` ran against ``test_cases``
@@ -170,15 +196,20 @@ class IntegrationRunner(object):
             with printer.cork():
                 return case_runner(test_case)
 
+        if serial is None:
+            serial = self.serial
+
         if self.failures and self.stop_on_error:
             return
 
-        if self.serial:
+        if serial:
             for outcome in map(case_wrapper, test_cases):
                 if outcome.failure is not None:
                     self.failures.append(outcome.failure)
                     if self.stop_on_error:
                         break
+                elif outcome.skipped:
+                    self.skips.append(outcome)
 
         else:
             with ThreadPoolExecutor() as executor:
@@ -187,8 +218,10 @@ class IntegrationRunner(object):
                         self.failures.append(outcome.failure)
                         if self.stop_on_error:
                             break
+                    elif outcome.skipped:
+                        self.skips.append(outcome)
 
-    def _compare_implementations(
+    def _compare_ipc_implementations(
         self,
         producer: Tester,
         consumer: Tester,
@@ -220,22 +253,17 @@ class IntegrationRunner(object):
         outcome = Outcome()
 
         json_path = test_case.path
-        log('==========================================================')
+        log('=' * 70)
         log('Testing file {0}'.format(json_path))
-        log('==========================================================')
 
-        if producer.name in test_case.skip:
-            log('-- Skipping test because producer {0} does '
-                'not support'.format(producer.name))
+        if test_case.should_skip(producer.name, SKIP_IPC):
+            log(f'-- Skipping test because producer {producer.name} does '
+                f'not support IPC')
             outcome.skipped = True
 
-        elif consumer.name in test_case.skip:
-            log('-- Skipping test because consumer {0} does '
-                'not support'.format(consumer.name))
-            outcome.skipped = True
-
-        elif SKIP_ARROW in test_case.skip:
-            log('-- Skipping test')
+        elif test_case.should_skip(consumer.name, SKIP_IPC):
+            log(f'-- Skipping test because consumer {consumer.name} does '
+                f'not support IPC')
             outcome.skipped = True
 
         else:
@@ -245,6 +273,8 @@ class IntegrationRunner(object):
                 traceback.print_exc(file=printer.stdout)
                 outcome.failure = Failure(test_case, producer, consumer,
                                           sys.exc_info())
+
+        log('=' * 70)
 
         return outcome
 
@@ -343,22 +373,17 @@ class IntegrationRunner(object):
         """
         outcome = Outcome()
 
-        log('=' * 58)
+        log('=' * 70)
         log('Testing file {0}'.format(test_case.name))
-        log('=' * 58)
 
-        if producer.name in test_case.skip:
-            log('-- Skipping test because producer {0} does '
-                'not support'.format(producer.name))
+        if test_case.should_skip(producer.name, SKIP_FLIGHT):
+            log(f'-- Skipping test because producer {producer.name} does '
+                f'not support Flight')
             outcome.skipped = True
 
-        elif consumer.name in test_case.skip:
-            log('-- Skipping test because consumer {0} does '
-                'not support'.format(consumer.name))
-            outcome.skipped = True
-
-        elif SKIP_FLIGHT in test_case.skip:
-            log('-- Skipping test')
+        elif test_case.should_skip(consumer.name, SKIP_FLIGHT):
+            log(f'-- Skipping test because consumer {consumer.name} does '
+                f'not support Flight')
             outcome.skipped = True
 
         else:
@@ -379,6 +404,127 @@ class IntegrationRunner(object):
                 outcome.failure = Failure(test_case, producer, consumer,
                                           sys.exc_info())
 
+        log('=' * 70)
+
+        return outcome
+
+    def _compare_c_data_implementations(
+        self,
+        producer: Tester,
+        consumer: Tester
+    ):
+        log('##########################################################')
+        log(f'C Data Interface: '
+            f'{producer.name} exporting, {consumer.name} importing')
+        log('##########################################################')
+
+        # Serial execution is required for proper memory accounting
+        serial = True
+
+        with producer.make_c_data_exporter() as exporter:
+            with consumer.make_c_data_importer() as importer:
+                case_runner = partial(self._run_c_schema_test_case,
+                                      producer, consumer,
+                                      exporter, importer)
+                self._run_test_cases(case_runner, self.json_files, serial=serial)
+
+                if producer.C_DATA_ARRAY_EXPORTER and consumer.C_DATA_ARRAY_IMPORTER:
+                    case_runner = partial(self._run_c_array_test_cases,
+                                          producer, consumer,
+                                          exporter, importer)
+                    self._run_test_cases(case_runner, self.json_files, serial=serial)
+
+    def _run_c_schema_test_case(self,
+                                producer: Tester, consumer: Tester,
+                                exporter: CDataExporter,
+                                importer: CDataImporter,
+                                test_case: datagen.File) -> Outcome:
+        """
+        Run one C ArrowSchema test case.
+        """
+        outcome = Outcome()
+
+        def do_run():
+            json_path = test_case.path
+            ffi = cdata.ffi()
+            c_schema_ptr = ffi.new("struct ArrowSchema*")
+            with cdata.check_memory_released(exporter, importer):
+                exporter.export_schema_from_json(json_path, c_schema_ptr)
+                importer.import_schema_and_compare_to_json(json_path, c_schema_ptr)
+
+        log('=' * 70)
+        log(f'Testing C ArrowSchema from file {test_case.name!r}')
+
+        if test_case.should_skip(producer.name, SKIP_C_SCHEMA):
+            log(f'-- Skipping test because producer {producer.name} does '
+                f'not support C ArrowSchema')
+            outcome.skipped = True
+
+        elif test_case.should_skip(consumer.name, SKIP_C_SCHEMA):
+            log(f'-- Skipping test because consumer {consumer.name} does '
+                f'not support C ArrowSchema')
+            outcome.skipped = True
+
+        else:
+            try:
+                do_run()
+            except Exception:
+                traceback.print_exc(file=printer.stdout)
+                outcome.failure = Failure(test_case, producer, consumer,
+                                          sys.exc_info())
+
+        log('=' * 70)
+
+        return outcome
+
+    def _run_c_array_test_cases(self,
+                                producer: Tester, consumer: Tester,
+                                exporter: CDataExporter,
+                                importer: CDataImporter,
+                                test_case: datagen.File) -> Outcome:
+        """
+        Run one set C ArrowArray test cases.
+        """
+        outcome = Outcome()
+
+        def do_run():
+            json_path = test_case.path
+            ffi = cdata.ffi()
+            c_array_ptr = ffi.new("struct ArrowArray*")
+            for num_batch in range(test_case.num_batches):
+                log(f'... with record batch #{num_batch}')
+                with cdata.check_memory_released(exporter, importer):
+                    exporter.export_batch_from_json(json_path,
+                                                    num_batch,
+                                                    c_array_ptr)
+                    importer.import_batch_and_compare_to_json(json_path,
+                                                              num_batch,
+                                                              c_array_ptr)
+
+        log('=' * 70)
+        log(f'Testing C ArrowArray '
+            f'from file {test_case.name!r}')
+
+        if test_case.should_skip(producer.name, SKIP_C_ARRAY):
+            log(f'-- Skipping test because producer {producer.name} does '
+                f'not support C ArrowArray')
+            outcome.skipped = True
+
+        elif test_case.should_skip(consumer.name, SKIP_C_ARRAY):
+            log(f'-- Skipping test because consumer {consumer.name} does '
+                f'not support C ArrowArray')
+            outcome.skipped = True
+
+        else:
+            try:
+                do_run()
+            except Exception:
+                traceback.print_exc(file=printer.stdout)
+                outcome.failure = Failure(test_case, producer, consumer,
+                                          sys.exc_info())
+
+        log('=' * 70)
+
         return outcome
 
 
@@ -386,7 +532,7 @@ def get_static_json_files():
     glob_pattern = os.path.join(ARROW_ROOT_DEFAULT,
                                 'integration', 'data', '*.json')
     return [
-        datagen.File(name=os.path.basename(p), path=p, skip=set(),
+        datagen.File(name=os.path.basename(p), path=p,
                      schema=None, batches=None)
         for p in glob.glob(glob_pattern)
     ]
@@ -394,13 +540,14 @@ def get_static_json_files():
 
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   with_csharp=True, with_go=True, with_rust=False,
-                  run_flight=False, tempdir=None, **kwargs):
+                  run_ipc=False, run_flight=False, run_c_data=False,
+                  tempdir=None, **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     testers: List[Tester] = []
 
     if with_cpp:
-        testers.append(CPPTester(**kwargs))
+        testers.append(CppTester(**kwargs))
 
     if with_java:
         testers.append(JavaTester(**kwargs))
@@ -433,54 +580,62 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "ordered",
             description="Ensure FlightInfo.ordered is supported.",
-            skip={"JS", "C#", "Rust"},
+            skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:do_get",
             description=("Ensure FlightEndpoint.expiration_time with "
                          "DoGet is working as expected."),
-            skip={"JS", "C#", "Rust"},
+            skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:list_actions",
             description=("Ensure FlightEndpoint.expiration_time related "
                          "pre-defined actions is working with ListActions "
                          "as expected."),
-            skip={"JS", "C#", "Rust"},
+            skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:cancel_flight_info",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "CancelFlightInfo are working as expected."),
-            skip={"JS", "C#", "Rust"},
+            skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:renew_flight_endpoint",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "RenewFlightEndpoint are working as expected."),
-            skip={"JS", "C#", "Rust"},
+            skip_testers={"JS", "C#", "Rust"},
         ),
         Scenario(
             "poll_flight_info",
             description="Ensure PollFlightInfo is supported.",
-            skip={"JS", "C#", "Rust"}
+            skip_testers={"JS", "C#", "Rust"}
+        ),
+        Scenario(
+            "app_metadata_flight_info_endpoint",
+            description="Ensure support FlightInfo and Endpoint app_metadata",
+            skip_testers={"JS", "C#", "Rust"}
         ),
         Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
-            skip={"Rust"}
+            skip_testers={"Rust"}
         ),
         Scenario(
             "flight_sql:extension",
             description="Ensure Flight SQL extensions work as expected.",
-            skip={"Rust"}
+            skip_testers={"Rust"}
         ),
     ]
 
     runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
-    runner.run()
+    if run_ipc:
+        runner.run_ipc()
     if run_flight:
         runner.run_flight()
+    if run_c_data:
+        runner.run_c_data()
 
     fail_count = 0
     if runner.failures:
@@ -491,42 +646,88 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             log(test_case.name, producer.name, "producing, ",
                 consumer.name, "consuming")
             if exc_info:
-                traceback.print_exception(*exc_info)
+                exc_type, exc_value, exc_tb = exc_info
+                log(f'{exc_type}: {exc_value}')
             log()
 
-    log(fail_count, "failures")
+    log(f"{fail_count} failures, {len(runner.skips)} skips")
     if fail_count > 0:
         sys.exit(1)
 
 
 def write_js_test_json(directory):
+    datagen.generate_primitive_case([], name='primitive_no_batches').write(
+        os.path.join(directory, 'primitive-no-batches.json')
+    )
+    datagen.generate_primitive_case([17, 20], name='primitive').write(
+        os.path.join(directory, 'primitive.json')
+    )
+    datagen.generate_primitive_case([0, 0, 0], name='primitive_zerolength').write(
+        os.path.join(directory, 'primitive-empty.json')
+    )
+    # datagen.generate_primitive_large_offsets_case([17, 20]).write(
+    #     os.path.join(directory, 'primitive-large-offsets.json')
+    # )
+    datagen.generate_null_case([10, 0]).write(
+        os.path.join(directory, 'null.json')
+    )
+    datagen.generate_null_trivial_case([0, 0]).write(
+        os.path.join(directory, 'null-trivial.json')
+    )
+    datagen.generate_decimal128_case().write(
+        os.path.join(directory, 'decimal128.json')
+    )
+    # datagen.generate_decimal256_case().write(
+    #     os.path.join(directory, 'decimal256.json')
+    # )
+    datagen.generate_datetime_case().write(
+        os.path.join(directory, 'datetime.json')
+    )
+    # datagen.generate_duration_case().write(
+    #     os.path.join(directory, 'duration.json')
+    # )
+    # datagen.generate_interval_case().write(
+    #     os.path.join(directory, 'interval.json')
+    # )
+    # datagen.generate_month_day_nano_interval_case().write(
+    #     os.path.join(directory, 'month_day_nano_interval.json')
+    # )
     datagen.generate_map_case().write(
         os.path.join(directory, 'map.json')
+    )
+    datagen.generate_non_canonical_map_case().write(
+        os.path.join(directory, 'non_canonical_map.json')
     )
     datagen.generate_nested_case().write(
         os.path.join(directory, 'nested.json')
     )
-    datagen.generate_decimal128_case().write(
-        os.path.join(directory, 'decimal.json')
+    datagen.generate_recursive_nested_case().write(
+        os.path.join(directory, 'recursive-nested.json')
     )
-    datagen.generate_decimal256_case().write(
-        os.path.join(directory, 'decimal256.json')
+    # datagen.generate_nested_large_offsets_case().write(
+    #     os.path.join(directory, 'nested-large-offsets.json')
+    # )
+    datagen.generate_unions_case().write(
+        os.path.join(directory, 'unions.json')
     )
-    datagen.generate_datetime_case().write(
-        os.path.join(directory, 'datetime.json')
+    datagen.generate_custom_metadata_case().write(
+        os.path.join(directory, 'custom-metadata.json')
     )
+    # datagen.generate_duplicate_fieldnames_case().write(
+    #     os.path.join(directory, 'duplicate-fieldnames.json')
+    # )
     datagen.generate_dictionary_case().write(
         os.path.join(directory, 'dictionary.json')
     )
     datagen.generate_dictionary_unsigned_case().write(
-        os.path.join(directory, 'dictionary_unsigned.json')
+        os.path.join(directory, 'dictionary-unsigned.json')
     )
-    datagen.generate_primitive_case([]).write(
-        os.path.join(directory, 'primitive_no_batches.json')
+    datagen.generate_nested_dictionary_case().write(
+        os.path.join(directory, 'dictionary-nested.json')
     )
-    datagen.generate_primitive_case([7, 10]).write(
-        os.path.join(directory, 'primitive.json')
-    )
-    datagen.generate_primitive_case([0, 0, 0]).write(
-        os.path.join(directory, 'primitive-empty.json')
+    # datagen.generate_run_end_encoded_case().write(
+    #     os.path.join(directory, 'run_end_encoded.json')
+    # )
+    datagen.generate_extension_case().write(
+        os.path.join(directory, 'extension.json')
     )

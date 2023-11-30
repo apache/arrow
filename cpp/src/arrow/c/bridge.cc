@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -41,6 +42,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 #include "arrow/util/small_vector.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
@@ -260,7 +262,7 @@ struct SchemaExporter {
       // Dictionary type: parent struct describes index type,
       // child dictionary struct describes value type.
       RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), this));
-      dict_exporter_.reset(new SchemaExporter());
+      dict_exporter_ = std::make_unique<SchemaExporter>();
       RETURN_NOT_OK(dict_exporter_->ExportType(*dict_type.value_type()));
     } else {
       RETURN_NOT_OK(VisitTypeInline(type, this));
@@ -357,9 +359,13 @@ struct SchemaExporter {
 
   Status Visit(const LargeBinaryType& type) { return SetFormat("Z"); }
 
+  Status Visit(const BinaryViewType& type) { return SetFormat("vz"); }
+
   Status Visit(const StringType& type) { return SetFormat("u"); }
 
   Status Visit(const LargeStringType& type) { return SetFormat("U"); }
+
+  Status Visit(const StringViewType& type) { return SetFormat("vu"); }
 
   Status Visit(const Date32Type& type) { return SetFormat("tdD"); }
 
@@ -444,6 +450,10 @@ struct SchemaExporter {
 
   Status Visit(const LargeListType& type) { return SetFormat("+L"); }
 
+  Status Visit(const ListViewType& type) { return SetFormat("+vl"); }
+
+  Status Visit(const LargeListViewType& type) { return SetFormat("+vL"); }
+
   Status Visit(const FixedSizeListType& type) {
     return SetFormat("+w:" + ToChars(type.list_size()));
   }
@@ -477,6 +487,8 @@ struct SchemaExporter {
     }
     return Status::OK();
   }
+
+  Status Visit(const RunEndEncodedType& type) { return SetFormat("+r"); }
 
   ExportedSchemaPrivateData export_;
   int64_t flags_ = 0;
@@ -515,13 +527,14 @@ namespace {
 
 struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> {
   // The buffers are owned by the ArrayData member
-  StaticVector<const void*, 3> buffers_;
+  SmallVector<const void*, 3> buffers_;
   struct ArrowArray dictionary_;
   SmallVector<struct ArrowArray, 1> children_;
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
   std::shared_ptr<ArrayData> data_;
   std::shared_ptr<Device::SyncEvent> sync_;
+  std::vector<int64_t> variadic_buffer_sizes_;
 
   ExportedArrayPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedArrayPrivateData);
@@ -564,15 +577,32 @@ struct ArrayExporter {
       --n_buffers;
       ++buffers_begin;
     }
+
+    bool need_variadic_buffer_sizes =
+        data->type->id() == Type::BINARY_VIEW || data->type->id() == Type::STRING_VIEW;
+    if (need_variadic_buffer_sizes) {
+      ++n_buffers;
+    }
+
     export_.buffers_.resize(n_buffers);
     std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
                    [](const std::shared_ptr<Buffer>& buffer) -> const void* {
                      return buffer ? buffer->data() : nullptr;
                    });
 
+    if (need_variadic_buffer_sizes) {
+      auto variadic_buffers = util::span(data->buffers).subspan(2);
+      export_.variadic_buffer_sizes_.resize(variadic_buffers.size());
+      size_t i = 0;
+      for (const auto& buf : variadic_buffers) {
+        export_.variadic_buffer_sizes_[i++] = buf->size();
+      }
+      export_.buffers_.back() = export_.variadic_buffer_sizes_.data();
+    }
+
     // Export dictionary
     if (data->dictionary != nullptr) {
-      dict_exporter_.reset(new ArrayExporter());
+      dict_exporter_ = std::make_unique<ArrayExporter>();
       RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
@@ -789,7 +819,7 @@ Status InvalidFormatString(std::string_view v) {
 
 class FormatStringParser {
  public:
-  FormatStringParser() {}
+  FormatStringParser() = default;
 
   explicit FormatStringParser(std::string_view v) : view_(v), index_(0) {}
 
@@ -935,8 +965,6 @@ Result<DecodedMetadata> DecodeMetadata(const char* metadata) {
 }
 
 struct SchemaImporter {
-  SchemaImporter() : c_struct_(nullptr), guard_(nullptr) {}
-
   Status Import(struct ArrowSchema* src) {
     if (ArrowSchemaIsReleased(src)) {
       return Status::Invalid("Cannot import released ArrowSchema");
@@ -1062,6 +1090,8 @@ struct SchemaImporter {
         return ProcessPrimitive(binary());
       case 'Z':
         return ProcessPrimitive(large_binary());
+      case 'v':
+        return ProcessBinaryView();
       case 'w':
         return ProcessFixedSizeBinary();
       case 'd':
@@ -1070,6 +1100,17 @@ struct SchemaImporter {
         return ProcessTemporal();
       case '+':
         return ProcessNested();
+    }
+    return f_parser_.Invalid();
+  }
+
+  Status ProcessBinaryView() {
+    RETURN_NOT_OK(f_parser_.CheckHasNext());
+    switch (f_parser_.Next()) {
+      case 'z':
+        return ProcessPrimitive(binary_view());
+      case 'u':
+        return ProcessPrimitive(utf8_view());
     }
     return f_parser_.Invalid();
   }
@@ -1098,6 +1139,16 @@ struct SchemaImporter {
         return ProcessListLike<ListType>();
       case 'L':
         return ProcessListLike<LargeListType>();
+      case 'v': {
+        RETURN_NOT_OK(f_parser_.CheckHasNext());
+        switch (f_parser_.Next()) {
+          case 'l':
+            return ProcessListView<ListViewType>();
+          case 'L':
+            return ProcessListView<LargeListViewType>();
+        }
+        break;
+      }
       case 'w':
         return ProcessFixedSizeList();
       case 's':
@@ -1106,6 +1157,8 @@ struct SchemaImporter {
         return ProcessMap();
       case 'u':
         return ProcessUnion();
+      case 'r':
+        return ProcessREE();
     }
     return f_parser_.Invalid();
   }
@@ -1200,6 +1253,15 @@ struct SchemaImporter {
     return Status::OK();
   }
 
+  template <typename ListViewType>
+  Status ProcessListView() {
+    RETURN_NOT_OK(f_parser_.CheckAtEnd());
+    RETURN_NOT_OK(CheckNumChildren(1));
+    ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
+    type_ = std::make_shared<ListViewType>(std::move(field));
+    return Status::OK();
+  }
+
   Status ProcessMap() {
     RETURN_NOT_OK(f_parser_.CheckAtEnd());
     RETURN_NOT_OK(CheckNumChildren(1));
@@ -1280,6 +1342,22 @@ struct SchemaImporter {
     return Status::OK();
   }
 
+  Status ProcessREE() {
+    RETURN_NOT_OK(f_parser_.CheckAtEnd());
+    RETURN_NOT_OK(CheckNumChildren(2));
+    ARROW_ASSIGN_OR_RAISE(auto run_ends_field, MakeChildField(0));
+    ARROW_ASSIGN_OR_RAISE(auto values_field, MakeChildField(1));
+    if (!is_run_end_type(run_ends_field->type()->id())) {
+      return Status::Invalid("Expected a valid run-end integer type, but struct has ",
+                             run_ends_field->type()->ToString());
+    }
+    if (values_field->type()->id() == Type::RUN_END_ENCODED) {
+      return Status::Invalid("ArrowArray struct contains a nested run-end encoded array");
+    }
+    type_ = run_end_encoded(run_ends_field->type(), values_field->type());
+    return Status::OK();
+  }
+
   Result<std::shared_ptr<Field>> MakeChildField(int64_t child_id) {
     const auto& child = child_importers_[child_id];
     if (child.c_struct_->name == nullptr) {
@@ -1317,8 +1395,8 @@ struct SchemaImporter {
     return Status::OK();
   }
 
-  struct ArrowSchema* c_struct_;
-  SchemaExportGuard guard_;
+  struct ArrowSchema* c_struct_{nullptr};
+  SchemaExportGuard guard_{nullptr};
   FormatStringParser f_parser_;
   int64_t recursion_level_;
   std::vector<SchemaImporter> child_importers_;
@@ -1386,7 +1464,7 @@ class ImportedBuffer : public Buffer {
                  std::shared_ptr<ImportedArrayData> import)
       : Buffer(data, size, mm, nullptr, device_type), import_(std::move(import)) {}
 
-  ~ImportedBuffer() override {}
+  ~ImportedBuffer() override = default;
 
   std::shared_ptr<Device::SyncEvent> device_sync_event() override {
     return import_->device_sync_;
@@ -1398,9 +1476,7 @@ class ImportedBuffer : public Buffer {
 
 struct ArrayImporter {
   explicit ArrayImporter(const std::shared_ptr<DataType>& type)
-      : type_(type),
-        zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)),
-        device_type_(DeviceAllocationType::kCPU) {}
+      : type_(type), zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)) {}
 
   Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
@@ -1548,9 +1624,17 @@ struct ArrayImporter {
 
   Status Visit(const LargeBinaryType& type) { return ImportStringLike(type); }
 
+  Status Visit(const StringViewType& type) { return ImportBinaryView(type); }
+
+  Status Visit(const BinaryViewType& type) { return ImportBinaryView(type); }
+
   Status Visit(const ListType& type) { return ImportListLike(type); }
 
   Status Visit(const LargeListType& type) { return ImportListLike(type); }
+
+  Status Visit(const ListViewType& type) { return ImportListView(type); }
+
+  Status Visit(const LargeListViewType& type) { return ImportListView(type); }
 
   Status Visit(const FixedSizeListType& type) {
     RETURN_NOT_OK(CheckNumChildren(1));
@@ -1601,6 +1685,17 @@ struct ArrayImporter {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    RETURN_NOT_OK(CheckNumChildren(2));
+    RETURN_NOT_OK(CheckNumBuffers(0));
+    RETURN_NOT_OK(AllocateArrayData());
+    // Always have a null bitmap buffer as much of the code in arrow assumes
+    // the buffers vector to have at least one entry on every array format.
+    data_->buffers.emplace_back(nullptr);
+    data_->null_count = 0;
+    return Status::OK();
+  }
+
   Status ImportFixedSizePrimitive(const FixedWidthType& type) {
     RETURN_NOT_OK(CheckNoChildren());
     RETURN_NOT_OK(CheckNumBuffers(2));
@@ -1612,6 +1707,28 @@ struct ArrayImporter {
       DCHECK_EQ(type.bit_width(), 1);
       RETURN_NOT_OK(ImportBitsBuffer(1));
     }
+    return Status::OK();
+  }
+
+  Status ImportBinaryView(const BinaryViewType&) {
+    RETURN_NOT_OK(CheckNoChildren());
+    if (c_struct_->n_buffers < 3) {
+      return Status::Invalid("Expected at least 3 buffers for imported type ",
+                             type_->ToString(), ", ArrowArray struct has ",
+                             c_struct_->n_buffers);
+    }
+    RETURN_NOT_OK(AllocateArrayData());
+    RETURN_NOT_OK(ImportNullBitmap());
+    RETURN_NOT_OK(ImportFixedSizeBuffer(1, BinaryViewType::kSize));
+
+    // The last C data buffer stores buffer sizes, and shouldn't be imported
+    auto* buffer_sizes =
+        static_cast<const int64_t*>(c_struct_->buffers[c_struct_->n_buffers - 1]);
+
+    for (int32_t buffer_id = 2; buffer_id < c_struct_->n_buffers - 1; ++buffer_id) {
+      RETURN_NOT_OK(ImportBuffer(buffer_id, buffer_sizes[buffer_id - 2]));
+    }
+    data_->buffers.pop_back();
     return Status::OK();
   }
 
@@ -1633,6 +1750,18 @@ struct ArrayImporter {
     RETURN_NOT_OK(AllocateArrayData());
     RETURN_NOT_OK(ImportNullBitmap());
     RETURN_NOT_OK(ImportOffsetsBuffer<typename ListType::offset_type>(1));
+    return Status::OK();
+  }
+
+  template <typename ListViewType>
+  Status ImportListView(const ListViewType& type) {
+    using offset_type = typename ListViewType::offset_type;
+    RETURN_NOT_OK(CheckNumChildren(1));
+    RETURN_NOT_OK(CheckNumBuffers(3));
+    RETURN_NOT_OK(AllocateArrayData());
+    RETURN_NOT_OK(ImportNullBitmap());
+    RETURN_NOT_OK((ImportOffsetsBuffer<offset_type, /*with_extra_offset=*/false>(1)));
+    RETURN_NOT_OK(ImportSizesBuffer<offset_type>(2));
     return Status::OK();
   }
 
@@ -1704,11 +1833,18 @@ struct ArrayImporter {
     return ImportBuffer(buffer_id, buffer_size);
   }
 
-  template <typename OffsetType>
+  template <typename OffsetType, bool with_extra_offset = true>
   Status ImportOffsetsBuffer(int32_t buffer_id) {
     // Compute visible size of buffer
-    int64_t buffer_size =
-        sizeof(OffsetType) * (c_struct_->length + c_struct_->offset + 1);
+    int64_t buffer_size = sizeof(OffsetType) * (c_struct_->length + c_struct_->offset +
+                                                (with_extra_offset ? 1 : 0));
+    return ImportBuffer(buffer_id, buffer_size);
+  }
+
+  template <typename OffsetType>
+  Status ImportSizesBuffer(int32_t buffer_id) {
+    // Compute visible size of buffer
+    int64_t buffer_size = sizeof(OffsetType) * (c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
 
@@ -1759,7 +1895,7 @@ struct ArrayImporter {
   std::shared_ptr<Buffer> zero_size_buffer_;
 
   std::shared_ptr<MemoryManager> memory_mgr_;
-  DeviceAllocationType device_type_;
+  DeviceAllocationType device_type_{DeviceAllocationType::kCPU};
 };
 
 }  // namespace
@@ -1965,7 +2101,7 @@ class ArrayStreamBatchReader : public RecordBatchReader {
     DCHECK(!ArrowArrayStreamIsReleased(&stream_));
   }
 
-  ~ArrayStreamBatchReader() {
+  ~ArrayStreamBatchReader() override {
     if (!ArrowArrayStreamIsReleased(&stream_)) {
       ArrowArrayStreamRelease(&stream_);
     }

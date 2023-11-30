@@ -30,19 +30,21 @@ class Array : public libmexclass::proxy::Proxy {
     
         virtual ~Array() {}
 
-        std::shared_ptr<arrow::Array> getArray();
+        std::shared_ptr<arrow::Array> unwrap();
 
     protected:
 
         void toString(libmexclass::proxy::method::Context& context);
 
-        void length(libmexclass::proxy::method::Context& context);
+        void getNumElements(libmexclass::proxy::method::Context& context);
 
-        void valid(libmexclass::proxy::method::Context& context);
+        void getValid(libmexclass::proxy::method::Context& context);
 
-        void type(libmexclass::proxy::method::Context& context);
+        void getType(libmexclass::proxy::method::Context& context);
 
-        virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
+        void isEqual(libmexclass::proxy::method::Context& context);
+
+        void slice(libmexclass::proxy::method::Context& context);
 
         std::shared_ptr<arrow::Array> array;
 };

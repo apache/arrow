@@ -15,14 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New, PyCapsule_IsValid
 
 import atexit
 from collections.abc import Mapping
+import pickle
 import re
 import sys
 import warnings
-
+from cython import sizeof
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -355,6 +356,46 @@ cdef class DataType(_Weakrefable):
         result = GetResultValue(ImportType(<ArrowSchema*>
                                            _as_c_pointer(in_ptr)))
         return pyarrow_wrap_data_type(result)
+
+    def __arrow_c_schema__(self):
+        """
+        Export to a ArrowSchema PyCapsule
+
+        Unlike _export_to_c, this will not leak memory if the capsule is not used.
+        """
+        cdef ArrowSchema* c_schema
+        capsule = alloc_c_schema(&c_schema)
+
+        with nogil:
+            check_status(ExportType(deref(self.type), c_schema))
+
+        return capsule
+
+    @staticmethod
+    def _import_from_c_capsule(schema):
+        """
+        Import a DataType from a ArrowSchema PyCapsule
+
+        Parameters
+        ----------
+        schema : PyCapsule
+            A valid PyCapsule with name 'arrow_schema' containing an
+            ArrowSchema pointer.
+        """
+        cdef:
+            ArrowSchema* c_schema
+            shared_ptr[CDataType] c_type
+
+        if not PyCapsule_IsValid(schema, 'arrow_schema'):
+            raise TypeError(
+                "Not an ArrowSchema object"
+            )
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema, 'arrow_schema')
+
+        with nogil:
+            c_type = GetResultValue(ImportType(c_schema))
+
+        return pyarrow_wrap_data_type(c_type)
 
 
 cdef class DictionaryMemo(_Weakrefable):
@@ -1396,7 +1437,10 @@ cdef class ExtensionType(BaseExtensionType):
     Parameters
     ----------
     storage_type : DataType
+        The underlying storage type for the extension type.
     extension_name : str
+        A unique name distinguishing this extension type. The name will be
+        used when deserializing IPC data.
 
     Examples
     --------
@@ -1557,7 +1601,7 @@ cdef class FixedShapeTensorType(BaseExtensionType):
 
     >>> import pyarrow as pa
     >>> pa.fixed_shape_tensor(pa.int32(), [2, 2])
-    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>)
 
     Create an instance of fixed shape tensor extension type with
     permutation:
@@ -1630,60 +1674,22 @@ cdef class FixedShapeTensorType(BaseExtensionType):
                                     self.dim_names, self.permutation)
 
 
+_py_extension_type_auto_load = False
+
+
 cdef class PyExtensionType(ExtensionType):
     """
     Concrete base class for Python-defined extension types based on pickle
     for (de)serialization.
 
+    .. warning::
+       This class is deprecated and its deserialization is disabled by default.
+       :class:`ExtensionType` is recommended instead.
+
     Parameters
     ----------
     storage_type : DataType
         The storage type for which the extension is built.
-
-    Examples
-    --------
-    Define a UuidType extension type subclassing PyExtensionType:
-
-    >>> import pyarrow as pa
-    >>> class UuidType(pa.PyExtensionType):
-    ...     def __init__(self):
-    ...         pa.PyExtensionType.__init__(self, pa.binary(16))
-    ...     def __reduce__(self):
-    ...         return UuidType, ()
-    ...
-
-    Create an instance of UuidType extension type:
-
-    >>> uuid_type = UuidType() # doctest: +SKIP
-    >>> uuid_type # doctest: +SKIP
-    UuidType(FixedSizeBinaryType(fixed_size_binary[16]))
-
-    Inspect the extension type:
-
-    >>> uuid_type.extension_name # doctest: +SKIP
-    'arrow.py_extension_type'
-    >>> uuid_type.storage_type # doctest: +SKIP
-    FixedSizeBinaryType(fixed_size_binary[16])
-
-    Wrap an array as an extension array:
-
-    >>> import uuid
-    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)],
-    ...                          pa.binary(16)) # doctest: +SKIP
-    >>> uuid_type.wrap_array(storage_array) # doctest: +SKIP
-    <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
-
-    Or do the same with creating an ExtensionArray:
-
-    >>> pa.ExtensionArray.from_storage(uuid_type,
-    ...                                storage_array) # doctest: +SKIP
-    <pyarrow.lib.ExtensionArray object at ...>
-    [
-      ...
-    ]
     """
 
     def __cinit__(self):
@@ -1692,6 +1698,12 @@ cdef class PyExtensionType(ExtensionType):
                             "PyExtensionType")
 
     def __init__(self, DataType storage_type):
+        warnings.warn(
+            "pyarrow.PyExtensionType is deprecated "
+            "and will refuse deserialization by default. "
+            "Instead, please derive from pyarrow.ExtensionType and implement "
+            "your own serialization mechanism.",
+            FutureWarning)
         ExtensionType.__init__(self, storage_type, "arrow.py_extension_type")
 
     def __reduce__(self):
@@ -1699,12 +1711,23 @@ cdef class PyExtensionType(ExtensionType):
                                   .format(type(self).__name__))
 
     def __arrow_ext_serialize__(self):
-        return builtin_pickle.dumps(self)
+        return pickle.dumps(self)
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        if not _py_extension_type_auto_load:
+            warnings.warn(
+                "pickle-based deserialization of pyarrow.PyExtensionType subclasses "
+                "is disabled by default; if you only ingest "
+                "trusted data files, you may re-enable this using "
+                "`pyarrow.PyExtensionType.set_auto_load(True)`.\n"
+                "In the future, Python-defined extension subclasses should "
+                "derive from pyarrow.ExtensionType (not pyarrow.PyExtensionType) "
+                "and implement their own serialization mechanism.\n",
+                RuntimeWarning)
+            return UnknownExtensionType(storage_type, serialized)
         try:
-            ty = builtin_pickle.loads(serialized)
+            ty = pickle.loads(serialized)
         except Exception:
             # For some reason, it's impossible to deserialize the
             # ExtensionType instance.  Perhaps the serialized data is
@@ -1717,6 +1740,22 @@ cdef class PyExtensionType(ExtensionType):
             raise TypeError("Expected storage type {0} but got {1}"
                             .format(ty.storage_type, storage_type))
         return ty
+
+    # XXX Cython marks extension types as immutable, so cannot expose this
+    # as a writable class attribute.
+    @classmethod
+    def set_auto_load(cls, value):
+        """
+        Enable or disable auto-loading of serialized PyExtensionType instances.
+
+        Parameters
+        ----------
+        value : bool
+            Whether to enable auto-loading.
+        """
+        global _py_extension_type_auto_load
+        assert isinstance(value, bool)
+        _py_extension_type_auto_load = value
 
 
 cdef class UnknownExtensionType(PyExtensionType):
@@ -2367,6 +2406,46 @@ cdef class Field(_Weakrefable):
         with nogil:
             result = GetResultValue(ImportField(<ArrowSchema*> c_ptr))
         return pyarrow_wrap_field(result)
+
+    def __arrow_c_schema__(self):
+        """
+        Export to a ArrowSchema PyCapsule
+
+        Unlike _export_to_c, this will not leak memory if the capsule is not used.
+        """
+        cdef ArrowSchema* c_schema
+        capsule = alloc_c_schema(&c_schema)
+
+        with nogil:
+            check_status(ExportField(deref(self.field), c_schema))
+
+        return capsule
+
+    @staticmethod
+    def _import_from_c_capsule(schema):
+        """
+        Import a Field from a ArrowSchema PyCapsule
+
+        Parameters
+        ----------
+        schema : PyCapsule
+            A valid PyCapsule with name 'arrow_schema' containing an
+            ArrowSchema pointer.
+        """
+        cdef:
+            ArrowSchema* c_schema
+            shared_ptr[CField] c_field
+
+        if not PyCapsule_IsValid(schema, 'arrow_schema'):
+            raise ValueError(
+                "Not an ArrowSchema object"
+            )
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema, 'arrow_schema')
+
+        with nogil:
+            c_field = GetResultValue(ImportField(c_schema))
+
+        return pyarrow_wrap_field(c_field)
 
 
 cdef class Schema(_Weakrefable):
@@ -3152,14 +3231,53 @@ cdef class Schema(_Weakrefable):
     def __repr__(self):
         return self.__str__()
 
+    def __arrow_c_schema__(self):
+        """
+        Export to a ArrowSchema PyCapsule
 
-def unify_schemas(schemas):
+        Unlike _export_to_c, this will not leak memory if the capsule is not used.
+        """
+        cdef ArrowSchema* c_schema
+        capsule = alloc_c_schema(&c_schema)
+
+        with nogil:
+            check_status(ExportSchema(deref(self.schema), c_schema))
+
+        return capsule
+
+    @staticmethod
+    def _import_from_c_capsule(schema):
+        """
+        Import a Schema from a ArrowSchema PyCapsule
+
+        Parameters
+        ----------
+        schema : PyCapsule
+            A valid PyCapsule with name 'arrow_schema' containing an
+            ArrowSchema pointer.
+        """
+        cdef:
+            ArrowSchema* c_schema
+
+        if not PyCapsule_IsValid(schema, 'arrow_schema'):
+            raise ValueError(
+                "Not an ArrowSchema object"
+            )
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema, 'arrow_schema')
+
+        with nogil:
+            result = GetResultValue(ImportSchema(c_schema))
+
+        return pyarrow_wrap_schema(result)
+
+
+def unify_schemas(schemas, *, promote_options="default"):
     """
     Unify schemas by merging fields by name.
 
     The resulting schema will contain the union of fields from all schemas.
     Fields with the same name will be merged. Note that two fields with
-    different types will fail merging.
+    different types will fail merging by default.
 
     - The unified field will inherit the metadata from the schema where
         that field is first defined.
@@ -3173,6 +3291,10 @@ def unify_schemas(schemas):
     ----------
     schemas : list of Schema
         Schemas to merge into a single one.
+    promote_options : str, default default
+        Accepts strings "default" and "permissive".
+        Default: null and only null can be unified with another type.
+        Permissive: types are promoted to the greater common denominator.
 
     Returns
     -------
@@ -3186,12 +3308,22 @@ def unify_schemas(schemas):
     """
     cdef:
         Schema schema
+        CField.CMergeOptions c_options
         vector[shared_ptr[CSchema]] c_schemas
     for schema in schemas:
         if not isinstance(schema, Schema):
             raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
-    return pyarrow_wrap_schema(GetResultValue(UnifySchemas(c_schemas)))
+
+    if promote_options == "default":
+        c_options = CField.CMergeOptions.Defaults()
+    elif promote_options == "permissive":
+        c_options = CField.CMergeOptions.Permissive()
+    else:
+        raise ValueError(f"Invalid merge mode: {promote_options}")
+
+    return pyarrow_wrap_schema(
+        GetResultValue(UnifySchemas(c_schemas, c_options)))
 
 
 cdef dict _type_cache = {}
@@ -4135,6 +4267,7 @@ def binary(int length=-1):
     FixedSizeBinaryType(fixed_size_binary[3])
 
     and use the fixed-length binary type to create an array:
+
     >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary(3))
     <pyarrow.lib.FixedSizeBinaryArray object at ...>
     [
@@ -4744,7 +4877,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     >>> import pyarrow as pa
     >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
     >>> tensor_type
-    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>)
 
     Inspect the data type:
 
@@ -4760,7 +4893,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
     >>> pa.table([tensor], names=["tensor_array"])
     pyarrow.Table
-    tensor_array: extension<arrow.fixed_shape_tensor>
+    tensor_array: extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>
     ----
     tensor_array: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
 
@@ -4914,6 +5047,8 @@ def schema(fields, metadata=None):
     Parameters
     ----------
     fields : iterable of Fields or tuples, or mapping of strings to DataTypes
+        Can also pass an object that implements the Arrow PyCapsule Protocol
+        for schemas (has an ``__arrow_c_schema__`` method).
     metadata : dict, default None
         Keys and values must be coercible to bytes.
 
@@ -4953,6 +5088,8 @@ def schema(fields, metadata=None):
 
     if isinstance(fields, Mapping):
         fields = fields.items()
+    elif hasattr(fields, "__arrow_c_schema__"):
+        return Schema._import_from_c_capsule(fields.__arrow_c_schema__())
 
     for item in fields:
         if isinstance(item, tuple):
@@ -5087,3 +5224,61 @@ def _unregister_py_extension_types():
 
 _register_py_extension_type()
 atexit.register(_unregister_py_extension_types)
+
+
+#
+# PyCapsule export utilities
+#
+
+cdef void pycapsule_schema_deleter(object schema_capsule) noexcept:
+    cdef ArrowSchema* schema = <ArrowSchema*>PyCapsule_GetPointer(
+        schema_capsule, 'arrow_schema'
+    )
+    if schema.release != NULL:
+        schema.release(schema)
+
+    free(schema)
+
+cdef object alloc_c_schema(ArrowSchema** c_schema) noexcept:
+    c_schema[0] = <ArrowSchema*> malloc(sizeof(ArrowSchema))
+    # Ensure the capsule destructor doesn't call a random release pointer
+    c_schema[0].release = NULL
+    return PyCapsule_New(c_schema[0], 'arrow_schema', &pycapsule_schema_deleter)
+
+
+cdef void pycapsule_array_deleter(object array_capsule) noexcept:
+    cdef:
+        ArrowArray* array
+    # Do not invoke the deleter on a used/moved capsule
+    array = <ArrowArray*>cpython.PyCapsule_GetPointer(
+        array_capsule, 'arrow_array'
+    )
+    if array.release != NULL:
+        array.release(array)
+
+    free(array)
+
+cdef object alloc_c_array(ArrowArray** c_array) noexcept:
+    c_array[0] = <ArrowArray*> malloc(sizeof(ArrowArray))
+    # Ensure the capsule destructor doesn't call a random release pointer
+    c_array[0].release = NULL
+    return PyCapsule_New(c_array[0], 'arrow_array', &pycapsule_array_deleter)
+
+
+cdef void pycapsule_stream_deleter(object stream_capsule) noexcept:
+    cdef:
+        ArrowArrayStream* stream
+    # Do not invoke the deleter on a used/moved capsule
+    stream = <ArrowArrayStream*>PyCapsule_GetPointer(
+        stream_capsule, 'arrow_array_stream'
+    )
+    if stream.release != NULL:
+        stream.release(stream)
+
+    free(stream)
+
+cdef object alloc_c_stream(ArrowArrayStream** c_stream) noexcept:
+    c_stream[0] = <ArrowArrayStream*> malloc(sizeof(ArrowArrayStream))
+    # Ensure the capsule destructor doesn't call a random release pointer
+    c_stream[0].release = NULL
+    return PyCapsule_New(c_stream[0], 'arrow_array_stream', &pycapsule_stream_deleter)

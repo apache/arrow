@@ -63,6 +63,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     /** @nocollapse */ static isTime(x: any): x is Time_ { return x?.typeId === Type.Time; }
     /** @nocollapse */ static isTimestamp(x: any): x is Timestamp_ { return x?.typeId === Type.Timestamp; }
     /** @nocollapse */ static isInterval(x: any): x is Interval_ { return x?.typeId === Type.Interval; }
+    /** @nocollapse */ static isDuration(x: any): x is Duration { return x?.typeId === Type.Duration; }
     /** @nocollapse */ static isList(x: any): x is List { return x?.typeId === Type.List; }
     /** @nocollapse */ static isStruct(x: any): x is Struct { return x?.typeId === Type.Struct; }
     /** @nocollapse */ static isUnion(x: any): x is Union_ { return x?.typeId === Type.Union; }
@@ -434,6 +435,39 @@ export class IntervalDayTime extends Interval_<Type.IntervalDayTime> { construct
 export class IntervalYearMonth extends Interval_<Type.IntervalYearMonth> { constructor() { super(IntervalUnit.YEAR_MONTH); } }
 
 /** @ignore */
+type Durations = Type.Duration | Type.DurationSecond | Type.DurationMillisecond | Type.DurationMicrosecond | Type.DurationNanosecond;
+/** @ignore */
+export interface Duration<T extends Durations = Durations> extends DataType<T> {
+    TArray: BigInt64Array;
+    TValue: bigint;
+    ArrayType: BigInt64Array;
+}
+
+/** @ignore */
+export class Duration<T extends Durations = Durations> extends DataType<T> {
+    constructor(public readonly unit: TimeUnit) {
+        super();
+    }
+    public get typeId() { return Type.Duration as T; }
+    public toString() { return `Duration<${TimeUnit[this.unit]}>`; }
+    protected static [Symbol.toStringTag] = ((proto: Duration) => {
+        (<any>proto).unit = null;
+        (<any>proto).ArrayType = BigInt64Array;
+        return proto[Symbol.toStringTag] = 'Duration';
+    })(Duration.prototype);
+}
+
+/** @ignore */
+export class DurationSecond extends Duration<Type.DurationSecond> { constructor() { super(TimeUnit.SECOND); }}
+/** @ignore */
+export class DurationMillisecond extends Duration<Type.DurationMillisecond> { constructor() { super(TimeUnit.MILLISECOND); }}
+/** @ignore */
+export class DurationMicrosecond extends Duration<Type.DurationMicrosecond> { constructor() { super(TimeUnit.MICROSECOND); }}
+/** @ignore */
+export class DurationNanosecond extends Duration<Type.DurationNanosecond> { constructor() { super(TimeUnit.NANOSECOND); }}
+
+
+/** @ignore */
 export interface List<T extends DataType = any> extends DataType<Type.List, { [0]: T }> {
     TArray: Array<T>;
     TValue: Vector<T>;
@@ -585,10 +619,25 @@ export interface Map_<TKey extends DataType = any, TValue extends DataType = any
 
 /** @ignore */
 export class Map_<TKey extends DataType = any, TValue extends DataType = any> extends DataType<Type.Map, { [0]: Struct<{ key: TKey; value: TValue }> }> {
-    constructor(child: Field<Struct<{ key: TKey; value: TValue }>>, keysSorted = false) {
+    constructor(entries: Field<Struct<{ key: TKey; value: TValue }>>, keysSorted = false) {
         super();
-        this.children = [child];
+        this.children = [entries];
         this.keysSorted = keysSorted;
+        // ARROW-8716
+        // https://github.com/apache/arrow/issues/17168
+        if (entries) {
+            (entries as any)['name'] = 'entries';
+            if ((entries as any)?.type?.children) {
+                const key = (entries as any)?.type?.children[0];
+                if (key) {
+                    key['name'] = 'key';
+                }
+                const val = (entries as any)?.type?.children[1];
+                if (val) {
+                    val['name'] = 'value';
+                }
+            }
+        }
     }
     public declare readonly keysSorted: boolean;
     public declare readonly children: Field<Struct<{ key: TKey; value: TValue }>>[];

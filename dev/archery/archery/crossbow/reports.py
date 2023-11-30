@@ -284,7 +284,7 @@ class CommentReport(Report):
         'github': _markdown_badge.format(
             title='Github Actions',
             badge=(
-                'https://github.com/{repo}/workflows/Crossbow/'
+                'https://github.com/{repo}/actions/workflows/crossbow.yml/'
                 'badge.svg?branch={branch}'
             ),
         ),

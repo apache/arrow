@@ -42,9 +42,15 @@ classdef TimestampType < arrow.type.TemporalType
     end
 
     methods (Access=protected)
-        function group = getPropertyGroups(~)
-          targets = ["ID" "TimeUnit" "TimeZone"];
-          group = matlab.mixin.util.PropertyGroup(targets);
+        function groups = getDisplayPropertyGroups(~)
+            targets = ["ID" "TimeUnit" "TimeZone"];
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+    
+    methods(Hidden)
+        function data = preallocateMATLABArray(obj, length)
+            data = NaT([length, 1], TimeZone=obj.TimeZone);
         end
     end
 end

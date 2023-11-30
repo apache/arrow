@@ -53,7 +53,7 @@ classdef tSchema < matlab.unittest.TestCase
 
         function ConstructSchemaFromProxy(testCase)
             % Verify that an arrow.tabular.Schema instance can be
-            % constructred directly from an existing
+            % constructed directly from an existing
             % arrow.tabular.proxy.Schema Proxy instance.
             schema1 = arrow.schema(arrow.field("a", arrow.uint8));
             % Construct an instance of arrow.tabular.Schema directly from a
@@ -117,7 +117,7 @@ classdef tSchema < matlab.unittest.TestCase
         end
 
         function NumFields(testCase)
-            % Verify that the NumFields property returns an execpted number
+            % Verify that the NumFields property returns an expected number
             % of fields.
             schema = arrow.schema([...
                 arrow.field("A", arrow.uint8), ...
@@ -139,7 +139,7 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             index = [];
-            testCase.verifyError(@() schema.field(index), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonScalar");
 
             index = 0;
             testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonPositive");
@@ -157,7 +157,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyError(@() schema.field(index), "arrow:badsubscript:UnsupportedIndexType");
 
             index = [1; 1];
-            testCase.verifyError(@() schema.field(index), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonScalar");
         end
 
         function GetFieldByIndex(testCase)
@@ -239,7 +239,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
         end
 
-        function ErrorIfInvalidNumericFieldIndex(testCase)
+        function ErrorIfIndexIsOutOfRange(testCase)
             % Verify that an error is thrown when trying to access a field
             % with an invalid numeric index (e.g. greater than NumFields).
             schema = arrow.schema([...
@@ -250,7 +250,7 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Index is greater than NumFields.
             index = 100;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:InvalidNumericFieldIndex");
+            testCase.verifyError(@() schema.field(index), "arrow:index:OutOfRange");
         end
 
         function ErrorIfFieldNameDoesNotExist(testCase)
@@ -262,7 +262,7 @@ classdef tSchema < matlab.unittest.TestCase
                 arrow.field("C", arrow.uint32) ...
             ]);
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             fieldName = "a";
             testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
 
@@ -376,7 +376,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
 
             % 0x1 empty Field array.
             fields = arrow.type.Field.empty(0, 1);
@@ -385,7 +385,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
 
             % 1x0 empty Field array.
             fields = arrow.type.Field.empty(1, 0);
@@ -394,7 +394,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
         end
 
         function GetFieldByNameWithChar(testCase)
@@ -429,7 +429,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(field.Name, "B");
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
 
-            % Should match the second field whose name is "123".
+            % Should match the third field whose name is "123".
             fieldName = '123';
             field = schema.field(fieldName);
             testCase.verifyEqual(field.Name, "123");
@@ -446,10 +446,10 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = [1, 2, 3];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
 
             fieldName = [1; 2; 3];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
         end
 
         function ErrorIfFieldNameIsNonScalar(testCase)
@@ -462,10 +462,134 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = ["A", "B", "C"];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
 
             fieldName = ["A";  "B"; "C"];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
+        end
+
+        function TestIsEqualTrue(testCase)
+            % Schema objects are considered equal if:
+            %  1. They have the same number of fields
+            %  2. Their corresponding Fields properties are equal
+
+            schema1 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+            schema2 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+
+            % Create a Schema with zero fields
+            schema3 = arrow.recordBatch(table).Schema;
+            schema4 = arrow.recordBatch(table).Schema;
+            
+            testCase.verifyTrue(isequal(schema1, schema2));
+            testCase.verifyTrue(isequal(schema3, schema4));
+        end
+
+        function TestIsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+
+            schema1 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+            schema2 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+            schema3 = arrow.schema([...
+                arrow.field("A", arrow.float32), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+            schema4 = arrow.schema([...
+                arrow.field("C", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+
+            % Create a Schema with zero fields
+            schema5 = arrow.recordBatch(table).Schema;
+            
+            % Have different number of fields
+            testCase.verifyFalse(isequal(schema1, schema2));
+
+            % Fields properties are not equal
+            testCase.verifyFalse(isequal(schema2, schema3));
+            testCase.verifyFalse(isequal(schema2, schema4));
+            testCase.verifyFalse(isequal(schema4, schema5));
+
+            % Compare schema to double
+            testCase.verifyFalse(isequal(schema4, 5));
+        end
+
+        function TestDisplaySchemaZeroFields(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            schema = arrow.schema(arrow.type.Field.empty(0, 0)); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            expectedDisplay = "  Arrow " + classnameLink + " with 0 fields" + newline;
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
+        end
+
+        function TestDisplaySchemaOneField(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            schema = arrow.schema(arrow.field("TestField", arrow.boolean())); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            header = "  Arrow " + classnameLink + " with 1 field:" + newline;
+            indent = "    ";
+
+            if usejava("desktop")
+                type = makeLinkString(FullClassName="arrow.type.BooleanType", ...
+                                      ClassName="Boolean", BoldFont=true);
+                name = "<strong>TestField</strong>: ";
+                fieldLine = indent + name + type + newline;
+            else
+                fieldLine = indent + "TestField: Boolean" + newline;
+            end
+            expectedDisplay = join([header, fieldLine], newline);
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
+        end
+
+        function TestDisplaySchemaField(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            field1 = arrow.field("Field1", arrow.timestamp());
+            field2 = arrow.field("Field2", arrow.string());
+            schema = arrow.schema([field1, field2]); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            header = "  Arrow " + classnameLink + " with 2 fields:" + newline;
+
+            indent = "    ";
+            if usejava("desktop")
+                type1 = makeLinkString(FullClassName="arrow.type.TimestampType", ...
+                                       ClassName="Timestamp", BoldFont=true);
+                field1String = "<strong>Field1</strong>: " + type1;
+                type2 = makeLinkString(FullClassName="arrow.type.StringType", ...
+                                      ClassName="String", BoldFont=true);
+                field2String = "<strong>Field2</strong>: " + type2;
+                fieldLine = indent + field1String + " | " + field2String + newline;
+            else
+                fieldLine = indent + "Field1: Timestamp | Field2: String" + newline;
+            end
+
+            expectedDisplay = join([header, fieldLine], newline);
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
         end
 
     end

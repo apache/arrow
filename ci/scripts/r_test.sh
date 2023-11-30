@@ -27,7 +27,7 @@ pushd ${source_dir}
 printenv
 
 # Run the nixlibs.R test suite, which is not included in the installed package
-${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+${R_BIN} -e 'setwd("tools"); testthat::test_dir(".", stop_on_warning = TRUE)'
 
 # Before release, we always copy the relevant parts of the cpp source into the
 # package. In some CI checks, we will use this version of the source:
@@ -65,6 +65,8 @@ export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
 export _R_CHECK_TESTS_NLINES_=0
+# This can cause failures on CRAN but needs to be set here so issues an error not a warning
+export _R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_=TRUE
 
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.

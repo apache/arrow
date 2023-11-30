@@ -59,9 +59,9 @@ haven_data <- tibble::tibble(
 example_with_times <- tibble::tibble(
   date = Sys.Date() + 1:10,
   posixct = lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10,
-  posixct_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10,
+  posixct_tz = lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") + 1:10,
   posixlt = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10),
-  posixlt_tz = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10)
+  posixlt_tz = as.POSIXlt(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") + 1:10)
 )
 
 verses <- list(

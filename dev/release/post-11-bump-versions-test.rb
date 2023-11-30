@@ -54,12 +54,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     end
     env = env.merge(additional_env)
     case bump_type
-    when :minor_on_main, :patch_on_main
+    when :minor, :patch
       previous_version_components = @previous_version.split(".")
       case bump_type
-      when :minor_on_main
+      when :minor
         previous_version_components[1].succ!
-      when :patch_on_main
+      when :patch
         previous_version_components[2].succ!
       end
       sh(env,
@@ -128,13 +128,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
            "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
         ],
       },
-      {
-        path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
-        hunks: [
-          ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
-           "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
-        ],
-      },
     ]
     unless release_type == :patch
       expected_changes += [
@@ -148,7 +141,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
               "+        \"name\": \"#{@release_compatible_version} (stable)\",",
               "+    {",
               "+        \"name\": \"#{@previous_compatible_version}\",",
-              "+        \"version\": \"#{@previous_compatible_version}/\"",
+              "+        \"version\": \"#{@previous_compatible_version}/\",",
+              "+        \"url\": \"https://arrow.apache.org/docs/#{@previous_compatible_version}/\"",
               "+    },",
             ],
           ],
@@ -235,7 +229,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       ]
     end
 
-    Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
+    Dir.glob("go/**/{go.mod,*.go,*.go.*,README.md}") do |path|
       if path == "go/arrow/doc.go"
         expected_changes << {
           path: path,
@@ -253,19 +247,34 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       hunks = []
       if release_type == :major
         lines = File.readlines(path, chomp: true)
-        target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
+        target_lines = lines.each_with_index.select do |line, i|
+          line.include?(import_path)
+        end
         next if target_lines.empty?
-        hunk = []
-        target_lines.each do |line|
-          hunk << "-#{line}"
-        end
-        target_lines.each do |line|
-          new_line = line.gsub("v#{@snapshot_major_version}") do
-            "v#{@next_major_version}"
+        n_context_lines = 3 # The default of Git's diff.context
+        target_hunks = [[target_lines.first[0]]]
+        previous_i = target_lines.first[1]
+        target_lines[1..-1].each do |line, i|
+          if i - previous_i < n_context_lines
+            target_hunks.last << line
+          else
+            target_hunks << [line]
           end
-          hunk << "+#{new_line}"
+          previous_i = i
         end
-        hunks << hunk
+        target_hunks.each do |lines|
+          hunk = []
+          lines.each do |line,|
+            hunk << "-#{line}"
+          end
+          lines.each do |line|
+            new_line = line.gsub("v#{@snapshot_major_version}") do
+              "v#{@next_major_version}"
+            end
+            hunk << "+#{new_line}"
+          end
+          hunks << hunk
+        end
       end
       if path == "go/parquet/writer_properties.go"
         hunks << [
@@ -314,8 +323,9 @@ class PostBumpVersionsTest < Test::Unit::TestCase
                  "Output:\n#{stdout}")
   end
 
-  data(:bump_type, [nil, :minor_on_main, :patch_on_main])
+  data(:bump_type, [nil, :minor, :patch])
   def test_deb_package_names
+    omit_on_release_branch unless bump_type.nil?
     current_commit = git_current_commit
     stdout = bump_versions("DEB_PACKAGE_NAMES")
     changes = parse_patch(git("log", "-p", "#{current_commit}.."))

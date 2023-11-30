@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"unsafe"
 
-	shared_utils "github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/bmi"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -94,7 +94,7 @@ func (l *LevelInfo) IncrementRepeated() int16 {
 	l.RepLevel++
 	l.DefLevel++
 
-	// For levels >= repeated_ancenstor_def_level it indicates the list was
+	// For levels >= repeated_ancestor_def_level it indicates the list was
 	// non-null and had at least one element.  This is important
 	// for later decoding because we need to add a slot for these
 	// values.  for levels < current_def_level no slots are added

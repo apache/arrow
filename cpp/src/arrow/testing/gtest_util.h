@@ -176,9 +176,16 @@ using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
 using BaseBinaryArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
 
+using BaseBinaryOrBinaryViewLikeArrowTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, BinaryViewType, StringType,
+                     LargeStringType, StringViewType>;
+
 using BinaryArrowTypes = ::testing::Types<BinaryType, LargeBinaryType>;
 
 using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
+
+using StringOrStringViewArrowTypes =
+    ::testing::Types<StringType, LargeStringType, StringViewType>;
 
 using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
 
@@ -214,25 +221,29 @@ ARROW_TESTING_EXPORT void AssertScalarsEqual(
 ARROW_TESTING_EXPORT void AssertScalarsApproxEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
     const EqualOptions& options = TestingEqualOptions());
-ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
-                                             const RecordBatch& actual,
-                                             bool check_metadata = false);
-ARROW_TESTING_EXPORT void AssertBatchesApproxEqual(const RecordBatch& expected,
-                                                   const RecordBatch& actual);
-ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
-                                             const ChunkedArray& actual);
-ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
-                                             const ArrayVector& expected);
+ARROW_TESTING_EXPORT void AssertBatchesEqual(
+    const RecordBatch& expected, const RecordBatch& actual, bool check_metadata = false,
+    const EqualOptions& options = TestingEqualOptions());
+ARROW_TESTING_EXPORT void AssertBatchesApproxEqual(
+    const RecordBatch& expected, const RecordBatch& actual,
+    const EqualOptions& options = TestingEqualOptions());
+ARROW_TESTING_EXPORT void AssertChunkedEqual(
+    const ChunkedArray& expected, const ChunkedArray& actual,
+    const EqualOptions& options = TestingEqualOptions());
+ARROW_TESTING_EXPORT void AssertChunkedEqual(
+    const ChunkedArray& actual, const ArrayVector& expected,
+    const EqualOptions& options = TestingEqualOptions());
 // Like ChunkedEqual, but permits different chunk layout
-ARROW_TESTING_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
-                                                  const ChunkedArray& actual);
+ARROW_TESTING_EXPORT void AssertChunkedEquivalent(
+    const ChunkedArray& expected, const ChunkedArray& actual,
+    const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertChunkedApproxEquivalent(
     const ChunkedArray& expected, const ChunkedArray& actual,
     const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                             const std::vector<uint8_t>& expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
-                                            const std::string& expected);
+                                            std::string_view expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
 
 ARROW_TESTING_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs,
@@ -270,12 +281,13 @@ ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lh
 ARROW_TESTING_EXPORT Result<std::optional<std::string>> PrintArrayDiff(
     const ChunkedArray& expected, const ChunkedArray& actual);
 
-ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
-                                            bool same_chunk_layout = true,
-                                            bool flatten = false);
+ARROW_TESTING_EXPORT void AssertTablesEqual(
+    const Table& expected, const Table& actual, bool same_chunk_layout = true,
+    bool flatten = false, const EqualOptions& options = TestingEqualOptions());
 
-ARROW_TESTING_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
-                                            bool verbose = false);
+ARROW_TESTING_EXPORT void AssertDatumsEqual(
+    const Datum& expected, const Datum& actual, bool verbose = false,
+    const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertDatumsApproxEqual(
     const Datum& expected, const Datum& actual, bool verbose = false,
     const EqualOptions& options = TestingEqualOptions());
@@ -289,12 +301,13 @@ void AssertNumericDataEqual(const C_TYPE* raw_data,
   }
 }
 
-ARROW_TESTING_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                                       bool compare_metadata = true);
+ARROW_TESTING_EXPORT void CompareBatch(
+    const RecordBatch& left, const RecordBatch& right, bool compare_metadata = true,
+    const EqualOptions& options = TestingEqualOptions());
 
-ARROW_TESTING_EXPORT void ApproxCompareBatch(const RecordBatch& left,
-                                             const RecordBatch& right,
-                                             bool compare_metadata = true);
+ARROW_TESTING_EXPORT void ApproxCompareBatch(
+    const RecordBatch& left, const RecordBatch& right, bool compare_metadata = true,
+    const EqualOptions& options = TestingEqualOptions());
 
 // Check if the padding of the buffers of the array is zero.
 // Also cause valgrind warnings if the padding bytes are uninitialized.

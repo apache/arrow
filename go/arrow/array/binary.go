@@ -23,8 +23,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 type BinaryLike interface {
@@ -318,6 +319,126 @@ func arrayEqualLargeBinary(left, right *LargeBinary) bool {
 	return true
 }
 
+type ViewLike interface {
+	arrow.Array
+	ValueHeader(int) *arrow.ViewHeader
+}
+
+type BinaryView struct {
+	array
+	values      []arrow.ViewHeader
+	dataBuffers []*memory.Buffer
+}
+
+func NewBinaryViewData(data arrow.ArrayData) *BinaryView {
+	a := &BinaryView{}
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+func (a *BinaryView) setData(data *Data) {
+	if len(data.buffers) < 2 {
+		panic("len(data.buffers) < 2")
+	}
+	a.array.setData(data)
+
+	if valueData := data.buffers[1]; valueData != nil {
+		a.values = arrow.ViewHeaderTraits.CastFromBytes(valueData.Bytes())
+	}
+
+	a.dataBuffers = data.buffers[2:]
+}
+
+func (a *BinaryView) ValueHeader(i int) *arrow.ViewHeader {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	return &a.values[a.array.data.offset+i]
+}
+
+func (a *BinaryView) Value(i int) []byte {
+	s := a.ValueHeader(i)
+	if s.IsInline() {
+		return s.InlineBytes()
+	}
+	start := s.BufferOffset()
+	buf := a.dataBuffers[s.BufferIndex()]
+	return buf.Bytes()[start : start+int32(s.Len())]
+}
+
+// ValueString returns the value at index i as a string instead of
+// a byte slice, without copying the underlying data.
+func (a *BinaryView) ValueString(i int) string {
+	b := a.Value(i)
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func (a *BinaryView) String() string {
+	var o strings.Builder
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString(NullValueStr)
+		default:
+			fmt.Fprintf(&o, "%q", a.ValueString(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+// ValueStr is paired with AppendValueFromString in that it returns
+// the value at index i as a string: Semantically this means that for
+// a null value it will return the string "(null)", otherwise it will
+// return the value as a base64 encoded string suitable for CSV/JSON.
+//
+// This is always going to be less performant than just using ValueString
+// and exists to fulfill the Array interface to provide a method which
+// can produce a human readable string for a given index.
+func (a *BinaryView) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
+
+func (a *BinaryView) GetOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *BinaryView) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.GetOneForMarshal(i)
+	}
+	// golang marshal standard says that []byte will be marshalled
+	// as a base64-encoded string
+	return json.Marshal(vals)
+}
+
+func arrayEqualBinaryView(left, right *BinaryView) bool {
+	leftBufs, rightBufs := left.dataBuffers, right.dataBuffers
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !left.ValueHeader(i).Equals(leftBufs, right.ValueHeader(i), rightBufs) {
+			return false
+		}
+	}
+	return true
+}
+
 var (
 	_ arrow.Array = (*Binary)(nil)
+	_ arrow.Array = (*LargeBinary)(nil)
+	_ arrow.Array = (*BinaryView)(nil)
 )

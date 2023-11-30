@@ -25,10 +25,10 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v14/parquet/metadata"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -237,7 +237,7 @@ func (f *Reader) handleAadPrefix(fileDecrypt *parquet.FileDecryptionProperties, 
 	aadPrefixInFile := algo.Aad.AadPrefix
 
 	if algo.Aad.SupplyAadPrefix && aadPrefixInProps == "" {
-		return "", xerrors.New("AAD Prefix used for file encryption but not stored in file and not suppliedin decryption props")
+		return "", xerrors.New("AAD Prefix used for file encryption but not stored in file and not supplied in decryption props")
 	}
 
 	if fileHasAadPrefix {

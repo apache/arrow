@@ -49,7 +49,7 @@ class TestChunkedArrayDatum < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal("ChunkedArray", @datum.to_s)
+    assert_equal("ChunkedArray([\n" + "  [\n" + "    true,\n" + "    false\n" + "  ]\n" + "])", @datum.to_s)
   end
 
   def test_value

@@ -53,18 +53,33 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
+#if LLVM_VERSION_MAJOR >= 17
+#include <llvm/TargetParser/SubtargetFeature.h>
+#else
 #include <llvm/MC/SubtargetFeature.h>
+#endif
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Host.h>
+#include <llvm/Transforms/IPO/GlobalDCE.h>
+#include <llvm/Transforms/IPO/Internalize.h>
 #if LLVM_VERSION_MAJOR >= 14
+#include <llvm/IR/PassManager.h>
 #include <llvm/MC/TargetRegistry.h>
+#include <llvm/Passes/PassPlugin.h>
+#include <llvm/Transforms/IPO/GlobalOpt.h>
+#include <llvm/Transforms/Scalar/NewGVN.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#include <llvm/Transforms/Utils/Mem2Reg.h>
+#include <llvm/Transforms/Vectorize/LoopVectorize.h>
+#include <llvm/Transforms/Vectorize/SLPVectorizer.h>
 #else
 #include <llvm/Support/TargetRegistry.h>
+#include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #endif
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
-#include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/InstCombine/InstCombine.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Scalar/GVN.h>
@@ -77,6 +92,7 @@
 
 #include "gandiva/configuration.h"
 #include "gandiva/decimal_ir.h"
+#include "gandiva/exported_funcs.h"
 #include "gandiva/exported_funcs_registry.h"
 
 namespace gandiva {
@@ -88,6 +104,7 @@ std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
 static llvm::StringRef cpu_name;
 static llvm::SmallVector<std::string, 10> cpu_attrs;
+std::once_flag register_exported_funcs_flag;
 
 void Engine::InitOnce() {
   DCHECK_EQ(llvm_init, false);
@@ -124,11 +141,13 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       module_(module),
       types_(*context_),
       optimize_(conf->optimize()),
-      cached_(cached) {}
+      cached_(cached),
+      function_registry_(conf->function_registry()) {}
 
 Status Engine::Init() {
+  std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
   // Add mappings for global functions that can be accessed from LLVM/IR module.
-  AddGlobalMappings();
+  ARROW_RETURN_NOT_OK(AddGlobalMappings());
 
   return Status::OK();
 }
@@ -137,6 +156,7 @@ Status Engine::LoadFunctionIRs() {
   if (!functions_loaded_) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
+    ARROW_RETURN_NOT_OK(LoadExternalPreCompiledIR());
     functions_loaded_ = true;
   }
   return Status::OK();
@@ -218,7 +238,38 @@ static void SetDataLayout(llvm::Module* module) {
 
   module->setDataLayout(machine->createDataLayout());
 }
-// end of the mofified method from MLIR
+// end of the modified method from MLIR
+
+template <typename T>
+static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected) {
+  if (!expected) {
+    std::string str;
+    llvm::raw_string_ostream stream(str);
+    stream << expected.takeError();
+    return Status::CodeGenError(stream.str());
+  }
+  return std::move(expected.get());
+}
+
+static arrow::Status VerifyAndLinkModule(
+    llvm::Module* dest_module,
+    llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
+  ARROW_ASSIGN_OR_RAISE(auto src_ir_module, AsArrowResult(src_module_or_error));
+
+  // set dataLayout
+  SetDataLayout(src_ir_module.get());
+
+  std::string error_info;
+  llvm::raw_string_ostream error_stream(error_info);
+  ARROW_RETURN_IF(
+      llvm::verifyModule(*src_ir_module, &error_stream),
+      Status::CodeGenError("verify of IR Module failed: " + error_stream.str()));
+
+  ARROW_RETURN_IF(llvm::Linker::linkModules(*dest_module, std::move(src_ir_module)),
+                  Status::CodeGenError("failed to link IR Modules"));
+
+  return Status::OK();
+}
 
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
@@ -238,23 +289,25 @@ Status Engine::LoadPreCompiledIR() {
   /// Parse the IR module.
   llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
       llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
-  if (!module_or_error) {
-    // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
-    // (ARROW-5148)
-    std::string str;
-    llvm::raw_string_ostream stream(str);
-    stream << module_or_error.takeError();
-    return Status::CodeGenError(stream.str());
+  // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
+  // (ARROW-5148)
+  ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
+  return Status::OK();
+}
+
+static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
+  auto data = reinterpret_cast<const char*>(arrow_buffer.data());
+  auto size = arrow_buffer.size();
+  return llvm::MemoryBufferRef(llvm::StringRef(data, size), "external_bitcode");
+}
+
+Status Engine::LoadExternalPreCompiledIR() {
+  auto const& buffers = function_registry_->GetBitcodeBuffers();
+  for (auto const& buffer : buffers) {
+    auto llvm_memory_buffer_ref = AsLLVMMemoryBuffer(*buffer);
+    auto module_or_error = llvm::parseBitcodeFile(llvm_memory_buffer_ref, *context());
+    ARROW_RETURN_NOT_OK(VerifyAndLinkModule(module_, std::move(module_or_error)));
   }
-  std::unique_ptr<llvm::Module> ir_module = std::move(module_or_error.get());
-
-  // set dataLayout
-  SetDataLayout(ir_module.get());
-
-  ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
-                  Status::CodeGenError("verify of IR Module failed"));
-  ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
-                  Status::CodeGenError("failed to link IR Modules"));
 
   return Status::OK();
 }
@@ -268,20 +321,89 @@ Status Engine::LoadPreCompiledIR() {
 // a pass for dead code elimination.
 Status Engine::RemoveUnusedFunctions() {
   // Setup an optimiser pipeline
-  std::unique_ptr<llvm::legacy::PassManager> pass_manager(
-      new llvm::legacy::PassManager());
+  llvm::PassBuilder pass_builder;
+  llvm::ModuleAnalysisManager module_am;
+
+  pass_builder.registerModuleAnalyses(module_am);
+  llvm::ModulePassManager module_pm;
 
   std::unordered_set<std::string> used_functions;
   used_functions.insert(functions_to_compile_.begin(), functions_to_compile_.end());
 
-  pass_manager->add(
-      llvm::createInternalizePass([&used_functions](const llvm::GlobalValue& func) {
-        return (used_functions.find(func.getName().str()) != used_functions.end());
+  module_pm.addPass(
+      llvm::InternalizePass([&used_functions](const llvm::GlobalValue& variable) -> bool {
+        return used_functions.find(variable.getName().str()) != used_functions.end();
       }));
-  pass_manager->add(llvm::createGlobalDCEPass());
-  pass_manager->run(*module_);
+  module_pm.addPass(llvm::GlobalDCEPass());
+
+  module_pm.run(*module_, module_am);
   return Status::OK();
 }
+
+// several passes requiring LLVM 14+ that are not available in the legacy pass manager
+#if LLVM_VERSION_MAJOR >= 14
+static void OptimizeModuleWithNewPassManager(llvm::Module& module,
+                                             llvm::TargetIRAnalysis target_analysis) {
+  // Setup an optimiser pipeline
+  llvm::PassBuilder pass_builder;
+  llvm::LoopAnalysisManager loop_am;
+  llvm::FunctionAnalysisManager function_am;
+  llvm::CGSCCAnalysisManager cgscc_am;
+  llvm::ModuleAnalysisManager module_am;
+
+  function_am.registerPass([&] { return target_analysis; });
+
+  // Register required analysis managers
+  pass_builder.registerModuleAnalyses(module_am);
+  pass_builder.registerCGSCCAnalyses(cgscc_am);
+  pass_builder.registerFunctionAnalyses(function_am);
+  pass_builder.registerLoopAnalyses(loop_am);
+  pass_builder.crossRegisterProxies(loop_am, function_am, cgscc_am, module_am);
+
+  pass_builder.registerPipelineStartEPCallback([&](llvm::ModulePassManager& module_pm,
+                                                   llvm::OptimizationLevel Level) {
+    module_pm.addPass(llvm::ModuleInlinerPass());
+
+    llvm::FunctionPassManager function_pm;
+    function_pm.addPass(llvm::InstCombinePass());
+    function_pm.addPass(llvm::PromotePass());
+    function_pm.addPass(llvm::GVNPass());
+    function_pm.addPass(llvm::NewGVNPass());
+    function_pm.addPass(llvm::SimplifyCFGPass());
+    function_pm.addPass(llvm::LoopVectorizePass());
+    function_pm.addPass(llvm::SLPVectorizerPass());
+    module_pm.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(function_pm)));
+
+    module_pm.addPass(llvm::GlobalOptPass());
+  });
+
+  pass_builder.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O3)
+      .run(module, module_am);
+}
+#else
+static void OptimizeModuleWithLegacyPassManager(llvm::Module& module,
+                                                llvm::TargetIRAnalysis target_analysis) {
+  std::unique_ptr<llvm::legacy::PassManager> pass_manager(
+      new llvm::legacy::PassManager());
+
+  pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
+  pass_manager->add(llvm::createFunctionInliningPass());
+  pass_manager->add(llvm::createInstructionCombiningPass());
+  pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
+  pass_manager->add(llvm::createGVNPass());
+  pass_manager->add(llvm::createNewGVNPass());
+  pass_manager->add(llvm::createCFGSimplificationPass());
+  pass_manager->add(llvm::createLoopVectorizePass());
+  pass_manager->add(llvm::createSLPVectorizerPass());
+  pass_manager->add(llvm::createGlobalOptimizerPass());
+
+  // run the optimiser
+  llvm::PassManagerBuilder pass_builder;
+  pass_builder.OptLevel = 3;
+  pass_builder.populateModulePassManager(*pass_manager);
+  pass_manager->run(module);
+}
+#endif
 
 // Optimise and compile the module.
 Status Engine::FinalizeModule() {
@@ -289,28 +411,14 @@ Status Engine::FinalizeModule() {
     ARROW_RETURN_NOT_OK(RemoveUnusedFunctions());
 
     if (optimize_) {
-      // misc passes to allow for inlining, vectorization, ..
-      std::unique_ptr<llvm::legacy::PassManager> pass_manager(
-          new llvm::legacy::PassManager());
+      auto target_analysis = execution_engine_->getTargetMachine()->getTargetIRAnalysis();
 
-      llvm::TargetIRAnalysis target_analysis =
-          execution_engine_->getTargetMachine()->getTargetIRAnalysis();
-      pass_manager->add(llvm::createTargetTransformInfoWrapperPass(target_analysis));
-      pass_manager->add(llvm::createFunctionInliningPass());
-      pass_manager->add(llvm::createInstructionCombiningPass());
-      pass_manager->add(llvm::createPromoteMemoryToRegisterPass());
-      pass_manager->add(llvm::createGVNPass());
-      pass_manager->add(llvm::createNewGVNPass());
-      pass_manager->add(llvm::createCFGSimplificationPass());
-      pass_manager->add(llvm::createLoopVectorizePass());
-      pass_manager->add(llvm::createSLPVectorizerPass());
-      pass_manager->add(llvm::createGlobalOptimizerPass());
-
-      // run the optimiser
-      llvm::PassManagerBuilder pass_builder;
-      pass_builder.OptLevel = 3;
-      pass_builder.populateModulePassManager(*pass_manager);
-      pass_manager->run(*module_);
+// misc passes to allow for inlining, vectorization, ..
+#if LLVM_VERSION_MAJOR >= 14
+      OptimizeModuleWithNewPassManager(*module_, target_analysis);
+#else
+      OptimizeModuleWithLegacyPassManager(*module_, target_analysis);
+#endif
     }
 
     ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
@@ -339,7 +447,11 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   execution_engine_->addGlobalMapping(fn, function_ptr);
 }
 
-void Engine::AddGlobalMappings() { ExportedFuncsRegistry::AddMappings(this); }
+arrow::Status Engine::AddGlobalMappings() {
+  ARROW_RETURN_NOT_OK(ExportedFuncsRegistry::AddMappings(this));
+  ExternalCFunctions c_funcs(function_registry_);
+  return c_funcs.AddMappings(this);
+}
 
 std::string Engine::DumpIR() {
   std::string ir;

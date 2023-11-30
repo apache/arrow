@@ -23,12 +23,12 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/encoded"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/json"
-	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/encoded"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 // RunEndEncoded represents an array containing two children:
@@ -424,7 +424,7 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	defer runEnds.Release()
 
 	data = NewData(
-		b.dt, b.length, []*memory.Buffer{nil},
+		b.dt, b.length, []*memory.Buffer{},
 		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return

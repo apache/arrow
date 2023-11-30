@@ -31,6 +31,7 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
 } from '../type.js';
 
@@ -81,6 +82,11 @@ export interface IndexOfVisitor extends Visitor {
     visitInterval<T extends Interval>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitIntervalDayTime<T extends IntervalDayTime>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitIntervalYearMonth<T extends IntervalYearMonth>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitDuration<T extends Duration>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitDurationSecond<T extends DurationSecond>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitDurationMillisecond<T extends DurationMillisecond>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitDurationMicrosecond<T extends DurationMicrosecond>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitDurationNanosecond<T extends DurationNanosecond>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitMap<T extends Map_>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
 }
@@ -111,7 +117,19 @@ function indexOfNull<T extends DataType>(data: Data<T>, fromIndex?: number): num
 /** @ignore */
 function indexOfValue<T extends DataType>(data: Data<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     if (searchElement === undefined) { return -1; }
-    if (searchElement === null) { return indexOfNull(data, fromIndex); }
+    if (searchElement === null) {
+        switch (data.typeId) {
+            // Unions don't have a nullBitmap of its own, so compare the `searchElement` to `get()`.
+            case Type.Union:
+                break;
+            // Dictionaries do have a nullBitmap, but their dictionary could also have null elements.
+            case Type.Dictionary:
+                break;
+            // All other types can iterate the null bitmap
+            default:
+                return indexOfNull(data, fromIndex);
+        }
+    }
     const get = getVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
     for (let i = (fromIndex || 0) - 1, n = data.length; ++i < n;) {
@@ -126,7 +144,7 @@ function indexOfValue<T extends DataType>(data: Data<T>, searchElement?: T['TVal
 function indexOfUnion<T extends DataType>(data: Data<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     // Unions are special -- they do have a nullBitmap, but so can their children.
     // If the searchElement is null, we don't know whether it came from the Union's
-    // bitmap or one of its childrens'. So we don't interrogate the Union's bitmap,
+    // bitmap or one of its children's. So we don't interrogate the Union's bitmap,
     // since that will report the wrong index if a child has a null before the Union.
     const get = getVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
@@ -179,6 +197,11 @@ IndexOfVisitor.prototype.visitDictionary = indexOfValue;
 IndexOfVisitor.prototype.visitInterval = indexOfValue;
 IndexOfVisitor.prototype.visitIntervalDayTime = indexOfValue;
 IndexOfVisitor.prototype.visitIntervalYearMonth = indexOfValue;
+IndexOfVisitor.prototype.visitDuration = indexOfValue;
+IndexOfVisitor.prototype.visitDurationSecond = indexOfValue;
+IndexOfVisitor.prototype.visitDurationMillisecond = indexOfValue;
+IndexOfVisitor.prototype.visitDurationMicrosecond = indexOfValue;
+IndexOfVisitor.prototype.visitDurationNanosecond = indexOfValue;
 IndexOfVisitor.prototype.visitFixedSizeList = indexOfValue;
 IndexOfVisitor.prototype.visitMap = indexOfValue;
 

@@ -61,7 +61,7 @@ outputs:
     build:
       string: h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
       run_exports:
-        - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
+        - {{ pin_subpackage("libarrow", max_pin="x") }}
       ignore_run_exports_from:
         - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
         # arrow only uses headers, apparently
@@ -114,6 +114,8 @@ outputs:
         - libgrpc
         - libprotobuf
         - libutf8proc
+        # gandiva requires shared libllvm
+        - llvm  # [unix]
         - lz4-c
         - nlohmann_json
         # gandiva depends on openssl
@@ -133,8 +135,6 @@ outputs:
         # its host deps (which aren't yet covered above) leak into the build here
         - libcrc32c  # [win]
         - libcurl    # [win]
-        # same for libgrpc (before 1.55.0, which is coupled with libprotobuf 4.23.x)
-        - c-ares     # [win and libprotobuf == "3.21"]
       run_constrained:
         - apache-arrow-proc =*={{ build_ext }}
         # make sure we don't co-install with old version of old package name
@@ -198,8 +198,6 @@ outputs:
     requirements:
       host:
         - {{ pin_subpackage('libarrow', exact=True) }}
-        # avoid wrappers for different builds colliding due to identical hashes
-        - libprotobuf
       run:
         - {{ pin_subpackage('libarrow', exact=True) }}
     test:
@@ -235,19 +233,16 @@ outputs:
         - cmake
         - ninja
       host:
-        # we're building for two protobuf versions, cannot pin exactly
-        # - {{ pin_subpackage('libarrow', exact=True) }}
-        - libarrow ={{ version }}=*_{{ PKG_BUILDNUM }}_{{ build_ext }}
+        - {{ pin_subpackage('libarrow', exact=True) }}
         - clangdev {{ llvm_version }}
         - llvmdev {{ llvm_version }}
         - cython <3
         - numpy
         - python
         - setuptools
-        - setuptools_scm
+        - setuptools_scm <8.0.0
       run:
-        # - {{ pin_subpackage('libarrow', exact=True) }}
-        - libarrow ={{ version }}=*_{{ PKG_BUILDNUM }}_{{ build_ext }}
+        - {{ pin_subpackage('libarrow', exact=True) }}
         - {{ pin_compatible('numpy') }}
         - python
       run_constrained:
@@ -327,7 +322,7 @@ outputs:
         - numpy
         - python
         - setuptools
-        - setuptools_scm
+        - setuptools_scm <8.0.0
       run:
         - {{ pin_subpackage('pyarrow', exact=True) }}
         - python
@@ -336,28 +331,28 @@ outputs:
 
     # crossbow CI: reduce to one python version, except on (unemulated) linux, where it's fast enough
     {% if linux64 or py == 311 %}
-    # {% if not (aarch64 or ppc64le) or py in (310, 311) %}
-    # only run the full test suite for one python version when in emulation (each run takes ~45min);
-    # there's essentially zero divergence in behaviour across python versions anyway, and otherwise
-    # CUDA builds for aarch/ppc consistently run out of disk space on azure for some reason
+    # {% if not (aarch64 or ppc64le) or py == 311 %}
+    # only run the full test suite for one python version when in emulation
+    # (each run can take up to ~45min); there's essentially zero divergence
+    # in behaviour across python versions anyway
     test:
       requires:
-        # vary protobuf version in test suite (historically, test failures only have a very
-        # weak dependency on python version, so we don't lose coverage by doing half & half)
-        - libprotobuf <4         # [py % 2 == 0]
         # test_cpp_extension_in_python requires a compiler
         - {{ compiler("cxx") }}  # [linux]
-        # temporary pin due to missing fixture
-        - pytest <7.4.0
+        - pytest
         - pytest-lazy-fixture
         - backports.zoneinfo     # [py<39]
+        - boto3
         - cffi
         - cloudpickle
         - cython <3
         - fastparquet
         - fsspec
         - hypothesis
+        # currently disabled due to GH-37692
+        # - minio-server
         - pandas
+        - s3fs >=2023
         - scipy
         # these are generally (far) behind on migrating abseil/grpc/protobuf,
         # and using them as test dependencies blocks the migrator unnecessarily
@@ -372,8 +367,8 @@ outputs:
       source_files:
         - testing/data
       commands:
-        - cd ${SP_DIR}/pyarrow/tests                        # [unix]
-        - cd %SP_DIR%\pyarrow\tests                         # [win]
+        - cd ${SP_DIR}                                      # [unix]
+        - cd %SP_DIR%                                       # [win]
         - export ARROW_TEST_DATA="${SRC_DIR}/testing/data"  # [unix]
         - set "ARROW_TEST_DATA=%SRC_DIR%\testing\data"      # [win]
 
@@ -382,34 +377,26 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or test_cuda" %}
         # skip tests that raise SIGINT and crash the test suite
         {% set tests_to_skip = tests_to_skip + " or (test_csv and test_cancellation)" %}  # [linux]
-        {% set tests_to_skip = tests_to_skip + " or (test_flight and test_interrupt)" %}  # [linux]
-        # tests that may crash the agent due to out-of-bound memory writes or other risky stuff
-        {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool" %}            # [aarch64 or ppc64le]
-        # cannot pass -D_LIBCPP_DISABLE_AVAILABILITY to test suite for our older macos sdk
-        {% set tests_to_skip = tests_to_skip + " or test_cpp_extension_in_python" %}      # [osx]
+        # skip test that intentionally writes out of bounds and then expects no error message
+        {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled[system_memory_pool]" %}  # [osx]
         # skip tests that make invalid(-for-conda) assumptions about the compilers setup
         {% set tests_to_skip = tests_to_skip + " or test_cython_api" %}                   # [unix]
         {% set tests_to_skip = tests_to_skip + " or test_visit_strings" %}                # [unix]
         # skip tests that cannot succeed in emulation
         {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled" %}   # [aarch64 or ppc64le]
         {% set tests_to_skip = tests_to_skip + " or test_env_var_io_thread_count" %}      # [aarch64 or ppc64le]
+        # XMinioInvalidObjectName on osx/win: "Object name contains unsupported characters"
+        {% set tests_to_skip = tests_to_skip + " or test_write_to_dataset_with_partitions_s3fs" %}  # [osx or win]
         # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
-        {% set tests_to_skip = tests_to_skip + " or test_extension_to_pandas_storage_type" %}
-        # segfaults on OSX: to investigate ASAP
-        {% set tests_to_skip = tests_to_skip + " or test_flight" %}                       # [osx]
+        # currently broken
+        {% set tests_to_skip = tests_to_skip + " or test_fastparquet_cross_compatibility" %}
         # gandiva tests are segfaulting on ppc
-        {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                      # [ppc64le]
-        # test failures on ppc
+        {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                                # [ppc64le]
+        # test failures on ppc (both failing with: Float value was truncated converting to int32)
         {% set tests_to_skip = tests_to_skip + " or test_safe_cast_from_float_with_nans_to_int" %}  # [ppc64le]
-        # gandiva tests are segfaulting on ppc
-        {% set tests_to_skip = tests_to_skip + " or test_float_with_null_as_integer" %}   # [ppc64le]
-        # test is broken; header is in $PREFIX, not $SP_DIR
-        {% set tests_to_skip = tests_to_skip + " or (test_misc and test_get_include)" %}  # [unix]
-        # flaky tests that fail occasionally
-        {% set tests_to_skip = tests_to_skip + " or test_total_bytes_allocated " %}       # [linux]
-        {% set tests_to_skip = tests_to_skip + " or test_feather_format " %}              # [linux]
+        {% set tests_to_skip = tests_to_skip + " or test_float_with_null_as_integer" %}             # [ppc64le]
         # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
-        - pytest -rfEs -k "not ({{ tests_to_skip }})"
+        - pytest pyarrow/ -rfEs -k "not ({{ tests_to_skip }})"
     {% endif %}
 
     about:

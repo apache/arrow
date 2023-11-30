@@ -17,12 +17,11 @@
 package cdata
 
 import (
-	"reflect"
 	"runtime/cgo"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
 )
 
 // #include <stdlib.h>
@@ -59,12 +58,7 @@ func releaseExportedSchema(schema *CArrowSchema) {
 		C.free(unsafe.Pointer(schema.dictionary))
 	}
 
-	var children []*CArrowSchema
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&children))
-	s.Data = uintptr(unsafe.Pointer(schema.children))
-	s.Len = int(schema.n_children)
-	s.Cap = int(schema.n_children)
-
+	children := unsafe.Slice(schema.children, schema.n_children)
 	for _, c := range children {
 		C.ArrowSchemaRelease(c)
 	}
@@ -106,11 +100,7 @@ func releaseExportedArray(arr *CArrowArray) {
 	}
 
 	if arr.n_children > 0 {
-		var children []*CArrowArray
-		s := (*reflect.SliceHeader)(unsafe.Pointer(&children))
-		s.Data = uintptr(unsafe.Pointer(arr.children))
-		s.Len = int(arr.n_children)
-		s.Cap = int(arr.n_children)
+		children := unsafe.Slice(arr.children, arr.n_children)
 
 		for _, c := range children {
 			C.ArrowArrayRelease(c)

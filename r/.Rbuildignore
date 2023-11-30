@@ -20,8 +20,6 @@ clang_format.sh
 ^Makefile$
 ^.*\.orig$
 ^.*\.cmd$
-^autobrew$
-^apache-arrow.rb$
 ^.*\.Rhistory$
 ^extra-tests
 STYLE.md

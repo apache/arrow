@@ -1,3 +1,7 @@
+%SCHEMA A tabular schema which semantically describes
+% the names and types of the columns of an associated tabular
+% Arrow data type.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,10 +17,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Schema < matlab.mixin.CustomDisplay
-%SCHEMA A tabular schema which semantically describes
-% the names and types of the columns of an associated tabular
-% Arrow data type.
+classdef Schema < matlab.mixin.CustomDisplay & ...
+                  matlab.mixin.Scalar
 
     properties (GetAccess=public, SetAccess=private, Hidden)
         Proxy
@@ -45,18 +47,12 @@ classdef Schema < matlab.mixin.CustomDisplay
         function F = field(obj, idx)
             import arrow.internal.validate.*
             
-            idx = index.numericOrString(idx, "int32");
+            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
 
             if isnumeric(idx)
-                % TODO: Consider vectorizing field() to support extracting
-                % multiple fields at once.
-                validateattributes(idx, "int32", "scalar");
                 args = struct(Index=idx);
                 proxyID = obj.Proxy.getFieldByIndex(args);
             else
-                % TODO: Consider vectorizing field() to support extracting
-                % multiple fields at once.
-                validateattributes(idx, "string", "scalar");
                 args = struct(Name=idx);
                 proxyID = obj.Proxy.getFieldByName(args);
             end
@@ -79,21 +75,51 @@ classdef Schema < matlab.mixin.CustomDisplay
         function numFields = get.NumFields(obj)
             numFields = obj.Proxy.getNumFields();
         end
-        
-    end
 
-    methods (Access = private)
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+            
+            fieldsToCompare = cell([1 numel(varargin)]);
+            for ii = 1:numel(varargin)
+                schema = varargin{ii};
+                if ~isa(schema, "arrow.tabular.Schema")
+                    % Return false early if schema is not actually an
+                    % arrow.tabular.Schema instance.
+                    return;
+                end
 
-        function str = toString(obj)
-            str = obj.Proxy.toString();
+                fieldsToCompare{ii} = schema.Fields;
+            end
+
+            % Return if the Schema Fields properties are equal
+            tf = isequal(obj.Fields, fieldsToCompare{:});
         end
-
     end
 
     methods (Access=protected)
 
+        function header = getHeader(obj)
+            name = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            numFields = obj.NumFields;
+            if numFields == 0
+                header = compose("  Arrow %s with 0 fields" + newline, name);
+            elseif numFields == 1
+                header = compose("  Arrow %s with %d field:" + newline, name, numFields);
+            else
+                header = compose("  Arrow %s with %d fields:" + newline, name, numFields);
+            end
+        end
+
         function displayScalarObject(obj)
-            disp(obj.toString());
+            disp(getHeader(obj));
+            numFields = obj.NumFields;
+
+            if numFields > 0
+                text = "    " + arrow.tabular.internal.display.getSchemaString(obj);
+                disp(text + newline);
+            end
+
         end
 
     end

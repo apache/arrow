@@ -17,10 +17,11 @@
 package arrow_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v15/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -164,6 +165,44 @@ func TestTimestampToTime(t *testing.T) {
 	tm := ts.ToTime(arrow.Millisecond)
 
 	assert.Equal(t, "2345-12-30 00:00:00", tm.Format("2006-01-02 15:04:05.999"))
+}
+
+func TestTimestampType_GetToTimeFunc(t *testing.T) {
+	typUTC := &arrow.TimestampType{Unit: arrow.Millisecond}
+	toTimeUTC, err := typUTC.GetToTimeFunc()
+	assert.NoError(t, err)
+
+	typNY := &arrow.TimestampType{Unit: arrow.Millisecond, TimeZone: "America/New_York"}
+	toTimeNY, err := typNY.GetToTimeFunc()
+	assert.NoError(t, err)
+
+	ts := arrow.Timestamp(11865225600000)
+	assert.Equal(t, "2345-12-30T00:00:00Z", toTimeUTC(ts).Format(time.RFC3339))
+	assert.Equal(t, "2345-12-29T19:00:00-05:00", toTimeNY(ts).Format(time.RFC3339))
+}
+
+// Test race condition from GH-38795
+func TestGetToTimeFuncRace(t *testing.T) {
+	var (
+		wg         sync.WaitGroup
+		w          = make(chan bool)
+		routineNum = 10
+	)
+
+	wg.Add(routineNum)
+	for i := 0; i < routineNum; i++ {
+		go func() {
+			defer wg.Done()
+
+			<-w
+
+			_, _ = arrow.FixedWidthTypes.Timestamp_s.(*arrow.TimestampType).GetToTimeFunc()
+		}()
+	}
+
+	close(w)
+
+	wg.Wait()
 }
 
 func TestTime32Type(t *testing.T) {

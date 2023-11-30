@@ -21,7 +21,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(pyarrow)
 
-set(PYARROW_VERSION "14.0.0-SNAPSHOT")
+set(PYARROW_VERSION "15.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Running from a Python sdist tarball
@@ -84,7 +84,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -168,37 +168,44 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYARROW_CXXFLAGS}")
 
 if(MSVC)
   # MSVC version of -Wno-return-type-c-linkage
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
+  string(APPEND CMAKE_CXX_FLAGS " /wd4190")
 
   # Cython generates some bitshift expressions that MSVC does not like in
   # __Pyx_PyFloat_DivideObjC
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4293")
+  string(APPEND CMAKE_CXX_FLAGS " /wd4293")
 
   # Converting to/from C++ bool is pretty wonky in Cython. The C4800 warning
   # seem harmless, and probably not worth the effort of working around it
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4800")
+  string(APPEND CMAKE_CXX_FLAGS " /wd4800")
 
   # See https://github.com/cython/cython/issues/2731. Change introduced in
   # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4804")
+  string(APPEND CMAKE_CXX_FLAGS " /wd4804")
+
+  # See https://github.com/cython/cython/issues/4445.
+  #
+  # Cython 3 emits "(void)__Pyx_PyObject_CallMethod0;" to suppress a
+  # "unused function" warning but the code emits another "function
+  # call missing argument list" warning.
+  string(APPEND CMAKE_CXX_FLAGS " /wd4551")
 else()
   # Enable perf and other tools to work properly
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+  string(APPEND CMAKE_CXX_FLAGS " -fno-omit-frame-pointer")
 
   # Suppress Cython warnings
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
+  string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-variable -Wno-maybe-uninitialized")
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                     "Clang")
     # Cython warnings in clang
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sometimes-uninitialized")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-parentheses-equality")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-constant-logical-operand")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-missing-declarations")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-sometimes-uninitialized")
 
     # We have public Cython APIs which return C++ types, which are in an extern
     # "C" blog (no symbol mangling) and clang doesn't like this
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-type-c-linkage")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-return-type-c-linkage")
   endif()
 endif()
 
@@ -333,9 +340,12 @@ if(PYARROW_BUILD_PARQUET_ENCRYPTION)
     else()
       list(APPEND PYARROW_CPP_LINK_LIBS Parquet::parquet_static)
     endif()
+    message(STATUS "Parquet Encryption Enabled")
   else()
     message(FATAL_ERROR "You must build Arrow C++ with PARQUET_REQUIRE_ENCRYPTION=ON")
   endif()
+else()
+  message(STATUS "Parquet Encryption is NOT Enabled")
 endif()
 
 if(PYARROW_BUILD_HDFS)
@@ -620,6 +630,9 @@ if(PYARROW_BUILD_PARQUET)
   endif()
   if(PYARROW_BUILD_DATASET)
     list(APPEND CYTHON_EXTENSIONS _dataset_parquet)
+    if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+      list(APPEND CYTHON_EXTENSIONS _dataset_parquet_encryption)
+    endif()
   endif()
 endif()
 

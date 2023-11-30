@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/metadata"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -272,6 +272,11 @@ func (fw *FileWriter) WriteTable(tbl arrow.Table, chunkSize int64) error {
 	return nil
 }
 
+// AppendKeyValueMetadata appends a key/value pair to the existing key/value metadata
+func (fw *FileWriter) AppendKeyValueMetadata(key string, value string) error {
+	return fw.wr.AppendKeyValueMetadata(key, value)
+}
+
 // Close flushes out the data and closes the file. It can be called multiple times,
 // subsequent calls after the first will have no effect.
 func (fw *FileWriter) Close() error {
@@ -300,7 +305,7 @@ func (fw *FileWriter) Close() error {
 // building of writing columns to a file via arrow data without needing to already have
 // a record or table.
 func (fw *FileWriter) WriteColumnChunked(data *arrow.Chunked, offset, size int64) error {
-	acw, err := NewArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
+	acw, err := newArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
 	if err != nil {
 		return err
 	}

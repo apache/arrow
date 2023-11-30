@@ -21,6 +21,7 @@
 from libc.stdlib cimport malloc, free
 
 import codecs
+import pickle
 import re
 import sys
 import threading
@@ -1368,7 +1369,7 @@ cdef class Buffer(_Weakrefable):
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:
-            bufobj = builtin_pickle.PickleBuffer(self)
+            bufobj = pickle.PickleBuffer(self)
         elif self.buffer.get().is_mutable():
             # Need to pass a bytearray to recreate a mutable buffer when
             # unpickling.
@@ -1503,12 +1504,12 @@ cdef class BufferOutputStream(NativeFile):
     """
     An output stream that writes to a resizable buffer.
 
-    The buffer is produced as a result when ``get.value()`` is called.
+    The buffer is produced as a result when ``getvalue()`` is called.
 
     Examples
     --------
     Create an output stream, write data to it and finalize it with
-    ``get.value()``:
+    ``getvalue()``:
 
     >>> import pyarrow as pa
     >>> f = pa.BufferOutputStream()

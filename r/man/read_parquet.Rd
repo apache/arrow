@@ -9,6 +9,7 @@ read_parquet(
   col_select = NULL,
   as_data_frame = TRUE,
   props = ParquetArrowReaderProperties$create(),
+  mmap = TRUE,
   ...
 )
 }
@@ -28,6 +29,8 @@ of columns, as used in \code{dplyr::select()}.}
 an Arrow \link{Table}?}
 
 \item{props}{\link{ParquetArrowReaderProperties}}
+
+\item{mmap}{Use TRUE to use memory mapping where possible}
 
 \item{...}{Additional arguments passed to \code{ParquetFileReader$create()}}
 }

@@ -23,11 +23,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/compute/internal/kernels"
 )
 
 var (
@@ -266,8 +266,8 @@ func CastStruct(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult)
 		opts          = ctx.State.(kernels.CastState)
 		inType        = batch.Values[0].Array.Type.(*arrow.StructType)
 		outType       = out.Type.(*arrow.StructType)
-		inFieldCount  = len(inType.Fields())
-		outFieldCount = len(outType.Fields())
+		inFieldCount  = inType.NumFields()
+		outFieldCount = outType.NumFields()
 	)
 
 	fieldsToSelect := make([]int, outFieldCount)

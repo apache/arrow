@@ -121,6 +121,24 @@ struct PARQUET_EXPORT LevelInfo {
     return last_repeated_ancestor;
   }
 
+  // Calculates and returns LevelInfo for a column descriptor.
+  static LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
+    LevelInfo level_info;
+    level_info.def_level = descr->max_definition_level();
+    level_info.rep_level = descr->max_repetition_level();
+
+    int16_t min_spaced_def_level = descr->max_definition_level();
+    const ::parquet::schema::Node* node = descr->schema_node().get();
+    while (node && !node->is_repeated()) {
+      if (node->is_optional()) {
+        min_spaced_def_level--;
+      }
+      node = node->parent();
+    }
+    level_info.repeated_ancestor_def_level = min_spaced_def_level;
+    return level_info;
+  }
+
   friend std::ostream& operator<<(std::ostream& os, const LevelInfo& levels) {
     // This print method is to silence valgrind issues.  What's printed
     // is not important because all asserts happen directly on

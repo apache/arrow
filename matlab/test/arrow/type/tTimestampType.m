@@ -23,6 +23,12 @@ classdef tTimestampType < hFixedWidthType
         ClassName = "arrow.type.TimestampType"
     end
 
+    properties(TestParameter)
+        % Test against both "Zoned" (i.e. non-empty TimeZone value) 
+        % and "Unzoned" (i.e. empty TimeZone value).
+        TimeZone={'America/Anchorage', ''}
+    end
+
     methods(Test)
         function TestClass(testCase)
         % Verify ArrowType is an object of the expected class type.
@@ -106,27 +112,68 @@ classdef tTimestampType < hFixedWidthType
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
-        function Display(testCase)
-        % Verify the display of TimestampType objects.
-        %
-        % Example:
-        %
-        %  TimestampType with properties:
-        %
-        %          ID: Timestamp
-        %    TimeUnit: Second
-        %    TimeZone: "America/Anchorage"
-        %
-            type = arrow.timestamp(TimeUnit="Second", TimeZone="America/Anchorage"); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.TimestampType"" style=""font-weight:bold"">TimestampType</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "TimeUnit:"; "TimeZone:"]));
-            body = body + " " + ["Timestamp"; "Second"; """America/Anchorage"""];
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        function IsEqualTrue(testCase, TimeZone)
+            % Verifies isequal method of arrow.type.TimestampType returns 
+            % true if these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.TimestampType
+            % 2. All inputs have the same size
+            % 3. The TimeUnit values of elements at corresponding positions in the arrays are equal
+            % 4. The TimeZone values of elements at corresponding positions in the arrays are equal
+
+            % Scalar TimestampType arrays
+            timestampType1 = arrow.timestamp(TimeUnit="Second", TimeZone=TimeZone);
+            timestampType2 = arrow.timestamp(TimeUnit="Second", TimeZone=TimeZone);
+
+            timestampType3 = arrow.timestamp(TimeUnit="Millisecond", TimeZone=TimeZone);
+            time64Type4 = arrow.timestamp(TimeUnit="Millisecond", TimeZone=TimeZone);
+
+            timestampType5 = arrow.timestamp(TimeUnit="Microsecond", TimeZone=TimeZone);
+            timestampType6 = arrow.timestamp(TimeUnit="Microsecond", TimeZone=TimeZone);
+
+            timestampType7 = arrow.timestamp(TimeUnit="Nanosecond", TimeZone=TimeZone);
+            timestampType8 = arrow.timestamp(TimeUnit="Nanosecond", TimeZone=TimeZone);
+
+            % Scalar TimestampType arrays
+            testCase.verifyTrue(isequal(timestampType1, timestampType2));
+            testCase.verifyTrue(isequal(timestampType3, time64Type4));
+            testCase.verifyTrue(isequal(timestampType5, timestampType6));
+            testCase.verifyTrue(isequal(timestampType7, timestampType8));
+
+            % Non-scalar TimestampType arrays
+            typeArray1 = [timestampType1 timestampType3 timestampType5 timestampType7];
+            typeArray2 = [timestampType2 time64Type4 timestampType6 timestampType8];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+
+            timestampType1 = arrow.timestamp(TimeUnit="Second");
+            timestampType2 = arrow.timestamp(TimeUnit="Millisecond");
+            timestampType3 = arrow.timestamp(TimeUnit="Second", TimeZone="America/New_York");
+            timestampType4 = arrow.timestamp(TimeUnit="Second", TimeZone="Pacific/Fiji");
+            timestampType5 = arrow.timestamp(TimeUnit="Millisecond", TimeZone="America/New_York");
+
+            % TimeUnit values differ
+            testCase.verifyFalse(isequal(timestampType1, timestampType2));
+            testCase.verifyFalse(isequal(timestampType4, timestampType5));
+
+            % One TimestampType is zoned, while the other is unzoned.
+            testCase.verifyFalse(isequal(timestampType1, timestampType3));
+
+            % Both TimestampTypes are zoned, but have different values.
+            testCase.verifyFalse(isequal(timestampType3, timestampType4));
+
+            % Different dimensions
+            typeArray1 = [timestampType1 timestampType2 timestampType3];
+            typeArray2 = [timestampType1 timestampType2 timestampType3]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+
+            % Different TimestampType values at corresponding elements
+            typeArray3 = [timestampType1 timestampType3 timestampType4];
+            typeArray4 = [timestampType1 timestampType2 timestampType4];
+            testCase.verifyFalse(isequal(typeArray3, typeArray4));
         end
     end
 end

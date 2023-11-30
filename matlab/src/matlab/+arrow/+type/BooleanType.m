@@ -25,4 +25,17 @@ classdef BooleanType < arrow.type.FixedWidthType
             obj@arrow.type.FixedWidthType(proxy);
         end
     end
+
+    methods (Access=protected)
+        function groups = getDisplayPropertyGroups(~)
+            targets = "ID";
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = false([length 1]);
+        end
+    end
 end

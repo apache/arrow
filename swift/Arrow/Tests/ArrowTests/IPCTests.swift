@@ -28,7 +28,7 @@ func checkBoolRecordBatch(_ result: Result<ArrowReader.ArrowReaderResult, ArrowE
     case .failure(let error):
         throw error
     }
-    
+
     XCTAssertEqual(recordBatches.count, 1)
     for recordBatch in recordBatches {
         XCTAssertEqual(recordBatch.length, 5)
@@ -40,7 +40,7 @@ func checkBoolRecordBatch(_ result: Result<ArrowReader.ArrowReaderResult, ArrowE
         XCTAssertEqual(recordBatch.schema.fields[1].type.info, ArrowType.ArrowString)
         for index in 0..<recordBatch.length {
             let column = recordBatch.columns[0]
-            let str = column.array as! AsString
+            let str = column.array as! AsString // swiftlint:disable:this force_cast
             let val = "\(str.asString(index))"
             if index == 0 || index == 4 {
                 XCTAssertEqual(val, "true")
@@ -51,12 +51,54 @@ func checkBoolRecordBatch(_ result: Result<ArrowReader.ArrowReaderResult, ArrowE
             }
         }
     }
-    
+
     return recordBatches
 }
 
 func currentDirectory(path: String = #file) -> URL {
     return URL(fileURLWithPath: path).deletingLastPathComponent()
+}
+
+func makeSchema() -> ArrowSchema {
+    let schemaBuilder = ArrowSchema.Builder()
+    return schemaBuilder.addField("col1", type: ArrowType(ArrowType.ArrowUInt8), isNullable: true)
+        .addField("col2", type: ArrowType(ArrowType.ArrowString), isNullable: false)
+        .addField("col3", type: ArrowType(ArrowType.ArrowDate32), isNullable: false)
+        .finish()
+}
+
+func makeRecordBatch() throws -> RecordBatch {
+    let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+    uint8Builder.append(10)
+    uint8Builder.append(22)
+    uint8Builder.append(33)
+    uint8Builder.append(44)
+    let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
+    stringBuilder.append("test10")
+    stringBuilder.append("test22")
+    stringBuilder.append("test33")
+    stringBuilder.append("test44")
+    let date32Builder = try ArrowArrayBuilders.loadDate32ArrayBuilder()
+    let date2 = Date(timeIntervalSinceReferenceDate: 86400 * 1)
+    let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
+    date32Builder.append(date1)
+    date32Builder.append(date2)
+    date32Builder.append(date1)
+    date32Builder.append(date2)
+    let intHolder = ArrowArrayHolder(try uint8Builder.finish())
+    let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
+    let date32Holder = ArrowArrayHolder(try date32Builder.finish())
+    let result = RecordBatch.Builder()
+        .addColumn("col1", arrowArray: intHolder)
+        .addColumn("col2", arrowArray: stringHolder)
+        .addColumn("col3", arrowArray: date32Holder)
+        .finish()
+    switch result {
+    case .success(let recordBatch):
+        return recordBatch
+    case .failure(let error):
+        throw error
+    }
 }
 
 final class IPCFileReaderTests: XCTestCase {
@@ -71,6 +113,7 @@ final class IPCFileReaderTests: XCTestCase {
         case .failure(let error):
             throw error
         }
+
         XCTAssertEqual(recordBatches.count, 1)
         for recordBatch in recordBatches {
             XCTAssertEqual(recordBatch.length, 5)
@@ -82,7 +125,7 @@ final class IPCFileReaderTests: XCTestCase {
             XCTAssertEqual(recordBatch.schema.fields[1].type.info, ArrowType.ArrowString)
             for index in 0..<recordBatch.length {
                 let column = recordBatch.columns[1]
-                let str = column.array as! AsString
+                let str = column.array as! AsString // swiftlint:disable:this force_cast
                 let val = "\(str.asString(index))"
                 if index != 1 {
                     XCTAssertNotEqual(val, "")
@@ -92,7 +135,7 @@ final class IPCFileReaderTests: XCTestCase {
             }
         }
     }
-    
+
     func testFileReader_bool() throws {
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_bool.arrow")
         let arrowReader = ArrowReader()
@@ -100,72 +143,32 @@ final class IPCFileReaderTests: XCTestCase {
     }
 
     func testFileWriter_bool() throws {
-        //read existing file
+        // read existing file
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_bool.arrow")
         let arrowReader = ArrowReader()
         let fileRBs = try checkBoolRecordBatch(arrowReader.fromFile(fileURL))
         let arrowWriter = ArrowWriter()
-        //write data from file to a stream
+        // write data from file to a stream
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: fileRBs[0].schema, batches: fileRBs)
         switch arrowWriter.toStream(writerInfo) {
         case .success(let writeData):
-            //read stream back into recordbatches
+            // read stream back into recordbatches
             try checkBoolRecordBatch(arrowReader.fromStream(writeData))
         case .failure(let error):
             throw error
         }
-        //write file record batches to another file
+        // write file record batches to another file
         let outputUrl = currentDirectory().appendingPathComponent("../../testfilewriter_bool.arrow")
         switch arrowWriter.toFile(outputUrl, info: writerInfo) {
-        case .success(_):
+        case .success:
             try checkBoolRecordBatch(arrowReader.fromFile(outputUrl))
         case .failure(let error):
             throw error
         }
     }
-    func makeSchema() -> ArrowSchema {
-        let schemaBuilder = ArrowSchema.Builder();
-        return schemaBuilder.addField("col1", type: ArrowType(ArrowType.ArrowUInt8), isNullable: true)
-            .addField("col2", type: ArrowType(ArrowType.ArrowString), isNullable: false)
-            .addField("col3", type: ArrowType(ArrowType.ArrowDate32), isNullable: false)
-            .finish()
-    }
-    func makeRecordBatch() throws -> RecordBatch {
-        let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder();
-        uint8Builder.append(10)
-        uint8Builder.append(22)
-        uint8Builder.append(33)
-        uint8Builder.append(44)
-        let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder();
-        stringBuilder.append("test10")
-        stringBuilder.append("test22")
-        stringBuilder.append("test33")
-        stringBuilder.append("test44")
-        let date32Builder = try ArrowArrayBuilders.loadDate32ArrayBuilder();
-        let date2 = Date(timeIntervalSinceReferenceDate: 86400 * 1)
-        let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
-        date32Builder.append(date1)
-        date32Builder.append(date2)
-        date32Builder.append(date1)
-        date32Builder.append(date2)
-        let intHolder = ArrowArrayHolder(try uint8Builder.finish())
-        let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
-        let date32Holder = ArrowArrayHolder(try date32Builder.finish())
-        let result = RecordBatch.Builder()
-            .addColumn("col1", arrowArray: intHolder)
-            .addColumn("col2", arrowArray: stringHolder)
-            .addColumn("col3", arrowArray: date32Holder)
-            .finish()
-        switch result {
-        case .success(let recordBatch):
-            return recordBatch
-        case .failure(let error):
-            throw error
-        }
-    }
-    
+
     func testRBInMemoryToFromStream() throws {
-        //read existing file
+        // read existing file
         let schema = makeSchema()
         let recordBatch = try makeRecordBatch()
         let arrowWriter = ArrowWriter()
@@ -187,15 +190,21 @@ final class IPCFileReaderTests: XCTestCase {
                     XCTAssertEqual(recordBatch.schema.fields[1].type.info, ArrowType.ArrowString)
                     XCTAssertEqual(recordBatch.schema.fields[2].name, "col3")
                     XCTAssertEqual(recordBatch.schema.fields[2].type.info, ArrowType.ArrowDate32)
-                    let dateVal = "\((recordBatch.columns[2].array as! AsString).asString(0))"
+                    let columns = recordBatch.columns
+                    let dateVal =
+                        "\((columns[2].array as! AsString).asString(0))" // swiftlint:disable:this force_cast
                     XCTAssertEqual(dateVal, "2014-09-10 00:00:00 +0000")
-                    let stringVal = "\((recordBatch.columns[1].array as! AsString).asString(1))"
+                    let stringVal =
+                        "\((columns[1].array as! AsString).asString(1))" // swiftlint:disable:this force_cast
                     XCTAssertEqual(stringVal, "test22")
-                    let uintVal = "\((recordBatch.columns[0].array as! AsString).asString(0))"
+                    let uintVal =
+                        "\((columns[0].array as! AsString).asString(0))" // swiftlint:disable:this force_cast
                     XCTAssertEqual(uintVal, "10")
-                    let stringVal2 = "\((recordBatch.columns[1].array as! AsString).asString(3))"
+                    let stringVal2 =
+                        "\((columns[1].array as! AsString).asString(3))" // swiftlint:disable:this force_cast
                     XCTAssertEqual(stringVal2, "test44")
-                    let uintVal2 = "\((recordBatch.columns[0].array as! AsString).asString(3))"
+                    let uintVal2 =
+                        "\((columns[0].array as! AsString).asString(3))" // swiftlint:disable:this force_cast
                     XCTAssertEqual(uintVal2, "44")
                 }
             case.failure(let error):
@@ -205,9 +214,9 @@ final class IPCFileReaderTests: XCTestCase {
             throw error
         }
     }
-    
+
     func testSchemaInMemoryToFromStream() throws {
-        //read existing file
+        // read existing file
         let schema = makeSchema()
         let arrowWriter = ArrowWriter()
         let writerInfo = ArrowWriter.Info(.schema, schema: schema)
@@ -232,18 +241,18 @@ final class IPCFileReaderTests: XCTestCase {
             throw error
         }
     }
-    
+
     func makeBinaryDataset() throws -> (ArrowSchema, RecordBatch) {
-        let schemaBuilder = ArrowSchema.Builder();
+        let schemaBuilder = ArrowSchema.Builder()
         let schema = schemaBuilder.addField("binary", type: ArrowType(ArrowType.ArrowBinary), isNullable: false)
             .finish()
-        
-        let binaryBuilder = try ArrowArrayBuilders.loadBinaryArrayBuilder();
+
+        let binaryBuilder = try ArrowArrayBuilders.loadBinaryArrayBuilder()
         binaryBuilder.append("test10".data(using: .utf8))
         binaryBuilder.append("test22".data(using: .utf8))
         binaryBuilder.append("test33".data(using: .utf8))
         binaryBuilder.append("test44".data(using: .utf8))
-        
+
         let binaryHolder = ArrowArrayHolder(try binaryBuilder.finish())
         let result = RecordBatch.Builder()
             .addColumn("binary", arrowArray: binaryHolder)
@@ -255,24 +264,23 @@ final class IPCFileReaderTests: XCTestCase {
             throw error
         }
     }
-    
+
     func makeTimeDataset() throws -> (ArrowSchema, RecordBatch) {
-        let schemaBuilder = ArrowSchema.Builder();
-        let schema = schemaBuilder.addField("time64", type: ArrowTypeTime64(.Microseconds), isNullable: false)
-            .addField("time32", type: ArrowTypeTime32(.Milliseconds), isNullable: false)
+        let schemaBuilder = ArrowSchema.Builder()
+        let schema = schemaBuilder.addField("time64", type: ArrowTypeTime64(.microseconds), isNullable: false)
+            .addField("time32", type: ArrowTypeTime32(.milliseconds), isNullable: false)
             .finish()
-        
-        let time64Builder = try ArrowArrayBuilders.loadTime64ArrayBuilder(.Nanoseconds);
+
+        let time64Builder = try ArrowArrayBuilders.loadTime64ArrayBuilder(.nanoseconds)
         time64Builder.append(12345678)
         time64Builder.append(1)
         time64Builder.append(nil)
         time64Builder.append(98765432)
-        let time32Builder = try ArrowArrayBuilders.loadTime32ArrayBuilder(.Milliseconds);
+        let time32Builder = try ArrowArrayBuilders.loadTime32ArrayBuilder(.milliseconds)
         time32Builder.append(1)
         time32Builder.append(2)
         time32Builder.append(nil)
         time32Builder.append(3)
-        
         let time64Holder = ArrowArrayHolder(try time64Builder.finish())
         let time32Holder = ArrowArrayHolder(try time32Builder.finish())
         let result = RecordBatch.Builder()
@@ -286,9 +294,9 @@ final class IPCFileReaderTests: XCTestCase {
             throw error
         }
     }
-    
-    func testBinaryInMemroyToFromStream() throws {
-        let dataset = try makeBinaryDataset();
+
+    func testBinaryInMemoryToFromStream() throws {
+        let dataset = try makeBinaryDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()
         switch arrowWriter.toStream(writerInfo) {
@@ -304,7 +312,9 @@ final class IPCFileReaderTests: XCTestCase {
                 XCTAssertEqual(result.batches.count, 1)
                 let recordBatch = result.batches[0]
                 XCTAssertEqual(recordBatch.length, 4)
-                let stringVal = "\((recordBatch.columns[0].array as! AsString).asString(1))"
+                let columns = recordBatch.columns
+                let stringVal =
+                    "\((columns[0].array as! AsString).asString(1))" // swiftlint:disable:this force_cast
                 XCTAssertEqual(stringVal, "test22")
             case.failure(let error):
                 throw error
@@ -313,9 +323,9 @@ final class IPCFileReaderTests: XCTestCase {
             throw error
         }
     }
-    
-    func testTimeInMemroyToFromStream() throws {
-        let dataset = try makeTimeDataset();
+
+    func testTimeInMemoryToFromStream() throws {
+        let dataset = try makeTimeDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()
         switch arrowWriter.toStream(writerInfo) {
@@ -333,9 +343,12 @@ final class IPCFileReaderTests: XCTestCase {
                 XCTAssertEqual(result.batches.count, 1)
                 let recordBatch = result.batches[0]
                 XCTAssertEqual(recordBatch.length, 4)
-                let stringVal = "\((recordBatch.columns[0].array as! AsString).asString(0))"
+                let columns = recordBatch.columns
+                let stringVal =
+                    "\((columns[0].array as! AsString).asString(0))" // swiftlint:disable:this force_cast
                 XCTAssertEqual(stringVal, "12345678")
-                let stringVal2 = "\((recordBatch.columns[1].array as! AsString).asString(3))"
+                let stringVal2 =
+                    "\((columns[1].array as! AsString).asString(3))" // swiftlint:disable:this force_cast
                 XCTAssertEqual(stringVal2, "3")
             case.failure(let error):
                 throw error

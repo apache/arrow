@@ -16,8 +16,8 @@
 # under the License.
 
 ARG arch=amd64
-ARG go=1.17
-ARG staticcheck=v0.2.2
+ARG go=1.19
+ARG staticcheck=v0.4.5
 FROM ${arch}/golang:${go}-bullseye
 
 # FROM collects all the args, get back the staticcheck version arg

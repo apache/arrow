@@ -26,7 +26,7 @@ import { UnionMode, DateUnit, TimeUnit } from '../enum.js';
 import { BitIterator, getBit, getBool } from '../util/bit.js';
 import {
     DataType,
-    Float, Int, Date_, Interval, Time, Timestamp, Union,
+    Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, IntArray,
 } from '../type.js';
 
@@ -35,7 +35,7 @@ export interface JSONVectorAssembler extends Visitor {
 
     visit<T extends DataType>(field: Field, node: Data<T>): Record<string, unknown>;
     visitMany<T extends DataType>(fields: Field[], nodes: readonly Data<T>[]): Record<string, unknown>[];
-    getVisitFn<T extends DataType>(node: Vector<T> | Data<T>): (data: Data<T>) => { name: string; count: number; VALIDITY: (0 | 1)[]; DATA?: any[]; OFFSET?: number[]; TYPE?: number[]; children?: any[] };
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T>): (data: Data<T>) => { name: string; count: number; VALIDITY: (0 | 1)[]; DATA?: any[]; OFFSET?: number[]; TYPE_ID?: number[]; children?: any[] };
 
     visitNull<T extends Null>(data: Data<T>): Record<string, never>;
     visitBool<T extends Bool>(data: Data<T>): { DATA: boolean[] };
@@ -50,8 +50,9 @@ export interface JSONVectorAssembler extends Visitor {
     visitDecimal<T extends Decimal>(data: Data<T>): { DATA: string[] };
     visitList<T extends List>(data: Data<T>): { children: any[]; OFFSET: number[] };
     visitStruct<T extends Struct>(data: Data<T>): { children: any[] };
-    visitUnion<T extends Union>(data: Data<T>): { children: any[]; TYPE: number[] };
+    visitUnion<T extends Union>(data: Data<T>): { children: any[]; TYPE_ID: number[] };
     visitInterval<T extends Interval>(data: Data<T>): { DATA: number[] };
+    visitDuration<T extends Duration>(data: Data<T>): { DATA: string[] };
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>): { children: any[] };
     visitMap<T extends Map_>(data: Data<T>): { children: any[] };
 }
@@ -61,9 +62,9 @@ export class JSONVectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends RecordBatch>(...batches: T[]) {
-        const assemlber = new JSONVectorAssembler();
+        const assembler = new JSONVectorAssembler();
         return batches.map(({ schema, data }) => {
-            return assemlber.visitMany(schema.fields, data.children);
+            return assembler.visitMany(schema.fields, data.children);
         });
     }
 
@@ -75,7 +76,8 @@ export class JSONVectorAssembler extends Visitor {
         return {
             'name': name,
             'count': length,
-            'VALIDITY': DataType.isNull(type) ? undefined
+            'VALIDITY': (DataType.isNull(type) || DataType.isUnion(type))
+                ? undefined
                 : nullCount <= 0 ? Array.from({ length }, () => 1)
                     : [...new BitIterator(nullBitmap, offset, length, null, getBit)],
             ...super.visit(data.clone(type, offset, length, 0, buffers))
@@ -137,13 +139,16 @@ export class JSONVectorAssembler extends Visitor {
     }
     public visitUnion<T extends Union>(data: Data<T>) {
         return {
-            'TYPE': [...data.typeIds],
+            'TYPE_ID': [...data.typeIds],
             'OFFSET': data.type.mode === UnionMode.Dense ? [...data.valueOffsets] : undefined,
             'children': this.visitMany(data.type.children, data.children)
         };
     }
     public visitInterval<T extends Interval>(data: Data<T>) {
         return { 'DATA': [...data.values] };
+    }
+    public visitDuration<T extends Duration>(data: Data<T>) {
+        return { 'DATA': [...bigNumsToStrings(data.values, 2)]};
     }
     public visitFixedSizeList<T extends FixedSizeList>(data: Data<T>) {
         return {

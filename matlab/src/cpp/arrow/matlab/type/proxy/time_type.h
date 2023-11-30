@@ -32,4 +32,8 @@ class TimeType : public arrow::matlab::type::proxy::FixedWidthType {
         void getTimeUnit(libmexclass::proxy::method::Context& context);
 };
 
+template <typename ArrowType>
+libmexclass::proxy::MakeResult make_time_type(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+
 }

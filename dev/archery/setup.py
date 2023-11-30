@@ -28,16 +28,17 @@ if sys.version_info < (3, 8):
 jinja_req = 'jinja2>=2.11'
 
 extras = {
-    'lint': ['numpydoc==1.1.0', 'autopep8', 'flake8==6.1.0', 'cython-lint',
-             'cmake_format==0.6.13'],
     'benchmark': ['pandas'],
-    'docker': ['ruamel.yaml', 'python-dotenv'],
-    'release': ['pygithub', jinja_req, 'jira', 'semver', 'gitpython'],
     'crossbow': ['github3.py', jinja_req, 'pygit2>=1.6.0', 'requests',
-                 'ruamel.yaml', 'setuptools_scm'],
+                 'ruamel.yaml', 'setuptools_scm<8.0.0'],
     'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
                         'setuptools_scm'],
-    'numpydoc': ['numpydoc==1.1.0']
+    'docker': ['ruamel.yaml', 'python-dotenv'],
+    'integration': ['cffi'],
+    'lint': ['numpydoc==1.1.0', 'autopep8', 'flake8==6.1.0', 'cython-lint',
+             'cmake_format==0.6.13'],
+    'numpydoc': ['numpydoc==1.1.0'],
+    'release': ['pygithub', jinja_req, 'jira', 'semver', 'gitpython'],
 }
 extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))

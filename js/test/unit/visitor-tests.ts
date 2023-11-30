@@ -25,6 +25,7 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
 } from 'apache-arrow';
 
@@ -46,6 +47,7 @@ class BasicVisitor extends Visitor {
     public visitUnion<T extends Union>(type: T) { return (this.type = type); }
     public visitDictionary<T extends Dictionary>(type: T) { return (this.type = type); }
     public visitInterval<T extends Interval>(type: T) { return (this.type = type); }
+    public visitDuration<T extends Duration>(type: T) { return (this.type = type); }
     public visitFixedSizeList<T extends FixedSizeList>(type: T) { return (this.type = type); }
     public visitMap<T extends Map_>(type: T) { return (this.type = type); }
 }
@@ -86,6 +88,10 @@ class FeatureVisitor extends Visitor {
     public visitDictionary<T extends Dictionary>(type: T) { return (this.type = type); }
     public visitIntervalDayTime<T extends IntervalDayTime>(type: T) { return (this.type = type); }
     public visitIntervalYearMonth<T extends IntervalYearMonth>(type: T) { return (this.type = type); }
+    public visitDurationSecond<T extends DurationSecond>(type: T) { return (this.type = type); }
+    public visitDurationMillisecond<T extends DurationMillisecond>(type: T) { return (this.type = type); }
+    public visitDurationMicrosecond<T extends DurationMicrosecond>(type: T) { return (this.type = type); }
+    public visitDurationNanosecond<T extends DurationNanosecond>(type: T) { return (this.type = type); }
     public visitFixedSizeList<T extends FixedSizeList>(type: T) { return (this.type = type); }
     public visitMap<T extends Map_>(type: T) { return (this.type = type); }
 }
@@ -109,8 +115,11 @@ describe('Visitor', () => {
         test(`visits Union types`, () => validateBasicVisitor(new Union(0, [] as any[], [] as any[])));
         test(`visits Dictionary types`, () => validateBasicVisitor(new Dictionary(null as any, null as any)));
         test(`visits Interval types`, () => validateBasicVisitor(new Interval(0)));
+        test(`visits Duration types`, () => validateBasicVisitor(new Duration(0)));
         test(`visits FixedSizeList types`, () => validateBasicVisitor(new FixedSizeList(2, null as any)));
-        test(`visits Map types`, () => validateBasicVisitor(new Map_(new Field('', new Struct<{ key: Int; value: Int }>([] as any[])))));
+        test(`visits Map types`, () => validateBasicVisitor(new Map_(new Field('', new Struct<{ key: Utf8; value: Int }>([
+            new Field('key', new Utf8()), new Field('value', new Int8())
+        ] as any[])))));
         function validateBasicVisitor<T extends DataType>(type: T) {
             const visitor = new BasicVisitor();
             const result = visitor.visit(type);
@@ -156,7 +165,13 @@ describe('Visitor', () => {
         test(`visits IntervalDayTime types`, () => validateFeatureVisitor(new IntervalDayTime()));
         test(`visits IntervalYearMonth types`, () => validateFeatureVisitor(new IntervalYearMonth()));
         test(`visits FixedSizeList types`, () => validateFeatureVisitor(new FixedSizeList(2, null as any)));
-        test(`visits Map types`, () => validateFeatureVisitor(new Map_(new Field('', new Struct<{ key: Int; value: Int }>([] as any[])))));
+        test(`visits DurationSecond types`, () => validateFeatureVisitor(new DurationSecond()));
+        test(`visits DurationMillisecond types`, () => validateFeatureVisitor(new DurationMillisecond()));
+        test(`visits DurationMicrosecond types`, () => validateFeatureVisitor(new DurationMicrosecond()));
+        test(`visits DurationNanosecond types`, () => validateFeatureVisitor(new DurationNanosecond()));
+        test(`visits Map types`, () => validateFeatureVisitor(new Map_(new Field('', new Struct<{ key: Utf8; value: Int }>([
+            new Field('key', new Utf8()), new Field('value', new Int8())
+        ] as any[])))));
 
         function validateFeatureVisitor<T extends DataType>(type: T) {
             const visitor = new FeatureVisitor();

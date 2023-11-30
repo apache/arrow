@@ -22,14 +22,15 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/metadata"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -173,7 +174,7 @@ func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties,
 				return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis or micros", props.Version())
 			}
 		} else if target == arrow.Second {
-			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestampts to millis, micros or nanos", props.Version())
+			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis, micros or nanos", props.Version())
 		}
 		return physical, logicalType, nil
 	}
@@ -232,11 +233,11 @@ func repFromNullable(isnullable bool) parquet.Repetition {
 }
 
 func structToNode(typ *arrow.StructType, name string, nullable bool, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (schema.Node, error) {
-	if len(typ.Fields()) == 0 {
+	if typ.NumFields() == 0 {
 		return nil, fmt.Errorf("cannot write struct type '%s' with no children field to parquet. Consider adding a dummy child", name)
 	}
 
-	children := make(schema.FieldList, 0, len(typ.Fields()))
+	children := make(schema.FieldList, 0, typ.NumFields())
 	for _, f := range typ.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -304,12 +305,22 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 	case arrow.FIXED_SIZE_BINARY:
 		typ = parquet.Types.FixedLenByteArray
 		length = field.Type.(*arrow.FixedSizeBinaryType).ByteWidth
-	case arrow.DECIMAL:
-		typ = parquet.Types.FixedLenByteArray
-		dectype := field.Type.(*arrow.Decimal128Type)
-		precision = int(dectype.Precision)
-		scale = int(dectype.Scale)
-		length = int(DecimalSize(int32(precision)))
+	case arrow.DECIMAL, arrow.DECIMAL256:
+		dectype := field.Type.(arrow.DecimalType)
+		precision = int(dectype.GetPrecision())
+		scale = int(dectype.GetScale())
+
+		if props.StoreDecimalAsInteger() && 1 <= precision && precision <= 18 {
+			if precision <= 9 {
+				typ = parquet.Types.Int32
+			} else {
+				typ = parquet.Types.Int64
+			}
+		} else {
+			typ = parquet.Types.FixedLenByteArray
+			length = int(DecimalSize(int32(precision)))
+		}
+
 		logicalType = schema.NewDecimalLogicalType(int32(precision), int32(scale))
 	case arrow.DATE32:
 		typ = parquet.Types.Int32
@@ -333,6 +344,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		} else {
 			logicalType = schema.NewTimeLogicalType(true, schema.TimeUnitMicros)
 		}
+	case arrow.FLOAT16:
+		typ = parquet.Types.FixedLenByteArray
+		length = arrow.Float16SizeBytes
+		logicalType = schema.Float16LogicalType{}
 	case arrow.STRUCT:
 		return structToNode(field.Type.(*arrow.StructType), field.Name, field.Nullable, props, arrprops)
 	case arrow.FIXED_SIZE_LIST, arrow.LIST:
@@ -425,7 +440,7 @@ func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops Arrow
 		props = parquet.NewWriterProperties()
 	}
 
-	nodes := make(schema.FieldList, 0, len(sc.Fields()))
+	nodes := make(schema.FieldList, 0, sc.NumFields())
 	for _, f := range sc.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -521,6 +536,13 @@ func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error
 	}
 }
 
+func arrowDecimal(logical *schema.DecimalLogicalType) arrow.DataType {
+	if logical.Precision() <= decimal128.MaxPrecision {
+		return &arrow.Decimal128Type{Precision: logical.Precision(), Scale: logical.Scale()}
+	}
+	return &arrow.Decimal256Type{Precision: logical.Precision(), Scale: logical.Scale()}
+}
+
 func arrowFromInt32(logical schema.LogicalType) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case schema.NoLogicalType:
@@ -528,7 +550,7 @@ func arrowFromInt32(logical schema.LogicalType) (arrow.DataType, error) {
 	case *schema.TimeLogicalType:
 		return arrowTime32(logtype)
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case *schema.IntLogicalType:
 		return arrowInt(logtype)
 	case schema.DateLogicalType:
@@ -547,7 +569,7 @@ func arrowFromInt64(logical schema.LogicalType) (arrow.DataType, error) {
 	case *schema.IntLogicalType:
 		return arrowInt(logtype)
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case *schema.TimeLogicalType:
 		return arrowTime64(logtype)
 	case *schema.TimestampLogicalType:
@@ -562,7 +584,7 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 	case schema.StringLogicalType:
 		return arrow.BinaryTypes.String, nil
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType,
 		schema.EnumLogicalType,
 		schema.JSONLogicalType,
@@ -576,9 +598,11 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 func arrowFromFLBA(logical schema.LogicalType, length int) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType, schema.IntervalLogicalType, schema.UUIDLogicalType:
 		return &arrow.FixedSizeBinaryType{ByteWidth: int(length)}, nil
+	case schema.Float16LogicalType:
+		return &arrow.Float16Type{}, nil
 	default:
 		return nil, xerrors.New("unhandled logical type " + logical.String() + " for fixed-length byte array")
 	}
@@ -978,7 +1002,7 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		err = xerrors.New("unimplemented type")
 	case arrow.STRUCT:
 		typ := origin.Type.(*arrow.StructType)
-		if nchildren != len(typ.Fields()) {
+		if nchildren != typ.NumFields() {
 			return
 		}
 
@@ -1048,6 +1072,11 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		inferred.Field.Type = &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32,
 			ValueType: inferred.Field.Type, Ordered: dictOriginType.Ordered}
 		modified = true
+	case arrow.DECIMAL256:
+		if inferred.Field.Type.ID() == arrow.DECIMAL128 {
+			inferred.Field.Type = origin.Type
+			modified = true
+		}
 	}
 
 	if origin.HasMetadata() {

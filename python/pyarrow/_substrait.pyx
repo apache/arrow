@@ -27,9 +27,10 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
 
+# TODO GH-37235: Fix exception handling
 cdef CDeclaration _create_named_table_provider(
     dict named_args, const std_vector[c_string]& names, const CSchema& schema
-):
+) noexcept:
     cdef:
         c_string c_name
         shared_ptr[CTable] c_in_table

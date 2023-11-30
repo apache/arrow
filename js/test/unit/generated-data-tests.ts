@@ -54,10 +54,14 @@ describe('Generated Test Data', () => {
     describe('List', () => { validateVector(generate.list()); });
     describe('Struct', () => { validateVector(generate.struct()); });
     describe('DenseUnion', () => { validateVector(generate.denseUnion()); });
-    // describe('SparseUnion', () => { validateVector(generate.sparseUnion()); });
+    describe('SparseUnion', () => { validateVector(generate.sparseUnion()); });
     describe('Dictionary', () => { validateVector(generate.dictionary()); });
     describe('IntervalDayTime', () => { validateVector(generate.intervalDayTime()); });
     describe('IntervalYearMonth', () => { validateVector(generate.intervalYearMonth()); });
+    describe('DurationSecond', () => { validateVector(generate.durationSecond()); });
+    describe('DurationMillisecond', () => { validateVector(generate.durationMillisecond()); });
+    describe('DurationMicrosecond', () => { validateVector(generate.durationMicrosecond()); });
+    describe('DurationNanosecond', () => { validateVector(generate.durationNanosecond()); });
     describe('FixedSizeList', () => { validateVector(generate.fixedSizeList()); });
     describe('Map', () => { validateVector(generate.map()); });
 });

@@ -25,6 +25,7 @@ import tempfile
 import numpy as np
 
 from .util import frombytes, tobytes, random_bytes, random_utf8
+from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY
 
 
 def metadata_key_values(pairs):
@@ -664,6 +665,26 @@ class LargeStringField(StringField):
         return OrderedDict([('name', 'largeutf8')])
 
 
+class BinaryViewField(BinaryField):
+
+    @property
+    def column_class(self):
+        return BinaryViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'binaryview')])
+
+
+class StringViewField(StringField):
+
+    @property
+    def column_class(self):
+        return StringViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'utf8view')])
+
+
 class Schema(object):
 
     def __init__(self, fields, metadata=None):
@@ -741,6 +762,74 @@ class LargeBinaryColumn(_BaseBinaryColumn, _LargeOffsetsMixin):
 
 class LargeStringColumn(_BaseStringColumn, _LargeOffsetsMixin):
     pass
+
+
+class BinaryViewColumn(PrimitiveColumn):
+
+    def _encode_value(self, x):
+        return frombytes(binascii.hexlify(x).upper())
+
+    def _get_buffers(self):
+        views = []
+        data_buffers = []
+        # a small default data buffer size is used so we can exercise
+        # arrays with multiple data buffers with small data sets
+        DEFAULT_BUFFER_SIZE = 32
+        INLINE_SIZE = 12
+
+        for i, v in enumerate(self.values):
+            if not self.is_valid[i]:
+                v = b''
+            assert isinstance(v, bytes)
+
+            if len(v) <= INLINE_SIZE:
+                # Append an inline view, skip data buffer management.
+                views.append(OrderedDict([
+                    ('SIZE', len(v)),
+                    ('INLINED', self._encode_value(v)),
+                ]))
+                continue
+
+            if len(data_buffers) == 0:
+                # No data buffers have been added yet;
+                # add this string whole (we may append to it later).
+                offset = 0
+                data_buffers.append(v)
+            elif len(data_buffers[-1]) + len(v) > DEFAULT_BUFFER_SIZE:
+                # Appending this string to the current active data buffer
+                # would overflow the default buffer size; add it whole.
+                offset = 0
+                data_buffers.append(v)
+            else:
+                # Append this string to the current active data buffer.
+                offset = len(data_buffers[-1])
+                data_buffers[-1] += v
+
+            # the prefix is always 4 bytes so it may not be utf-8
+            # even if the whole string view is
+            prefix = frombytes(binascii.hexlify(v[:4]).upper())
+
+            views.append(OrderedDict([
+                ('SIZE', len(v)),
+                ('PREFIX_HEX', prefix),
+                ('BUFFER_INDEX', len(data_buffers) - 1),
+                ('OFFSET', offset),
+            ]))
+
+        return [
+            ('VALIDITY', [int(x) for x in self.is_valid]),
+            ('VIEWS', views),
+            ('VARIADIC_DATA_BUFFERS', [
+                frombytes(binascii.hexlify(b).upper())
+                for b in data_buffers
+            ]),
+        ]
+
+
+class StringViewColumn(BinaryViewColumn):
+
+    def _encode_value(self, x):
+        return frombytes(x)
 
 
 class FixedSizeBinaryColumn(PrimitiveColumn):
@@ -1224,15 +1313,16 @@ class RecordBatch(object):
 class File(object):
 
     def __init__(self, name, schema, batches, dictionaries=None,
-                 skip=None, path=None, quirks=None):
+                 skip_testers=None, path=None, quirks=None):
         self.name = name
         self.schema = schema
         self.dictionaries = dictionaries or []
         self.batches = batches
-        self.skip = set()
+        self.skipped_testers = set()
+        self.skipped_formats = {}
         self.path = path
-        if skip:
-            self.skip.update(skip)
+        if skip_testers:
+            self.skipped_testers.update(skip_testers)
         # For tracking flags like whether to validate decimal values
         # fit into the given precision (ARROW-13558).
         self.quirks = set()
@@ -1258,13 +1348,38 @@ class File(object):
             f.write(json.dumps(self.get_json(), indent=2).encode('utf-8'))
         self.path = path
 
-    def skip_category(self, category):
-        """Skip this test for the given category.
-
-        Category should be SKIP_ARROW or SKIP_FLIGHT.
+    def skip_tester(self, tester):
+        """Skip this test for the given tester (such as 'C#').
         """
-        self.skip.add(category)
+        self.skipped_testers.add(tester)
         return self
+
+    def skip_format(self, format, tester='all'):
+        """Skip this test for the given format, and optionally tester.
+        """
+        self.skipped_formats.setdefault(format, set()).add(tester)
+        return self
+
+    def add_skips_from(self, other_file):
+        """Add skips from another File object.
+        """
+        self.skipped_testers.update(other_file.skipped_testers)
+        for format, testers in other_file.skipped_formats.items():
+            self.skipped_formats.setdefault(format, set()).update(testers)
+
+    def should_skip(self, tester, format):
+        """Whether this (tester, format) combination should be skipped.
+        """
+        if tester in self.skipped_testers:
+            return True
+        testers = self.skipped_formats.get(format, ())
+        return 'all' in testers or tester in testers
+
+    @property
+    def num_batches(self):
+        """The number of record batches in this file.
+        """
+        return len(self.batches)
 
 
 def get_field(name, type_, **kwargs):
@@ -1295,8 +1410,8 @@ def get_field(name, type_, **kwargs):
         raise TypeError(dtype)
 
 
-def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
-                   metadata=None):
+def _generate_file(name, fields, batch_sizes, *,
+                   dictionaries=None, metadata=None):
     schema = Schema(fields, metadata=metadata)
     batches = []
     for size in batch_sizes:
@@ -1307,7 +1422,7 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
 
         batches.append(RecordBatch(size, columns))
 
-    return File(name, schema, batches, dictionaries, skip=skip)
+    return File(name, schema, batches, dictionaries)
 
 
 def generate_custom_metadata_case():
@@ -1405,8 +1520,7 @@ def generate_decimal128_case():
         for i, precision in enumerate(range(3, 39))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     # 'decimal' is the original name for the test, and it must match
     # provide "gold" files that test backwards compatibility, so they
     # can be appropriately skipped.
@@ -1420,8 +1534,7 @@ def generate_decimal256_case():
         for i, precision in enumerate(range(37, 70))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     return _generate_file('decimal256', fields, batch_sizes)
 
 
@@ -1541,6 +1654,15 @@ def generate_run_end_encoded_case():
     return _generate_file("run_end_encoded", fields, batch_sizes)
 
 
+def generate_binary_view_case():
+    fields = [
+        BinaryViewField('bv'),
+        StringViewField('sv'),
+    ]
+    batch_sizes = [0, 7, 256]
+    return _generate_file("binary_view", fields, batch_sizes)
+
+
 def generate_nested_large_offsets_case():
     fields = [
         LargeListField('large_list_nullable', get_field('item', 'int32')),
@@ -1556,18 +1678,18 @@ def generate_nested_large_offsets_case():
 
 def generate_unions_case():
     fields = [
-        SparseUnionField('sparse', [get_field('f1', 'int32'),
-                                    get_field('f2', 'utf8')],
+        SparseUnionField('sparse_1', [get_field('f1', 'int32'),
+                                      get_field('f2', 'utf8')],
                          type_ids=[5, 7]),
-        DenseUnionField('dense', [get_field('f1', 'int16'),
-                                  get_field('f2', 'binary')],
+        DenseUnionField('dense_1', [get_field('f1', 'int16'),
+                                    get_field('f2', 'binary')],
                         type_ids=[10, 20]),
-        SparseUnionField('sparse', [get_field('f1', 'float32', nullable=False),
-                                    get_field('f2', 'bool')],
+        SparseUnionField('sparse_2', [get_field('f1', 'float32', nullable=False),
+                                      get_field('f2', 'bool')],
                          type_ids=[5, 7], nullable=False),
-        DenseUnionField('dense', [get_field('f1', 'uint8', nullable=False),
-                                  get_field('f2', 'uint16'),
-                                  NullField('f3')],
+        DenseUnionField('dense_2', [get_field('f1', 'uint8', nullable=False),
+                                    get_field('f2', 'uint16'),
+                                    NullField('f3')],
                         type_ids=[42, 43, 44], nullable=False),
     ]
 
@@ -1598,7 +1720,6 @@ def generate_dictionary_unsigned_case():
 
     # TODO: JavaScript does not support uint64 dictionary indices, so disabled
     # for now
-
     # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
     fields = [
         DictionaryField('f0', get_field('', 'uint8'), dict0),
@@ -1666,83 +1787,84 @@ def get_generated_json_files(tempdir=None):
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
         generate_primitive_large_offsets_case([17, 20])
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
-        generate_null_case([10, 0])
-        .skip_category('JS'),   # TODO(ARROW-7900)
+        generate_null_case([10, 0]),
 
-        generate_null_trivial_case([0, 0])
-        .skip_category('JS'),   # TODO(ARROW-7900)
+        generate_null_trivial_case([0, 0]),
 
         generate_decimal128_case(),
 
         generate_decimal256_case()
-        .skip_category('JS'),
+        .skip_tester('JS'),
 
         generate_datetime_case(),
 
-        generate_duration_case()
-        .skip_category('C#')
-        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
+        generate_duration_case(),
 
         generate_interval_case()
-        .skip_category('C#')
-        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
+        .skip_tester('C#')
+        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_month_day_nano_interval_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
-        generate_map_case()
-        .skip_category('C#'),
+        generate_map_case(),
 
         generate_non_canonical_map_case()
-        .skip_category('C#')
-        .skip_category('Java')   # TODO(ARROW-8715)
-        .skip_category('JS'),     # TODO(ARROW-8716)
+        .skip_tester('C#')
+        .skip_tester('Java')  # TODO(ARROW-8715)
+        # Canonical map names are restored on import, so the schemas are unequal
+        .skip_format(SKIP_C_SCHEMA, 'C++'),
 
         generate_nested_case(),
 
         generate_recursive_nested_case(),
 
         generate_nested_large_offsets_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
-        generate_unions_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        generate_unions_case(),
 
         generate_custom_metadata_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#'),
 
         generate_duplicate_fieldnames_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
         generate_dictionary_case()
-        .skip_category('C#'),
+        .skip_tester('C#'),
 
         generate_dictionary_unsigned_case()
-        .skip_category('C#')
-        .skip_category('Java'),  # TODO(ARROW-9377)
+        .skip_tester('C#')
+        .skip_tester('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
-        .skip_category('C#')
-        .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('Java'),  # TODO(ARROW-7779)
 
         generate_run_end_encoded_case()
-        .skip_category('C#')
-        .skip_category('Java')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_tester('C#')
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('Rust'),
+
+        generate_binary_view_case()
+        .skip_tester('C#')
+        .skip_tester('Go')
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('Rust'),
 
         generate_extension_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        # TODO: ensure the extension is registered in the C++ entrypoint
+        .skip_format(SKIP_C_SCHEMA, 'C++')
+        .skip_format(SKIP_C_ARRAY, 'C++'),
     ]
 
     generated_paths = []

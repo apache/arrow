@@ -328,11 +328,11 @@ TEST(TestField, TestMerge) {
     auto null_field = field("f", null());
     Field::MergeOptions options;
     options.promote_nullability = false;
-    ASSERT_RAISES(Invalid, f->MergeWith(null_field, options));
-    ASSERT_RAISES(Invalid, null_field->MergeWith(f, options));
+    ASSERT_RAISES(TypeError, f->MergeWith(null_field, options));
+    ASSERT_RAISES(TypeError, null_field->MergeWith(f, options));
 
     // Also rejects fields with different nullability.
-    ASSERT_RAISES(Invalid,
+    ASSERT_RAISES(TypeError,
                   f->WithNullable(true)->MergeWith(f->WithNullable(false), options));
   }
   {
@@ -349,7 +349,7 @@ TEST(TestField, TestMerge) {
     ASSERT_TRUE(result->Equals(f->WithNullable(true)->WithMetadata(metadata2)));
   }
   {
-    // promote_nullability == true; merge a nullable field and a in-nullable field.
+    // promote_nullability == true; merge a nullable field and an in-nullable field.
     Field::MergeOptions options;
     options.promote_nullability = true;
     auto f1 = field("f", int32())->WithNullable(false);
@@ -546,6 +546,24 @@ TEST_F(TestSchema, GetFieldDuplicates) {
 
   results = schema->GetAllFieldsByName("not-found");
   ASSERT_EQ(results.size(), 0);
+}
+
+TEST_F(TestSchema, CanReferenceFieldByName) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto f3 = field("f1", list(int16()));
+
+  auto schema = ::arrow::schema({f0, f1, f2, f3});
+
+  ASSERT_OK(schema->CanReferenceFieldByName("f0"));
+  ASSERT_OK(schema->CanReferenceFieldByName("f2"));
+
+  // Not found
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldByName("nope"));
+
+  // Duplicates
+  ASSERT_RAISES(Invalid, schema->CanReferenceFieldByName("f1"));
 }
 
 TEST_F(TestSchema, CanReferenceFieldsByNames) {
@@ -822,7 +840,7 @@ TEST(TestSchemaBuilder, PolicyMerge) {
   AssertSchemaBuilderYield(builder, schema({f0_opt, f1}));
 
   // Unsupported merge with a different type
-  ASSERT_RAISES(Invalid, builder.AddField(f0_other));
+  ASSERT_RAISES(TypeError, builder.AddField(f0_other));
   // Builder should still contain state
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 
@@ -877,8 +895,8 @@ TEST(TestSchemaBuilder, Merge) {
   ASSERT_OK_AND_ASSIGN(schema, SchemaBuilder::Merge({s2, s3, s1}));
   AssertSchemaEqual(schema, ::arrow::schema({f1, f0_opt}));
 
-  ASSERT_RAISES(Invalid, SchemaBuilder::Merge({s3, broken}));
-  ASSERT_RAISES(Invalid, SchemaBuilder::AreCompatible({s3, broken}));
+  ASSERT_RAISES(TypeError, SchemaBuilder::Merge({s3, broken}));
+  ASSERT_RAISES(TypeError, SchemaBuilder::AreCompatible({s3, broken}));
 }
 
 class TestUnifySchemas : public TestSchema {
@@ -897,6 +915,159 @@ class TestUnifySchemas : public TestSchema {
       ASSERT_NE(nullptr, rhs_field);
       ASSERT_TRUE(lhs_field->Equals(rhs_field, true))
           << lhs_field->ToString() << " vs " << rhs_field->ToString();
+    }
+  }
+
+  void CheckUnifyAsymmetric(
+      const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
+      const std::shared_ptr<Field>& expected,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    ARROW_SCOPED_TRACE("options: ", options);
+    ARROW_SCOPED_TRACE("field2: ", field2->ToString());
+    ARROW_SCOPED_TRACE("field1: ", field1->ToString());
+    ASSERT_OK_AND_ASSIGN(auto merged, field1->MergeWith(field2, options));
+    AssertFieldEqual(merged, expected);
+  }
+
+  void CheckPromoteTo(
+      const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
+      const std::shared_ptr<Field>& expected,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    CheckUnifyAsymmetric(field1, field2, expected, options);
+    CheckUnifyAsymmetric(field2, field1, expected, options);
+  }
+
+  void CheckUnifyFailsInvalid(
+      const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults(),
+      const std::string& match_message = "") {
+    ARROW_SCOPED_TRACE("options: ", options);
+    ARROW_SCOPED_TRACE("field2: ", field2->ToString());
+    ARROW_SCOPED_TRACE("field1: ", field1->ToString());
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(match_message),
+                                    field1->MergeWith(field2, options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(match_message),
+                                    field2->MergeWith(field1, options));
+  }
+
+  void CheckUnifyFailsTypeError(
+      const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults(),
+      const std::string& match_message = "") {
+    ARROW_SCOPED_TRACE("options: ", options);
+    ARROW_SCOPED_TRACE("field2: ", field2->ToString());
+    ARROW_SCOPED_TRACE("field1: ", field1->ToString());
+    ASSERT_RAISES(TypeError, field1->MergeWith(field2, options));
+    ASSERT_RAISES(TypeError, field2->MergeWith(field1, options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr(match_message),
+                                    field1->MergeWith(field2, options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr(match_message),
+                                    field2->MergeWith(field1, options));
+  }
+
+  void CheckPromoteTo(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const std::shared_ptr<DataType>& expected,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckPromoteTo(field1, field2, field("a", expected), options);
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckPromoteTo(field1, field2, field("a", expected, /*nullable=*/false), options);
+
+    field1 = field("a", left);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckPromoteTo(field1, field2, field("a", expected, /*nullable=*/true), options);
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right);
+    CheckPromoteTo(field1, field2, field("a", expected, /*nullable=*/true), options);
+  }
+
+  void CheckUnifyAsymmetric(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const std::shared_ptr<DataType>& expected,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected), options);
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected, /*nullable=*/false),
+                         options);
+
+    field1 = field("a", left);
+    field2 = field("a", right, /*nullable=*/false);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected, /*nullable=*/true),
+                         options);
+
+    field1 = field("a", left, /*nullable=*/false);
+    field2 = field("a", right);
+    CheckUnifyAsymmetric(field1, field2, field("a", expected, /*nullable=*/true),
+                         options);
+  }
+
+  void CheckPromoteTo(
+      const std::shared_ptr<DataType>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : to) {
+      CheckPromoteTo(from, ty, ty, options);
+    }
+  }
+
+  void CheckUnifyFailsInvalid(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnifyFailsInvalid(field1, field2, options);
+  }
+
+  void CheckUnifyFailsInvalid(
+      const std::shared_ptr<DataType>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : to) {
+      CheckUnifyFailsInvalid(from, ty, options);
+    }
+  }
+
+  void CheckUnifyFailsInvalid(
+      const std::vector<std::shared_ptr<DataType>>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : from) {
+      CheckUnifyFailsInvalid(ty, to, options);
+    }
+  }
+
+  void CheckUnifyFailsTypeError(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnifyFailsTypeError(field1, field2, options);
+  }
+
+  void CheckUnifyFailsTypeError(
+      const std::shared_ptr<DataType>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : to) {
+      CheckUnifyFailsTypeError(from, ty, options);
+    }
+  }
+
+  void CheckUnifyFailsTypeError(
+      const std::vector<std::shared_ptr<DataType>>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : from) {
+      CheckUnifyFailsTypeError(ty, to, options);
     }
   }
 };
@@ -990,6 +1161,252 @@ TEST_F(TestUnifySchemas, MoreSchemas) {
                         utf8_field->WithNullable(true)}));
 }
 
+TEST_F(TestUnifySchemas, Numeric) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_numeric_width = true;
+  options.promote_integer_to_float = true;
+  options.promote_integer_sign = true;
+  CheckPromoteTo(
+      uint8(),
+      {uint16(), int16(), uint32(), int32(), uint64(), int64(), float32(), float64()},
+      options);
+  CheckPromoteTo(int8(), {int16(), int32(), int64(), float32(), float64()}, options);
+  CheckPromoteTo(uint16(), {uint32(), int32(), uint64(), int64(), float32(), float64()},
+                 options);
+  CheckPromoteTo(int16(), {int32(), int64(), float32(), float64()}, options);
+  CheckPromoteTo(uint32(), {uint64(), int64(), float64()}, options);
+  CheckPromoteTo(int32(), {int64(), float64()}, options);
+  CheckPromoteTo(uint64(), {int64(), float64()}, options);
+  CheckPromoteTo(int64(), {float64()}, options);
+  CheckPromoteTo(float16(), {float32(), float64()}, options);
+  CheckPromoteTo(float32(), {float64()}, options);
+  CheckPromoteTo(uint64(), float32(), float64(), options);
+  CheckPromoteTo(int64(), float32(), float64(), options);
+
+  options.promote_integer_sign = false;
+  CheckPromoteTo(uint8(), {uint16(), uint32(), uint64()}, options);
+  CheckPromoteTo(int8(), {int16(), int32(), int64()}, options);
+  CheckUnifyFailsTypeError(uint8(), {int8(), int16(), int32(), int64()}, options);
+  CheckPromoteTo(uint16(), {uint32(), uint64()}, options);
+  CheckPromoteTo(int16(), {int32(), int64()}, options);
+  CheckUnifyFailsTypeError(uint16(), {int16(), int32(), int64()}, options);
+  CheckPromoteTo(uint32(), {uint64()}, options);
+  CheckPromoteTo(int32(), {int64()}, options);
+  CheckUnifyFailsTypeError(uint32(), {int32(), int64()}, options);
+  CheckUnifyFailsTypeError(uint64(), {int64()}, options);
+
+  options.promote_integer_sign = true;
+  options.promote_integer_to_float = false;
+  CheckUnifyFailsTypeError(IntTypes(), FloatingPointTypes(), options);
+
+  options.promote_integer_to_float = true;
+  options.promote_numeric_width = false;
+  CheckUnifyFailsTypeError(int8(), {int16(), int32(), int64()}, options);
+  CheckUnifyFailsTypeError(int16(), {int32(), int64()}, options);
+  CheckUnifyFailsTypeError(int32(), {int64()}, options);
+  CheckUnifyFailsTypeError(int32(), {float16(), float32()}, options);
+  CheckPromoteTo(int32(), {float64()}, options);
+  CheckPromoteTo(int64(), {float64()}, options);
+
+  CheckPromoteTo(uint8(), int8(), int16(), options);
+  CheckPromoteTo(uint16(), int8(), int32(), options);
+  CheckPromoteTo(uint32(), int8(), int64(), options);
+  CheckPromoteTo(uint32(), int32(), int64(), options);
+}
+
+TEST_F(TestUnifySchemas, Decimal) {
+  auto options = Field::MergeOptions::Defaults();
+
+  options.promote_decimal_to_float = true;
+  CheckPromoteTo(decimal128(3, 2), {float32(), float64()}, options);
+  CheckPromoteTo(decimal256(3, 2), {float32(), float64()}, options);
+
+  options.promote_integer_to_decimal = true;
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
+
+  options.promote_decimal = true;
+  CheckPromoteTo(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
+  CheckPromoteTo(decimal128(3, 2), decimal128(5, 3), decimal128(5, 3), options);
+  CheckPromoteTo(decimal128(3, 2), decimal128(5, 1), decimal128(6, 2), options);
+  CheckPromoteTo(decimal128(3, 2), decimal128(5, -2), decimal128(9, 2), options);
+  CheckPromoteTo(decimal128(3, -2), decimal128(5, -2), decimal128(5, -2), options);
+  CheckPromoteTo(decimal128(38, 10), decimal128(38, 5), decimal256(43, 10), options);
+
+  CheckPromoteTo(decimal256(3, 2), decimal256(5, 2), decimal256(5, 2), options);
+  CheckPromoteTo(decimal256(3, 2), decimal256(5, 3), decimal256(5, 3), options);
+  CheckPromoteTo(decimal256(3, 2), decimal256(5, 1), decimal256(6, 2), options);
+  CheckPromoteTo(decimal256(3, 2), decimal256(5, -2), decimal256(9, 2), options);
+  CheckPromoteTo(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
+
+  // int32() is essentially decimal128(10, 0)
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
+  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(56, 37), options);
+
+  CheckUnifyFailsTypeError(decimal256(1, 0), decimal128(1, 0), options);
+
+  options.promote_numeric_width = true;
+  CheckPromoteTo(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
+  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
+
+  CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);
+}
+
+TEST_F(TestUnifySchemas, Temporal) {
+  auto options = Field::MergeOptions::Defaults();
+
+  options.promote_temporal_unit = true;
+  CheckPromoteTo(date32(), {date64()}, options);
+
+  CheckPromoteTo(
+      time32(TimeUnit::SECOND),
+      {time32(TimeUnit::MILLI), time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
+      options);
+  CheckPromoteTo(time32(TimeUnit::MILLI),
+                 {time64(TimeUnit::MICRO), time64(TimeUnit::NANO)}, options);
+  CheckPromoteTo(time64(TimeUnit::MICRO), {time64(TimeUnit::NANO)}, options);
+
+  CheckPromoteTo(
+      duration(TimeUnit::SECOND),
+      {duration(TimeUnit::MILLI), duration(TimeUnit::MICRO), duration(TimeUnit::NANO)},
+      options);
+  CheckPromoteTo(duration(TimeUnit::MILLI),
+                 {duration(TimeUnit::MICRO), duration(TimeUnit::NANO)}, options);
+  CheckPromoteTo(duration(TimeUnit::MICRO), {duration(TimeUnit::NANO)}, options);
+
+  CheckPromoteTo(
+      timestamp(TimeUnit::SECOND),
+      {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)},
+      options);
+  CheckPromoteTo(timestamp(TimeUnit::MILLI),
+                 {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)}, options);
+  CheckPromoteTo(timestamp(TimeUnit::MICRO), {timestamp(TimeUnit::NANO)}, options);
+
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND),
+                           timestamp(TimeUnit::SECOND, "UTC"), options);
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND, "America/New_York"),
+                           timestamp(TimeUnit::SECOND, "UTC"), options);
+
+  options.promote_temporal_unit = false;
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO),
+                           options);
+}
+
+TEST_F(TestUnifySchemas, Binary) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_binary = true;
+  CheckPromoteTo(utf8(), {large_utf8(), binary(), large_binary()}, options);
+  CheckPromoteTo(binary(), {large_binary()}, options);
+  CheckPromoteTo(fixed_size_binary(2), {fixed_size_binary(2), binary(), large_binary()},
+                 options);
+  CheckPromoteTo(fixed_size_binary(2), fixed_size_binary(4), binary(), options);
+
+  options.promote_binary = false;
+  CheckUnifyFailsTypeError({utf8(), binary()}, {large_utf8(), large_binary()});
+  CheckUnifyFailsTypeError(fixed_size_binary(2), BaseBinaryTypes());
+  CheckUnifyFailsTypeError(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
+}
+
+TEST_F(TestUnifySchemas, List) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_list = true;
+
+  CheckPromoteTo(fixed_size_list(int8(), 2), fixed_size_list(int8(), 3), list(int8()));
+
+  CheckPromoteTo(list(int8()), {large_list(int8())}, options);
+  CheckPromoteTo(fixed_size_list(int8(), 2), {list(int8()), large_list(int8())}, options);
+
+  options.promote_numeric_width = true;
+  CheckPromoteTo(list(int8()), {list(int16()), list(int32()), list(int64())}, options);
+  CheckPromoteTo(
+      fixed_size_list(int8(), 2),
+      {fixed_size_list(int16(), 2), list(int16()), list(int32()), list(int64())},
+      options);
+  CheckPromoteTo(fixed_size_list(int16(), 2), list(int8()), list(int16()), options);
+
+  auto ty = list(field("foo", int8(), /*nullable=*/false));
+  CheckUnifyAsymmetric(ty, list(int8()), list(field("foo", int8(), /*nullable=*/true)),
+                       options);
+  CheckUnifyAsymmetric(ty, list(field("bar", int16(), /*nullable=*/false)),
+                       list(field("foo", int16(), /*nullable=*/false)), options);
+
+  options.promote_list = false;
+  CheckUnifyFailsTypeError(list(int8()), large_list(int8()));
+}
+
+TEST_F(TestUnifySchemas, Map) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_numeric_width = true;
+
+  CheckPromoteTo(map(int8(), int32()),
+                 {map(int8(), int64()), map(int16(), int32()), map(int64(), int64())},
+                 options);
+
+  // Do not test field names, since MapType intentionally ignores them in comparisons
+  // See ARROW-7173, ARROW-14999
+  auto ty = map(int8(), field("value", int32(), /*nullable=*/false));
+  CheckPromoteTo(ty, map(int8(), int32()),
+                 map(int8(), field("value", int32(), /*nullable=*/true)), options);
+  CheckPromoteTo(ty, map(int16(), field("value", int64(), /*nullable=*/false)),
+                 map(int16(), field("value", int64(), /*nullable=*/false)), options);
+}
+
+TEST_F(TestUnifySchemas, Struct) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_numeric_width = true;
+  options.promote_binary = true;
+
+  CheckPromoteTo(struct_({}), struct_({field("a", int8())}),
+                 struct_({field("a", int8())}), options);
+
+  CheckUnifyAsymmetric(struct_({field("b", utf8())}), struct_({field("a", int8())}),
+                       struct_({field("b", utf8()), field("a", int8())}), options);
+  CheckUnifyAsymmetric(struct_({field("a", int8())}), struct_({field("b", utf8())}),
+                       struct_({field("a", int8()), field("b", utf8())}), options);
+
+  CheckPromoteTo(struct_({field("b", utf8())}), struct_({field("b", binary())}),
+                 struct_({field("b", binary())}), options);
+
+  CheckUnifyAsymmetric(
+      struct_({field("a", int8()), field("b", utf8()), field("a", int64())}),
+      struct_({field("b", binary())}),
+      struct_({field("a", int8()), field("b", binary()), field("a", int64())}), options);
+
+  ASSERT_RAISES(
+      Invalid,
+      field("foo", struct_({field("a", int8()), field("b", utf8()), field("a", int64())}))
+          ->MergeWith(field("foo", struct_({field("a", int64())})), options));
+}
+
+TEST_F(TestUnifySchemas, Dictionary) {
+  auto options = Field::MergeOptions::Defaults();
+  options.promote_dictionary = true;
+  options.promote_binary = true;
+
+  CheckPromoteTo(dictionary(int8(), utf8()),
+                 {
+                     dictionary(int64(), utf8()),
+                     dictionary(int8(), large_utf8()),
+                 },
+                 options);
+  CheckPromoteTo(dictionary(int64(), utf8()), dictionary(int8(), large_utf8()),
+                 dictionary(int64(), large_utf8()), options);
+  CheckPromoteTo(dictionary(int8(), utf8(), /*ordered=*/true),
+                 {
+                     dictionary(int64(), utf8(), /*ordered=*/true),
+                     dictionary(int8(), large_utf8(), /*ordered=*/true),
+                 },
+                 options);
+  CheckUnifyFailsTypeError(dictionary(int8(), utf8()),
+                           dictionary(int8(), utf8(), /*ordered=*/true), options);
+
+  options.promote_dictionary_ordered = true;
+  CheckPromoteTo(dictionary(int8(), utf8()), dictionary(int8(), utf8(), /*ordered=*/true),
+                 dictionary(int8(), utf8(), /*ordered=*/false), options);
+}
+
 TEST_F(TestUnifySchemas, IncompatibleTypes) {
   auto int32_field = field("f", int32());
   auto uint8_field = field("f", uint8(), false);
@@ -997,7 +1414,7 @@ TEST_F(TestUnifySchemas, IncompatibleTypes) {
   auto schema1 = schema({int32_field});
   auto schema2 = schema({uint8_field});
 
-  ASSERT_RAISES(Invalid, UnifySchemas({schema1, schema2}));
+  ASSERT_RAISES(TypeError, UnifySchemas({schema1, schema2}));
 }
 
 TEST_F(TestUnifySchemas, DuplicateFieldNames) {
@@ -1052,7 +1469,19 @@ TEST(TestBinaryType, ToString) {
 TEST(TestStringType, ToString) {
   StringType str;
   ASSERT_EQ(str.id(), Type::STRING);
+  ASSERT_EQ(str.name(), std::string("utf8"));
+  ASSERT_EQ(str.type_name(), std::string("utf8"));
   ASSERT_EQ(str.ToString(), std::string("string"));
+}
+
+TEST(TestBinaryViewType, ToString) {
+  BinaryViewType t1;
+  BinaryViewType e1;
+  StringViewType t2;
+  AssertTypeEqual(t1, e1);
+  AssertTypeNotEqual(t1, t2);
+  ASSERT_EQ(t1.id(), Type::BINARY_VIEW);
+  ASSERT_EQ(t1.ToString(), std::string("binary_view"));
 }
 
 TEST(TestLargeBinaryTypes, ToString) {
@@ -1122,6 +1551,46 @@ TEST(TestLargeListType, Basics) {
 
   LargeListType lt2(lt);
   ASSERT_EQ("large_list<item: large_list<item: string>>", lt2.ToString());
+}
+
+TEST(TestListViewType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  ListViewType list_view_type(vt);
+  ASSERT_EQ(list_view_type.id(), Type::LIST_VIEW);
+
+  ASSERT_EQ("list_view", list_view_type.name());
+  ASSERT_EQ("list_view<item: uint8>", list_view_type.ToString());
+
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<ListViewType>(st);
+  ASSERT_EQ("list_view<item: string>", lt->ToString());
+
+  ListViewType lt2(lt);
+  ASSERT_EQ("list_view<item: list_view<item: string>>", lt2.ToString());
+}
+
+TEST(TestLargeListViewType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  LargeListViewType list_view_type(vt);
+  ASSERT_EQ(list_view_type.id(), Type::LARGE_LIST_VIEW);
+
+  ASSERT_EQ("large_list_view", list_view_type.name());
+  ASSERT_EQ("large_list_view<item: uint8>", list_view_type.ToString());
+
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<LargeListViewType>(st);
+  ASSERT_EQ("large_list_view<item: string>", lt->ToString());
+
+  LargeListViewType lt2(lt);
+  ASSERT_EQ("large_list_view<item: large_list_view<item: string>>", lt2.ToString());
 }
 
 TEST(TestMapType, Basics) {
@@ -1400,6 +1869,32 @@ TEST(TestListType, Equals) {
   ASSERT_FALSE(list_type.Equals(list_type_named, /*check_metadata=*/true));
 }
 
+TEST(TestListViewType, Equals) {
+  auto t1 = list_view(utf8());
+  auto t2 = list_view(utf8());
+  auto t3 = list_view(binary());
+  auto t4 = list_view(field("item", utf8(), /*nullable=*/false));
+  auto tl1 = large_list_view(binary());
+  auto tl2 = large_list_view(binary());
+  auto tl3 = large_list_view(float64());
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeNotEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t4);
+  AssertTypeNotEqual(*t3, *tl1);
+  AssertTypeEqual(*tl1, *tl2);
+  AssertTypeNotEqual(*tl2, *tl3);
+
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  std::shared_ptr<Field> inner_field = std::make_shared<Field>("non_default_name", vt);
+
+  ListViewType list_view_type(vt);
+  ListViewType list_view_type_named(inner_field);
+
+  AssertTypeEqual(list_view_type, list_view_type_named);
+  ASSERT_FALSE(list_view_type.Equals(list_view_type_named, /*check_metadata=*/true));
+}
+
 TEST(TestListType, Metadata) {
   auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
   auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
@@ -1416,6 +1911,66 @@ TEST(TestListType, Metadata) {
   auto t3 = list(f3);
   auto t4 = list(f4);
   auto t5 = list(f5);
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+
+  AssertTypeNotEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+}
+
+TEST(TestListViewType, Metadata) {
+  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
+  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
+  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
+  auto f4 = field("item", utf8());
+  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
+
+  auto t1 = list_view(f1);
+  auto t2 = list_view(f2);
+  auto t3 = list_view(f3);
+  auto t4 = list_view(f4);
+  auto t5 = list_view(f5);
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+
+  AssertTypeNotEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+}
+
+TEST(TestLargeListViewType, Metadata) {
+  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto f1 = field("item", utf8(), /*nullable =*/true, md1);
+  auto f2 = field("item", utf8(), /*nullable =*/true, md2);
+  auto f3 = field("item", utf8(), /*nullable =*/true, md3);
+  auto f4 = field("item", utf8());
+  auto f5 = field("item", utf8(), /*nullable =*/false, md1);
+
+  auto t1 = large_list_view(f1);
+  auto t2 = large_list_view(f2);
+  auto t3 = large_list_view(f3);
+  auto t4 = large_list_view(f4);
+  auto t5 = large_list_view(f5);
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
@@ -1829,6 +2384,44 @@ TEST(TypesTest, TestRunEndEncodedType) {
             "run_end_encoded<run_ends: int64, values: list<item: int32>>");
 }
 
+TEST(TypesTest, TestListViewType) {
+  auto int32_expected = std::make_shared<ListViewType>(int32());
+  auto int32_list_view_type = list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<ListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "list_view<item: int64>");
+}
+
+TEST(TypesTest, TestLargeListViewType) {
+  auto int32_expected = std::make_shared<LargeListViewType>(int32());
+  auto int32_list_view_type = large_list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<LargeListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = large_list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "large_list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "large_list_view<item: int64>");
+}
+
 #define TEST_PREDICATE(all_types, type_predicate)                 \
   for (auto type : all_types) {                                   \
     ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
@@ -1867,6 +2460,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_fixed_width);
   TEST_PREDICATE(all_types, is_var_length_list);
   TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_var_length_list_like);
   TEST_PREDICATE(all_types, is_nested);
   TEST_PREDICATE(all_types, is_union);
 }

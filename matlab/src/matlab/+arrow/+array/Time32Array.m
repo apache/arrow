@@ -17,7 +17,7 @@
 
 classdef Time32Array < arrow.array.Array
 
-    properties(Access=private)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = seconds(NaN);
     end
 

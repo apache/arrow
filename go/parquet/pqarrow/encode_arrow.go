@@ -21,17 +21,20 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
 )
 
 // get the count of the number of leaf arrays for the type
@@ -62,25 +65,25 @@ func nullableRoot(manifest *SchemaManifest, field *SchemaField) bool {
 	return nullable
 }
 
-// ArrowColumnWriter is a convenience object for easily writing arrow data to a specific
+// arrowColumnWriter is a convenience object for easily writing arrow data to a specific
 // set of columns in a parquet file. Since a single arrow array can itself be a nested type
 // consisting of multiple columns of data, this will write to all of the appropriate leaves in
 // the parquet file, allowing easy writing of nested columns.
-type ArrowColumnWriter struct {
+type arrowColumnWriter struct {
 	builders  []*multipathLevelBuilder
 	leafCount int
 	colIdx    int
 	rgw       file.RowGroupWriter
 }
 
-// NewArrowColumnWriter returns a new writer using the chunked array to determine the number of leaf columns,
+// newArrowColumnWriter returns a new writer using the chunked array to determine the number of leaf columns,
 // and the provided schema manifest to determine the paths for writing the columns.
 //
 // Using an arrow column writer is a convenience to avoid having to process the arrow array yourself
 // and determine the correct definition and repetition levels manually.
-func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, col int) (ArrowColumnWriter, error) {
+func newArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, leafColIdx int) (arrowColumnWriter, error) {
 	if data.Len() == 0 {
-		return ArrowColumnWriter{leafCount: calcLeafCount(data.DataType()), rgw: rgw}, nil
+		return arrowColumnWriter{leafCount: calcLeafCount(data.DataType()), rgw: rgw}, nil
 	}
 
 	var (
@@ -106,7 +109,7 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 	}
 
 	if absPos >= int64(data.Len()) {
-		return ArrowColumnWriter{}, errors.New("cannot write data at offset past end of chunked array")
+		return arrowColumnWriter{}, errors.New("cannot write data at offset past end of chunked array")
 	}
 
 	leafCount := calcLeafCount(data.DataType())
@@ -115,9 +118,9 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 	// which is the one this instance will start writing for
 	// colIdx := rgw.CurrentColumn() + 1
 
-	schemaField, err := manifest.GetColumnField(col)
+	schemaField, err := manifest.GetColumnField(leafColIdx)
 	if err != nil {
-		return ArrowColumnWriter{}, err
+		return arrowColumnWriter{}, err
 	}
 	isNullable = nullableRoot(manifest, schemaField)
 
@@ -135,10 +138,10 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 		if arrToWrite.Len() > 0 {
 			bldr, err := newMultipathLevelBuilder(arrToWrite, isNullable)
 			if err != nil {
-				return ArrowColumnWriter{}, nil
+				return arrowColumnWriter{}, nil
 			}
 			if leafCount != bldr.leafCount() {
-				return ArrowColumnWriter{}, fmt.Errorf("data type leaf_count != builder leafcount: %d - %d", leafCount, bldr.leafCount())
+				return arrowColumnWriter{}, fmt.Errorf("data type leaf_count != builder leaf_count: %d - %d", leafCount, bldr.leafCount())
 			}
 			builders = append(builders, bldr)
 		}
@@ -150,10 +153,10 @@ func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 		values += chunkWriteSize
 	}
 
-	return ArrowColumnWriter{builders: builders, leafCount: leafCount, rgw: rgw, colIdx: col}, nil
+	return arrowColumnWriter{builders: builders, leafCount: leafCount, rgw: rgw, colIdx: leafColIdx}, nil
 }
 
-func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
+func (acw *arrowColumnWriter) Write(ctx context.Context) error {
 	arrCtx := arrowCtxFromContext(ctx)
 	for leafIdx := 0; leafIdx < acw.leafCount; leafIdx++ {
 		var (
@@ -327,6 +330,18 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				for idx, val := range leafArr.(*array.Date64).Date64Values() {
 					data[idx] = int32(val / 86400000) // coerce date64 values
 				}
+			case arrow.DECIMAL128:
+				for idx, val := range leafArr.(*array.Decimal128).Values() {
+					debug.Assert(val.HighBits() == 0 || val.HighBits() == -1, "casting Decimal128 greater than the value range; high bits must be 0 or -1")
+					debug.Assert(val.LowBits() <= math.MaxUint32, "casting Decimal128 to int32 when value > MaxUint32")
+					data[idx] = int32(val.LowBits())
+				}
+			case arrow.DECIMAL256:
+				for idx, val := range leafArr.(*array.Decimal256).Values() {
+					debug.Assert(val.Array()[3] == 0 || val.Array()[3] == 0xFFFFFFFF, "casting Decimal128 greater than the value range; high bits must be 0 or -1")
+					debug.Assert(val.LowBits() <= math.MaxUint32, "casting Decimal128 to int32 when value > MaxUint32")
+					data[idx] = int32(val.LowBits())
+				}
 			default:
 				return fmt.Errorf("type mismatch, column is int32 writer, arrow array is %s, and not a compatible type", leafArr.DataType().Name())
 			}
@@ -377,7 +392,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 					return err
 				}
 			} else {
-				// no data conversion neccessary
+				// no data conversion necessary
 				if leafArr.Data().Buffers()[1] != nil {
 					data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 					data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
@@ -395,6 +410,20 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			if leafArr.Data().Buffers()[1] != nil {
 				data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 				data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+			}
+		case arrow.DECIMAL128:
+			ctx.dataBuffer.ResizeNoShrink(arrow.Int64Traits.BytesRequired(leafArr.Len()))
+			data = arrow.Int64Traits.CastFromBytes(ctx.dataBuffer.Bytes())
+			for idx, val := range leafArr.(*array.Decimal128).Values() {
+				debug.Assert(val.HighBits() == 0 || val.HighBits() == -1, "trying to cast Decimal128 to int64 greater than range, high bits must be 0 or -1")
+				data[idx] = int64(val.LowBits())
+			}
+		case arrow.DECIMAL256:
+			ctx.dataBuffer.ResizeNoShrink(arrow.Int64Traits.BytesRequired(leafArr.Len()))
+			data = arrow.Int64Traits.CastFromBytes(ctx.dataBuffer.Bytes())
+			for idx, val := range leafArr.(*array.Decimal256).Values() {
+				debug.Assert(val.Array()[3] == 0 || val.Array()[3] == 0xFFFFFFFF, "trying to cast Decimal128 to int64 greater than range, high bits must be 0 or -1")
+				data[idx] = int64(val.LowBits())
 			}
 		default:
 			return fmt.Errorf("unimplemented arrow type to write to int64 column: %s", leafArr.DataType().Name())
@@ -515,6 +544,65 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				for idx := range data {
 					if arr.IsValid(idx) {
 						data[idx] = fixDecimalEndianness(arr.Value(idx))
+					}
+				}
+				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
+			}
+		case *arrow.Decimal256Type:
+			// parquet decimal are stored with FixedLength values where the length is
+			// proportional to the precision. Arrow's Decimal are always stored with 16/32
+			// bytes. thus the internal FLBA must be adjusted by the offset calculation
+			offset := int(bitutil.BytesForBits(int64(dt.BitWidth()))) - int(DecimalSize(dt.Precision))
+			ctx.dataBuffer.ResizeNoShrink((leafArr.Len() - leafArr.NullN()) * dt.BitWidth())
+			scratch := ctx.dataBuffer.Bytes()
+			typeLen := wr.Descr().TypeLength()
+			fixDecimalEndianness := func(in decimal256.Num) parquet.FixedLenByteArray {
+				out := scratch[offset : offset+typeLen]
+				vals := in.Array()
+				binary.BigEndian.PutUint64(scratch, vals[3])
+				binary.BigEndian.PutUint64(scratch[arrow.Uint64SizeBytes:], vals[2])
+				binary.BigEndian.PutUint64(scratch[2*arrow.Uint64SizeBytes:], vals[1])
+				binary.BigEndian.PutUint64(scratch[3*arrow.Uint64SizeBytes:], vals[0])
+				scratch = scratch[4*arrow.Uint64SizeBytes:]
+				return out
+			}
+
+			data := make([]parquet.FixedLenByteArray, leafArr.Len())
+			arr := leafArr.(*array.Decimal256)
+			if leafArr.NullN() == 0 {
+				for idx := range data {
+					data[idx] = fixDecimalEndianness(arr.Value(idx))
+				}
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
+			} else {
+				for idx := range data {
+					if arr.IsValid(idx) {
+						data[idx] = fixDecimalEndianness(arr.Value(idx))
+					}
+				}
+				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
+			}
+		case *arrow.Float16Type:
+			typeLen := wr.Descr().TypeLength()
+			if typeLen != arrow.Float16SizeBytes {
+				return fmt.Errorf("%w: invalid FixedLenByteArray length to write from float16 column: %d", arrow.ErrInvalid, typeLen)
+			}
+
+			arr := leafArr.(*array.Float16)
+			rawValues := arrow.Float16Traits.CastToBytes(arr.Values())
+			data := make([]parquet.FixedLenByteArray, arr.Len())
+
+			if arr.NullN() == 0 {
+				for idx := range data {
+					offset := idx * typeLen
+					data[idx] = rawValues[offset : offset+typeLen]
+				}
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
+			} else {
+				for idx := range data {
+					if arr.IsValid(idx) {
+						offset := idx * typeLen
+						data[idx] = rawValues[offset : offset+typeLen]
 					}
 				}
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))

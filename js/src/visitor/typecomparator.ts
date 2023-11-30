@@ -28,6 +28,7 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
 } from '../type.js';
 
@@ -77,6 +78,11 @@ export interface TypeComparator extends Visitor {
     visitInterval<T extends Interval>(type: T, other?: DataType | null): other is T;
     visitIntervalDayTime<T extends IntervalDayTime>(type: T, other?: DataType | null): other is T;
     visitIntervalYearMonth<T extends IntervalYearMonth>(type: T, other?: DataType | null): other is T;
+    visitDuration<T extends Duration>(type: T, other?: DataType | null): other is T;
+    visitDurationSecond<T extends DurationSecond>(type: T, other?: DataType | null): other is T;
+    visitDurationMillisecond<T extends DurationMillisecond>(type: T, other?: DataType | null): other is T;
+    visitDurationMicrosecond<T extends DurationMicrosecond>(type: T, other?: DataType | null): other is T;
+    visitDurationNanosecond<T extends DurationNanosecond>(type: T, other?: DataType | null): other is T;
     visitFixedSizeList<T extends FixedSizeList>(type: T, other?: DataType | null): other is T;
     visitMap<T extends Map_>(type: T, other?: DataType | null): other is T;
 }
@@ -202,6 +208,13 @@ function compareInterval<T extends Interval>(type: T, other?: DataType | null): 
     );
 }
 
+function compareDuration<T extends Duration>(type: T, other?: DataType | null): other is T {
+    return (type === other) || (
+        compareConstructor(type, other) &&
+        type.unit === other.unit
+    );
+}
+
 function compareFixedSizeList<T extends FixedSizeList>(type: T, other?: DataType | null): other is T {
     return (type === other) || (
         compareConstructor(type, other) &&
@@ -261,6 +274,11 @@ TypeComparator.prototype.visitDictionary = compareDictionary;
 TypeComparator.prototype.visitInterval = compareInterval;
 TypeComparator.prototype.visitIntervalDayTime = compareInterval;
 TypeComparator.prototype.visitIntervalYearMonth = compareInterval;
+TypeComparator.prototype.visitDuration = compareDuration;
+TypeComparator.prototype.visitDurationSecond = compareDuration;
+TypeComparator.prototype.visitDurationMillisecond = compareDuration;
+TypeComparator.prototype.visitDurationMicrosecond = compareDuration;
+TypeComparator.prototype.visitDurationNanosecond = compareDuration;
 TypeComparator.prototype.visitFixedSizeList = compareFixedSizeList;
 TypeComparator.prototype.visitMap = compareMap;
 

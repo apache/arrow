@@ -36,9 +36,16 @@ classdef TimeType < arrow.type.TemporalType
     end
 
     methods (Access=protected)
-        function group = getPropertyGroups(~)
+        function groups = getDisplayPropertyGroups(~)
             targets = ["ID" "TimeUnit"];
-            group = matlab.mixin.util.PropertyGroup(targets);
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = NaN([length 1]);
+            data = seconds(data);
         end
     end
 

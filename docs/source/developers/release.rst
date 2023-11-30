@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _release:
+
 ========================
 Release Management Guide
 ========================
@@ -565,6 +567,9 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
+      # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
+      # this will avoid default pushing to main and pushing the tag
+      # but you will require to push manually after reviewing the commits.
       # dev/release/post-11-bump-versions.sh 10.0.0 11.0.0
       dev/release/post-11-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 

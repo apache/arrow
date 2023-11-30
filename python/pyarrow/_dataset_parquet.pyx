@@ -17,7 +17,7 @@
 
 # cython: language_level = 3
 
-"""Dataset support for Parquest file format."""
+"""Dataset support for Parquet file format."""
 
 from cython cimport binding
 from cython.operator cimport dereference as deref
@@ -47,15 +47,22 @@ from pyarrow._dataset cimport (
     WrittenFile
 )
 
-
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
     FileMetaData,
 )
 
 
-cdef Expression _true = Expression._scalar(True)
+try:
+    from pyarrow._dataset_parquet_encryption import (
+        set_encryption_config, set_decryption_config
+    )
+    parquet_encryption_enabled = True
+except ImportError:
+    parquet_encryption_enabled = False
 
+
+cdef Expression _true = Expression._scalar(True)
 
 ctypedef CParquetFileWriter* _CParquetFileWriterPtr
 
@@ -78,7 +85,8 @@ cdef class ParquetFileFormat(FileFormat):
         CParquetFileFormat* parquet_format
 
     def __init__(self, read_options=None,
-                 default_fragment_scan_options=None, **kwargs):
+                 default_fragment_scan_options=None,
+                 **kwargs):
         cdef:
             shared_ptr[CParquetFileFormat] wrapped
             CParquetFileFormatReaderOptions* options
@@ -130,6 +138,7 @@ cdef class ParquetFileFormat(FileFormat):
                             'ParquetFragmentScanOptions')
 
         wrapped = make_shared[CParquetFileFormat]()
+
         options = &(wrapped.get().reader_options)
         if read_options.dictionary_columns is not None:
             for column in read_options.dictionary_columns:
@@ -550,10 +559,6 @@ cdef class ParquetReadOptions(_Weakrefable):
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
 
-    cdef:
-        CParquetFileWriteOptions* parquet_options
-        object _properties
-
     def update(self, **kwargs):
         """
         Parameters
@@ -574,6 +579,8 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             self._properties[name] = value
             if name in arrow_fields:
                 setters.add(self._set_arrow_properties)
+            elif name == "encryption_config" and value is not None:
+                setters.add(self._set_encryption_config)
             else:
                 setters.add(self._set_properties)
 
@@ -595,6 +602,11 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             ),
             column_encoding=self._properties["column_encoding"],
             data_page_version=self._properties["data_page_version"],
+            encryption_properties=self._properties["encryption_properties"],
+            write_batch_size=self._properties["write_batch_size"],
+            dictionary_pagesize_limit=self._properties["dictionary_pagesize_limit"],
+            write_page_index=self._properties["write_page_index"],
+            write_page_checksum=self._properties["write_page_checksum"],
         )
 
     def _set_arrow_properties(self):
@@ -614,6 +626,14 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             )
         )
 
+    def _set_encryption_config(self):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Encryption is not enabled in your installation of pyarrow, but an "
+                "encryption_config was provided."
+            )
+        set_encryption_config(self, self._properties["encryption_config"])
+
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
         self.parquet_options = <CParquetFileWriteOptions*> sp.get()
@@ -631,7 +651,14 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
             use_compliant_nested_type=True,
+            encryption_properties=None,
+            write_batch_size=None,
+            dictionary_pagesize_limit=None,
+            write_page_index=False,
+            encryption_config=None,
+            write_page_checksum=False,
         )
+
         self._set_properties()
         self._set_arrow_properties()
 
@@ -658,10 +685,13 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         Disabled by default.
     buffer_size : int, default 8192
         Size of buffered stream, if enabled. Default is 8KB.
-    pre_buffer : bool, default False
+    pre_buffer : bool, default True
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
-        filesystems.
+        filesystems (e.g. S3, GCS) by coalesing and issuing file reads in
+        parallel using a background I/O thread pool.
+        Set to False if you want to prioritize minimal memory usage
+        over maximum speed.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
@@ -670,19 +700,23 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If not None, override the maximum total size of containers allocated
         when decoding Thrift structures. The default limit should be
         sufficient for most Parquet files.
+    decryption_config : pyarrow.dataset.ParquetDecryptionConfig, default None
+        If not None, use the provided ParquetDecryptionConfig to decrypt the
+        Parquet file.
+    page_checksum_verification : bool, default False
+        If True, verify the page checksum for each page read from the file.
     """
-
-    cdef:
-        CParquetFragmentScanOptions* parquet_options
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, bint use_buffered_stream=False,
                  buffer_size=8192,
-                 bint pre_buffer=False,
+                 bint pre_buffer=True,
                  thrift_string_size_limit=None,
-                 thrift_container_size_limit=None):
+                 thrift_container_size_limit=None,
+                 decryption_config=None,
+                 bint page_checksum_verification=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
@@ -692,6 +726,9 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.thrift_string_size_limit = thrift_string_size_limit
         if thrift_container_size_limit is not None:
             self.thrift_container_size_limit = thrift_container_size_limit
+        if decryption_config is not None:
+            self.parquet_decryption_config = decryption_config
+        self.page_checksum_verification = page_checksum_verification
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -752,6 +789,33 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             raise ValueError("size must be larger than zero")
         self.reader_properties().set_thrift_container_size_limit(size)
 
+    @property
+    def parquet_decryption_config(self):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Unable to access encryption features. "
+                "Encryption is not enabled in your installation of pyarrow."
+            )
+        return self._parquet_decryption_config
+
+    @parquet_decryption_config.setter
+    def parquet_decryption_config(self, config):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Encryption is not enabled in your installation of pyarrow, but a "
+                "decryption_config was provided."
+            )
+        set_decryption_config(self, config)
+        self._parquet_decryption_config = config
+
+    @property
+    def page_checksum_verification(self):
+        return self.reader_properties().page_checksum_verification()
+
+    @page_checksum_verification.setter
+    def page_checksum_verification(self, bint page_checksum_verification):
+        self.reader_properties().set_page_checksum_verification(page_checksum_verification)
+
     def equals(self, ParquetFragmentScanOptions other):
         """
         Parameters
@@ -764,11 +828,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         """
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
-            self.thrift_string_size_limit, self.thrift_container_size_limit)
+            self.thrift_string_size_limit, self.thrift_container_size_limit,
+            self.page_checksum_verification)
         other_attrs = (
             other.use_buffered_stream, other.buffer_size, other.pre_buffer,
             other.thrift_string_size_limit,
-            other.thrift_container_size_limit)
+            other.thrift_container_size_limit, other.page_checksum_verification)
         return attrs == other_attrs
 
     @staticmethod
@@ -785,6 +850,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             pre_buffer=self.pre_buffer,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
+            page_checksum_verification=self.page_checksum_verification
         )
         return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 

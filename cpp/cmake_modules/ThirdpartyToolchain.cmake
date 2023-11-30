@@ -32,6 +32,9 @@ set(ARROW_BUNDLED_STATIC_LIBS)
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
 set(ARROW_SYSTEM_DEPENDENCIES)
+set(ARROW_FLIGHT_SYSTEM_DEPENDENCIES)
+set(ARROW_TESTING_SYSTEM_DEPENDENCIES)
+set(PARQUET_SYSTEM_DEPENDENCIES)
 
 # ----------------------------------------------------------------------
 # Toolchain linkage options
@@ -46,6 +49,7 @@ set(ARROW_RE2_LINKAGE
 set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
     AWSSDK
+    Azure
     benchmark
     Boost
     Brotli
@@ -61,7 +65,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     lz4
     nlohmann_json
     opentelemetry-cpp
-    ORC
+    orc
     re2
     Protobuf
     RapidJSON
@@ -88,6 +92,14 @@ endif()
 # upstream uses "re2" not "RE2" as package name.
 if("${re2_SOURCE}" STREQUAL "" AND NOT "${RE2_SOURCE}" STREQUAL "")
   set(re2_SOURCE ${RE2_SOURCE})
+endif()
+
+# For backward compatibility. We use "ORC_SOURCE" if "orc_SOURCE"
+# isn't specified and "ORC_SOURCE" is specified.
+# We renamed "ORC" dependency name to "orc" in 15.0.0 because
+# upstream uses "orc" not "ORC" as package name.
+if("${orc_SOURCE}" STREQUAL "" AND NOT "${ORC_SOURCE}" STREQUAL "")
+  set(orc_SOURCE ${ORC_SOURCE})
 endif()
 
 # For backward compatibility. We use "RE2_ROOT" if "re2_ROOT"
@@ -159,6 +171,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_absl()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
     build_awssdk()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Azure")
+    build_azure_sdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
@@ -187,7 +201,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_nlohmann_json()
   elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
     build_opentelemetry()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "orc")
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
@@ -216,23 +230,27 @@ macro(build_dependency DEPENDENCY_NAME)
   endif()
 endmacro()
 
-# Find modules are needed by the consumer in case of a static build, or if the
-# linkage is PUBLIC or INTERFACE.
-macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
-  set(module_ "${CMAKE_SOURCE_DIR}/cmake_modules/Find${PACKAGE_NAME}.cmake")
-  if(EXISTS "${module_}")
-    message(STATUS "Providing CMake module for ${PACKAGE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
+function(provide_cmake_module MODULE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  set(module "${CMAKE_SOURCE_DIR}/cmake_modules/${MODULE_NAME}.cmake")
+  if(EXISTS "${module}")
+    message(STATUS "Providing CMake module for ${MODULE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
     )
-    install(FILES "${module_}"
+    install(FILES "${module}"
             DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
   endif()
-  unset(module_)
-endmacro()
+endfunction()
+
+# Find modules are needed by the consumer in case of a static build, or if the
+# linkage is PUBLIC or INTERFACE.
+function(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
+  provide_cmake_module("Find${PACKAGE_NAME}" ${ARROW_CMAKE_PACKAGE_NAME})
+endfunction()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args
       ARROW_CMAKE_PACKAGE_NAME
+      ARROW_PC_PACKAGE_NAME
       FORCE_ANY_NEWER_VERSION
       HAVE_ALT
       IS_RUNTIME_DEPENDENCY
@@ -297,12 +315,26 @@ macro(resolve_dependency DEPENDENCY_NAME)
     if(NOT ARG_ARROW_CMAKE_PACKAGE_NAME)
       set(ARG_ARROW_CMAKE_PACKAGE_NAME "Arrow")
     endif()
-    if(ARG_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
-      provide_find_module(${PACKAGE_NAME} "Arrow")
-      list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
-    else()
-      provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    # ArrowFlight -> _Arrow_Flight
+    string(REGEX REPLACE "([A-Z])" "_\\1" ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE
+                         ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    # _Arrow_Flight -> Arrow_Flight
+    string(SUBSTRING ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE} 1 -1
+                     ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE)
+    # Arrow_Flight -> ARROW_FLIGHT
+    string(TOUPPER ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE}
+                   ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE)
+    provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    list(APPEND ${ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE}_SYSTEM_DEPENDENCIES
+         ${PACKAGE_NAME})
+    if(NOT ARG_ARROW_PC_PACKAGE_NAME)
+      set(ARG_ARROW_PC_PACKAGE_NAME "arrow")
     endif()
+    # arrow-flight -> arrow_flight
+    string(REPLACE "-" "_" ARG_ARROW_PC_PACKAGE_NAME_SNAKE ${ARG_ARROW_PC_PACKAGE_NAME})
+    # arrow_flight -> ARROW_FLIGHT
+    string(TOUPPER ${ARG_ARROW_PC_PACKAGE_NAME_SNAKE}
+                   ARG_ARROW_PC_PACKAGE_NAME_UPPER_SNAKE)
     if(ARROW_BUILD_STATIC)
       find_package(PkgConfig QUIET)
       foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -311,13 +343,16 @@ macro(resolve_dependency DEPENDENCY_NAME)
                           NO_CMAKE_PATH
                           NO_CMAKE_ENVIRONMENT_PATH
                           QUIET)
+        set(RESOLVE_DEPENDENCY_PC_PACKAGE
+            "pkg-config package for ${ARG_PC_PACKAGE_NAME} ")
+        string(APPEND RESOLVE_DEPENDENCY_PC_PACKAGE
+               "that is used by ${ARG_ARROW_PC_PACKAGE_NAME} for static link")
         if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
-          message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
-          )
-          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+          message(STATUS "Using ${RESOLVE_DEPENDENCY_PC_PACKAGE}")
+          string(APPEND ${ARG_ARROW_PC_PACKAGE_NAME_UPPER_SNAKE}_PC_REQUIRES_PRIVATE
+                 " ${ARG_PC_PACKAGE_NAME}")
         else()
-          message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
-          )
+          message(STATUS "${RESOLVE_DEPENDENCY_PC_PACKAGE} isn't found")
         endif()
       endforeach()
     endif()
@@ -366,6 +401,10 @@ if(ARROW_GCS)
   set(ARROW_WITH_GOOGLE_CLOUD_CPP ON)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_ZLIB ON)
+endif()
+
+if(ARROW_AZURE)
+  set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
 if(ARROW_JSON)
@@ -546,6 +585,14 @@ else()
   set_urls(AWSSDK_SOURCE_URL
            "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_SDK_URL})
+  set(ARROW_AZURE_SDK_URL "$ENV{ARROW_AZURE_SDK_URL}")
+else()
+  set_urls(ARROW_AZURE_SDK_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/${ARROW_AZURE_SDK_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -885,11 +932,18 @@ set(EP_COMMON_TOOLCHAIN "-DCMAKE_C_COMPILER=${EP_C_COMPILER}"
                         "-DCMAKE_CXX_COMPILER=${EP_CXX_COMPILER}")
 
 if(CMAKE_AR)
-  list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_AR=${CMAKE_AR})
+  # Ensure using absolute path.
+  find_program(EP_CMAKE_AR ${CMAKE_AR} REQUIRED)
+  list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_AR=${EP_CMAKE_AR})
 endif()
 
-if(CMAKE_RANLIB)
-  list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${CMAKE_RANLIB})
+# RANLIB isn't used for MSVC
+if(NOT MSVC)
+  if(CMAKE_RANLIB)
+    # Ensure using absolute path.
+    find_program(EP_CMAKE_RANLIB ${CMAKE_RANLIB} REQUIRED)
+    list(APPEND EP_COMMON_TOOLCHAIN -DCMAKE_RANLIB=${EP_CMAKE_RANLIB})
+  endif()
 endif()
 
 # External projects are still able to override the following declarations.
@@ -960,11 +1014,30 @@ else()
   set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
+include(FetchContent)
+
+macro(prepare_fetchcontent)
+  set(BUILD_SHARED_LIBS OFF)
+  set(BUILD_STATIC_LIBS ON)
+  set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  if(MSVC)
+    string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  else()
+    string(APPEND CMAKE_C_FLAGS_DEBUG " -Wno-error")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Wno-error")
+  endif()
+endmacro()
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
+if(ARROW_ENABLE_THREADING)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+endif()
 
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
@@ -1255,6 +1328,26 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+  # Snappy unconditionaly enables Werror when building with clang this can lead
+  # to build failues by way of new compiler warnings. This adds a flag to disable
+  # Werror to the very end of the invocation to override the snappy internal setting.
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+      list(APPEND
+           SNAPPY_CMAKE_ARGS
+           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error"
+      )
+    endforeach()
+  endif()
+
+  if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
+    # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
+    # This can be removed once CRAN no longer checks on macOS 10.13
+    find_program(PATCH patch REQUIRED)
+    set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
+  else()
+    set(SNAPPY_PATCH_COMMAND)
+  endif()
 
   externalproject_add(snappy_ep
                       ${EP_COMMON_OPTIONS}
@@ -1262,6 +1355,7 @@ macro(build_snappy)
                       INSTALL_DIR ${SNAPPY_PREFIX}
                       URL ${SNAPPY_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_SNAPPY_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${SNAPPY_PATCH_COMMAND}
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
@@ -1269,10 +1363,9 @@ macro(build_snappy)
 
   set(Snappy_TARGET Snappy::snappy-static)
   add_library(${Snappy_TARGET} STATIC IMPORTED)
-  set_target_properties(${Snappy_TARGET}
-                        PROPERTIES IMPORTED_LOCATION "${SNAPPY_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${SNAPPY_PREFIX}/include")
+  set_target_properties(${Snappy_TARGET} PROPERTIES IMPORTED_LOCATION
+                                                    "${SNAPPY_STATIC_LIB}")
+  target_include_directories(${Snappy_TARGET} BEFORE INTERFACE "${SNAPPY_PREFIX}/include")
   add_dependencies(toolchain snappy_ep)
   add_dependencies(${Snappy_TARGET} snappy_ep)
 
@@ -1328,21 +1421,22 @@ macro(build_brotli)
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
 
   add_library(Brotli::brotlicommon STATIC IMPORTED)
-  set_target_properties(Brotli::brotlicommon
-                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlicommon PROPERTIES IMPORTED_LOCATION
+                                                        "${BROTLI_STATIC_LIBRARY_COMMON}")
+  target_include_directories(Brotli::brotlicommon BEFORE
+                             INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlicommon brotli_ep)
 
   add_library(Brotli::brotlienc STATIC IMPORTED)
-  set_target_properties(Brotli::brotlienc
-                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_ENC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlienc PROPERTIES IMPORTED_LOCATION
+                                                     "${BROTLI_STATIC_LIBRARY_ENC}")
+  target_include_directories(Brotli::brotlienc BEFORE INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlienc brotli_ep)
 
   add_library(Brotli::brotlidec STATIC IMPORTED)
-  set_target_properties(Brotli::brotlidec
-                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_DEC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlidec PROPERTIES IMPORTED_LOCATION
+                                                     "${BROTLI_STATIC_LIBRARY_DEC}")
+  target_include_directories(Brotli::brotlidec BEFORE INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
   list(APPEND
@@ -1367,6 +1461,7 @@ endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
+   OR ARROW_AZURE
    OR ARROW_FLIGHT
    OR ARROW_GANDIVA
    OR ARROW_GCS
@@ -1433,9 +1528,8 @@ macro(build_glog)
   file(MAKE_DIRECTORY "${GLOG_INCLUDE_DIR}")
 
   add_library(glog::glog STATIC IMPORTED)
-  set_target_properties(glog::glog
-                        PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
+  set_target_properties(glog::glog PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}")
+  target_include_directories(glog::glog BEFORE INTERFACE "${GLOG_INCLUDE_DIR}")
   add_dependencies(glog::glog glog_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
@@ -1494,9 +1588,9 @@ macro(build_gflags)
   add_thirdparty_lib(gflags::gflags_static STATIC ${GFLAGS_STATIC_LIB})
   add_dependencies(gflags::gflags_static gflags_ep)
   set(GFLAGS_LIBRARY gflags::gflags_static)
-  set_target_properties(${GFLAGS_LIBRARY}
-                        PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GFLAGS_IS_A_DLL=0"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GFLAGS_INCLUDE_DIR}")
+  set_target_properties(${GFLAGS_LIBRARY} PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                     "GFLAGS_IS_A_DLL=0")
+  target_include_directories(${GFLAGS_LIBRARY} BEFORE INTERFACE "${GFLAGS_INCLUDE_DIR}")
   if(MSVC)
     set_target_properties(${GFLAGS_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
                                                        "shlwapi.lib")
@@ -1597,9 +1691,8 @@ macro(build_thrift)
   add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
+  set_target_properties(thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}")
+  target_include_directories(thrift::thrift BEFORE INTERFACE "${THRIFT_INCLUDE_DIR}")
   if(ARROW_USE_BOOST)
     target_link_libraries(thrift::thrift INTERFACE Boost::headers)
   endif()
@@ -1614,12 +1707,16 @@ endmacro()
 if(ARROW_WITH_THRIFT)
   # Thrift C++ code generated by 0.13 requires 0.11 or greater
   resolve_dependency(Thrift
+                     ARROW_CMAKE_PACKAGE_NAME
+                     Parquet
+                     ARROW_PC_PACKAGE_NAME
+                     parquet
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     0.11.0
                      PC_PACKAGE_NAMES
-                     thrift)
+                     thrift
+                     REQUIRED_VERSION
+                     0.11.0)
 
   string(REPLACE "." ";" Thrift_VERSION_LIST ${Thrift_VERSION})
   list(GET Thrift_VERSION_LIST 0 Thrift_VERSION_MAJOR)
@@ -1683,15 +1780,15 @@ macro(build_protobuf)
   set(Protobuf_INCLUDE_DIRS "${PROTOBUF_INCLUDE_DIR}")
 
   add_library(arrow::protobuf::libprotobuf STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotobuf
-                        PROPERTIES IMPORTED_LOCATION "${PROTOBUF_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${PROTOBUF_INCLUDE_DIR}")
+  set_target_properties(arrow::protobuf::libprotobuf PROPERTIES IMPORTED_LOCATION
+                                                                "${PROTOBUF_STATIC_LIB}")
+  target_include_directories(arrow::protobuf::libprotobuf BEFORE
+                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
   add_library(arrow::protobuf::libprotoc STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotoc
-                        PROPERTIES IMPORTED_LOCATION "${PROTOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${PROTOBUF_INCLUDE_DIR}")
+  set_target_properties(arrow::protobuf::libprotoc PROPERTIES IMPORTED_LOCATION
+                                                              "${PROTOC_STATIC_LIB}")
+  target_include_directories(arrow::protobuf::libprotoc BEFORE
+                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
   add_executable(arrow::protobuf::protoc IMPORTED)
   set_target_properties(arrow::protobuf::protoc PROPERTIES IMPORTED_LOCATION
                                                            "${PROTOBUF_COMPILER}")
@@ -1715,6 +1812,13 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
+  if(ARROW_FLIGHT)
+    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "ArrowFlight")
+    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow-flight")
+  else()
+    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow")
+  endif()
   # We need to use FORCE_ANY_NEWER_VERSION here to accept Protobuf
   # newer version such as 23.4. If we don't use it, 23.4 is processed
   # as an incompatible version with 3.12.0 with protobuf-config.cmake
@@ -1724,14 +1828,18 @@ if(ARROW_WITH_PROTOBUF)
   # we use FORCE_ANY_NEWER_VERSION here, we can bypass the check and
   # use 23.4.
   resolve_dependency(Protobuf
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME}
                      FORCE_ANY_NEWER_VERSION
                      TRUE
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_PROTOBUF_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
-                     protobuf)
+                     protobuf
+                     REQUIRED_VERSION
+                     ${ARROW_PROTOBUF_REQUIRED_VERSION})
 
   if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
@@ -1950,11 +2058,11 @@ macro(build_jemalloc)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
   add_library(jemalloc::jemalloc STATIC IMPORTED)
-  set_target_properties(jemalloc::jemalloc
-                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-                                   IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${JEMALLOC_INCLUDE_DIR}")
+  set_target_properties(jemalloc::jemalloc PROPERTIES IMPORTED_LOCATION
+                                                      "${JEMALLOC_STATIC_LIB}")
+  target_link_libraries(jemalloc::jemalloc INTERFACE Threads::Threads)
+  target_include_directories(jemalloc::jemalloc BEFORE
+                             INTERFACE "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
@@ -1965,6 +2073,9 @@ macro(build_jemalloc)
 endmacro()
 
 if(ARROW_JEMALLOC)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use jemalloc with ARROW_ENABLE_THREADING=OFF")
+  endif()
   resolve_dependency(jemalloc HAVE_ALT TRUE)
 endif()
 
@@ -1972,6 +2083,10 @@ endif()
 # mimalloc - Cross-platform high-performance allocator, from Microsoft
 
 if(ARROW_MIMALLOC)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use mimalloc with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
   message(STATUS "Building (vendored) mimalloc from source")
   # We only use a vendored mimalloc as we want to control its build options.
 
@@ -2008,15 +2123,13 @@ if(ARROW_MIMALLOC)
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
 
   add_library(mimalloc::mimalloc STATIC IMPORTED)
-  set_target_properties(mimalloc::mimalloc
-                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-                                   IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${MIMALLOC_INCLUDE_DIR}")
+  set_target_properties(mimalloc::mimalloc PROPERTIES IMPORTED_LOCATION
+                                                      "${MIMALLOC_STATIC_LIB}")
+  target_include_directories(mimalloc::mimalloc BEFORE
+                             INTERFACE "${MIMALLOC_INCLUDE_DIR}")
+  target_link_libraries(mimalloc::mimalloc INTERFACE Threads::Threads)
   if(WIN32)
-    set_property(TARGET mimalloc::mimalloc
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES "bcrypt.lib" "psapi.lib")
+    target_link_libraries(mimalloc::mimalloc INTERFACE "bcrypt.lib" "psapi.lib")
   endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
@@ -2029,150 +2142,73 @@ endif()
 # ----------------------------------------------------------------------
 # Google gtest
 
-macro(build_gtest)
+function(build_gtest)
   message(STATUS "Building gtest from source")
   set(GTEST_VENDORED TRUE)
-  set(GTEST_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
-
-  if(CMAKE_BUILD_TYPE MATCHES DEBUG)
-    set(CMAKE_GTEST_DEBUG_EXTENSION "d")
-  else()
-    set(CMAKE_GTEST_DEBUG_EXTENSION "")
-  endif()
-
+  fetchcontent_declare(googletest
+                       URL ${GTEST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
   if(APPLE)
-    string(APPEND
-           GTEST_CMAKE_CXX_FLAGS
-           " -DGTEST_USE_OWN_TR1_TUPLE=1"
-           " -Wno-unused-value"
-           " -Wno-ignored-attributes")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
-
-  if(WIN32)
-    string(APPEND GTEST_CMAKE_CXX_FLAGS " -DGTEST_CREATE_SHARED_LIBRARY=1")
+  set(BUILD_SHARED_LIBS ON)
+  set(BUILD_STATIC_LIBS OFF)
+  # We need to use "cache" variable to override the default
+  # INSTALL_GTEST option by this value. See also:
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  set(INSTALL_GTEST
+      OFF
+      CACHE "BOOL"
+            "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)"
+            FORCE)
+  string(APPEND CMAKE_INSTALL_INCLUDEDIR "/arrow-gtest")
+  fetchcontent_makeavailable(googletest)
+  foreach(target gmock gmock_main gtest gtest_main)
+    set_target_properties(${target}
+                          PROPERTIES OUTPUT_NAME "arrow_${target}"
+                                     PDB_NAME "arrow_${target}"
+                                     PDB_NAME_DEBUG "arrow_${target}d"
+                                     COMPILE_PDB_NAME "arrow_${target}"
+                                     COMPILE_PDB_NAME_DEBUG "arrow_${target}d"
+                                     RUNTIME_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     LIBRARY_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     ARCHIVE_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}"
+                                     PDB_OUTPUT_DIRECTORY
+                                     "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  endforeach()
+  install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
+                    "${googletest_SOURCE_DIR}/googletest/include/"
+          DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  install(TARGETS gmock gmock_main gtest gtest_main
+          EXPORT arrow_testing_targets
+          RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+          ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+          LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  if(MSVC)
+    install(FILES $<TARGET_PDB_FILE:gmock> $<TARGET_PDB_FILE:gmock_main>
+                  $<TARGET_PDB_FILE:gtest> $<TARGET_PDB_FILE:gtest_main>
+            DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            OPTIONAL)
   endif()
-
-  set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix")
-  set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-
-  set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
-
-  if(WIN32)
-    set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
-  else()
-    set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
-  endif()
-
-  set(GTEST_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_LIBRARY_SUFFIX}")
-  set(GMOCK_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_LIBRARY_SUFFIX}")
-  set(GTEST_MAIN_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
-  )
-  set(GTEST_INSTALL_NAME_DIR "$<INSTALL_PREFIX$<ANGLE-R>/lib")
-  # Fix syntax highlighting mess introduced by unclosed bracket above
-  set(dummy ">")
-
-  set(GTEST_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DBUILD_SHARED_LIBS=ON
-      -DBUILD_STATIC_LIBS=OFF
-      -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
-      -DCMAKE_INSTALL_NAME_DIR=${GTEST_INSTALL_NAME_DIR}
-      -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
-      -DCMAKE_MACOSX_RPATH=OFF)
-  set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
-
-  if(WIN32 AND NOT ARROW_USE_STATIC_CRT)
-    list(APPEND GTEST_CMAKE_ARGS -Dgtest_force_shared_crt=ON)
-  endif()
-
-  externalproject_add(googletest_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${GTEST_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
-                                       ${GMOCK_SHARED_LIB}
-                      CMAKE_ARGS ${GTEST_CMAKE_ARGS})
-  if(WIN32)
-    # Copy the built shared libraries to the same directory as our
-    # test programs because Windows doesn't provided rpath (run-time
-    # search path) feature. We need to put these shared libraries to
-    # the same directory as our test programs or add
-    # _GTEST_LIBRARY_DIR to PATH when we run our test programs. We
-    # choose the former because the latter may be forgotten.
-    set(_GTEST_RUNTIME_DIR "${GTEST_PREFIX}/bin")
-    set(_GTEST_RUNTIME_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(_GTEST_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_RUNTIME_SUFFIX}"
-    )
-    set(_GMOCK_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_RUNTIME_SUFFIX}"
-    )
-    set(_GTEST_MAIN_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
-    )
-    get_property(_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-    if(_GENERATOR_IS_MULTI_CONFIG)
-      set(_GTEST_RUNTIME_OUTPUT_DIR "${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE}")
-    else()
-      set(_GTEST_RUNTIME_OUTPUT_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    endif()
-    externalproject_add_step(googletest_ep copy
-                             COMMAND ${CMAKE_COMMAND} -E make_directory
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GMOCK_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_MAIN_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             DEPENDEES install)
-  endif()
-
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gtest SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gtest
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS
-                                   "GTEST_LINKED_AS_SHARED_LIBRARY=1"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gtest_main
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gmock SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gmock
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS
-                                   "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-  add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(arrow::GTest::gtest googletest_ep)
-  add_dependencies(arrow::GTest::gtest_main googletest_ep)
-  add_dependencies(arrow::GTest::gmock googletest_ep)
-endmacro()
+  add_library(arrow::GTest::gmock ALIAS gmock)
+  add_library(arrow::GTest::gmock_main ALIAS gmock_main)
+  add_library(arrow::GTest::gtest ALIAS gtest)
+  add_library(arrow::GTest::gtest_main ALIAS gtest_main)
+endfunction()
 
 if(ARROW_TESTING)
   set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
   resolve_dependency(GTest
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowTesting
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     1.10.0
-                     ARROW_CMAKE_PACKAGE_NAME
-                     "ArrowTesting")
+                     1.10.0)
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
@@ -2195,9 +2231,8 @@ if(ARROW_TESTING)
     set(ARROW_GTEST_GTEST GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
-    # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
-    # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
-    # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+    string(APPEND ARROW_TESTING_PC_CFLAGS " -I\${includedir}/arrow-gtest")
+    string(APPEND ARROW_TESTING_PC_LIBS " -larrow_gtest")
     set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
     set(ARROW_GTEST_GTEST arrow::GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
@@ -2241,17 +2276,17 @@ macro(build_benchmark)
   file(MAKE_DIRECTORY "${GBENCHMARK_INCLUDE_DIR}")
 
   add_library(benchmark::benchmark STATIC IMPORTED)
-  set_target_properties(benchmark::benchmark
-                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GBENCHMARK_INCLUDE_DIR}")
+  set_target_properties(benchmark::benchmark PROPERTIES IMPORTED_LOCATION
+                                                        "${GBENCHMARK_STATIC_LIB}")
+  target_include_directories(benchmark::benchmark BEFORE
+                             INTERFACE "${GBENCHMARK_INCLUDE_DIR}")
   target_compile_definitions(benchmark::benchmark INTERFACE "BENCHMARK_STATIC_DEFINE")
 
   add_library(benchmark::benchmark_main STATIC IMPORTED)
   set_target_properties(benchmark::benchmark_main
-                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_MAIN_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GBENCHMARK_INCLUDE_DIR}")
+                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_MAIN_STATIC_LIB}")
+  target_include_directories(benchmark::benchmark_main BEFORE
+                             INTERFACE "${GBENCHMARK_INCLUDE_DIR}")
 
   add_dependencies(toolchain-benchmarks gbenchmark_ep)
   add_dependencies(benchmark::benchmark gbenchmark_ep)
@@ -2351,10 +2386,12 @@ endif()
 
 if(ARROW_USE_XSIMD)
   resolve_dependency(xsimd
-                     REQUIRED_VERSION
-                     "8.1.0"
                      FORCE_ANY_NEWER_VERSION
-                     TRUE)
+                     TRUE
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE
+                     REQUIRED_VERSION
+                     "8.1.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(arrow::xsimd INTERFACE IMPORTED)
@@ -2393,9 +2430,8 @@ macro(build_zlib)
   add_library(ZLIB::ZLIB STATIC IMPORTED)
   set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
   set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-  set_target_properties(ZLIB::ZLIB
-                        PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES}
-                                   INTERFACE_INCLUDE_DIRECTORIES ${ZLIB_INCLUDE_DIRS})
+  set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+  target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
 
   add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
@@ -2431,9 +2467,8 @@ macro(build_lz4)
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
   add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(LZ4::lz4
-                        PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
+  set_target_properties(LZ4::lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}")
+  target_include_directories(LZ4::lz4 BEFORE INTERFACE "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
   add_dependencies(LZ4::lz4 lz4_ep)
 
@@ -2482,9 +2517,10 @@ macro(build_zstd)
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
   add_library(zstd::libzstd_static STATIC IMPORTED)
-  set_target_properties(zstd::libzstd_static
-                        PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
+  set_target_properties(zstd::libzstd_static PROPERTIES IMPORTED_LOCATION
+                                                        "${ZSTD_STATIC_LIB}")
+  target_include_directories(zstd::libzstd_static BEFORE
+                             INTERFACE "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
   add_dependencies(zstd::libzstd_static zstd_ep)
@@ -2540,9 +2576,8 @@ macro(build_re2)
 
   file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
   add_library(re2::re2 STATIC IMPORTED)
-  set_target_properties(re2::re2
-                        PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${RE2_PREFIX}/include")
+  set_target_properties(re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}")
+  target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
 
   add_dependencies(toolchain re2_ep)
   add_dependencies(re2::re2 re2_ep)
@@ -2604,10 +2639,8 @@ macro(build_bzip2)
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
   add_library(BZip2::BZip2 STATIC IMPORTED)
-  set_target_properties(BZip2::BZip2
-                        PROPERTIES IMPORTED_LOCATION "${BZIP2_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${BZIP2_PREFIX}/include")
+  set_target_properties(BZip2::BZip2 PROPERTIES IMPORTED_LOCATION "${BZIP2_STATIC_LIB}")
+  target_include_directories(BZip2::BZip2 BEFORE INTERFACE "${BZIP2_PREFIX}/include")
   set(BZIP2_INCLUDE_DIR "${BZIP2_PREFIX}/include")
 
   add_dependencies(toolchain bzip2_ep)
@@ -2618,13 +2651,6 @@ endmacro()
 
 if(ARROW_WITH_BZ2)
   resolve_dependency(BZip2 PC_PACKAGE_NAMES bzip2)
-
-  if(NOT TARGET BZip2::BZip2)
-    add_library(BZip2::BZip2 UNKNOWN IMPORTED)
-    set_target_properties(BZip2::BZip2
-                          PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
-                                     INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
-  endif()
 
   if(${BZip2_SOURCE} STREQUAL "SYSTEM"
      AND NOT bzip2_PC_FOUND
@@ -2666,9 +2692,9 @@ macro(build_utf8proc)
   add_library(utf8proc::utf8proc STATIC IMPORTED)
   set_target_properties(utf8proc::utf8proc
                         PROPERTIES IMPORTED_LOCATION "${UTF8PROC_STATIC_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS "UTF8PROC_STATIC"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${UTF8PROC_PREFIX}/include")
+                                   INTERFACE_COMPILE_DEFINITIONS "UTF8PROC_STATIC")
+  target_include_directories(utf8proc::utf8proc BEFORE
+                             INTERFACE "${UTF8PROC_PREFIX}/include")
 
   add_dependencies(toolchain utf8proc_ep)
   add_dependencies(utf8proc::utf8proc utf8proc_ep)
@@ -2678,10 +2704,10 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   resolve_dependency(utf8proc
-                     REQUIRED_VERSION
-                     "2.2.0"
                      PC_PACKAGE_NAMES
-                     libutf8proc)
+                     libutf8proc
+                     REQUIRED_VERSION
+                     "2.2.0")
   add_definitions(-DARROW_WITH_UTF8PROC)
 endif()
 
@@ -2710,9 +2736,8 @@ macro(build_cares)
 
   add_dependencies(toolchain cares_ep)
   add_library(c-ares::cares STATIC IMPORTED)
-  set_target_properties(c-ares::cares
-                        PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
+  set_target_properties(c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}")
+  target_include_directories(c-ares::cares BEFORE INTERFACE "${CARES_INCLUDE_DIR}")
   add_dependencies(c-ares::cares cares_ep)
 
   if(APPLE)
@@ -2923,15 +2948,14 @@ macro(build_absl)
         "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
     add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
-    set_target_properties(absl::${_ABSL_LIB}
-                          PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
-                                     INTERFACE_INCLUDE_DIRECTORIES "${ABSL_INCLUDE_DIR}")
+    set_target_properties(absl::${_ABSL_LIB} PROPERTIES IMPORTED_LOCATION
+                                                        ${_ABSL_STATIC_LIBRARY})
+    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
     list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
   endforeach()
   foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
     add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
-    set_target_properties(absl::${_ABSL_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                        "${ABSL_INCLUDE_DIR}")
+    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
   endforeach()
 
   # Extracted the dependency information using the Abseil pkg-config files:
@@ -3694,6 +3718,10 @@ endmacro()
 
 macro(build_grpc)
   resolve_dependency(c-ares
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
                      HAVE_ALT
                      TRUE
                      PC_PACKAGE_NAMES
@@ -3847,9 +3875,9 @@ macro(build_grpc)
   file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
 
   add_library(gRPC::upb STATIC IMPORTED)
-  set_target_properties(gRPC::upb
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_UPB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set_target_properties(gRPC::upb PROPERTIES IMPORTED_LOCATION
+                                             "${GRPC_STATIC_LIBRARY_UPB}")
+  target_include_directories(gRPC::upb BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   set(GRPC_GPR_ABSL_LIBRARIES
       # We need a flattened list of Abseil libraries for the static linking case,
@@ -3908,44 +3936,43 @@ macro(build_grpc)
       absl::log_severity)
 
   add_library(gRPC::gpr STATIC IMPORTED)
-  set_target_properties(gRPC::gpr
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
-                                   INTERFACE_LINK_LIBRARIES "${GRPC_GPR_ABSL_LIBRARIES}")
+  set_target_properties(gRPC::gpr PROPERTIES IMPORTED_LOCATION
+                                             "${GRPC_STATIC_LIBRARY_GPR}")
+  target_link_libraries(gRPC::gpr INTERFACE ${GRPC_GPR_ABSL_LIBRARIES})
+  target_include_directories(gRPC::gpr BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::address_sorting STATIC IMPORTED)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}")
+  target_include_directories(gRPC::address_sorting BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc++_reflection STATIC IMPORTED)
   set_target_properties(gRPC::grpc++_reflection
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}")
+  target_include_directories(gRPC::grpc++_reflection BEFORE
+                             INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc STATIC IMPORTED)
-  set(GRPC_LINK_LIBRARIES
-      gRPC::gpr
-      gRPC::upb
-      gRPC::address_sorting
-      re2::re2
-      c-ares::cares
-      ZLIB::ZLIB
-      OpenSSL::SSL
-      Threads::Threads)
-  set_target_properties(gRPC::grpc
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
-                                   INTERFACE_LINK_LIBRARIES "${GRPC_LINK_LIBRARIES}")
+  set_target_properties(gRPC::grpc PROPERTIES IMPORTED_LOCATION
+                                              "${GRPC_STATIC_LIBRARY_GRPC}")
+  target_link_libraries(gRPC::grpc
+                        INTERFACE gRPC::gpr
+                                  gRPC::upb
+                                  gRPC::address_sorting
+                                  re2::re2
+                                  c-ares::cares
+                                  ZLIB::ZLIB
+                                  OpenSSL::SSL
+                                  Threads::Threads)
+  target_include_directories(gRPC::grpc BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc++ STATIC IMPORTED)
-  set(GRPCPP_LINK_LIBRARIES gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  set_target_properties(gRPC::grpc++
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
-                                   INTERFACE_LINK_LIBRARIES "${GRPCPP_LINK_LIBRARIES}")
+  set_target_properties(gRPC::grpc++ PROPERTIES IMPORTED_LOCATION
+                                                "${GRPC_STATIC_LIBRARY_GRPCPP}")
+  target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
+  target_include_directories(gRPC::grpc++ BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
@@ -3991,6 +4018,10 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use gRPC with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
   set(ARROW_GRPC_REQUIRED_VERSION "1.30.0")
   if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
     # ARROW-15495: Protobuf/gRPC must come from the same source
@@ -3998,12 +4029,16 @@ if(ARROW_WITH_GRPC)
     set(gRPC_SOURCE "${Protobuf_SOURCE}")
   endif()
   resolve_dependency(gRPC
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_GRPC_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
-                     grpc++)
+                     grpc++
+                     REQUIRED_VERSION
+                     ${ARROW_GRPC_REQUIRED_VERSION})
 
   if(GRPC_VENDORED)
     # Remove "v" from "vX.Y.Z"
@@ -4058,11 +4093,11 @@ macro(build_crc32c_once)
     # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
     file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
     add_library(Crc32c::crc32c STATIC IMPORTED)
-    set_target_properties(Crc32c::crc32c
-                          PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${CRC32C_INCLUDE_DIR}")
+    set_target_properties(Crc32c::crc32c PROPERTIES IMPORTED_LOCATION
+                                                    ${_CRC32C_STATIC_LIBRARY})
+    target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS Crc32c::crc32c)
   endif()
 endmacro()
 
@@ -4089,9 +4124,8 @@ macro(build_nlohmann_json)
   file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
 
   add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-  set_target_properties(nlohmann_json::nlohmann_json
-                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   "${NLOHMANN_JSON_INCLUDE_DIR}")
+  target_include_directories(nlohmann_json::nlohmann_json BEFORE
+                             INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
   add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
 endmacro()
 if(ARROW_WITH_NLOHMANN_JSON)
@@ -4200,63 +4234,60 @@ macro(build_google_cloud_cpp_storage)
   add_library(google-cloud-cpp::common STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::common
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}")
+  target_include_directories(google-cloud-cpp::common BEFORE
+                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   # Refer to https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/google_cloud_cpp_common.cmake
   # (subsitute `main` for the SHA of the version we use)
   # Version 1.39.0 is at a different place (they refactored after):
   # https://github.com/googleapis/google-cloud-cpp/blob/29e5af8ca9b26cec62106d189b50549f4dc1c598/google/cloud/CMakeLists.txt#L146-L155
-  set_property(TARGET google-cloud-cpp::common
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::cord
-                        absl::memory
-                        absl::optional
-                        absl::span
-                        absl::time
-                        absl::variant
-                        Threads::Threads
-                        OpenSSL::Crypto)
+  target_link_libraries(google-cloud-cpp::common
+                        INTERFACE absl::base
+                                  absl::cord
+                                  absl::memory
+                                  absl::optional
+                                  absl::span
+                                  absl::time
+                                  absl::variant
+                                  Threads::Threads
+                                  OpenSSL::Crypto)
 
   add_library(google-cloud-cpp::rest-internal STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::rest-internal
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
-  set_property(TARGET google-cloud-cpp::rest-internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::span
-                        google-cloud-cpp::common
-                        CURL::libcurl
-                        nlohmann_json::nlohmann_json
-                        OpenSSL::SSL
-                        OpenSSL::Crypto)
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}")
+  target_include_directories(google-cloud-cpp::rest-internal BEFORE
+                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+  target_link_libraries(google-cloud-cpp::rest-internal
+                        INTERFACE absl::span
+                                  google-cloud-cpp::common
+                                  CURL::libcurl
+                                  nlohmann_json::nlohmann_json
+                                  OpenSSL::SSL
+                                  OpenSSL::Crypto)
 
   add_library(google-cloud-cpp::storage STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::storage
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}")
+  target_include_directories(google-cloud-cpp::storage BEFORE
+                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   # Update this from https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/google_cloud_cpp_storage.cmake
-  set_property(TARGET google-cloud-cpp::storage
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        google-cloud-cpp::common
-                        google-cloud-cpp::rest-internal
-                        absl::memory
-                        absl::strings
-                        absl::str_format
-                        absl::time
-                        absl::variant
-                        nlohmann_json::nlohmann_json
-                        Crc32c::crc32c
-                        CURL::libcurl
-                        Threads::Threads
-                        OpenSSL::SSL
-                        OpenSSL::Crypto
-                        ZLIB::ZLIB)
+  target_link_libraries(google-cloud-cpp::storage
+                        INTERFACE google-cloud-cpp::common
+                                  google-cloud-cpp::rest-internal
+                                  absl::memory
+                                  absl::strings
+                                  absl::str_format
+                                  absl::time
+                                  absl::variant
+                                  nlohmann_json::nlohmann_json
+                                  Crc32c::crc32c
+                                  CURL::libcurl
+                                  Threads::Threads
+                                  OpenSSL::SSL
+                                  OpenSSL::Crypto
+                                  ZLIB::ZLIB)
   add_dependencies(google-cloud-cpp::storage google_cloud_cpp_ep)
 
   list(APPEND
@@ -4297,12 +4328,16 @@ macro(build_google_cloud_cpp_storage)
          absl::synchronization
          absl::throw_delegate
          absl::time
-         absl::time_zone
-         Crc32c::crc32c)
+         absl::time_zone)
   endif()
 endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use Google Cloud Platform C++ Client Libraries with ARROW_ENABLE_THREADING=OFF"
+    )
+  endif()
+
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -4399,32 +4434,31 @@ macro(build_orc)
 
   set(ORC_VENDORED 1)
 
-  add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(orc::liborc
-                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
-  set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  add_library(orc::orc STATIC IMPORTED)
+  set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
+  target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
+  target_link_libraries(orc::orc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
+                                           ${Snappy_TARGET})
   # Protobuf generated files may use ABSL_DCHECK*() and
   # absl::log_internal_check_op is needed for them.
   if(TARGET absl::log_internal_check_op)
-    list(APPEND ORC_LINK_LIBRARIES absl::log_internal_check_op)
+    target_link_libraries(orc::orc INTERFACE absl::log_internal_check_op)
   endif()
   if(NOT MSVC)
-    if(NOT APPLE)
-      list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
+    if(NOT APPLE AND ARROW_ENABLE_THREADING)
+      target_link_libraries(orc::orc INTERFACE Threads::Threads)
     endif()
-    list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
+    target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
   endif()
-  target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
 
   add_dependencies(toolchain orc_ep)
-  add_dependencies(orc::liborc orc_ep)
+  add_dependencies(orc::orc orc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::liborc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
 endmacro()
 
 if(ARROW_ORC)
-  resolve_dependency(ORC)
+  resolve_dependency(orc HAVE_ALT TRUE)
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
@@ -4461,9 +4495,8 @@ macro(build_opentelemetry)
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
     add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
-    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
-                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENTELEMETRY_INCLUDE_DIR}")
+    target_include_directories(opentelemetry-cpp::${_OPENTELEMETRY_LIB} BEFORE
+                               INTERFACE "${OPENTELEMETRY_INCLUDE_DIR}")
   endforeach()
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     # N.B. OTel targets and libraries don't follow any consistent naming scheme
@@ -4590,34 +4623,25 @@ macro(build_opentelemetry)
 
   set(OPENTELEMETRY_VENDORED 1)
 
-  set_target_properties(opentelemetry-cpp::common
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::api;opentelemetry-cpp::sdk;Threads::Threads"
-  )
-  set_target_properties(opentelemetry-cpp::resources
-                        PROPERTIES INTERFACE_LINK_LIBRARIES "opentelemetry-cpp::common")
-  set_target_properties(opentelemetry-cpp::trace
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::common;opentelemetry-cpp::resources"
-  )
-  set_target_properties(opentelemetry-cpp::http_client_curl
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::ext;CURL::libcurl")
-  set_target_properties(opentelemetry-cpp::proto
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "${ARROW_PROTOBUF_LIBPROTOBUF}")
-  set_target_properties(opentelemetry-cpp::otlp_recordable
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
-  )
-  set_target_properties(opentelemetry-cpp::otlp_http_client
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::sdk;opentelemetry-cpp::proto;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
-  )
-  set_target_properties(opentelemetry-cpp::otlp_http_exporter
-                        PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::otlp_http_client"
-  )
+  target_link_libraries(opentelemetry-cpp::common
+                        INTERFACE opentelemetry-cpp::api opentelemetry-cpp::sdk
+                                  Threads::Threads)
+  target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
+  target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
+                                                           opentelemetry-cpp::resources)
+  target_link_libraries(opentelemetry-cpp::http_client_curl
+                        INTERFACE opentelemetry-cpp::ext CURL::libcurl)
+  target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+  target_link_libraries(opentelemetry-cpp::otlp_recordable
+                        INTERFACE opentelemetry-cpp::trace opentelemetry-cpp::resources
+                                  opentelemetry-cpp::proto)
+  target_link_libraries(opentelemetry-cpp::otlp_http_client
+                        INTERFACE opentelemetry-cpp::sdk opentelemetry-cpp::proto
+                                  opentelemetry-cpp::http_client_curl
+                                  nlohmann_json::nlohmann_json)
+  target_link_libraries(opentelemetry-cpp::otlp_http_exporter
+                        INTERFACE opentelemetry-cpp::otlp_recordable
+                                  opentelemetry-cpp::otlp_http_client)
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
@@ -4629,6 +4653,10 @@ macro(build_opentelemetry)
 endmacro()
 
 if(ARROW_WITH_OPENTELEMETRY)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use OpenTelemetry with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
   # cURL is required whether we build from source or use an existing installation
   # (OTel's cmake files do not call find_curl for you)
   find_curl()
@@ -4755,15 +4783,15 @@ macro(build_awssdk)
       set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
     endif()
     add_library(${_AWSSDK_TARGET_NAME} STATIC IMPORTED)
-    set_target_properties(${_AWSSDK_TARGET_NAME}
-                          PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${AWSSDK_INCLUDE_DIR}")
+    set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
+                                                            ${_AWSSDK_STATIC_LIBRARY})
+    target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
+                               INTERFACE "${AWSSDK_INCLUDE_DIR}")
     if(${_AWSSDK_LIB} STREQUAL "aws-lc")
-      set_target_properties(${_AWSSDK_TARGET_NAME}
-                            PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
-                                       INTERFACE_INCLUDE_DIRECTORIES
-                                       "${AWS_LC_INCLUDE_DIR}")
+      set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
+                                                              ${_AWSSDK_STATIC_LIBRARY})
+      target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
+                                 INTERFACE "${AWS_LC_INCLUDE_DIR}")
     endif()
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
 
@@ -5035,6 +5063,9 @@ if(ARROW_S3)
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
       endif()
       string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
+      if(APPLE)
+        string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
+      endif()
     endif()
   endif()
 
@@ -5049,6 +5080,63 @@ if(ARROW_S3)
   endif()
 endif()
 
+# ----------------------------------------------------------------------
+# Azure SDK for C++
+
+function(build_azure_sdk)
+  if(CMAKE_VERSION VERSION_LESS 3.22)
+    # We can't disable installing Azure SDK for C++ by
+    # "set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY
+    # EXCLUDE_FROM_ALL TRUE)" with CMake 3.16.
+    #
+    # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
+    # here. We may be able to use more earlier version here.
+    message(FATAL_ERROR "Building Azure SDK for C++ requires at least CMake 3.22. "
+                        "(At least we can't use CMake 3.16)")
+  endif()
+  message(STATUS "Building Azure SDK for C++ from source")
+  fetchcontent_declare(azure_sdk
+                       # EXCLUDE_FROM_ALL is available since CMake 3.28
+                       # EXCLUDE_FROM_ALL TRUE
+                       URL ${ARROW_AZURE_SDK_URL}
+                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
+  set(BUILD_PERFORMANCE_TESTS FALSE)
+  set(BUILD_SAMPLES FALSE)
+  set(BUILD_TESTING FALSE)
+  set(BUILD_WINDOWS_UWP TRUE)
+  set(CMAKE_UNITY_BUILD FALSE)
+  set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
+  set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
+  set(WARNINGS_AS_ERRORS FALSE)
+  fetchcontent_makeavailable(azure_sdk)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${azure_sdk_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+  set(AZURE_SDK_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       Azure::azure-core
+       Azure::azure-identity
+       Azure::azure-storage-blobs
+       Azure::azure-storage-common
+       Azure::azure-storage-files-datalake)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
+
+if(ARROW_WITH_AZURE_SDK)
+  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
+  set(AZURE_SDK_LINK_LIBRARIES
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-common
+      Azure::azure-storage-blobs
+      Azure::azure-identity
+      Azure::azure-core)
+endif()
 # ----------------------------------------------------------------------
 # ucx - communication framework for modern, high-bandwidth and low-latency networks
 
@@ -5119,7 +5207,13 @@ macro(build_ucx)
 endmacro()
 
 if(ARROW_WITH_UCX)
-  resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
+  resolve_dependency(ucx
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
+                     PC_PACKAGE_NAMES
+                     ucx)
   add_library(ucx::ucx INTERFACE IMPORTED)
   target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
   target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)

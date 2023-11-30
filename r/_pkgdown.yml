@@ -146,12 +146,20 @@ reference:
   - open_delim_dataset
   - open_csv_dataset
   - open_tsv_dataset
+  - csv_read_options
+  - csv_parse_options
+  - csv_convert_options
+
 
 - title: Write datasets
   desc: >
     Write multi-file datasets to disk.
   contents:
   - write_dataset
+  - write_delim_dataset
+  - write_csv_dataset
+  - write_tsv_dataset
+  - csv_write_options
 
 - title: Read files
   desc: >
