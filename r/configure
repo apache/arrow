@@ -113,7 +113,9 @@ fi
 # Test if pkg-config is available to use
 if ${PKG_CONFIG} --version >/dev/null 2>&1; then
   PKG_CONFIG_AVAILABLE="true"
+  echo "*** pkg-config found."
 else
+  echo "*** pkg-config not found."
   PKG_CONFIG_AVAILABLE="false"
   ARROW_USE_PKG_CONFIG="false"
 fi
