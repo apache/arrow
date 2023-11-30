@@ -1200,43 +1200,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/c/dlpack_abi.h" nogil:
-    cdef enum DLDeviceType:
-        kDLCPU = 1
-        kDLCUDA = 2
-        kDLCUDAHost = 3
-        kDLOpenCL = 4
-        kDLVulkan = 7
-        kDLMetal = 8
-        kDLVPI = 9
-        kDLROCM = 10
-        kDLROCMHost = 11
-        kDLExtDev = 12
-        kDLCUDAManaged = 13
-        kDLOneAPI = 14
-        kDLWebGPU = 15
-        kDLHexagon = 16
-
-    ctypedef struct DLDevice:
-        DLDeviceType device_type
-        int32_t device_id
-
-    ctypedef struct DLDataType:
-        uint8_t code
-        uint8_t bits
-        uint16_t lanes
-
-    ctypedef struct DLTensor:
-        void* data
-        DLDevice device
-        int32_t ndim
-        DLDataType dtype
-        int64_t* shape
-        int64_t* strides
-        uint64_t byte_offset
-
     ctypedef struct DLManagedTensor:
-        DLTensor dl_tensor
-        void* manager_ctx
         void (*deleter)(DLManagedTensor*)
 
 
