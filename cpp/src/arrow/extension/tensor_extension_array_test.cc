@@ -637,9 +637,9 @@ TEST_F(TestVariableShapeTensorType, RoudtripBatch) {
 }
 
 TEST_F(TestVariableShapeTensorType, ComputeStrides) {
-  auto shapes = ArrayFromJSON(shape_type_, "[[2,3,1],[2,1,2],[3,1,3]]");
-  auto data =
-      ArrayFromJSON(data_type_, "[[1,1,2,3,4,5],[2,7,8,9],[10,11,12,13,14,15,16,17,18]]");
+  auto shapes = ArrayFromJSON(shape_type_, "[[2,3,1],[2,1,2],[3,1,3],null]");
+  auto data = ArrayFromJSON(
+      data_type_, "[[1,1,2,3,4,5],[2,7,8,9],[10,11,12,13,14,15,16,17,18],null]");
   std::vector<std::shared_ptr<Field>> fields = {field("shapes", shape_type_),
                                                 field("data", data_type_)};
   ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({shapes, data}, fields));
@@ -690,6 +690,25 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_OK_AND_ASSIGN(auto sc, ext_arr->GetScalar(2));
   auto s = internal::checked_pointer_cast<ExtensionScalar>(sc);
   ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(s));
+  ASSERT_EQ(tensor->strides(), t->strides());
+  ASSERT_EQ(tensor->shape(), t->shape());
+  ASSERT_EQ(tensor->dim_names(), t->dim_names());
+  ASSERT_EQ(tensor->type(), t->type());
+  ASSERT_EQ(tensor->is_contiguous(), t->is_contiguous());
+  ASSERT_EQ(tensor->is_column_major(), t->is_column_major());
+  ASSERT_TRUE(tensor->Equals(*t));
+
+  // Null value in VariableShapeTensorArray produces a tensor with shape {0, 0, 0}
+  shape = {0, 0, 0};
+  strides = {sizeof(int64_t), sizeof(int64_t), sizeof(int64_t)};
+  values = {};
+  data_buffer = Buffer::Wrap(values);
+  ASSERT_OK_AND_ASSIGN(tensor,
+                       Tensor::Make(int64(), data_buffer, shape, strides, dim_names_));
+
+  ASSERT_OK_AND_ASSIGN(sc, ext_arr->GetScalar(3));
+  ASSERT_OK_AND_ASSIGN(
+      t, exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(sc)));
   ASSERT_EQ(tensor->strides(), t->strides());
   ASSERT_EQ(tensor->shape(), t->shape());
   ASSERT_EQ(tensor->dim_names(), t->dim_names());
