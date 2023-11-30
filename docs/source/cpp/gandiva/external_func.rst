@@ -20,12 +20,12 @@ Gandiva External Functions Development Guide
 ============================================
 
 Introduction
-===============
+============
 
 Gandiva, as an analytical expression compiler framework, extends its functionality through external functions. This guide is focused on helping developers understand, create, and integrate external functions into Gandiva. External functions are user-defined, third-party functions that can be used in Gandiva expressions.
 
 Overview of External Function Types in Gandiva
-=================================================
+==============================================
 
 Gandiva supports two primary types of external functions:
 
@@ -34,7 +34,7 @@ Gandiva supports two primary types of external functions:
 * IR Functions: Functions implemented in LLVM Intermediate Representation (LLVM IR). These can be written in multiple languages and then compiled into LLVM IR to be registered in Gandiva.
 
 Choosing the Right Type of External Function for Your Needs
----------------------------------------------------------------
+-----------------------------------------------------------
 
 When integrating external functions into Gandiva, it's crucial to select the type that best fits your specific requirements. Here are the key distinctions between C Functions and IR Functions to guide your decision:
 
@@ -51,7 +51,7 @@ When integrating external functions into Gandiva, it's crucial to select the typ
    :alt: External C functions and IR functions integrating with Gandiva
 
 External function registration
-=================================
+==============================
 
 To make a function available to Gandiva, you need to register it as an external function, providing both a function's metadata and its implementation to Gandiva.
 
@@ -86,15 +86,15 @@ The ``NativeFunction`` class is used to define the metadata for an external func
 After the function is registered, its implementation needs to be provided via either a C function pointer or a LLVM IR function.
 
 External C functions
-------------------------
+--------------------
 
 External C functions can be authored in different languages and exposed as C functions. Compatibility with Gandiva's type system is crucial.
 
 C Function Signature
-**************************
+********************
 
 Signature Mapping
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
 Not all Arrow data types are supported in Gandiva. The following table lists the mapping between Gandiva external function signature types and the C function signature types:
 
@@ -184,7 +184,7 @@ When ``arrow::StringType`` (``utf8`` type) is used as the return type in a funct
    * **Memory Allocation and Error Messaging:** Within the function's implementation, use ``gdv_fn_context_arena_malloc`` and ``gdv_fn_context_set_error_msg`` for memory allocation and error messaging, respectively. Both functions take ``int64_t context`` as their first parameter, facilitating efficient context utilization.
 
 External C function registration APIs
--------------------------------------------
+-------------------------------------
 
 You can use ``gandiva::FunctionRegistry``'s APIs to register external C functions:
 
@@ -207,15 +207,15 @@ The above API allows you to register an external C function.
 * The optional ``function_holder_maker`` is used to create a function holder for the external C function if the external C function requires a function holder. Check out the ``gandiva::FunctionHolder`` class and its several sub-classes for more details.
 
 External IR functions
--------------------------
+---------------------
 
 IR function implementation
-********************************
+**************************
 
 Gandiva's support for IR (Intermediate Representation) functions provides the flexibility to implement these functions in various programming languages, depending on your specific needs.
 
 Examples and Tools for Compilation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. **Using C++ or C:**
 
@@ -227,12 +227,12 @@ Examples and Tools for Compilation
    * In projects where C++ is used alongside CMake, consider leveraging the ``GandivaAddBitcode.cmake`` module from the Arrow repository. This module can streamline the process of adding your custom bitcode to Gandiva.
 
 Consistency in Parameter and Return Types
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 It is important to maintain consistency with the parameter and return types as established in C functions. Adhering to the rules discussed in the previous section ensures compatibility with Gandiva's type system.
 
 Registering External IR Functions in Gandiva
-**************************************************
+********************************************
 
 1. **Post-Implementation and Compilation:**
 
@@ -267,6 +267,6 @@ Registering External IR Functions in Gandiva
    * The ``NativeFunction`` instances play a crucial role in this process, serving to define the metadata for each of the external IR functions being registered.
 
 Conclusion
-=============
+==========
 
 This guide provides an overview and detailed steps for integrating external functions into Gandiva. It covers both C and IR functions, and their registration in Gandiva. For more complex scenarios, refer to Gandiva's documentation and example implementations in source code.
