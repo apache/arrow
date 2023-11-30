@@ -1545,6 +1545,13 @@ def test_variable_shape_tensor_class_methods(value_type):
     assert arr[1].to_tensor().equals(
         pa.Tensor.from_numpy(expected_1, dim_names=["H", "W"]))
 
+    shapes = pa.array([[2, 3], [0, 0]], shape_type)
+    values = pa.array([[1, 2, 3, 4, 5, 6], []], pa.list_(arrow_type))
+    struct_arr = pa.StructArray.from_arrays([shapes, values], fields=fields)
+    arr = pa.ExtensionArray.from_storage(tensor_type, struct_arr)
+    np.testing.assert_array_equal(arr[1].to_tensor().to_numpy(), np.array(
+        [], dtype=value_type).reshape(shapes[1].as_py()))
+
 
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
