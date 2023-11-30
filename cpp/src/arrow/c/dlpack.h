@@ -48,6 +48,7 @@ Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out);
 /// device which is 0 by default for CPU.
 ///
 /// \param[in] arr Arrow array
+/// \param[out] out DLDevice struct
 /// \return DLDevice
 ARROW_EXPORT
 Status ExportDevice(const std::shared_ptr<Array>& arr, DLDevice* out);
