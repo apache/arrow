@@ -72,7 +72,7 @@ find_latest_nightly <- function(description_version,
     lg("Failed to find latest nightly for %s", description_version)
     latest <- description_version
   } else {
-    lg("Found latest nightly for %s: %s", description_version, res)
+    lg("Latest available nightly for %s: %s", description_version, res)
     latest <- res
   }
   latest
