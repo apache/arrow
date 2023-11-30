@@ -571,7 +571,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelector) {
   select.base_dir = "";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 3);
-  SortInfos(&infos);
+  ASSERT_EQ(infos, SortedInfos(infos));
   AssertFileInfo(infos[0], "container", FileType::Directory);
   AssertFileInfo(infos[1], "empty-container", FileType::Directory);
   AssertFileInfo(infos[2], container_name_, FileType::Directory);
@@ -590,7 +590,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelector) {
   // Non-empty container
   select.base_dir = "container";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  SortInfos(&infos);
+  ASSERT_EQ(infos, SortedInfos(infos));
   ASSERT_EQ(infos.size(), 4);
   AssertFileInfo(infos[0], "container/emptydir", FileType::Directory);
   AssertFileInfo(infos[1], "container/otherdir", FileType::Directory);
@@ -626,7 +626,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelector) {
   ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
   select.base_dir = "container/";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  SortInfos(&infos);
+  ASSERT_EQ(infos, SortedInfos(infos));
   ASSERT_EQ(infos.size(), 4);
 }
 
@@ -641,7 +641,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
   select.base_dir = "";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 14);
-  SortInfos(&infos);
+  ASSERT_EQ(infos, SortedInfos(infos));
   AssertInfoAllContainersRecursive(infos);
 
   // Empty container
@@ -652,7 +652,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
   // Non-empty container
   select.base_dir = "container";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  SortInfos(&infos);
+  ASSERT_EQ(infos, SortedInfos(infos));
   ASSERT_EQ(infos.size(), 10);
   AssertFileInfo(infos[0], "container/emptydir", FileType::Directory);
   AssertFileInfo(infos[1], "container/otherdir", FileType::Directory);
@@ -673,14 +673,14 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
   // Non-empty "directories"
   select.base_dir = "container/somedir";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  SortInfos(&infos);
+  ASSERT_EQ(infos, SortedInfos(infos));
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "container/somedir/subdir", FileType::Directory);
   AssertFileInfo(infos[1], "container/somedir/subdir/subfile", FileType::File, 8);
 
   select.base_dir = "container/otherdir";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  SortInfos(&infos);
+  ASSERT_EQ(infos, SortedInfos(infos));
   ASSERT_EQ(infos.size(), 4);
   AssertFileInfo(infos[0], "container/otherdir/1", FileType::Directory);
   AssertFileInfo(infos[1], "container/otherdir/1/2", FileType::Directory);
