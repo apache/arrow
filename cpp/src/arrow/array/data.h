@@ -435,21 +435,26 @@ struct ARROW_EXPORT ArraySpan {
     return GetValues<T>(i, this->offset);
   }
 
-  // Access a buffer's data as a span
+  /// \brief Access a buffer's data as a span
+  ///
+  /// \param i The buffer index
+  /// \param length The required length (in number of typed values) of the requested span
+  /// \pre i > 0
+  /// \pre length <= the length of the buffer (in number of values) that's expected for
+  /// this array type \return A span<const T> of the requested length
   template <typename T>
   util::span<const T> GetSpan(int i, int64_t length) const {
-    int buffer_length = static_cast<size_t>(buffers[i].size) / sizeof(T);
-    assert(length > 0 && length + offset <= buffer_length);
-    util::span<const T> data_span(buffers[i].data_as<T>(), buffer_length);
-    return data_span.subspan(offset, length);
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    assert(i > 0 && length + offset <= buffer_length);
+    return util::span<const T>(buffers[i].data_as<T>() + this->offset, length);
   }
 
   template <typename T>
   util::span<T> GetSpan(int i, int64_t length) {
-    int buffer_length = static_cast<size_t>(buffers[i].size) / sizeof(T);
-    assert(length > 0 && length + offset <= buffer_length);
-    util::span<T> data_span(buffers[i].mutable_data_as<T>(), buffer_length);
-    return data_span.subspan(offset, length);
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    ;
+    assert(i > 0 && length + offset <= buffer_length);
+    return util::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
   }
 
   inline bool IsNull(int64_t i) const { return !IsValid(i); }
