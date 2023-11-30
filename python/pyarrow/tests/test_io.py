@@ -1159,6 +1159,18 @@ def test_native_file_modes(tmpdir):
         assert f.writable()
         assert not f.seekable()
 
+    with pa.OSFile(path, mode='ab') as f:
+        assert f.mode == 'ab'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
+
+    with pa.OSFile(path, mode='a') as f:
+        assert f.mode == 'ab'
+        assert not f.readable()
+        assert f.writable()
+        assert not f.seekable()
+
     with open(path, 'wb') as f:
         f.write(b'foooo')
 

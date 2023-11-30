@@ -111,6 +111,7 @@ cdef class NativeFile(_Weakrefable):
         self.is_readable = False
         self.is_writable = False
         self.is_seekable = False
+        self._is_appending = False
 
     def __dealloc__(self):
         if self.own_file:
@@ -139,12 +140,15 @@ cdef class NativeFile(_Weakrefable):
         * rb: binary read
         * wb: binary write
         * rb+: binary read and write
+        * ab: binary append
         """
         # Emulate built-in file modes
         if self.is_readable and self.is_writable:
             return 'rb+'
         elif self.is_readable:
             return 'rb'
+        elif self.is_writable and self._is_appending:
+            return 'ab'
         elif self.is_writable:
             return 'wb'
         else:
@@ -1116,8 +1120,10 @@ cdef class OSFile(NativeFile):
     Open the file to append:
 
     >>> with pa.OSFile('example_osfile.arrow', mode='ab') as f:
+    ...     f.mode
     ...     f.write(b' is super!')
     ...
+    'ab'
     10
     >>> with pa.OSFile('example_osfile.arrow') as f:
     ...     f.read()
@@ -1163,6 +1169,7 @@ cdef class OSFile(NativeFile):
         with nogil:
             self.output_stream = GetResultValue(FileOutputStream.Open(path, append))
         self.is_writable = True
+        self._is_appending = append
 
     def fileno(self):
         self._assert_open()
