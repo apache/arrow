@@ -53,3 +53,8 @@ cpdef object to_dlpack(Array arr) except *:
     check_status(ExportToDLPack(pyarrow_unwrap_array(arr), &dlm_tensor))
 
     return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
+
+cpdef object to_dlpack(Array arr) except *:
+
+    cdef DLDeviceType device_type
+    return GetResultValue(ExportDeviceType(pyarrow_unwrap_array(arr)))

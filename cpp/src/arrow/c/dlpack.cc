@@ -73,8 +73,7 @@ static void deleter(DLManagedTensor* arg) {
 
 Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
   if (arr->null_count() > 0) {
-    return Status::TypeError(
-        "Can only use __dlpack__ on arrays with no nulls.");
+    return Status::TypeError("Can only use __dlpack__ on arrays with no nulls.");
   }
 
   // Define the DLDataType struct
@@ -132,6 +131,15 @@ Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
 
   *out = dlm_tensor;
   return Status::OK();
+}
+
+Result<DLDeviceType> ExportDeviceType(const std::shared_ptr<Array>& arr) {
+  if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
+    return DLDeviceType::kDLCPU;
+  } else {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
 }
 
 }  // namespace dlpack

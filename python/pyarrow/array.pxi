@@ -1800,6 +1800,12 @@ cdef class Array(_PandasConvertible):
                 "Only stream=None is supported."
             )
 
+    def __dlpack_device__(self):
+        """
+        Performs the operation __dlpack_device__.
+        """
+        return dlpack_device(self)
+
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:

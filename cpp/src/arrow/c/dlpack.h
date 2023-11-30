@@ -43,6 +43,14 @@ namespace dlpack {
 ARROW_EXPORT
 Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out);
 
+/// \brief Get DLDeviceType enumerator specifying the
+/// type of the device data is stored on.
+///
+/// \param[in] arr Arrow array
+/// \return DLDeviceType
+ARROW_EXPORT
+Result<DLDeviceType> ExportDeviceType(const std::shared_ptr<Array>& arr);
+
 }  // namespace dlpack
 
 }  // namespace arrow

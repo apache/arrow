@@ -1200,6 +1200,22 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
 
 cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    cdef enum DLDeviceType:
+        kDLCPU = 1
+        kDLCUDA = 2
+        kDLCUDAHost = 3
+        kDLOpenCL = 4
+        kDLVulkan = 7
+        kDLMetal = 8
+        kDLVPI = 9
+        kDLROCM = 10
+        kDLROCMHost = 11
+        kDLExtDev = 12
+        kDLCUDAManaged = 13
+        kDLOneAPI = 14
+        kDLWebGPU = 15
+        kDLHexagon = 16
+
     ctypedef struct DLManagedTensor:
         void (*deleter)(DLManagedTensor*)
 
@@ -1207,6 +1223,8 @@ cdef extern from "arrow/c/dlpack_abi.h" nogil:
 cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
     CStatus ExportToDLPack" arrow::dlpack::ExportArray"(const shared_ptr[CArray]& arr,
                                                         DLManagedTensor** out)
+
+    CResult[DLDeviceType] ExportDeviceType(const shared_ptr[CArray]& arr)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
