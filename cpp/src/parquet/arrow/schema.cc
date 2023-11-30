@@ -78,7 +78,6 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                    const WriterProperties& properties,
                    const ArrowWriterProperties& arrow_properties, NodePtr* out);
 
-// TODO(mwish): handle LIST_VIEW
 Status ListToNode(const std::shared_ptr<::arrow::BaseListType>& type,
                   const std::string& name, bool nullable, int field_id,
                   const WriterProperties& properties,
@@ -410,7 +409,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::FIXED_SIZE_LIST:
     case ArrowTypeId::LARGE_LIST:
-    case ArrowTypeId::LIST: {
+    case ArrowTypeId::LIST:
+    case ArrowTypeId::LARGE_LIST_VIEW:
+    case ArrowTypeId::LIST_VIEW: {
       auto list_type = std::static_pointer_cast<::arrow::BaseListType>(field->type());
       return ListToNode(list_type, name, field->nullable(), field_id, properties,
                         arrow_properties, out);
@@ -840,7 +841,6 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
 
 Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* inferred);
 
-// TODO(mwish): handle {LARGE_}LIST_VIEW here.
 std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
     const ArrowType& origin_type, const ArrowType& inferred_type) {
   switch (inferred_type.id()) {
@@ -870,6 +870,20 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
           return ::arrow::fixed_size_list(std::move(fields[0]), list_size);
         };
       }
+      if (origin_type.id() == ::arrow::Type::LIST_VIEW) {
+        // Reading LIST_VIEW as LIST as a workaround.
+        return [](FieldVector fields) {
+          DCHECK_EQ(fields.size(), 1);
+          return ::arrow::list(std::move(fields[0]));
+        };
+      }
+      if (origin_type.id() == ::arrow::Type::LARGE_LIST_VIEW) {
+        // Reading LARGE_LIST_VIEW as LARGE_LIST as a workaround.
+        return [](FieldVector fields) {
+          DCHECK_EQ(fields.size(), 1);
+          return ::arrow::large_list_view(std::move(fields[0]));
+        };
+      }
       break;
     default:
       break;
@@ -890,7 +904,8 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     DCHECK_EQ(static_cast<int>(inferred->children.size()), num_children);
     const auto factory = GetNestedFactory(*origin_type, *inferred_type);
     if (factory) {
-      // The type may be modified (e.g. LargeList) while the children stay the same
+      // The type may be modified (e.g. LargeList, ListView, LargeListView)
+      // while the children stay the same.
       modified |= origin_type->id() != inferred_type->id();
 
       // Apply original metadata recursively to children

@@ -34,6 +34,7 @@ namespace parquet::arrow {
 using ::arrow::default_memory_pool;
 using ::arrow::field;
 using ::arrow::fixed_size_list;
+using ::arrow::list_view;
 using ::arrow::Status;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
@@ -113,9 +114,50 @@ class MultipathLevelBuilderTest : public testing::Test {
       ArrowWriteContext(default_memory_pool(), arrow_properties_.get());
 };
 
-TEST_F(MultipathLevelBuilderTest, NonNullableSingleListNonNullableEntries) {
+class MultipathLevelListTool {
+ public:
+  static std::shared_ptr<::arrow::DataType> get_list(
+      const std::shared_ptr<::arrow::Field>& element) {
+    return ::arrow::list(element);
+  }
+  static std::shared_ptr<::arrow::DataType> get_list(
+      const std::shared_ptr<::arrow::DataType>& element) {
+    return ::arrow::list(element);
+  }
+  static std::shared_ptr<::arrow::DataType> get_large_list(
+      const std::shared_ptr<::arrow::Field>& element) {
+    return ::arrow::large_list(element);
+  }
+};
+
+class MultipathLevelListViewTool {
+ public:
+  static std::shared_ptr<::arrow::DataType> get_list(
+      const std::shared_ptr<::arrow::Field>& element) {
+    return ::arrow::list_view(element);
+  }
+  static std::shared_ptr<::arrow::DataType> get_list(
+      const std::shared_ptr<::arrow::DataType>& element) {
+    return ::arrow::list_view(element);
+  }
+  static std::shared_ptr<::arrow::DataType> get_large_list(
+      const std::shared_ptr<::arrow::Field>& element) {
+    return ::arrow::large_list_view(element);
+  }
+};
+
+template <typename ListTool>
+class MultipathLevelBuilderListTest : public MultipathLevelBuilderTest {
+  using MultipathLevelBuilderTest::MultipathLevelBuilderTest;
+};
+
+using TestListTypes =
+    ::testing::Types<MultipathLevelListTool, MultipathLevelListViewTool>;
+TYPED_TEST_SUITE(MultipathLevelBuilderListTest, TestListTypes);
+
+TYPED_TEST(MultipathLevelBuilderListTest, NonNullableSingleListNonNullableEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
-  auto list_type = large_list(entries);
+  auto list_type = TypeParam::get_large_list(entries);
   // Translates to parquet schema:
   // required group bag {
   //   repeated group [unseen] (List) {
@@ -127,11 +169,11 @@ TEST_F(MultipathLevelBuilderTest, NonNullableSingleListNonNullableEntries) {
   // def level 1: a non-null entry
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[1], [2, 3], [4, 5, 6]])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/false, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/false, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
 
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/6, 1),
                      /*rep_levels=*/{0, 0, 1, 0, 1, 1});
@@ -141,9 +183,9 @@ TEST_F(MultipathLevelBuilderTest, NonNullableSingleListNonNullableEntries) {
   EXPECT_THAT(result.post_list_elements[0].end, Eq(6));
 }
 
-TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
+TYPED_TEST(MultipathLevelBuilderListTest, NullableSingleListWithAllNullsLists) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
   // Translates to parquet schema:
   // optional group bag {
   //   repeated group [unseen] (List) {
@@ -157,18 +199,18 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullsLists) {
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([null, null, null, null])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/4, 0),
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
 }
 
-TEST_F(MultipathLevelBuilderTest, NullableSingleListWithMixedElements) {
+TYPED_TEST(MultipathLevelBuilderListTest, NullableSingleListWithMixedElements) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
   // Translates to parquet schema:
   // optional group bag {
   //   repeated group [unseen] (List) {
@@ -182,19 +224,19 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithMixedElements) {
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([null, [], null, [1]])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 1, 0, 2},
                      /*rep_levels=*/std::vector<int16_t>(/*count=*/4, 0));
 }
 
-TEST_F(MultipathLevelBuilderTest, EmptyLists) {
+TYPED_TEST(MultipathLevelBuilderListTest, EmptyLists) {
   // ARROW-13676 - ensure no out of bounds list memory accesses.
   auto entries = field("Entries", ::arrow::int64());
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
   // Number of elements is important, to work past buffer padding hiding
   // the issue.
   auto array = ::arrow::ArrayFromJSON(list_type, R"([
@@ -212,18 +254,18 @@ TEST_F(MultipathLevelBuilderTest, EmptyLists) {
   // def level 2: a null entry
   // def level 3: a non-null entry
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/15, 1),
                      /*rep_levels=*/std::vector<int16_t>(15, 0));
 }
 
-TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
+TYPED_TEST(MultipathLevelBuilderListTest, NullableSingleListWithAllEmptyLists) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/false);
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
   // Translates to parquet schema:
   // optional group bag {
   //   repeated group [unseen] (List) {
@@ -237,11 +279,11 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [], []])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/4, 1),
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
 }
@@ -259,17 +301,17 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyLists) {
 // def level 2: a null entry
 // def level 3: a non-null entry
 
-TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullEntries) {
+TYPED_TEST(MultipathLevelBuilderListTest, NullableSingleListWithAllNullEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[null], [null], [null], [null]])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/4, 2),
                      /*rep_levels=*/std::vector<int16_t>(4, 0));
   ASSERT_THAT(result.post_list_elements, SizeIs(1));
@@ -277,17 +319,17 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllNullEntries) {
   EXPECT_THAT(result.post_list_elements[0].end, Eq(4));
 }
 
-TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllPresentEntries) {
+TYPED_TEST(MultipathLevelBuilderListTest, NullableSingleListWithAllPresentEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [1], [], [2, 3]])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>{1, 1, 3, 1, 3, 3},
                      /*rep_levels=*/std::vector<int16_t>{0, 0, 0, 0, 0, 1});
 
@@ -296,33 +338,34 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllPresentEntries) {
   EXPECT_THAT(result.post_list_elements[0].end, Eq(3));
 }
 
-TEST_F(MultipathLevelBuilderTest, NullableSingleListWithAllEmptyEntries) {
+TYPED_TEST(MultipathLevelBuilderListTest, NullableSingleListWithAllEmptyEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
 
   auto array = ::arrow::ArrayFromJSON(list_type, R"([[], [], [], [], []])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*count=*/5, 1),
                      /*rep_levels=*/std::vector<int16_t>(/*count=*/5, 0));
 }
 
-TEST_F(MultipathLevelBuilderTest, NullableSingleListWithSomeNullEntriesAndSomeNullLists) {
+TYPED_TEST(MultipathLevelBuilderListTest,
+           NullableSingleListWithSomeNullEntriesAndSomeNullLists) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_type = list(entries);
+  auto list_type = TypeParam::get_list(entries);
 
   auto array = ::arrow::ArrayFromJSON(
       list_type, R"([null, [1 , 2, 3], [], [], null,  null, [4, 5], [null]])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
 
   result.CheckLevels(
       /*def_levels=*/std::vector<int16_t>{0, 3, 3, 3, 1, 1, 0, 0, 3, 3, 2},
@@ -348,51 +391,51 @@ TEST_F(MultipathLevelBuilderTest, NullableSingleListWithSomeNullEntriesAndSomeNu
 // def level 4: a null entry
 // def level 5: a non-null entry
 
-TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeEntries) {
+TYPED_TEST(MultipathLevelBuilderListTest, NestedListsWithSomeEntries) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_field = field("list", list(entries), /*nullable=*/true);
-  auto nested_list_type = list(list_field);
+  auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
+  auto nested_list_type = TypeParam::get_list(list_field);
   auto array = ::arrow::ArrayFromJSON(
       nested_list_type, R"([null, [[1 , 2, 3], [4, 5]], [[], [], []], []])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 5, 5, 5, 5, 5, 3, 3, 3, 1},
                      /*rep_levels=*/std::vector<int16_t>{0, 0, 2, 2, 1, 2, 0, 1, 1, 0});
 }
 
-TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNulls) {
+TYPED_TEST(MultipathLevelBuilderListTest, NestedListsWithSomeNulls) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_field = field("list", list(entries), /*nullable=*/true);
-  auto nested_list_type = list(list_field);
+  auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
+  auto nested_list_type = TypeParam::get_list(list_field);
 
   auto array = ::arrow::ArrayFromJSON(nested_list_type,
                                       R"([null, [[1, null, 3], null, null], [[4, 5]]])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 5, 4, 5, 2, 2, 5, 5},
                      /*rep_levels=*/std::vector<int16_t>{0, 0, 2, 2, 1, 1, 0, 2});
 }
 
-TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNullsSomeEmptys) {
+TYPED_TEST(MultipathLevelBuilderListTest, NestedListsWithSomeNullsSomeEmptys) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_field = field("list", list(entries), /*nullable=*/true);
-  auto nested_list_type = list(list_field);
+  auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
+  auto nested_list_type = TypeParam::get_list(list_field);
   auto array = ::arrow::ArrayFromJSON(nested_list_type,
                                       R"([null, [[1 , null, 3], [], []], [[4, 5]]])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>{0, 5, 4, 5, 3, 3, 5, 5},
                      /*rep_levels=*/std::vector<int16_t>{0, 0, 2, 2, 1, 1, 0, 2});
 }
@@ -422,31 +465,31 @@ TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNullsSomeEmptys) {
 // def level 6: a null entry
 // def level 7: a non-null entry
 
-TEST_F(MultipathLevelBuilderTest, TripleNestedListsAllPresent) {
+TYPED_TEST(MultipathLevelBuilderListTest, TripleNestedListsAllPresent) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_field = field("list", list(entries), /*nullable=*/true);
-  auto nested_list_type = list(list_field);
-  auto double_nested_list_type = list(nested_list_type);
+  auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
+  auto nested_list_type = TypeParam::get_list(list_field);
+  auto double_nested_list_type = TypeParam::get_list(nested_list_type);
 
   auto array = ::arrow::ArrayFromJSON(double_nested_list_type,
                                       R"([ [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9]]] ])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(/*counter=*/9, 7),
                      /*rep_levels=*/std::vector<int16_t>{
                          0, 3, 3, 2, 3, 3, 1, 3, 3  // first row
                      });
 }
 
-TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
+TYPED_TEST(MultipathLevelBuilderListTest, TripleNestedListsWithSomeNullsSomeEmptys) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_field = field("list", list(entries), /*nullable=*/true);
-  auto nested_list_type = list(list_field);
-  auto double_nested_list_type = list(nested_list_type);
+  auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
+  auto nested_list_type = TypeParam::get_list(list_field);
+  auto double_nested_list_type = TypeParam::get_list(nested_list_type);
   auto array = ::arrow::ArrayFromJSON(double_nested_list_type,
                                       R"([
                                            [null, [[1 , null, 3], []], []],
@@ -455,11 +498,11 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
                                            []
                                          ])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>{2, 7, 6, 7, 5, 3,  // first row
                                                          5, 5, 7, 7, 2, 7,  // second row
                                                          0,                 // third row
@@ -469,22 +512,22 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
                                                          0, 0});
 }
 
-TEST_F(MultipathLevelBuilderTest, QuadNestedListsAllPresent) {
+TYPED_TEST(MultipathLevelBuilderListTest, QuadNestedListsAllPresent) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
-  auto list_field = field("list", list(entries), /*nullable=*/true);
-  auto nested_list_type = list(list_field);
-  auto double_nested_list_type = list(nested_list_type);
-  auto triple_nested_list_type = list(double_nested_list_type);
+  auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
+  auto nested_list_type = TypeParam::get_list(list_field);
+  auto double_nested_list_type = TypeParam::get_list(nested_list_type);
+  auto triple_nested_list_type = TypeParam::get_list(double_nested_list_type);
 
   auto array = ::arrow::ArrayFromJSON(triple_nested_list_type,
                                       R"([ [[[[1, 2], [3, 4]], [[5]]], [[[6, 7, 8]]]],
 					   [[[[1, 2], [3, 4]], [[5]]], [[[6, 7, 8]]]] ])");
 
-  ASSERT_OK(
-      MultipathLevelBuilder::Write(*array, /*nullable=*/true, &context_, callback_));
+  ASSERT_OK(MultipathLevelBuilder::Write(*array, /*nullable=*/true, &this->context_,
+                                         this->callback_));
 
-  ASSERT_THAT(results_, SizeIs(1));
-  const CapturedResult& result = results_[0];
+  ASSERT_THAT(this->results_, SizeIs(1));
+  const CapturedResult& result = this->results_[0];
   result.CheckLevels(/*def_levels=*/std::vector<int16_t>(16, 9),
                      /*rep_levels=*/std::vector<int16_t>{
                          0, 4, 3, 4, 2, 1, 4, 4,  //
@@ -642,7 +685,5 @@ TEST_F(MultipathLevelBuilderTest, TestPrimitiveNonNullable) {
   EXPECT_THAT(results_[0].post_list_elements[0].start, Eq(0));
   EXPECT_THAT(results_[0].post_list_elements[0].end, Eq(4));
 }
-
-// TODO(mwish): testing ListView and LargeListView.
 
 }  // namespace parquet::arrow
