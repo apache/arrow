@@ -999,6 +999,17 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
     auto arrow_list = ::arrow::list(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
   }
+  // Same as above but using list_view as arrow type.
+  {
+    auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
+    auto arrow_element = ::arrow::field("string", UTF8, true);
+    auto arrow_list = ::arrow::list_view(arrow_element);
+    arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
+  }
 
   // // List<String> (list nullable, elements non-null)
   // optional group my_list (LIST) {
@@ -1014,6 +1025,17 @@ TEST_F(TestConvertArrowSchema, ParquetLists) {
         GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, ConvertedType::LIST));
     auto arrow_element = ::arrow::field("string", UTF8, false);
     auto arrow_list = ::arrow::list(arrow_element);
+    arrow_fields.push_back(::arrow::field("my_list", arrow_list, true));
+  }
+  // Same as above but using list_view as arrow type.
+  {
+    auto element = PrimitiveNode::Make("element", Repetition::REQUIRED,
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+    auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::OPTIONAL, {list}, ConvertedType::LIST));
+    auto arrow_element = ::arrow::field("string", UTF8, false);
+    auto arrow_list = ::arrow::list_view(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, true));
   }
 
@@ -1081,20 +1103,33 @@ TEST_F(TestConvertArrowSchema, ParquetOtherLists) {
 
   // parquet_arrow will always generate 3-level LIST encodings
 
-  // // LargeList<String> (list-like non-null, elements nullable)
+  // // LargeList<String>/ListView<String>/LargeListView<String>
+  // // (list-like non-null, elements nullable)
   // required group my_list (LIST) {
   //   repeated group list {
   //     optional binary element (UTF8);
   //   }
   // }
-  {
+  std::vector<std::function<std::shared_ptr<::arrow::DataType>(
+      const std::shared_ptr<::arrow::Field>)>>
+      list_cast_fns;
+  list_cast_fns.push_back([](const std::shared_ptr<::arrow::Field> field) {
+    return ::arrow::large_list(field->type());
+  });
+  list_cast_fns.push_back([](const std::shared_ptr<::arrow::Field> field) {
+    return ::arrow::list_view(field->type());
+  });
+  list_cast_fns.push_back([](const std::shared_ptr<::arrow::Field> field) {
+    return ::arrow::large_list_view(field->type());
+  });
+  for (auto list_type_fn : list_cast_fns) {
     auto element = PrimitiveNode::Make("element", Repetition::OPTIONAL,
                                        ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
     auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
     parquet_fields.push_back(
         GroupNode::Make("my_list", Repetition::REQUIRED, {list}, ConvertedType::LIST));
     auto arrow_element = ::arrow::field("string", UTF8, true);
-    auto arrow_list = ::arrow::large_list(arrow_element);
+    auto arrow_list = list_type_fn(arrow_element);
     arrow_fields.push_back(::arrow::field("my_list", arrow_list, false));
   }
   // // FixedSizeList[10]<String> (list-like non-null, elements nullable)
