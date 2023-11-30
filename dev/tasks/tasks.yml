@@ -96,6 +96,9 @@ groups:
   ruby:
     - test-*ruby*
 
+  go:
+    - test*-go-*
+
   vcpkg:
     - test-*vcpkg*
 
@@ -560,7 +563,6 @@ tasks:
                   "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
-                  "ubuntu-lunar",
                   "ubuntu-mantic"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:

@@ -223,6 +223,7 @@ set(ARROW_SRCS
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
+    util/dict_util.cc
     util/float16.cc
     util/formatting.cc
     util/future.cc
@@ -598,7 +599,7 @@ if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
                       IMPORTED_LOCATION)
   install(FILES ${arrow_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
           DESTINATION ${CMAKE_INSTALL_LIBDIR})
-  string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
+  string(PREPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
   list(INSERT ARROW_STATIC_INSTALL_INTERFACE_LIBS 0 "Arrow::arrow_bundled_dependencies")
 endif()
 

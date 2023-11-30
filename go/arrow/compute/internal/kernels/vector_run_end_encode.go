@@ -394,7 +394,7 @@ func (re *runEndEncodeLoopBinary[R, O]) WriteEncodedRuns(out *exec.ExecResult) i
 	outputValues := out.Children[1].Buffers[2].Buf
 
 	// re.offsetValues already accounts for the input.offset so we don't
-	// need to initalize readOffset to re.inputOffset
+	// need to initialize readOffset to re.inputOffset
 	var readOffset int64
 	currentRun, curRunValid := re.readValue(readOffset)
 	readOffset++

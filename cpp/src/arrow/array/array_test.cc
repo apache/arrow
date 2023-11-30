@@ -80,6 +80,22 @@ class TestArray : public ::testing::Test {
   MemoryPool* pool_;
 };
 
+void CheckDictionaryNullCount(const std::shared_ptr<DataType>& dict_type,
+                              const std::string& input_dictionary_json,
+                              const std::string& input_index_json,
+                              const int64_t& expected_null_count,
+                              const int64_t& expected_logical_null_count,
+                              bool expected_may_have_nulls,
+                              bool expected_may_have_logical_nulls) {
+  std::shared_ptr<arrow::Array> arr =
+      DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
+
+  ASSERT_EQ(arr->null_count(), expected_null_count);
+  ASSERT_EQ(arr->ComputeLogicalNullCount(), expected_logical_null_count);
+  ASSERT_EQ(arr->data()->MayHaveNulls(), expected_may_have_nulls);
+  ASSERT_EQ(arr->data()->MayHaveLogicalNulls(), expected_may_have_logical_nulls);
+}
+
 TEST_F(TestArray, TestNullCount) {
   // These are placeholders
   auto data = std::make_shared<Buffer>(nullptr, 0);
@@ -127,6 +143,37 @@ TEST_F(TestArray, TestNullCount) {
   ASSERT_EQ(0, ree_no_nulls->ComputeLogicalNullCount());
   ASSERT_FALSE(ree_no_nulls->data()->MayHaveNulls());
   ASSERT_FALSE(ree_no_nulls->data()->MayHaveLogicalNulls());
+
+  // Dictionary type
+  std::shared_ptr<arrow::DataType> type;
+  std::shared_ptr<arrow::DataType> dict_type;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    type = boolean();
+    dict_type = dictionary(index_type, type);
+    // no null value
+    CheckDictionaryNullCount(dict_type, "[]", "[]", 0, 0, false, false);
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[0, 1, 0]", 0, 0, false, false);
+
+    // only indices contain null value
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[null, 0, 1]", 1, 1, true,
+                             true);
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[null, null]", 2, 2, true,
+                             true);
+
+    // only dictionary contains null value
+    CheckDictionaryNullCount(dict_type, "[null, true]", "[]", 0, 0, false, true);
+    CheckDictionaryNullCount(dict_type, "[null, true, false]", "[0, 1, 0]", 0, 2, false,
+                             true);
+
+    // both indices and dictionary contain null value
+    CheckDictionaryNullCount(dict_type, "[null, true, false]", "[0, 1, 0, null]", 1, 3,
+                             true, true);
+    CheckDictionaryNullCount(dict_type, "[null, true, null, false]", "[null, 1, 0, 2, 3]",
+                             1, 3, true, true);
+  }
 }
 
 TEST_F(TestArray, TestSlicePreservesAllNullCount) {
@@ -137,6 +184,16 @@ TEST_F(TestArray, TestSlicePreservesAllNullCount) {
   Int32Array arr(/*length=*/100, data, null_bitmap,
                  /*null_count*/ 100);
   EXPECT_EQ(arr.Slice(1, 99)->data()->null_count, arr.Slice(1, 99)->length());
+
+  // Dictionary type
+  std::shared_ptr<arrow::DataType> dict_type = dictionary(int64(), boolean());
+  std::shared_ptr<arrow::Array> dict_arr =
+      DictArrayFromJSON(dict_type, /*indices=*/"[null, 0, 0, 0, 0, 0, 1, 2, 0, 0]",
+                        /*dictionary=*/"[null, true, false]");
+  ASSERT_EQ(dict_arr->null_count(), 1);
+  ASSERT_EQ(dict_arr->ComputeLogicalNullCount(), 8);
+  ASSERT_EQ(dict_arr->Slice(2, 8)->null_count(), 0);
+  ASSERT_EQ(dict_arr->Slice(2, 8)->ComputeLogicalNullCount(), 6);
 }
 
 TEST_F(TestArray, TestLength) {

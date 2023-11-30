@@ -295,7 +295,7 @@ final class IPCFileReaderTests: XCTestCase {
         }
     }
 
-    func testBinaryInMemroyToFromStream() throws {
+    func testBinaryInMemoryToFromStream() throws {
         let dataset = try makeBinaryDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()
@@ -324,7 +324,7 @@ final class IPCFileReaderTests: XCTestCase {
         }
     }
 
-    func testTimeInMemroyToFromStream() throws {
+    func testTimeInMemoryToFromStream() throws {
         let dataset = try makeTimeDataset()
         let writerInfo = ArrowWriter.Info(.recordbatch, schema: dataset.0, batches: [dataset.1])
         let arrowWriter = ArrowWriter()

@@ -167,6 +167,7 @@ _cpp_c_data_entrypoints = """
 
 @functools.lru_cache
 def _load_ffi(ffi, lib_path=_ARROW_DLL):
+    os.environ['ARROW_DEBUG_MEMORY_POOL'] = 'trap'
     ffi.cdef(_cpp_c_data_entrypoints)
     dll = ffi.dlopen(lib_path)
     dll.ArrowCpp_CDataIntegration_ExportSchemaFromJson

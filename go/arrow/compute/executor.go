@@ -391,7 +391,7 @@ func inferBatchLength(values []Datum) (length int64, allSame bool) {
 type KernelExecutor interface {
 	// Init must be called *after* the kernel's init method and any
 	// KernelState must be set into the KernelCtx *before* calling
-	// this Init method. This is to faciliate the case where
+	// this Init method. This is to facilitate the case where
 	// Init may be expensive and does not need to be called
 	// again for each execution of the kernel. For example,
 	// the same lookup table can be re-used for all scanned batches

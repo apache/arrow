@@ -46,7 +46,7 @@ func getExtTypeRegistry() *sync.Map {
 }
 
 // RegisterExtensionType registers the provided ExtensionType by calling ExtensionName
-// to use as a Key for registrying the type. If a type with the same name is already
+// to use as a Key for registering the type. If a type with the same name is already
 // registered then this will return an error saying so, otherwise it will return nil
 // if successful registering the type.
 // This function is safe to call from multiple goroutines simultaneously.
@@ -117,7 +117,7 @@ type ExtensionType interface {
 	// concurrently.
 	Serialize() string
 	// Deserialize is called when reading in extension arrays and types via the IPC format
-	// in order to construct an instance of the appropriate extension type. The data passed in
+	// in order to construct an instance of the appropriate extension type. The passed in data
 	// is pulled from the ARROW:extension:metadata key and may be nil or an empty slice.
 	// If the storage type is incorrect or something else is invalid with the data this should
 	// return nil and an appropriate error.
@@ -159,6 +159,13 @@ func (e *ExtensionBase) Fields() []Field {
 		return nested.Fields()
 	}
 	return nil
+}
+
+func (e *ExtensionBase) NumFields() int {
+	if nested, ok := e.Storage.(NestedType); ok {
+		return nested.NumFields()
+	}
+	return 0
 }
 
 func (e *ExtensionBase) Layout() DataTypeLayout { return e.Storage.Layout() }

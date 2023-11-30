@@ -64,7 +64,7 @@ jobs:
               "per_page": 100,
             });
 
-            // this removes non-existent labels
+            // this removes nonexistent labels
             component_labels = component_labels.filter(
               label => repo_labels.data.some(repo_label => repo_label.name === label)
             );

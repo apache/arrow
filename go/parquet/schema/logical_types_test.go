@@ -89,10 +89,10 @@ func TestConvertedTypeCompatibility(t *testing.T) {
 		{"list", schema.NewListLogicalType(), schema.ConvertedTypes.List},
 		{"enum", schema.EnumLogicalType{}, schema.ConvertedTypes.Enum},
 		{"date", schema.DateLogicalType{}, schema.ConvertedTypes.Date},
-		{"time_milli", schema.NewTimeLogicalType(true /* adjutedToUTC */, schema.TimeUnitMillis), schema.ConvertedTypes.TimeMillis},
-		{"time_micro", schema.NewTimeLogicalType(true /* adjutedToUTC */, schema.TimeUnitMicros), schema.ConvertedTypes.TimeMicros},
-		{"timestamp_milli", schema.NewTimestampLogicalType(true /* adjutedToUTC */, schema.TimeUnitMillis), schema.ConvertedTypes.TimestampMillis},
-		{"timestamp_micro", schema.NewTimestampLogicalType(true /* adjutedToUTC */, schema.TimeUnitMicros), schema.ConvertedTypes.TimestampMicros},
+		{"time_milli", schema.NewTimeLogicalType(true /* adjustedToUTC */, schema.TimeUnitMillis), schema.ConvertedTypes.TimeMillis},
+		{"time_micro", schema.NewTimeLogicalType(true /* adjustedToUTC */, schema.TimeUnitMicros), schema.ConvertedTypes.TimeMicros},
+		{"timestamp_milli", schema.NewTimestampLogicalType(true /* adjustedToUTC */, schema.TimeUnitMillis), schema.ConvertedTypes.TimestampMillis},
+		{"timestamp_micro", schema.NewTimestampLogicalType(true /* adjustedToUTC */, schema.TimeUnitMicros), schema.ConvertedTypes.TimestampMicros},
 		{"timestamp_milli_opts", schema.NewTimestampLogicalTypeWithOpts(schema.WithTSIsAdjustedToUTC(), schema.WithTSTimeUnitType(schema.TimeUnitMillis)), schema.ConvertedTypes.TimestampMillis},
 		{"uint8", schema.NewIntLogicalType(8 /* bitWidth */, false /* signed */), schema.ConvertedTypes.Uint8},
 		{"uint16", schema.NewIntLogicalType(16 /* bitWidth */, false /* signed */), schema.ConvertedTypes.Uint16},
@@ -160,12 +160,12 @@ func TestNewTypeIncompatibility(t *testing.T) {
 		{"uuid", schema.UUIDLogicalType{}, schema.UUIDLogicalType{}},
 		{"float16", schema.Float16LogicalType{}, schema.Float16LogicalType{}},
 		{"null", schema.NullLogicalType{}, schema.NullLogicalType{}},
-		{"not-utc-time_milli", schema.NewTimeLogicalType(false /* adjutedToUTC */, schema.TimeUnitMillis), &schema.TimeLogicalType{}},
-		{"not-utc-time-micro", schema.NewTimeLogicalType(false /* adjutedToUTC */, schema.TimeUnitMicros), &schema.TimeLogicalType{}},
-		{"not-utc-time-nano", schema.NewTimeLogicalType(false /* adjutedToUTC */, schema.TimeUnitNanos), &schema.TimeLogicalType{}},
-		{"utc-time-nano", schema.NewTimeLogicalType(true /* adjutedToUTC */, schema.TimeUnitNanos), &schema.TimeLogicalType{}},
-		{"not-utc-timestamp-nano", schema.NewTimestampLogicalType(false /* adjutedToUTC */, schema.TimeUnitNanos), &schema.TimestampLogicalType{}},
-		{"utc-timestamp-nano", schema.NewTimestampLogicalType(true /* adjutedToUTC */, schema.TimeUnitNanos), &schema.TimestampLogicalType{}},
+		{"not-utc-time_milli", schema.NewTimeLogicalType(false /* adjustedToUTC */, schema.TimeUnitMillis), &schema.TimeLogicalType{}},
+		{"not-utc-time-micro", schema.NewTimeLogicalType(false /* adjustedToUTC */, schema.TimeUnitMicros), &schema.TimeLogicalType{}},
+		{"not-utc-time-nano", schema.NewTimeLogicalType(false /* adjustedToUTC */, schema.TimeUnitNanos), &schema.TimeLogicalType{}},
+		{"utc-time-nano", schema.NewTimeLogicalType(true /* adjustedToUTC */, schema.TimeUnitNanos), &schema.TimeLogicalType{}},
+		{"not-utc-timestamp-nano", schema.NewTimestampLogicalType(false /* adjustedToUTC */, schema.TimeUnitNanos), &schema.TimestampLogicalType{}},
+		{"utc-timestamp-nano", schema.NewTimestampLogicalType(true /* adjustedToUTC */, schema.TimeUnitNanos), &schema.TimestampLogicalType{}},
 	}
 
 	for _, tt := range tests {
@@ -184,8 +184,8 @@ func TestFactoryPanic(t *testing.T) {
 		name string
 		f    func()
 	}{
-		{"invalid TimeUnit", func() { schema.NewTimeLogicalType(true /* adjutedToUTC */, schema.TimeUnitUnknown) }},
-		{"invalid timestamp unit", func() { schema.NewTimestampLogicalType(true /* adjutedToUTC */, schema.TimeUnitUnknown) }},
+		{"invalid TimeUnit", func() { schema.NewTimeLogicalType(true /* adjustedToUTC */, schema.TimeUnitUnknown) }},
+		{"invalid timestamp unit", func() { schema.NewTimestampLogicalType(true /* adjustedToUTC */, schema.TimeUnitUnknown) }},
 		{"negative bitwidth", func() { schema.NewIntLogicalType(-1 /* bitWidth */, false /* signed */) }},
 		{"zero bitwidth", func() { schema.NewIntLogicalType(0 /* bitWidth */, false /* signed */) }},
 		{"bitwidth one", func() { schema.NewIntLogicalType(1 /* bitWidth */, false /* signed */) }},

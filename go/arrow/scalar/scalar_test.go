@@ -1194,7 +1194,7 @@ func makeDenseUnionScalar(ty *arrow.DenseUnionType, val scalar.Scalar, idx int) 
 func makeSpecificNullScalar(dt arrow.UnionType, idx int) scalar.Scalar {
 	switch dt.Mode() {
 	case arrow.SparseMode:
-		values := make([]scalar.Scalar, len(dt.Fields()))
+		values := make([]scalar.Scalar, dt.NumFields())
 		for i, f := range dt.Fields() {
 			values[i] = scalar.MakeNullScalar(f.Type)
 		}

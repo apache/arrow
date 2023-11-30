@@ -104,7 +104,7 @@ type colEncryptConfig struct {
 	encrypted   bool
 }
 
-// ColumnEncryptOption how to specify options to the the NewColumnEncryptionProperties function.
+// ColumnEncryptOption how to specify options to the NewColumnEncryptionProperties function.
 type ColumnEncryptOption func(*colEncryptConfig)
 
 // WithKey sets a column specific key.
@@ -350,7 +350,7 @@ type FileDecryptionOption func(*fileDecryptConfig)
 // metadata the metadata will be ignored, the footer will be decrypted/verified with this key.
 //
 // If the explicit key is not set, footer key will be fetched from the key retriever.
-// With explcit keys or AAD prefix, new encryption properties object must be created for each
+// With explicit keys or AAD prefix, new encryption properties object must be created for each
 // encrypted file.
 //
 // Explicit encryption keys (footer and column) are cloned.
@@ -379,7 +379,7 @@ func WithPrefixVerifier(verifier AADPrefixVerifier) FileDecryptionOption {
 // It's also possible to set a key retriever on this property object.
 //
 // Upon file decryption, availability of explicit keys is checked before invocation
-// of the retreiver callback.
+// of the retriever callback.
 //
 // If an explicit key is available for a footer or a column, its key metadata will be ignored.
 func WithColumnKeys(decrypt ColumnPathToDecryptionPropsMap) FileDecryptionOption {

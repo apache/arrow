@@ -926,7 +926,7 @@ func (a *LargeListView) Release() {
 	a.values.Release()
 }
 
-// Acessors for offsets and sizes to make ListView and LargeListView validation generic.
+// Accessors for offsets and sizes to make ListView and LargeListView validation generic.
 type offsetsAndSizes interface {
 	offsetAt(slot int64) int64
 	sizeAt(slot int64) int64
