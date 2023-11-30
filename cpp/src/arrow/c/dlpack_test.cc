@@ -34,22 +34,6 @@ class TestExportArray : public ::testing::Test {
   void SetUp() {}
 };
 
-static std::vector<std::shared_ptr<DataType>> TestExportArrayAgainstTheseTypes() {
-  return {
-      int8(),  uint8(),  int16(),   uint16(),  int32(),   uint32(),
-      int64(), uint64(), float16(), float32(), float64(),
-  };
-}
-
-static std::vector<DLDataTypeCode> TestExpectedDLPackDataTypes() {
-  return {
-      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,
-      DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,
-      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLFloat,
-      DLDataTypeCode::kDLFloat, DLDataTypeCode::kDLFloat,
-  };
-}
-
 auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
                           std::shared_ptr<DataType> arrow_type,
                           DLDataTypeCode dlpack_type, int64_t length) {
@@ -84,20 +68,27 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
 TEST_F(TestExportArray, TestSupportedArray) {
   random::RandomArrayGenerator gen(0);
 
+  std::vector<std::shared_ptr<DataType>> arrow_types = {
+      int8(),  uint8(),  int16(),   uint16(),  int32(),   uint32(),
+      int64(), uint64(), float16(), float32(), float64(),
+  };
+
+  std::vector<DLDataTypeCode> dlpack_types = {
+      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,
+      DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,
+      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLFloat,
+      DLDataTypeCode::kDLFloat, DLDataTypeCode::kDLFloat,
+  };
+
   for (int64_t i = 0; i < 11; ++i) {
-    const std::shared_ptr<Array> array =
-        gen.ArrayOf(TestExportArrayAgainstTheseTypes()[i], 10, 0);
-    check_dlptensor(array, TestExportArrayAgainstTheseTypes()[i],
-                    TestExpectedDLPackDataTypes()[i], 10);
+    const std::shared_ptr<Array> array = gen.ArrayOf(arrow_types[i], 10, 0);
+    check_dlptensor(array, arrow_types[i], dlpack_types[i], 10);
     ASSERT_OK_AND_ASSIGN(auto sliced_1, array->SliceSafe(1, 5));
-    check_dlptensor(sliced_1, TestExportArrayAgainstTheseTypes()[i],
-                    TestExpectedDLPackDataTypes()[i], 5);
+    check_dlptensor(sliced_1, arrow_types[i], dlpack_types[i], 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_2, array->SliceSafe(0, 5));
-    check_dlptensor(sliced_2, TestExportArrayAgainstTheseTypes()[i],
-                    TestExpectedDLPackDataTypes()[i], 5);
+    check_dlptensor(sliced_2, arrow_types[i], dlpack_types[i], 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_3, array->SliceSafe(3));
-    check_dlptensor(sliced_3, TestExportArrayAgainstTheseTypes()[i],
-                    TestExpectedDLPackDataTypes()[i], 7);
+    check_dlptensor(sliced_3, arrow_types[i], dlpack_types[i], 7);
   }
 }
 
