@@ -141,13 +141,23 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
                            storage_type->ToString());
   }
 
-  ARROW_DCHECK_EQ(storage_type->num_fields(), 2);
-  ARROW_DCHECK_EQ(storage_type->field(0)->type()->id(), Type::FIXED_SIZE_LIST);
-  ARROW_DCHECK_EQ(
-      std::static_pointer_cast<FixedSizeListType>(storage_type->field(0)->type())
-          ->value_type(),
-      int32());
-  ARROW_DCHECK_EQ(storage_type->field(1)->type()->id(), Type::LIST);
+  if (storage_type->num_fields() != 2) {
+    return Status::Invalid("Expected Struct storage type with 2 fields, got ",
+                           storage_type->num_fields());
+  }
+  if (storage_type->field(0)->type()->id() != Type::FIXED_SIZE_LIST) {
+    return Status::Invalid("Expected FixedSizeList storage type, got ",
+                           storage_type->field(0)->type()->ToString());
+  }
+  if (storage_type->field(1)->type()->id() != Type::LIST) {
+    return Status::Invalid("Expected List storage type, got ",
+                           storage_type->field(1)->type()->ToString());
+  }
+  if (std::static_pointer_cast<FixedSizeListType>(storage_type->field(0)->type())
+          ->value_type() != int32()) {
+    return Status::Invalid("Expected FixedSizeList value type int32, got ",
+                           storage_type->field(0)->type()->ToString());
+  }
 
   const auto value_type = storage_type->field(1)->type()->field(0)->type();
   const size_t ndim =
@@ -218,7 +228,9 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   for (int32_t j = 0; j < this->ndim(); ++j) {
     ARROW_ASSIGN_OR_RAISE(const auto size, shape_array.GetScalar(j));
     const auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
-    ARROW_DCHECK_GE(size_value, 0);
+    if (size_value < 0) {
+      return Status::Invalid("shape must have non-negative values");
+    }
     shape.push_back(size_value);
   }
 

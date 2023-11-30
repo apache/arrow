@@ -1056,7 +1056,8 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
             shared_ptr[CExtensionScalar] scalar = static_pointer_cast[CExtensionScalar, CScalar](self.wrapped)
             shared_ptr[CTensor] ctensor
 
-        ctensor = GetResultValue(c_type.GetTensor(scalar))
+        with nogil:
+            ctensor = GetResultValue(c_type.GetTensor(scalar))
         return pyarrow_wrap_tensor(ctensor)
 
 
