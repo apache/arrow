@@ -22,6 +22,7 @@ package org.apache.arrow.flatbuf;
  * ----------------------------------------------------------------------
  * Endianness of the platform producing the data
  */
+@SuppressWarnings("unused")
 public final class Endianness {
   private Endianness() { }
   public static final short Little = 0;

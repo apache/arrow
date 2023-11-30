@@ -38,7 +38,7 @@
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.15.1</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
-    <dep.fbs.version>1.12.0</dep.fbs.version>
+    <dep.fbs.version>23.5.26</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
