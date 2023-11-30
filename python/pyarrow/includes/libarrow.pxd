@@ -1385,6 +1385,9 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         @staticmethod
         CResult[shared_ptr[COutputStream]] Open(const c_string& path)
 
+        @staticmethod
+        CResult[shared_ptr[COutputStream]] Open(const c_string& path, c_bool append)
+
         int file_descriptor()
 
     cdef cppclass ReadableFile(CRandomAccessFile):
