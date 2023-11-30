@@ -129,7 +129,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
         end
 
         function MultipleRowsAndColumns(testCase, TabularType)
-            % Verify tabular object display when the object has mulitple rows
+            % Verify tabular object display when the object has multiple rows
             % and columns. Only the first row is displayed. All columns are
             % displayed.
             import arrow.internal.test.display.makeLinkString
@@ -156,7 +156,7 @@ classdef tTabularDisplay < matlab.unittest.TestCase
         end
 
         function VeryWideTabular(testCase, TabularType)
-            % Verify that all variables are displayed without any trucation 
+            % Verify that all variables are displayed without any truncation 
             % even when the tabular object is wider than the MATLAB Command
             % Window.
             import arrow.internal.test.display.makeLinkString

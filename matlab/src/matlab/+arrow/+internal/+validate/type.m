@@ -1,5 +1,5 @@
 %TYPE Verifies data has the expected class type. Otherwise throws an 
-% error with the identifier "arrrow:array:InvalidType".
+% error with the identifier "arrow:array:InvalidType".
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with

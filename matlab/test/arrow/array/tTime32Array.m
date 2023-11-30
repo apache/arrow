@@ -271,7 +271,7 @@ classdef tTime32Array < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
 
-        function TestIsEqualFalseTimeUnitMistmatch(tc)
+        function TestIsEqualFalseTimeUnitMismatch(tc)
             % Verify two Time32Arrays are not considered equal if they have
             % different TimeUnit values.
 

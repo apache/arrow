@@ -60,7 +60,7 @@ namespace arrow::matlab::array::proxy {
             /* 
              * Display primitive and string types horizontally without 
              * opening and closing delimiters. Use " | " as the delimiter
-             * between elments. Below is an example Int32Array display:
+             * between elements. Below is an example Int32Array display:
              *
              *    1 | 2 | 3 | ... | 6 | 7 | 8
              */
