@@ -476,22 +476,18 @@ struct RowRangesPageFilter {
   bool operator()(const DataPageStats& stats) {
     ++page_range_idx;
 
-    if (row_range_idx >= row_ranges->getRanges().size()) {
-      return true;
-    }
-
     Range current_page_range = (*page_ranges)[page_range_idx];
-
-    if (current_page_range.isBefore((*row_ranges)[row_range_idx])) {
-      return true;
-    }
 
     while (row_range_idx < row_ranges->getRanges().size() &&
            current_page_range.isAfter((*row_ranges)[row_range_idx])) {
       row_range_idx++;
     }
 
-    return row_range_idx >= row_ranges->getRanges().size();
+    if (row_range_idx >= row_ranges->getRanges().size()) {
+      return true;
+    }
+
+    return current_page_range.isBefore((*row_ranges)[row_range_idx]);
   }
 
   size_t row_range_idx = 0;
@@ -642,7 +638,8 @@ class LeafReader : public ColumnReaderImpl {
           return;
         }
       }
-      // Else iff row_ranges_map exists but no row_ranges is found for this RG key, this RG will be read
+      // Else iff row_ranges_map exists but no row_ranges is found for this RG key, this
+      // RG will be read
     }
 
     record_reader_->reset_current_rg_processed_records();
