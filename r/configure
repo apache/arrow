@@ -313,7 +313,7 @@ set_pkg_vars_without_pc () {
   if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
     PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
   fi
-  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
+  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES $SSL_LIBS_WITHOUT_PC"
 
   # If on Raspberry Pi, need to manually link against latomic
   # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
@@ -377,7 +377,7 @@ add_feature_flags () {
     fi
     if arrow_built_with ARROW_GCS || arrow_built_with ARROW_S3; then
       # If pkg-config is available it will handle this for us automatically
-      PKG_LIBS_FEATURES_WITHOUT_PC="-lcurl -lssl -lcrypto $PKG_LIBS_FEATURES_WITHOUT_PC"
+      SSL_LIBS_WITHOUT_PC="-lcurl -lssl -lcrypto"
     fi
   fi
 }
