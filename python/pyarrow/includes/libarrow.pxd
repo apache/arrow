@@ -2776,16 +2776,16 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
 
 cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::extension":
     cdef cppclass CVariableShapeTensorType \
-            " arrow::extension::VariableShapeTensorType"(CExtensionType):
+            " arrow::extension::VariableShapeTensorType"(CExtensionType) nogil:
 
         CResult[shared_ptr[CTensor]] GetTensor(const shared_ptr[CExtensionScalar]& scalar) const
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
                                             const int32_t ndim,
-                                            const vector[int64_t]& permutation,
-                                            const vector[c_string]& dim_names,
-                                            const vector[optional[int64_t]]& uniform_shape)
+                                            const vector[int64_t] permutation,
+                                            const vector[c_string] dim_names,
+                                            const vector[optional[int64_t]] uniform_shape)
 
         const shared_ptr[CDataType] value_type()
         const int32_t ndim()
@@ -2800,7 +2800,7 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
 
 cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
     cdef cppclass CFixedShapeTensorType \
-            " arrow::extension::FixedShapeTensorType"(CExtensionType):
+            " arrow::extension::FixedShapeTensorType"(CExtensionType) nogil:
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,

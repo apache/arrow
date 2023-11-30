@@ -5374,8 +5374,9 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
 
     cdef VariableShapeTensorType out = VariableShapeTensorType.__new__(VariableShapeTensorType)
 
-    c_tensor_ext_type = GetResultValue(CVariableShapeTensorType.Make(
-        value_type.sp_type, c_ndim, c_permutation, c_dim_names, c_uniform_shape))
+    with nogil:
+        c_tensor_ext_type = GetResultValue(CVariableShapeTensorType.Make(
+            value_type.sp_type, c_ndim, c_permutation, c_dim_names, c_uniform_shape))
 
     out.init(c_tensor_ext_type)
 
