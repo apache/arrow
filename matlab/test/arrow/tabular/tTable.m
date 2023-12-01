@@ -333,7 +333,7 @@ classdef tTable < matlab.unittest.TestCase
                 ColumnNames=["A", "B", "C"] ...
             );
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             name = "a";
             testCase.verifyError(@() arrowTable.column(name), "arrow:tabular:schema:AmbiguousFieldName");
 
@@ -547,7 +547,7 @@ classdef tTable < matlab.unittest.TestCase
         end
 
         function Schema(testCase)
-            % Verify that the public Schema property returns an approprate
+            % Verify that the public Schema property returns an appropriate
             % instance of arrow.tabular.Table.
             matlabTable = table(...
                 ["A"; "B"; "C"], ...
