@@ -45,28 +45,24 @@ namespace io {
 class CompressedOutputStream::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0), total_pos_(0) {}
+      : pool_(pool), raw_(raw), is_open_(false) {}
 
   Status Init(Codec* codec) {
     ARROW_ASSIGN_OR_RAISE(compressor_, codec->MakeCompressor());
-    ARROW_ASSIGN_OR_RAISE(compressed_, AllocateResizableBuffer(kChunkSize, pool_));
-    compressed_pos_ = 0;
     is_open_ = true;
     return Status::OK();
   }
 
   Result<int64_t> Tell() const {
     std::lock_guard<std::mutex> guard(lock_);
-    return total_pos_;
+    auto pos = compressor_->Inner()->size();
+    return pos;
   }
 
   std::shared_ptr<OutputStream> raw() const { return raw_; }
 
   Status FlushCompressed() {
-    if (compressed_pos_ > 0) {
-      RETURN_NOT_OK(raw_->Write(compressed_->data(), compressed_pos_));
-      compressed_pos_ = 0;
-    }
+    RETURN_NOT_OK(raw_->Write(compressed_->data(), compressed_->size()));
     return Status::OK();
   }
 
@@ -74,82 +70,19 @@ class CompressedOutputStream::Impl {
     std::lock_guard<std::mutex> guard(lock_);
 
     auto input = reinterpret_cast<const uint8_t*>(data);
-    while (nbytes > 0) {
-      int64_t input_len = nbytes;
-      int64_t output_len = compressed_->size() - compressed_pos_;
-      uint8_t* output = compressed_->mutable_data() + compressed_pos_;
-      ARROW_ASSIGN_OR_RAISE(auto result,
-                            compressor_->Compress(input_len, input, output_len, output));
-      compressed_pos_ += result.bytes_written;
-
-      if (result.bytes_read == 0) {
-        // Not enough output, try to flush it and retry
-        if (compressed_pos_ > 0) {
-          RETURN_NOT_OK(FlushCompressed());
-          output_len = compressed_->size() - compressed_pos_;
-          output = compressed_->mutable_data() + compressed_pos_;
-          ARROW_ASSIGN_OR_RAISE(
-              result, compressor_->Compress(input_len, input, output_len, output));
-          compressed_pos_ += result.bytes_written;
-        }
-      }
-      input += result.bytes_read;
-      nbytes -= result.bytes_read;
-      total_pos_ += result.bytes_read;
-      if (compressed_pos_ == compressed_->size()) {
-        // Output buffer full, flush it
-        RETURN_NOT_OK(FlushCompressed());
-      }
-      if (result.bytes_read == 0) {
-        // Need to enlarge output buffer
-        RETURN_NOT_OK(compressed_->Resize(compressed_->size() * 2));
-      }
-    }
+    ARROW_RETURN_NOT_OK(compressor_->Compress(nbytes, input));
     return Status::OK();
   }
 
   Status Flush() {
     std::lock_guard<std::mutex> guard(lock_);
-
-    while (true) {
-      // Flush compressor
-      int64_t output_len = compressed_->size() - compressed_pos_;
-      uint8_t* output = compressed_->mutable_data() + compressed_pos_;
-      ARROW_ASSIGN_OR_RAISE(auto result, compressor_->Flush(output_len, output));
-      compressed_pos_ += result.bytes_written;
-
-      // Flush compressed output
-      RETURN_NOT_OK(FlushCompressed());
-
-      if (result.should_retry) {
-        // Need to enlarge output buffer
-        RETURN_NOT_OK(compressed_->Resize(compressed_->size() * 2));
-      } else {
-        break;
-      }
-    }
+    RETURN_NOT_OK(compressor_->Flush());
     return Status::OK();
   }
 
   Status FinalizeCompression() {
-    while (true) {
-      // Try to end compressor
-      int64_t output_len = compressed_->size() - compressed_pos_;
-      uint8_t* output = compressed_->mutable_data() + compressed_pos_;
-      ARROW_ASSIGN_OR_RAISE(auto result, compressor_->End(output_len, output));
-      compressed_pos_ += result.bytes_written;
-
-      // Flush compressed output
-      RETURN_NOT_OK(FlushCompressed());
-
-      if (result.should_retry) {
-        // Need to enlarge output buffer
-        RETURN_NOT_OK(compressed_->Resize(compressed_->size() * 2));
-      } else {
-        // Done
-        break;
-      }
-    }
+    ARROW_ASSIGN_OR_RAISE(compressed_, compressor_->Finish());
+    RETURN_NOT_OK(FlushCompressed());
     return Status::OK();
   }
 
@@ -189,10 +122,7 @@ class CompressedOutputStream::Impl {
   std::shared_ptr<OutputStream> raw_;
   bool is_open_;
   std::shared_ptr<Compressor> compressor_;
-  std::shared_ptr<ResizableBuffer> compressed_;
-  int64_t compressed_pos_;
-  // Total number of bytes compressed
-  int64_t total_pos_;
+  std::shared_ptr<Buffer> compressed_;
 
   mutable std::mutex lock_;
 };
@@ -279,32 +209,8 @@ class CompressedInputStream::Impl {
   // Decompress some data from the compressed_ buffer.
   // Call this function only if the decompressed_ buffer is empty.
   Status DecompressData() {
-    int64_t decompress_size = kDecompressSize;
-
-    while (true) {
-      ARROW_ASSIGN_OR_RAISE(decompressed_,
-                            AllocateResizableBuffer(decompress_size, pool_));
-      decompressed_pos_ = 0;
-
-      int64_t input_len = compressed_->size() - compressed_pos_;
-      const uint8_t* input = compressed_->data() + compressed_pos_;
-      int64_t output_len = decompressed_->size();
-      uint8_t* output = decompressed_->mutable_data();
-
-      ARROW_ASSIGN_OR_RAISE(
-          auto result, decompressor_->Decompress(input_len, input, output_len, output));
-      compressed_pos_ += result.bytes_read;
-      if (result.bytes_read > 0) {
-        fresh_decompressor_ = false;
-      }
-      if (result.bytes_written > 0 || !result.need_more_output || input_len == 0) {
-        RETURN_NOT_OK(decompressed_->Resize(result.bytes_written));
-        break;
-      }
-      DCHECK_EQ(result.bytes_written, 0);
-      // Need to enlarge output buffer
-      decompress_size *= 2;
-    }
+    RETURN_NOT_OK(decompressor_->Decompress(compressed_->size(), compressed_->data()));
+    ARROW_ASSIGN_OR_RAISE(decompressed_, decompressor_->Finish());
     return Status::OK();
   }
 
@@ -398,7 +304,7 @@ class CompressedInputStream::Impl {
   std::shared_ptr<Buffer> compressed_;
   // Position in compressed buffer
   int64_t compressed_pos_;
-  std::shared_ptr<ResizableBuffer> decompressed_;
+  std::shared_ptr<Buffer> decompressed_;
   // Position in decompressed buffer
   int64_t decompressed_pos_;
   // True if the decompressor hasn't read any data yet.

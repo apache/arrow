@@ -148,6 +148,20 @@ Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
   return MemoryManager::CopyBuffer(source, to);
 }
 
+class CramjamBuffer : public Buffer {
+ public:
+  explicit CramjamBuffer(cramjam::Buffer buf) : Buffer(buf.data, buf.len), buf_(buf) {}
+
+  ~CramjamBuffer() override { cramjam::free_buffer(buf_); }
+
+ protected:
+  cramjam::Buffer buf_;
+};
+
+std::shared_ptr<Buffer> Buffer::FromCramjamBuffer(cramjam::Buffer buf) {
+  return std::make_shared<CramjamBuffer>(buf);
+}
+
 class StlStringBuffer : public Buffer {
  public:
   explicit StlStringBuffer(std::string data) : input_(std::move(data)) {

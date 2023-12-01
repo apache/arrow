@@ -107,62 +107,17 @@ void CheckStreamingCompressor(Codec* codec, const std::vector<uint8_t>& data) {
   std::shared_ptr<Compressor> compressor;
   ASSERT_OK_AND_ASSIGN(compressor, codec->MakeCompressor());
 
-  std::vector<uint8_t> compressed;
-  int64_t compressed_size = 0;
-  const uint8_t* input = data.data();
-  int64_t remaining = data.size();
+  ASSERT_OK_AND_ASSIGN(auto compressed_result,
+                       compressor->Compress(data.size(), data.data()));
 
-  compressed.resize(10);
-  bool do_flush = false;
+  ASSERT_EQ(compressed_result.bytes_read, data.size());
+  ASSERT_LE(compressed_result.bytes_written, data.size());
 
-  while (remaining > 0) {
-    // Feed a small amount each time
-    int64_t input_len = std::min(remaining, static_cast<int64_t>(1111));
-    int64_t output_len = compressed.size() - compressed_size;
-    uint8_t* output = compressed.data() + compressed_size;
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         compressor->Compress(input_len, input, output_len, output));
-    ASSERT_LE(result.bytes_read, input_len);
-    ASSERT_LE(result.bytes_written, output_len);
-    compressed_size += result.bytes_written;
-    input += result.bytes_read;
-    remaining -= result.bytes_read;
-    if (result.bytes_read == 0) {
-      compressed.resize(compressed.capacity() * 2);
-    }
-    // Once every two iterations, do a flush
-    if (do_flush) {
-      Compressor::FlushResult result;
-      do {
-        output_len = compressed.size() - compressed_size;
-        output = compressed.data() + compressed_size;
-        ASSERT_OK_AND_ASSIGN(result, compressor->Flush(output_len, output));
-        ASSERT_LE(result.bytes_written, output_len);
-        compressed_size += result.bytes_written;
-        if (result.should_retry) {
-          compressed.resize(compressed.capacity() * 2);
-        }
-      } while (result.should_retry);
-    }
-    do_flush = !do_flush;
-  }
-
-  // End the compressed stream
-  Compressor::EndResult result;
-  do {
-    int64_t output_len = compressed.size() - compressed_size;
-    uint8_t* output = compressed.data() + compressed_size;
-    ASSERT_OK_AND_ASSIGN(result, compressor->End(output_len, output));
-    ASSERT_LE(result.bytes_written, output_len);
-    compressed_size += result.bytes_written;
-    if (result.should_retry) {
-      compressed.resize(compressed.capacity() * 2);
-    }
-  } while (result.should_retry);
+  ASSERT_OK_AND_ASSIGN(auto compressed, compressor->Finish());
 
   // Check decompressing the compressed data
   std::vector<uint8_t> decompressed(data.size());
-  ASSERT_OK(codec->Decompress(compressed_size, compressed.data(), decompressed.size(),
+  ASSERT_OK(codec->Decompress(compressed->size(), compressed->data(), decompressed.size(),
                               decompressed.data()));
 
   ASSERT_EQ(data, decompressed);
@@ -184,38 +139,17 @@ void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) 
   std::shared_ptr<Decompressor> decompressor;
   ASSERT_OK_AND_ASSIGN(decompressor, codec->MakeDecompressor());
 
-  std::vector<uint8_t> decompressed;
-  int64_t decompressed_size = 0;
-  const uint8_t* input = compressed.data();
-  int64_t remaining = compressed.size();
+  ASSERT_OK_AND_ASSIGN(auto decompress_result,
+                       decompressor->Decompress(compressed.size(), compressed.data()));
+  ASSERT_EQ(decompress_result.bytes_read, compressed.size());
+  ASSERT_GE(decompress_result.bytes_written, compressed.size());
 
-  decompressed.resize(10);
-  while (!decompressor->IsFinished()) {
-    // Feed a small amount each time
-    int64_t input_len = std::min(remaining, static_cast<int64_t>(23));
-    int64_t output_len = decompressed.size() - decompressed_size;
-    uint8_t* output = decompressed.data() + decompressed_size;
-    ASSERT_OK_AND_ASSIGN(auto result,
-                         decompressor->Decompress(input_len, input, output_len, output));
-    ASSERT_LE(result.bytes_read, input_len);
-    ASSERT_LE(result.bytes_written, output_len);
-    ASSERT_TRUE(result.need_more_output || result.bytes_written > 0 ||
-                result.bytes_read > 0)
-        << "Decompression not progressing anymore";
-    if (result.need_more_output) {
-      decompressed.resize(decompressed.capacity() * 2);
-    }
-    decompressed_size += result.bytes_written;
-    input += result.bytes_read;
-    remaining -= result.bytes_read;
-  }
-  ASSERT_TRUE(decompressor->IsFinished());
-  ASSERT_EQ(remaining, 0);
+  ASSERT_OK_AND_ASSIGN(auto decompressed, decompressor->Finish());
 
   // Check the decompressed data
-  decompressed.resize(decompressed_size);
-  ASSERT_EQ(data.size(), decompressed_size);
-  ASSERT_EQ(data, decompressed);
+  auto data_ = Buffer::FromVector(data);
+  ASSERT_EQ(data_->size(), decompressed->size());
+  ASSERT_EQ(data_, decompressed);
 }
 
 // Check the streaming compressor and decompressor together
@@ -223,84 +157,17 @@ void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) 
 void CheckStreamingRoundtrip(std::shared_ptr<Compressor> compressor,
                              std::shared_ptr<Decompressor> decompressor,
                              const std::vector<uint8_t>& data) {
-  std::default_random_engine engine(42);
-  std::uniform_int_distribution<int> buf_size_distribution(10, 40);
-
-  auto make_buf_size = [&]() -> int64_t { return buf_size_distribution(engine); };
-
   // Compress...
-
-  std::vector<uint8_t> compressed(1);
-  int64_t compressed_size = 0;
-  {
-    const uint8_t* input = data.data();
-    int64_t remaining = data.size();
-
-    while (remaining > 0) {
-      // Feed a varying amount each time
-      int64_t input_len = std::min(remaining, make_buf_size());
-      int64_t output_len = compressed.size() - compressed_size;
-      uint8_t* output = compressed.data() + compressed_size;
-      ASSERT_OK_AND_ASSIGN(auto result,
-                           compressor->Compress(input_len, input, output_len, output));
-      ASSERT_LE(result.bytes_read, input_len);
-      ASSERT_LE(result.bytes_written, output_len);
-      compressed_size += result.bytes_written;
-      input += result.bytes_read;
-      remaining -= result.bytes_read;
-      if (result.bytes_read == 0) {
-        compressed.resize(compressed.capacity() * 2);
-      }
-    }
-    // End the compressed stream
-    Compressor::EndResult result;
-    do {
-      int64_t output_len = compressed.size() - compressed_size;
-      uint8_t* output = compressed.data() + compressed_size;
-      ASSERT_OK_AND_ASSIGN(result, compressor->End(output_len, output));
-      ASSERT_LE(result.bytes_written, output_len);
-      compressed_size += result.bytes_written;
-      if (result.should_retry) {
-        compressed.resize(compressed.capacity() * 2);
-      }
-    } while (result.should_retry);
-
-    compressed.resize(compressed_size);
-  }
+  ASSERT_OK(compressor->Compress(data.size(), data.data()));
+  ASSERT_OK_AND_ASSIGN(auto compressed, compressor->Finish());
 
   // Then decompress...
+  ASSERT_OK(decompressor->Decompress(compressed->size(), compressed->data()));
+  ASSERT_OK_AND_ASSIGN(auto decompressed, decompressor->Finish());
 
-  std::vector<uint8_t> decompressed(2);
-  int64_t decompressed_size = 0;
-  {
-    const uint8_t* input = compressed.data();
-    int64_t remaining = compressed.size();
-
-    while (!decompressor->IsFinished()) {
-      // Feed a varying amount each time
-      int64_t input_len = std::min(remaining, make_buf_size());
-      int64_t output_len = decompressed.size() - decompressed_size;
-      uint8_t* output = decompressed.data() + decompressed_size;
-      ASSERT_OK_AND_ASSIGN(
-          auto result, decompressor->Decompress(input_len, input, output_len, output));
-      ASSERT_LE(result.bytes_read, input_len);
-      ASSERT_LE(result.bytes_written, output_len);
-      ASSERT_TRUE(result.need_more_output || result.bytes_written > 0 ||
-                  result.bytes_read > 0)
-          << "Decompression not progressing anymore";
-      if (result.need_more_output) {
-        decompressed.resize(decompressed.capacity() * 2);
-      }
-      decompressed_size += result.bytes_written;
-      input += result.bytes_read;
-      remaining -= result.bytes_read;
-    }
-    ASSERT_EQ(remaining, 0);
-    decompressed.resize(decompressed_size);
-  }
-
-  ASSERT_EQ(data.size(), decompressed.size());
-  ASSERT_EQ(data, decompressed);
+  auto data_ = Buffer::FromVector(data);
+  ASSERT_EQ(data_->size(), decompressed->size());
+  ASSERT_EQ(data_, decompressed);
 }
 
 void CheckStreamingRoundtrip(Codec* codec, const std::vector<uint8_t>& data) {
@@ -644,7 +511,7 @@ TEST_P(CodecTest, StreamingMultiFlush) {
     compressed.resize(compressed.capacity() * 2);
     output_len = compressed.size() - actual_size;
     output = compressed.data() + actual_size;
-    ASSERT_OK_AND_ASSIGN(result, compressor->Flush(output_len, output));
+    ASSERT_OK_AND_ASSIGN(result, compressor->Flush());
     actual_size += result.bytes_written;
     attempts++;
   } while (attempts < 8 && result.should_retry);
@@ -653,7 +520,7 @@ TEST_P(CodecTest, StreamingMultiFlush) {
   // Flush again having done nothing - should not require retry
   output_len = compressed.size() - actual_size;
   output = compressed.data() + actual_size;
-  ASSERT_OK_AND_ASSIGN(result, compressor->Flush(output_len, output));
+  ASSERT_OK_AND_ASSIGN(result, compressor->Flush());
   ASSERT_FALSE(result.should_retry);
 }
 

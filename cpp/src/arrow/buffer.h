@@ -26,6 +26,8 @@
 #include <utility>
 #include <vector>
 
+#include <cramjam/cramjam.h>
+
 #include "arrow/device.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -151,6 +153,13 @@ class ARROW_EXPORT Buffer {
   /// \param[in] data a string to own
   /// \return a new Buffer instance
   static std::shared_ptr<Buffer> FromString(std::string data);
+
+  /// \brief Construct an immutable, non-owned buffer that references a
+  /// cramjam::Buffer.
+  ///
+  /// \param[in] buf cramjam::Buffer
+  /// \return a new Buffer instance
+  static std::shared_ptr<Buffer> FromCramjamBuffer(cramjam::Buffer buf);
 
   /// \brief Construct an immutable buffer that takes ownership of the contents
   /// of an std::vector (without copying it). Only vectors of TrivialType objects

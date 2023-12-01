@@ -21,8 +21,6 @@
 #include <cstdint>
 #include <memory>
 
-#include <snappy.h>
-
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
@@ -37,52 +35,51 @@ namespace internal {
 namespace {
 
 // ----------------------------------------------------------------------
-// Snappy implementation
+// Snappy decompressor implementation
+
+class SnappyFrameDecompressor : public Decompressor {
+ public:
+  SnappyFrameDecompressor() { cjformat_ = cramjam::StreamingSnappy; };
+};
+
+// ----------------------------------------------------------------------
+// Snappy compressor implementation
+
+class SnappyFrameCompressor : public Compressor {
+ public:
+  explicit SnappyFrameCompressor(int compression_level) {
+    compression_level_ = compression_level;
+    cjformat_ = cramjam::StreamingSnappy;
+  };
+  SnappyFrameCompressor() {
+    compression_level_ = 0;  // Snappy has no compression level
+    cjformat_ = cramjam::StreamingSnappy;
+  };
+};
+
+// ----------------------------------------------------------------------
+// Snappy raw implementation
 
 class SnappyCodec : public Codec {
  public:
-  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
-                             int64_t output_buffer_len, uint8_t* output_buffer) override {
-    size_t decompressed_size;
-    if (!snappy::GetUncompressedLength(reinterpret_cast<const char*>(input),
-                                       static_cast<size_t>(input_len),
-                                       &decompressed_size)) {
-      return Status::IOError("Corrupt snappy compressed data.");
-    }
-    if (output_buffer_len < static_cast<int64_t>(decompressed_size)) {
-      return Status::Invalid("Output buffer size (", output_buffer_len, ") must be ",
-                             decompressed_size, " or larger.");
-    }
-    if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
-                               static_cast<size_t>(input_len),
-                               reinterpret_cast<char*>(output_buffer))) {
-      return Status::IOError("Corrupt snappy compressed data.");
-    }
-    return static_cast<int64_t>(decompressed_size);
-  }
+  SnappyCodec() { cjformat_ = cramjam::SnappyRaw; }
 
   int64_t MaxCompressedLen(int64_t input_len,
                            const uint8_t* ARROW_ARG_UNUSED(input)) override {
     DCHECK_GE(input_len, 0);
-    return snappy::MaxCompressedLength(static_cast<size_t>(input_len));
-  }
-
-  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
-                           int64_t ARROW_ARG_UNUSED(output_buffer_len),
-                           uint8_t* output_buffer) override {
-    size_t output_size;
-    snappy::RawCompress(reinterpret_cast<const char*>(input),
-                        static_cast<size_t>(input_len),
-                        reinterpret_cast<char*>(output_buffer), &output_size);
-    return static_cast<int64_t>(output_size);
+    return cramjam::snappy_raw_max_compressed_len(input_len);
   }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
-    return Status::NotImplemented("Streaming compression unsupported with Snappy");
+    auto ptr = std::make_shared<SnappyFrameCompressor>(compression_level_);
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
   }
 
   Result<std::shared_ptr<Decompressor>> MakeDecompressor() override {
-    return Status::NotImplemented("Streaming decompression unsupported with Snappy");
+    auto ptr = std::make_shared<SnappyFrameDecompressor>();
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
   }
 
   Compression::type compression_type() const override { return Compression::SNAPPY; }

@@ -22,7 +22,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/type_fwd.h"
@@ -37,7 +39,7 @@ constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 ///
 class ARROW_EXPORT Compressor {
  public:
-  virtual ~Compressor() = default;
+  virtual ~Compressor() { cramjam::free_compressor(cjformat_, &compressor_); };
 
   struct CompressResult {
     int64_t bytes_read;
@@ -52,17 +54,59 @@ class ARROW_EXPORT Compressor {
     bool should_retry;
   };
 
+  virtual Status Init() {
+    char* error = nullptr;
+    uint32_t level = compression_level_;
+    compressor_ = cramjam::compressor_init(cjformat_, &level, &error);
+    if (error) {
+      std::string msg = error;
+      cramjam::free_string(error);
+      return Status::IOError(msg);
+    }
+    return Status::OK();
+  }
+
   /// \brief Compress some input.
   ///
   /// If bytes_read is 0 on return, then a larger output buffer should be supplied.
-  virtual Result<CompressResult> Compress(int64_t input_len, const uint8_t* input,
-                                          int64_t output_len, uint8_t* output) = 0;
+  virtual Result<CompressResult> Compress(int64_t input_len, const uint8_t* input) {
+    char* error = nullptr;
+    size_t nbytes_read = 0, nbytes_written = 0;
+    cramjam::compressor_compress(cjformat_, &compressor_, input, input_len, &nbytes_read,
+                                 &nbytes_written, &error);
+    if (error) {
+      std::string msg = error;
+      cramjam::free_string(error);
+      return Status::IOError(msg);
+    }
+    return CompressResult{static_cast<int64_t>(nbytes_read),
+                          static_cast<int64_t>(nbytes_written)};
+  };
+
+  virtual std::shared_ptr<Buffer> Inner() {
+    if (finished_) {
+      return compressed_;
+    }
+    auto buf = cramjam::compressor_inner(cjformat_, &compressor_);
+    return Buffer::FromCramjamBuffer(buf);
+  }
 
   /// \brief Flush part of the compressed output.
   ///
   /// If should_retry is true on return, Flush() should be called again
   /// with a larger buffer.
-  virtual Result<FlushResult> Flush(int64_t output_len, uint8_t* output) = 0;
+  virtual Result<FlushResult> Flush() {
+    char* error = nullptr;
+    // todo: need to have nbytes written set during flush
+    size_t nbytes_written = 0;
+    cramjam::compressor_flush(cjformat_, &compressor_, &error);
+    if (error) {
+      std::string msg = error;
+      cramjam::free_string(error);
+      return Status::IOError(msg);
+    }
+    return FlushResult{static_cast<int64_t>(nbytes_written), false};
+  };
 
   /// \brief End compressing, doing whatever is necessary to end the stream.
   ///
@@ -70,42 +114,113 @@ class ARROW_EXPORT Compressor {
   /// with a larger buffer.  Otherwise, the Compressor should not be used anymore.
   ///
   /// End() implies Flush().
-  virtual Result<EndResult> End(int64_t output_len, uint8_t* output) = 0;
+  virtual Result<EndResult> End(int64_t output_len, uint8_t* output) {
+    ARROW_RETURN_NOT_OK(Finish());
+    return EndResult{static_cast<int64_t>(compressed_->size()), false};
+  };
+
+  /// \bFinish and take underlying buffer
+  virtual Result<std::shared_ptr<Buffer>> Finish() {
+    if (!finished_) {
+      char* error = nullptr;
+      auto buffer = cramjam::compressor_finish(cjformat_, &compressor_, &error);
+      compressed_ = Buffer::FromCramjamBuffer(buffer);
+      if (error) {
+        std::string msg = error;
+        cramjam::free_string(error);
+        return Status::IOError(error);
+      }
+      finished_ = true;
+    }
+    return compressed_;
+  };
 
   // XXX add methods for buffer size heuristics?
+ protected:
+  bool finished_ = false;
+  void* compressor_;
+  int32_t compression_level_;
+  cramjam::StreamingCodec cjformat_;
+  std::shared_ptr<Buffer> compressed_;
 };
 
 /// \brief Streaming decompressor interface
 ///
 class ARROW_EXPORT Decompressor {
  public:
-  virtual ~Decompressor() = default;
+  virtual ~Decompressor() { cramjam::free_decompressor(cjformat_, &decompressor_); };
 
   struct DecompressResult {
-    // XXX is need_more_output necessary? (Brotli?)
     int64_t bytes_read;
     int64_t bytes_written;
-    bool need_more_output;
   };
+
+  virtual Status Init() {
+    cramjam::decompressor_init(cjformat_);
+    return Status::OK();
+  }
 
   /// \brief Decompress some input.
   ///
-  /// If need_more_output is true on return, a larger output buffer needs
-  /// to be supplied.
-  virtual Result<DecompressResult> Decompress(int64_t input_len, const uint8_t* input,
-                                              int64_t output_len, uint8_t* output) = 0;
+  virtual Result<DecompressResult> Decompress(int64_t input_len, const uint8_t* input) {
+    char* error = nullptr;
+    size_t nbytes_written = 0, nbytes_read = 0;
+    cramjam::decompressor_decompress(cjformat_, &decompressor_, input, input_len,
+                                     &nbytes_read, &nbytes_written, &error);
+    if (error) {
+      std::string msg = error;
+      cramjam::free_string(error);
+      return Status::IOError(msg);
+    }
+
+    return DecompressResult{static_cast<int64_t>(nbytes_read),
+                            static_cast<int64_t>(nbytes_written)};
+  };
 
   /// \brief Return whether the compressed stream is finished.
   ///
   /// This is a heuristic.  If true is returned, then it is guaranteed
   /// that the stream is finished.  If false is returned, however, it may
   /// simply be that the underlying library isn't able to provide the information.
-  virtual bool IsFinished() = 0;
+  virtual bool IsFinished() { return finished_; };
 
   /// \brief Reinitialize decompressor, making it ready for a new compressed stream.
-  virtual Status Reset() = 0;
+  virtual Status Reset() {
+    cramjam::free_decompressor(cjformat_, &decompressor_);
+    finished_ = false;
+    return Init();
+  };
+
+  virtual std::shared_ptr<Buffer> Inner() {
+    if (finished_) {
+      return decompressed_;
+    }
+    auto buf = cramjam::decompressor_inner(cjformat_, &decompressor_);
+    return Buffer::FromCramjamBuffer(buf);
+  }
+
+  /// \bFinish and take underlying buffer
+  virtual Result<std::shared_ptr<Buffer>> Finish() {
+    if (!finished_) {
+      char* error = nullptr;
+      auto buffer = cramjam::decompressor_finish(cjformat_, &decompressor_, &error);
+      decompressed_ = Buffer::FromCramjamBuffer(buffer);
+      if (error) {
+        std::string msg = error;
+        cramjam::free_string(error);
+        return Status::IOError(error);
+      }
+      finished_ = true;
+    }
+    return decompressed_;
+  };
 
   // XXX add methods for buffer size heuristics?
+ protected:
+  bool finished_ = false;
+  void* decompressor_;
+  std::shared_ptr<Buffer> decompressed_;
+  cramjam::StreamingCodec cjformat_;
 };
 
 /// \brief Compression codec options
@@ -201,8 +316,18 @@ class ARROW_EXPORT Codec {
   /// compression.  Depending on the codec (e.g. LZ4), different formats may
   /// be used.
   virtual Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
-                                     int64_t output_buffer_len,
-                                     uint8_t* output_buffer) = 0;
+                                     int64_t output_buffer_len, uint8_t* output_buffer) {
+    uintptr_t nbytes_read = 0, nbytes_written = 0;
+    char* error = nullptr;
+    cramjam::decompress_into(cjformat_, input, input_len, output_buffer,
+                             output_buffer_len, &nbytes_read, &nbytes_written, &error);
+    if (error) {
+      std::string msg = error;
+      cramjam::free_string(error);
+      return Status::IOError(msg);
+    }
+    return nbytes_written;
+  };
 
   /// \brief One-shot compression function
   ///
@@ -213,7 +338,20 @@ class ARROW_EXPORT Codec {
   /// decompression.  Depending on the codec (e.g. LZ4), different formats may
   /// be used.
   virtual Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
-                                   int64_t output_buffer_len, uint8_t* output_buffer) = 0;
+                                   int64_t output_buffer_len, uint8_t* output_buffer) {
+    uintptr_t nbytes_read = 0, nbytes_written = 0;
+    char* error = nullptr;
+    uint32_t level = compression_level_;
+    cramjam::compress_into(cjformat_, &level, input, input_len, output_buffer,
+                           output_buffer_len, &nbytes_read, &nbytes_written, &error);
+
+    if (error) {
+      std::string msg = error;
+      cramjam::free_string(error);
+      return Status::IOError(msg);
+    }
+    return nbytes_written;
+  };
 
   virtual int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) = 0;
 
@@ -231,6 +369,10 @@ class ARROW_EXPORT Codec {
 
   /// \brief This Codec's compression level, if applicable
   virtual int compression_level() const { return UseDefaultCompressionLevel(); }
+
+ protected:
+  cramjam::Codec cjformat_;
+  uint32_t compression_level_;
 
  private:
   /// \brief Initializes the codec's resources.
