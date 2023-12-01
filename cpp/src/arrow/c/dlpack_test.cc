@@ -63,6 +63,8 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
   ASSERT_OK(arrow::dlpack::ExportDevice(arr, &device));
   ASSERT_EQ(DLDeviceType::kDLCPU, device.device_type);
   ASSERT_EQ(0, device.device_id);
+
+  dlmtensor->deleter(dlmtensor);
 };
 
 TEST_F(TestExportArray, TestSupportedArray) {
