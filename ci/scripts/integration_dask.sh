@@ -32,7 +32,9 @@ python -c "import dask.dataframe"
 # pytest -sv --pyargs dask.bytes.tests.test_local
 
 # The "skip_with_pyarrow_strings" marker is meant to skip automatically, but that doesn't work with --pyargs, so de-selecting manually
-pytest -v --pyargs dask.dataframe.tests.test_dataframe -m "not skip_with_pyarrow_strings"
+# - The 'test_categorize_info' test is failing because of change in StringArray's nbytes and
+#   an upstream fix (https://github.com/apache/arrow/issues/39028)
+pytest -v --pyargs dask.dataframe.tests.test_dataframe -m "not skip_with_pyarrow_strings and not test_categorize_info"
 pytest -v --pyargs dask.dataframe.io.tests.test_orc
 pytest -v --pyargs dask.dataframe.io.tests.test_parquet \
   -m "not skip_with_pyarrow_strings and not xfail_with_pyarrow_strings"
