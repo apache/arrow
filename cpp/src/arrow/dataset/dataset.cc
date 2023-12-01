@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <memory>
 #include <utility>
 
@@ -44,13 +45,31 @@ Fragment::Fragment(compute::Expression partition_expression,
       physical_schema_(std::move(physical_schema)) {}
 
 Future<std::shared_ptr<InspectedFragment>> Fragment::InspectFragment(
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context,
+    bool should_cache) {
+  util::Mutex::Guard lk = physical_schema_mutex_.Lock();
+  if (cached_inspected_fragment_) {
+    return cached_inspected_fragment_;
+  }
+  lk.Unlock();
+  return InspectFragmentImpl(format_options, exec_context)
+      .Then([this, should_cache](const std::shared_ptr<InspectedFragment>& frag) {
+        if (should_cache) {
+          util::Mutex::Guard lk = physical_schema_mutex_.Lock();
+          cached_inspected_fragment_ = frag;
+        }
+        return frag;
+      });
+}
+
+Future<std::shared_ptr<InspectedFragment>> Fragment::InspectFragmentImpl(
     const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
   return Status::NotImplemented("Inspect fragment");
 }
 
 Future<std::shared_ptr<FragmentScanner>> Fragment::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
+    const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
+    compute::ExecContext* exec_context) {
   return Status::NotImplemented("New scan method");
 }
 
@@ -156,42 +175,45 @@ Future<std::optional<int64_t>> InMemoryFragment::CountRows(
   return Future<std::optional<int64_t>>::MakeFinished(total);
 }
 
-Future<std::shared_ptr<InspectedFragment>> InMemoryFragment::InspectFragment(
+Future<std::shared_ptr<InspectedFragment>> InMemoryFragment::InspectFragmentImpl(
     const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
   return std::make_shared<InspectedFragment>(physical_schema_->field_names());
 }
 
 class InMemoryFragment::Scanner : public FragmentScanner {
  public:
-  explicit Scanner(InMemoryFragment* fragment) : fragment_(fragment) {}
+  explicit Scanner(std::vector<std::shared_ptr<RecordBatch>> batches)
+      : batches_(std::move(batches)) {}
 
-  Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) override {
-    return Future<std::shared_ptr<RecordBatch>>::MakeFinished(
-        fragment_->record_batches_[batch_number]);
+  AsyncGenerator<std::shared_ptr<RecordBatch>> RunScanTask(int batch_number) override {
+    DCHECK_EQ(batch_number, 0);
+    return MakeVectorGenerator(std::move(batches_));
   }
 
-  int64_t EstimatedDataBytes(int batch_number) override {
-    return arrow::util::TotalBufferSize(*fragment_->record_batches_[batch_number]);
-  }
+  int NumScanTasks() override { return 1; }
 
-  int NumBatches() override {
-    return static_cast<int>(fragment_->record_batches_.size());
+  int NumBatchesInScanTask(int task_number) override {
+    DCHECK_LE(batches_.size(),
+              static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
+    return static_cast<int>(batches_.size());
   }
 
  private:
-  InMemoryFragment* fragment_;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
 };
 
 Future<std::shared_ptr<FragmentScanner>> InMemoryFragment::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
+    const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
+    compute::ExecContext* exec_context) {
   return Future<std::shared_ptr<FragmentScanner>>::MakeFinished(
-      std::make_shared<InMemoryFragment::Scanner>(this));
+      std::make_shared<InMemoryFragment::Scanner>(record_batches_));
 }
 
-Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression)
+Dataset::Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression,
+                 bool should_cache_metadata)
     : schema_(std::move(schema)),
-      partition_expression_(std::move(partition_expression)) {}
+      partition_expression_(std::move(partition_expression)),
+      should_cache_metadata_(should_cache_metadata) {}
 
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
   return std::make_shared<ScannerBuilder>(this->shared_from_this());
@@ -246,7 +268,7 @@ struct VectorRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
 
 InMemoryDataset::InMemoryDataset(std::shared_ptr<Schema> schema,
                                  RecordBatchVector batches)
-    : Dataset(std::move(schema)),
+    : Dataset(std::move(schema), /*should_cache_metadata=*/false),
       get_batches_(new VectorRecordBatchGenerator(std::move(batches))) {}
 
 struct TableRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
@@ -263,7 +285,7 @@ struct TableRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
 };
 
 InMemoryDataset::InMemoryDataset(std::shared_ptr<Table> table)
-    : Dataset(table->schema()),
+    : Dataset(table->schema(), /*should_cache_metadata=*/false),
       get_batches_(new TableRecordBatchGenerator(std::move(table))) {}
 
 Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(

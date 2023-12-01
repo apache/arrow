@@ -54,6 +54,11 @@ constexpr int64_t kDefaultBatchSize = 1 << 17;  // 128Ki rows
 // This will yield 64 batches ~ 8Mi rows
 constexpr int32_t kDefaultBatchReadahead = 16;
 constexpr int32_t kDefaultFragmentReadahead = 4;
+
+// Note, the above properties are specific to the legacy scanner.  These following
+// properties control the new scanner.  This configuration should lead to max of ~512MiB
+// of scanner buffer while still allowing 16 parallel read streams.
+constexpr int32_t kDefaultScanTaskReadahead = 16;
 constexpr int32_t kDefaultBytesReadahead = 1 << 25;  // 32MiB
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
@@ -219,38 +224,31 @@ struct ARROW_DS_EXPORT ScanV2Options : public acero::ExecNodeOptions {
   ///   })
   std::vector<FieldPath> columns;
 
-  /// \brief Target number of bytes to read ahead in a fragment
+  /// \brief How many concurrent streams should the scanner read
   ///
-  /// This limit involves some amount of estimation.  Formats typically only know
-  /// batch boundaries in terms of rows (not decoded bytes) and so an estimation
-  /// must be done to guess the average row size.  Other formats like CSV and JSON
-  /// must make even more generalized guesses.
-  ///
-  /// This is a best-effort guide.  Some formats may need to read ahead further,
-  /// for example, if scanning a parquet file that has batches with 100MiB of data
-  /// then the actual readahead will be at least 100MiB
-  ///
-  /// Set to 0 to disable readhead.  When disabled, the scanner will read the
-  /// dataset one batch at a time
-  ///
-  /// This limit applies across all fragments.  If the limit is 32MiB and the
-  /// fragment readahead allows for 20 fragments to be read at once then the
-  /// total readahead will still be 32MiB and NOT 20 * 32MiB.
-  int32_t target_bytes_readahead = kDefaultBytesReadahead;
-
-  /// \brief Number of fragments to read ahead
-  ///
-  /// Higher readahead will potentially lead to more efficient I/O but will lead
+  /// Higher readahead could potentially lead to more efficient I/O but will lead
   /// to the scan operation using more RAM.  The default is fairly conservative
   /// and designed for fast local disks (or slow local spinning disks which cannot
   /// handle much parallelism anyways).  When using a highly parallel remote filesystem
   /// you will likely want to increase these values.
   ///
-  /// Set to 0 to disable fragment readahead.  When disabled the dataset will be scanned
-  /// one fragment at a time.
-  int32_t fragment_readahead = kDefaultFragmentReadahead;
+  /// Set to 0 to disable readahead.  When disabled the dataset will be scanned
+  /// one scan task at a time.
+  ///
+  /// A scan task (i.e. stream of data) is any independently scannable unit.  For example,
+  /// an entire JSON file is a single stream.  We scan the file from start to finish and
+  /// cannot start scanning in the middle.  A parquet file has one stream per row group.
+  /// This is because we can scan the row groups in parallel.
+  int32_t scan_task_readahead = kDefaultScanTaskReadahead;
   /// \brief Options specific to the file format
   const FragmentScanOptions* format_options = NULLPTR;
+
+  /// \brief Should the scan node cache fragment inspection information
+  ///
+  /// If this is true then future scans of the same fragment instance may start slightly
+  /// faster.  However, this information could take up a large amount of RAM if there are
+  /// many fragments.
+  bool cache_fragment_inspection = false;
 
   /// \brief Utility method to get a selection representing all columns in a dataset
   static std::vector<FieldPath> AllColumns(const Schema& dataset_schema);

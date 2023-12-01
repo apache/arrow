@@ -531,18 +531,13 @@ class TestCsvFileFormatScanNode : public FileFormatScanNodeMixin<CsvFormatHelper
   CsvFragmentScanOptions scan_options_;
 };
 
+TEST_P(TestCsvFileFormatScanNode, Inspect) { TestInspect(); }
 TEST_P(TestCsvFileFormatScanNode, Scan) { TestScan(); }
-TEST_P(TestCsvFileFormatScanNode, ScanProjected) { TestScanProjected(); }
-TEST_P(TestCsvFileFormatScanNode, ScanMissingFilterField) {
-  TestScanMissingFilterField();
-}
+TEST_P(TestCsvFileFormatScanNode, ScanSomeColumns) { TestScanSomeColumns(); }
 // NOTE(ARROW-14658): TestScanProjectedNested is ignored since CSV
 // doesn't have any nested types for us to work with
-TEST_P(TestCsvFileFormatScanNode, ScanProjectedMissingColumns) {
-  TestScanProjectedMissingCols();
-}
-TEST_P(TestCsvFileFormatScanNode, ScanWithDuplicateColumn) {
-  TestScanWithDuplicateColumn();
+TEST_P(TestCsvFileFormatScanNode, ScanWithInvalidOptions) {
+  TestInvalidFormatScanOptions();
 }
 // NOTE: TestScanWithPushdownNulls is ignored since CSV doesn't handle pushdown filtering
 INSTANTIATE_TEST_SUITE_P(TestScanNode, TestCsvFileFormatScanNode,

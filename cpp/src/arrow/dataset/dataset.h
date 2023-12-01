@@ -109,25 +109,58 @@ struct ARROW_DS_EXPORT FragmentScanRequest {
   const FragmentScanOptions* format_scan_options;
 };
 
-/// \brief An iterator-like object that can yield batches created from a fragment
+/// \brief An abstraction over (potentially parallel) reading of a fragment
 class ARROW_DS_EXPORT FragmentScanner {
  public:
-  /// This instance will only be destroyed after all ongoing scan futures
+  /// This instance will only be destroyed after all ongoing scan tasks
   /// have been completed.
   ///
   /// This means any callbacks created as part of the scan can safely
   /// capture `this`
   virtual ~FragmentScanner() = default;
-  /// \brief Scan a batch of data from the file
-  /// \param batch_number The index of the batch to read
-  virtual Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) = 0;
-  /// \brief Calculate an estimate of how many data bytes the given batch will represent
+  /// \brief Run a task to scan a batches of data from a file
   ///
-  /// "Data bytes" should be the total size of all the buffers once the data has been
-  /// decoded into the Arrow format.
-  virtual int64_t EstimatedDataBytes(int batch_number) = 0;
-  /// \brief The number of batches in the fragment to scan
-  virtual int NumBatches() = 0;
+  /// Each scan task will generate a sequence of batches.  If a file supports multiple
+  /// scan tasks then the scan tasks should be able to run in parallel.
+  ///
+  /// For example, the CSV scanner currently generates a single stream of batches from
+  /// the start of the file to the end.  It is not capable of reading batches in parallel
+  /// and so there is a single scan task.
+  ///
+  /// The parquet scanner can read from different row groups concurrently.  Each row group
+  /// generates a sequence of batches (row groups can be very large and we may not want
+  /// to read the row group into memory all at once).
+  ///
+  /// Multiple scan tasks will be launched in parallel.  In other words, RunScanTask
+  /// will be called async-reentrantly (it will be called again before the future it
+  /// returns finishes)
+  ///
+  /// However, RunScanTask will not be called sync-reentrantly (it will not be
+  /// called again while a call to this method is in progress) and it will be called
+  /// in order.
+  ///
+  /// For example, RunScanTask(5) will always be called after RunScanTask(4) yet the
+  /// batches from scan task 4 may arrive before the batches from scan task 5 and this is
+  /// ok.  If the user desires ordered execution then batches will be sequenced later.
+  ///
+  /// \param task_number The index of the scan task to execute
+  virtual AsyncGenerator<std::shared_ptr<RecordBatch>> RunScanTask(int task_number) = 0;
+
+  /// \brief The total number of scan tasks that will be run
+  virtual int NumScanTasks() = 0;
+
+  static constexpr int kUnknownNumberOfBatches = -1;
+  /// \brief The total number of batches that will be delivered by a scan task
+  ///
+  /// Ideally, this will be known in advance by inspecting the metadata.  A fragment
+  /// scanner may choose to emit empty batches in order to respect this value.
+  ///
+  /// If it is not possible to know this in advance, then a fragment may return
+  /// FragmentScanner::kUnknownNumberOfBatches.  Note that doing so will have a
+  /// significant negative effect on scan parallelism because a scan task will not start
+  /// until we have determined how many batches precede it.  This means that any scan
+  /// tasks following this one will have to wait until this scan task is fully exhausted.
+  virtual int NumBatchesInScanTask(int task_number) = 0;
 };
 
 /// \brief Information learned about a fragment through inspection
@@ -140,8 +173,11 @@ class ARROW_DS_EXPORT FragmentScanner {
 /// names and use those column names to determine which columns to load
 /// from the CSV file.
 struct ARROW_DS_EXPORT InspectedFragment {
+  virtual ~InspectedFragment() = default;
+
   explicit InspectedFragment(std::vector<std::string> column_names)
       : column_names(std::move(column_names)) {}
+
   std::vector<std::string> column_names;
 };
 
@@ -175,12 +211,13 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// information will be needed to figure out an evolution strategy.  This information
   /// will then be passed to the call to BeginScan
   virtual Future<std::shared_ptr<InspectedFragment>> InspectFragment(
-      const FragmentScanOptions* format_options, compute::ExecContext* exec_context);
+      const FragmentScanOptions* format_options, compute::ExecContext* exec_context,
+      bool should_cache);
 
   /// \brief Start a scan operation
   virtual Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-      const FragmentScanOptions* format_options, compute::ExecContext* exec_context);
+      const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
+      compute::ExecContext* exec_context);
 
   /// \brief Count the number of rows in this fragment matching the filter using metadata
   /// only. That is, this method may perform I/O, but will not load data.
@@ -206,11 +243,14 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   explicit Fragment(compute::Expression partition_expression,
                     std::shared_ptr<Schema> physical_schema);
 
+  virtual Future<std::shared_ptr<InspectedFragment>> InspectFragmentImpl(
+      const FragmentScanOptions* format_options, compute::ExecContext* exec_context);
   virtual Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() = 0;
 
   util::Mutex physical_schema_mutex_;
   compute::Expression partition_expression_ = compute::literal(true);
   std::shared_ptr<Schema> physical_schema_;
+  std::shared_ptr<InspectedFragment> cached_inspected_fragment_;
 };
 
 /// \brief Per-scan options for fragment(s) in a dataset.
@@ -248,12 +288,11 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
-  Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+  Future<std::shared_ptr<InspectedFragment>> InspectFragmentImpl(
       const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) override;
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-      const FragmentScanOptions* format_options,
+      const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
       compute::ExecContext* exec_context) override;
 
   std::string type_name() const override { return "in-memory"; }
@@ -348,6 +387,19 @@ MakeBasicDatasetEvolutionStrategy();
 /// A Dataset acts as a union of Fragments, e.g. files deeply nested in a
 /// directory. A Dataset has a schema to which Fragments must align during a
 /// scan operation. This is analogous to Avro's reader and writer schema.
+///
+/// It is assumed that a dataset will always generate fragments in the same
+/// order.  Data in a dataset thus has an "implicit order" which is first
+/// decided by the fragment index and then the row index in a fragment.  For
+/// example, row 1 in fragment 10 comes after the last row in fragment 9.
+///
+/// A dataset will cache metadata by default.  This will enable future scans
+/// to be faster since they can skip some of the initial read steps.  However,
+/// if the dataset has many files, or if the file metadata itself is large, this
+/// cached metadata could occupy a large amount of RAM.
+///
+/// Metadata should not be cached if the contents of the files are expected
+/// to change between scans.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset
@@ -385,9 +437,15 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   virtual ~Dataset() = default;
 
  protected:
-  explicit Dataset(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
+  /// \brief Create a new dataset
+  /// \param schema the dataset schema.  This is the unified schema across all fragments
+  /// \param should_cache_metadata if true then this dataset instance should try and cache
+  ///            metadata information during a scan.
+  explicit Dataset(std::shared_ptr<Schema> schema, bool should_cache_metadata = true)
+      : schema_(std::move(schema)), should_cache_metadata_(should_cache_metadata) {}
 
-  Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression);
+  Dataset(std::shared_ptr<Schema> schema, compute::Expression partition_expression,
+          bool should_cache_metadata = true);
 
   virtual Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) = 0;
   /// \brief Default non-virtual implementation method for the base
@@ -405,6 +463,8 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
 
   std::shared_ptr<Schema> schema_;
   compute::Expression partition_expression_ = compute::literal(true);
+  bool should_cache_metadata_;
+
   std::unique_ptr<DatasetEvolutionStrategy> evolution_strategy_ =
       MakeBasicDatasetEvolutionStrategy();
 };
@@ -427,7 +487,8 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   /// Construct a dataset from a schema and a factory of record batch iterators.
   InMemoryDataset(std::shared_ptr<Schema> schema,
                   std::shared_ptr<RecordBatchGenerator> get_batches)
-      : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
+      : Dataset(std::move(schema), /*should_cache_metadata=*/false),
+        get_batches_(std::move(get_batches)) {}
 
   /// Convenience constructor taking a fixed list of batches
   InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
