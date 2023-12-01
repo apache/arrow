@@ -976,7 +976,9 @@ class AzureFileSystem::Impl {
     auto container_client =
         blob_service_client_->GetBlobContainerClient(location.container);
     Azure::Storage::Blobs::ListBlobsOptions options;
-    options.Prefix = internal::EnsureTrailingSlash(location.path);
+    if (!location.path.empty()) {
+      options.Prefix = internal::EnsureTrailingSlash(location.path);
+    }
     // https://learn.microsoft.com/en-us/rest/api/storageservices/blob-batch#remarks
     //
     // Only supports up to 256 subrequests in a single batch. The
