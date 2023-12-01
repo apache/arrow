@@ -828,7 +828,7 @@ use_byte_stream_split : bool or list, default False
     and should be combined with a compression codec.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
-    Can only be used when when ``use_dictionary`` is set to False, and
+    Can only be used when ``use_dictionary`` is set to False, and
     cannot be used in combination with ``use_byte_stream_split``.
     Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT',
     'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'}.
@@ -1906,7 +1906,7 @@ Examples
             warnings.warn(
                 "Specifying the 'schema' argument with 'use_legacy_dataset="
                 "True' is deprecated as of pyarrow 8.0.0. You can still "
-                "specify it in combination with 'use_legacy_dataet=False', "
+                "specify it in combination with 'use_legacy_dataset=False', "
                 "but in that case you need to specify a pyarrow.Schema "
                 "instead of a ParquetSchema.",
                 FutureWarning, stacklevel=2)
@@ -3272,13 +3272,13 @@ def write_to_dataset(table, root_path, partition_cols=None,
         passed, the filename will consist of a uuid.
         This option is only supported for use_legacy_dataset=True.
         When use_legacy_dataset=None and this option is specified,
-        use_legacy_datase will be set to True.
+        use_legacy_dataset will be set to True.
     filesystem : FileSystem, default None
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
     use_legacy_dataset : bool
-        Default is False. Set to True to use the the legacy behaviour
+        Default is False. Set to True to use the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
         removed in a future version). The legacy implementation still
         supports the `partition_filename_cb` keyword but is less efficient
@@ -3386,7 +3386,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         else:
             use_legacy_dataset = False
 
-    # Check for conflicting kewords
+    # Check for conflicting keywords
     msg_confl_0 = (
         "The '{0}' argument is not supported by use_legacy_dataset={2}. "
         "Use only '{1}' instead."

@@ -155,7 +155,7 @@ class ProjectNodeOptions(_ProjectNodeOptions):
         List of expressions to evaluate against the source batch. This must
         be scalar expressions.
     names : list of str, optional
-        List of names for each of the ouptut columns (same length as
+        List of names for each of the output columns (same length as
         `expressions`). If `names` is not provided, the string
         representations of exprs will be used.
     """
@@ -213,7 +213,7 @@ class AggregateNodeOptions(_AggregateNodeOptions):
     Parameters
     ----------
     aggregates : list of tuples
-        Aggregations which will be applied to the targetted fields.
+        Aggregations which will be applied to the targeted fields.
         Specified as a list of tuples, where each tuple is one aggregation
         specification and consists of: aggregation target column(s) followed
         by function name, aggregation function options object and the

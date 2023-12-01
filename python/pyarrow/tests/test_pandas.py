@@ -1343,7 +1343,7 @@ class TestConvertDateTimeLikeTypes:
         ex_values[1] = pd.NaT.value
 
         # date32 and date64 convert to [ms] in pandas v2, but
-        # in pandas v1 they are siliently coerced to [ns]
+        # in pandas v1 they are silently coerced to [ns]
         ex_datetime64ms = ex_values.astype('datetime64[ms]')
         expected_pandas = pd.DataFrame({'date32': ex_datetime64ms,
                                         'date64': ex_datetime64ms},

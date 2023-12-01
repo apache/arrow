@@ -221,7 +221,7 @@ def _perform_join(join_type, left_operand, left_keys,
                 # Do not include right table keys. As they would lead to duplicated keys
                 continue
             else:
-                # For all the other columns incude them as they are.
+                # For all the other columns include them as they are.
                 # Just recompute the suffixes that the join produced as the projection
                 # would lose them otherwise.
                 if (

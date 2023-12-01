@@ -2249,7 +2249,7 @@ def test_construct_from_list_of_files(tempdir, dataset_reader):
 
 @pytest.mark.parquet
 def test_construct_from_list_of_mixed_paths_fails(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     files = [
         'subdir/1/xxx/file0.parquet',
         'subdir/1/xxx/doesnt-exist.parquet',
@@ -2260,7 +2260,7 @@ def test_construct_from_list_of_mixed_paths_fails(mockfs):
 
 @pytest.mark.parquet
 def test_construct_from_mixed_child_datasets(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     a = ds.dataset(['subdir/1/xxx/file0.parquet',
                     'subdir/2/yyy/file1.parquet'], filesystem=mockfs)
     b = ds.dataset('subdir', filesystem=mockfs)

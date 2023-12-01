@@ -229,7 +229,7 @@ def test_python_file_read_buffer():
         buf = f.read_buffer(length)
         assert len(buf) == length
         assert memoryview(buf).tobytes() == dst_buf[:length]
-        # buf should point to the same memory, so modyfing it
+        # buf should point to the same memory, so modifying it
         memoryview(buf)[0] = ord(b'x')
         # should modify the original
         assert dst_buf[0] == ord(b'x')

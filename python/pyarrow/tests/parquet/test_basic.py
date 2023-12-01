@@ -661,7 +661,7 @@ def test_write_error_deletes_incomplete_file(tempdir):
 
 @parametrize_legacy_dataset
 def test_read_non_existent_file(tempdir, use_legacy_dataset):
-    path = 'non-existent-file.parquet'
+    path = 'nonexistent-file.parquet'
     try:
         pq.read_table(path, use_legacy_dataset=use_legacy_dataset)
     except Exception as e:

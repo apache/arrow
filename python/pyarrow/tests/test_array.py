@@ -989,7 +989,7 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
     reconstructed_arr = list_array_type.from_arrays(arr.offsets, arr.values)
     assert reconstructed_arr.to_pylist() == [[0], [], [0, None], [0]]
 
-    # Manually specifiying offsets (with nulls) is same as mask at top level
+    # Manually specifying offsets (with nulls) is same as mask at top level
     reconstructed_arr = list_array_type.from_arrays(offsets, arr.values)
     assert arr == reconstructed_arr
     reconstructed_arr = list_array_type.from_arrays(arr.offsets,

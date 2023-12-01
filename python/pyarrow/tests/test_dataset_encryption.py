@@ -123,7 +123,7 @@ def test_dataset_encryption_decryption():
         filesystem=mockfs,
     )
 
-    # read without descryption config -> should error is dataset was properly encrypted
+    # read without decryption config -> should error is dataset was properly encrypted
     pformat = pa.dataset.ParquetFileFormat()
     with pytest.raises(IOError, match=r"no decryption"):
         ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
