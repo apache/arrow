@@ -1167,7 +1167,9 @@ cdef class OSFile(NativeFile):
 
     cdef _open_writable(self, c_string path, c_bool append=False):
         with nogil:
-            self.output_stream = GetResultValue(FileOutputStream.Open(path, append))
+            self.output_stream = GetResultValue(
+                FileOutputStream.OpenWithAppend(path, append)
+            )
         self.is_writable = True
         self._is_appending = append
 
