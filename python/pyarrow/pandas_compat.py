@@ -718,7 +718,9 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
         if _pandas_api.is_ge_v21():
-            pd_arr = _pandas_api.pd.arrays.DatetimeArray(block_arr, dtype=dtype)
+            pd_arr = _pandas_api.pd.array(
+                block_arr.view("int64"), dtype=dtype, copy=False
+            )
             block = _int.make_block(pd_arr, placement=placement)
         else:
             block = _int.make_block(block_arr, placement=placement,
