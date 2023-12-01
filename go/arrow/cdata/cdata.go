@@ -82,6 +82,8 @@ var formatToSimpleType = map[string]arrow.DataType{
 	"Z":   arrow.BinaryTypes.LargeBinary,
 	"u":   arrow.BinaryTypes.String,
 	"U":   arrow.BinaryTypes.LargeString,
+	"vz":  arrow.BinaryTypes.BinaryView,
+	"vu":  arrow.BinaryTypes.StringView,
 	"tdD": arrow.FixedWidthTypes.Date32,
 	"tdm": arrow.FixedWidthTypes.Date64,
 	"tts": arrow.FixedWidthTypes.Time32s,
@@ -485,6 +487,10 @@ func (imp *cimporter) doImport() error {
 		return imp.importStringLike(int64(arrow.Int64SizeBytes))
 	case *arrow.LargeBinaryType:
 		return imp.importStringLike(int64(arrow.Int64SizeBytes))
+	case *arrow.StringViewType:
+		return imp.importBinaryViewLike()
+	case *arrow.BinaryViewType:
+		return imp.importBinaryViewLike()
 	case *arrow.ListType:
 		return imp.importListLike()
 	case *arrow.LargeListType:
@@ -651,6 +657,46 @@ func (imp *cimporter) importStringLike(offsetByteWidth int64) (err error) {
 	defer values.Release()
 
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), []*memory.Buffer{nulls, offsets, values}, nil, int(imp.arr.null_count), int(imp.arr.offset))
+	return
+}
+
+func (imp *cimporter) importBinaryViewLike() (err error) {
+	if err = imp.checkNoChildren(); err != nil {
+		return
+	}
+
+	buffers := make([]*memory.Buffer, len(imp.cbuffers)-1)
+	defer func() {
+		for _, buf := range buffers {
+			if buf != nil {
+				buf.Release()
+			}
+		}
+	}()
+
+	if buffers[0], err = imp.importNullBitmap(0); err != nil {
+		return
+	}
+
+	if buffers[1], err = imp.importFixedSizeBuffer(1, int64(arrow.ViewHeaderSizeBytes)); err != nil {
+		return
+	}
+
+	var dataBufferSizes *memory.Buffer
+	if dataBufferSizes, err = imp.importFixedSizeBuffer(1, int64(len(buffers))-2); err != nil {
+		return
+	}
+	defer dataBufferSizes.Release()
+
+	for i, size := range arrow.Int64Traits.CastFromBytes(dataBufferSizes.Bytes()) {
+		if buffers[i+2], err = imp.importVariableValuesBuffer(i+2, 1, size); err != nil {
+			return
+		}
+	}
+
+	imp.data = array.NewData(imp.dt, int(imp.arr.length), buffers, nil, int(imp.arr.null_count), int(imp.arr.offset))
+
+	buffers = []*memory.Buffer{}
 	return
 }
 

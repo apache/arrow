@@ -167,6 +167,10 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "u"
 	case *arrow.LargeStringType:
 		return "U"
+	case *arrow.BinaryViewType:
+		return "vz"
+	case *arrow.StringViewType:
+		return "vu"
 	case *arrow.Date32Type:
 		return "tdD"
 	case *arrow.Date64Type:
@@ -328,6 +332,15 @@ func allocateBufferPtrArr(n int) (out []*C.void) {
 	return
 }
 
+func allocateBufferSizeArr(n int) (out []C.int64_t) {
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
+	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof(int64(0)))))
+	s.Len = n
+	s.Cap = n
+
+	return
+}
+
 func (exp *schemaExporter) finish(out *CArrowSchema) {
 	out.dictionary = nil
 	if exp.dict != nil {
@@ -369,14 +382,14 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	}
 
 	nbuffers := len(arr.Data().Buffers())
-	buf_offset := 0
+	bufs := arr.Data().Buffers()
 	// Some types don't have validity bitmaps, but we keep them shifted
 	// to make processing easier in other contexts. This means that
 	// we have to adjust when exporting.
 	has_validity_bitmap := internal.DefaultHasValidityBitmap(arr.DataType().ID())
 	if nbuffers > 0 && !has_validity_bitmap {
 		nbuffers--
-		buf_offset++
+		bufs = bufs[1:]
 	}
 
 	out.dictionary = nil
@@ -386,26 +399,47 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	out.n_buffers = C.int64_t(nbuffers)
 	out.buffers = nil
 
+	needBufferSizes := func() bool {
+		switch arr.(type) {
+		case *array.BinaryView:
+			return true
+		case *array.StringView:
+			return true
+		default:
+			return false
+		}
+	}()
+	if needBufferSizes {
+		nbuffers++
+	}
+
 	if nbuffers > 0 {
-		bufs := arr.Data().Buffers()
-		buffers := allocateBufferPtrArr(nbuffers)
-		for i, buf := range bufs[buf_offset:] {
+		cBufs := allocateBufferPtrArr(nbuffers)
+		for i, buf := range bufs {
 			if buf == nil || buf.Len() == 0 {
 				if i > 0 || !has_validity_bitmap {
 					// apache/arrow#33936: export a dummy buffer to be friendly to
 					// implementations that don't import NULL properly
-					buffers[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
+					cBufs[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
 				} else {
 					// null pointer permitted for the validity bitmap
 					// (assuming null count is 0)
-					buffers[i] = nil
+					cBufs[i] = nil
 				}
 				continue
 			}
 
-			buffers[i] = (*C.void)(unsafe.Pointer(&buf.Bytes()[0]))
+			cBufs[i] = (*C.void)(unsafe.Pointer(&buf.Bytes()[0]))
 		}
-		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&buffers[0]))
+
+		if needBufferSizes {
+			sizes := allocateBufferSizeArr(len(bufs[2:]))
+			for i, buf := range bufs[2:] {
+				sizes[i] = C.int64_t(buf.Len())
+			}
+			cBufs[nbuffers-1] = (*C.void)(unsafe.Pointer(&sizes[0]))
+		}
+		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cBufs[0]))
 	}
 
 	arr.Data().Retain()
