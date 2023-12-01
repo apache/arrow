@@ -933,7 +933,7 @@ def test_cache_options():
     assert opts3 != opts4
 
 
-def test_cache_options_pickling():
+def test_cache_options_pickling(pickle_module):
     options = [
         ds.CacheOptions(),
         ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192,
@@ -941,7 +941,7 @@ def test_cache_options_pickling():
     ]
 
     for option in options:
-        assert pickle.loads(pickle.dumps(option)) == option
+        assert pickle_module.loads(pickle_module.dumps(option)) == option
 
 
 @pytest.mark.parametrize('paths_or_selector', [
