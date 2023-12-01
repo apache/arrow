@@ -23,7 +23,7 @@
 # - Maven >= 3.3.9
 # - JDK >=7
 # - gcc >= 4.8
-# - Node.js >= 11.12 (best way is to use nvm)
+# - Node.js >= 18
 # - Go >= 1.19
 # - Docker
 #
