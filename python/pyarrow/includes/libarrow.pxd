@@ -1386,7 +1386,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CResult[shared_ptr[COutputStream]] Open(const c_string& path)
 
         @staticmethod
-        CResult[shared_ptr[COutputStream]] Open(const c_string& path, c_bool append)
+        CResult[shared_ptr[COutputStream]] OpenWithAppend" Open"(
+            const c_string& path, c_bool append)
 
         int file_descriptor()
 
