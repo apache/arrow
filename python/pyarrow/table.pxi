@@ -4191,12 +4191,12 @@ cdef class Table(_Tabular):
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
-        from pyarrow.pandas_compat import table_to_blockmanager
-        mgr = table_to_blockmanager(
+        from pyarrow.pandas_compat import table_to_dataframe
+        df = table_to_dataframe(
             options, self, categories,
             ignore_metadata=ignore_metadata,
             types_mapper=types_mapper)
-        return pandas_api.data_frame(mgr)
+        return df
 
     @property
     def schema(self):
