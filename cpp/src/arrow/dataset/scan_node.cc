@@ -94,7 +94,7 @@ Future<AsyncGenerator<std::shared_ptr<Fragment>>> GetFragments(
 /// fragment on disk actually had a column x, and the value was not 7, then we will prefer
 /// the guarantee in this invalid case.
 ///
-/// Ths next step is to fetch the metadata for the fragment.  For some formats (e.g.
+/// The next step is to fetch the metadata for the fragment.  For some formats (e.g.
 /// CSV) this may be quite simple (get the size of the file).  For other formats (e.g.
 /// parquet) this is more involved and requires reading data.  There is one metadata
 /// io-task per fragment.  The metadata io-task creates an AsyncGenerator<RecordBatch>
@@ -150,7 +150,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
     }
 
     if (normalized.filter.call() && normalized.filter.IsBound()) {
-      // There is no easy way to make sure a filter was bound agaisnt the same
+      // There is no easy way to make sure a filter was bound against the same
       // function registry as the one in ctx so we just require it to be unbound
       // FIXME - Do we care if it was bound to a different function registry?
       return Status::Invalid("Scan filter must be unbound");
