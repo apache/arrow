@@ -17,7 +17,33 @@
   under the License.
 -->
 
-# arrow 14.0.0.9000
+# arrow 14.0.1.9000
+
+# arrow 14.0.0.2
+
+## Minor improvements and fixes
+
+* Fixed the printf syntax to align with format checking (#38894)
+* Removed bashism in configure script (#38716).
+* Fixed a broken link in the README (#38657)
+* Properly escape the license header in the lintr config (#38639).
+* Removed spurious warnings from installation-script test suite (#38571).
+* Polished installation-script after refactor (#38534)
+
+## Installation
+
+* If pkg-config fails to detect the required libraries an additional search
+  without pkg-config is run (#38970).
+* Fetch the latest nightly Arrow C++ binary when installing a development 
+  Version (#38236).  
+
+# arrow 14.0.0.1
+
+## Minor improvements and fixes
+
+* Add more debug output for build failures (#38819)
+* Increase timeout during static library download (#38767)
+* Fix bug where rosetta detection was causing installation failure (#38754)
 
 # arrow 14.0.0
 

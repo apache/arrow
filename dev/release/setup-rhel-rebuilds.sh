@@ -44,8 +44,6 @@ dnf -y install \
   ninja-build \
   nodejs \
   openssl-devel \
-  python38-devel \
-  python38-pip \
   ruby-devel \
   sqlite-devel \
   vala-devel \
@@ -54,5 +52,5 @@ dnf -y install \
 
 npm install -g yarn
 
-python3 -m pip install -U pip
+python3 -m ensurepip --upgrade
 alternatives --set python /usr/bin/python3

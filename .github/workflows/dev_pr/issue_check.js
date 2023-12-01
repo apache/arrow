@@ -103,7 +103,7 @@ async function commentNotStartedTicket(github, context, pullRequestNumber) {
 }
 
 /**
- * Assigns the Github Issue to the PR creator.
+ * Assigns the GitHub Issue to the PR creator.
  *
  * @param {Object} github
  * @param {Object} context

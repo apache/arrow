@@ -393,7 +393,7 @@ func (b *BinaryArithmeticSuite[T]) TestSub() {
 	})
 }
 
-func (b *BinaryArithmeticSuite[T]) TestMuliply() {
+func (b *BinaryArithmeticSuite[T]) TestMultiply() {
 	b.Run(b.DataType().String(), func() {
 		for _, overflow := range []bool{false, true} {
 			b.Run(fmt.Sprintf("no_overflow_check=%t", overflow), func() {

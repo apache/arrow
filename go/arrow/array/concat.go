@@ -695,7 +695,7 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 		}
 		out.childData = []arrow.ArrayData{children}
 	case *arrow.StructType:
-		out.childData = make([]arrow.ArrayData, len(dt.Fields()))
+		out.childData = make([]arrow.ArrayData, dt.NumFields())
 		for i := range dt.Fields() {
 			children := gatherChildren(data, i)
 			for _, c := range children {

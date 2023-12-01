@@ -715,7 +715,7 @@ A struct array has its own validity bitmap that is independent of its
 child arrays' validity bitmaps. The validity bitmap for the struct
 array might indicate a null when one or more of its child arrays has
 a non-null value in its corresponding slot; or conversely, a child
-array might have a null in its validity bitmap while the struct array's
+array might indicate a null in its validity bitmap while the struct array's
 validity bitmap shows a non-null value.
 
 Therefore, to know whether a particular child entry is valid, one must
@@ -988,7 +988,7 @@ access is less efficient.)
    to the length of the array and this would be confusing.
 
 
-A run must have have a length of at least 1. This means the values in the
+A run must have a length of at least 1. This means the values in the
 run ends array all are positive and in strictly ascending order. A run end cannot be
 null.
 

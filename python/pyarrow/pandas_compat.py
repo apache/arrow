@@ -748,9 +748,11 @@ def make_datetimetz(unit, tz):
     return _pandas_api.datetimetz_type(unit, tz=tz)
 
 
-def table_to_blockmanager(options, table, categories=None,
-                          ignore_metadata=False, types_mapper=None):
+def table_to_dataframe(
+    options, table, categories=None, ignore_metadata=False, types_mapper=None
+):
     from pandas.core.internals import BlockManager
+    from pandas import DataFrame
 
     all_columns = []
     column_indexes = []
@@ -774,7 +776,12 @@ def table_to_blockmanager(options, table, categories=None,
     blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
 
     axes = [columns, index]
-    return BlockManager(blocks, axes)
+    mgr = BlockManager(blocks, axes)
+    if _pandas_api.is_ge_v21():
+        df = DataFrame._from_mgr(mgr, mgr.axes)
+    else:
+        df = DataFrame(mgr)
+    return df
 
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas

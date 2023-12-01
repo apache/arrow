@@ -229,7 +229,7 @@ Functions
     for the functions ``and``, ``or``, ``xor``
 
 * Substrait has not yet clearly identified the form that URIs should take for
-  standard functions.  Acero will look for the URIs to the ``main`` Github branch.
+  standard functions.  Acero will look for the URIs to the ``main`` GitHub branch.
   In other words, for the file ``functions_arithmetic.yaml`` Acero expects
   ``https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml``
 

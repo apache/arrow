@@ -476,7 +476,7 @@ enum Arrow_Flight_Protocol_Sql_SqlInfo: SwiftProtobuf.Enum {
   /// Retrieves a int64 value representing the maximum number of characters allowed for a column name.
   case sqlMaxColumnNameLength // = 543
 
-  /// Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+  /// Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
   case sqlMaxColumnsInGroupBy // = 544
 
   /// Retrieves a int64 value representing the maximum number of columns allowed in an index.
@@ -1816,7 +1816,7 @@ extension Arrow_Flight_Protocol_Sql_SqlSupportsConvert: CaseIterable {
 
 ///*
 /// The JDBC/ODBC-defined type of any object.
-/// All the values here are the sames as in the JDBC and ODBC specs.
+/// All the values here are the same as in the JDBC and ODBC specs.
 enum Arrow_Flight_Protocol_Sql_XdbcDataType: SwiftProtobuf.Enum {
   typealias RawValue = Int
   case xdbcUnknownType // = 0
@@ -2104,7 +2104,7 @@ enum Arrow_Flight_Protocol_Sql_Nullable: SwiftProtobuf.Enum {
   case nullabilityNullable // = 1
 
   ///*
-  /// Indicates that nullability of the fields can not be determined.
+  /// Indicates that nullability of the fields cannot be determined.
   case nullabilityUnknown // = 2
   case UNRECOGNIZED(Int)
 
@@ -2149,7 +2149,7 @@ enum Arrow_Flight_Protocol_Sql_Searchable: SwiftProtobuf.Enum {
   typealias RawValue = Int
 
   ///*
-  /// Indicates that column can not be used in a WHERE clause.
+  /// Indicates that column cannot be used in a WHERE clause.
   case none // = 0
 
   ///*
@@ -2489,7 +2489,7 @@ struct Arrow_Flight_Protocol_Sql_CommandGetDbSchemas {
 ///  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 /// The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
@@ -3249,7 +3249,7 @@ extension Arrow_Flight_Protocol_Sql_ActionEndSavepointRequest.EndSavepoint: Case
 ///    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 ///  - GetFlightInfo: execute the query.
@@ -3290,7 +3290,7 @@ struct Arrow_Flight_Protocol_Sql_CommandStatementQuery {
 ///    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 ///  - GetFlightInfo: execute the query.
@@ -3356,7 +3356,7 @@ struct Arrow_Flight_Protocol_Sql_TicketStatementQuery {
 ///    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 ///    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 ///    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+///    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 ///    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 ///  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
@@ -3376,7 +3376,7 @@ struct Arrow_Flight_Protocol_Sql_CommandPreparedStatementQuery {
 
 ///
 /// Represents a SQL update query. Used in the command member of FlightDescriptor
-/// for the the RPC call DoPut to cause the server to execute the included SQL update.
+/// for the RPC call DoPut to cause the server to execute the included SQL update.
 struct Arrow_Flight_Protocol_Sql_CommandStatementUpdate {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
   // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
@@ -3404,7 +3404,7 @@ struct Arrow_Flight_Protocol_Sql_CommandStatementUpdate {
 
 ///
 /// Represents a SQL update query. Used in the command member of FlightDescriptor
-/// for the the RPC call DoPut to cause the server to execute the included
+/// for the RPC call DoPut to cause the server to execute the included
 /// prepared statement handle as an update.
 struct Arrow_Flight_Protocol_Sql_CommandPreparedStatementUpdate {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -3611,7 +3611,7 @@ extension Arrow_Flight_Protocol_Sql_ActionCancelQueryResult.CancelResult: @unche
 
 // MARK: - Extension Properties
 
-// Swift Extensions on the exteneded Messages to add easy access to the declared
+// Swift Extensions on the extended Messages to add easy access to the declared
 // extension fields. The names are based on the extension field name from the proto
 // declaration. To avoid naming collisions, the names are prefixed with the name of
 // the scope where the extend directive occurs.
