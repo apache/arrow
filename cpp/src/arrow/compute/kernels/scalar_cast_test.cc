@@ -2106,9 +2106,10 @@ TEST(Cast, BinaryToString) {
     ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
 
     // ARROW-35901: check that casting with first buffer being a `nullptr` works
-    auto fixed_array_null = ArrayFromJSON(from_type, "[]");
-    fixed_array_null->data()->buffers[0] = NULLPTR;
-    CheckCast(fixed_array_null, ArrayFromJSON(string_type, "[]"));
+    auto fixed_array_null = ArrayFromJSON(from_type, "[\"123\", \"245\", \"345\"]");
+    fixed_array_null = fixed_array_null->Slice(1, 1);
+    fixed_array_null->data()->buffers[0] = std::make_shared<Buffer>(nullptr,0);
+    CheckCast(fixed_array_null, ArrayFromJSON(string_type, "[\"245\"]"));
   }
 }
 
