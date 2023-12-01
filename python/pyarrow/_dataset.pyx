@@ -19,6 +19,7 @@
 
 """Dataset is currently unstable. APIs subject to change without notice."""
 
+from cython cimport binding
 from cython.operator cimport dereference as deref
 
 import codecs
