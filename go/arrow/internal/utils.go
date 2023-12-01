@@ -45,3 +45,17 @@ func HasValidityBitmap(id arrow.Type, version flatbuf.MetadataVersion) bool {
 	}
 	return true
 }
+
+// HasBufferSizesBuffer returns whether a given type has an extra buffer
+// in the C ABI to store the sizes of other buffers. Currently this is only
+// StringView and BinaryView.
+func HasBufferSizesBuffer(id arrow.Type) bool {
+	switch id {
+	case arrow.STRING_VIEW:
+		return true
+	case arrow.BINARY_VIEW:
+		return true
+	default:
+		return false
+	}
+}

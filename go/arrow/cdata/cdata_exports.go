@@ -381,15 +381,19 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		exportField(arrow.Field{Type: arr.DataType()}, outSchema)
 	}
 
-	nbuffers := len(arr.Data().Buffers())
-	bufs := arr.Data().Buffers()
+	buffers := arr.Data().Buffers()
 	// Some types don't have validity bitmaps, but we keep them shifted
 	// to make processing easier in other contexts. This means that
 	// we have to adjust when exporting.
 	has_validity_bitmap := internal.DefaultHasValidityBitmap(arr.DataType().ID())
-	if nbuffers > 0 && !has_validity_bitmap {
-		nbuffers--
-		bufs = bufs[1:]
+	if len(buffers) > 0 && !has_validity_bitmap {
+		buffers = buffers[1:]
+	}
+	nbuffers := len(buffers)
+
+	has_buffer_sizes_buffer := internal.HasBufferSizesBuffer(arr.DataType().ID())
+	if has_buffer_sizes_buffer {
+		nbuffers++
 	}
 
 	out.dictionary = nil
@@ -399,23 +403,9 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	out.n_buffers = C.int64_t(nbuffers)
 	out.buffers = nil
 
-	needBufferSizes := func() bool {
-		switch arr.(type) {
-		case *array.BinaryView:
-			return true
-		case *array.StringView:
-			return true
-		default:
-			return false
-		}
-	}()
-	if needBufferSizes {
-		nbuffers++
-	}
-
 	if nbuffers > 0 {
 		cBufs := allocateBufferPtrArr(nbuffers)
-		for i, buf := range bufs {
+		for i, buf := range buffers {
 			if buf == nil || buf.Len() == 0 {
 				if i > 0 || !has_validity_bitmap {
 					// apache/arrow#33936: export a dummy buffer to be friendly to
@@ -432,9 +422,9 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 			cBufs[i] = (*C.void)(unsafe.Pointer(&buf.Bytes()[0]))
 		}
 
-		if needBufferSizes {
-			sizes := allocateBufferSizeArr(len(bufs[2:]))
-			for i, buf := range bufs[2:] {
+		if has_buffer_sizes_buffer {
+			sizes := allocateBufferSizeArr(len(buffers[2:]))
+			for i, buf := range buffers[2:] {
 				sizes[i] = C.int64_t(buf.Len())
 			}
 			cBufs[nbuffers-1] = (*C.void)(unsafe.Pointer(&sizes[0]))
