@@ -189,7 +189,8 @@ class DatasetWriterTestFixture : public testing::Test {
     }
   }
 
-  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files) {
+  void AssertCreatedData(const std::vector<ExpectedFile>& expected_files,
+                         bool check_num_record_batches = true) {
     counter_ = 0;
     for (const auto& expected_file : expected_files) {
       std::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
@@ -197,7 +198,9 @@ class DatasetWriterTestFixture : public testing::Test {
       int num_batches = 0;
       AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
                          *ReadAsBatch(written_file->data, &num_batches));
-      ASSERT_EQ(expected_file.num_record_batches, num_batches);
+      if (check_num_record_batches) {
+        ASSERT_EQ(expected_file.num_record_batches, num_batches);
+      }
     }
   }
 
@@ -277,35 +280,28 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
                      {"testdir/chunk-3.arrow", 30, 5}});
 }
 
-TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite2) {
+TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteBackpresure) {
   // GH-38884: This test is to make sure that the writer can handle
   //  throttle resources in `WriteRecordBatch`.
 
-  // CalculateMaxRowsStaged will make at least 1 << 23 rows for
-  // `rows_in_flight` throttle. So we set the limit to 1 << 23.
-  constexpr auto FILE_SIZE_LIMIT = static_cast<uint64_t>(1 << 23);
-  write_options_.max_rows_per_file = FILE_SIZE_LIMIT;
-  write_options_.max_rows_per_group = FILE_SIZE_LIMIT;
+  constexpr auto kFileSizeLimit = static_cast<uint64_t>(10);
+  write_options_.max_rows_per_file = kFileSizeLimit;
+  write_options_.max_rows_per_group = kFileSizeLimit;
   write_options_.max_open_files = 2;
-  write_options_.min_rows_per_group = FILE_SIZE_LIMIT - 1;
-  auto dataset_writer = MakeDatasetWriter();
-  dataset_writer->WriteRecordBatch(MakeBatch(FILE_SIZE_LIMIT * 2), "");
-  dataset_writer->WriteRecordBatch(MakeBatch(FILE_SIZE_LIMIT * 2), "");
-  dataset_writer->WriteRecordBatch(MakeBatch(FILE_SIZE_LIMIT * 2), "");
+  write_options_.min_rows_per_group = kFileSizeLimit - 1;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/kFileSizeLimit);
+  for (int i = 0; i < 20; ++i) {
+    dataset_writer->WriteRecordBatch(MakeBatch(kFileSizeLimit * 5), "");
+  }
   EndWriterChecked(dataset_writer.get());
   std::vector<ExpectedFile> expected_files;
-  for (int i = 0; i < 6; ++i) {
+  for (int i = 0; i < 100; ++i) {
     expected_files.emplace_back("testdir/chunk-" + std::to_string(i) + ".arrow",
-                                FILE_SIZE_LIMIT * i, FILE_SIZE_LIMIT);
+                                kFileSizeLimit * i, kFileSizeLimit);
   }
-  counter_ = 0;
-  for (const auto& expected_file : expected_files) {
-    std::optional<MockFileInfo> written_file = FindFile(expected_file.filename);
-    AssertFileCreated(written_file, expected_file.filename);
-    int num_batches = 0;
-    AssertBatchesEqual(*MakeBatch(expected_file.start, expected_file.num_rows),
-                       *ReadAsBatch(written_file->data, &num_batches));
-  }
+  // Not checking the number of record batches because file may contain the
+  // zero-length record batch.
+  AssertCreatedData(expected_files, /*check_num_record_batches=*/false);
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
