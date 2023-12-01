@@ -326,7 +326,7 @@ static inline uint32_t NextBitPermutation(uint32_t v) {
   uint32_t t = v | (v - 1);  // t gets v's least significant 0 bits set to 1
   // Next set to 1 the most significant bit to change,
   // set to 0 the least significant ones, and add the necessary 1 bits.
-  return (t + 1) | (((~t & -~t) - 1) >> (CountTrailingZeros(v) + 1));
+  return (t + 1) | (((~t & (0 - ~t)) - 1) >> (CountTrailingZeros(v) + 1));
 }
 
 /// \brief set or clear a range of bits quickly
