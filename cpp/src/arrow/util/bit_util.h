@@ -317,6 +317,18 @@ static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
                  kBitmask[i % 8];
 }
 
+// Inputs a pattern of N bits set to 1 in an integer and outputs the next permutation of N
+// 1 bits in a lexicographical sense. For example, if N is 3 and the bit pattern is
+// 00010011, the next patterns would be 00010101, 00010110, 00011001,00011010, 00011100,
+// 00100011, and so forth. The following is a fast way to compute the next permutation.
+// https://graphics.stanford.edu/~seander/bithacks.html#NextBitPermutation
+static inline uint32_t NextBitPermutation(uint32_t v) {
+  uint32_t t = v | (v - 1);  // t gets v's least significant 0 bits set to 1
+  // Next set to 1 the most significant bit to change,
+  // set to 0 the least significant ones, and add the necessary 1 bits.
+  return (t + 1) | (((~t & -~t) - 1) >> (CountTrailingZeros(v) + 1));
+}
+
 /// \brief set or clear a range of bits quickly
 ARROW_EXPORT
 void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length, bool bits_are_set);

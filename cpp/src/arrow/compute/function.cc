@@ -26,16 +26,25 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
+#include "arrow/result.h"
+#include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
+#include "arrow/util/string_builder.h"
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::JoinStrings;
+using internal::MapVector;
 
 namespace compute {
 Result<std::shared_ptr<Buffer>> FunctionOptionsType::Serialize(
@@ -115,6 +124,21 @@ Status NoMatchingKernel(const Function* func, const std::vector<TypeHolder>& typ
   return Status::NotImplemented("Function '", func->name(),
                                 "' has no kernel matching input types ",
                                 TypeHolder::ToString(types));
+}
+
+Status AmbiguousCall(const Function* func, const std::vector<TypeHolder>& types,
+                     const std::vector<const Kernel*>& kernels) {
+  return Status::TypeError(
+      "Call of function '", func->name(),
+      "' is ambiguous with these input types: ", TypeHolder::ToString(types),
+      ". Candidates are: ",
+      JoinStrings(MapVector(
+                      [&](const Kernel* kernel) {
+                        return util::StringBuilder(func->name(), "(",
+                                                   kernel->signature->ToString(), ")");
+                      },
+                      kernels),
+                  ", "));
 }
 
 template <typename KernelType>
@@ -306,9 +330,76 @@ Result<const Kernel*> Function::DispatchExact(
   return detail::NoMatchingKernel(this, values);
 }
 
+Result<const Kernel*> Function::DispatchWithExtensionCast(
+    std::vector<TypeHolder>* values) const {
+  if (kind_ == Function::META) {
+    return Status::NotImplemented("Dispatch for a MetaFunction's Kernels");
+  }
+  RETURN_NOT_OK(CheckArity(values->size()));
+
+  std::vector<size_t> extension_indices;
+  for (size_t i = 0; i < values->size(); ++i) {
+    if ((*values)[i].id() == Type::EXTENSION) {
+      extension_indices.push_back(static_cast<int>(i));
+    }
+  }
+
+  if (extension_indices.empty()) {
+    return detail::NoMatchingKernel(this, *values);
+  }
+
+  // Enumerate all possible combinations of extensions to cast, in increasing number
+  // of replacements. Try DispatchExact for each combination.
+  for (size_t num_replacement = 1; num_replacement <= extension_indices.size();
+       ++num_replacement) {
+    // create bitmasks with num_replacement 1s
+    uint32_t mask = (1 << num_replacement) - 1;
+    const Kernel* matched_kernel = nullptr;
+    std::vector<TypeHolder> matched_values;
+    while (mask < (1ULL << extension_indices.size())) {
+      std::vector<TypeHolder> replaced_values = *values;
+      for (size_t i = 0; i < extension_indices.size(); ++i) {
+        if (mask & (1 << i)) {
+          replaced_values[extension_indices[i]] =
+              static_cast<const ExtensionType&>(*replaced_values[extension_indices[i]])
+                  .storage_type();
+        }
+      }
+
+      if (auto kernel = detail::DispatchExactImpl(this, replaced_values)) {
+        if (matched_kernel) {  // If there are multiple matches, the call is ambiguous
+          return detail::AmbiguousCall(this, *values, {matched_kernel, kernel});
+        }
+        matched_kernel = kernel;
+        matched_values = std::move(replaced_values);
+      } else {
+      }
+      // next lexicographical permutation of mask
+      mask = bit_util::NextBitPermutation(mask);
+    }
+    if (matched_kernel) {
+      *values = std::move(matched_values);
+      return matched_kernel;
+    }
+  }
+  return detail::NoMatchingKernel(this, *values);
+}
+
 Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) const {
   // TODO(ARROW-11508) permit generic conversions here
-  return DispatchExact(*values);
+  Result<const Kernel*> result;
+  result = DispatchExact(*values);
+  if (result.ok()) {
+    return result;
+  }
+
+  // Try to cast extension types to their storage types
+  result = DispatchWithExtensionCast(values);
+  if (result.ok()) {
+    return result;
+  }
+
+  return result;
 }
 
 Result<std::shared_ptr<FunctionExecutor>> Function::GetBestExecutor(

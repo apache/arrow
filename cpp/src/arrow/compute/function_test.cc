@@ -32,6 +32,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/type.h"
@@ -456,5 +457,39 @@ TEST(FunctionExecutor, Basics) {
   }
 }
 
+TEST(DispatchBest, ImplicitExtensionToStorage) {
+  auto add = std::make_shared<ScalarFunction>("add", Arity::Binary(),
+                                              /*doc=*/FunctionDoc::Empty());
+  auto assert_kernel_match = [&add](const std::vector<TypeHolder>& expected_types) {
+    std::vector<TypeHolder> types = {smallint(), tinyint()};
+    ASSERT_OK_AND_ASSIGN(auto kernel, add->DispatchBest(&types));
+    ASSERT_TRUE(kernel->signature->MatchesInputs(expected_types));
+  };
+
+  auto assert_fail = [&add](StatusCode code, std::string_view msg) {
+    std::vector<TypeHolder> types = {smallint(), tinyint()};
+    EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, ::testing::HasSubstr(msg),
+                                             add->DispatchBest(&types));
+  };
+
+  // no kernel, fail
+  assert_fail(StatusCode::NotImplemented, "no kernel matching input types");
+
+  // should match kernel with two casts
+  ASSERT_OK(add->AddKernel({int16(), int8()}, int16(), ExecNYI));
+  assert_kernel_match({int16(), int8()});
+
+  // should perfer kernel with one cast
+  ASSERT_OK(add->AddKernel({smallint(), int8()}, smallint(), ExecNYI));
+  assert_kernel_match({smallint(), int8()});
+
+  // two kernels with one cast, ambigous
+  ASSERT_OK(add->AddKernel({int16(), tinyint()}, int16(), ExecNYI));
+  assert_fail(StatusCode::TypeError, "is ambiguous");
+
+  // should prefer kernel with no casts
+  ASSERT_OK(add->AddKernel({smallint(), tinyint()}, smallint(), ExecNYI));
+  assert_kernel_match({smallint(), tinyint()});
+}
 }  // namespace compute
 }  // namespace arrow

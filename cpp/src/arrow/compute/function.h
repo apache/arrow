@@ -284,6 +284,18 @@ class ARROW_EXPORT Function {
 
   Status CheckArity(size_t num_args) const;
 
+  /// \brief Return a best-match kernel that can execute the function that enables casting
+  /// ExtensionTypes to their storage types. If multiple kernels match, the one with the
+  /// minimum number of casts is returned. If there are multiple kernels with the minimum
+  /// number of casts, the first one is returned.
+  ///
+  ///
+  /// \param[in,out] values Argument types. An element may be modified to
+  /// indicate that the returned kernel only approximately matches the input
+  /// value descriptors; callers are responsible for casting inputs to the type
+  /// required by the kernel.
+  Result<const Kernel*> DispatchWithExtensionCast(std::vector<TypeHolder>* values) const;
+
   std::string name_;
   Function::Kind kind_;
   Arity arity_;
