@@ -857,6 +857,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.
+
         return ParquetFragmentScanOptions(**kwargs)
 
     def __reduce__(self):
@@ -864,7 +865,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             use_buffered_stream=self.use_buffered_stream,
             buffer_size=self.buffer_size,
             pre_buffer=self.pre_buffer,
-            cache_options=self.cache_options.__reduce__(),
+            cache_options=self.cache_options,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
             page_checksum_verification=self.page_checksum_verification
