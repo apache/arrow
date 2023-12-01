@@ -162,7 +162,7 @@ std::shared_ptr<FileSource> ToFileSource(std::string json) {
   return std::make_shared<FileSource>(Buffer::FromString(std::move(json)));
 }
 
-// Mixin for additional JSON-specific tests, compatibile with both format APIs.
+// Mixin for additional JSON-specific tests, compatible with both format APIs.
 template <typename T>
 class JsonScanMixin {
  public:
