@@ -176,7 +176,7 @@ test_that("find_latest_nightly()", {
       find_latest_nightly(package_version("13.0.1.9000"), list_uri = tf_uri),
       package_version("13.0.0.100000335")
     ),
-    "Found latest nightly"
+    "Latest available nightly"
   )
 
   expect_output(
@@ -184,7 +184,7 @@ test_that("find_latest_nightly()", {
       find_latest_nightly(package_version("14.0.0.9000"), list_uri = tf_uri),
       package_version("14.0.0.100000001")
     ),
-    "Found latest nightly"
+    "Latest available nightly"
   )
 
   expect_output(
