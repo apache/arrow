@@ -19,6 +19,7 @@ import contextlib
 import datetime
 import os
 import pathlib
+import posixpath
 import sys
 import tempfile
 import textwrap
@@ -820,6 +821,7 @@ def test_parquet_scan_options():
 
     assert opts7.pre_buffer is True
     assert opts7.cache_options == cache_opts
+    assert opts7.cache_options != opts1.cache_options
 
     assert opts1 == opts1
     assert opts1 != opts2

@@ -843,11 +843,11 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         bool
         """
         attrs = (
-            self.use_buffered_stream, self.buffer_size, self.pre_buffer,
+            self.use_buffered_stream, self.buffer_size, self.pre_buffer, self.cache_options,
             self.thrift_string_size_limit, self.thrift_container_size_limit,
             self.page_checksum_verification)
         other_attrs = (
-            other.use_buffered_stream, other.buffer_size, other.pre_buffer,
+            other.use_buffered_stream, other.buffer_size, other.pre_buffer, other.cache_options,
             other.thrift_string_size_limit,
             other.thrift_container_size_limit, other.page_checksum_verification)
         return attrs == other_attrs
@@ -864,6 +864,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             use_buffered_stream=self.use_buffered_stream,
             buffer_size=self.buffer_size,
             pre_buffer=self.pre_buffer,
+            cache_options=self.cache_options.__reduce__(),
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
             page_checksum_verification=self.page_checksum_verification
