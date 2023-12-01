@@ -34,9 +34,9 @@
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava-bom.version>31.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.100.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.56.0</dep.grpc-bom.version>
+    <dep.grpc-bom.version>1.59.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.15.1</dep.jackson-bom.version>
+    <dep.jackson-bom.version>2.16.0</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>23.5.26</dep.fbs.version>
     <dep.avro.version>1.10.0</dep.avro.version>
@@ -45,7 +45,7 @@
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.22.0</error_prone_core.version>
-    <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+    <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
     <mockito.core.version>5.5.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
   </properties>
@@ -361,7 +361,7 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.6</version>
+        <version>2.7.10</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -378,7 +378,12 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
-          <version>3.0.1</version>
+          <!--
+            This appears to report a false positive with versions
+            greater than 3.1.2 (tested up to 3.6.0) when compiling
+            arrow-tools about Jackson being only used for tests.
+          -->
+          <version>3.1.2</version>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
@@ -395,6 +400,7 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
                 <groupId>org.immutables</groupId>
@@ -407,6 +413,11 @@
         <plugin>
           <artifactId>maven-enforcer-plugin</artifactId>
           <version>3.0.0-M2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>3.5.1</version>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
