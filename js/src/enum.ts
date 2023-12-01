@@ -21,7 +21,7 @@
 // v4 doesn't seem to be able to tree-shake the rest of those exports.
 //
 // We will have to keep these enums in sync when we re-generate the flatbuffers
-// code from the shchemas. See js/DEVELOP.md for info on how to run flatbuffers
+// code from the schemas. See js/DEVELOP.md for info on how to run flatbuffers
 // code generation.
 //
 ////
@@ -174,7 +174,7 @@ export enum Type {
     FixedSizeBinary = 15, /** Fixed-size binary. Each value occupies the same number of bytes */
     FixedSizeList = 16, /** Fixed-size list. Each value occupies the same number of bytes */
     Map = 17, /** Map of named logical types */
-    Duration = 18, /** Measure of elapsed time in either seconds, miliseconds, microseconds or nanoseconds. */
+    Duration = 18, /** Measure of elapsed time in either seconds, milliseconds, microseconds or nanoseconds. */
 
     Dictionary = -1, /** Dictionary aka Category type */
     Int8 = -2,
@@ -215,7 +215,7 @@ export enum BufferType {
     OFFSET = 0,
 
     /**
-     * actual data, either wixed width primitive types in slots or variable width delimited by an OFFSET vector
+     * actual data, either fixed width primitive types in slots or variable width delimited by an OFFSET vector
      */
     DATA = 1,
 

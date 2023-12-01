@@ -25,8 +25,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/compute"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
@@ -162,7 +162,7 @@ func NewFieldRefFromDotPath(dotpath string, rootSchema *arrow.Schema) (expr.Refe
 			idx, _ := strconv.Atoi(dotpath[:subend])
 			switch ct := curType.(type) {
 			case *arrow.StructType:
-				if idx > len(ct.Fields()) {
+				if idx > ct.NumFields() {
 					return nil, fmt.Errorf("%w: field out of bounds in dotpath", arrow.ErrIndex)
 				}
 				curType = ct.Field(idx).Type

@@ -26,16 +26,16 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/encoded"
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/float16"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/encoded"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -512,7 +512,7 @@ func init() {
 		arrow.LIST:                    func(dt arrow.DataType) Scalar { return &List{scalar: scalar{dt, false}} },
 		arrow.STRUCT: func(dt arrow.DataType) Scalar {
 			typ := dt.(*arrow.StructType)
-			values := make([]Scalar, len(typ.Fields()))
+			values := make([]Scalar, typ.NumFields())
 			for i, f := range typ.Fields() {
 				values[i] = MakeNullScalar(f.Type)
 			}
@@ -520,10 +520,10 @@ func init() {
 		},
 		arrow.SPARSE_UNION: func(dt arrow.DataType) Scalar {
 			typ := dt.(*arrow.SparseUnionType)
-			if len(typ.Fields()) == 0 {
+			if typ.NumFields() == 0 {
 				panic("cannot make scalar of empty union type")
 			}
-			values := make([]Scalar, len(typ.Fields()))
+			values := make([]Scalar, typ.NumFields())
 			for i, f := range typ.Fields() {
 				values[i] = MakeNullScalar(f.Type)
 			}
@@ -531,7 +531,7 @@ func init() {
 		},
 		arrow.DENSE_UNION: func(dt arrow.DataType) Scalar {
 			typ := dt.(*arrow.DenseUnionType)
-			if len(typ.Fields()) == 0 {
+			if typ.NumFields() == 0 {
 				panic("cannot make scalar of empty union type")
 			}
 			return NewDenseUnionScalar(MakeNullScalar(typ.Fields()[0].Type), typ.TypeCodes()[0], typ)

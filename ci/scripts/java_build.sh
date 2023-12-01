@@ -77,19 +77,19 @@ mvn="${mvn} -T 2C"
 
 pushd ${source_dir}
 
-${mvn} install
-
 if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
-  ${mvn} -Pshade-flatbuffers install
+  mvn="${mvn} -Pshade-flatbuffers"
 fi
 
 if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
-  ${mvn} -Darrow.c.jni.dist.dir=${java_jni_dist_dir} -Parrow-c-data install
+  mvn="${mvn} -Darrow.c.jni.dist.dir=${java_jni_dist_dir} -Parrow-c-data"
 fi
 
 if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
-  ${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni install
+  mvn="${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni"
 fi
+
+${mvn} install
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633

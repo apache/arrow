@@ -19,9 +19,9 @@ package ipc
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 )
@@ -104,7 +104,9 @@ type lz4Decompressor struct {
 	*lz4.Reader
 }
 
-func (z *lz4Decompressor) Close() {}
+func (z *lz4Decompressor) Close() {
+	z.Reader.Reset(nil)
+}
 
 func getDecompressor(codec flatbuf.CompressionType) decompressor {
 	switch codec {

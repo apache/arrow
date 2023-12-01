@@ -15,18 +15,11 @@
     "paths": {
       "apache-arrow": ["src/Arrow.node"],
       "apache-arrow/*": ["src/*"]
-    }
-  },
-  "include": ["src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"],
-  "ts-node": {
-    "transpileOnly": true,
-    "experimentalResolver": true,
-    "compilerOptions": {
-      "module": "CommonJS"
     },
-    "moduleTypes": {
-      "index.ts": "cjs",
-      "src/**/*": "cjs",
-    }
+    "allowImportingTsExtensions": true,
+  },
+  "include": ["bin/**/*.ts", "src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"],
+  "ts-node": {
+    "swc": true
   }
 }

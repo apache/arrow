@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 type (
@@ -32,6 +32,8 @@ type (
 		// Fields method provides a copy of NestedType fields
 		// (so it can be safely mutated and will not result in updating the NestedType).
 		Fields() []Field
+		// NumFields provides the number of fields without allocating.
+		NumFields() int
 	}
 
 	ListLikeType interface {
@@ -108,6 +110,8 @@ func (t *ListType) ElemField() Field {
 }
 
 func (t *ListType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (t *ListType) NumFields() int { return 1 }
 
 func (*ListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes)}}
@@ -242,6 +246,8 @@ func (t *FixedSizeListType) Fingerprint() string {
 
 func (t *FixedSizeListType) Fields() []Field { return []Field{t.ElemField()} }
 
+func (t *FixedSizeListType) NumFields() int { return 1 }
+
 func (*FixedSizeListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap()}}
 }
@@ -307,6 +313,8 @@ func (t *ListViewType) ElemField() Field {
 }
 
 func (t *ListViewType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (t *ListViewType) NumFields() int { return 1 }
 
 func (*ListViewType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
@@ -375,6 +383,8 @@ func (t *LargeListViewType) ElemField() Field {
 }
 
 func (t *LargeListViewType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (t *LargeListViewType) NumFields() int { return 1 }
 
 func (*LargeListViewType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int64SizeBytes), SpecFixedWidth(Int64SizeBytes)}}
@@ -447,6 +457,8 @@ func (t *StructType) Fields() []Field {
 	return fields
 }
 
+func (t *StructType) NumFields() int { return len(t.fields) }
+
 func (t *StructType) Field(i int) Field { return t.fields[i] }
 
 // FieldByName gets the field with the given name.
@@ -464,7 +476,7 @@ func (t *StructType) FieldByName(name string) (Field, bool) {
 // FieldIdx gets the index of the field with the given name.
 //
 // If there are multiple fields with the given name, FieldIdx returns
-// the index of the first first such field.
+// the index of the first such field.
 func (t *StructType) FieldIdx(name string) (int, bool) {
 	i, ok := t.index[name]
 	if ok {
@@ -598,6 +610,8 @@ func (t *MapType) Fingerprint() string {
 
 func (t *MapType) Fields() []Field { return []Field{t.ElemField()} }
 
+func (t *MapType) NumFields() int { return 1 }
+
 func (t *MapType) Layout() DataTypeLayout {
 	return t.value.Layout()
 }
@@ -689,6 +703,8 @@ func (t *unionType) Fields() []Field {
 	copy(fields, t.children)
 	return fields
 }
+
+func (t *unionType) NumFields() int { return len(t.children) }
 
 func (t *unionType) TypeCodes() []UnionTypeCode { return t.typeCodes }
 func (t *unionType) ChildIDs() []int            { return t.childIDs[:] }

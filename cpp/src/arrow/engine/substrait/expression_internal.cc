@@ -727,6 +727,8 @@ struct ScalarToProtoImpl {
                       s);
   }
 
+  Status Visit(const BinaryViewScalar& s) { return NotImplemented(s); }
+
   Status Visit(const FixedSizeBinaryScalar& s) {
     return FromBuffer(
         [](Lit* lit, std::string&& s) { lit->set_fixed_binary(std::move(s)); }, s);
@@ -803,6 +805,14 @@ struct ScalarToProtoImpl {
       values->AddAllocated(lit.release());
     }
     return Status::OK();
+  }
+
+  Status Visit(const ListViewScalar& s) {
+    return Status::NotImplemented("list-view to proto");
+  }
+
+  Status Visit(const LargeListViewScalar& s) {
+    return Status::NotImplemented("list-view to proto");
   }
 
   Status Visit(const StructScalar& s) {

@@ -203,17 +203,15 @@ class TestDecryptionConfiguration
 
   // Check that the decryption result is as expected.
   void CheckResults(const std::string& file_name, unsigned decryption_config_num,
-                    unsigned encryption_config_num, bool file_has_page_index) {
+                    unsigned encryption_config_num) {
     // Encryption_configuration number five contains aad_prefix and
     // disable_aad_prefix_storage.
     // An exception is expected to be thrown if the file is not decrypted with aad_prefix.
     if (encryption_config_num == 5) {
       if (decryption_config_num == 1 || decryption_config_num == 3) {
         EXPECT_THROW(DecryptFile(file_name, decryption_config_num - 1), ParquetException);
-        if (file_has_page_index) {
-          EXPECT_THROW(DecryptPageIndex(file_name, decryption_config_num - 1),
-                       ParquetException);
-        }
+        EXPECT_THROW(DecryptPageIndex(file_name, decryption_config_num - 1),
+                     ParquetException);
         return;
       }
     }
@@ -222,10 +220,8 @@ class TestDecryptionConfiguration
     if (decryption_config_num == 2) {
       if (encryption_config_num != 5 && encryption_config_num != 4) {
         EXPECT_THROW(DecryptFile(file_name, decryption_config_num - 1), ParquetException);
-        if (file_has_page_index) {
-          EXPECT_THROW(DecryptPageIndex(file_name, decryption_config_num - 1),
-                       ParquetException);
-        }
+        EXPECT_THROW(DecryptPageIndex(file_name, decryption_config_num - 1),
+                     ParquetException);
         return;
       }
     }
@@ -235,9 +231,7 @@ class TestDecryptionConfiguration
       return;
     }
     EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
-    if (file_has_page_index) {
-      EXPECT_NO_THROW(DecryptPageIndex(file_name, decryption_config_num - 1));
-    }
+    EXPECT_NO_THROW(DecryptPageIndex(file_name, decryption_config_num - 1));
   }
 
   // Returns true if file exists. Otherwise returns false.
@@ -269,8 +263,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
-    CheckResults(file_name, decryption_config_num, encryption_config_num,
-                 /*file_has_page_index=*/true);
+    CheckResults(file_name, decryption_config_num, encryption_config_num);
   }
   // Delete temporary test file.
   ASSERT_EQ(std::remove(file_name.c_str()), 0);
@@ -288,8 +281,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
-    CheckResults(file_name, decryption_config_num, encryption_config_num,
-                 /*file_has_page_index=*/false);
+    CheckResults(file_name, decryption_config_num, encryption_config_num);
   }
 }
 

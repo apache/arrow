@@ -19,13 +19,15 @@ using System.Linq;
 
 namespace Apache.Arrow.Types
 {
-    public sealed class StructType : NestedType
+    public sealed class StructType : NestedType, IRecordType
     {
         public override ArrowTypeId TypeId => ArrowTypeId.Struct;
         public override string Name => "struct";
 
         public StructType(IReadOnlyList<Field> fields) : base(fields)
         { }
+
+        public Field GetFieldByIndex(int index) => Fields[index];
 
         public Field GetFieldByName(string name,
             IEqualityComparer<string> comparer = default)
@@ -56,6 +58,24 @@ namespace Apache.Arrow.Types
             return -1;
         }
 
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+        public override void Accept(IArrowTypeVisitor visitor)
+        {
+            if (visitor is IArrowTypeVisitor<StructType> structTypeVisitor)
+            {
+                structTypeVisitor.Visit(this);
+            }
+            else if (visitor is IArrowTypeVisitor<IRecordType> interfaceVisitor)
+            {
+                interfaceVisitor.Visit(this);
+            }
+            else
+            {
+                visitor.Visit(this);
+            }
+        }
+
+        int IRecordType.FieldCount => Fields.Count;
+
+        Field IRecordType.GetFieldByName(string name) => GetFieldByName(name);
     }
 }

@@ -14,7 +14,7 @@
   <parent>
     <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>14.0.0-SNAPSHOT</version>
+    <version>15.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -31,7 +31,6 @@
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>flight-core</artifactId>
-      <version>${project.version}</version>
       <exclusions>
         <exclusion>
           <groupId>io.netty</groupId>
@@ -50,12 +49,11 @@
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>
-      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-jdbc</artifactId>
-      <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -68,12 +66,12 @@
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
-      <version>${project.version}</version>
       <classifier>${arrow.vector.classifier}</classifier>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.derby</groupId>

@@ -20,9 +20,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -541,7 +541,7 @@ func TestListArraySlice(t *testing.T) {
 	}
 }
 
-func TestLisViewtArraySlice(t *testing.T) {
+func TestListViewArraySlice(t *testing.T) {
 	tests := []struct {
 		typeID  arrow.Type
 		offsets interface{}

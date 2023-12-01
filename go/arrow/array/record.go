@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // RecordReader reads a stream of records.
@@ -185,7 +185,7 @@ func (rec *simpleRecord) validate() error {
 		return nil
 	}
 
-	if len(rec.arrs) != len(rec.schema.Fields()) {
+	if len(rec.arrs) != rec.schema.NumFields() {
 		return fmt.Errorf("arrow/array: number of columns/fields mismatch")
 	}
 
@@ -285,11 +285,11 @@ func NewRecordBuilder(mem memory.Allocator, schema *arrow.Schema) *RecordBuilder
 		refCount: 1,
 		mem:      mem,
 		schema:   schema,
-		fields:   make([]Builder, len(schema.Fields())),
+		fields:   make([]Builder, schema.NumFields()),
 	}
 
-	for i, f := range schema.Fields() {
-		b.fields[i] = NewBuilder(b.mem, f.Type)
+	for i := 0; i < schema.NumFields(); i++ {
+		b.fields[i] = NewBuilder(b.mem, schema.Field(i).Type)
 	}
 
 	return b
@@ -397,8 +397,8 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	for i, f := range b.schema.Fields() {
-		if !keylist[f.Name] {
+	for i := 0; i < b.schema.NumFields(); i++ {
+		if !keylist[b.schema.Field(i).Name] {
 			b.fields[i].AppendNull()
 		}
 	}

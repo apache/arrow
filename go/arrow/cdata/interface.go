@@ -22,10 +22,10 @@ package cdata
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/arrio"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/arrio"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -266,7 +266,7 @@ func ExportArrowArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema
 // ExportRecordReader populates the CArrowArrayStream that is passed in with the appropriate
 // callbacks to be a working ArrowArrayStream utilizing the passed in RecordReader. The
 // CArrowArrayStream takes ownership of the RecordReader until the consumer calls the release
-// callback, as such it is unnecesary to call Release on the passed in reader unless it has
+// callback, as such it is unnecessary to call Release on the passed in reader unless it has
 // previously been retained.
 //
 // WARNING: the output ArrowArrayStream MUST BE ZERO INITIALIZED, or the Go garbage

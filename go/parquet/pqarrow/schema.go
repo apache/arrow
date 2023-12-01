@@ -22,15 +22,15 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/metadata"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -174,7 +174,7 @@ func getTimestampMeta(typ *arrow.TimestampType, props *parquet.WriterProperties,
 				return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis or micros", props.Version())
 			}
 		} else if target == arrow.Second {
-			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestampts to millis, micros or nanos", props.Version())
+			return physical, nil, fmt.Errorf("parquet version %s files can only coerce arrow timestamps to millis, micros or nanos", props.Version())
 		}
 		return physical, logicalType, nil
 	}
@@ -233,11 +233,11 @@ func repFromNullable(isnullable bool) parquet.Repetition {
 }
 
 func structToNode(typ *arrow.StructType, name string, nullable bool, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (schema.Node, error) {
-	if len(typ.Fields()) == 0 {
+	if typ.NumFields() == 0 {
 		return nil, fmt.Errorf("cannot write struct type '%s' with no children field to parquet. Consider adding a dummy child", name)
 	}
 
-	children := make(schema.FieldList, 0, len(typ.Fields()))
+	children := make(schema.FieldList, 0, typ.NumFields())
 	for _, f := range typ.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -344,6 +344,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		} else {
 			logicalType = schema.NewTimeLogicalType(true, schema.TimeUnitMicros)
 		}
+	case arrow.FLOAT16:
+		typ = parquet.Types.FixedLenByteArray
+		length = arrow.Float16SizeBytes
+		logicalType = schema.Float16LogicalType{}
 	case arrow.STRUCT:
 		return structToNode(field.Type.(*arrow.StructType), field.Name, field.Nullable, props, arrprops)
 	case arrow.FIXED_SIZE_LIST, arrow.LIST:
@@ -436,7 +440,7 @@ func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops Arrow
 		props = parquet.NewWriterProperties()
 	}
 
-	nodes := make(schema.FieldList, 0, len(sc.Fields()))
+	nodes := make(schema.FieldList, 0, sc.NumFields())
 	for _, f := range sc.Fields() {
 		n, err := fieldToNode(f.Name, f, props, arrprops)
 		if err != nil {
@@ -597,6 +601,8 @@ func arrowFromFLBA(logical schema.LogicalType, length int) (arrow.DataType, erro
 		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType, schema.IntervalLogicalType, schema.UUIDLogicalType:
 		return &arrow.FixedSizeBinaryType{ByteWidth: int(length)}, nil
+	case schema.Float16LogicalType:
+		return &arrow.Float16Type{}, nil
 	default:
 		return nil, xerrors.New("unhandled logical type " + logical.String() + " for fixed-length byte array")
 	}
@@ -996,7 +1002,7 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		err = xerrors.New("unimplemented type")
 	case arrow.STRUCT:
 		typ := origin.Type.(*arrow.StructType)
-		if nchildren != len(typ.Fields()) {
+		if nchildren != typ.NumFields() {
 			return
 		}
 

@@ -26,13 +26,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/file"
-	"github.com/apache/arrow/go/v14/parquet/pqarrow"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,6 +97,72 @@ func TestArrowReaderAdHocReadDecimals(t *testing.T) {
 			defer expectedArr.Release()
 
 			assert.Truef(t, array.Equal(expectedArr, chunk), "expected: %s\ngot: %s", expectedArr, chunk)
+		})
+	}
+}
+
+func TestArrowReaderAdHocReadFloat16s(t *testing.T) {
+	tests := []struct {
+		file string
+		len  int
+		vals []float16.Num
+	}{
+		{"float16_nonzeros_and_nans", 8,
+			[]float16.Num{
+				float16.New(1.0),
+				float16.New(-2.0),
+				float16.NaN(),
+				float16.New(0.0),
+				float16.New(-1.0),
+				float16.New(0.0).Negate(),
+				float16.New(2.0),
+			}},
+		{"float16_zeros_and_nans", 3,
+			[]float16.Num{
+				float16.New(0.0),
+				float16.NaN(),
+			}},
+	}
+
+	dataDir := getDataDir()
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
+			filename := filepath.Join(dataDir, tt.file+".parquet")
+			require.FileExists(t, filename)
+
+			rdr, err := file.OpenParquetFile(filename, false, file.WithReadProps(parquet.NewReaderProperties(mem)))
+			require.NoError(t, err)
+			defer rdr.Close()
+
+			arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
+			require.NoError(t, err)
+
+			tbl, err := arrowRdr.ReadTable(context.Background())
+			require.NoError(t, err)
+			defer tbl.Release()
+
+			assert.EqualValues(t, 1, tbl.NumCols())
+			assert.Truef(t, arrow.TypeEqual(tbl.Schema().Field(0).Type, &arrow.Float16Type{}), "expected: %s\ngot: %s", tbl.Schema().Field(0).Type, arrow.Float16Type{})
+
+			valCol := tbl.Column(0)
+			assert.EqualValues(t, tt.len, valCol.Len())
+			assert.Len(t, valCol.Data().Chunks(), 1)
+
+			chunk := valCol.Data().Chunk(0).(*array.Float16)
+			assert.True(t, chunk.IsNull(0))
+			for i := 0; i < tt.len-1; i++ {
+				expected := tt.vals[i]
+				actual := chunk.Value(i + 1)
+				if expected.IsNaN() {
+					// NaN representations aren't guaranteed to be exact on a binary level
+					assert.True(t, actual.IsNaN())
+				} else {
+					assert.Equal(t, expected.Uint16(), actual.Uint16())
+				}
+			}
 		})
 	}
 }

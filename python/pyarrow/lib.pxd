@@ -519,6 +519,7 @@ cdef class NativeFile(_Weakrefable):
         bint is_readable
         bint is_writable
         bint is_seekable
+        bint _is_appending
         bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
@@ -552,12 +553,12 @@ cdef class CompressedOutputStream(NativeFile):
 
 cdef class _CRecordBatchWriter(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchWriter] writer
+        SharedPtrNoGIL[CRecordBatchWriter] writer
 
 
 cdef class RecordBatchReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchReader] reader
+        SharedPtrNoGIL[CRecordBatchReader] reader
 
 
 cdef class Codec(_Weakrefable):

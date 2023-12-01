@@ -17,18 +17,18 @@
 
 import Foundation
 public class FlightEndpoint {
-    let ticket: FlightTicket;
+    let ticket: FlightTicket
     let locations: [FlightLocation]
     init(_ endpoint: Arrow_Flight_Protocol_FlightEndpoint) {
         self.ticket = FlightTicket(endpoint.ticket.ticket)
         self.locations = endpoint.location.map {return FlightLocation($0)}
     }
-    
+
     public init(_ ticket: FlightTicket, locations: [FlightLocation]) {
         self.ticket = ticket
-        self.locations = locations;
+        self.locations = locations
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_FlightEndpoint {
         var endpoint = Arrow_Flight_Protocol_FlightEndpoint()
         endpoint.ticket = self.ticket.toProtocol()

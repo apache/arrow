@@ -31,15 +31,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v14/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v15/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -1790,7 +1790,7 @@ func (m *flightSqlScenarioTester) GetSchemaPreparedStatement(ctx context.Context
 	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
 		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
 	}
-	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStaement %s",
+	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStatement %s",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 

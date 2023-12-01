@@ -132,9 +132,47 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   TransferPair getTransferPair(BufferAllocator allocator);
 
+  /**
+   * To transfer quota responsibility.
+   *
+   * @param ref the name of the vector
+   * @param allocator the target allocator
+   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
+   *         the same type.
+   */
   TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
+  /**
+   * To transfer quota responsibility.
+   *
+   * @param field the Field object used by the target vector
+   * @param allocator the target allocator
+   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
+   *         the same type.
+   */
+  TransferPair getTransferPair(Field field, BufferAllocator allocator);
+
+  /**
+   * To transfer quota responsibility.
+   *
+   * @param ref the name of the vector
+   * @param allocator the target allocator
+   * @param callBack A schema change callback.
+   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
+   *         the same type.
+   */
   TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack);
+
+  /**
+   * To transfer quota responsibility.
+   *
+   * @param field the Field object used by the target vector
+   * @param allocator the target allocator
+   * @param callBack A schema change callback.
+   * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new target vector of
+   *         the same type.
+   */
+  TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack);
 
   /**
    * Makes a new transfer pair used to transfer underlying buffers.

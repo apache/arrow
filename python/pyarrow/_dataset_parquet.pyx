@@ -606,6 +606,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_batch_size=self._properties["write_batch_size"],
             dictionary_pagesize_limit=self._properties["dictionary_pagesize_limit"],
             write_page_index=self._properties["write_page_index"],
+            write_page_checksum=self._properties["write_page_checksum"],
         )
 
     def _set_arrow_properties(self):
@@ -655,6 +656,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             dictionary_pagesize_limit=None,
             write_page_index=False,
             encryption_config=None,
+            write_page_checksum=False,
         )
 
         self._set_properties()
@@ -701,6 +703,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     decryption_config : pyarrow.dataset.ParquetDecryptionConfig, default None
         If not None, use the provided ParquetDecryptionConfig to decrypt the
         Parquet file.
+    page_checksum_verification : bool, default False
+        If True, verify the page checksum for each page read from the file.
     """
 
     # Avoid mistakingly creating attributes
@@ -711,7 +715,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  bint pre_buffer=True,
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
-                 decryption_config=None):
+                 decryption_config=None,
+                 bint page_checksum_verification=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
@@ -723,6 +728,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.thrift_container_size_limit = thrift_container_size_limit
         if decryption_config is not None:
             self.parquet_decryption_config = decryption_config
+        self.page_checksum_verification = page_checksum_verification
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -802,6 +808,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         set_decryption_config(self, config)
         self._parquet_decryption_config = config
 
+    @property
+    def page_checksum_verification(self):
+        return self.reader_properties().page_checksum_verification()
+
+    @page_checksum_verification.setter
+    def page_checksum_verification(self, bint page_checksum_verification):
+        self.reader_properties().set_page_checksum_verification(page_checksum_verification)
+
     def equals(self, ParquetFragmentScanOptions other):
         """
         Parameters
@@ -814,11 +828,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         """
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
-            self.thrift_string_size_limit, self.thrift_container_size_limit)
+            self.thrift_string_size_limit, self.thrift_container_size_limit,
+            self.page_checksum_verification)
         other_attrs = (
             other.use_buffered_stream, other.buffer_size, other.pre_buffer,
             other.thrift_string_size_limit,
-            other.thrift_container_size_limit)
+            other.thrift_container_size_limit, other.page_checksum_verification)
         return attrs == other_attrs
 
     @staticmethod
@@ -835,6 +850,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             pre_buffer=self.pre_buffer,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
+            page_checksum_verification=self.page_checksum_verification
         )
         return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 

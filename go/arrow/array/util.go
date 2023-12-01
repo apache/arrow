@@ -22,11 +22,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/hashing"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/hashing"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 func min(a, b int) int {
@@ -428,7 +428,7 @@ func (n *nullArrayFactory) create() *Data {
 	}
 
 	if nf, ok := dt.(arrow.NestedType); ok {
-		childData = make([]arrow.ArrayData, len(nf.Fields()))
+		childData = make([]arrow.ArrayData, nf.NumFields())
 	}
 
 	switch dt := dt.(type) {

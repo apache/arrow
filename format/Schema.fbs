@@ -40,7 +40,7 @@ enum MetadataVersion:short {
   /// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
   V4,
 
-  /// >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+  /// >= 1.0.0 (July 2020). Backwards compatible with V4 (V5 readers can read V4
   /// metadata and IPC messages). Implementations are recommended to provide a
   /// V4 compatibility mode with V5 format changes disabled.
   ///
@@ -372,7 +372,7 @@ table Time {
 /// no indication of how to map this information to a physical point in time.
 /// Naive date-times must be handled with care because of this missing
 /// information, and also because daylight saving time (DST) may make
-/// some values ambiguous or non-existent. A naive date-time may be
+/// some values ambiguous or nonexistent. A naive date-time may be
 /// stored as a struct with Date and Time fields. However, it may also be
 /// encoded into a Timestamp column with an empty timezone. The timestamp
 /// values should be computed "as if" the timezone of the date-time values
