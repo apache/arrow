@@ -774,7 +774,7 @@ enum class SetSessionOptionStatus : int8_t {
   /// \brief The status of setting the option is unknown.
   ///
   /// Servers should avoid using this value (send a NOT_FOUND error if the requested
-  /// query is not known). Clients can retry the request.
+  /// session is not known). Clients can retry the request.
   kUnspecified,
   // The session option setting completed successfully.
   kOk,

@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import org.apache.arrow.flight.impl.Flight;
+
 /**
  * A union-like container interface for supported session option value types.
  */
@@ -25,4 +27,47 @@ public interface SessionOptionValue {
      * Value access via a caller-provided visitor/functor.
      */
     void visit(SessionOptionValueVisitor);
+
+    Flight.SessionOptionValue toProtocol() {
+        Flight.SessionOptionValue.Builder b = Flight.SessionOptionValue.newBuilder();
+        SessionOptionValueToProtocolVisitor visitor = new SessionOptionValueToProtocolVisitor(b);
+        this.visit(visitor);
+        return b.build();
+    }
+}
+
+class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor {
+    final Flight.SessionOptionValue.Builder b;
+
+    SessionOptionValueVisitor(Flight.SessionOptionValue.Builder b) { this.b = b; }
+
+    Flight.SessionOptionValue visit(String value) {
+        b.setStringValue(value);
+    }
+
+    Flight.SessionOptionValue visit(boolean value) {
+        b.setBoolValue(value);
+    }
+
+    Flight.SessionOptionValue visit(int value) {
+        b.setIn32Value(value);
+    }
+
+    Flight.SessionOptionValue visit(long value) {
+        b.setInt64Value(value);
+    }
+
+    Flight.SessionOptionValue visit(float value) {
+        b.setFloatValue(value);
+    }
+
+    Flight.SessionOptionValue visit(double value) {
+        b.setDoubleValue(value);
+    }
+
+    Flight.SessionOptionValue visit(String[] value) {
+        Flight.SessionOptionValue.StringListValue pb_value;
+        pb_value.addAllStringValues(value);
+        b.setValue(pb_value);
+    }
 }
