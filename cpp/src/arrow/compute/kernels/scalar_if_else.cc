@@ -1226,6 +1226,7 @@ struct IfElseFunction : ScalarFunction {
     }
 
     internal::EnsureDictionaryDecoded(left_arg, num_args);
+    internal::EnsureExtensionToStorage(types);
 
     if (auto type = internal::CommonNumeric(left_arg, num_args)) {
       internal::ReplaceTypes(type, left_arg, num_args);
@@ -1431,6 +1432,7 @@ struct CaseWhenFunction : ScalarFunction {
     }
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
     TypeHolder* first_arg = &(*types)[1];
     const size_t num_args = types->size() - 1;
     if (auto type = CommonNumeric(first_arg, num_args)) {
@@ -1964,6 +1966,7 @@ struct CoalesceFunction : ScalarFunction {
 
     // Do not DispatchExact here since we want to rescale decimals if necessary
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
     if (auto type = CommonNumeric(types->data(), types->size())) {
       ReplaceTypes(type, types);
     }
@@ -2663,6 +2666,7 @@ struct ChooseFunction : ScalarFunction {
     // based on the type of the rest of the arguments.
     RETURN_NOT_OK(CheckArity(types->size()));
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
     if (types->front().id() != Type::INT64) {
       (*types)[0] = int64();
     }

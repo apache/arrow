@@ -138,6 +138,19 @@ void ReplaceTypes(const TypeHolder& replacement, TypeHolder* begin, size_t count
   }
 }
 
+void EnsureExtensionToStorage(std::vector<TypeHolder>* types) {
+  EnsureExtensionToStorage(types->data(), types->size());
+}
+
+void EnsureExtensionToStorage(TypeHolder* begin, size_t count) {
+  auto* end = begin + count;
+  for (auto* it = begin; it != end; it++) {
+    if (it->type->id() == Type::EXTENSION) {
+      *it = checked_cast<const ExtensionType&>(*it->type).storage_type();
+    }
+  }
+}
+
 TypeHolder CommonNumeric(const std::vector<TypeHolder>& types) {
   return CommonNumeric(types.data(), types.size());
 }

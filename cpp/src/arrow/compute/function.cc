@@ -388,14 +388,12 @@ Result<const Kernel*> Function::DispatchWithExtensionCast(
 Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) const {
   // TODO(ARROW-11508) permit generic conversions here
   Result<const Kernel*> result;
-  result = DispatchExact(*values);
-  if (result.ok()) {
+  if (result = DispatchExact(*values); result.ok()) {
     return result;
   }
 
   // Try to cast extension types to their storage types
-  result = DispatchWithExtensionCast(values);
-  if (result.ok()) {
+  if (result = DispatchWithExtensionCast(values); result.ok()) {
     return result;
   }
 

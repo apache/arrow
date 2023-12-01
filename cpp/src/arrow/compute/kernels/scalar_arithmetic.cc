@@ -630,6 +630,7 @@ struct ArithmeticFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     // Only promote types for binary functions
     if (types->size() == 2) {
@@ -685,6 +686,7 @@ struct ArithmeticDecimalToFloatingPointFunction : public ArithmeticFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     if (types->size() == 2) {
       ReplaceNullWithOtherType(types);
@@ -717,6 +719,7 @@ struct ArithmeticIntegerToFloatingPointFunction : public ArithmeticFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     if (types->size() == 2) {
       ReplaceNullWithOtherType(types);
@@ -748,6 +751,7 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     if (types->size() == 2) {
       ReplaceNullWithOtherType(types);

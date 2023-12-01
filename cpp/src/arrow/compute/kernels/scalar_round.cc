@@ -1053,6 +1053,7 @@ struct RoundFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     // for binary round functions, the second scalar must be int32
     if (types->size() == 2 && (*types)[1].id() != Type::INT32) {
@@ -1074,6 +1075,7 @@ struct RoundDecimalToFloatingPointFunction : public RoundFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     // Size of types is checked above.
     const auto originalType = (*types)[0];
@@ -1099,6 +1101,7 @@ struct RoundIntegerToFloatingPointFunction : public RoundFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     // Size of types is checked above.
     const auto originalType = (*types)[0];
@@ -1124,6 +1127,7 @@ struct RoundFloatingPointFunction : public RoundFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     // Size of types is checked above.
     const auto originalType = (*types)[0];

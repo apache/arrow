@@ -348,6 +348,7 @@ struct CompareFunction : ScalarFunction {
 
     EnsureDictionaryDecoded(types);
     ReplaceNullWithOtherType(types);
+    EnsureExtensionToStorage(types);
 
     if (auto type = CommonNumeric(*types)) {
       ReplaceTypes(type, types);
@@ -372,6 +373,7 @@ struct VarArgsCompareFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     if (auto type = CommonNumeric(*types)) {
       ReplaceTypes(type, types);

@@ -3258,6 +3258,7 @@ struct ScalarCTypeToInt64Function : public ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     EnsureDictionaryDecoded(types);
+    EnsureExtensionToStorage(types);
 
     for (auto it = types->begin(); it < types->end(); ++it) {
       if (is_integer(it->id())) {

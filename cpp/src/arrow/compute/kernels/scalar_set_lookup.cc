@@ -636,6 +636,7 @@ struct SetLookupFunction : ScalarFunction {
 
   Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const override {
     EnsureDictionaryDecoded(values);
+    EnsureExtensionToStorage(values);
     return DispatchExact(*values);
   }
 };

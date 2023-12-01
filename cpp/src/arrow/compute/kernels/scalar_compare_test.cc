@@ -28,6 +28,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -2123,5 +2124,11 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
               ResultWith(ScalarFromJSON(date64(), "86400000")));
 }
 
+TEST(TestCompareExtension, Extension) {
+  // Allow extension types to be implicitly cast to their storage types
+  ASSERT_ARRAYS_EQUAL(
+      *ArrayFromJSON(int16(), "[-32768, null, 1, 2, 3, 4, 127]"),
+      *MinElementWise({ExampleSmallint(), ExampleTinyint()})->make_array());
+}
 }  // namespace compute
 }  // namespace arrow

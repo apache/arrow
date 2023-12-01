@@ -1366,6 +1366,12 @@ ARROW_EXPORT
 void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<TypeHolder>* types);
 
 ARROW_EXPORT
+void EnsureExtensionToStorage(std::vector<TypeHolder>* types);
+
+ARROW_EXPORT
+void EnsureExtensionToStorage(TypeHolder* begin, size_t count);
+
+ARROW_EXPORT
 TypeHolder CommonNumeric(const std::vector<TypeHolder>& types);
 
 ARROW_EXPORT

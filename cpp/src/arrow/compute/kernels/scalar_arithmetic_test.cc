@@ -36,6 +36,7 @@
 #include "arrow/util/string.h"
 
 #include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
@@ -2753,6 +2754,11 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sign) {
   this->AssertUnaryOp(sign, this->MakeScalar(max), this->MakeScalar(1));
 }
 
+TEST(TestArithmeticExtension, Extension) {
+  // Allow extension types to be implicitly cast to their storage types
+  ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(int16(), "[-32640, null, 0, 0, 0, 0, 32640]"),
+                      *Subtract(ExampleSmallint(), ExampleTinyint())->make_array());
+}
 }  // namespace
 }  // namespace compute
 }  // namespace arrow
