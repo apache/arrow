@@ -325,7 +325,7 @@ class AzureFileSystemTest : public ::testing::Test {
         sub_blob_path,
         top_blob_path,
     };
-  };
+  }
 };
 
 class AzuriteFileSystemTest : public AzureFileSystemTest {
