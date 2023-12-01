@@ -26,7 +26,7 @@ from pyarrow import compute as pc
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
 
-# For convience, most of the test here doesn't care about udf func docs
+# For convenience, most of the test here doesn't care about udf func docs
 empty_udf_doc = {"summary": "", "description": ""}
 
 try:
@@ -302,7 +302,7 @@ def raising_func_fixture():
 @pytest.fixture(scope="session")
 def unary_vector_func_fixture():
     """
-    Reigster a vector function
+    Register a vector function
     """
     def pct_rank(ctx, x):
         # copy here to get around pandas 1.0 issue
@@ -319,7 +319,7 @@ def unary_vector_func_fixture():
 @pytest.fixture(scope="session")
 def struct_vector_func_fixture():
     """
-    Reigster a vector function that returns a struct array
+    Register a vector function that returns a struct array
     """
     def pivot(ctx, k, v, c):
         df = pa.RecordBatch.from_arrays([k, v, c], names=['k', 'v', 'c']).to_pandas()
@@ -486,7 +486,7 @@ def test_function_doc_validation():
                                     func_doc, in_types,
                                     out_type)
 
-    # doc with no decription
+    # doc with no description
     func_doc = {
         "summary": "test summary"
     }
