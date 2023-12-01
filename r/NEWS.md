@@ -33,7 +33,7 @@
 ## Installation
 
 * If pkg-config fails to detect the required libraries an additional search
-  without pkg-config is run (#38902).
+  without pkg-config is run (#38970).
 * Fetch the latest nightly Arrow C++ binary when installing a development 
   Version (#38236).  
 
