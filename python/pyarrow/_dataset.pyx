@@ -1966,6 +1966,7 @@ cdef class FragmentScanOptions(_Weakrefable):
 cdef class CacheOptions(_Weakrefable):
     """
     Cache options for a pre-buffered fragment scan.
+
     Parameters
     ----------
     hole_size_limit : int, default 8Ki
@@ -2044,9 +2045,12 @@ cdef class CacheOptions(_Weakrefable):
         except TypeError:
             return False
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
+    @staticmethod
+    @binding(True)  # Required for Cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return CacheOptions(**kwargs)
 
     def __reduce__(self):
         kwargs = dict(
@@ -2055,7 +2059,7 @@ cdef class CacheOptions(_Weakrefable):
             lazy=self.lazy,
             prefetch_limit=self.prefetch_limit,
         )
-        return type(self)._reconstruct, (kwargs,)
+        return CacheOptions._reconstruct, (kwargs,)
 
 
 cdef class IpcFileWriteOptions(FileWriteOptions):
