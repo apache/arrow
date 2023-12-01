@@ -56,9 +56,9 @@ jobs:
         with:
           dotnet-version: '7.0.x'
 
-      - uses: actions/setup-node@v2-beta
+      - uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '18'
 
       - name: Run verification
         shell: bash
