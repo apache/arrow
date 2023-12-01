@@ -33,7 +33,7 @@
   }
 }
 
-/* Contibuting landing page overview cards */
+/* Contributing landing page overview cards */
 
 .contrib-card {
   border-radius: 0;
@@ -68,7 +68,7 @@
 }
 
 /* This is the bootstrap CSS style for "table-striped". Since the theme does
-not yet provide an easy way to configure this globaly, it easier to simply
+not yet provide an easy way to configure this globally, it easier to simply
 include this snippet here than updating each table in all rst files to
 add ":class: table-striped" */
 
@@ -76,7 +76,7 @@ add ":class: table-striped" */
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Iprove the vertical spacing in the C++ API docs
+/* Improve the vertical spacing in the C++ API docs
 (ideally this should be upstreamed to the pydata-sphinx-theme */
 
 dl.cpp dd p {

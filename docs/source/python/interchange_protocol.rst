@@ -46,7 +46,7 @@ the consumer library can take and construct an object of it's own.
 .. code-block::
 
     >>> import pyarrow as pa
-    >>> table = pa.table({"n_atendees": [100, 10, 1]})
+    >>> table = pa.table({"n_attendees": [100, 10, 1]})
     >>> table.__dataframe__()
     <pyarrow.interchange.dataframe._PyArrowDataFrame object at ...>
 
@@ -72,20 +72,20 @@ pyarrow table with the use of the interchange protocol:
 
     >>> import pandas as pd
     >>> df = pd.DataFrame({
-    ...         "n_atendees": [100, 10, 1],
+    ...         "n_attendees": [100, 10, 1],
     ...         "country": ["Italy", "Spain", "Slovenia"],
     ...     })
     >>> df
-       n_atendees   country
-    0         100     Italy
-    1          10     Spain
-    2           1  Slovenia
+       n_attendees   country
+    0          100     Italy
+    1           10     Spain
+    2            1  Slovenia
     >>> from_dataframe(df)
     pyarrow.Table
-    n_atendees: int64
+    n_attendees: int64
     country: large_string
     ----
-    n_atendees: [[100,10,1]]
+    n_attendees: [[100,10,1]]
     country: [["Italy","Spain","Slovenia"]]
 
 We can do the same with a polars dataframe:

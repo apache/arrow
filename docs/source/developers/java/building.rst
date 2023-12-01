@@ -107,7 +107,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
 Maven
 ~~~~~
 
-- To build only the JNI C Data Interface library (MacOS / Linux):
+- To build only the JNI C Data Interface library (macOS / Linux):
 
   .. code-block:: text
 
@@ -128,7 +128,7 @@ Maven
       $ dir "../java-dist/bin/x86_64"
       |__ arrow_cdata_jni.dll
 
-- To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
+- To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
   .. code-block:: text
 
@@ -153,7 +153,7 @@ Maven
 CMake
 ~~~~~
 
-- To build only the JNI C Data Interface library (MacOS / Linux):
+- To build only the JNI C Data Interface library (macOS / Linux):
 
   .. code-block:: text
 
@@ -192,7 +192,7 @@ CMake
       $ dir "java-dist/bin"
       |__ arrow_cdata_jni.dll
 
-- To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
+- To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
   .. code-block::
 
@@ -393,7 +393,7 @@ Installing Nightly Packages
     These packages are not official releases. Use them at your own risk.
 
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
-The artifacts are uploaded to GitHub. For example, for 2022/07/30, they can be found at `Github Nightly`_.
+The artifacts are uploaded to GitHub. For example, for 2022/07/30, they can be found at `GitHub Nightly`_.
 
 
 Installing from Apache Nightlies
@@ -429,7 +429,7 @@ Installing Manually
 -------------------
 
 1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
-2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memeory-core and arrow-memory-netty).
+2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memory-core and arrow-memory-netty).
 
    .. code-block:: xml
 
@@ -540,4 +540,4 @@ Installing Manually
 6. Compile your project like usual with ``mvn clean install``.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
-.. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
+.. _GitHub Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars

@@ -988,7 +988,7 @@ access is less efficient.)
    to the length of the array and this would be confusing.
 
 
-A run must have have a length of at least 1. This means the values in the
+A run must have a length of at least 1. This means the values in the
 run ends array all are positive and in strictly ascending order. A run end cannot be
 null.
 

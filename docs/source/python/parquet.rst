@@ -428,7 +428,7 @@ metadata-only Parquet files. Note this is not a Parquet standard, but a
 convention set in practice by those frameworks.
 
 Using those files can give a more efficient creation of a parquet Dataset,
-since it can use the stored schema and and file paths of all row groups,
+since it can use the stored schema and file paths of all row groups,
 instead of inferring the schema and crawling the directories for all Parquet
 files (this is especially the case for filesystems where accessing files
 is expensive).
