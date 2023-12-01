@@ -183,7 +183,7 @@ Build source and binaries and submit them
     
     # Sign and upload the Java artifacts
     #
-    # Note that you need to press the "Close" button manually by Web interfacec
+    # Note that you need to press the "Close" button manually by Web interface
     # after you complete the script:
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
@@ -383,7 +383,7 @@ Be sure to go through on the following checklist:
       cd -
 
       # dev/release/post-12-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACAKGES_FORK>
+      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
@@ -419,7 +419,7 @@ Be sure to go through on the following checklist:
 
    The package upload requires npm and yarn to be installed and 2FA to be configured on your account.
 
-   When you have access, you can publish releases to npm by running the the following script:
+   When you have access, you can publish releases to npm by running the following script:
 
    .. code-block:: Bash
 
