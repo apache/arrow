@@ -17,7 +17,6 @@
 
 import { LargeUtf8 } from '../type.js';
 import { encodeUtf8 } from '../util/utf8.js';
-import { BinaryBuilder } from './binary.js';
 import { BufferBuilder } from './buffer.js';
 import { VariableWidthBuilder, BuilderOptions } from '../builder.js';
 
