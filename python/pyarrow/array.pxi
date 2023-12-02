@@ -3572,12 +3572,15 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         """
         Convert fixed shape tensor extension array to a numpy array (with dim+1).
         """
+        return self.to_tensor().to_numpy()
+
+    def to_tensor(self):
         cdef:
             CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
             CResult[shared_ptr[CTensor]] ctensor
         with nogil:
             ctensor = ext_array.ToTensor()
-        return pyarrow_wrap_tensor(GetResultValue(ctensor)).to_numpy()
+        return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     def get_tensor(self, int64_t i):
         """

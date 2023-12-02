@@ -1027,26 +1027,30 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
-class FixedShapeTensorScalar(ExtensionScalar):
+cdef class FixedShapeTensorScalar(ExtensionScalar):
     """
     Concrete class for fixed shape tensor extension scalar.
     """
 
     def to_numpy_ndarray(self):
-        # TODO: allow any permutation
         """
         Convert fixed shape tensor extension scalar to a numpy array (with dim).
-
-        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
+        return self.to_tensor().to_numpy()
 
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            np_flat = np.asarray(self.storage.flatten())
-            numpy_tensor = np_flat.reshape(tuple(self.type.shape))
-            return numpy_tensor
-        else:
-            raise ValueError(
-                'Only non-permuted tensors can be converted to numpy tensors.')
+    def to_tensor(self):
+        """
+        Convert fixed shape tensor extension scalar to a pyarrow.Tensor.
+        """
+        cdef:
+            CFixedShapeTensorType* c_type = static_pointer_cast[CFixedShapeTensorType, CDataType](
+                self.wrapped.get().type).get()
+            shared_ptr[CExtensionScalar] scalar = static_pointer_cast[CExtensionScalar, CScalar](self.wrapped)
+            shared_ptr[CTensor] ctensor
+
+        with nogil:
+            ctensor = GetResultValue(c_type.GetTensor(scalar))
+        return pyarrow_wrap_tensor(ctensor)
 
 
 cdef dict _scalar_classes = {

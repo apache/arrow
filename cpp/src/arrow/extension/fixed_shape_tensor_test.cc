@@ -527,6 +527,31 @@ TEST_F(TestExtensionType, GetTensor) {
   ASSERT_EQ(expected_permuted_tensor->strides(), actual_permuted_tensor->strides());
   ASSERT_EQ(expected_permuted_tensor->type(), actual_permuted_tensor->type());
   ASSERT_TRUE(expected_permuted_tensor->Equals(*actual_permuted_tensor));
+
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(1));
+  auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+  ASSERT_OK_AND_ASSIGN(auto t, exact_ext_type->GetTensor(ext_scalar));
+  ASSERT_EQ(expected_tensor->strides(), t->strides());
+  ASSERT_EQ(expected_tensor->shape(), t->shape());
+  ASSERT_EQ(expected_tensor->dim_names(), t->dim_names());
+  ASSERT_EQ(expected_tensor->type(), t->type());
+  ASSERT_EQ(expected_tensor->is_contiguous(), t->is_contiguous());
+  ASSERT_EQ(expected_tensor->is_column_major(), t->is_column_major());
+  ASSERT_TRUE(expected_tensor->Equals(*t));
+
+  auto exact_permuted_ext_type =
+      internal::checked_pointer_cast<FixedShapeTensorType>(permuted_ext_type);
+  ASSERT_OK_AND_ASSIGN(scalar, permuted_array->GetScalar(1));
+  ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+  ASSERT_OK_AND_ASSIGN(t, exact_permuted_ext_type->GetTensor(ext_scalar));
+  ASSERT_EQ(expected_permuted_tensor->strides(), t->strides());
+  ASSERT_EQ(expected_permuted_tensor->shape(), t->shape());
+  ASSERT_EQ(expected_permuted_tensor->dim_names(), t->dim_names());
+  ASSERT_EQ(expected_permuted_tensor->type(), t->type());
+  ASSERT_EQ(expected_permuted_tensor->is_contiguous(), t->is_contiguous());
+  ASSERT_EQ(expected_permuted_tensor->is_column_major(), t->is_column_major());
+  ASSERT_TRUE(expected_permuted_tensor->Equals(*t));
 }
 
 }  // namespace arrow

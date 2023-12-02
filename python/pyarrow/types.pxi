@@ -1658,20 +1658,6 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         else:
             return None
 
-    def __arrow_ext_serialize__(self):
-        """
-        Serialized representation of metadata to reconstruct the type object.
-        """
-        return self.tensor_ext_type.Serialize()
-
-    @classmethod
-    def __arrow_ext_deserialize__(self, storage_type, serialized):
-        """
-        Return an FixedShapeTensor type instance from the storage type and serialized
-        metadata.
-        """
-        return self.tensor_ext_type.Deserialize(storage_type, serialized)
-
     def __arrow_ext_class__(self):
         return FixedShapeTensorArray
 
@@ -4949,8 +4935,9 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
 
     cdef FixedShapeTensorType out = FixedShapeTensorType.__new__(FixedShapeTensorType)
 
-    c_tensor_ext_type = GetResultValue(CFixedShapeTensorType.Make(
-        value_type.sp_type, c_shape, c_permutation, c_dim_names))
+    with nogil:
+        c_tensor_ext_type = GetResultValue(CFixedShapeTensorType.Make(
+            value_type.sp_type, c_shape, c_permutation, c_dim_names))
 
     out.init(c_tensor_ext_type)
 

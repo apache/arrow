@@ -20,6 +20,8 @@
 
 #include "arrow/extension/fixed_shape_tensor.h"
 
+#include <arrow/scalar.h>
+
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
@@ -85,40 +87,11 @@ Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& sh
 const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::GetTensor(
     const int64_t i) const {
   auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
-  auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
-  auto value_type =
-      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
-  auto ndim = ext_type->ndim();
-  auto permutation = ext_type->permutation();
-  if (permutation.empty()) {
-    for (int64_t j = 0; j < static_cast<int64_t>(ndim); ++j) {
-      permutation.emplace_back(j);
-    }
-  }
-
-  std::vector<std::string> dim_names;
-  if (!ext_type->dim_names().empty()) {
-    for (auto j : permutation) {
-      dim_names.emplace_back(ext_type->dim_names()[j]);
-    }
-  } else {
-    dim_names = {};
-  }
-
-  std::vector<int64_t> shape;
-  for (int64_t& j : permutation) {
-    shape.emplace_back(ext_type->shape()[j]);
-  }
-
-  std::vector<int64_t> strides;
-  ARROW_CHECK_OK(ComputeStrides(*value_type.get(), shape, permutation, &strides));
-
-  // TODO: can this be done without copying?
-  auto list_arr = ext_arr->value_slice(i)->data();
-  auto bw = value_type->byte_width();
-  auto buffer =
-      SliceBuffer(list_arr->buffers[1], list_arr->offset * bw, list_arr->length * bw);
-  return Tensor::Make(ext_type->value_type(), buffer, shape, strides, dim_names);
+  const auto ext_type =
+      internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
+  ARROW_ASSIGN_OR_RAISE(const auto tensor_scalar, this->GetScalar(i));
+  return ext_type->GetTensor(
+      internal::checked_pointer_cast<ExtensionScalar>(tensor_scalar));
 }
 
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
@@ -240,6 +213,46 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
   DCHECK_EQ("arrow.fixed_shape_tensor",
             static_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
+}
+
+const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::GetTensor(
+    const std::shared_ptr<ExtensionScalar>& scalar) const {
+  const auto array =
+      internal::checked_pointer_cast<const FixedSizeListScalar>(scalar->value)->value;
+  const auto value_type =
+      internal::checked_pointer_cast<FixedWidthType>(this->value_type());
+  const auto byte_width = value_type->byte_width();
+
+  auto permutation = this->permutation();
+  if (permutation.empty()) {
+    for (int64_t j = 0; j < static_cast<int64_t>(this->ndim()); ++j) {
+      permutation.emplace_back(j);
+    }
+  }
+
+  std::vector<int64_t> shape;
+  for (int64_t j : permutation) {
+    shape.emplace_back(this->shape()[j]);
+  }
+
+  std::vector<std::string> dim_names;
+  if (!this->dim_names().empty()) {
+    for (auto j : permutation) {
+      dim_names.emplace_back(this->dim_names()[j]);
+    }
+  } else {
+    dim_names = {};
+  }
+
+  std::vector<int64_t> strides;
+  ARROW_CHECK_OK(ComputeStrides(*value_type.get(), shape, permutation, &strides));
+  const auto start_position = array->offset() * byte_width;
+  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
+                                    std::multiplies<>());
+  const auto buffer =
+      SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
+
+  return Tensor::Make(this->value_type(), buffer, shape, strides, dim_names);
 }
 
 Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor(

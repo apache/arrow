@@ -72,7 +72,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   std::string ToString() const override;
 
   /// Number of dimensions of tensor elements
-  size_t ndim() { return shape_.size(); }
+  const size_t ndim() const { return shape_.size(); }
 
   /// Shape of tensor elements
   const std::vector<int64_t> shape() const { return shape_; }
@@ -101,6 +101,10 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
 
   /// Create a FixedShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  /// \brief Create a FixedShapeTensorArray from a Scalar Tensor
+  const Result<std::shared_ptr<Tensor>> GetTensor(
+      const std::shared_ptr<ExtensionScalar>& scalar) const;
 
   /// \brief Create a FixedShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(

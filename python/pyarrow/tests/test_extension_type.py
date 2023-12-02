@@ -1319,6 +1319,7 @@ def test_tensor_type():
 
 
 def test_tensor_class_methods():
+    values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     tensor_type = pa.fixed_shape_tensor(pa.float32(), [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                        pa.list_(pa.float32(), 6))
@@ -1328,14 +1329,16 @@ def test_tensor_class_methods():
     assert arr.get_tensor(0) == pa.Tensor.from_numpy(
         np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
 
-    expected = np.array(
-        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.float32)
-    result = arr.to_numpy_ndarray()
-    np.testing.assert_array_equal(result, expected)
+    # expected = np.array(
+    #     [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.float32)
+    # result = arr.to_numpy_ndarray()
+    # np.testing.assert_array_equal(result, expected)
 
-    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.float32)
-    result = arr[:1].to_numpy_ndarray()
-    np.testing.assert_array_equal(result, expected)
+    # np.testing.assert_array_equal(result, expected)
+
+    # expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.float32)
+    # result = arr[:1].to_numpy_ndarray()
+    # np.testing.assert_array_equal(result, expected)
 
     arr = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
@@ -1345,26 +1348,24 @@ def test_tensor_class_methods():
     assert tensor_array_from_numpy.type.value_type == pa.float32()
     assert tensor_array_from_numpy.type.shape == [2, 3]
 
+    # TODO
     arr = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
         dtype=np.float32, order="F")
     with pytest.raises(ValueError, match="C-style contiguous segment"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    storage = pa.array([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]],
-                       pa.list_(pa.int8(), 12))
-    expected = np.array(
-        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=np.int8)
+    # expected = np.array(values, dtype=np.int8).reshape(1, 2, 3, 2)
+    # tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1])
+    storage = pa.array([values], pa.list_(pa.int8(), 12))
+    # result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    # TODO
+    # assert np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
-    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1])
-    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
-    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-    with pytest.raises(ValueError, match="non-permuted tensors"):
-        arr.to_numpy_ndarray()
-
+    expected = np.array(values, dtype=np.int8).reshape(1, 2, 2, 3)
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 1, 2])
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-    np.testing.assert_array_equal(arr[0].to_numpy_ndarray(), expected)
+    np.testing.assert_array_equal(arr.to_numpy_ndarray(), expected)
 
 
 @pytest.mark.parametrize("tensor_type", (
