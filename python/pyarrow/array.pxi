@@ -3570,7 +3570,9 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
     def to_numpy_ndarray(self):
         """
-        Convert fixed shape tensor extension array to a numpy array (with dim+1).
+        Convert fixed shape tensor extension array to a numpy.ndarray with zero copy.
+        First dimension of ndarray will be the length of the fixed shape tensor array
+        and the rest of the dimensions will match the shape of the fixed shape tensor.
         """
         return self.to_tensor().to_numpy()
 

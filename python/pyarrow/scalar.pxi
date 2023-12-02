@@ -1034,7 +1034,7 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
 
     def to_numpy_ndarray(self):
         """
-        Convert fixed shape tensor extension scalar to a numpy array (with dim).
+        Convert fixed shape tensor extension scalar to a numpy.ndarray with zero copy.
         """
         return self.to_tensor().to_numpy()
 
