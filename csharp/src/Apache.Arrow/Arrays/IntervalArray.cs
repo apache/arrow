@@ -126,7 +126,7 @@ namespace Apache.Arrow
         public MonthDayNanosecondIntervalArray(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)
-            : this(new ArrayData(IntervalType.DayTime, length, nullCount, offset,
+            : this(new ArrayData(IntervalType.MonthDayNanosecond, length, nullCount, offset,
                 new[] { nullBitmapBuffer, valueBuffer }))
         { }
 

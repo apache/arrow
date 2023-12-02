@@ -58,6 +58,7 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<Time32Type>,
             IArrowTypeVisitor<Time64Type>,
             IArrowTypeVisitor<DurationType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
@@ -69,7 +70,6 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<MapType>,
-            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<NullType>
         {
             private FlatBufferBuilder Builder { get; }
@@ -197,6 +197,13 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Duration.CreateDuration(Builder, ToFlatBuffer(type.Unit)));
             }
 
+            public void Visit(IntervalType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.Interval,
+                    Flatbuf.Interval.CreateInterval(Builder, ToFlatBuffer(type.Unit)));
+            }
+
             public void Visit(StructType type)
             {
                 Flatbuf.Struct_.StartStruct_(Builder);
@@ -244,13 +251,6 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.Map,
                     Flatbuf.Map.CreateMap(Builder, type.KeySorted));
-            }
-
-            public void Visit(IntervalType type)
-            {
-                Result = FieldType.Build(
-                    Flatbuf.Type.Interval,
-                    Flatbuf.Interval.CreateInterval(Builder, ToFlatBuffer(type.Unit)));
             }
 
             public void Visit(NullType type)
