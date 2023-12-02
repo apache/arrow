@@ -18,7 +18,6 @@
 import { memcpy } from '../util/buffer.js';
 import { TypedArray, BigIntArray, ArrayCtor } from '../interfaces.js';
 import { DataType } from '../type.js';
-import { bigIntToNumber } from '../util/bigint.js';
 
 /** @ignore */
 const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((Math.ceil(len) * BPE) + 63) & ~63) || 64) / BPE;
@@ -129,13 +128,7 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<T['TOffsetArray']> {
     constructor(type: T) {
         super(new type.OffsetArrayType(1), 1);
-        this.toNumber = type.OffsetArrayType === BigInt64Array ? BigInt : bigIntToNumber as any;
     }
-
-    /**
-     * The correct number constructor for the buffer type.
-     */
-    public toNumber: ((number: number | bigint) => T['TOffsetArray'] extends BigInt64Array ? bigint : number);
 
     public append(value: T['TOffsetArray'][0]) {
         return this.set(this.length - 1, value);
@@ -151,7 +144,7 @@ export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<
     }
     public flush(length = this.length - 1) {
         if (length > this.length) {
-            this.set(length - 1, this.toNumber(0));
+            this.set(length - 1, this.BYTES_PER_ELEMENT > 4 ? 0n : 0);
         }
         return super.flush(length + 1);
     }

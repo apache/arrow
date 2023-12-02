@@ -38,7 +38,23 @@ export class LargeUtf8Builder<TNull = any> extends VariableWidthBuilder<LargeUtf
         return super.setValue(index, encodeUtf8(value) as any);
     }
     // @ts-ignore
-    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void { }
+    // TODO: move to largeBinaryBuilder when implemented
+    // protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void { }
+    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number) {
+        const offsets = this._offsets;
+        const data = this._values.reserve(pendingLength).buffer;
+        let offset = 0;
+        for (const [index, value] of pending) {
+            if (value === undefined) {
+                offsets.set(index, 0n);
+            } else {
+                const length = value.length;
+                data.set(value, offset);
+                offsets.set(index, BigInt(length));
+                offset += length;
+            }
+        }
+    }
 }
 
-(LargeUtf8Builder.prototype as any)._flushPending = (BinaryBuilder.prototype as any)._flushPending;
+// (LargeUtf8Builder.prototype as any)._flushPending = (LargeBinaryBuilder.prototype as any)._flushPending;

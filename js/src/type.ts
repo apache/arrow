@@ -236,7 +236,7 @@ Object.defineProperty(Float32.prototype, 'ArrayType', { value: Float32Array });
 Object.defineProperty(Float64.prototype, 'ArrayType', { value: Float64Array });
 
 /** @ignore */
-export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array> }
+export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TOffsetArray: Int32Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: TypedArrayConstructor<Int32Array> }
 /** @ignore */
 export class Binary extends DataType<Type.Binary> {
     constructor() {
@@ -478,13 +478,13 @@ export class Duration<T extends Durations = Durations> extends DataType<T> {
 }
 
 /** @ignore */
-export class DurationSecond extends Duration<Type.DurationSecond> { constructor() { super(TimeUnit.SECOND); }}
+export class DurationSecond extends Duration<Type.DurationSecond> { constructor() { super(TimeUnit.SECOND); } }
 /** @ignore */
-export class DurationMillisecond extends Duration<Type.DurationMillisecond> { constructor() { super(TimeUnit.MILLISECOND); }}
+export class DurationMillisecond extends Duration<Type.DurationMillisecond> { constructor() { super(TimeUnit.MILLISECOND); } }
 /** @ignore */
-export class DurationMicrosecond extends Duration<Type.DurationMicrosecond> { constructor() { super(TimeUnit.MICROSECOND); }}
+export class DurationMicrosecond extends Duration<Type.DurationMicrosecond> { constructor() { super(TimeUnit.MICROSECOND); } }
 /** @ignore */
-export class DurationNanosecond extends Duration<Type.DurationNanosecond> { constructor() { super(TimeUnit.NANOSECOND); }}
+export class DurationNanosecond extends Duration<Type.DurationNanosecond> { constructor() { super(TimeUnit.NANOSECOND); } }
 
 
 /** @ignore */
