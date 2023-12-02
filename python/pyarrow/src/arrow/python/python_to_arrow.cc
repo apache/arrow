@@ -121,7 +121,7 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kNanoseconds>::
      {"minutes", /*minutes_in_hours=*/60},
      {"seconds", /*seconds_in_minute=*/60},
      {"milliseconds", /*milliseconds_in_seconds*/ 1000},
-     {"microseconds", /*microseconds_in_millseconds=*/1000},
+     {"microseconds", /*microseconds_in_milliseconds=*/1000},
      {"nanoseconds", /*nanoseconds_in_microseconds=*/1000},
      {nullptr, 0}};
 
@@ -481,7 +481,7 @@ class PyValue {
 
   // The binary-like intermediate representation is PyBytesView because it keeps temporary
   // python objects alive (non-contiguous memoryview) and stores whether the original
-  // object was unicode encoded or not, which is used for unicode -> bytes coersion if
+  // object was unicode encoded or not, which is used for unicode -> bytes coercion if
   // there is a non-unicode object observed.
 
   static Status Convert(const BaseBinaryType*, const O&, I obj, PyBytesView& view) {
@@ -572,10 +572,16 @@ struct PyConverterTrait;
 
 template <typename T>
 struct PyConverterTrait<
-    T, enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                    !is_extension_type<T>::value) ||
-                   std::is_same<T, MonthDayNanoIntervalType>::value>> {
+    T,
+    enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
+                 !is_extension_type<T>::value && !is_binary_view_like_type<T>::value) ||
+                std::is_same<T, MonthDayNanoIntervalType>::value>> {
   using type = PyPrimitiveConverter<T>;
+};
+
+template <typename T>
+struct PyConverterTrait<T, enable_if_binary_view_like<T>> {
+  // not implemented
 };
 
 template <typename T>
@@ -813,7 +819,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
  protected:
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
-      return Status::Invalid("Invalid Map: key field can not contain null values");
+      return Status::Invalid("Invalid Map: key field cannot contain null values");
     } else {
       return Status::OK();
     }
@@ -926,14 +932,14 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     }
     switch (input_kind_) {
       case InputKind::DICT:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendDict(value);
+        RETURN_NOT_OK(AppendDict(value));
+        return this->struct_builder_->Append();
       case InputKind::TUPLE:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendTuple(value);
+        RETURN_NOT_OK(AppendTuple(value));
+        return this->struct_builder_->Append();
       case InputKind::ITEMS:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendItems(value);
+        RETURN_NOT_OK(AppendItems(value));
+        return this->struct_builder_->Append();
       default:
         RETURN_NOT_OK(InferInputKind(value));
         return Append(value);
@@ -943,6 +949,10 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
  protected:
   Status Init(MemoryPool* pool) override {
     RETURN_NOT_OK((StructConverter<PyConverter, PyConverterTrait>::Init(pool)));
+
+    // This implementation will check the child values before appending itself,
+    // so no rewind is necessary
+    this->rewind_on_overflow_ = false;
 
     // Store the field names as a PyObjects for dict matching
     num_fields_ = this->struct_type_->num_fields();

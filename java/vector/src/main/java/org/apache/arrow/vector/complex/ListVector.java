@@ -21,7 +21,6 @@ import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.util.Preconditions.checkArgument;
-import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -76,7 +75,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   protected ArrowBuf validityBuffer;
   protected UnionListReader reader;
   private CallBack callBack;
-  protected final FieldType fieldType;
+  protected Field field;
   protected int validityAllocationSizeInBytes;
 
   /**
@@ -93,9 +92,20 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
    * @param callBack A schema change callback.
    */
   public ListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
-    super(name, allocator, callBack);
+    this(new Field(name, fieldType, null), allocator, callBack);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use for allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
+  public ListVector(Field field, BufferAllocator allocator, CallBack callBack) {
+    super(field.getName(), allocator, callBack);
     this.validityBuffer = allocator.getEmpty();
-    this.fieldType = checkNotNull(fieldType);
+    this.field = field;
     this.callBack = callBack;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
     this.lastSet = -1;
@@ -111,6 +121,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
+    this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
   }
 
   @Override
@@ -146,6 +157,28 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   public void setInitialCapacity(int numRecords, double density) {
     validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
     super.setInitialCapacity(numRecords, density);
+  }
+
+  /**
+   * Specialized version of setInitialTotalCapacity() for ListVector. This is
+   * used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector. This is
+   * very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In
+   * such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount but the multiplier
+   * forces the memory requirement to go beyond what was needed.
+   *
+   * @param numRecords value count
+   * @param totalNumberOfElements the total number of elements to to allow
+   *                              for in this vector across all records.
+   */
+  @Override
+  public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
+    super.setInitialTotalCapacity(numRecords, totalNumberOfElements);
   }
 
   /**
@@ -371,8 +404,18 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return getTransferPair(field, allocator, null);
+  }
+
+  @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new TransferImpl(ref, allocator, callBack);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new TransferImpl(field, allocator, callBack);
   }
 
   @Override
@@ -440,7 +483,11 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     TransferPair dataTransferPair;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      this(new ListVector(name, allocator, fieldType, callBack));
+      this(new ListVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new ListVector(field, allocator, callBack));
     }
 
     public TransferImpl(ListVector to) {
@@ -611,7 +658,11 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public Field getField() {
-    return new Field(getName(), fieldType, Collections.singletonList(getDataVector().getField()));
+    if (field.getChildren().contains(getDataVector().getField())) {
+      return field;
+    }
+    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
+    return field;
   }
 
   @Override

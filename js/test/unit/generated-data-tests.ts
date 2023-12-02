@@ -59,6 +59,10 @@ describe('Generated Test Data', () => {
     describe('Dictionary', () => { validateVector(generate.dictionary()); });
     describe('IntervalDayTime', () => { validateVector(generate.intervalDayTime()); });
     describe('IntervalYearMonth', () => { validateVector(generate.intervalYearMonth()); });
+    describe('DurationSecond', () => { validateVector(generate.durationSecond()); });
+    describe('DurationMillisecond', () => { validateVector(generate.durationMillisecond()); });
+    describe('DurationMicrosecond', () => { validateVector(generate.durationMicrosecond()); });
+    describe('DurationNanosecond', () => { validateVector(generate.durationNanosecond()); });
     describe('FixedSizeList', () => { validateVector(generate.fixedSizeList()); });
     describe('Map', () => { validateVector(generate.map()); });
 });

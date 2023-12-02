@@ -143,6 +143,8 @@ std::shared_ptr<const LogicalType> get_logical_type(const DataType& type) {
       return LogicalType::Date();
     case ArrowId::DATE64:
       return LogicalType::Date();
+    case ArrowId::HALF_FLOAT:
+      return LogicalType::Float16();
     case ArrowId::TIMESTAMP: {
       const auto& ts_type = static_cast<const ::arrow::TimestampType&>(type);
       const bool adjusted_to_utc = !(ts_type.timezone().empty());
@@ -220,6 +222,7 @@ ParquetType::type get_physical_type(const DataType& type) {
     case ArrowId::FIXED_SIZE_BINARY:
     case ArrowId::DECIMAL128:
     case ArrowId::DECIMAL256:
+    case ArrowId::HALF_FLOAT:
       return ParquetType::FIXED_LEN_BYTE_ARRAY;
     case ArrowId::DATE32:
       return ParquetType::INT32;
@@ -525,6 +528,9 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
           byte_width =
               static_cast<const ::arrow::FixedSizeBinaryType&>(values_type).byte_width();
           break;
+        case ::arrow::Type::HALF_FLOAT:
+          byte_width = sizeof(::arrow::HalfFloatType::c_type);
+          break;
         case ::arrow::Type::DECIMAL128:
         case ::arrow::Type::DECIMAL256: {
           const auto& decimal_type = static_cast<const DecimalType&>(values_type);
@@ -536,6 +542,9 @@ static std::shared_ptr<GroupNode> MakeSimpleSchema(const DataType& type,
     } break;
     case ::arrow::Type::FIXED_SIZE_BINARY:
       byte_width = static_cast<const ::arrow::FixedSizeBinaryType&>(type).byte_width();
+      break;
+    case ::arrow::Type::HALF_FLOAT:
+      byte_width = sizeof(::arrow::HalfFloatType::c_type);
       break;
     case ::arrow::Type::DECIMAL128:
     case ::arrow::Type::DECIMAL256: {
@@ -840,12 +849,12 @@ typedef ::testing::Types<
     ::arrow::BooleanType, ::arrow::UInt8Type, ::arrow::Int8Type, ::arrow::UInt16Type,
     ::arrow::Int16Type, ::arrow::Int32Type, ::arrow::UInt64Type, ::arrow::Int64Type,
     ::arrow::Date32Type, ::arrow::FloatType, ::arrow::DoubleType, ::arrow::StringType,
-    ::arrow::BinaryType, ::arrow::FixedSizeBinaryType, DecimalWithPrecisionAndScale<1>,
-    DecimalWithPrecisionAndScale<5>, DecimalWithPrecisionAndScale<10>,
-    DecimalWithPrecisionAndScale<19>, DecimalWithPrecisionAndScale<23>,
-    DecimalWithPrecisionAndScale<27>, DecimalWithPrecisionAndScale<38>,
-    Decimal256WithPrecisionAndScale<39>, Decimal256WithPrecisionAndScale<56>,
-    Decimal256WithPrecisionAndScale<76>>
+    ::arrow::BinaryType, ::arrow::FixedSizeBinaryType, ::arrow::HalfFloatType,
+    DecimalWithPrecisionAndScale<1>, DecimalWithPrecisionAndScale<5>,
+    DecimalWithPrecisionAndScale<10>, DecimalWithPrecisionAndScale<19>,
+    DecimalWithPrecisionAndScale<23>, DecimalWithPrecisionAndScale<27>,
+    DecimalWithPrecisionAndScale<38>, Decimal256WithPrecisionAndScale<39>,
+    Decimal256WithPrecisionAndScale<56>, Decimal256WithPrecisionAndScale<76>>
     TestTypes;
 
 TYPED_TEST_SUITE(TestParquetIO, TestTypes);
@@ -916,9 +925,15 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnOptionalDictionaryWrite) {
-  // Skip tests for BOOL as we don't create dictionaries for it.
-  if (TypeParam::type_id == ::arrow::Type::BOOL) {
-    return;
+  switch (TypeParam::type_id) {
+    case ::arrow::Type::BOOL:
+      GTEST_SKIP() << "dictionaries not created for BOOL";
+      break;
+    case ::arrow::Type::HALF_FLOAT:
+      GTEST_SKIP() << "dictionary_encode not supported for HALF_FLOAT";
+      break;
+    default:
+      break;
   }
 
   std::shared_ptr<Array> values;
@@ -2354,10 +2369,11 @@ void TestGetRecordBatchReader(
 
 TEST(TestArrowReadWrite, GetRecordBatchReader) { TestGetRecordBatchReader(); }
 
-// Same as the test above, but using coalesced reads.
-TEST(TestArrowReadWrite, CoalescedReads) {
+// Same as the test above, but using non-coalesced reads.
+TEST(TestArrowReadWrite, NoneCoalescedReads) {
   ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
-  arrow_properties.set_pre_buffer(true);
+  arrow_properties.set_pre_buffer(false);
+  arrow_properties.set_cache_options(::arrow::io::CacheOptions::Defaults());
   TestGetRecordBatchReader(arrow_properties);
 }
 
@@ -3373,6 +3389,8 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
 
   for (const auto& inner_type : types) {
     if (inner_type->id() == ::arrow::Type::NA) continue;
+    if (inner_type->id() == ::arrow::Type::BINARY_VIEW) continue;
+    if (inner_type->id() == ::arrow::Type::STRING_VIEW) continue;
 
     auto writer_props = WriterProperties::Builder();
     auto arrow_writer_props = ArrowWriterProperties::Builder();
@@ -3388,7 +3406,6 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
         arrow_writer_props.coerce_timestamps(unit);
       }
     }
-
     ASSERT_NO_FATAL_FAILURE(DoNestedRequiredRoundtrip(inner_type, writer_props.build(),
                                                       arrow_writer_props.build()));
 
@@ -4081,6 +4098,60 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal(25, 2)),
         std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal(13, 2)),
         std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal(4, 2))));
+
+TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
+  using ::arrow::util::Float16;
+  constexpr auto nan = std::numeric_limits<Float16>::quiet_NaN();
+
+  struct TestCase {
+    std::string filename;
+    int32_t len;
+    std::vector<Float16> vals;
+  } test_cases[] = {
+      {"float16_nonzeros_and_nans",
+       8,
+       {Float16(+1.0), Float16(-2.0), nan, Float16(+0.0), Float16(-1.0), Float16(-0.0),
+        Float16(+2.0)}},
+      {"float16_zeros_and_nans", 3, {Float16(+0.0), nan}},
+  };
+
+  const auto pool = ::arrow::default_memory_pool();
+
+  for (const auto& tc : test_cases) {
+    std::string path(test::get_data_dir());
+    path += "/" + tc.filename + ".parquet";
+    ARROW_SCOPED_TRACE("path = ", path);
+
+    std::unique_ptr<FileReader> reader;
+    ASSERT_OK_NO_THROW(
+        FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &reader));
+    std::shared_ptr<::arrow::Table> table;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&table));
+
+    std::shared_ptr<::arrow::Schema> schema;
+    ASSERT_OK_NO_THROW(reader->GetSchema(&schema));
+    ASSERT_EQ(1, schema->num_fields());
+    ASSERT_EQ(schema->field(0)->type()->id(), ::arrow::Type::HALF_FLOAT);
+
+    ASSERT_EQ(1, table->num_columns());
+    auto column = table->column(0);
+    ASSERT_EQ(tc.len, column->length());
+    ASSERT_EQ(1, column->num_chunks());
+
+    auto chunk = checked_pointer_cast<::arrow::HalfFloatArray>(column->chunk(0));
+    ASSERT_TRUE(chunk->IsNull(0));
+    for (int32_t i = 0; i < tc.len - 1; ++i) {
+      const auto expected = tc.vals[i];
+      const auto actual = Float16::FromBits(chunk->Value(i + 1));
+      if (expected.is_nan()) {
+        // NaN representations aren't guaranteed to be exact on a binary level
+        ASSERT_TRUE(actual.is_nan());
+      } else {
+        ASSERT_EQ(expected.bits(), actual.bits());
+      }
+    }
+  }
+}
 
 // direct-as-possible translation of
 // pyarrow/tests/test_parquet.py::test_validate_schema_write_table
@@ -5202,6 +5273,33 @@ TEST(TestArrowReadWrite, FuzzReader) {
     auto s = internal::FuzzReader(buffer->data(), buffer->size());
     ASSERT_OK(s);
   }
+}
+
+// Test writing table with a closed writer, should not segfault (GH-37969).
+TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
+  // A sample table, type and structure does not matter in this test case
+  auto schema = ::arrow::schema({::arrow::field("letter", ::arrow::utf8())});
+  auto table = ::arrow::Table::Make(
+      schema, {::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])")});
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_AND_ASSIGN(auto writer, parquet::arrow::FileWriter::Open(
+                                        *schema, ::arrow::default_memory_pool(), sink,
+                                        parquet::default_writer_properties(),
+                                        parquet::default_arrow_writer_properties()));
+
+  // Should be ok
+  ASSERT_OK(writer->WriteTable(*table, 1));
+
+  // Operations on closed writer are invalid
+  ASSERT_OK(writer->Close());
+
+  ASSERT_RAISES(Invalid, writer->NewRowGroup(1));
+  ASSERT_RAISES(Invalid, writer->WriteColumnChunk(table->column(0), 0, 1));
+  ASSERT_RAISES(Invalid, writer->NewBufferedRowGroup());
+  ASSERT_OK_AND_ASSIGN(auto record_batch, table->CombineChunksToBatch());
+  ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*record_batch));
+  ASSERT_RAISES(Invalid, writer->WriteTable(*table, 1));
 }
 
 namespace {

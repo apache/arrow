@@ -98,10 +98,11 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       int64_t output_size = SMALL_SIZE,
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
+      const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
-    wp_builder.version(version);
+    wp_builder.version(version)->data_page_version(data_page_version);
     if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
         column_properties.encoding() == Encoding::RLE_DICTIONARY) {
       wp_builder.enable_dictionary();
@@ -176,7 +177,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
-  void TestDictionaryFallbackEncoding(ParquetVersion::type version) {
+  void TestDictionaryFallbackEncoding(ParquetVersion::type version,
+                                      ParquetDataPageVersion data_page_version) {
     this->GenerateData(VERY_LARGE_SIZE);
     ColumnProperties column_properties;
     column_properties.set_dictionary_enabled(true);
@@ -187,7 +189,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       column_properties.set_encoding(Encoding::RLE_DICTIONARY);
     }
 
-    auto writer = this->BuildWriter(VERY_LARGE_SIZE, column_properties, version);
+    auto writer =
+        this->BuildWriter(VERY_LARGE_SIZE, column_properties, version, data_page_version);
 
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     writer->Close();
@@ -204,13 +207,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     if (this->type_num() == Type::BOOLEAN) {
       // Dictionary encoding is not allowed for boolean type
       std::set<Encoding::type> expected;
-      if (version == ParquetVersion::PARQUET_1_0) {
-        // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case for
-        // version 1.0. Note that RLE is used for DL/RL.
-        expected = {Encoding::PLAIN, Encoding::RLE};
-      } else {
-        // There is only 1 encoding (RLE) in a fallback case for version 2.0
+      if (version != ParquetVersion::PARQUET_1_0 &&
+          data_page_version == ParquetDataPageVersion::V2) {
+        // There is only 1 encoding (RLE) in a fallback case for version 2.0 and data page
+        // v2 enabled.
         expected = {Encoding::RLE};
+      } else {
+        // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case for
+        // version 1.0 or data page v1. Note that RLE is used for DL/RL.
+        expected = {Encoding::PLAIN, Encoding::RLE};
       }
       ASSERT_EQ(encodings, expected);
     } else if (version == ParquetVersion::PARQUET_1_0) {
@@ -231,7 +236,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         this->metadata_encoding_stats();
     if (this->type_num() == Type::BOOLEAN) {
       ASSERT_EQ(encoding_stats[0].encoding,
-                version == ParquetVersion::PARQUET_1_0 ? Encoding::PLAIN : Encoding::RLE);
+                version != ParquetVersion::PARQUET_1_0 &&
+                        data_page_version == ParquetDataPageVersion::V2
+                    ? Encoding::RLE
+                    : Encoding::PLAIN);
       ASSERT_EQ(encoding_stats[0].page_type, PageType::DATA_PAGE);
     } else if (version == ParquetVersion::PARQUET_1_0) {
       std::vector<Encoding::type> expected(
@@ -262,8 +270,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                        enable_statistics);
     column_properties.set_codec_options(
         std::make_shared<CodecOptions>(compression_level));
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
@@ -281,8 +290,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                        enable_statistics);
     column_properties.set_codec_options(
         std::make_shared<CodecOptions>(compression_level));
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatchSpaced(this->values_.size(), nullptr, nullptr, valid_bits.data(), 0,
                              this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
@@ -298,8 +308,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_codec_options(codec_options);
-    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
-        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer =
+        this->BuildWriter(num_rows, column_properties, ParquetVersion::PARQUET_1_0,
+                          ParquetDataPageVersion::V1, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
@@ -547,7 +558,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
 
 #endif
 
-#ifdef ARROW_WITH_GZIP
+#ifdef ARROW_WITH_ZLIB
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
                                  LARGE_SIZE);
@@ -693,12 +704,19 @@ TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {
 
 // Test cases for dictionary fallback encoding
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion1_0) {
-  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_1_0);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_1_0,
+                                       ParquetDataPageVersion::V1);
 }
 
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion2_0) {
-  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4);
-  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_6);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4,
+                                       ParquetDataPageVersion::V1);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4,
+                                       ParquetDataPageVersion::V2);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_6,
+                                       ParquetDataPageVersion::V1);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_6,
+                                       ParquetDataPageVersion::V2);
 }
 
 TEST(TestWriter, NullValuesBuffer) {
@@ -767,10 +785,13 @@ TEST_F(TestValuesWriterInt32Type, OptionalNullValueChunk) {
 
 class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
  public:
-  void TestWithEncoding(ParquetVersion::type version, Encoding::type encoding) {
+  void TestWithEncoding(ParquetVersion::type version,
+                        ParquetDataPageVersion data_page_version,
+                        const std::set<Encoding::type>& expected_encodings) {
     this->SetUpSchema(Repetition::REQUIRED);
-    auto writer = this->BuildWriter(SMALL_SIZE, ColumnProperties(), version,
-                                    /*enable_checksum*/ false);
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, ColumnProperties(), version, data_page_version,
+                          /*enable_checksum*/ false);
     for (int i = 0; i < SMALL_SIZE; i++) {
       bool value = (i % 2 == 0) ? true : false;
       writer->WriteBatch(1, nullptr, nullptr, &value);
@@ -780,21 +801,29 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
     for (int i = 0; i < SMALL_SIZE; i++) {
       ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
     }
-    const auto& encodings = this->metadata_encodings();
-    auto iter = std::find(encodings.begin(), encodings.end(), encoding);
-    ASSERT_TRUE(iter != encodings.end());
+    auto metadata_encodings = this->metadata_encodings();
+    std::set<Encoding::type> metadata_encodings_set{metadata_encodings.begin(),
+                                                    metadata_encodings.end()};
+    EXPECT_EQ(expected_encodings, metadata_encodings_set);
   }
 };
 
 // PARQUET-764
 // Correct bitpacking for boolean write at non-byte boundaries
 TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
-  TestWithEncoding(ParquetVersion::PARQUET_1_0, Encoding::PLAIN);
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWithEncoding(ParquetVersion::PARQUET_1_0, data_page_version,
+                     {Encoding::PLAIN, Encoding::RLE});
+  }
 }
 
-// Default encoding for boolean is RLE when using V2 pages
+// Default encoding for boolean is RLE when both V2 format and V2 pages enabled.
 TEST_F(TestBooleanValuesWriter, RleEncodedBooleanValues) {
-  TestWithEncoding(ParquetVersion::PARQUET_2_4, Encoding::RLE);
+  TestWithEncoding(ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V1,
+                   {Encoding::PLAIN, Encoding::RLE});
+  TestWithEncoding(ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V2,
+                   {Encoding::RLE});
 }
 
 // PARQUET-979

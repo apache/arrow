@@ -41,10 +41,8 @@ _FLIGHT_CLIENT_CMD = [
     "localhost",
 ]
 
-_dll_suffix = ".dll" if os.name == "nt" else ".so"
-
 _DLL_PATH = _EXE_PATH
-_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + _dll_suffix)
+_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + cdata.dll_suffix)
 
 
 class CppTester(Tester):
@@ -52,8 +50,10 @@ class CppTester(Tester):
     CONSUMER = True
     FLIGHT_SERVER = True
     FLIGHT_CLIENT = True
-    C_DATA_EXPORTER = True
-    C_DATA_IMPORTER = True
+    C_DATA_SCHEMA_EXPORTER = True
+    C_DATA_ARRAY_EXPORTER = True
+    C_DATA_SCHEMA_IMPORTER = True
+    C_DATA_ARRAY_IMPORTER = True
 
     name = 'C++'
 
@@ -167,6 +167,7 @@ _cpp_c_data_entrypoints = """
 
 @functools.lru_cache
 def _load_ffi(ffi, lib_path=_ARROW_DLL):
+    os.environ['ARROW_DEBUG_MEMORY_POOL'] = 'trap'
     ffi.cdef(_cpp_c_data_entrypoints)
     dll = ffi.dlopen(lib_path)
     dll.ArrowCpp_CDataIntegration_ExportSchemaFromJson
@@ -215,13 +216,6 @@ class CppCDataExporter(CDataExporter, _CDataBase):
     def record_allocation_state(self):
         return self.dll.ArrowCpp_BytesAllocated()
 
-    def compare_allocation_state(self, recorded, gc_until):
-        def pred():
-            # No GC on our side, so just compare allocation state
-            return self.record_allocation_state() == recorded
-
-        return gc_until(pred)
-
 
 class CppCDataImporter(CDataImporter, _CDataBase):
 
@@ -239,7 +233,3 @@ class CppCDataImporter(CDataImporter, _CDataBase):
     @property
     def supports_releasing_memory(self):
         return True
-
-    def gc_until(self, predicate):
-        # No GC on our side, so can evaluate predicate immediately
-        return predicate()

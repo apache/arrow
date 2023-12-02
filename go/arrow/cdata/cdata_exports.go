@@ -45,11 +45,11 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/internal"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
@@ -274,7 +274,7 @@ func (exp *schemaExporter) export(field arrow.Field) {
 		exp.dict = new(schemaExporter)
 		exp.dict.export(arrow.Field{Type: dt.ValueType})
 	case arrow.NestedType:
-		exp.children = make([]schemaExporter, len(dt.Fields()))
+		exp.children = make([]schemaExporter, dt.NumFields())
 		for i, f := range dt.Fields() {
 			exp.children[i].export(f)
 		}
@@ -368,34 +368,36 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		exportField(arrow.Field{Type: arr.DataType()}, outSchema)
 	}
 
+	nbuffers := len(arr.Data().Buffers())
+	buf_offset := 0
+	// Some types don't have validity bitmaps, but we keep them shifted
+	// to make processing easier in other contexts. This means that
+	// we have to adjust when exporting.
+	has_validity_bitmap := internal.DefaultHasValidityBitmap(arr.DataType().ID())
+	if nbuffers > 0 && !has_validity_bitmap {
+		nbuffers--
+		buf_offset++
+	}
+
 	out.dictionary = nil
 	out.null_count = C.int64_t(arr.NullN())
 	out.length = C.int64_t(arr.Len())
 	out.offset = C.int64_t(arr.Data().Offset())
-	out.n_buffers = C.int64_t(len(arr.Data().Buffers()))
+	out.n_buffers = C.int64_t(nbuffers)
+	out.buffers = nil
 
-	if out.n_buffers > 0 {
-		var (
-			nbuffers = len(arr.Data().Buffers())
-			bufs     = arr.Data().Buffers()
-		)
-		// unions don't have validity bitmaps, but we keep them shifted
-		// to make processing easier in other contexts. This means that
-		// we have to adjust for union arrays
-		if !internal.DefaultHasValidityBitmap(arr.DataType().ID()) {
-			out.n_buffers--
-			nbuffers--
-			bufs = bufs[1:]
-		}
+	if nbuffers > 0 {
+		bufs := arr.Data().Buffers()
 		buffers := allocateBufferPtrArr(nbuffers)
-		for i := range bufs {
-			buf := bufs[i]
+		for i, buf := range bufs[buf_offset:] {
 			if buf == nil || buf.Len() == 0 {
-				if i > 0 || !internal.DefaultHasValidityBitmap(arr.DataType().ID()) {
+				if i > 0 || !has_validity_bitmap {
 					// apache/arrow#33936: export a dummy buffer to be friendly to
 					// implementations that don't import NULL properly
 					buffers[i] = (*C.void)(unsafe.Pointer(&C.kGoCdataZeroRegion))
 				} else {
+					// null pointer permitted for the validity bitmap
+					// (assuming null count is 0)
 					buffers[i] = nil
 				}
 				continue

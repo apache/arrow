@@ -31,15 +31,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v14/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v15/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -71,6 +71,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &expirationTimeRenewFlightEndpointScenarioTester{}
 	case "poll_flight_info":
 		return &pollFlightInfoScenarioTester{}
+	case "app_metadata_flight_info_endpoint":
+		return &appMetadataFlightInfoEndpointScenarioTester{}
 	case "flight_sql":
 		return &flightSqlScenarioTester{}
 	case "flight_sql:extension":
@@ -1153,7 +1155,7 @@ func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, 
 		nil,
 	)
 	endpoints := []*flight.FlightEndpoint{
-		&flight.FlightEndpoint{
+		{
 			Ticket:   &flight.Ticket{Ticket: []byte("long-running query")},
 			Location: []*flight.Location{},
 		},
@@ -1233,6 +1235,66 @@ func (tester *pollFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.
 			info.String())
 	}
 
+	return nil
+}
+
+type appMetadataFlightInfoEndpointScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+
+	if desc.Type != flight.DescriptorCMD {
+		return nil, fmt.Errorf("%w: should have received CMD descriptor", arrow.ErrInvalid)
+	}
+	endpoints := []*flight.FlightEndpoint{{AppMetadata: desc.Cmd}}
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint:         endpoints,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+		AppMetadata:      desc.Cmd,
+	}, nil
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	desc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("foobar"),
+	}
+	info, err := client.GetFlightInfo(ctx, &desc)
+	if err != nil {
+		return err
+	}
+	switch {
+	case !bytes.Equal(desc.Cmd, info.AppMetadata):
+		return fmt.Errorf("invalid flight info app_metadata: %s, expected: %s", info.AppMetadata, desc.Cmd)
+	case len(info.Endpoint) != 1:
+		return fmt.Errorf("expected exactly 1 flight endpoint, got: %d", len(info.Endpoint))
+	case !bytes.Equal(desc.Cmd, info.Endpoint[0].AppMetadata):
+		return fmt.Errorf("invalid flight endpoint app_metadata: %s, expected: %s", info.Endpoint[0].AppMetadata, desc.Cmd)
+	}
 	return nil
 }
 
@@ -1728,7 +1790,7 @@ func (m *flightSqlScenarioTester) GetSchemaPreparedStatement(ctx context.Context
 	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
 		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
 	}
-	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStaement %s",
+	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStatement %s",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 

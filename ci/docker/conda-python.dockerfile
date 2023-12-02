@@ -23,9 +23,11 @@ FROM ${repo}:${arch}-conda-cpp
 ARG python=3.8
 COPY ci/conda_env_python.txt \
      /arrow/ci/
+# If the Python version being tested is the same as the Python used by the system gdb,
+# we need to install the conda-forge gdb instead (GH-38323).
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
-        gdb \
+        $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb") \
         python=${python} \
         nomkl && \
     mamba clean --all

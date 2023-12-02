@@ -29,7 +29,7 @@ set -e
 json_dir=$TMP_DIR/arrow.$$
 mkdir -p $json_dir
 
-archery integration --stop-on-error --with-cpp=1 --tempdir=$json_dir
+archery integration --stop-on-error --run-ipc --with-cpp=1 --tempdir=$json_dir
 
 for f in $json_dir/*.json ; do
     $ARROW_CPP_EXE_PATH/arrow-json-integration-test -mode JSON_TO_ARROW -json $f -arrow ${f%.*}.arrow_file -integration true ;

@@ -53,7 +53,7 @@ classdef tSchema < matlab.unittest.TestCase
 
         function ConstructSchemaFromProxy(testCase)
             % Verify that an arrow.tabular.Schema instance can be
-            % constructred directly from an existing
+            % constructed directly from an existing
             % arrow.tabular.proxy.Schema Proxy instance.
             schema1 = arrow.schema(arrow.field("a", arrow.uint8));
             % Construct an instance of arrow.tabular.Schema directly from a
@@ -117,7 +117,7 @@ classdef tSchema < matlab.unittest.TestCase
         end
 
         function NumFields(testCase)
-            % Verify that the NumFields property returns an execpted number
+            % Verify that the NumFields property returns an expected number
             % of fields.
             schema = arrow.schema([...
                 arrow.field("A", arrow.uint8), ...
@@ -262,7 +262,7 @@ classdef tSchema < matlab.unittest.TestCase
                 arrow.field("C", arrow.uint32) ...
             ]);
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             fieldName = "a";
             testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
 
@@ -526,7 +526,70 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Compare schema to double
             testCase.verifyFalse(isequal(schema4, 5));
+        end
 
+        function TestDisplaySchemaZeroFields(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            schema = arrow.schema(arrow.type.Field.empty(0, 0)); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            expectedDisplay = "  Arrow " + classnameLink + " with 0 fields" + newline;
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
+        end
+
+        function TestDisplaySchemaOneField(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            schema = arrow.schema(arrow.field("TestField", arrow.boolean())); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            header = "  Arrow " + classnameLink + " with 1 field:" + newline;
+            indent = "    ";
+
+            if usejava("desktop")
+                type = makeLinkString(FullClassName="arrow.type.BooleanType", ...
+                                      ClassName="Boolean", BoldFont=true);
+                name = "<strong>TestField</strong>: ";
+                fieldLine = indent + name + type + newline;
+            else
+                fieldLine = indent + "TestField: Boolean" + newline;
+            end
+            expectedDisplay = join([header, fieldLine], newline);
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
+        end
+
+        function TestDisplaySchemaField(testCase)
+            import arrow.internal.test.display.makeLinkString
+
+            field1 = arrow.field("Field1", arrow.timestamp());
+            field2 = arrow.field("Field2", arrow.string());
+            schema = arrow.schema([field1, field2]); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.tabular.Schema",...
+                                            ClassName="Schema", BoldFont=true);
+            header = "  Arrow " + classnameLink + " with 2 fields:" + newline;
+
+            indent = "    ";
+            if usejava("desktop")
+                type1 = makeLinkString(FullClassName="arrow.type.TimestampType", ...
+                                       ClassName="Timestamp", BoldFont=true);
+                field1String = "<strong>Field1</strong>: " + type1;
+                type2 = makeLinkString(FullClassName="arrow.type.StringType", ...
+                                      ClassName="String", BoldFont=true);
+                field2String = "<strong>Field2</strong>: " + type2;
+                fieldLine = indent + field1String + " | " + field2String + newline;
+            else
+                fieldLine = indent + "Field1: Timestamp | Field2: String" + newline;
+            end
+
+            expectedDisplay = join([header, fieldLine], newline);
+            expectedDisplay = char(expectedDisplay + newline);
+            actualDisplay = evalc('disp(schema)');
+            testCase.verifyEqual(actualDisplay, char(expectedDisplay));
         end
 
     end

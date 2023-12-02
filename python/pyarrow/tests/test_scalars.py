@@ -204,7 +204,9 @@ def test_numerics():
     # float16
     s = pa.scalar(np.float16(0.5), type='float16')
     assert isinstance(s, pa.HalfFloatScalar)
-    assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
+    # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
+    # on numpy1 repr(np.float16(0.5)) == "0.5"
+    assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
 
@@ -348,6 +350,13 @@ def test_cast_int_to_float():
     assert unsafe_cast == expected_unsafe_cast
     with pytest.raises(pa.ArrowInvalid):
         int_scalar.cast(pa.float64())  # verify default is safe cast
+
+
+@pytest.mark.parametrize("typ", [pa.date32(), pa.date64()])
+def test_cast_string_to_date(typ):
+    scalar = pa.scalar('2021-01-01')
+    result = scalar.cast(typ)
+    assert result == pa.scalar(datetime.date(2021, 1, 1), type=typ)
 
 
 @pytest.mark.pandas
@@ -624,7 +633,7 @@ def test_struct():
     assert s['y'].as_py() == 3.5
 
     with pytest.raises(KeyError):
-        s['non-existent']
+        s['nonexistent']
 
     s = pa.scalar(None, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']

@@ -75,6 +75,11 @@ export class GetDataTypeConstructor extends Visitor {
     public visitInterval() { return type.Interval; }
     public visitIntervalDayTime() { return type.IntervalDayTime; }
     public visitIntervalYearMonth() { return type.IntervalYearMonth; }
+    public visitDuration() { return type.Duration; }
+    public visitDurationSecond() { return type.DurationSecond; }
+    public visitDurationMillisecond() { return type.DurationMillisecond; }
+    public visitDurationMicrosecond() { return type.DurationMicrosecond; }
+    public visitDurationNanosecond() { return type.DurationNanosecond; }
     public visitFixedSizeList() { return type.FixedSizeList; }
     public visitMap() { return type.Map_; }
 }

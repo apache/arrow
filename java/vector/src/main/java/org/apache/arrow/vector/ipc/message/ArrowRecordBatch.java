@@ -112,8 +112,8 @@ public class ArrowRecordBatch implements ArrowMessage {
       }
       long size = arrowBuf.readableBytes();
       arrowBuffers.add(new ArrowBuffer(offset, size));
-      if (LOGGER.isDebugEnabled()) {
-        LOGGER.debug("Buffer in RecordBatch at {}, length: {}", offset, size);
+      if (LOGGER.isTraceEnabled()) {
+        LOGGER.trace("Buffer in RecordBatch at {}, length: {}", offset, size);
       }
       offset += size;
       if (alignBuffers) { // align on 8 byte boundaries

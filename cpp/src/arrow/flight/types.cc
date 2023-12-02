@@ -260,13 +260,14 @@ arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
                                            const FlightDescriptor& descriptor,
                                            const std::vector<FlightEndpoint>& endpoints,
                                            int64_t total_records, int64_t total_bytes,
-                                           bool ordered) {
+                                           bool ordered, std::string app_metadata) {
   FlightInfo::Data data;
   data.descriptor = descriptor;
   data.endpoints = endpoints;
   data.total_records = total_records;
   data.total_bytes = total_bytes;
   data.ordered = ordered;
+  data.app_metadata = std::move(app_metadata);
   RETURN_NOT_OK(internal::SchemaToString(schema, &data.schema));
   return FlightInfo(data);
 }
@@ -328,6 +329,7 @@ std::string FlightInfo::ToString() const {
   ss << "] total_records=" << data_.total_records;
   ss << " total_bytes=" << data_.total_bytes;
   ss << " ordered=" << (data_.ordered ? "true" : "false");
+  ss << " app_metadata='" << HexEncode(data_.app_metadata) << "'";
   ss << '>';
   return ss.str();
 }
@@ -338,7 +340,8 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.endpoints == other.data_.endpoints &&
          data_.total_records == other.data_.total_records &&
          data_.total_bytes == other.data_.total_bytes &&
-         data_.ordered == other.data_.ordered;
+         data_.ordered == other.data_.ordered &&
+         data_.app_metadata == other.data_.app_metadata;
 }
 
 arrow::Result<std::string> PollInfo::SerializeToString() const {
@@ -535,6 +538,7 @@ std::string FlightEndpoint::ToString() const {
   } else {
     ss << "null";
   }
+  ss << " app_metadata='" << HexEncode(app_metadata) << "'";
   ss << ">";
   return ss.str();
 }
@@ -553,6 +557,9 @@ bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
     if (expiration_time.value() != other.expiration_time.value()) {
       return false;
     }
+  }
+  if (app_metadata != other.app_metadata) {
+    return false;
   }
   return true;
 }

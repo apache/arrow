@@ -57,6 +57,7 @@ struct IpcPayload {
   MessageType type = MessageType::NONE;
   std::shared_ptr<Buffer> metadata;
   std::vector<std::shared_ptr<Buffer>> body_buffers;
+  std::vector<int64_t> variadic_buffer_counts;
   int64_t body_length = 0;      // serialized body length (padded, maybe compressed)
   int64_t raw_body_length = 0;  // initial uncompressed body length
 };

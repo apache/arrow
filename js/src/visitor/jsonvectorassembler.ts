@@ -26,7 +26,7 @@ import { UnionMode, DateUnit, TimeUnit } from '../enum.js';
 import { BitIterator, getBit, getBool } from '../util/bit.js';
 import {
     DataType,
-    Float, Int, Date_, Interval, Time, Timestamp, Union,
+    Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, IntArray, LargeUtf8,
 } from '../type.js';
 
@@ -53,6 +53,7 @@ export interface JSONVectorAssembler extends Visitor {
     visitStruct<T extends Struct>(data: Data<T>): { children: any[] };
     visitUnion<T extends Union>(data: Data<T>): { children: any[]; TYPE_ID: number[] };
     visitInterval<T extends Interval>(data: Data<T>): { DATA: number[] };
+    visitDuration<T extends Duration>(data: Data<T>): { DATA: string[] };
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>): { children: any[] };
     visitMap<T extends Map_>(data: Data<T>): { children: any[] };
 }
@@ -62,9 +63,9 @@ export class JSONVectorAssembler extends Visitor {
 
     /** @nocollapse */
     public static assemble<T extends RecordBatch>(...batches: T[]) {
-        const assemlber = new JSONVectorAssembler();
+        const assembler = new JSONVectorAssembler();
         return batches.map(({ schema, data }) => {
-            return assemlber.visitMany(schema.fields, data.children);
+            return assembler.visitMany(schema.fields, data.children);
         });
     }
 
@@ -149,6 +150,9 @@ export class JSONVectorAssembler extends Visitor {
     }
     public visitInterval<T extends Interval>(data: Data<T>) {
         return { 'DATA': [...data.values] };
+    }
+    public visitDuration<T extends Duration>(data: Data<T>) {
+        return { 'DATA': [...bigNumsToStrings(data.values, 2)] };
     }
     public visitFixedSizeList<T extends FixedSizeList>(data: Data<T>) {
         return {

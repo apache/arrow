@@ -49,6 +49,15 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_FALSE(props->page_checksum_enabled());
 }
 
+TEST(TestWriterProperties, DefaultCompression) {
+  std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
+
+  ASSERT_EQ(props->compression(ColumnPath::FromDotString("any")),
+            Compression::UNCOMPRESSED);
+  ASSERT_EQ(props->compression_level(ColumnPath::FromDotString("any")),
+            ::arrow::util::kUseDefaultCompressionLevel);
+}
+
 TEST(TestWriterProperties, AdvancedHandling) {
   WriterProperties::Builder builder;
   builder.compression("gzip", Compression::GZIP);

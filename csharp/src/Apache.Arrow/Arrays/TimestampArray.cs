@@ -15,12 +15,13 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 
 namespace Apache.Arrow
 {
-    public class TimestampArray: PrimitiveArray<long>
+    public class TimestampArray : PrimitiveArray<long>, IReadOnlyList<DateTimeOffset?>
     {
         private static readonly DateTimeOffset s_epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, 0, TimeSpan.Zero);
 
@@ -76,7 +77,7 @@ namespace Apache.Arrow
                 switch (DataType.Unit)
                 {
                     case TimeUnit.Nanosecond:
-                        return ticks * 100;
+                        return checked(ticks * 100);
                     case TimeUnit.Microsecond:
                         return ticks / 10;
                     case TimeUnit.Millisecond:
@@ -145,5 +146,16 @@ namespace Apache.Arrow
             return GetTimestampUnchecked(index);
         }
 
+        int IReadOnlyCollection<DateTimeOffset?>.Count => Length;
+
+        DateTimeOffset? IReadOnlyList<DateTimeOffset?>.this[int index] => GetTimestamp(index);
+
+        IEnumerator<DateTimeOffset?> IEnumerable<DateTimeOffset?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetTimestamp(index);
+            };
+        }
     }
 }

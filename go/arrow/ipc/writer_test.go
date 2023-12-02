@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/bitutil"
-	"github.com/apache/arrow/go/v14/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -112,16 +112,14 @@ func TestGetZeroBasedValueOffsets(t *testing.T) {
 
 	env := &recordEncoder{mem: alloc}
 
-	offsets, err := env.getZeroBasedValueOffsets(arr)
-	require.NoError(t, err)
+	offsets := env.getZeroBasedValueOffsets(arr)
 	defer offsets.Release()
 	assert.Equal(t, 44, offsets.Len(), "include all offsets if array is not sliced")
 
 	sl := array.NewSlice(arr, 0, 4)
 	defer sl.Release()
 
-	offsets, err = env.getZeroBasedValueOffsets(sl)
-	require.NoError(t, err)
+	offsets = env.getZeroBasedValueOffsets(sl)
 	defer offsets.Release()
 	assert.Equal(t, 20, offsets.Len(), "trim trailing offsets after slice")
 }

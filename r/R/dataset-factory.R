@@ -49,7 +49,7 @@ DatasetFactory$create <- function(x,
   }
 
   if (is.character(format)) {
-    format <- FileFormat$create(match.arg(format), ...)
+    format <- FileFormat$create(match.arg(format), partitioning = partitioning, ...)
   } else {
     assert_is(format, "FileFormat")
   }

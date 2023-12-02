@@ -96,19 +96,20 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.image }}-
       - name: Setup Python
         run: |
-          sudo apt install -y --no-install-recommends python3 python3-pip
+          sudo apt update
+          sudo apt install -y --no-install-recommends python3 python3-dev python3-pip
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -192,17 +193,15 @@ jobs:
           submodules: recursive
       - name: Install Dependencies
         run: |
-          rm -f /usr/local/bin/2to3* || :
-          rm -f /usr/local/bin/idle3* || :
-          rm -f /usr/local/bin/pydoc3* || :
-          rm -f /usr/local/bin/python3* || :
-          rm -f /usr/local/bin/python3-config || :
-          brew update --preinstall || :
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest /usr/local
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
       - name: Install Google Cloud Storage Testbench
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Install Azurite Storage Emulator
@@ -426,6 +425,10 @@ jobs:
             --output-document /usr/local/bin/minio.exe \
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
       - name: Install Google Cloud Storage Testbench
         shell: bash
         run: |

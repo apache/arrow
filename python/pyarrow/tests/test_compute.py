@@ -1378,6 +1378,11 @@ def test_filter_errors():
                            match="must all be the same length"):
             obj.filter(mask)
 
+    scalar = pa.scalar(True)
+    for filt in [batch, table, scalar]:
+        with pytest.raises(TypeError):
+            table.filter(filt)
+
 
 def test_filter_null_type():
     # ARROW-10027
@@ -2380,7 +2385,7 @@ def _check_temporal_rounding(ts, values, unit):
 
         # Check rounding with calendar_based_origin=True.
         # Note: rounding to month is not supported in Pandas so we can't
-        # approximate this functionallity and exclude unit == "day".
+        # approximate this functionality and exclude unit == "day".
         if unit != "day":
             options = pc.RoundTemporalOptions(
                 value, unit, calendar_based_origin=True)
@@ -3496,7 +3501,7 @@ def test_expression_call_function():
     assert str(pc.add(field, 1)) == "add(field, 1)"
     assert str(pc.add(field, pa.scalar(1))) == "add(field, 1)"
 
-    # Invalid pc.scalar input gives original erorr message
+    # Invalid pc.scalar input gives original error message
     msg = "only other expressions allowed as arguments"
     with pytest.raises(TypeError, match=msg):
         pc.add(field, object)

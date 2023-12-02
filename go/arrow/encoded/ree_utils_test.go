@@ -21,10 +21,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/encoded"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/encoded"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -84,9 +84,9 @@ func TestMergedRunsIter(t *testing.T) {
 		expectedRunLengths        = []int32{5, 4, 6, 5, 5, 25}
 		expectedLeftVisits        = []int32{110, 111, 111, 112, 113, 114}
 		expectedRightVisits       = []int32{205, 206, 207, 207, 207, 208}
-		leftPrntOffset      int32 = 1000
+		leftPrintOffset     int32 = 1000
 		leftChildOffset     int32 = 100
-		rightPrntOffset     int32 = 2000
+		rightPrintOffset    int32 = 2000
 		rightChildOffset    int32 = 200
 
 		leftChild  arrow.Array = array.NewNull(int(leftChildOffset) + leftRunEnds.Len())
@@ -101,9 +101,9 @@ func TestMergedRunsIter(t *testing.T) {
 	rightArray := arrow.Array(array.NewRunEndEncodedArray(rightRunEnds, rightChild, 2050, 0))
 	defer rightArray.Release()
 
-	leftArray = array.NewSlice(leftArray, int64(leftPrntOffset), int64(leftArray.Len()))
+	leftArray = array.NewSlice(leftArray, int64(leftPrintOffset), int64(leftArray.Len()))
 	defer leftArray.Release()
-	rightArray = array.NewSlice(rightArray, int64(rightPrntOffset), int64(rightArray.Len()))
+	rightArray = array.NewSlice(rightArray, int64(rightPrintOffset), int64(rightArray.Len()))
 	defer rightArray.Release()
 
 	pos, logicalPos := 0, 0

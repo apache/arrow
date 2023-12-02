@@ -36,6 +36,7 @@ import {
     Union, DenseUnion, SparseUnion,
     Dictionary,
     Interval, IntervalDayTime, IntervalYearMonth,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     FixedSizeList,
     Map_,
     DateUnit, TimeUnit, UnionMode,
@@ -59,6 +60,7 @@ interface TestDataVectorGenerator extends Visitor {
     visit<T extends Time>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Decimal>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Interval>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
+    visit<T extends Duration>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends List>(type: T, length?: number, nullCount?: number, child?: Vector): GeneratedVector<T>;
     visit<T extends FixedSizeList>(type: T, length?: number, nullCount?: number, child?: Vector): GeneratedVector<T>;
     visit<T extends Dictionary>(type: T, length?: number, nullCount?: number, dictionary?: Vector): GeneratedVector<T>;
@@ -86,6 +88,7 @@ interface TestDataVectorGenerator extends Visitor {
     visitUnion: typeof generateUnion;
     visitDictionary: typeof generateDictionary;
     visitInterval: typeof generateInterval;
+    visitDuration: typeof generateDuration;
     visitFixedSizeList: typeof generateFixedSizeList;
     visitMap: typeof generateMap;
 }
@@ -111,6 +114,7 @@ TestDataVectorGenerator.prototype.visitStruct = generateStruct;
 TestDataVectorGenerator.prototype.visitUnion = generateUnion;
 TestDataVectorGenerator.prototype.visitDictionary = generateDictionary;
 TestDataVectorGenerator.prototype.visitInterval = generateInterval;
+TestDataVectorGenerator.prototype.visitDuration = generateDuration;
 TestDataVectorGenerator.prototype.visitFixedSizeList = generateFixedSizeList;
 TestDataVectorGenerator.prototype.visitMap = generateMap;
 
@@ -234,11 +238,15 @@ export const sparseUnion = (length = 100, nullCount = Math.trunc(length * 0.2), 
 export const dictionary = <T extends DataType = Utf8, TKey extends TKeys = Int32>(length = 100, nullCount = Math.trunc(length * 0.2), dict: T = <any>new Utf8(), keys: TKey = <any>new Int32()) => vectorGenerator.visit(new Dictionary(dict, keys), length, nullCount);
 export const intervalDayTime = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new IntervalDayTime(), length, nullCount);
 export const intervalYearMonth = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new IntervalYearMonth(), length, nullCount);
+export const durationSecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DurationSecond(), length, nullCount);
+export const durationMillisecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DurationMillisecond(), length, nullCount);
+export const durationMicrosecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DurationMicrosecond(), length, nullCount);
+export const durationNanosecond = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DurationNanosecond(), length, nullCount);
 export const fixedSizeList = (length = 100, nullCount = Math.trunc(length * 0.2), listSize = 2, child = defaultListChild) => vectorGenerator.visit(new FixedSizeList(listSize, child), length, nullCount);
 export const map = <TKey extends DataType = any, TValue extends DataType = any>(length = 100, nullCount = Math.trunc(length * 0.2), child: Field<Struct<{ key: TKey; value: TValue }>> = <any>defaultMapChild()) => vectorGenerator.visit(new Map_<TKey, TValue>(child), length, nullCount);
 
 export const vecs = {
-    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, binary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map
+    null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, binary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map, durationSecond, durationMillisecond, durationMicrosecond, durationNanosecond
 } as { [k: string]: (...args: any[]) => any };
 
 function generateNull<T extends Null>(this: TestDataVectorGenerator, type: T, length = 100): GeneratedVector<T> {
@@ -445,6 +453,16 @@ function generateInterval<T extends Interval>(this: TestDataVectorGenerator, typ
         !valid && data.set(new Int32Array(stride), i * stride);
     });
     return { values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })]) };
+}
+
+function generateDuration<T extends Duration>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
+    const nullBitmap = createBitmap(length, nullCount);
+    const multiple = type.unit === TimeUnit.NANOSECOND ? 1000000000 :
+        type.unit === TimeUnit.MICROSECOND ? 1000000 :
+            type.unit === TimeUnit.MILLISECOND ? 1000 : 1;
+    const values: bigint[] = [];
+    const data = createTime64(length, nullBitmap, multiple, values);
+    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })]) };
 }
 
 function generateList<T extends List>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2), child = this.visit(type.children[0].type, length * 3, nullCount * 3)): GeneratedVector<T> {

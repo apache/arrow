@@ -112,7 +112,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
             % Verifies ChunkedArrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. Their Length properties ar eequal
+            %  2. Their NumElements properties are equal
             %  3. The same elements are considered null
             %  4. All corresponding valid elements have the same values
             %
@@ -156,7 +156,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
             % Compare ChunkedArrays that have NaN values.
             testCase.verifyFalse(isequal(chunkedArray2, chunkedArray2));
 
-            % Compare ChunkedArrays with different Length values.
+            % Compare ChunkedArrays with different NumElements values.
             chunkedArray3 = ChunkedArray.fromArrays(testCase.Float64Array1);
             testCase.verifyFalse(isequal(chunkedArray1, chunkedArray3));
 
@@ -192,15 +192,15 @@ classdef tChunkedArray < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
-        function LengthNoSetter(testCase)
+        function NumElementsNoSetter(testCase)
             % Verify an error is thrown when trying to set the value
-            % of the Length property.
+            % of the NumElements property.
             import arrow.array.ChunkedArray
 
             arrays = {testCase.Float64Array1, testCase.Float64Array2, testCase.Float64Array3};
             chunkedArray = ChunkedArray.fromArrays(arrays{:});
             
-            fcn = @() setfield(chunkedArray, "Length", int64(100));
+            fcn = @() setfield(chunkedArray, "NumElements", int64(100));
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
@@ -267,19 +267,19 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = arrow.array(bools(8:7));
             a3 = arrow.array(bools(9:11));
 
-            % ChunkedArray with three chunks and nonzero length
+            % ChunkedArray with three chunks and at least 1 element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = bools';
             testCase.verifyEqual(actualArray1, expectedArray1);
 
-            % ChunkedArray with zero chunks and zero length
+            % ChunkedArray with zero chunks and zero elements
             chunkedArray2 = ChunkedArray.fromArrays(Type=a1.Type);
             actualArray2 = toMATLAB(chunkedArray2);
             expectedArray2 = logical.empty(0, 1);
             testCase.verifyEqual(actualArray2, expectedArray2);
 
-            % ChunkedArray with two chunks and zero length
+            % ChunkedArray with two chunks and zero elements
             chunkedArray3 = ChunkedArray.fromArrays(a2, a2);
             actualArray3 = toMATLAB(chunkedArray3);
             expectedArray3 = logical.empty(0, 1);
@@ -295,19 +295,19 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = arrow.array(cast([], IntegerMatlabClass));
             a3 = arrow.array(cast([5 6 7 8 9], IntegerMatlabClass));
 
-            % ChunkedArray with three chunks and nonzero length
+            % ChunkedArray with three chunks and at least 1 element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = cast((1:9)', IntegerMatlabClass);
             testCase.verifyEqual(actualArray1, expectedArray1);
 
-            % ChunkedArray with zero chunks and zero length
+            % ChunkedArray with zero chunks and zero elements
             chunkedArray2 = ChunkedArray.fromArrays(Type=a1.Type);
             actualArray2 = toMATLAB(chunkedArray2);
             expectedArray2 = cast(double.empty(0, 1), IntegerMatlabClass);
             testCase.verifyEqual(actualArray2, expectedArray2);
 
-            % ChunkedArray with two chunks and zero length
+            % ChunkedArray with two chunks and zero elements
             chunkedArray3 = ChunkedArray.fromArrays(a2, a2);
             actualArray3 = toMATLAB(chunkedArray3);
             expectedArray3 = cast(double.empty(0, 1), IntegerMatlabClass);
@@ -323,20 +323,20 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = arrow.array(cast([], FloatMatlabClass));
             a3 = arrow.array(cast([5 6 7 NaN 9], FloatMatlabClass));
 
-            % ChunkedArray with three chunks and nonzero length
+            % ChunkedArray with three chunks and at least 1 element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = cast((1:9)', FloatMatlabClass);
             expectedArray1([2 8]) = NaN;
             testCase.verifyEqual(actualArray1, expectedArray1);
 
-            % ChunkedArray with zero chunks and zero length
+            % ChunkedArray with zero chunks and zero elements
             chunkedArray2 = ChunkedArray.fromArrays(Type=a1.Type);
             actualArray2 = toMATLAB(chunkedArray2);
             expectedArray2 = cast(double.empty(0, 1), FloatMatlabClass);
             testCase.verifyEqual(actualArray2, expectedArray2);
 
-            % ChunkedArray with two chunks and zero length
+            % ChunkedArray with two chunks and zero elements
             chunkedArray3 = ChunkedArray.fromArrays(a2, a2);
             actualArray3 = toMATLAB(chunkedArray3);
             expectedArray3 = cast(double.empty(0, 1), FloatMatlabClass);
@@ -352,20 +352,20 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = arrow.array(seconds([]));
             a3 = arrow.array(seconds([5 6 7 NaN 9]));
 
-            % ChunkedArray with three chunks and nonzero length
+            % ChunkedArray with three chunks and at least 1 element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = seconds((1:9)');
             expectedArray1([2 8]) = NaN;
             testCase.verifyEqual(actualArray1, expectedArray1);
 
-            % ChunkedArray with zero chunks and zero length
+            % ChunkedArray with zero chunks and zero elements
             chunkedArray2 = ChunkedArray.fromArrays(Type=a1.Type);
             actualArray2 = toMATLAB(chunkedArray2);
             expectedArray2 = duration.empty(0, 1);
             testCase.verifyEqual(actualArray2, expectedArray2);
 
-            % ChunkedArray with two chunks and zero length
+            % ChunkedArray with two chunks and zero elements
             chunkedArray3 = ChunkedArray.fromArrays(a2, a2);
             actualArray3 = toMATLAB(chunkedArray3);
             expectedArray3 = duration.empty(0, 1);
@@ -383,19 +383,19 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = Date64Array.fromMATLAB(dates(6:5));
             a3 = Date64Array.fromMATLAB(dates(6:end));
 
-            % ChunkedArray with three chunks and nonzero length
+            % ChunkedArray with three chunks and at least 1 element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = dates';
             testCase.verifyEqual(actualArray1, expectedArray1);
 
-            % ChunkedArray with zero chunks and zero length
+            % ChunkedArray with zero chunks and zero elements
             chunkedArray2 = ChunkedArray.fromArrays(Type=a1.Type);
             actualArray2 = toMATLAB(chunkedArray2);
             expectedArray2 = datetime.empty(0, 1);
             testCase.verifyEqual(actualArray2, expectedArray2);
 
-            % ChunkedArray with two chunks and zero length
+            % ChunkedArray with two chunks and zero elements
             chunkedArray3 = ChunkedArray.fromArrays(a2, a2);
             actualArray3 = toMATLAB(chunkedArray3);
             expectedArray3 = datetime.empty(0, 1);
@@ -413,20 +413,20 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = arrow.array(dates(6:5));
             a3 = arrow.array(dates(6:end));
 
-            % ChunkedArray with three chunks and nonzero length
+            % ChunkedArray with three chunks and at least one element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = dates';
             testCase.verifyEqual(actualArray1, expectedArray1);
 
-            % ChunkedArray with zero chunks and zero length
+            % ChunkedArray with zero chunks and zero elements
             chunkedArray2 = ChunkedArray.fromArrays(Type=a1.Type);
             actualArray2 = toMATLAB(chunkedArray2);
             expectedArray2 = datetime.empty(0, 1);
             expectedArray2.TimeZone = TimeZone;
             testCase.verifyEqual(actualArray2, expectedArray2);
 
-            % ChunkedArray with two chunks and zero length
+            % ChunkedArray with two chunks and zero elements
             chunkedArray3 = ChunkedArray.fromArrays(a2, a2);
             actualArray3 = toMATLAB(chunkedArray3);
             expectedArray3 = datetime.empty(0, 1);
@@ -445,19 +445,19 @@ classdef tChunkedArray < matlab.unittest.TestCase
             a2 = arrow.array(strs(7:6));
             a3 = arrow.array(strs(8:11));
 
-            % ChunkedArray with three chunks and nonzero length
+            % ChunkedArray with three chunks and nonzero at least 1 element
             chunkedArray1 = ChunkedArray.fromArrays(a1, a2, a3);
             actualArray1 = toMATLAB(chunkedArray1);
             expectedArray1 = strs';
             testCase.verifyEqual(actualArray1, expectedArray1);
 
-            % ChunkedArray with zero chunks and zero length
+            % ChunkedArray with zero chunks and zero elements
             chunkedArray2 = ChunkedArray.fromArrays(Type=a1.Type);
             actualArray2 = toMATLAB(chunkedArray2);
             expectedArray2 = string.empty(0, 1);
             testCase.verifyEqual(actualArray2, expectedArray2);
 
-            % ChunkedArray with two chunks and zero length
+            % ChunkedArray with two chunks and zero elements
             chunkedArray3 = ChunkedArray.fromArrays(a2, a2);
             actualArray3 = toMATLAB(chunkedArray3);
             expectedArray3 = string.empty(0, 1);
@@ -475,11 +475,11 @@ classdef tChunkedArray < matlab.unittest.TestCase
                 opts.Arrays(1, :) cell
             end
             testCase.assertTrue(numel(opts.Arrays) == opts.NumChunks); 
-            allLengths = cellfun(@(a) a.Length, opts.Arrays, UniformOutput=true);
-            expectedLengths = int64(sum(allLengths));
+            allNumElements = cellfun(@(a) a.NumElements, opts.Arrays, UniformOutput=true);
+            expectedNumElements = int64(sum(allNumElements));
 
             testCase.verifyEqual(chunkedArray.NumChunks, opts.NumChunks);
-            testCase.verifyEqual(chunkedArray.Length, expectedLengths);
+            testCase.verifyEqual(chunkedArray.NumElements, expectedNumElements);
             testCase.verifyEqual(chunkedArray.Type, opts.Type);
 
             for ii = 1:opts.NumChunks

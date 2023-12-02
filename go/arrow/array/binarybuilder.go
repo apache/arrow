@@ -23,11 +23,12 @@ import (
 	"math"
 	"reflect"
 	"sync/atomic"
+	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // A BinaryBuilder is used to build a Binary array using the Append methods.
@@ -370,6 +371,334 @@ func (b *BinaryBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+const (
+	dfltBlockSize            = 32 << 10 // 32 KB
+	viewValueSizeLimit int32 = math.MaxInt32
+)
+
+type BinaryViewBuilder struct {
+	builder
+	dtype arrow.BinaryDataType
+
+	data    *memory.Buffer
+	rawData []arrow.ViewHeader
+
+	blockBuilder multiBufferBuilder
+}
+
+func NewBinaryViewBuilder(mem memory.Allocator) *BinaryViewBuilder {
+	return &BinaryViewBuilder{
+		dtype: arrow.BinaryTypes.BinaryView,
+		builder: builder{
+			refCount: 1,
+			mem:      mem,
+		},
+		blockBuilder: multiBufferBuilder{
+			refCount:  1,
+			blockSize: dfltBlockSize,
+			mem:       mem,
+		},
+	}
+}
+
+func (b *BinaryViewBuilder) SetBlockSize(sz uint) {
+	b.blockBuilder.blockSize = int(sz)
+}
+
+func (b *BinaryViewBuilder) Type() arrow.DataType { return b.dtype }
+
+func (b *BinaryViewBuilder) Release() {
+	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&b.refCount, -1) != 0 {
+		return
+	}
+
+	if b.nullBitmap != nil {
+		b.nullBitmap.Release()
+		b.nullBitmap = nil
+	}
+	if b.data != nil {
+		b.data.Release()
+		b.data = nil
+		b.rawData = nil
+	}
+}
+
+func (b *BinaryViewBuilder) init(capacity int) {
+	b.builder.init(capacity)
+	b.data = memory.NewResizableBuffer(b.mem)
+	bytesN := arrow.ViewHeaderTraits.BytesRequired(capacity)
+	b.data.Resize(bytesN)
+	b.rawData = arrow.ViewHeaderTraits.CastFromBytes(b.data.Bytes())
+}
+
+func (b *BinaryViewBuilder) Resize(n int) {
+	nbuild := n
+	if n < minBuilderCapacity {
+		n = minBuilderCapacity
+	}
+
+	if b.capacity == 0 {
+		b.init(n)
+		return
+	}
+
+	b.builder.resize(nbuild, b.init)
+	b.data.Resize(arrow.ViewHeaderTraits.BytesRequired(n))
+	b.rawData = arrow.ViewHeaderTraits.CastFromBytes(b.data.Bytes())
+}
+
+func (b *BinaryViewBuilder) ReserveData(length int) {
+	if int32(length) > viewValueSizeLimit {
+		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 2GB",
+			arrow.ErrInvalid))
+	}
+	b.blockBuilder.Reserve(int(length))
+}
+
+func (b *BinaryViewBuilder) Reserve(n int) {
+	b.builder.reserve(n, b.Resize)
+}
+
+func (b *BinaryViewBuilder) Append(v []byte) {
+	if int32(len(v)) > viewValueSizeLimit {
+		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 2GB", arrow.ErrInvalid))
+	}
+
+	if !arrow.IsViewInline(len(v)) {
+		b.ReserveData(len(v))
+	}
+
+	b.Reserve(1)
+	b.UnsafeAppend(v)
+}
+
+// AppendString is identical to Append, only accepting a string instead
+// of a byte slice, avoiding the extra copy that would occur if you simply
+// did []byte(v).
+//
+// This is different than AppendValueFromString which exists for the
+// Builder interface, in that this expects raw binary data which is
+// appended unmodified. AppendValueFromString expects base64 encoded binary
+// data instead.
+func (b *BinaryViewBuilder) AppendString(v string) {
+	// create a []byte without copying the bytes
+	// in go1.20 this would be unsafe.StringData
+	val := *(*[]byte)(unsafe.Pointer(&struct {
+		string
+		int
+	}{v, len(v)}))
+	b.Append(val)
+}
+
+func (b *BinaryViewBuilder) AppendNull() {
+	b.Reserve(1)
+	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *BinaryViewBuilder) AppendNulls(n int) {
+	b.Reserve(n)
+	for i := 0; i < n; i++ {
+		b.UnsafeAppendBoolToBitmap(false)
+	}
+}
+
+func (b *BinaryViewBuilder) AppendEmptyValue() {
+	b.Reserve(1)
+	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *BinaryViewBuilder) AppendEmptyValues(n int) {
+	b.Reserve(n)
+	b.unsafeAppendBoolsToBitmap(nil, n)
+}
+
+func (b *BinaryViewBuilder) UnsafeAppend(v []byte) {
+	hdr := &b.rawData[b.length]
+	hdr.SetBytes(v)
+	if !hdr.IsInline() {
+		b.blockBuilder.UnsafeAppend(hdr, v)
+	}
+	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *BinaryViewBuilder) AppendValues(v [][]byte, valid []bool) {
+	if len(v) != len(valid) && len(valid) != 0 {
+		panic("len(v) != len(valid) && len(valid) != 0")
+	}
+
+	if len(v) == 0 {
+		return
+	}
+
+	b.Reserve(len(v))
+	outOfLineTotal := 0
+	for i, vv := range v {
+		if len(valid) == 0 || valid[i] {
+			if !arrow.IsViewInline(len(vv)) {
+				outOfLineTotal += len(vv)
+			}
+		}
+	}
+
+	b.ReserveData(outOfLineTotal)
+	for i, vv := range v {
+		if len(valid) == 0 || valid[i] {
+			hdr := &b.rawData[b.length+i]
+			hdr.SetBytes(vv)
+			if !hdr.IsInline() {
+				b.blockBuilder.UnsafeAppend(hdr, vv)
+			}
+		}
+	}
+
+	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
+}
+
+func (b *BinaryViewBuilder) AppendStringValues(v []string, valid []bool) {
+	if len(v) != len(valid) && len(valid) != 0 {
+		panic("len(v) != len(valid) && len(valid) != 0")
+	}
+
+	if len(v) == 0 {
+		return
+	}
+
+	b.Reserve(len(v))
+	outOfLineTotal := 0
+	for i, vv := range v {
+		if len(valid) == 0 || valid[i] {
+			if !arrow.IsViewInline(len(vv)) {
+				outOfLineTotal += len(vv)
+			}
+		}
+	}
+
+	b.ReserveData(outOfLineTotal)
+	for i, vv := range v {
+		if len(valid) == 0 || valid[i] {
+			hdr := &b.rawData[b.length+i]
+			hdr.SetString(vv)
+			if !hdr.IsInline() {
+				b.blockBuilder.UnsafeAppendString(hdr, vv)
+			}
+		}
+	}
+
+	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
+}
+
+// AppendValueFromString is paired with ValueStr for fulfilling the
+// base Builder interface. This is intended to read in a human-readable
+// string such as from CSV or JSON and append it to the array.
+//
+// For Binary values are expected to be base64 encoded (and will be
+// decoded as such before being appended).
+func (b *BinaryViewBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	if b.dtype.IsUtf8() {
+		b.Append([]byte(s))
+		return nil
+	}
+
+	decodedVal, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return fmt.Errorf("could not decode base64 string: %w", err)
+	}
+	b.Append(decodedVal)
+	return nil
+}
+
+func (b *BinaryViewBuilder) UnmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case string:
+		data, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			return err
+		}
+		b.Append(data)
+	case []byte:
+		b.Append(v)
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *BinaryViewBuilder) Unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.UnmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *BinaryViewBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary view builder must unpack from json array, found %s", delim)
+	}
+
+	return b.Unmarshal(dec)
+}
+
+func (b *BinaryViewBuilder) newData() (data *Data) {
+	bytesRequired := arrow.ViewHeaderTraits.BytesRequired(b.length)
+	if bytesRequired > 0 && bytesRequired < b.data.Len() {
+		// trim buffers
+		b.data.Resize(bytesRequired)
+	}
+
+	dataBuffers := b.blockBuilder.Finish()
+	data = NewData(b.dtype, b.length, append([]*memory.Buffer{
+		b.nullBitmap, b.data}, dataBuffers...), nil, b.nulls, 0)
+	b.reset()
+
+	if b.data != nil {
+		b.data.Release()
+		b.data = nil
+		b.rawData = nil
+		for _, buf := range dataBuffers {
+			buf.Release()
+		}
+	}
+	return
+}
+
+func (b *BinaryViewBuilder) NewBinaryViewArray() (a *BinaryView) {
+	data := b.newData()
+	a = NewBinaryViewData(data)
+	data.Release()
+	return
+}
+
+func (b *BinaryViewBuilder) NewArray() arrow.Array {
+	return b.NewBinaryViewArray()
+}
+
 var (
 	_ Builder = (*BinaryBuilder)(nil)
+	_ Builder = (*BinaryViewBuilder)(nil)
 )

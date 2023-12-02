@@ -86,7 +86,7 @@ ctest \
     --parallel ${n_jobs} \
     --timeout ${ARROW_CTEST_TIMEOUT:-300} \
     "${ctest_options[@]}" \
-    $@
+    "$@"
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
     examples=$(find ${binary_output_dir} -executable -name "*example")

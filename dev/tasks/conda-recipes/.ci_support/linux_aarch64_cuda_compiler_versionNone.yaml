@@ -1,9 +1,9 @@
 BUILD:
 - aarch64-conda_cos7-linux-gnu
 aws_crt_cpp:
-- 0.20.3
+- 0.23.1
 aws_sdk_cpp:
-- 1.10.57
+- 1.11.156
 bzip2:
 - '1'
 c_compiler:
@@ -37,20 +37,18 @@ glog:
 google_cloud_cpp:
 - '2.12'
 libabseil:
-- '20230125'
+- '20230802'
 libgrpc:
-- '1.54'
-- '1.56'
+- '1.57'
 libprotobuf:
-- '3.21'
-- 4.23.3
+- 4.23.4
 lz4_c:
 - 1.9.3
 numpy:
-- '1.21'
+- '1.22'
 - '1.23'
-- '1.21'
-- '1.21'
+- '1.22'
+- '1.22'
 openssl:
 - '3'
 orc:
@@ -71,7 +69,7 @@ snappy:
 target_platform:
 - linux-aarch64
 thrift_cpp:
-- 0.18.1
+- 0.19.0
 ucx:
 - 1.14.0
 zip_keys:

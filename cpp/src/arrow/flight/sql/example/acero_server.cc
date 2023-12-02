@@ -165,8 +165,9 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
   arrow::Result<std::unique_ptr<FlightInfo>> MakeFlightInfo(
       const std::string& plan, const FlightDescriptor& descriptor, const Schema& schema) {
     ARROW_ASSIGN_OR_RAISE(auto ticket, CreateStatementQueryTicket(plan));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{
-        Ticket{std::move(ticket)}, /*locations=*/{}, /*expiration_time=*/std::nullopt}};
+    std::vector<FlightEndpoint> endpoints{
+        FlightEndpoint{Ticket{std::move(ticket)}, /*locations=*/{},
+                       /*expiration_time=*/std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto info,
         FlightInfo::Make(schema, descriptor, std::move(endpoints),

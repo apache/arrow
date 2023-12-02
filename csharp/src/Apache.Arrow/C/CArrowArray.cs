@@ -16,6 +16,7 @@
 // under the License.
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.C
@@ -68,6 +69,15 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowArray* array)
         {
+            CallReleaseFunc(array);
+            Marshal.FreeHGlobal((IntPtr)array);
+        }
+
+        /// <summary>
+        /// Call the array's release func, if set.
+        /// </summary>
+        public static void CallReleaseFunc(CArrowArray* array)
+        {
             if (array->release != default)
             {
                 // Call release if not already called.
@@ -76,8 +86,9 @@ namespace Apache.Arrow.C
 #else
                 Marshal.GetDelegateForFunctionPointer<CArrowArrayExporter.ReleaseArrowArray>(array->release)(array);
 #endif
+                Debug.Assert(array->release == default,
+                             "Calling the CArrowArray release func should have set it to NULL");
             }
-            Marshal.FreeHGlobal((IntPtr)array);
         }
     }
 }

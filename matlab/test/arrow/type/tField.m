@@ -42,6 +42,7 @@ classdef tField < matlab.unittest.TestCase
                                  arrow.float64, ...
                                  arrow.string, ...
                                  arrow.timestamp, ...
+                                 arrow.list(arrow.uint64()), ...
                                  arrow.struct(arrow.field("A", arrow.float32()))
                              };
             for ii = 1:numel(supportedTypes)
@@ -230,6 +231,34 @@ classdef tField < matlab.unittest.TestCase
 
             % Compare arrow.type.Field array and a string array
             testCase.verifyFalse(isequal(f1, strings(size(f1))));
+        end
+
+        function TestDisplay(testCase)
+            % Verify the display of Field objects.
+            %
+            % Example:
+            %
+            %  Field with properties:
+            %
+            %        Name: FieldA
+            %        Type: [1x2 arrow.type.Int32Type]
+
+            import arrow.internal.test.display.verify
+            import arrow.internal.test.display.makeLinkString
+            import arrow.internal.test.display.makeDimensionString
+
+            field = arrow.field("B", arrow.timestamp(TimeZone="America/Anchorage")); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.type.Field", ClassName="Field", BoldFont=true);
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad(["Name:"; "Type:"]));
+            dimensionString = makeDimensionString([1 1]);
+            fieldString = compose("[%s %s]", dimensionString, "arrow.type.TimestampType");
+            body = body + " " + ["""B"""; fieldString];
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(field)');
+            verify(testCase, actualDisplay, expectedDisplay);
         end
     end
 end

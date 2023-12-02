@@ -36,6 +36,7 @@ import { Date as _Date } from '../../fb/date.js';
 import { Time as _Time } from '../../fb/time.js';
 import { Timestamp as _Timestamp } from '../../fb/timestamp.js';
 import { Interval as _Interval } from '../../fb/interval.js';
+import { Duration as _Duration } from '../../fb/duration.js';
 import { Union as _Union } from '../../fb/union.js';
 import { FixedSizeBinary as _FixedSizeBinary } from '../../fb/fixed-size-binary.js';
 import { FixedSizeList as _FixedSizeList } from '../../fb/fixed-size-list.js';
@@ -57,7 +58,7 @@ import {
     DataType, Dictionary, TimeBitWidth,
     Utf8, Binary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union,
-    Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
+    Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys, Duration,
 } from '../../type.js';
 
 /**
@@ -465,6 +466,10 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
         case Type['Interval']: {
             const t = f.type(new _Interval())!;
             return new Interval(t.unit());
+        }
+        case Type['Duration']: {
+            const t = f.type(new _Duration())!;
+            return new Duration(t.unit());
         }
         case Type['Union']: {
             const t = f.type(new _Union())!;

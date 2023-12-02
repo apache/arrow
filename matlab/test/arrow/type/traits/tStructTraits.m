@@ -20,7 +20,7 @@ classdef tStructTraits < hTypeTraits
         ArrayConstructor = @arrow.array.StructArray
         ArrayClassName = "arrow.array.StructArray"
         ArrayProxyClassName = "arrow.array.proxy.StructArray"
-        ArrayStaticConstructor = missing
+        ArrayStaticConstructor = @arrow.array.StructArray.fromMATLAB
         TypeConstructor = @arrow.type.StructType
         TypeClassName = "arrow.type.StructType"
         TypeProxyClassName = "arrow.type.proxy.StructType"

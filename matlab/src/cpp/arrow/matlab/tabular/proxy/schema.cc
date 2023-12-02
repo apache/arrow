@@ -34,7 +34,6 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(Schema, getFieldByName);
         REGISTER_METHOD(Schema, getNumFields);
         REGISTER_METHOD(Schema, getFieldNames);
-        REGISTER_METHOD(Schema, toString);
     }
 
     libmexclass::proxy::MakeResult Schema::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -130,7 +129,7 @@ namespace arrow::matlab::tabular::proxy {
         std::vector<std::u16string> field_names_utf16;
         field_names_utf16.reserve(num_fields);
 
-        // Conver the field names from UTF-8 to UTF-16.
+        // Convert the field names from UTF-8 to UTF-16.
         for (const auto& field_name_utf8 : field_names_utf8) {
             MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto field_name_utf16, arrow::util::UTF8StringToUTF16(field_name_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
             field_names_utf16.push_back(field_name_utf16);
@@ -139,16 +138,6 @@ namespace arrow::matlab::tabular::proxy {
         const auto field_names_mda = factory.createArray({1, num_fields}, field_names_utf16.cbegin(), field_names_utf16.cend());
 
         context.outputs[0] = field_names_mda;
-    }
-
-    void Schema::toString(libmexclass::proxy::method::Context& context) {
-        namespace mda = ::matlab::data;
-        mda::ArrayFactory factory;
-
-        const auto str_utf8 = schema->ToString();
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
-        auto str_mda = factory.createScalar(str_utf16);
-        context.outputs[0] = str_mda;
     }
 
 }

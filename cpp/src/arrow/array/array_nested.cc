@@ -27,6 +27,8 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -38,6 +40,7 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/list_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -48,7 +51,7 @@ using internal::checked_pointer_cast;
 using internal::CopyBitmap;
 
 // ----------------------------------------------------------------------
-// ListArray / LargeListArray (common utilities)
+// ListArray / LargeListArray / ListViewArray / LargeListViewArray (common utilities)
 
 namespace {
 
@@ -137,6 +140,77 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   return std::make_shared<ArrayType>(std::move(data));
 }
 
+template <typename TYPE>
+Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListViewArrayFromArrays(
+    std::shared_ptr<DataType> type, const Array& offsets, const Array& sizes,
+    const Array& values, MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap = NULLPTR,
+    int64_t null_count = kUnknownNullCount) {
+  using offset_type = typename TYPE::offset_type;
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+  if (offsets.type_id() != OffsetArrowType::type_id) {
+    return Status::TypeError("List offsets must be ", OffsetArrowType::type_name());
+  }
+
+  if (sizes.length() != offsets.length() && sizes.length() != offsets.length() - 1) {
+    return Status::Invalid(
+        "List sizes must have the same length as offsets or one less than offsets");
+  }
+  if (sizes.type_id() != OffsetArrowType::type_id) {
+    return Status::TypeError("List sizes must be ", OffsetArrowType::type_name());
+  }
+
+  if (offsets.offset() != sizes.offset()) {
+    return Status::Invalid("List offsets and sizes must have the same offset");
+  }
+  const int64_t array_offset = sizes.offset();
+
+  if (null_bitmap) {
+    if (offsets.null_count() > 0 || sizes.null_count() > 0) {
+      return Status::Invalid(
+          "Ambiguous to specify both validity map and offsets or sizes with nulls");
+    }
+    if (array_offset != 0) {
+      return Status::Invalid(
+          "List offsets and sizes must not be slices if a validity map is specified");
+    }
+  } else {
+    if (offsets.null_count() > 0 && sizes.null_count() > 0) {
+      return Status::Invalid("Ambiguous to specify both offsets and sizes with nulls");
+    }
+  }
+
+  DCHECK(offsets.length() == sizes.length() || offsets.length() - 1 == sizes.length());
+
+  using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
+  const auto& typed_offsets = checked_cast<const OffsetArrayType&>(offsets);
+  const auto& typed_sizes = checked_cast<const OffsetArrayType&>(sizes);
+
+  auto derived_validity_buffer = std::move(null_bitmap);
+  if (offsets.null_count() > 0) {
+    derived_validity_buffer = offsets.null_bitmap();
+    null_count = offsets.null_count();
+    // We allow construction from an offsets array containing one extra value.
+    // If that is the case, we might need to discount one null from out_null_count.
+    if (offsets.length() - 1 == sizes.length() && !offsets.IsValid(sizes.length())) {
+      null_count -= 1;
+    }
+  } else if (sizes.null_count() > 0) {
+    derived_validity_buffer = sizes.null_bitmap();
+    null_count = sizes.null_count();
+  }
+
+  auto buffers = BufferVector({
+      std::move(derived_validity_buffer),
+      typed_offsets.values(),
+      typed_sizes.values(),
+  });
+  auto data = ArrayData::Make(type, sizes.length(), std::move(buffers), {values.data()},
+                              null_count, array_offset);
+  return std::make_shared<ArrayType>(std::move(data));
+}
+
 static std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t begin,
                                                     int64_t end) {
   return array.Slice(begin, end - begin);
@@ -189,13 +263,188 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
   return Concatenate(non_null_fragments, memory_pool);
 }
 
+template <typename ListViewArrayT, bool HasNulls>
+Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
+                                                    MemoryPool* memory_pool) {
+  using offset_type = typename ListViewArrayT::offset_type;
+  const int64_t list_view_array_offset = list_view_array.offset();
+  const int64_t list_view_array_length = list_view_array.length();
+  std::shared_ptr<arrow::Array> value_array = list_view_array.values();
+
+  if (list_view_array_length == 0) {
+    return SliceArrayWithOffsets(*value_array, 0, 0);
+  }
+
+  // If the list array is *all* nulls, then just return an empty array.
+  if constexpr (HasNulls) {
+    if (list_view_array.null_count() == list_view_array.length()) {
+      return MakeEmptyArray(value_array->type(), memory_pool);
+    }
+  }
+
+  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0, 0);
+  const auto* offsets = list_view_array.data()->template GetValues<offset_type>(1);
+  const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
+
+  auto is_null_or_empty = [&](int64_t i) {
+    if constexpr (HasNulls) {
+      if (!bit_util::GetBit(validity, list_view_array_offset + i)) {
+        return true;
+      }
+    }
+    return sizes[i] == 0;
+  };
+
+  // Index of the first valid, non-empty list-view.
+  int64_t first_i = 0;
+  for (; first_i < list_view_array_length; first_i++) {
+    if (!is_null_or_empty(first_i)) {
+      break;
+    }
+  }
+  // If all list-views are empty, return an empty array.
+  if (first_i == list_view_array_length) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
+  }
+
+  std::vector<std::shared_ptr<Array>> slices;
+  {
+    int64_t i = first_i;
+    auto begin_offset = offsets[i];
+    auto end_offset = offsets[i] + sizes[i];
+    i += 1;
+    // Inductive invariant: slices and the always non-empty values slice
+    // [begin_offset, end_offset) contains all the maximally contiguous slices of the
+    // values array that are covered by all the list-views before list-view i.
+    for (; i < list_view_array_length; i++) {
+      if (is_null_or_empty(i)) {
+        // The invariant is preserved by simply preserving the current set of slices.
+      } else {
+        if (offsets[i] == end_offset) {
+          end_offset += sizes[i];
+          // The invariant is preserved because since the non-empty list-view i
+          // starts at end_offset, the current range can be extended to end at
+          // offsets[i] + sizes[i] (the same as end_offset + sizes[i]).
+        } else {
+          // The current slice can't be extended because the list-view i either
+          // shares values with the current slice or starts after the position
+          // immediately after the end of the current slice.
+          slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
+          begin_offset = offsets[i];
+          end_offset = offsets[i] + sizes[i];
+          // The invariant is preserved because a maximally contiguous slice of
+          // the values array (i.e. one that can't be extended) was added to slices
+          // and [begin_offset, end_offset) is non-empty and contains the
+          // current list-view i.
+        }
+      }
+    }
+    slices.push_back(SliceArrayWithOffsets(*value_array, begin_offset, end_offset));
+  }
+
+  // Final attempt to avoid invoking Concatenate().
+  switch (slices.size()) {
+    case 0:
+      return MakeEmptyArray(value_array->type(), memory_pool);
+    case 1:
+      return slices[0];
+  }
+
+  return Concatenate(slices, memory_pool);
+}
+
 std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
                                   const ArrayData& data) {
+  const int64_t num_offsets =
+      is_list_view(data.type->id()) ? data.length : data.length + 1;
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, data.buffers[1]};
   auto offsets_data =
-      std::make_shared<ArrayData>(boxed_type, data.length + 1, std::move(buffers),
+      std::make_shared<ArrayData>(boxed_type, /*length=*/num_offsets, std::move(buffers),
                                   /*null_count=*/0, data.offset);
   return MakeArray(offsets_data);
+}
+
+std::shared_ptr<Array> BoxSizes(const std::shared_ptr<DataType>& boxed_type,
+                                const ArrayData& data) {
+  DCHECK(is_list_view(data.type->id()));
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, data.buffers[2]};
+  auto sizes_data =
+      std::make_shared<ArrayData>(boxed_type, data.length, std::move(buffers),
+                                  /*null_count=*/0, data.offset);
+  return MakeArray(sizes_data);
+}
+
+template <typename DestListViewType, typename SrcListType>
+Result<std::shared_ptr<ArrayData>> ListViewFromListImpl(
+    const std::shared_ptr<ArrayData>& list_data, MemoryPool* pool) {
+  static_assert(
+      std::is_same<typename SrcListType::offset_type,
+                   typename DestListViewType::offset_type>::value,
+      "Offset types between list type and list-view type are expected to match");
+  using offset_type = typename SrcListType::offset_type;
+  const auto& list_type = checked_cast<const SrcListType&>(*list_data->type);
+
+  // To re-use the validity and offsets buffers, a sizes buffer with enough
+  // padding on the beginning is allocated and filled with the sizes after
+  // list_data->offset.
+  const int64_t buffer_length = list_data->offset + list_data->length;
+  ARROW_ASSIGN_OR_RAISE(auto sizes_buffer,
+                        AllocateBuffer(buffer_length * sizeof(offset_type), pool));
+  const auto* offsets = list_data->template GetValues<offset_type>(1, 0);
+  auto* sizes = sizes_buffer->mutable_data_as<offset_type>();
+  // Zero the initial padding area to avoid leaking any data when buffers are
+  // sent over IPC or throught the C Data interface.
+  memset(sizes, 0, list_data->offset * sizeof(offset_type));
+  for (int64_t i = list_data->offset; i < buffer_length; i++) {
+    sizes[i] = offsets[i + 1] - offsets[i];
+  }
+  BufferVector buffers = {list_data->buffers[0], list_data->buffers[1],
+                          std::move(sizes_buffer)};
+
+  return ArrayData::Make(std::make_shared<DestListViewType>(list_type.value_type()),
+                         list_data->length, std::move(buffers),
+                         {list_data->child_data[0]}, list_data->null_count,
+                         list_data->offset);
+}
+
+template <typename DestListType, typename SrcListViewType>
+Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(
+    const std::shared_ptr<ArrayData>& list_view_data, MemoryPool* pool) {
+  static_assert(
+      std::is_same<typename SrcListViewType::offset_type,
+                   typename DestListType::offset_type>::value,
+      "Offset types between list type and list-view type are expected to match");
+  using offset_type = typename DestListType::offset_type;
+  using ListBuilderType = typename TypeTraits<DestListType>::BuilderType;
+
+  const auto& list_view_type =
+      checked_cast<const SrcListViewType&>(*list_view_data->type);
+  const auto& value_type = list_view_type.value_type();
+  const auto list_type = std::make_shared<DestListType>(value_type);
+
+  ARROW_ASSIGN_OR_RAISE(auto sum_of_list_view_sizes,
+                        list_util::internal::SumOfLogicalListSizes(*list_view_data));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayBuilder> value_builder,
+                        MakeBuilder(value_type, pool));
+  RETURN_NOT_OK(value_builder->Reserve(sum_of_list_view_sizes));
+  auto list_builder = std::make_shared<ListBuilderType>(pool, value_builder, list_type);
+  RETURN_NOT_OK(list_builder->Reserve(list_view_data->length));
+
+  ArraySpan values{*list_view_data->child_data[0]};
+  const auto* in_validity_bitmap = list_view_data->GetValues<uint8_t>(0);
+  const auto* in_offsets = list_view_data->GetValues<offset_type>(1);
+  const auto* in_sizes = list_view_data->GetValues<offset_type>(2);
+  for (int64_t i = 0; i < list_view_data->length; ++i) {
+    const bool is_valid =
+        !in_validity_bitmap ||
+        bit_util::GetBit(in_validity_bitmap, list_view_data->offset + i);
+    const int64_t size = is_valid ? in_sizes[i] : 0;
+    RETURN_NOT_OK(list_builder->Append(is_valid, size));
+    RETURN_NOT_OK(value_builder->AppendArraySlice(values, in_offsets[i], size));
+  }
+  std::shared_ptr<ArrayData> list_array_data;
+  RETURN_NOT_OK(list_builder->FinishInternal(&list_array_data));
+  return list_array_data;
 }
 
 }  // namespace
@@ -203,9 +452,10 @@ std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
 namespace internal {
 
 template <typename TYPE>
-inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayData>& data,
+inline void SetListData(VarLengthListLikeArray<TYPE>* self,
+                        const std::shared_ptr<ArrayData>& data,
                         Type::type expected_type_id) {
-  ARROW_CHECK_EQ(data->buffers.size(), 2);
+  ARROW_CHECK_EQ(data->buffers.size(), is_list_view(TYPE::type_id) ? 3 : 2);
   ARROW_CHECK_EQ(data->type->id(), expected_type_id);
   ARROW_CHECK_EQ(data->child_data.size(), 1);
 
@@ -214,6 +464,7 @@ inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayDa
   self->list_type_ = checked_cast<const TYPE*>(data->type.get());
   self->raw_value_offsets_ =
       data->GetValuesSafe<typename TYPE::offset_type>(1, /*offset=*/0);
+  // BaseListViewArray::SetData takes care of setting raw_value_sizes_.
 
   ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
   DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
@@ -225,7 +476,9 @@ inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayDa
 // ----------------------------------------------------------------------
 // ListArray
 
-ListArray::ListArray(std::shared_ptr<ArrayData> data) { SetData(std::move(data)); }
+ListArray::ListArray(std::shared_ptr<ArrayData> data) {
+  ListArray::SetData(std::move(data));
+}
 
 ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
                      std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
@@ -248,6 +501,13 @@ Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
     std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
   return ListArrayFromArrays<ListType>(std::make_shared<ListType>(values.type()), offsets,
                                        values, pool, null_bitmap, null_count);
+}
+
+Result<std::shared_ptr<ListArray>> ListArray::FromListView(const ListViewArray& source,
+                                                           MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto data, (ListFromListViewImpl<ListType, ListViewType>(source.data(), pool)));
+  return std::make_shared<ListArray>(std::move(data));
 }
 
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
@@ -273,7 +533,9 @@ std::shared_ptr<Array> ListArray::offsets() const { return BoxOffsets(int32(), *
 // ----------------------------------------------------------------------
 // LargeListArray
 
-LargeListArray::LargeListArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+LargeListArray::LargeListArray(const std::shared_ptr<ArrayData>& data) {
+  LargeListArray::SetData(data);
+}
 
 LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
                                const std::shared_ptr<Buffer>& value_offsets,
@@ -284,7 +546,7 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
   auto internal_data =
       ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
-  SetData(internal_data);
+  LargeListArray::SetData(internal_data);
 }
 
 void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
@@ -297,6 +559,14 @@ Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
   return ListArrayFromArrays<LargeListType>(
       std::make_shared<LargeListType>(values.type()), offsets, values, pool, null_bitmap,
       null_count);
+}
+
+Result<std::shared_ptr<LargeListArray>> LargeListArray::FromListView(
+    const LargeListViewArray& source, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto data,
+      (ListFromListViewImpl<LargeListType, LargeListViewType>(source.data(), pool)));
+  return std::make_shared<LargeListArray>(std::move(data));
 }
 
 Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
@@ -319,6 +589,144 @@ Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) 
 
 std::shared_ptr<Array> LargeListArray::offsets() const {
   return BoxOffsets(int64(), *data_);
+}
+
+// ----------------------------------------------------------------------
+// ListViewArray
+
+ListViewArray::ListViewArray(std::shared_ptr<ArrayData> data) {
+  ListViewArray::SetData(std::move(data));
+}
+
+ListViewArray::ListViewArray(std::shared_ptr<DataType> type, int64_t length,
+                             std::shared_ptr<Buffer> value_offsets,
+                             std::shared_ptr<Buffer> value_sizes,
+                             std::shared_ptr<Array> values,
+                             std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
+                             int64_t offset) {
+  ListViewArray::SetData(ArrayData::Make(
+      std::move(type), length,
+      {std::move(null_bitmap), std::move(value_offsets), std::move(value_sizes)},
+      /*child_data=*/{values->data()}, null_count, offset));
+}
+
+void ListViewArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  internal::SetListData(this, data);
+  raw_value_sizes_ = data->GetValuesSafe<ListViewType::offset_type>(2, /*offset=*/0);
+}
+
+Result<std::shared_ptr<ListViewArray>> ListViewArray::FromArrays(
+    const Array& offsets, const Array& sizes, const Array& values, MemoryPool* pool,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
+  return ListViewArrayFromArrays<ListViewType>(
+      std::make_shared<ListViewType>(values.type()), offsets, sizes, values, pool,
+      null_bitmap, null_count);
+}
+
+Result<std::shared_ptr<ListViewArray>> ListViewArray::FromArrays(
+    std::shared_ptr<DataType> type, const Array& offsets, const Array& sizes,
+    const Array& values, MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap,
+    int64_t null_count) {
+  if (type->id() != Type::LIST_VIEW) {
+    return Status::TypeError("Expected list-view type, got ", type->ToString());
+  }
+  const auto& list_view_type = checked_cast<const ListViewType&>(*type);
+  if (!list_view_type.value_type()->Equals(values.type())) {
+    return Status::TypeError("Mismatching list-view value type");
+  }
+  return ListViewArrayFromArrays<ListViewType>(std::move(type), offsets, sizes, values,
+                                               pool, null_bitmap, null_count);
+}
+
+Result<std::shared_ptr<ListViewArray>> ListViewArray::FromList(const ListArray& source,
+                                                               MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto data, (ListViewFromListImpl<ListViewType, ListType>(source.data(), pool)));
+  return std::make_shared<ListViewArray>(std::move(data));
+}
+
+Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromList(
+    const LargeListArray& source, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto data,
+      (ListViewFromListImpl<LargeListViewType, LargeListType>(source.data(), pool)));
+  return std::make_shared<LargeListViewArray>(std::move(data));
+}
+
+Result<std::shared_ptr<Array>> ListViewArray::Flatten(MemoryPool* memory_pool) const {
+  if (null_count() > 0) {
+    return FlattenListViewArray<ListViewArray, true>(*this, memory_pool);
+  }
+  return FlattenListViewArray<ListViewArray, false>(*this, memory_pool);
+}
+
+std::shared_ptr<Array> ListViewArray::offsets() const {
+  return BoxOffsets(int32(), *data_);
+}
+
+std::shared_ptr<Array> ListViewArray::sizes() const { return BoxSizes(int32(), *data_); }
+
+// ----------------------------------------------------------------------
+// LargeListViewArray
+
+LargeListViewArray::LargeListViewArray(std::shared_ptr<ArrayData> data) {
+  LargeListViewArray::SetData(std::move(data));
+}
+
+LargeListViewArray::LargeListViewArray(std::shared_ptr<DataType> type, int64_t length,
+                                       std::shared_ptr<Buffer> value_offsets,
+                                       std::shared_ptr<Buffer> value_sizes,
+                                       std::shared_ptr<Array> values,
+                                       std::shared_ptr<Buffer> null_bitmap,
+                                       int64_t null_count, int64_t offset) {
+  LargeListViewArray::SetData(ArrayData::Make(
+      type, length,
+      {std::move(null_bitmap), std::move(value_offsets), std::move(value_sizes)},
+      /*child_data=*/{values->data()}, null_count, offset));
+}
+
+void LargeListViewArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  internal::SetListData(this, data);
+  raw_value_sizes_ = data->GetValuesSafe<LargeListViewType::offset_type>(2, /*offset=*/0);
+}
+
+Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromArrays(
+    const Array& offsets, const Array& sizes, const Array& values, MemoryPool* pool,
+    std::shared_ptr<Buffer> null_bitmap, int64_t null_count) {
+  return ListViewArrayFromArrays<LargeListViewType>(
+      std::make_shared<LargeListViewType>(values.type()), offsets, sizes, values, pool,
+      null_bitmap, null_count);
+}
+
+Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromArrays(
+    std::shared_ptr<DataType> type, const Array& offsets, const Array& sizes,
+    const Array& values, MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap,
+    int64_t null_count) {
+  if (type->id() != Type::LARGE_LIST_VIEW) {
+    return Status::TypeError("Expected large list-view type, got ", type->ToString());
+  }
+  const auto& large_list_view_type = checked_cast<const LargeListViewType&>(*type);
+  if (!large_list_view_type.value_type()->Equals(values.type())) {
+    return Status::TypeError("Mismatching large list-view value type");
+  }
+  return ListViewArrayFromArrays<LargeListViewType>(
+      std::move(type), offsets, sizes, values, pool, null_bitmap, null_count);
+}
+
+Result<std::shared_ptr<Array>> LargeListViewArray::Flatten(
+    MemoryPool* memory_pool) const {
+  if (null_count() > 0) {
+    return FlattenListViewArray<LargeListViewArray, true>(*this, memory_pool);
+  }
+  return FlattenListViewArray<LargeListViewArray, false>(*this, memory_pool);
+}
+
+std::shared_ptr<Array> LargeListViewArray::offsets() const {
+  return BoxOffsets(int64(), *data_);
+}
+
+std::shared_ptr<Array> LargeListViewArray::sizes() const {
+  return BoxSizes(int64(), *data_);
 }
 
 // ----------------------------------------------------------------------
@@ -625,6 +1033,22 @@ const std::shared_ptr<Array>& StructArray::field(int i) const {
 std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
   int i = struct_type()->GetFieldIndex(name);
   return i == -1 ? nullptr : field(i);
+}
+
+Status StructArray::CanReferenceFieldByName(const std::string& name) const {
+  if (GetFieldByName(name) == nullptr) {
+    return Status::Invalid("Field named '", name,
+                           "' not found or not unique in the struct.");
+  }
+  return Status::OK();
+}
+
+Status StructArray::CanReferenceFieldsByNames(
+    const std::vector<std::string>& names) const {
+  for (const auto& name : names) {
+    ARROW_RETURN_NOT_OK(CanReferenceFieldByName(name));
+  }
+  return Status::OK();
 }
 
 Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {

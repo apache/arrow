@@ -91,6 +91,27 @@ test_that("Group by sum on dataset", {
   )
 })
 
+test_that("Group by prod on dataset", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(prod = prod(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        prod = prod(int, na.rm = FALSE),
+        prod2 = base::prod(int, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Group by mean on dataset", {
   compare_dplyr_binding(
     .input %>%
@@ -319,6 +340,7 @@ test_that("Functions that take ... but we only accept a single arg", {
   # the agg_funcs directly
   expect_error(call_binding_agg("n_distinct"), "n_distinct() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("sum"), "sum() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding_agg("prod"), "prod() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("any"), "any() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("all"), "all() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("min"), "min() with 0 arguments", fixed = TRUE)
@@ -642,6 +664,7 @@ test_that("summarise() with !!sym()", {
       group_by(false) %>%
       summarise(
         sum = sum(!!sym(test_dbl_col)),
+        prod = prod(!!sym(test_dbl_col)),
         any = any(!!sym(test_lgl_col)),
         all = all(!!sym(test_lgl_col)),
         mean = mean(!!sym(test_dbl_col)),

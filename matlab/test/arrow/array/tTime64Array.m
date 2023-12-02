@@ -30,6 +30,26 @@ classdef tTime64Array < matlab.unittest.TestCase
             times = seconds(1:4);
             array = tc.ArrowArrayConstructorFcn(times);
             tc.verifyInstanceOf(array, "arrow.array.Time64Array");
+            tc.verifyEqual(array.toMATLAB, times');
+        end
+
+        function TimeUnitDefaultValue(tc)
+            % Verify that the default value of "TimeUnit" is "Microsecond".
+            matlabTimes = seconds([1; ...
+                                   0.001; ...
+                                   2.004521; ...
+                                   3.1234564; ...
+                                   4.1234566; ...
+                                   5.000000123]);
+            arrowArray = tc.ArrowArrayConstructorFcn(matlabTimes);
+            tc.verifyEqual(arrowArray.Type.TimeUnit, arrow.type.TimeUnit.Microsecond);
+            tc.verifyEqual(arrowArray.toMATLAB(), ...
+                           seconds([1;...
+                                    0.001; ...
+                                    2.004521; ...
+                                    3.123456; ...
+                                    4.123457; ...
+                                    5]));
         end
 
         function TypeIsTime64(tc)
@@ -73,20 +93,20 @@ classdef tTime64Array < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:validate:temporal:UnsupportedTime64TimeUnit");
         end
 
-        function TestLength(testCase)
-            % Verify the Length property.
+        function TestNumElements(testCase)
+            % Verify the NumElements property.
 
             times = duration.empty(0, 1);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
 
             times = duration(1, 2, 3);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(1));
+            testCase.verifyEqual(array.NumElements, int64(1));
 
             times = duration(1, 2, 3) + hours(0:4);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(5));
+            testCase.verifyEqual(array.NumElements, int64(5));
         end
 
         function TestToMATLAB(testCase, Unit)
@@ -108,10 +128,10 @@ classdef tTime64Array < matlab.unittest.TestCase
         function TestValid(testCase, Unit)
             % Verify the Valid property returns the expected logical vector.
             times = seconds([100 200 NaN 355 NaN 400]);
-            arrray = testCase.ArrowArrayConstructorFcn(times, TImeUnit=Unit);
-            testCase.verifyEqual(arrray.Valid, [true; true; false; true; false; true]);
-            testCase.verifyEqual(toMATLAB(arrray), times');
-            testCase.verifyEqual(duration(arrray), times');
+            array = testCase.ArrowArrayConstructorFcn(times, TimeUnit=Unit);
+            testCase.verifyEqual(array.Valid, [true; true; false; true; false; true]);
+            testCase.verifyEqual(toMATLAB(array), times');
+            testCase.verifyEqual(duration(array), times');
         end
 
         function InferNullsTrueNVPair(testCase, Unit)
@@ -170,14 +190,14 @@ classdef tTime64Array < matlab.unittest.TestCase
 
             times = duration.empty(0, 0);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
             testCase.verifyEqual(array.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(array), duration.empty(0, 1));
 
             % Test with an N-Dimensional empty array
             times = duration.empty(0, 1, 0);
             array = testCase.ArrowArrayConstructorFcn(times);
-            testCase.verifyEqual(array.Length, int64(0));
+            testCase.verifyEqual(array.NumElements, int64(0));
             testCase.verifyEqual(array.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(array), duration.empty(0, 1));
         end
@@ -229,7 +249,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             % Verifies arrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. They have the same length (i.e. their Length properties are equal)
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
             %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
             %  4. All corresponding valid elements have the same values
             
@@ -269,7 +289,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % Their Length properties are not equal
+            % Their NumElements properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
             % Comparing an arrow.array.Array to a MATLAB double
@@ -279,7 +299,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
 
-        function TestIsEqualFalseTimeUnitMistmatch(tc)
+        function TestIsEqualFalseTimeUnitMismatch(tc)
             % Verify two Time64Arrays are not considered equal if they have
             % different TimeUnit values.
             times1 = seconds([1 2 3 4]);
@@ -289,6 +309,62 @@ classdef tTime64Array < matlab.unittest.TestCase
 
             % arrays are not equal
             tc.verifyFalse(isequal(array1, array2));
+        end
+
+        function RoundTimeBySpecifiedTimeUnit(tc)
+            % Verify that the input parameter "TimeUnit" is used to specify
+            % the time resolution. The value is rounded off based on the
+            % specified "TimeUnit".
+
+            % TimeUnit="Microsecond"
+            matlabTimes = seconds([1.000001, ...
+                                   2.999999, ...
+                                   0.0002004, ...
+                                   0.0000035, ...
+                                   10.123456499, ...
+                                   9.999999543]);
+            arrowTimes = tc.ArrowArrayConstructorFcn(matlabTimes, TimeUnit="Microsecond");
+            tc.verifyEqual(arrowTimes.toMATLAB(), ...
+                           seconds([1.000001, ...
+                                    2.999999, ...
+                                    0.0002, ...
+                                    0.000004, ...
+                                    10.123456, ...
+                                    10])', ...
+                          'AbsTol',seconds(1e-14));
+
+            % TimeUnit="Nanosecond"
+            matlabTimes = seconds([1, ...
+                                   1.123, ...
+                                   1.12345, ...
+                                   1.123456, ...
+                                   1.1234567, ...
+                                   1.12345678, ...
+                                   1.123456789, ...
+                                   1.1234567894, ...
+                                   1.1234567895, ...
+                                   1.123456789009]);
+            arrowTimes = tc.ArrowArrayConstructorFcn(matlabTimes, TimeUnit="Nanosecond");
+            tc.verifyEqual(arrowTimes.toMATLAB(),...
+                           seconds([1, ...
+                                    1.123, ...
+                                    1.12345, ...
+                                    1.123456, ...
+                                    1.1234567, ...
+                                    1.12345678, ...
+                                    1.123456789, ...
+                                    1.123456789, ...
+                                    1.123456790, ...
+                                    1.123456789])',...
+                          'AbsTol',seconds(1e-15));
+        end
+
+        function TimeUnitIsReadOnly(tc)
+            % Verify that arrowArray.Type.TimeUnit cannot be changed.
+
+            matlabTimes = seconds([1.000001, 2.999999, 0.0002004]);
+            arrowArray = tc.ArrowArrayConstructorFcn(matlabTimes);
+            tc.verifyError(@()setfield(arrowArray.Type,"TimeUnit", "Nanosecond"),'MATLAB:class:SetProhibited');
         end
     end
 

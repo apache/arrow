@@ -18,7 +18,7 @@
 # don't add pandas here, because it is not a mandatory test dependency
 boto3  # not a direct dependency of s3fs, but needed for our s3fs fixture
 cffi
-cython<3
+cython>=0.29.31
 cloudpickle
 fsspec
 hypothesis
@@ -26,6 +26,6 @@ numpy>=1.16.6
 pytest
 pytest-faulthandler
 pytest-lazy-fixture
-s3fs>=2021.8.0
+s3fs>=2023.10.0
 setuptools
 setuptools_scm<8.0.0

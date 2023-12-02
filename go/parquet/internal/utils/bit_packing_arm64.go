@@ -20,33 +20,14 @@
 package utils
 
 import (
-	"os"
-	"strings"
-
-	"golang.org/x/sys/cpu"
+	"github.com/klauspost/cpuid/v2"
+	// import for side effect of initializing feature flags
+	// based on ARM_ENABLE_EXT env var
+	_ "github.com/apache/arrow/go/v15/parquet/internal/bmi"
 )
 
 func init() {
-	cpu.ARM64.HasASIMD = false
-	cpu.ARM64.HasAES = false
-	cpu.ARM64.HasPMULL = false
-	// Added ability to enable extension via environment:
-	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
-		exts := strings.Split(ext, ",")
-
-		for _, x := range exts {
-			switch x {
-			case "NEON":
-				cpu.ARM64.HasASIMD = true
-			case "AES":
-				cpu.ARM64.HasAES = true
-			case "PMULL":
-				cpu.ARM64.HasPMULL = true
-			default:
-			}
-		}
-	}
-	if cpu.ARM64.HasASIMD {
+	if cpuid.CPU.Has(cpuid.ASIMD) {
 		unpack32 = unpack32NEON
 	} else { // default to the pure go implementation if no avx2 available
 		unpack32 = unpack32Default

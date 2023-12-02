@@ -16,7 +16,7 @@
 // under the License.
 
 import { Type, Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from './enum.js';
-import { DataType, Float, Int, Date_, Interval, Time, Timestamp, Union, } from './type.js';
+import { DataType, Float, Int, Date_, Interval, Time, Timestamp, Union, Duration } from './type.js';
 
 export abstract class Visitor {
     public visitMany(nodes: any[], ...args: any[][]) {
@@ -48,6 +48,7 @@ export abstract class Visitor {
     public visitUnion(_node: any, ..._args: any[]): any { return null; }
     public visitDictionary(_node: any, ..._args: any[]): any { return null; }
     public visitInterval(_node: any, ..._args: any[]): any { return null; }
+    public visitDuration(_node: any, ... _args: any[]): any { return null; }
     public visitFixedSizeList(_node: any, ..._args: any[]): any { return null; }
     public visitMap(_node: any, ..._args: any[]): any { return null; }
 }
@@ -115,6 +116,11 @@ function getVisitFnByTypeId(visitor: Visitor, dtype: Type, throwIfNotFound = tru
         case Type.Interval: fn = visitor.visitInterval; break;
         case Type.IntervalDayTime: fn = visitor.visitIntervalDayTime || visitor.visitInterval; break;
         case Type.IntervalYearMonth: fn = visitor.visitIntervalYearMonth || visitor.visitInterval; break;
+        case Type.Duration: fn = visitor.visitDuration; break;
+        case Type.DurationSecond: fn = visitor.visitDurationSecond || visitor.visitDuration; break;
+        case Type.DurationMillisecond: fn = visitor.visitDurationMillisecond || visitor.visitDuration; break;
+        case Type.DurationMicrosecond: fn = visitor.visitDurationMicrosecond || visitor.visitDuration; break;
+        case Type.DurationNanosecond: fn = visitor.visitDurationNanosecond || visitor.visitDuration; break;
         case Type.FixedSizeList: fn = visitor.visitFixedSizeList; break;
         case Type.Map: fn = visitor.visitMap; break;
     }
@@ -183,6 +189,15 @@ function inferDType<T extends DataType>(type: T): Type {
             }
             // @ts-ignore
             return Type.Interval;
+        case Type.Duration:
+            switch ((type as any as Duration).unit) {
+                case TimeUnit.SECOND: return Type.DurationSecond;
+                case TimeUnit.MILLISECOND: return Type.DurationMillisecond;
+                case TimeUnit.MICROSECOND: return Type.DurationMicrosecond;
+                case TimeUnit.NANOSECOND: return Type.DurationNanosecond;
+            }
+            // @ts-ignore
+            return Type.Duration;
         case Type.Map: return Type.Map;
         case Type.List: return Type.List;
         case Type.Struct: return Type.Struct;
@@ -243,6 +258,11 @@ export interface Visitor {
     visitInterval(node: any, ...args: any[]): any;
     visitIntervalDayTime?(node: any, ...args: any[]): any;
     visitIntervalYearMonth?(node: any, ...args: any[]): any;
+    visitDuration(node: any, ...args: any[]): any;
+    visitDurationSecond(node: any, ...args: any[]): any;
+    visitDurationMillisecond(node: any, ...args: any[]): any;
+    visitDurationMicrosecond(node: any, ...args: any[]): any;
+    visitDurationNanosecond(node: any, ...args: any[]): any;
     visitFixedSizeList(node: any, ...args: any[]): any;
     visitMap(node: any, ...args: any[]): any;
 }
@@ -274,3 +294,8 @@ export interface Visitor {
 (Visitor.prototype as any).visitSparseUnion = null;
 (Visitor.prototype as any).visitIntervalDayTime = null;
 (Visitor.prototype as any).visitIntervalYearMonth = null;
+(Visitor.prototype as any).visitDuration = null;
+(Visitor.prototype as any).visitDurationSecond = null;
+(Visitor.prototype as any).visitDurationMillisecond = null;
+(Visitor.prototype as any).visitDurationMicrosecond = null;
+(Visitor.prototype as any).visitDurationNanosecond = null;

@@ -1459,7 +1459,7 @@
 * [ARROW-12172](https://issues.apache.org/jira/browse/ARROW-12172) - [Python][Packaging] Pass python version as setuptools pretend version in the macOS wheel builds
 * [ARROW-12178](https://issues.apache.org/jira/browse/ARROW-12178) - [CI] Update setuptools in the ubuntu images
 * [ARROW-12186](https://issues.apache.org/jira/browse/ARROW-12186) - [Rust][DataFusion] Fix regexp_match test
-* [ARROW-12209](https://issues.apache.org/jira/browse/ARROW-12209) - [JS] Copy all src files into the the TypeScript package
+* [ARROW-12209](https://issues.apache.org/jira/browse/ARROW-12209) - [JS] Copy all src files into the TypeScript package
 * [ARROW-12220](https://issues.apache.org/jira/browse/ARROW-12220) - [C++][CI] Thread sanitizer failure
 * [ARROW-12226](https://issues.apache.org/jira/browse/ARROW-12226) - [C++] Fix Address Sanitizer failures
 * [ARROW-12227](https://issues.apache.org/jira/browse/ARROW-12227) - [R] Fix RE2 and median nightly build failures
@@ -11430,7 +11430,7 @@
 * [ARROW-67](https://issues.apache.org/jira/browse/ARROW-67) - C++ metadata flatbuffer serialization and data movement to memory maps
 * [ARROW-68](https://issues.apache.org/jira/browse/ARROW-68) - Better error handling for not fully setup systems
 * [ARROW-70](https://issues.apache.org/jira/browse/ARROW-70) - Add adapt 'lite' DCHECK macros from Kudu as also used in Parquet
-* [ARROW-71](https://issues.apache.org/jira/browse/ARROW-71) - [C++] Add clang-tidy and clang-format to the the tool chain.
+* [ARROW-71](https://issues.apache.org/jira/browse/ARROW-71) - [C++] Add clang-tidy and clang-format to the tool chain.
 * [ARROW-73](https://issues.apache.org/jira/browse/ARROW-73) - Support older CMake versions
 * [ARROW-76](https://issues.apache.org/jira/browse/ARROW-76) - Revise format document to include null count, defer non-nullable arrays to the domain of metadata
 * [ARROW-78](https://issues.apache.org/jira/browse/ARROW-78) - C++: Add constructor for DecimalType

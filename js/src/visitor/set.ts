@@ -32,6 +32,7 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
 } from '../type.js';
 
@@ -83,6 +84,11 @@ export interface SetVisitor extends Visitor {
     visitInterval<T extends Interval>(data: Data<T>, index: number, value: T['TValue']): void;
     visitIntervalDayTime<T extends IntervalDayTime>(data: Data<T>, index: number, value: T['TValue']): void;
     visitIntervalYearMonth<T extends IntervalYearMonth>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitDuration<T extends Duration>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitDurationSecond<T extends DurationSecond>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitDurationMillisecond<T extends DurationMillisecond>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitDurationMicrosecond<T extends DurationMicrosecond>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitDurationNanosecond<T extends DurationNanosecond>(data: Data<T>, index: number, value: T['TValue']): void;
     visitFixedSizeList<T extends FixedSizeList>(data: Data<T>, index: number, value: T['TValue']): void;
     visitMap<T extends Map_>(data: Data<T>, index: number, value: T['TValue']): void;
 }
@@ -311,6 +317,26 @@ export const setIntervalDayTime = <T extends IntervalDayTime>({ values }: Data<T
 export const setIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = (value[0] * 12) + (value[1] % 12); };
 
 /** @ignore */
+export const setDurationSecond = <T extends DurationSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = value; };
+/** @ignore */
+export const setDurationMillisecond = <T extends DurationMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = value; };
+/** @ignore */
+export const setDurationMicrosecond = <T extends DurationMicrosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = value; };
+/** @ignore */
+export const setDurationNanosecond = <T extends DurationNanosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = value; };
+/* istanbul ignore next */
+/** @ignore */
+export const setDuration = <T extends Duration>(data: Data<T>, index: number, value: T['TValue']): void => {
+    switch (data.type.unit) {
+        case TimeUnit.SECOND: return setDurationSecond(data as Data<DurationSecond>, index, value as DurationSecond['TValue']);
+        case TimeUnit.MILLISECOND: return setDurationMillisecond(data as Data<DurationMillisecond>, index, value as DurationMillisecond['TValue']);
+        case TimeUnit.MICROSECOND: return setDurationMicrosecond(data as Data<DurationMicrosecond>, index, value as DurationMicrosecond['TValue']);
+        case TimeUnit.NANOSECOND: return setDurationNanosecond(data as Data<DurationNanosecond>, index, value as DurationNanosecond['TValue']);
+    }
+};
+
+
+/** @ignore */
 const setFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number, value: T['TValue']): void => {
     const { stride } = data;
     const child = data.children[0];
@@ -367,6 +393,11 @@ SetVisitor.prototype.visitDictionary = wrapSet(setDictionary);
 SetVisitor.prototype.visitInterval = wrapSet(setIntervalValue);
 SetVisitor.prototype.visitIntervalDayTime = wrapSet(setIntervalDayTime);
 SetVisitor.prototype.visitIntervalYearMonth = wrapSet(setIntervalYearMonth);
+SetVisitor.prototype.visitDuration = wrapSet(setDuration);
+SetVisitor.prototype.visitDurationSecond = wrapSet(setDurationSecond);
+SetVisitor.prototype.visitDurationMillisecond = wrapSet(setDurationMillisecond);
+SetVisitor.prototype.visitDurationMicrosecond = wrapSet(setDurationMicrosecond);
+SetVisitor.prototype.visitDurationNanosecond = wrapSet(setDurationNanosecond);
 SetVisitor.prototype.visitFixedSizeList = wrapSet(setFixedSizeList);
 SetVisitor.prototype.visitMap = wrapSet(setMap);
 

@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
 )
 
 type Function interface {
@@ -179,7 +179,7 @@ func (b *baseFunction) checkArity(nargs int) error {
 	return nil
 }
 
-// kernelType is a type contstraint interface that is used for funcImpl
+// kernelType is a type constraint interface that is used for funcImpl
 // generic definitions. It will be extended as other kernel types
 // are defined.
 //
@@ -227,7 +227,7 @@ func (fi *funcImpl[KT]) Kernels() []*KT {
 
 // A ScalarFunction is a function that executes element-wise operations
 // on arrays or scalars, and therefore whose results generally do not
-// depent on the order of the values in the arguments. Accepts and returns
+// depend on the order of the values in the arguments. Accepts and returns
 // arrays that are all of the same size. These functions roughly correspond
 // to the functions used in most SQL expressions.
 type ScalarFunction struct {

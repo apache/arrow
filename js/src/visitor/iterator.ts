@@ -28,6 +28,7 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
 } from '../type.js';
 import { ChunkedIterator } from '../util/chunk.js';
@@ -80,6 +81,11 @@ export interface IteratorVisitor extends Visitor {
     visitInterval<T extends Interval>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
     visitIntervalDayTime<T extends IntervalDayTime>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
     visitIntervalYearMonth<T extends IntervalYearMonth>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
+    visitDuration<T extends Duration>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
+    visitDurationSecond<T extends DurationSecond>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
+    visitDurationMillisecond<T extends DurationMillisecond>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
+    visitDurationMicrosecond<T extends DurationMicrosecond>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
+    visitDurationNanosecond<T extends DurationNanosecond>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
     visitFixedSizeList<T extends FixedSizeList>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
     visitMap<T extends Map_>(vector: Vector<T>): IterableIterator<T['TValue'] | null>;
 }
@@ -179,6 +185,11 @@ IteratorVisitor.prototype.visitDictionary = vectorIterator;
 IteratorVisitor.prototype.visitInterval = vectorIterator;
 IteratorVisitor.prototype.visitIntervalDayTime = vectorIterator;
 IteratorVisitor.prototype.visitIntervalYearMonth = vectorIterator;
+IteratorVisitor.prototype.visitDuration = vectorIterator;
+IteratorVisitor.prototype.visitDurationSecond = vectorIterator;
+IteratorVisitor.prototype.visitDurationMillisecond = vectorIterator;
+IteratorVisitor.prototype.visitDurationMicrosecond = vectorIterator;
+IteratorVisitor.prototype.visitDurationNanosecond = vectorIterator;
 IteratorVisitor.prototype.visitFixedSizeList = vectorIterator;
 IteratorVisitor.prototype.visitMap = vectorIterator;
 

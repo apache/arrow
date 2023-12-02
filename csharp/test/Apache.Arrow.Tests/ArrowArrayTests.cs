@@ -14,6 +14,8 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Numerics;
 using Xunit;
 
@@ -91,6 +93,33 @@ namespace Apache.Arrow.Tests
                     }
                 }
             }
+        }
+
+        [Fact]
+        public void EnumerateArray()
+        {
+            var array = new Int64Array.Builder().Append(1).Append(2).Build();
+
+            foreach(long? foo in (IEnumerable<long?>)array)
+            {
+                Assert.InRange(foo.Value, 1, 2);
+            }
+
+            foreach (object foo in (IEnumerable)array)
+            {
+                Assert.InRange((long)foo, 1, 2);
+            }
+        }
+
+        [Fact]
+        public void ArrayAsReadOnlyList()
+        {
+            Int64Array array = new Int64Array.Builder().Append(1).Append(2).Build();
+            var readOnlyList = (IReadOnlyList<long?>)array;
+
+            Assert.Equal(array.Length, readOnlyList.Count);
+            Assert.Equal(readOnlyList[0], 1);
+            Assert.Equal(readOnlyList[1], 2);
         }
 
 #if NET5_0_OR_GREATER
@@ -200,6 +229,7 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<DurationArray>,
 #if NET5_0_OR_GREATER
             IArrowArrayVisitor<HalfFloatArray>,
 #endif
@@ -243,6 +273,7 @@ namespace Apache.Arrow.Tests
             }
             public void Visit(Time32Array array) => ValidateArrays(array);
             public void Visit(Time64Array array) => ValidateArrays(array);
+            public void Visit(DurationArray array) => ValidateArrays(array);
 
 #if NET5_0_OR_GREATER
             public void Visit(HalfFloatArray array) => ValidateArrays(array);

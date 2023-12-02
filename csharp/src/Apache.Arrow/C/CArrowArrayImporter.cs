@@ -170,7 +170,19 @@ namespace Apache.Arrow.C
                         buffers = new ArrowBuffer[] { ImportValidityBuffer(cArray) };
                         break;
                     case ArrowTypeId.Union:
+                        UnionType unionType = (UnionType)type;
+                        children = ProcessStructChildren(cArray, unionType.Fields);
+                        buffers = unionType.Mode switch
+                        {
+                            UnionMode.Dense => ImportDenseUnionBuffers(cArray),
+                            UnionMode.Sparse => ImportSparseUnionBuffers(cArray),
+                            _ => throw new InvalidOperationException("unknown union mode in import")
+                        }; ;
+                        break;
                     case ArrowTypeId.Map:
+                        MapType mapType = (MapType)type;
+                        children = ProcessListChildren(cArray, mapType.Fields[0].DataType);
+                        buffers = ImportListBuffers(cArray);
                         break;
                     case ArrowTypeId.Null:
                         buffers = System.Array.Empty<ArrowBuffer>();
@@ -282,6 +294,35 @@ namespace Apache.Arrow.C
 
                 ArrowBuffer[] buffers = new ArrowBuffer[1];
                 buffers[0] = ImportValidityBuffer(cArray);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportDenseUnionBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 2)
+                {
+                    throw new InvalidOperationException("Dense union arrays are expected to have exactly two children");
+                }
+                int length = checked((int)cArray->length);
+                int offsetsLength = length * 4;
+
+                ArrowBuffer[] buffers = new ArrowBuffer[2];
+                buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, length));
+                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportSparseUnionBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 1)
+                {
+                    throw new InvalidOperationException("Sparse union arrays are expected to have exactly one child");
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[1];
+                buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, checked((int)cArray->length)));
 
                 return buffers;
             }

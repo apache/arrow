@@ -26,11 +26,11 @@ from copy import deepcopy
 from itertools import zip_longest
 import json
 import operator
-import pickle
 import re
 import warnings
 
 import numpy as np
+from numpy.core.numerictypes import sctypes as _np_sctypes
 
 import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes  # noqa
@@ -98,7 +98,7 @@ _numpy_logical_type_map = {
     np.float32: 'float32',
     np.float64: 'float64',
     'datetime64[D]': 'date',
-    np.unicode_: 'string',
+    np.str_: 'string',
     np.bytes_: 'bytes',
 }
 
@@ -720,9 +720,6 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
-    elif 'object' in item:
-        block = _int.make_block(pickle.loads(block_arr),
-                                placement=placement)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -747,9 +744,11 @@ def make_datetimetz(unit, tz):
     return _pandas_api.datetimetz_type(unit, tz=tz)
 
 
-def table_to_blockmanager(options, table, categories=None,
-                          ignore_metadata=False, types_mapper=None):
+def table_to_dataframe(
+    options, table, categories=None, ignore_metadata=False, types_mapper=None
+):
     from pandas.core.internals import BlockManager
+    from pandas import DataFrame
 
     all_columns = []
     column_indexes = []
@@ -773,14 +772,19 @@ def table_to_blockmanager(options, table, categories=None,
     blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
 
     axes = [columns, index]
-    return BlockManager(blocks, axes)
+    mgr = BlockManager(blocks, axes)
+    if _pandas_api.is_ge_v21():
+        df = DataFrame._from_mgr(mgr, mgr.axes)
+    else:
+        df = DataFrame(mgr)
+    return df
 
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
 # dataframe (complex not included since not supported by Arrow)
 _pandas_supported_numpy_types = {
     str(np.dtype(typ))
-    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float'] +
+    for typ in (_np_sctypes['int'] + _np_sctypes['uint'] + _np_sctypes['float'] +
                 ['object', 'bool'])
 }
 
@@ -1010,7 +1014,7 @@ _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
     'datetimetz': 'datetime64[ns]',
-    'unicode': np.unicode_,
+    'unicode': np.str_,
     'bytes': np.bytes_,
     'string': np.str_,
     'integer': np.int64,

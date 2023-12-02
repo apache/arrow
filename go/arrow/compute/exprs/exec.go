@@ -23,15 +23,15 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/compute"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/arrow/scalar"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/compute"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
@@ -53,7 +53,7 @@ func makeExecBatch(ctx context.Context, schema *arrow.Schema, partial compute.Da
 		partialBatch := partial.(*compute.RecordDatum).Value
 		batchSchema := partialBatch.Schema()
 
-		out.Values = make([]compute.Datum, len(schema.Fields()))
+		out.Values = make([]compute.Datum, schema.NumFields())
 		out.Len = partialBatch.NumRows()
 
 		for i, field := range schema.Fields() {
@@ -99,7 +99,7 @@ func makeExecBatch(ctx context.Context, schema *arrow.Schema, partial compute.Da
 			return makeExecBatch(ctx, schema, compute.NewDatumWithoutOwning(batch))
 		case *compute.ScalarDatum:
 			out.Len = 1
-			out.Values = make([]compute.Datum, len(schema.Fields()))
+			out.Values = make([]compute.Datum, schema.NumFields())
 
 			s := part.Value.(*scalar.Struct)
 			dt := s.Type.(*arrow.StructType)

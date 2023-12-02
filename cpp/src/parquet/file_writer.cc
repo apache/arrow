@@ -471,10 +471,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   void WritePageIndex() {
     if (page_index_builder_ != nullptr) {
-      if (properties_->file_encryption_properties()) {
-        throw ParquetException("Encryption is not supported with page index");
-      }
-
       // Serialize page index after all row groups have been written and report
       // location to the file metadata.
       PageIndexLocation page_index_location;
@@ -533,7 +529,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
 
     if (properties_->page_index_enabled()) {
-      page_index_builder_ = PageIndexBuilder::Make(&schema_);
+      page_index_builder_ = PageIndexBuilder::Make(&schema_, file_encryptor_.get());
     }
   }
 };
@@ -660,7 +656,11 @@ void ParquetFileWriter::AddKeyValueMetadata(
 }
 
 const std::shared_ptr<WriterProperties>& ParquetFileWriter::properties() const {
-  return contents_->properties();
+  if (contents_) {
+    return contents_->properties();
+  } else {
+    throw ParquetException("Cannot get properties from closed file");
+  }
 }
 
 }  // namespace parquet

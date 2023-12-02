@@ -70,6 +70,7 @@ class IntegrationRunner(object):
         self.serial = serial
         self.gold_dirs = gold_dirs
         self.failures: List[Outcome] = []
+        self.skips: List[Outcome] = []
         self.match = match
 
         if self.match is not None:
@@ -123,8 +124,8 @@ class IntegrationRunner(object):
         enabled implementations.
         """
         for producer, consumer in itertools.product(
-                filter(lambda t: t.C_DATA_EXPORTER, self.testers),
-                filter(lambda t: t.C_DATA_IMPORTER, self.testers)):
+                filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.testers),
+                filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.testers)):
             self._compare_c_data_implementations(producer, consumer)
         log('\n')
 
@@ -207,6 +208,8 @@ class IntegrationRunner(object):
                     self.failures.append(outcome.failure)
                     if self.stop_on_error:
                         break
+                elif outcome.skipped:
+                    self.skips.append(outcome)
 
         else:
             with ThreadPoolExecutor() as executor:
@@ -215,6 +218,8 @@ class IntegrationRunner(object):
                         self.failures.append(outcome.failure)
                         if self.stop_on_error:
                             break
+                    elif outcome.skipped:
+                        self.skips.append(outcome)
 
     def _compare_ipc_implementations(
         self,
@@ -416,16 +421,18 @@ class IntegrationRunner(object):
         # Serial execution is required for proper memory accounting
         serial = True
 
-        exporter = producer.make_c_data_exporter()
-        importer = consumer.make_c_data_importer()
+        with producer.make_c_data_exporter() as exporter:
+            with consumer.make_c_data_importer() as importer:
+                case_runner = partial(self._run_c_schema_test_case,
+                                      producer, consumer,
+                                      exporter, importer)
+                self._run_test_cases(case_runner, self.json_files, serial=serial)
 
-        case_runner = partial(self._run_c_schema_test_case, producer, consumer,
-                              exporter, importer)
-        self._run_test_cases(case_runner, self.json_files, serial=serial)
-
-        case_runner = partial(self._run_c_array_test_cases, producer, consumer,
-                              exporter, importer)
-        self._run_test_cases(case_runner, self.json_files, serial=serial)
+                if producer.C_DATA_ARRAY_EXPORTER and consumer.C_DATA_ARRAY_IMPORTER:
+                    case_runner = partial(self._run_c_array_test_cases,
+                                          producer, consumer,
+                                          exporter, importer)
+                    self._run_test_cases(case_runner, self.json_files, serial=serial)
 
     def _run_c_schema_test_case(self,
                                 producer: Tester, consumer: Tester,
@@ -606,6 +613,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             skip_testers={"JS", "C#", "Rust"}
         ),
         Scenario(
+            "app_metadata_flight_info_endpoint",
+            description="Ensure support FlightInfo and Endpoint app_metadata",
+            skip_testers={"JS", "C#", "Rust"}
+        ),
+        Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
             skip_testers={"Rust"}
@@ -638,7 +650,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                 log(f'{exc_type}: {exc_value}')
             log()
 
-    log(fail_count, "failures")
+    log(f"{fail_count} failures, {len(runner.skips)} skips")
     if fail_count > 0:
         sys.exit(1)
 

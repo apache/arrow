@@ -130,6 +130,8 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
   switch (logical_type.type()) {
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
+    case LogicalType::Type::FLOAT16:
+      return ::arrow::float16();
     case LogicalType::Type::NONE:
     case LogicalType::Type::INTERVAL:
     case LogicalType::Type::UUID:

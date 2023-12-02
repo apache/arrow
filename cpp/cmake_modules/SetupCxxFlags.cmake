@@ -177,11 +177,6 @@ if(WIN32)
   add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 
   if(MSVC)
-    if(MSVC_VERSION VERSION_LESS 19)
-      message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
-      by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
-    endif()
-
     # ARROW-1931 See https://github.com/google/googletest/issues/1318
     #
     # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
@@ -456,11 +451,18 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
   # Don't complain about optimization passes that were not possible
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
 
-  # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
-  # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
-  # for details.
   if(APPLE)
-    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -fno-aligned-new")
+    # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
+    # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
+    # for details.
+    string(APPEND CXX_ONLY_FLAGS " -fno-aligned-new")
+
+    if(CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
+      # Avoid C++17 std::get 'not available' issue on macOS 10.13
+      # This will be required until atleast R 4.4 is released and
+      # CRAN (hopefully) stops checking on 10.13
+      string(APPEND CXX_ONLY_FLAGS " -D_LIBCPP_DISABLE_AVAILABILITY")
+    endif()
   endif()
 endif()
 

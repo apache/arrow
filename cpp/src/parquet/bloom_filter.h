@@ -310,10 +310,13 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// a Bloom filter from a parquet filter.
   ///
   /// @param properties The parquet reader properties.
-  /// @param input_stream The input stream from which to construct the Bloom filter.
+  /// @param input_stream The input stream from which to construct the bloom filter.
+  /// @param bloom_filter_length The length of the serialized bloom filter including
+  /// header.
   /// @return The BlockSplitBloomFilter.
-  static BlockSplitBloomFilter Deserialize(const ReaderProperties& properties,
-                                           ArrowInputStream* input_stream);
+  static BlockSplitBloomFilter Deserialize(
+      const ReaderProperties& properties, ArrowInputStream* input_stream,
+      std::optional<int64_t> bloom_filter_length = std::nullopt);
 
  private:
   inline void InsertHashImpl(uint64_t hash);
