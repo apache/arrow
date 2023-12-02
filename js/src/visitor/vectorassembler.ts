@@ -27,8 +27,9 @@ import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 import {
     DataType, Dictionary,
     Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, LargeUtf8,
 } from '../type.js';
+import { bigIntMin, bigIntToNumber } from '../util/bigint.js';
 
 /** @ignore */
 export interface VectorAssembler extends Visitor {
@@ -212,6 +213,19 @@ function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, 
 }
 
 /** @ignore */
+function assembleLargeFlatListVector<T extends LargeUtf8>(this: VectorAssembler, data: Data<T>) {
+    const { length, values, valueOffsets } = data;
+    const { [0]: begin, [length]: end } = valueOffsets;
+    // TODO: we can probably merge this method with assembleFlatListVector if byteLength is a bigint when values array can be indexed by bigints
+    const byteLength = bigIntMin(end - begin, BigInt(values.byteLength) - begin);
+    // Push in the order FlatList types read their buffers
+    addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets)); // valueOffsets buffer first
+    // TODO: remove bigIntToNumber when the values array can be indexed by bigints
+    addBuffer.call(this, values.subarray(bigIntToNumber(begin), bigIntToNumber(begin + byteLength))); // sliced values buffer second
+    return this;
+}
+
+/** @ignore */
 function assembleListVector<T extends Map_ | List | FixedSizeList>(this: VectorAssembler, data: Data<T>) {
     const { length, valueOffsets } = data;
     // If we have valueOffsets (MapVector, ListVector), push that buffer first
@@ -234,7 +248,7 @@ VectorAssembler.prototype.visitBool = assembleBoolVector;
 VectorAssembler.prototype.visitInt = assembleFlatVector;
 VectorAssembler.prototype.visitFloat = assembleFlatVector;
 VectorAssembler.prototype.visitUtf8 = assembleFlatListVector;
-VectorAssembler.prototype.visitLargeUtf8 = assembleFlatListVector;
+VectorAssembler.prototype.visitLargeUtf8 = assembleLargeFlatListVector;
 VectorAssembler.prototype.visitBinary = assembleFlatListVector;
 VectorAssembler.prototype.visitFixedSizeBinary = assembleFlatVector;
 VectorAssembler.prototype.visitDate = assembleFlatVector;

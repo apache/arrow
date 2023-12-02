@@ -67,7 +67,7 @@ export class JSONTypeAssembler extends Visitor {
         return { 'name': ArrowType[typeId].toLowerCase(), 'unit': IntervalUnit[unit] };
     }
     public visitDuration<T extends type.Duration>({ typeId, unit }: T) {
-        return { 'name': ArrowType[typeId].toLocaleLowerCase(), 'unit': TimeUnit[unit]};
+        return { 'name': ArrowType[typeId].toLocaleLowerCase(), 'unit': TimeUnit[unit] };
     }
     public visitList<T extends type.List>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };

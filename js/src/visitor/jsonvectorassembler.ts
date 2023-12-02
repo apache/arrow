@@ -42,7 +42,7 @@ export interface JSONVectorAssembler extends Visitor {
     visitInt<T extends Int>(data: Data<T>): { DATA: number[] | string[] };
     visitFloat<T extends Float>(data: Data<T>): { DATA: number[] };
     visitUtf8<T extends Utf8>(data: Data<T>): { DATA: string[]; OFFSET: number[] };
-    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>): { DATA: string[]; OFFSET: bigint[] };
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>): { DATA: string[]; OFFSET: string[] };
     visitBinary<T extends Binary>(data: Data<T>): { DATA: string[]; OFFSET: number[] };
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>): { DATA: string[] };
     visitDate<T extends Date_>(data: Data<T>): { DATA: number[] };
@@ -102,7 +102,7 @@ export class JSONVectorAssembler extends Visitor {
         return { 'DATA': [...new Vector([data])], 'OFFSET': [...data.valueOffsets] };
     }
     public visitLargeUtf8<T extends LargeUtf8>(data: Data<T>) {
-        return { 'DATA': [...new Vector([data])], 'OFFSET': [...data.valueOffsets] };
+        return { 'DATA': [...new Vector([data])], 'OFFSET': [...bigNumsToStrings(data.valueOffsets, 2)] };
     }
     public visitBinary<T extends Binary>(data: Data<T>) {
         return { 'DATA': [...binaryToString(new Vector([data]))], OFFSET: [...data.valueOffsets] };

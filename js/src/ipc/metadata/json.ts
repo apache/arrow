@@ -150,7 +150,7 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
         case 'null': return new Null();
         case 'binary': return new Binary();
         case 'utf8': return new Utf8();
-        case 'largeUtf8': return new LargeUtf8();
+        case 'largeutf8': return new LargeUtf8();
         case 'bool': return new Bool();
         case 'list': return new List((children || [])[0]);
         case 'struct': return new Struct(children || []);

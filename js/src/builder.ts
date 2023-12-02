@@ -284,13 +284,10 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         let valueOffsets;
         const { type, length, nullCount, _typeIds, _offsets, _values, _nulls } = this;
 
-        if (typeIds = _typeIds?.flush(length)) { // Unions
-            // DenseUnions
+        if (typeIds = _typeIds?.flush(length)) { // Unions, DenseUnions
             valueOffsets = _offsets?.flush(length);
-        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
-            // Binary, Utf8, LargeUtf8
-            const last = _offsets.last();
-            data = _values?.flush(last != undefined ? Number(last) : last);
+        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8, LargeUtf8), and Lists
+            data = _values?.flush(_offsets.last());
         } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, Duration and Interval)
             data = _values?.flush(length);
         }
