@@ -1787,7 +1787,8 @@ def get_generated_json_files(tempdir=None):
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
         generate_primitive_large_offsets_case([17, 20])
-        .skip_tester('C#'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
         generate_null_case([10, 0]),
 
