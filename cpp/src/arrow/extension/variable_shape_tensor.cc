@@ -41,31 +41,11 @@ namespace extension {
 const Result<std::shared_ptr<Tensor>> VariableShapeTensorArray::GetTensor(
     const int64_t i) const {
   auto ext_arr = internal::checked_pointer_cast<StructArray>(this->storage());
-  auto ext_type = internal::checked_pointer_cast<VariableShapeTensorType>(this->type());
-  auto value_type = ext_type->value_type();
-  auto ndim = ext_type->ndim();
-  auto dim_names = ext_type->dim_names();
-  auto shapes =
-      std::static_pointer_cast<FixedSizeListArray>(ext_arr->field(0))->value_slice(i);
-
-  std::vector<int64_t> shape;
-  for (int64_t j = 0; j < ndim; ++j) {
-    ARROW_ASSIGN_OR_RAISE(auto size, shapes->GetScalar(j));
-    shape.push_back(std::static_pointer_cast<Int32Scalar>(size)->value);
-  }
-
-  std::vector<int64_t> strides;
-  // TODO: optimize ComputeStrides for non-uniform tensors
-  ARROW_CHECK_OK(
-      internal::ComputeStrides(value_type, shape, ext_type->permutation(), &strides));
-
-  const auto list_arr =
-      std::static_pointer_cast<ListArray>(ext_arr->field(1))->value_slice(i)->data();
-  const auto byte_width = value_type->byte_width();
-  const auto buffer = SliceBuffer(list_arr->buffers[1], list_arr->offset * byte_width,
-                                  list_arr->length * byte_width);
-
-  return Tensor::Make(value_type, buffer, shape, strides, dim_names);
+  const auto ext_type =
+      internal::checked_pointer_cast<VariableShapeTensorType>(this->type());
+  ARROW_ASSIGN_OR_RAISE(const auto tensor_scalar, this->GetScalar(i));
+  return ext_type->GetTensor(
+      internal::checked_pointer_cast<ExtensionScalar>(tensor_scalar));
 }
 
 bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
@@ -224,8 +204,15 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   const auto& shape_array = internal::checked_cast<const Int32Array&>(
       *internal::checked_cast<const FixedSizeListScalar&>(*shape_scalar).value);
 
+  auto permutation = this->permutation();
+  if (permutation.empty()) {
+    for (int64_t j = 0; j < static_cast<int64_t>(this->ndim()); ++j) {
+      permutation.emplace_back(j);
+    }
+  }
+
   std::vector<int64_t> shape;
-  for (int32_t j = 0; j < this->ndim(); ++j) {
+  for (int64_t j : permutation) {
     ARROW_ASSIGN_OR_RAISE(const auto size, shape_array.GetScalar(j));
     const auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
     if (size_value < 0) {
@@ -234,7 +221,15 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
     shape.push_back(size_value);
   }
 
-  // TODO: optimize ComputeStrides for non-uniform tensors
+  std::vector<std::string> dim_names;
+  if (!this->dim_names().empty()) {
+    for (auto j : permutation) {
+      dim_names.emplace_back(this->dim_names()[j]);
+    }
+  } else {
+    dim_names = {};
+  }
+
   std::vector<int64_t> strides;
   ARROW_CHECK_OK(
       internal::ComputeStrides(this->value_type(), shape, this->permutation(), &strides));
@@ -246,11 +241,10 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
                                     std::multiplies<>());
 
   // Create a slice of the buffer
-  std::shared_ptr<arrow::Buffer> buffer =
-      arrow::SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
+  const std::shared_ptr<arrow::Buffer> buffer =
+      SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
 
-  return Tensor::Make(this->value_type(), std::move(buffer), std::move(shape),
-                      std::move(strides), this->dim_names());
+  return Tensor::Make(this->value_type(), buffer, shape, strides, this->dim_names());
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
