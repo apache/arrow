@@ -72,7 +72,7 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   std::string ToString() const override;
 
   /// Number of dimensions of tensor elements
-  const size_t ndim() const { return shape_.size(); }
+  size_t ndim() const { return shape_.size(); }
 
   /// Shape of tensor elements
   const std::vector<int64_t> shape() const { return shape_; }
