@@ -23,6 +23,10 @@ import org.apache.arrow.flight.impl.Flight;
  * A union-like container interface for supported session option value types.
  */
 public interface SessionOptionValue {
+    SessionOptionValue(Flight.SessionOptionValue) {
+        // TODO PHOXME impl
+    }
+
     /**
      * Value access via a caller-provided visitor/functor.
      */
