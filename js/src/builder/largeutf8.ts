@@ -45,7 +45,7 @@ export class LargeUtf8Builder<TNull = any> extends VariableWidthBuilder<LargeUtf
         let offset = 0;
         for (const [index, value] of pending) {
             if (value === undefined) {
-                offsets.set(index, 0n);
+                offsets.set(index, BigInt(0));
             } else {
                 const length = value.length;
                 data.set(value, offset);

@@ -144,7 +144,7 @@ export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<
     }
     public flush(length = this.length - 1) {
         if (length > this.length) {
-            this.set(length - 1, this.BYTES_PER_ELEMENT > 4 ? 0n : 0);
+            this.set(length - 1, this.BYTES_PER_ELEMENT > 4 ? BigInt(0) : 0);
         }
         return super.flush(length + 1);
     }
