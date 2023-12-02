@@ -163,7 +163,6 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     public toVector() { return new Vector([this.flush()]); }
 
     public get ArrayType() { return this.type.ArrayType; }
-    public get OffsetArrayType() { return this.type.OffsetArrayType; }
     public get nullCount() { return this._nulls.numInvalid; }
     public get numChildren() { return this.children.length; }
 
