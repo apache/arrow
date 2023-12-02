@@ -49,6 +49,8 @@ namespace Apache.Arrow.Tests
             Table table = MakeTableWithOneColumnOfTwoIntArrays(10);
             Assert.Equal(20, table.RowCount);
             Assert.Equal(1, table.ColumnCount);
+            Assert.Equal("Table: 1 columns by 20 rows", table.ToString());
+            Assert.Equal("ChunkedArray: Length=20, DataType=int32", table.Column(0).Data.ToString());
         }
 
         [Fact]
@@ -61,6 +63,7 @@ namespace Apache.Arrow.Tests
             Table table1 = Table.TableFromRecordBatches(recordBatch1.Schema, recordBatches);
             Assert.Equal(20, table1.RowCount);
             Assert.Equal(27, table1.ColumnCount);
+            Assert.Equal("ChunkedArray: Length=20, DataType=list", table1.Column(0).Data.ToString());
 
             FixedSizeBinaryType type = new FixedSizeBinaryType(17);
             Field newField1 = new Field(type.Name, type, false);
@@ -83,6 +86,9 @@ namespace Apache.Arrow.Tests
         public void TestTableAddRemoveAndSetColumn()
         {
             Table table = MakeTableWithOneColumnOfTwoIntArrays(10);
+            Assert.Equal("Table: 1 columns by 20 rows", table.ToString());
+            Assert.Equal("Field: Name=f0, DataType=int32, IsNullable=True, Metadata count=0", table.Column(0).Field.ToString());
+            Assert.Equal("ChunkedArray: Length=20, DataType=int32", table.Column(0).Data.ToString());
 
             Array nonEqualLengthIntArray = ColumnTests.MakeIntArray(10);
             Field field1 = new Field.Builder().Name("f1").DataType(Int32Type.Default).Build();

@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/decimal256"
-	"github.com/apache/arrow/go/v14/arrow/scalar"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
 	"golang.org/x/exp/constraints"
 )
 
@@ -619,7 +619,7 @@ func (rnd *roundToMultipleDec[T]) call(_ *exec.KernelCtx, arg T, e *error) T {
 	if rnd.mode >= HalfDown {
 		if rnd.hasHalfwayPoint && (remainder == rnd.halfMult || remainder == rnd.negHalfMult) {
 			// on the halfway point, use tiebreaker
-			// manually implement rounding since we're not actually rounding
+			// manually implement rounding since we aren't actually rounding
 			// a decimal value, but rather manipulating the multiple
 			switch rnd.mode {
 			case HalfDown:
@@ -666,7 +666,7 @@ func (rnd *roundToMultipleDec[T]) call(_ *exec.KernelCtx, arg T, e *error) T {
 			}
 		}
 	} else {
-		// manually implement rounding since we're not actually rounding
+		// manually implement rounding since we aren't actually rounding
 		// a decimal value, but rather manipulating the multiple
 		switch rnd.mode {
 		case RoundDown:

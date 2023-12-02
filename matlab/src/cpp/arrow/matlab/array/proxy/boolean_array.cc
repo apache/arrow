@@ -53,7 +53,7 @@ namespace arrow::matlab::array::proxy {
         void BooleanArray::toMATLAB(libmexclass::proxy::method::Context& context) {
             auto array_length = array->length();
             auto packed_logical_data_buffer = std::static_pointer_cast<arrow::BooleanArray>(array)->values();
-            auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length);
+            auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length, array->offset());
             context.outputs[0] = logical_array_mda;
         }
 }

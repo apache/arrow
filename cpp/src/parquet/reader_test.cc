@@ -116,6 +116,10 @@ std::string rle_dict_uncompressed_corrupt_checksum() {
   return data_file("rle-dict-uncompressed-corrupt-checksum.parquet");
 }
 
+std::string concatenated_gzip_members() {
+  return data_file("concatenated_gzip_members.parquet");
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -502,6 +506,42 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
   ASSERT_THROW(printer2.DebugPrint(ss, columns), ParquetException);
 }
 
+// Tests that read_dense_for_nullable is passed down to the record
+// reader. The functionality of read_dense_for_nullable is tested
+// elsewhere.
+TEST(TestFileReader, RecordReaderReadDenseForNullable) {
+  // We test the default which is false, and also test enabling and disabling
+  // read_dense_for_nullable.
+  std::vector<ReaderProperties> reader_properties(3);
+  reader_properties[1].enable_read_dense_for_nullable();
+  reader_properties[2].disable_read_dense_for_nullable();
+  for (const auto& reader_props : reader_properties) {
+    std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
+        alltypes_plain(), /* memory_map = */ false, reader_props);
+    std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
+    std::shared_ptr<internal::RecordReader> col_record_reader = group->RecordReader(0);
+    ASSERT_EQ(reader_props.read_dense_for_nullable(),
+              col_record_reader->read_dense_for_nullable());
+  }
+}
+
+// Tests getting a record reader from a row group reader.
+TEST(TestFileReader, GetRecordReader) {
+  ReaderProperties reader_props;
+  std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
+      alltypes_plain(), /* memory_map = */ false, reader_props);
+  std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
+
+  std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
+
+  ASSERT_TRUE(col_record_reader_->HasMoreData());
+  auto records_read = col_record_reader_->ReadRecords(4);
+  ASSERT_EQ(records_read, 4);
+  ASSERT_EQ(4, col_record_reader_->values_written());
+  ASSERT_EQ(4, col_record_reader_->levels_position());
+  ASSERT_EQ(8, col_record_reader_->levels_written());
+}
+
 class TestLocalFile : public ::testing::Test {
  public:
   void SetUp() {
@@ -739,6 +779,28 @@ TEST_F(TestCheckDataPageCrc, CorruptDict) {
 
     CheckNextPageCorrupt(page_readers_[1].get());
     EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+  }
+}
+
+TEST(TestGzipMembersRead, TwoConcatenatedMembers) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
+  auto file_reader = ParquetFileReader::OpenFile(concatenated_gzip_members(),
+                                                 /*memory_map=*/false);
+  auto col_reader = std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(
+      file_reader->RowGroup(0)->Column(0));
+  int64_t num_values = 0;
+  int64_t num_repdef = 0;
+  std::vector<int16_t> reps(1024);
+  std::vector<int16_t> defs(1024);
+  std::vector<int64_t> vals(1024);
+
+  num_repdef =
+      col_reader->ReadBatch(1024, defs.data(), reps.data(), vals.data(), &num_values);
+  EXPECT_EQ(num_repdef, 513);
+  for (int64_t i = 0; i < num_repdef; i++) {
+    EXPECT_EQ(i + 1, vals[i]);
   }
 }
 

@@ -1520,8 +1520,7 @@ def generate_decimal128_case():
         for i, precision in enumerate(range(3, 39))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     # 'decimal' is the original name for the test, and it must match
     # provide "gold" files that test backwards compatibility, so they
     # can be appropriately skipped.
@@ -1535,8 +1534,7 @@ def generate_decimal256_case():
         for i, precision in enumerate(range(37, 70))
     ]
 
-    possible_batch_sizes = 7, 10
-    batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
+    batch_sizes = [7, 10]
     return _generate_file('decimal256', fields, batch_sizes)
 
 
@@ -1722,7 +1720,6 @@ def generate_dictionary_unsigned_case():
 
     # TODO: JavaScript does not support uint64 dictionary indices, so disabled
     # for now
-
     # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
     fields = [
         DictionaryField('f0', get_field('', 'uint8'), dict0),
@@ -1855,7 +1852,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_binary_view_case()
-        .skip_tester('C++')
         .skip_tester('C#')
         .skip_tester('Go')
         .skip_tester('Java')

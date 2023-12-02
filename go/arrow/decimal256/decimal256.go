@@ -23,8 +23,8 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v14/arrow/decimal128"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 const (
@@ -125,7 +125,7 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 	// math/big library refers to precision in floating point terms
 	// where it refers to the "number of bits of precision in the mantissa".
 	// So we need to figure out how many bits we should use for precision,
-	// based on the input precision. Too much precision and we're not rounding
+	// based on the input precision. Too much precision and we aren't rounding
 	// when we should. Too little precision and we round when we shouldn't.
 	//
 	// In general, the number of decimal digits you get from a given number
@@ -154,23 +154,34 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		return
 	}
 
-	out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits)
-	// Since we're going to truncate this to get an integer, we need to round
-	// the value instead because of edge cases so that we match how other implementations
-	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
-	// we're positive we'll add 0.5.
-	if out.Signbit() {
-		out.Sub(out, pt5)
-	} else {
-		out.Add(out, pt5)
-	}
+	if scale < 0 {
+		var tmp big.Int
+		val, _ := out.Int(&tmp)
+		if val.BitLen() > 255 {
+			return Num{}, errors.New("bitlen too large for decimal256")
+		}
+		n = FromBigInt(val)
 
-	var tmp big.Int
-	val, _ := out.Int(&tmp)
-	if val.BitLen() > 255 {
-		return Num{}, errors.New("bitlen too large for decimal256")
+		n, _ = n.Div(scaleMultipliers[-scale])
+	} else {
+		out.Mul(out, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt())).SetPrec(precInBits)
+		// Since we're going to truncate this to get an integer, we need to round
+		// the value instead because of edge cases so that we match how other implementations
+		// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
+		// we're positive we'll add 0.5.
+		if out.Signbit() {
+			out.Sub(out, pt5)
+		} else {
+			out.Add(out, pt5)
+		}
+
+		var tmp big.Int
+		val, _ := out.Int(&tmp)
+		if val.BitLen() > 255 {
+			return Num{}, errors.New("bitlen too large for decimal256")
+		}
+		n = FromBigInt(val)
 	}
-	n = FromBigInt(val)
 	if !n.FitsInPrecision(prec) {
 		err = fmt.Errorf("value %v doesn't fit in precision %d", n, prec)
 	}
@@ -506,7 +517,11 @@ func (n Num) FitsInPrecision(prec int32) bool {
 
 func (n Num) ToString(scale int32) string {
 	f := (&big.Float{}).SetInt(n.BigInt())
-	f.Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	if scale < 0 {
+		f.SetPrec(256).Mul(f, (&big.Float{}).SetInt(scaleMultipliers[-scale].BigInt()))
+	} else {
+		f.SetPrec(256).Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	}
 	return f.Text('f', int(scale))
 }
 

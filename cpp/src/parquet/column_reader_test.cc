@@ -1587,8 +1587,8 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
 };
 
 // Tests reading and skipping a ByteArray field.
-// The binary readers only differ in DeocdeDense and DecodeSpaced functions, so
-// testing optional is sufficient in excercising those code paths.
+// The binary readers only differ in DecodeDense and DecodeSpaced functions, so
+// testing optional is sufficient in exercising those code paths.
 TEST_P(ByteArrayRecordReaderTest, ReadAndSkipOptional) {
   MakeRecordReader(/*levels_per_page=*/90, /*num_pages=*/1);
 

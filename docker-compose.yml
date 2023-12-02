@@ -33,7 +33,7 @@
 # command `make unittest` or `ctest --output-on-failure` the correct coredump
 # patterns must be set.
 # The kernel settings are coming from the host, so while it can be enabled from
-# a running container using --priviled option the change will affect all other
+# a running container using --privileged option the change will affect all other
 # containers, so prefer setting it explicitly, directly on the host.
 # WARNING: setting this will affect the host machine.
 #
@@ -135,11 +135,10 @@ x-hierarchy:
   - debian-go:
     - debian-go-cgo
     - debian-go-cgo-python
-  - debian-java
   - debian-js
-  - eclipse-java
   - fedora-cpp:
     - fedora-python
+  - java
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -655,7 +654,7 @@ services:
     #   docker-compose run --rm fedora-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 33
+    #   FEDORA: 38
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     build:
       context: .
@@ -671,7 +670,6 @@ services:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
-      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
@@ -957,7 +955,7 @@ services:
     #   docker-compose run --rm fedora-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   FEDORA: 33
+    #   FEDORA: 38
     image: ${REPO}:${ARCH}-fedora-${FEDORA}-python-3
     build:
       context: .
@@ -969,7 +967,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
-      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: *fedora-volumes
     command: *python-command
 
@@ -1676,14 +1673,14 @@ services:
 
   ################################ Java #######################################
 
-  debian-java:
+  java:
     # Usage:
-    #   docker-compose build debian-java
-    #   docker-compose run debian-java
+    #   docker-compose build java
+    #   docker-compose run java
     # Parameters:
-    #   MAVEN: 3.5.4, 3.6.2
-    #   JDK: 8, 11
-    image: ${ARCH}/maven:${MAVEN}-jdk-${JDK}
+    #   MAVEN: 3.9.5
+    #   JDK: 8, 11, 17, 21
+    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
@@ -1692,18 +1689,6 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
-
-  eclipse-java:
-    # Usage:
-    #   docker-compose build eclipse-java
-    #   docker-compose run eclipse-java
-    # Parameters:
-    #   MAVEN: 3.9.3
-    #   JDK: 17, 20
-    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
-    shm_size: *shm-size
-    volumes: *java-volumes
-    command: *java-command
 
   ############################## Integration ##################################
 
@@ -1721,7 +1706,8 @@ services:
       args:
         repo: ${REPO}
         arch: ${ARCH}
-        jdk: ${JDK}
+        # Use a newer JDK as it seems to improve stability
+        jdk: 17
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
         maven: 3.5
@@ -1730,17 +1716,12 @@ services:
     volumes: *conda-volumes
     environment:
       <<: [*common, *ccache]
-      # tell archery where the arrow binaries are located
-      ARROW_CPP_EXE_PATH: /build/cpp/debug
-      ARROW_GO_INTEGRATION: 1
       ARCHERY_INTEGRATION_WITH_RUST: 0
+      # Tell Archery where Arrow binaries are located
+      ARROW_CPP_EXE_PATH: /build/cpp/debug
+      ARROW_RUST_EXE_PATH: /build/rust/debug
     command:
-      ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/csharp_build.sh /arrow /build &&
-        /arrow/ci/scripts/go_build.sh /arrow &&
-        /arrow/ci/scripts/java_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_build.sh /arrow /build &&
+      ["/arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 
   ################################ Docs #######################################

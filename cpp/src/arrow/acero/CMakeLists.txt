@@ -49,9 +49,11 @@ set(ARROW_ACERO_SRCS
     project_node.cc
     query_context.cc
     sink_node.cc
+    sorted_merge_node.cc
     source_node.cc
     swiss_join.cc
     task_util.cc
+    time_series_util.cc
     tpch_node.cc
     union_node.cc
     util.cc)
@@ -123,8 +125,7 @@ if(ARROW_TESTING)
   add_library(arrow_acero_testing OBJECT test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_acero_testing ${ARROW_ACERO_TEST_LINK_LIBS})
-  target_link_libraries(arrow_acero_testing ${ARROW_GTEST_GTEST})
+  target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_ACERO_TEST_LINK_LIBS})
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
 endif()
 
@@ -174,11 +175,13 @@ add_arrow_acero_test(hash_join_node_test SOURCES hash_join_node_test.cc
 add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc
                      test_nodes.cc)
 
-# asof_join_node uses std::thread internally
+# asof_join_node and sorted_merge_node use std::thread internally
 # and doesn't use ThreadPool so it will
 # be broken if threading is turned off
 if(ARROW_ENABLE_THREADING)
   add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc test_nodes.cc)
+  add_arrow_acero_test(sorted_merge_node_test SOURCES sorted_merge_node_test.cc
+                       test_nodes.cc)
 endif()
 
 add_arrow_acero_test(tpch_node_test SOURCES tpch_node_test.cc)

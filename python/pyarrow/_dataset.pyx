@@ -853,7 +853,7 @@ cdef class Dataset(_Weakrefable):
             Which suffix to add to right column names. This prevents confusion
             when the columns in left and right datasets have colliding names.
         right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
+            Which suffix to add to the left column names. This prevents confusion
             when the columns in left and right datasets have colliding names.
         coalesce_keys : bool, default True
             If the duplicated keys should be omitted from one of the sides
@@ -1016,7 +1016,7 @@ cdef class FileSystemDataset(Dataset):
         elif not isinstance(root_partition, Expression):
             raise TypeError(
                 "Argument 'root_partition' has incorrect type (expected "
-                "Epression, got {0})".format(type(root_partition))
+                "Expression, got {0})".format(type(root_partition))
             )
 
         for fragment in fragments:
@@ -3227,7 +3227,7 @@ cdef class RecordBatchIterator(_Weakrefable):
         object iterator_owner
         # Iterator is a non-POD type and Cython uses offsetof, leading
         # to a compiler warning unless wrapped like so
-        shared_ptr[CRecordBatchIterator] iterator
+        SharedPtrNoGIL[CRecordBatchIterator] iterator
 
     def __init__(self):
         _forbid_instantiation(self.__class__, subclasses_instead=False)
@@ -3273,7 +3273,7 @@ cdef class TaggedRecordBatchIterator(_Weakrefable):
     """An iterator over a sequence of record batches with fragments."""
     cdef:
         object iterator_owner
-        shared_ptr[CTaggedRecordBatchIterator] iterator
+        SharedPtrNoGIL[CTaggedRecordBatchIterator] iterator
 
     def __init__(self):
         _forbid_instantiation(self.__class__, subclasses_instead=False)

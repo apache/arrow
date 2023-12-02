@@ -1019,7 +1019,7 @@ def test_key_value_metadata():
     assert md['b'] == b'beta'
     assert md.get_all('a') == [b'alpha', b'Alpha', b'ALPHA']
     assert md.get_all('b') == [b'beta']
-    assert md.get_all('unkown') == []
+    assert md.get_all('unknown') == []
 
     with pytest.raises(KeyError):
         md = pa.KeyValueMetadata([
@@ -1225,3 +1225,17 @@ def test_types_come_back_with_specific_type():
         schema = pa.schema([pa.field("field_name", arrow_type)])
         type_back = schema.field("field_name").type
         assert type(type_back) is type(arrow_type)
+
+
+def test_schema_import_c_schema_interface():
+    class Wrapper:
+        def __init__(self, schema):
+            self.schema = schema
+
+        def __arrow_c_schema__(self):
+            return self.schema.__arrow_c_schema__()
+
+    schema = pa.schema([pa.field("field_name", pa.int32())])
+    wrapped_schema = Wrapper(schema)
+
+    assert pa.schema(wrapped_schema) == schema

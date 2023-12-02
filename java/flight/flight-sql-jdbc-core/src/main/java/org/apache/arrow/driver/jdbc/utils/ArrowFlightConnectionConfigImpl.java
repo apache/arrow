@@ -109,6 +109,18 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.getBoolean(properties);
   }
 
+  public String getTlsRootCertificatesPath() {
+    return ArrowFlightConnectionProperty.TLS_ROOT_CERTS.getString(properties);
+  }
+
+  public String getClientCertificatePath() {
+    return ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.getString(properties);
+  }
+
+  public String getClientKeyPath() {
+    return ArrowFlightConnectionProperty.CLIENT_KEY.getString(properties);
+  }
+
   /**
    * Whether to use TLS encryption.
    *
@@ -129,6 +141,22 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    */
   public int threadPoolSize() {
     return ArrowFlightConnectionProperty.THREAD_POOL_SIZE.getInteger(properties);
+  }
+
+  /**
+   * Indicates if sub-connections created for stream retrieval
+   * should reuse cookies from the main connection.
+   */
+  public boolean retainCookies() {
+    return ArrowFlightConnectionProperty.RETAIN_COOKIES.getBoolean(properties);
+  }
+
+  /**
+   * Indicates if sub-connections created for stream retrieval
+   * should reuse bearer tokens created from the main connection.
+   */
+  public boolean retainAuth() {
+    return ArrowFlightConnectionProperty.RETAIN_AUTH.getBoolean(properties);
   }
 
   /**
@@ -175,8 +203,13 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     TRUST_STORE("trustStore", null, Type.STRING, false),
     TRUST_STORE_PASSWORD("trustStorePassword", null, Type.STRING, false),
     USE_SYSTEM_TRUST_STORE("useSystemTrustStore", true, Type.BOOLEAN, false),
+    TLS_ROOT_CERTS("tlsRootCerts", null, Type.STRING, false),
+    CLIENT_CERTIFICATE("clientCertificate", null, Type.STRING, false),
+    CLIENT_KEY("clientKey", null, Type.STRING, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
-    TOKEN("token", null, Type.STRING, false);
+    TOKEN("token", null, Type.STRING, false),
+    RETAIN_COOKIES("retainCookies", true, Type.BOOLEAN, false),
+    RETAIN_AUTH("retainAuth", true, Type.BOOLEAN, false);
 
     private final String camelName;
     private final Object defaultValue;

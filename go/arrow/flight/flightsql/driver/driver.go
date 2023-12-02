@@ -25,11 +25,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/flight"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -159,7 +159,7 @@ func (s *Stmt) NumInput() int {
 	// If NumInput returns >= 0, the sql package will sanity check argument
 	// counts from callers and return errors to the caller before the
 	// statement's Exec or Query methods are called.
-	return len(schema.Fields())
+	return schema.NumFields()
 }
 
 // Exec executes a query that doesn't return rows, such

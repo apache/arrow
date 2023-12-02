@@ -96,10 +96,7 @@ namespace {
 template <typename ConstIterator>
 struct AppendScalarImpl {
   template <typename T>
-  enable_if_t<has_c_type<T>::value || is_decimal_type<T>::value ||
-                  is_fixed_size_binary_type<T>::value,
-              Status>
-  Visit(const T&) {
+  Status HandleFixedWidth(const T&) {
     auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
     RETURN_NOT_OK(builder->Reserve(n_repeats_ * (scalars_end_ - scalars_begin_)));
 
@@ -117,7 +114,16 @@ struct AppendScalarImpl {
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+  enable_if_t<has_c_type<T>::value, Status> Visit(const T& t) {
+    return HandleFixedWidth(t);
+  }
+
+  Status Visit(const FixedSizeBinaryType& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal128Type& t) { return HandleFixedWidth(t); }
+  Status Visit(const Decimal256Type& t) { return HandleFixedWidth(t); }
+
+  template <typename T>
+  enable_if_has_string_view<T, Status> Visit(const T&) {
     int64_t data_size = 0;
     for (auto it = scalars_begin_; it != scalars_end_; ++it) {
       const auto& scalar = checked_cast<const typename TypeTraits<T>::ScalarType&>(*it);
@@ -144,7 +150,8 @@ struct AppendScalarImpl {
   }
 
   template <typename T>
-  enable_if_list_like<T, Status> Visit(const T&) {
+  enable_if_t<is_list_view_type<T>::value || is_list_like_type<T>::value, Status> Visit(
+      const T&) {
     auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
     int64_t num_children = 0;
     for (auto it = scalars_begin_; it != scalars_end_; ++it) {
@@ -156,8 +163,12 @@ struct AppendScalarImpl {
     for (int64_t i = 0; i < n_repeats_; i++) {
       for (auto it = scalars_begin_; it != scalars_end_; ++it) {
         if (it->is_valid) {
-          RETURN_NOT_OK(builder->Append());
           const Array& list = *checked_cast<const BaseListScalar&>(*it).value;
+          if constexpr (T::type_id == Type::MAP || T::type_id == Type::FIXED_SIZE_LIST) {
+            RETURN_NOT_OK(builder->Append());
+          } else {
+            RETURN_NOT_OK(builder->Append(/*is_valid=*/true, list.length()));
+          }
           for (int64_t i = 0; i < list.length(); i++) {
             ARROW_ASSIGN_OR_RAISE(auto scalar, list.GetScalar(i));
             RETURN_NOT_OK(builder->value_builder()->AppendScalar(*scalar));

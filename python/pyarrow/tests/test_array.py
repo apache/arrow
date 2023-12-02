@@ -989,7 +989,7 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
     reconstructed_arr = list_array_type.from_arrays(arr.offsets, arr.values)
     assert reconstructed_arr.to_pylist() == [[0], [], [0, None], [0]]
 
-    # Manually specifiying offsets (with nulls) is same as mask at top level
+    # Manually specifying offsets (with nulls) is same as mask at top level
     reconstructed_arr = list_array_type.from_arrays(offsets, arr.values)
     assert arr == reconstructed_arr
     reconstructed_arr = list_array_type.from_arrays(arr.offsets,
@@ -3334,6 +3334,24 @@ def test_array_protocol():
     result = pa.array(arr)
     expected = pa.chunked_array([[1, 2, 3], [1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
+
+
+def test_c_array_protocol():
+    class ArrayWrapper:
+        def __init__(self, data):
+            self.data = data
+
+        def __arrow_c_array__(self, requested_type=None):
+            return self.data.__arrow_c_array__(requested_type)
+
+    # Can roundtrip through the C array protocol
+    arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))
+    result = pa.array(arr)
+    assert result == arr.data
+
+    # Will case to requested type
+    result = pa.array(arr, type=pa.int32())
+    assert result == pa.array([1, 2, 3], type=pa.int32())
 
 
 def test_concat_array():

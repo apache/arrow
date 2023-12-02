@@ -283,6 +283,7 @@ the bundled build script.  All boolean variables are case-insensitive.
 | --- | --- | :-: |
 | `LIBARROW_BUILD` | Allow building from source | `true` |
 | `LIBARROW_BINARY` | Try to install `libarrow` binary instead of building from source | (unset) |
+| `LIBARROW_DOWNLOAD` | Set to `false` to explicitly forbid fetching a `libarrow` binary | (unset) |
 | `LIBARROW_MINIMAL` | Build with minimal features enabled | (unset) |
 | `NOT_CRAN` | Set `LIBARROW_BINARY=true` and `LIBARROW_MINIMAL=false` | `false` |
 | `ARROW_R_DEV` | More verbose messaging and regenerates some code | `false` |

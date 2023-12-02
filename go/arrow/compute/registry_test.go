@@ -23,9 +23,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/compute"
-	"github.com/apache/arrow/go/v14/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/compute"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )
@@ -81,7 +81,7 @@ func TestRegistryBasics(t *testing.T) {
 			assert.True(t, ok)
 			assert.Same(t, fn, f1)
 
-			// non-existent
+			// nonexistent
 			_, ok = registry.GetFunction("f2")
 			assert.False(t, ok)
 

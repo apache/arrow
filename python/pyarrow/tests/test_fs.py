@@ -463,7 +463,7 @@ def check_mtime_or_absent(file_info):
 
 
 def skip_fsspec_s3fs(fs):
-    if fs.type_name == "py::fsspec+s3":
+    if fs.type_name == "py::fsspec+('s3', 's3a')":
         pytest.xfail(reason="Not working with fsspec's s3fs")
 
 
@@ -631,7 +631,7 @@ def test_get_file_info(fs, pathfn):
     assert aaa_info.path == aaa
     assert 'aaa' in repr(aaa_info)
     assert aaa_info.extension == ''
-    if fs.type_name == "py::fsspec+s3":
+    if fs.type_name == "py::fsspec+('s3', 's3a')":
         # s3fs doesn't create empty directories
         assert aaa_info.type == FileType.NotFound
     else:
@@ -646,7 +646,7 @@ def test_get_file_info(fs, pathfn):
     assert bb_info.type == FileType.File
     assert 'FileType.File' in repr(bb_info)
     assert bb_info.size == 0
-    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+('s3', 's3a')"]:
         check_mtime(bb_info)
 
     assert c_info.path == str(c)
@@ -655,7 +655,7 @@ def test_get_file_info(fs, pathfn):
     assert c_info.type == FileType.File
     assert 'FileType.File' in repr(c_info)
     assert c_info.size == 4
-    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+s3"]:
+    if fs.type_name not in ["py::fsspec+memory", "py::fsspec+('s3', 's3a')"]:
         check_mtime(c_info)
 
     assert zzz_info.path == str(zzz)
@@ -698,7 +698,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         assert selector.base_dir == base_dir
 
         infos = fs.get_file_info(selector)
-        if fs.type_name == "py::fsspec+s3":
+        if fs.type_name == "py::fsspec+('s3', 's3a')":
             # s3fs only lists directories if they are not empty
             len(infos) == 4
         else:
@@ -719,7 +719,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         selector = FileSelector(base_dir, recursive=False)
 
         infos = fs.get_file_info(selector)
-        if fs.type_name == "py::fsspec+s3":
+        if fs.type_name == "py::fsspec+('s3', 's3a')":
             # s3fs only lists directories if they are not empty
             assert len(infos) == 3
         else:
@@ -1303,12 +1303,12 @@ def test_s3_proxy_options(monkeypatch, pickle_module):
     # Missing port
     with pytest.raises(KeyError):
         S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
-    # Invalid proxy URI (invalid scheme htttps)
+    # Invalid proxy URI (invalid scheme httpsB)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options='htttps://localhost:9000')
-    # Invalid proxy_options dict (invalid scheme htttps)
+        S3FileSystem(proxy_options='httpsB://localhost:9000')
+    # Invalid proxy_options dict (invalid scheme httpA)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options={'scheme': 'htttp', 'host': 'localhost',
+        S3FileSystem(proxy_options={'scheme': 'httpA', 'host': 'localhost',
                                     'port': 8999})
 
 
@@ -1690,11 +1690,11 @@ def test_s3_real_aws_region_selection():
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
-    # Non-existent bucket (hopefully, otherwise need to fix this test)
+    # Nonexistent bucket (hopefully, otherwise need to fix this test)
     with pytest.raises(IOError, match="Bucket '.*' not found"):
-        FileSystem.from_uri('s3://x-arrow-non-existent-bucket')
+        FileSystem.from_uri('s3://x-arrow-nonexistent-bucket')
     fs, path = FileSystem.from_uri(
-        's3://x-arrow-non-existent-bucket?region=us-east-3')
+        's3://x-arrow-nonexistent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
 
 

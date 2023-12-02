@@ -335,7 +335,7 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
   /// \brief Create a ParquetDatasetFactory from a metadata source.
   ///
   /// Similar to the previous Make definition, but the metadata can be a Buffer
-  /// and the base_path is explicited instead of inferred from the metadata
+  /// and the base_path is explicit instead of inferred from the metadata
   /// path.
   ///
   /// \param[in] metadata source to open the metadata parquet file from

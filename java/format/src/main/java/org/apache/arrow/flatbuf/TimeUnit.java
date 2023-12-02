@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class TimeUnit {
   private TimeUnit() { }
   public static final short SECOND = 0;

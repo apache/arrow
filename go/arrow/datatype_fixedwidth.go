@@ -19,9 +19,10 @@ package arrow
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v15/internal/json"
 
 	"golang.org/x/xerrors"
 )
@@ -354,6 +355,7 @@ type TimestampType struct {
 	TimeZone string
 
 	loc *time.Location
+	mx  sync.RWMutex
 }
 
 func (*TimestampType) ID() Type     { return TIMESTAMP }
@@ -386,6 +388,8 @@ func (t *TimestampType) TimeUnit() TimeUnit { return t.Unit }
 // This should be called if you change the value of the TimeZone after having
 // potentially called GetZone.
 func (t *TimestampType) ClearCachedLocation() {
+	t.mx.Lock()
+	defer t.mx.Unlock()
 	t.loc = nil
 }
 
@@ -398,10 +402,20 @@ func (t *TimestampType) ClearCachedLocation() {
 // so if you change the value of TimeZone after calling this, make sure to call
 // ClearCachedLocation.
 func (t *TimestampType) GetZone() (*time.Location, error) {
+	t.mx.RLock()
 	if t.loc != nil {
+		defer t.mx.RUnlock()
 		return t.loc, nil
 	}
 
+	t.mx.RUnlock()
+	t.mx.Lock()
+	defer t.mx.Unlock()
+	// in case GetZone() was called in between releasing the read lock and
+	// getting the write lock
+	if t.loc != nil {
+		return t.loc, nil
+	}
 	// the TimeZone string is allowed to be either a valid tzdata string
 	// such as "America/New_York" or an absolute offset of the form -XX:XX
 	// or +XX:XX
@@ -415,7 +429,7 @@ func (t *TimestampType) GetZone() (*time.Location, error) {
 
 	if loc, err := time.LoadLocation(t.TimeZone); err == nil {
 		t.loc = loc
-		return t.loc, err
+		return loc, err
 	}
 
 	// at this point we know that the timezone isn't empty, and didn't match

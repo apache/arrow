@@ -26,7 +26,6 @@ from copy import deepcopy
 from itertools import zip_longest
 import json
 import operator
-import pickle
 import re
 import warnings
 
@@ -721,9 +720,6 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
-    elif 'object' in item:
-        block = _int.make_block(pickle.loads(block_arr),
-                                placement=placement)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -748,9 +744,11 @@ def make_datetimetz(unit, tz):
     return _pandas_api.datetimetz_type(unit, tz=tz)
 
 
-def table_to_blockmanager(options, table, categories=None,
-                          ignore_metadata=False, types_mapper=None):
+def table_to_dataframe(
+    options, table, categories=None, ignore_metadata=False, types_mapper=None
+):
     from pandas.core.internals import BlockManager
+    from pandas import DataFrame
 
     all_columns = []
     column_indexes = []
@@ -774,7 +772,12 @@ def table_to_blockmanager(options, table, categories=None,
     blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
 
     axes = [columns, index]
-    return BlockManager(blocks, axes)
+    mgr = BlockManager(blocks, axes)
+    if _pandas_api.is_ge_v21():
+        df = DataFrame._from_mgr(mgr, mgr.axes)
+    else:
+        df = DataFrame(mgr)
+    return df
 
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas

@@ -398,7 +398,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   ///
   /// Currently, `executor` is always the same as `internal::GetCPUThreadPool()`,
   /// which means the results from the underlying fragment generator will be
-  /// transfered to the default CPU thread pool. The generator itself is
+  /// transferred to the default CPU thread pool. The generator itself is
   /// offloaded to run on the default IO thread pool.
   virtual Result<FragmentGenerator> GetFragmentsAsyncImpl(
       compute::Expression predicate, arrow::internal::Executor* executor);

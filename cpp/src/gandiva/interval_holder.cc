@@ -258,26 +258,26 @@ int64_t IntervalDaysHolder::operator()(ExecutionContext* ctx, const char* data,
   return 0;
 }
 
-Status IntervalDaysHolder::Make(const FunctionNode& node,
-                                std::shared_ptr<IntervalDaysHolder>* holder) {
+Result<std::shared_ptr<IntervalDaysHolder>> IntervalDaysHolder::Make(
+    const FunctionNode& node) {
   const std::string function_name("castINTERVALDAY");
-  return IntervalHolder<IntervalDaysHolder>::Make(node, holder, function_name);
+  return IntervalHolder<IntervalDaysHolder>::Make(node, function_name);
 }
 
-Status IntervalDaysHolder::Make(int32_t suppress_errors,
-                                std::shared_ptr<IntervalDaysHolder>* holder) {
-  return IntervalHolder<IntervalDaysHolder>::Make(suppress_errors, holder);
+Result<std::shared_ptr<IntervalDaysHolder>> IntervalDaysHolder::Make(
+    int32_t suppress_errors) {
+  return IntervalHolder<IntervalDaysHolder>::Make(suppress_errors);
 }
 
-Status IntervalYearsHolder::Make(const FunctionNode& node,
-                                 std::shared_ptr<IntervalYearsHolder>* holder) {
+Result<std::shared_ptr<IntervalYearsHolder>> IntervalYearsHolder::Make(
+    const FunctionNode& node) {
   const std::string function_name("castINTERVALYEAR");
-  return IntervalHolder<IntervalYearsHolder>::Make(node, holder, function_name);
+  return IntervalHolder<IntervalYearsHolder>::Make(node, function_name);
 }
 
-Status IntervalYearsHolder::Make(int32_t suppress_errors,
-                                 std::shared_ptr<IntervalYearsHolder>* holder) {
-  return IntervalHolder<IntervalYearsHolder>::Make(suppress_errors, holder);
+Result<std::shared_ptr<IntervalYearsHolder>> IntervalYearsHolder::Make(
+    int32_t suppress_errors) {
+  return IntervalHolder<IntervalYearsHolder>::Make(suppress_errors);
 }
 
 // The operator will cast a generic string defined by the user into an interval of months.

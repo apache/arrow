@@ -96,7 +96,7 @@ public class MurmurHasher implements ArrowBufHasher {
     if (index < length) {
       // process remaining data as a integer in little endian
       int intValue = 0;
-      for (int i = index - 1; i >= index; i--) {
+      for (long i = length - 1; i >= index; i--) {
         intValue <<= 8;
         intValue |= (MemoryUtil.UNSAFE.getByte(address + i) & 0x000000ff);
         index += 1;

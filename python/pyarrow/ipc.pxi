@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+
 from collections import namedtuple
 import warnings
-
+from cython import sizeof
 
 cpdef enum MetadataVersion:
     V1 = <char> CMetadataVersion_V1
@@ -630,7 +632,7 @@ cdef class RecordBatchReader(_Weakrefable):
     Notes
     -----
     To import and export using the Arrow C stream interface, use the
-    ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
+    ``_import_from_c`` and ``_export_to_c`` methods. However, keep in mind this
     interface is intended for expert users.
 
     Examples
@@ -815,6 +817,72 @@ cdef class RecordBatchReader(_Weakrefable):
         self.reader = c_reader
         return self
 
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export to a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+            Currently, this is not supported and will raise a
+            NotImplementedError if the schema doesn't match the current schema.
+
+        Returns
+        -------
+        PyCapsule
+            A capsule containing a C ArrowArrayStream struct.
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+
+        if requested_schema is not None:
+            out_schema = Schema._import_from_c_capsule(requested_schema)
+            # TODO: figure out a way to check if one schema is castable to
+            # another. Once we have that, we can perform validation here and
+            # if successful creating a wrapping reader that casts each batch.
+            if self.schema != out_schema:
+                raise NotImplementedError("Casting to requested_schema")
+
+        stream_capsule = alloc_c_stream(&c_stream)
+
+        with nogil:
+            check_status(ExportRecordBatchReader(self.reader, c_stream))
+
+        return stream_capsule
+
+    @staticmethod
+    def _import_from_c_capsule(stream):
+        """
+        Import RecordBatchReader from a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        stream: PyCapsule
+            A capsule containing a C ArrowArrayStream PyCapsule.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader self
+
+        c_stream = <ArrowArrayStream*>PyCapsule_GetPointer(
+            stream, 'arrow_array_stream'
+        )
+
+        with nogil:
+            c_reader = GetResultValue(ImportRecordBatchReader(c_stream))
+
+        self = RecordBatchReader.__new__(RecordBatchReader)
+        self.reader = c_reader
+        return self
+
     @staticmethod
     def from_batches(Schema schema not None, batches):
         """
@@ -911,7 +979,7 @@ cdef _wrap_record_batch_with_metadata(CRecordBatchWithMetadata c):
 
 cdef class _RecordBatchFileReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchFileReader] reader
+        SharedPtrNoGIL[CRecordBatchFileReader] reader
         shared_ptr[CRandomAccessFile] file
         CIpcReadOptions options
 

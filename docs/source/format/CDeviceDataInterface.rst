@@ -61,7 +61,7 @@ Goals
 * Make it easy for third-party projects to implement support with little
   initial investment.
 * Allow zero-copy sharing of Arrow formatted device memory between
-  independant runtimes and components running in the same process.
+  independent runtimes and components running in the same process.
 * Avoid the need for one-to-one adaptation layers such as the
   `CUDA Array Interface`_ for Python processes to pass CUDA data.
 * Enable integration without explicit dependencies (either at compile-time
@@ -277,7 +277,7 @@ has the following fields:
     to access the memory in the buffers.
 
     If an event is provided, then the producer MUST ensure that the exported
-    data is available on the device before the event is triggered. The 
+    data is available on the device before the event is triggered. The
     consumer SHOULD wait on the event before trying to access the exported
     data.
 
@@ -290,7 +290,7 @@ has the following fields:
     As non-CPU development expands, there may be a need to expand this
     structure. In order to do so without potentially breaking ABI changes,
     we reserve 24 bytes at the end of the object. These bytes MUST be zero'd
-    out after initialization by the producer in order to ensure safe 
+    out after initialization by the producer in order to ensure safe
     evolution of the ABI in the future.
 
 .. _c-device-data-interface-event-types:
@@ -300,7 +300,7 @@ Synchronization event types
 
 The table below lists the expected event types for each device type.
 If no event type is supported ("N/A"), then the ``sync_event`` member
-should always be null. 
+should always be null.
 
 Remember that the event *CAN* be null if synchronization is not needed
 to access the data.
@@ -352,7 +352,7 @@ Memory management
 -----------------
 
 First and foremost: Out of everything in this interface, it is *only* the
-data buffers themselves which reside in device memory (i.e. the ``buffers`` 
+data buffers themselves which reside in device memory (i.e. the ``buffers``
 member of the ``ArrowArray`` struct). Everything else should be in CPU
 memory.
 
@@ -408,7 +408,7 @@ see inconsistent data while the other is mutating it.
 Synchronization
 ---------------
 
-If the ``sync_event`` member is non-NULL, the consumer should not attempt 
+If the ``sync_event`` member is non-NULL, the consumer should not attempt
 to access or read the data until they have synchronized on that event. If
 the ``sync_event`` member is NULL, then it MUST be safe to access the data
 without any synchronization necessary on the part of the consumer.
@@ -445,7 +445,7 @@ could be used for any device:
         array->release = NULL;
     }
 
-    void export_int32_device_array(void* cudaAllocdPtr,
+    void export_int32_device_array(void* cudaAllocedPtr,
                                    cudaStream_t stream,
                                    int64_t length,
                                    struct ArrowDeviceArray* array) {
@@ -492,7 +492,7 @@ could be used for any device:
         array->array.buffers = (const void**)malloc(sizeof(void*) * array->array.n_buffers);
         assert(array->array.buffers != NULL);
         array->array.buffers[0] = NULL;
-        array->array.buffers[1] = cudaAllocdPtr;
+        array->array.buffers[1] = cudaAllocedPtr;
     }
 
     // calling the release callback should be done using the array member
@@ -501,7 +501,6 @@ could be used for any device:
         arr->array.release(&arr->array);
     }
 
-=======================
 Device Stream Interface
 =======================
 
@@ -510,7 +509,7 @@ interface also specifies a higher-level structure for easing communication
 of streaming data within a single process.
 
 Semantics
-=========
+---------
 
 An Arrow C device stream exposes a streaming source of data chunks, each with
 the same schema. Chunks are obtained by calling a blocking pull-style iteration
@@ -520,7 +519,7 @@ to provide a stream of data on multiple device types, a producer should
 provide a separate stream object for each device type.
 
 Structure definition
-====================
+--------------------
 
 The C device stream interface is defined by a single ``struct`` definition:
 
@@ -554,7 +553,7 @@ The C device stream interface is defined by a single ``struct`` definition:
     kept exactly as-is when these definitions are copied.
 
 The ArrowDeviceArrayStream structure
-------------------------------------
+''''''''''''''''''''''''''''''''''''
 
 The ``ArrowDeviceArrayStream`` provides a device type that can access the
 resulting data along with the required callbacks to interact with a
@@ -627,20 +626,20 @@ streaming source of Arrow arrays. It has the following fields:
     handled by the producer, and especially by the release callback.
 
 Result lifetimes
-----------------
+''''''''''''''''
 
 The data returned by the ``get_schema`` and ``get_next`` callbacks must be
-released independantly. Their lifetimes are not tied to that of
+released independently. Their lifetimes are not tied to that of
 ``ArrowDeviceArrayStream``.
 
 Stream lifetime
----------------
+'''''''''''''''
 
 Lifetime of the C stream is managed using a release callback with similar
 usage as in :ref:`C data interface <c-data-interface-released>`.
 
 Thread safety
--------------
+'''''''''''''
 
 The stream source is not assumed to be thread-safe. Consumers wanting to
 call ``get_next`` from several threads should ensure those calls are
@@ -652,9 +651,9 @@ Interoperability with other interchange formats
 Other interchange APIs, such as the `CUDA Array Interface`_, include
 members to pass the shape and the data types of the data buffers being
 exported. This information is necessary to interpret the raw bytes in the
-device data buffers that are being shared. Rather than store the 
-shape / types of the data alongside the ``ArrowDeviceArray``, users 
-should utilize the existing ``ArrowSchema`` structure to pass any data 
+device data buffers that are being shared. Rather than store the
+shape / types of the data alongside the ``ArrowDeviceArray``, users
+should utilize the existing ``ArrowSchema`` structure to pass any data
 type and shape information.
 
 Updating this specification

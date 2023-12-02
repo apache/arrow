@@ -26,11 +26,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -111,7 +111,7 @@ type SqlBatchReader struct {
 }
 
 func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, rows *sql.Rows) (*SqlBatchReader, error) {
-	rowdest := make([]interface{}, len(schema.Fields()))
+	rowdest := make([]interface{}, schema.NumFields())
 	for i, f := range schema.Fields() {
 		switch f.Type.ID() {
 		case arrow.DENSE_UNION, arrow.SPARSE_UNION:

@@ -58,6 +58,16 @@ public class NullVector implements FieldVector {
   }
 
   /**
+   * Instantiate a NullVector with the given number of values.
+   *
+   * @param name name of the vector
+   * @param valueCount number of values (i.e., nulls) in this vector.
+   */
+  public NullVector(String name, int valueCount) {
+    this(new Field(name, FieldType.nullable(Types.MinorType.NULL.getType()), null), valueCount);
+  }
+
+  /**
    * Instantiate a NullVector.
    *
    * @param name      name of the vector
@@ -73,8 +83,18 @@ public class NullVector implements FieldVector {
    * @param field field materialized by this vector.
    */
   public NullVector(Field field) {
-    this.valueCount = 0;
+    this(field, 0);
+  }
+
+  /**
+   * Instantiate a NullVector with the given number of values.
+   *
+   * @param field field materialized by this vector.
+   * @param valueCount number of values (i.e., nulls) in this vector.
+   */
+  public NullVector(Field field, int valueCount) {
     this.field = field;
+    this.valueCount = valueCount;
   }
 
   @Deprecated
@@ -106,7 +126,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair(null, allocator);
+    return getTransferPair(getName(), allocator);
   }
 
   @Override
@@ -159,12 +179,22 @@ public class NullVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl();
+    return new TransferImpl(ref);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field.getName());
   }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return getTransferPair(ref, allocator);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(field, allocator);
   }
 
   @Override
@@ -192,6 +222,7 @@ public class NullVector implements FieldVector {
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     Preconditions.checkArgument(ownBuffers.isEmpty(), "Null vector has no buffers");
+    valueCount = fieldNode.getLength();
   }
 
   @Override

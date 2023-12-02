@@ -65,7 +65,9 @@ rm -rf ${tag}
   git archive ${release_hash} --prefix ${tag}/) | \
   tar xf -
 
-# Resolve all hard and symbolic links
+# Resolve all hard and symbolic links.
+# If we change this, we must change ArrowSources.archive in
+# dev/archery/archery/utils/source.py too.
 rm -rf ${tag}.tmp
 mv ${tag} ${tag}.tmp
 cp -R -L ${tag}.tmp ${tag}
