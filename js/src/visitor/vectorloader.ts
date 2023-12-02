@@ -71,6 +71,9 @@ export class VectorLoader extends Visitor {
     public visitUtf8<T extends type.Utf8>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
     }
+    public visitLargeUtf8<T extends type.LargeUtf8>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
+    }
     public visitBinary<T extends type.Binary>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
     }
