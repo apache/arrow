@@ -213,7 +213,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
 
   std::vector<int64_t> shape;
   for (int64_t j = 0; j < static_cast<int64_t>(this->ndim()); ++j) {
-  // for (int64_t j : permutation) {
+    // for (int64_t j : permutation) {
     ARROW_ASSIGN_OR_RAISE(const auto size, shape_array.GetScalar(j));
     const auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
     if (size_value < 0) {
