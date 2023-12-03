@@ -557,10 +557,15 @@ struct DecimalConverter<DecimalArrayType, FLBAType> {
         checked_cast<const ::arrow::FixedSizeBinaryType&>(*fixed_size_binary_array.type())
             .byte_width();
 
-    DCHECK(byte_width >= type_length);
-    // As the byte width of the FixedSizeBinaryArray is greater than or equal to the given
+    // raw bytes that we can write to
+    std::shared_ptr<::arrow::Buffer> data;
+    // if the byte width of the FixedSizeBinaryArray is greater than or equal to the given
     // array then we can reuse its data buffer to write the decimal array
-    auto data = fixed_size_binary_array.data()->buffers[1];
+    if (byte_width >= type_length) {
+      data = fixed_size_binary_array.data()->buffers[1];
+    } else {
+      ARROW_ASSIGN_OR_RAISE(data, ::arrow::AllocateBuffer(length * type_length, pool));
+    }
     uint8_t* out_ptr = data->mutable_data();
 
     // convert each FixedSizeBinary value to valid decimal bytes
