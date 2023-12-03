@@ -4475,14 +4475,14 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         if not all([o.ndim == ndim for o in obj]):
             raise ValueError('All numpy arrays need to have the same ndim.')
 
-        if not all([(-np.array(o.strides)).argsort() == permutation for o in obj]):
-            raise ValueError('All numpy arrays need to have the same ndim.')
+        if not all([np.array_equal((-np.array(o.strides)).argsort(), permutation) for o in obj]):
+            raise ValueError('All numpy arrays need to have the same permutation.')
 
-        arrow_type = from_numpy_dtype(numpy_type)
-        values = array([np.lib.stride_tricks.as_strided(
+        arrow_type=from_numpy_dtype(numpy_type)
+        values=array([np.lib.stride_tricks.as_strided(
             o, shape=(np.prod(o.shape),), strides=(bw,)) for o in obj], list_(arrow_type))
-        shapes = array([o.shape for o in obj], list_(int32(), list_size=ndim))
-        struct_arr = StructArray.from_arrays([shapes, values], names=["shape", "data"])
+        shapes=array([o.shape for o in obj], list_(int32(), list_size=ndim))
+        struct_arr=StructArray.from_arrays([shapes, values], names=["shape", "data"])
 
         return ExtensionArray.from_storage(
             variable_shape_tensor(arrow_type, ndim, permutation=permutation),
