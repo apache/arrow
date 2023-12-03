@@ -232,7 +232,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
 
   std::vector<int64_t> strides;
   ARROW_CHECK_OK(
-      internal::ComputeStrides(this->value_type(), shape, this->permutation(), &strides));
+      internal::ComputeStrides(this->value_type(), shape, permutation, &strides));
 
   const auto& array = internal::checked_cast<const BaseListScalar&>(*data).value;
   const auto byte_width = this->value_type()->byte_width();
