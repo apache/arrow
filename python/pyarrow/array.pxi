@@ -4345,7 +4345,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
     Define the extension type for tensor array
 
     >>> import pyarrow as pa
-    >>> tensor_type = pa.variable_shape_tensor(pa.int32(), 2)
+    >>> tensor_type = pa.variable_shape_tensor(pa.float64(), 2)
 
     Create an extension array
 
