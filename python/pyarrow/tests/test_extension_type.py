@@ -1553,6 +1553,42 @@ def test_variable_shape_tensor_class_methods(value_type):
         [], dtype=value_type).reshape(shapes[1].as_py()))
 
 
+@pytest.mark.parametrize("value_type", (np.int8, np.int32, np.int64, np.float64))
+def test_variable_shape_tensor_strided(value_type):
+    from numpy.lib.stride_tricks import as_strided
+    bw = value_type().itemsize
+
+    arr1 = np.arange(1, 13, dtype=value_type)
+    assert arr1.shape == (12,)
+    assert arr1.strides == (bw,)
+
+    arr2 = as_strided(arr1, shape=(3, 4), strides=(bw * 4, bw), writeable=False)
+    assert arr2.shape == (3, 4)
+    assert arr2.strides == (bw * 4, bw)
+    assert pa.Tensor.from_numpy(arr2).is_contiguous
+    np.testing.assert_array_equal(arr2, np.array(
+        [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]], arr1.dtype))
+
+    arr3 = as_strided(arr1, shape=(3, 4), strides=(bw, bw * 3), writeable=False)
+    assert arr3.shape == (3, 4)
+    assert arr3.strides == (bw, bw * 3)
+    np.testing.assert_array_equal(arr3, np.array(
+        [[1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12]], arr1.dtype))
+
+    for arr in [
+        arr1,
+        arr2,
+        # arr3 # TODO: F order doesn't work yet
+    ]:
+        arrow_array = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+        tensor = arrow_array.get_tensor(0)
+        assert tensor.strides == arr.strides
+        assert tensor.shape == arr.shape
+        assert tensor == pa.Tensor.from_numpy(arr)
+        np.testing.assert_array_equal(tensor, arr)
+        np.testing.assert_array_equal(arrow_array.to_numpy_ndarray()[0], arr)
+
+
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
