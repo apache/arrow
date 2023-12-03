@@ -27,11 +27,6 @@ const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0)
 ) as T;
 
 /** @ignore */
-export interface BufferBuilder<T extends TypedArray | BigIntArray = any> {
-    readonly offset: number;
-}
-
-/** @ignore */
 export class BufferBuilder<T extends TypedArray | BigIntArray> {
 
     constructor(buffer: T, stride = 1) {
@@ -87,8 +82,6 @@ export class BufferBuilder<T extends TypedArray | BigIntArray> {
         return this.buffer = <T>memcpy(new this.ArrayType(newLength), this.buffer);
     }
 }
-
-(BufferBuilder.prototype as any).offset = 0;
 
 /** @ignore */
 export class DataBufferBuilder<T extends TypedArray | BigIntArray> extends BufferBuilder<T> {
