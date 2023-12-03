@@ -257,7 +257,7 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
       return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
                              " Got: ", permutation.size());
     }
-    const std::set<int> permutation_set(permutation.begin(), permutation.end());
+    const std::set<int64_t> permutation_set(permutation.begin(), permutation.end());
     if (permutation_set.size() != permutation.size()) {
       return Status::Invalid("permutation must be a valid permutation vector");
     }
