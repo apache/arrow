@@ -4386,6 +4386,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
     def to_numpy_ndarray(self):
         """
         Convert variable shape tensor extension array to list of numpy arrays.
+        If permutation is non-trivial a strided numpy arrays are produced.
         """
         tensors = []
         for i in range(len(self.storage)):
@@ -4418,8 +4419,6 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         """
         Convert a list of numpy arrays ndarrays to a variable shape tensor extension array.
         The length of the list will become the length of the variable shape tensor array.
-
-        Numpy arrays needs to be C-contiguous in memory (``obj.flags["C_CONTIGUOUS"]==True``).
 
         Parameters
         ----------
@@ -4463,11 +4462,12 @@ cdef class VariableShapeTensorArray(ExtensionArray):
             ]
           ]
         """
-        if not all([o.flags["C_CONTIGUOUS"] for o in obj]):
-            raise ValueError('The data in the numpy arrays need to be in a single, '
-                             'C-style contiguous segment.')
+        assert isinstance(obj, list), 'obj must be a list of numpy arrays'
         numpy_type = obj[0].dtype
         ndim = obj[0].ndim
+        bw = numpy_type.itemsize
+
+        permutation = (-np.array(obj[0].strides)).argsort()
 
         if not all([o.dtype == numpy_type for o in obj]):
             raise TypeError('All numpy arrays need to have the same dtype.')
@@ -4475,13 +4475,17 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         if not all([o.ndim == ndim for o in obj]):
             raise ValueError('All numpy arrays need to have the same ndim.')
 
+        if not all([(-np.array(o.strides)).argsort() == permutation for o in obj]):
+            raise ValueError('All numpy arrays need to have the same ndim.')
+
         arrow_type = from_numpy_dtype(numpy_type)
-        values = array([np.ravel(o, order='C') for o in obj], list_(arrow_type))
+        values = array([np.lib.stride_tricks.as_strided(
+            o, shape=(np.prod(o.shape),), strides=(bw,)) for o in obj], list_(arrow_type))
         shapes = array([o.shape for o in obj], list_(int32(), list_size=ndim))
         struct_arr = StructArray.from_arrays([shapes, values], names=["shape", "data"])
 
         return ExtensionArray.from_storage(
-            variable_shape_tensor(arrow_type, ndim),
+            variable_shape_tensor(arrow_type, ndim, permutation=permutation),
             struct_arr
         )
 
