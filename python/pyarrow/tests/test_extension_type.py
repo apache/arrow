@@ -1572,15 +1572,21 @@ def test_variable_shape_tensor_strided(value_type):
     arr3 = as_strided(arr1, shape=(3, 4), strides=(bw, bw * 3), writeable=False)
     assert arr3.shape == (3, 4)
     assert arr3.strides == (bw, bw * 3)
+    assert (pa.Tensor.from_numpy(arr2).is_contiguous)
     np.testing.assert_array_equal(arr3, np.array(
         [[1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12]], arr1.dtype))
 
     for arr in [
         arr1,
         arr2,
-        # arr3 # TODO: F order doesn't work yet
+        arr3,
     ]:
+        permutation = np.argsort(-np.array(arr.strides))
+        tensor_array_type = pa.variable_shape_tensor(pa.from_numpy_dtype(
+            value_type()), len(arr.shape), permutation=permutation)
         arrow_array = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+        assert arrow_array.type.equals(tensor_array_type)
+
         tensor = arrow_array.get_tensor(0)
         assert tensor.strides == arr.strides
         assert tensor.shape == arr.shape
