@@ -151,6 +151,30 @@ namespace Apache.Arrow
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
         }
 
+        public IList<decimal?> ToList(bool includeNulls = false)
+        {
+            var list = new List<decimal?>(Length);
+
+            for (int i = 0; i < Length; i++)
+            {
+                decimal? value = GetValue(i);
+
+                if (value.HasValue)
+                {
+                    list.Add(value.Value);
+                }
+                else
+                {
+                    if (includeNulls)
+                    {
+                        list.Add(null);
+                    }
+                }
+            }
+
+            return list;
+        }
+
         public string GetString(int index)
         {
             if (IsNull(index))
