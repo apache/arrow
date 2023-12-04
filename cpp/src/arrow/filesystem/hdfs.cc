@@ -35,7 +35,7 @@ namespace arrow {
 
 using internal::ErrnoFromStatus;
 using internal::ParseValue;
-using internal::Uri;
+using util::Uri;
 
 namespace fs {
 

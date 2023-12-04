@@ -52,11 +52,11 @@ class DictionaryMemo;
 
 }  // namespace ipc
 
-namespace internal {
+namespace util {
 
 class Uri;
 
-}  // namespace internal
+}  // namespace util
 
 namespace flight {
 
@@ -474,7 +474,7 @@ struct ARROW_FLIGHT_EXPORT Location {
  private:
   friend class FlightClient;
   friend class FlightServerBase;
-  std::shared_ptr<arrow::internal::Uri> uri_;
+  std::shared_ptr<arrow::util::Uri> uri_;
 };
 
 /// \brief A flight ticket and list of locations where the ticket can be

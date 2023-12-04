@@ -75,8 +75,8 @@ namespace fs {
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::ToChars;
-using ::arrow::internal::UriEscape;
 using ::arrow::internal::Zip;
+using ::arrow::util::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
