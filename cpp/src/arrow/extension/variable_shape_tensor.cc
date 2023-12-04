@@ -212,14 +212,19 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   }
 
   std::vector<int64_t> shape;
+  std::vector<int64_t> permuted_shape;
   for (int64_t j = 0; j < static_cast<int64_t>(this->ndim()); ++j) {
-    // for (int64_t j : permutation) {
     ARROW_ASSIGN_OR_RAISE(const auto size, shape_array.GetScalar(j));
     const auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
     if (size_value < 0) {
       return Status::Invalid("shape must have non-negative values");
     }
+    ARROW_ASSIGN_OR_RAISE(const auto permuted_size,
+                          shape_array.GetScalar(permutation[j]));
+    const auto permuted_size_value =
+        internal::checked_pointer_cast<Int32Scalar>(permuted_size)->value;
     shape.push_back(size_value);
+    permuted_shape.push_back(permuted_size_value);
   }
 
   std::vector<std::string> dim_names;
@@ -232,8 +237,8 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::GetTensor(
   }
 
   std::vector<int64_t> strides;
-  ARROW_CHECK_OK(
-      internal::ComputeStrides(this->value_type(), shape, permutation, &strides));
+  ARROW_CHECK_OK(internal::ComputeStrides(this->value_type(), permuted_shape, permutation,
+                                          &strides));
 
   const auto& array = internal::checked_cast<const BaseListScalar&>(*data).value;
   const auto byte_width = this->value_type()->byte_width();
