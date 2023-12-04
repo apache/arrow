@@ -16,7 +16,10 @@
 // under the License.
 
 #include <arrow/filesystem/filesystem.h>
+<<<<<<< HEAD
 #include <arrow/filesystem/filesystem_library.h>
+=======
+>>>>>>> e447cfaac (GH-38309: [C++] build filesystems as separate modules)
 #include <arrow/io/memory.h>
 #include <arrow/result.h>
 #include <arrow/util/uri.h>

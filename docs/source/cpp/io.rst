@@ -144,4 +144,3 @@ should have exactly one of its sources
 ``#include "arrow/filesystem/filesystem_library.h"``
 in order to ensure the presence of the symbol on which
 :func:`~arrow::fs::LoadFileSystemFactories` depends.
-

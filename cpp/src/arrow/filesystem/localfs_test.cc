@@ -186,6 +186,86 @@ TEST(FileSystemFromUri, LinkedRegisteredFactoryNameCollision) {
 ////////////////////////////////////////////////////////////////////////////
 // Misc tests
 
+Result<std::shared_ptr<FileSystem>> SlowFileSystemFactory(const Uri& uri,
+                                                          const io::IOContext& io_context,
+                                                          std::string* out_path) {
+  auto local_uri = "file" + uri.ToString().substr(uri.scheme().size());
+  ARROW_ASSIGN_OR_RAISE(auto base_fs, FileSystemFromUri(local_uri, io_context, out_path));
+  double average_latency = 1;
+  int32_t seed = 0xDEADBEEF;
+  ARROW_ASSIGN_OR_RAISE(auto params, uri.query_items());
+  for (const auto& [key, value] : params) {
+    if (key == "average_latency") {
+      average_latency = std::stod(value);
+    }
+    if (key == "seed") {
+      seed = std::stoi(value, nullptr, /*base=*/16);
+    }
+  }
+  return std::make_shared<SlowFileSystem>(base_fs, average_latency, seed);
+}
+FileSystemRegistrar kSlowFileSystemModule{
+    "slowfile",
+    SlowFileSystemFactory,
+};
+
+TEST(FileSystemFromUri, LinkedRegisteredFactory) {
+  // Since the registrar's definition is in this translation unit (which is linked to the
+  // unit test executable), its factory will be registered be loaded automatically before
+  // main() is entered.
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("slowfile:///hey/yo", &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "slow");
+}
+
+TEST(FileSystemFromUri, LoadedRegisteredFactory) {
+  // Since the registrar's definition is in libarrow_filesystem_example.so,
+  // its factory will be registered only after the library is dynamically loaded.
+  std::string path;
+  EXPECT_THAT(FileSystemFromUri("example:///hey/yo", &path), Raises(StatusCode::Invalid));
+
+  EXPECT_THAT(LoadFileSystemFactories(ARROW_FILESYSTEM_EXAMPLE_LIBPATH), Ok());
+
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("example:///hey/yo", &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "local");
+}
+
+TEST(FileSystemFromUri, RuntimeRegisteredFactory) {
+  std::string path;
+  EXPECT_THAT(FileSystemFromUri("slowfile2:///hey/yo", &path),
+              Raises(StatusCode::Invalid));
+
+  EXPECT_THAT(RegisterFileSystemFactory("slowfile2", SlowFileSystemFactory), Ok());
+
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("slowfile2:///hey/yo", &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "slow");
+
+  EXPECT_THAT(
+      RegisterFileSystemFactory("slowfile2", SlowFileSystemFactory),
+      Raises(StatusCode::KeyError,
+             testing::HasSubstr("Attempted to register factory for scheme 'slowfile2' "
+                                "but that scheme is already registered")));
+}
+
+FileSystemRegistrar kSegfaultFileSystemModule[]{
+    {"segfault", nullptr},
+    {"segfault", nullptr},
+    {"segfault", nullptr},
+};
+TEST(FileSystemFromUri, LinkedRegisteredFactoryNameCollision) {
+  // Since multiple registrars are defined in this translation unit which all
+  // register factories for the 'segfault' scheme, using that scheme in FileSystemFromUri
+  // is invalidated and raises KeyError.
+  std::string path;
+  EXPECT_THAT(FileSystemFromUri("segfault:///hey/yo", &path),
+              Raises(StatusCode::KeyError));
+  // other schemes are not affected by the collision
+  EXPECT_THAT(FileSystemFromUri("slowfile:///hey/yo", &path), Ok());
+}
+
 TEST(DetectAbsolutePath, Basics) {
   ASSERT_TRUE(DetectAbsolutePath("/"));
   ASSERT_TRUE(DetectAbsolutePath("/foo"));

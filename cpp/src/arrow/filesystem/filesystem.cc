@@ -56,16 +56,13 @@
 #include "arrow/util/visibility.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow {
+namespace arrow::fs {
 
-using internal::checked_pointer_cast;
-using internal::TaskHints;
-using io::internal::SubmitIO;
-using util::Uri;
-
-namespace fs {
-
+using arrow::internal::checked_pointer_cast;
 using arrow::internal::GetEnvVar;
+using arrow::internal::TaskHints;
+using arrow::io::internal::SubmitIO;
+using arrow::util::Uri;
 using internal::ConcatAbstractPath;
 using internal::EnsureTrailingSlash;
 using internal::GetAbstractPathParent;
@@ -722,8 +719,8 @@ class FileSystemFactoryRegistry {
         continue;
       }
 
-      auto [it, success] =
-          main_registry->scheme_to_factory_.emplace(std::move(scheme), registered);
+      auto [it, success] = main_registry->scheme_to_factory_.emplace(
+          std::move(scheme), std::move(registered));
       if (success) continue;
 
       duplicated_schemes.emplace_back(it->first);
@@ -969,5 +966,4 @@ Status Initialize(const FileSystemGlobalOptions& options) {
   return Status::OK();
 }
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs
