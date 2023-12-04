@@ -137,7 +137,7 @@ export enum MessageHeader {
  * nested type consisting of other data types, or another data type (e.g. a
  * timestamp encoded as an int64).
  *
- * **Note**: Only positive enum values are written to an Arrow IPC payload.
+ * **Note**: Only non-negative enum values are written to an Arrow IPC payload.
  *
  * The rest of the values are specified here so TypeScript can narrow the type
  * signatures further beyond the base Arrow Types. The Arrow DataTypes include
