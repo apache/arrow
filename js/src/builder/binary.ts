@@ -17,14 +17,14 @@
 
 import { Binary } from '../type.js';
 import { toUint8Array } from '../util/buffer.js';
-import { BufferBuilder } from './buffer.js';
+import { DataBufferBuilder } from './buffer.js';
 import { VariableWidthBuilder, BuilderOptions } from '../builder.js';
 
 /** @ignore */
 export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNull> {
     constructor(opts: BuilderOptions<Binary, TNull>) {
         super(opts);
-        this._values = new BufferBuilder(new Uint8Array(0));
+        this._values = new DataBufferBuilder(new Uint8Array(0));
     }
     public get byteLength(): number {
         let size = this._pendingLength + (this.length * 4);

@@ -27,7 +27,7 @@ const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0)
 ) as T;
 
 /** @ignore */
-export class BufferBuilder<T extends TypedArray | BigIntArray> {
+export abstract class BufferBuilder<T extends TypedArray | BigIntArray> {
 
     constructor(buffer: T, stride = 1) {
         this.buffer = buffer;
@@ -49,8 +49,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray> {
     public get reservedLength() { return this.buffer.length / this.stride; }
     public get reservedByteLength() { return this.buffer.byteLength; }
 
-    // @ts-ignore
-    public set(index: number, value: T[0]) { return this; }
+    public abstract set(index: number, value: T[0]): this;
     public append(value: T[0]) { return this.set(this.length, value); }
     public reserve(extra: number) {
         if (extra > 0) {
