@@ -1124,7 +1124,7 @@ cdef class Time32Type(DataType):
     @property
     def unit(self):
         """
-        The time unit ('s', 'ms', 'us' or 'ns').
+        The time unit ('s' or 'ms').
 
         Examples
         --------
@@ -1156,7 +1156,7 @@ cdef class Time64Type(DataType):
     @property
     def unit(self):
         """
-        The time unit ('s', 'ms', 'us' or 'ns').
+        The time unit ('us' or 'ns').
 
         Examples
         --------
