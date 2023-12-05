@@ -3635,11 +3635,11 @@ def test_dlpack_not_supported():
         [[0, 1], [3, 4]],
         type=pa.list_(pa.int32())
     )
-    with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive arrays"):
+    with pytest.raises(TypeError, match="DataType is not compatible with DLPack spec"):
         np.from_dlpack(arr)
 
     arr = pa.array([])
-    with pytest.raises(TypeError, match="Can only use __dlpack__ on primitive arrays"):
+    with pytest.raises(TypeError, match="DataType is not compatible with DLPack spec"):
         np.from_dlpack(arr)
 
     # DLPack doesn't support bit-packed boolean values

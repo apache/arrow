@@ -35,8 +35,7 @@ class TestExportArray : public ::testing::Test {
 auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
                           std::shared_ptr<DataType> arrow_type,
                           DLDataTypeCode dlpack_type, int64_t length) {
-  ASSERT_OK_AND_ASSIGN(auto dlmtensor,
-                       arrow::dlpack::ExportArray(arr));
+  ASSERT_OK_AND_ASSIGN(auto dlmtensor, arrow::dlpack::ExportArray(arr));
   auto dltensor = dlmtensor->dl_tensor;
 
   const auto byte_width = arr->type()->byte_width();
@@ -101,8 +100,8 @@ TEST_F(TestExportArray, TestUnSupportedArray) {
 
   const std::shared_ptr<Array> array_string = gen.String(10, 0, 10, 0);
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
-                             "Type error: Can only use __dlpack__ on primitive arrays "
-                             "without NullType and Decimal types.",
+                             "Type error: DataType is not compatible with DLPack spec: " +
+                                 array_string->type()->ToString(),
                              arrow::dlpack::ExportArray(array_string));
 
   const std::shared_ptr<Array> array_boolean = gen.Boolean(10, 0.5, 0);

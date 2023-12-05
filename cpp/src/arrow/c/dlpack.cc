@@ -24,38 +24,34 @@
 
 namespace arrow::dlpack {
 
-Status getDLDataType(const std::shared_ptr<DataType>& type, DLDataType* out) {
+Result<DLDataType> GetDLDataType(const DataType& type) {
   DLDataType dtype;
   dtype.lanes = 1;
-  dtype.bits = type->bit_width();
-  switch (type->id()) {
+  dtype.bits = type.bit_width();
+  switch (type.id()) {
     case Type::INT8:
     case Type::INT16:
     case Type::INT32:
     case Type::INT64:
       dtype.code = DLDataTypeCode::kDLInt;
-      *out = dtype;
-      return Status::OK();
+      return dtype;
     case Type::UINT8:
     case Type::UINT16:
     case Type::UINT32:
     case Type::UINT64:
       dtype.code = DLDataTypeCode::kDLUInt;
-      *out = dtype;
-      return Status::OK();
+      return dtype;
     case Type::HALF_FLOAT:
     case Type::FLOAT:
     case Type::DOUBLE:
       dtype.code = DLDataTypeCode::kDLFloat;
-      *out = dtype;
-      return Status::OK();
+      return dtype;
     case Type::BOOL:
       // DLPack supports byte-packed boolean values
       return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
     default:
       return Status::TypeError(
-          "Can only use __dlpack__ on primitive arrays without NullType and Decimal "
-          "types.");
+          "DataType is not compatible with DLPack spec: ", type.ToString());
   }
 }
 
@@ -76,8 +72,8 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
 
   // Define the DLDataType struct
   // Supported data types: int, uint, float
-  DLDataType arr_type;
-  RETURN_NOT_OK(getDLDataType(arr->type(), &arr_type));
+  const DataType* arrow_type = arr->type().get();
+  ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(*arrow_type));
 
   // Create DLMTensorCtx struct with the reference to
   // the data of the array
@@ -119,7 +115,7 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   dlm_tensor->dl_tensor.device = ctx;
 
   dlm_tensor->dl_tensor.ndim = 1;
-  dlm_tensor->dl_tensor.dtype = arr_type;
+  dlm_tensor->dl_tensor.dtype = dlpack_type;
   std::vector<int64_t>* shape_arr = &DLMTensor->shape;
   shape_arr->resize(1);
   (*shape_arr)[0] = arr->length();
