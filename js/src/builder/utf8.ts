@@ -18,14 +18,14 @@
 import { Utf8 } from '../type.js';
 import { encodeUtf8 } from '../util/utf8.js';
 import { BinaryBuilder } from './binary.js';
-import { DataBufferBuilder } from './buffer.js';
+import { BufferBuilder } from './buffer.js';
 import { VariableWidthBuilder, BuilderOptions } from '../builder.js';
 
 /** @ignore */
 export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> {
     constructor(opts: BuilderOptions<Utf8, TNull>) {
         super(opts);
-        this._values = new DataBufferBuilder(new Uint8Array(0));
+        this._values = new BufferBuilder(new Uint8Array(0));
     }
     public get byteLength(): number {
         let size = this._pendingLength + (this.length * 4);
