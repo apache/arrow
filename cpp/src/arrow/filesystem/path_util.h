@@ -94,11 +94,13 @@ std::string_view RemoveTrailingSlash(std::string_view s, bool preserve_root = fa
 ARROW_EXPORT
 Status AssertNoTrailingSlash(std::string_view s);
 
-ARROW_EXPORT
-bool HasTrailingSlash(std::string_view s);
+inline bool HasTrailingSlash(std::string_view s) {
+  return !s.empty() && s.back() == kSep;
+}
 
-ARROW_EXPORT
-bool HasLeadingSlash(std::string_view s);
+inline bool HasLeadingSlash(std::string_view s) {
+  return !s.empty() && s.front() == kSep;
+}
 
 ARROW_EXPORT
 bool IsAncestorOf(std::string_view ancestor, std::string_view descendant);

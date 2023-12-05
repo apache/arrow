@@ -146,7 +146,7 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
 }
 
 std::string EnsureTrailingSlash(std::string_view v) {
-  if (v.length() > 0 && v.back() != kSep) {
+  if (!v.empty() && !HasTrailingSlash(v)) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "C:/"...
     // Unless the local filesystem always uses absolute paths
     return std::string(v) + kSep;
@@ -156,7 +156,7 @@ std::string EnsureTrailingSlash(std::string_view v) {
 }
 
 std::string EnsureLeadingSlash(std::string_view v) {
-  if (v.length() == 0 || v.front() != kSep) {
+  if (!HasLeadingSlash(v)) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "/C:"...
     return kSep + std::string(v);
   } else {
@@ -193,10 +193,6 @@ Status AssertNoTrailingSlash(std::string_view key) {
   }
   return Status::OK();
 }
-
-bool HasTrailingSlash(std::string_view key) { return key.back() == '/'; }
-
-bool HasLeadingSlash(std::string_view key) { return key.front() == '/'; }
 
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
                                              const std::string& path) {
