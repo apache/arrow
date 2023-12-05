@@ -42,9 +42,14 @@ class MyServer(BaseHTTPRequestHandler):
         
         self.send_response(200)
         self.send_header('Content-Type', 'application/vnd.apache.arrow.stream')
+        
+        #######################################################################
+        # include these to enable testing JavaScript client in local browser
         self.send_header('Access-Control-Allow-Origin', 'http://localhost:8080')
         self.send_header('Access-Control-Allow-Methods', 'GET')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        #######################################################################
+        
         self.end_headers()
         
         for i in range(chunk_splits):
