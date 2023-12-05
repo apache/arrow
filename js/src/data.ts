@@ -30,7 +30,7 @@ import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 /** @ignore */ export type NullBuffer = Uint8Array | null | undefined;
 /** @ignore */ export type TypeIdsBuffer = Int8Array | ArrayLike<number> | Iterable<number> | undefined;
 /** @ignore */ export type ValueOffsetsBuffer = Int32Array | ArrayLike<number> | Iterable<number> | undefined;
-/** @ignore */ export type LargeValueOffsetsBuffer = BigInt64Array | ArrayLike<number> | Iterable<number> | undefined;
+/** @ignore */ export type LargeValueOffsetsBuffer = BigInt64Array | ArrayLike<bigint> | Iterable<bigint> | undefined;
 /** @ignore */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number> | undefined;
 
 /** @ignore */
@@ -445,7 +445,7 @@ interface DurationDataProps<T extends Duration> extends DataProps_<T> { data?: D
 interface FixedSizeBinaryDataProps<T extends FixedSizeBinary> extends DataProps_<T> { data?: DataBuffer<T> }
 interface BinaryDataProps<T extends Binary> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface Utf8DataProps<T extends Utf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
-interface LargeUtf8DataProps<T extends LargeUtf8> extends DataProps_<T> { valueOffsets: LargeValueOffsetsBuffer; data?: DataBuffer<T> }
+interface LargeUtf8DataProps<T extends LargeUtf8> extends DataProps_<T> { valueOffsets: LargeValueOffsetsBuffer | ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface ListDataProps<T extends List> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; child: Data<T['valueType']> }
 interface FixedSizeListDataProps<T extends FixedSizeList> extends DataProps_<T> { child: Data<T['valueType']> }
 interface StructDataProps<T extends Struct> extends DataProps_<T> { children: Data[] }
