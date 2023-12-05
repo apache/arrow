@@ -333,7 +333,7 @@ def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
     dest : Path
         Filesystem path to clone the repositories to.
     crossbow_repo : str
-        Github repository name, like kszucs/crossbow.
+        GitHub repository name, like kszucs/crossbow.
     pull_request : pygithub.PullRequest
         Object containing information about the pull request the comment bot
         was triggered from.

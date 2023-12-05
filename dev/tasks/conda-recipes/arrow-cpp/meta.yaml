@@ -1,4 +1,4 @@
-# NOTE: In constrast to the conda-forge recipe, ARROW_VERSION is a templated variable here.
+# NOTE: In contrast to the conda-forge recipe, ARROW_VERSION is a templated variable here.
 {% set version = ARROW_VERSION %}
 {% set cuda_enabled = cuda_compiler_version != "None" %}
 {% set build_ext_version = ARROW_VERSION %}
