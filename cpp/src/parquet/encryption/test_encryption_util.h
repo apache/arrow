@@ -88,7 +88,7 @@ std::unordered_map<std::string, std::string> BuildKeyMap(const char* const* colu
                                                          const char* footer_key);
 
 // The result of this function will be used to set into EncryptionConfiguration
-// as colum keys.
+// as column keys.
 std::string BuildColumnKeyMapping();
 
 // FileEncryptor and FileDecryptor are helper classes to write/read an encrypted parquet
