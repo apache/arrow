@@ -95,7 +95,7 @@ TEST_F(TestExportArray, TestUnSupportedArray) {
 
   const std::shared_ptr<Array> array_with_null = gen.Int8(10, 1, 100, 1);
   ASSERT_RAISES_WITH_MESSAGE(
-      TypeError, "Type error: Can only use __dlpack__ on arrays with no nulls.",
+      TypeError, "Type error: Can only use DLPack on arrays with no nulls.",
       arrow::dlpack::ExportArray(array_with_null));
 
   const std::shared_ptr<Array> array_string = gen.String(10, 0, 10, 0);

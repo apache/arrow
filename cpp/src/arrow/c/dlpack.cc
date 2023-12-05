@@ -67,7 +67,7 @@ static void deleter(DLManagedTensor* arg) {
 
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   if (arr->null_count() > 0) {
-    return Status::TypeError("Can only use __dlpack__ on arrays with no nulls.");
+    return Status::TypeError("Can only use DLPack on arrays with no nulls.");
   }
 
   // Define the DLDataType struct
