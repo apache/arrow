@@ -298,7 +298,7 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const size_t num_value
   }
 
   // Path for float.
-  // 1. Processed hierarchically to 32i blcok using the unpack intrinsics.
+  // 1. Processed hierarchically to 32i block using the unpack intrinsics.
   // 2. Pack 128i block using _mm256_permutevar8x32_epi32.
   // 3. Pack final 256i block with _mm256_permute2x128_si256.
   constexpr size_t kNumUnpack = 3U;
@@ -534,7 +534,7 @@ void ByteStreamSplitEncodeAvx512(const uint8_t* raw_values, const size_t num_val
       final_result[7] = _mm512_shuffle_i32x4(shuffle[6], shuffle[7], 0b11011101);
     } else {
       // Path for float.
-      // 1. Processed hierarchically to 32i blcok using the unpack intrinsics.
+      // 1. Processed hierarchically to 32i block using the unpack intrinsics.
       // 2. Pack 128i block using _mm256_permutevar8x32_epi32.
       // 3. Pack final 256i block with _mm256_permute2x128_si256.
       for (size_t i = 0; i < kNumStreams; ++i)
