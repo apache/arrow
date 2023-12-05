@@ -951,7 +951,8 @@ class ClientBuilder {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
 
-    const bool use_virtual_addressing = options_.endpoint_override.empty();
+    const bool use_virtual_addressing =
+        options_.endpoint_override.empty() || options_.force_virtual_addressing;
 
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {

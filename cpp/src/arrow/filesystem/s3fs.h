@@ -144,6 +144,14 @@ struct ARROW_EXPORT S3Options {
   /// Type of credentials being used. Set along with credentials_provider.
   S3CredentialsKind credentials_kind = S3CredentialsKind::Default;
 
+  /// Whether to use virtual addressing of buckets
+  ///
+  /// If true, then virtual addressing is always enabled.
+  /// If false, then virtual addressing is only enabled if `endpoint_override` is empty.
+  ///
+  /// This can be used for non-AWS backends that only support virtual hosted-style access.
+  bool force_virtual_addressing = false;
+
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
 
