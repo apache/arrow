@@ -1531,7 +1531,7 @@ services:
       # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
       EXTRA_CMAKE_FLAGS: "-DARROW_RUNTIME_SIMD_LEVEL=AVX2"
       ARROW_SOURCE_HOME: "/arrow"
-      INSTALL_ARGS: '--configure-vars="LIBARROW_MINIMAL=true"'
+      LIBARROW_MINIMAL: "true"
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
