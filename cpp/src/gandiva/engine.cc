@@ -461,7 +461,7 @@ void* Engine::CompiledFunction(std::string& function) {
   DCHECK(sym) << "Failed to look up function: " << function
               << " error: " << llvm::toString(sym.takeError());
 
-  return (void*)sym.get().getAddress();
+  return reinterpret_cast<void*>(sym.get().getAddress());
 }
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
@@ -472,7 +472,7 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   constexpr auto linkage = llvm::GlobalValue::ExternalLinkage;
   llvm::Function::Create(prototype, linkage, name, module());
 
-  llvm::JITEvaluatedSymbol symbol((llvm::JITTargetAddress)function_ptr,
+  llvm::JITEvaluatedSymbol symbol(reinterpret_cast<llvm::JITTargetAddress>(function_ptr),
                                   llvm::JITSymbolFlags::Exported);
   llvm::orc::MangleAndInterner mangle(lljit_->getExecutionSession(),
                                       lljit_->getDataLayout());
