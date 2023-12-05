@@ -822,11 +822,9 @@ class AzureFileSystem::Impl {
 
  private:
   template <typename OnContainer>
-  Status ListContainers(const Azure::Core::Context& context,
-                        OnContainer&& on_container) const {
+  Status VisitContainers(const Azure::Core::Context& context,
+                         OnContainer&& on_container) const {
     Azure::Storage::Blobs::ListBlobContainersOptions options;
-    // Deleted containers are not returned.
-    options.Include = Azure::Storage::Blobs::Models::ListBlobContainersIncludeFlags::None;
     try {
       auto container_list_response =
           blob_service_client_->ListBlobContainers(options, context);
@@ -844,14 +842,10 @@ class AzureFileSystem::Impl {
 
   static FileInfo FileInfoFromBlob(const std::string& container,
                                    const Azure::Storage::Blobs::Models::BlobItem& blob) {
+    auto path = internal::ConcatAbstractPath(container, blob.Name);
     if (blob.Name.back() == internal::kSep) {
-      return DirectoryFileInfoFromPath(container + internal::kSep + blob.Name);
+      return DirectoryFileInfoFromPath(path);
     }
-    std::string path;
-    path.reserve(container.size() + 1 + blob.Name.size());
-    path += container;
-    path += internal::kSep;
-    path += blob.Name;
     FileInfo info{std::move(path), FileType::File};
     info.set_size(blob.BlobSize);
     info.set_mtime(std::chrono::system_clock::time_point{blob.Details.LastModified});
@@ -864,9 +858,11 @@ class AzureFileSystem::Impl {
   }
 
   static std::string_view BasenameView(std::string_view s) {
+    DCHECK(!internal::HasTrailingSlash(s));
     auto offset = s.find_last_of(internal::kSep);
-    auto tail = (offset == std::string_view::npos) ? s : s.substr(offset);
-    return internal::RemoveTrailingSlash(tail, /*preserve_root=*/false);
+    auto result = (offset == std::string_view::npos) ? s : s.substr(offset);
+    DCHECK(!result.empty() && result.back() != internal::kSep);
+    return result;
   }
 
   /// \brief List the blobs at the root of a container or some dir in a container.
@@ -939,7 +935,7 @@ class AzureFileSystem::Impl {
           }
         };
     auto process_prefix = [&](const std::string& prefix) noexcept -> Status {
-      const std::string path = base_location.container + internal::kSep + prefix;
+      const auto path = internal::ConcatAbstractPath(base_location.container, prefix);
       const auto& info = acc_results->emplace_back(DirectoryFileInfoFromPath(path));
       if (ARROW_PREDICT_FALSE(matches_last_dir_reported(info))) {
         acc_results->pop_back();
@@ -1038,7 +1034,7 @@ class AzureFileSystem::Impl {
             }
             return Status::OK();
           };
-      return ListContainers(context, std::move(on_container));
+      return VisitContainers(context, std::move(on_container));
     }
 
     auto container_client =
@@ -1428,7 +1424,7 @@ Result<FileInfoVector> AzureFileSystem::GetFileInfo(const FileSelector& select) 
   FileInfoVector results;
   RETURN_NOT_OK(
       impl_->GetFileInfoWithSelector(context, page_size_hint, select, &results));
-  return std::move(results);
+  return {std::move(results)};
 }
 
 Status AzureFileSystem::CreateDir(const std::string& path, bool recursive) {

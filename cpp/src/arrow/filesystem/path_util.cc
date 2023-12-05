@@ -75,7 +75,7 @@ std::string SliceAbstractPath(const std::string& s, int offset, int length, char
   if (offset >= static_cast<int>(components.size())) {
     return "";
   }
-  const size_t end = std::min(static_cast<size_t>(offset) + length, components.size());
+  const auto end = std::min(static_cast<size_t>(offset) + length, components.size());
   std::stringstream combined;
   for (auto i = static_cast<size_t>(offset); i < end; i++) {
     combined << components[i];
@@ -142,7 +142,11 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
   if (base.empty()) {
     return stem;
   }
-  return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
+  std::string result;
+  result.reserve(base.length() + stem.length() + 1);  // extra 1 is for potential kSep
+  result += EnsureTrailingSlash(base);
+  result += RemoveLeadingSlash(stem);
+  return result;
 }
 
 std::string EnsureTrailingSlash(std::string_view v) {

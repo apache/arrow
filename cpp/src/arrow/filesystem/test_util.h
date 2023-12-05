@@ -76,7 +76,7 @@ void SortInfos(FileInfoVector* infos);
 
 // Create a copy of a FileInfo vector sorted by lexicographic path order
 ARROW_TESTING_EXPORT
-std::vector<FileInfo> SortedInfos(const std::vector<FileInfo>& infos);
+FileInfoVector SortedInfos(const FileInfoVector& infos);
 
 ARROW_TESTING_EXPORT
 void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos);
