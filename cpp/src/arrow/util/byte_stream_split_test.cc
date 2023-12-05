@@ -49,8 +49,8 @@ struct NamedFunc {
 };
 
 // A simplistic reference implementation for validation
-void RefererenceByteStreamSplitEncode(const uint8_t* src, int width,
-                                      const int64_t num_values, uint8_t* dest) {
+void ReferenceByteStreamSplitEncode(const uint8_t* src, int width,
+                                    const int64_t num_values, uint8_t* dest) {
   for (int64_t i = 0; i < num_values; ++i) {
     for (int stream = 0; stream < width; ++stream) {
       dest[stream * num_values + i] = *src++;
@@ -129,7 +129,7 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
  protected:
   static void ReferenceEncode(const uint8_t* raw_values, const int64_t num_values,
                               uint8_t* output_buffer_raw) {
-    RefererenceByteStreamSplitEncode(raw_values, kWidth, num_values, output_buffer_raw);
+    ReferenceByteStreamSplitEncode(raw_values, kWidth, num_values, output_buffer_raw);
   }
 
   static std::vector<T> MakeRandomInput(int64_t num_values) {

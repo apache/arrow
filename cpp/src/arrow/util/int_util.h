@@ -113,7 +113,7 @@ Status CheckIntegersInRange(const ArraySpan& values, const Scalar& bound_lower,
 ARROW_EXPORT
 Status IntegersCanFit(const ArraySpan& values, const DataType& target_type);
 
-/// \brief Convenience for boundschecking a single Scalar vlue
+/// \brief Convenience for boundschecking a single Scalar value
 ARROW_EXPORT
 Status IntegersCanFit(const Scalar& value, const DataType& target_type);
 

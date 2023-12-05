@@ -128,7 +128,7 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 /// run-ends) necessary to represent the logical range of values from
 /// offset to length.
 ///
-/// Avoid calling this function if the physical length can be estabilished in
+/// Avoid calling this function if the physical length can be established in
 /// some other way (e.g. when iterating over the runs sequentially until the
 /// end). This function uses binary-search, so it has a O(log N) cost.
 template <typename RunEndCType>
@@ -217,7 +217,7 @@ ARROW_EXPORT int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i,
 /// run-ends) necessary to represent the logical range of values from
 /// offset to length.
 ///
-/// Avoid calling this function if the physical length can be estabilished in
+/// Avoid calling this function if the physical length can be established in
 /// some other way (e.g. when iterating over the runs sequentially until the
 /// end). This function uses binary-search, so it has a O(log N) cost.
 ARROW_EXPORT int64_t FindPhysicalLength(const ArraySpan& span);
