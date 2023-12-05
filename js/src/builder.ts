@@ -277,11 +277,10 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @returns A `Data<T>` of the buffers and children representing the values written.
      */
     public flush(): Data<T> {
-
-        let data;
-        let typeIds;
-        let nullBitmap;
-        let valueOffsets;
+        let data: BufferBuilder<T['TArray']> | undefined;
+        let typeIds: Int8Array;
+        let nullBitmap: Uint8Array | undefined;
+        let valueOffsets: T['TOffsetArray'];
         const { type, length, nullCount, _typeIds, _offsets, _values, _nulls } = this;
 
         if (typeIds = _typeIds?.flush(length)) { // Unions, DenseUnions
