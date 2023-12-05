@@ -156,7 +156,7 @@ class RowArrayMerge {
   // All input sources must be initialized, but they can contain zero rows.
   //
   // Output in vector the first target row id for each source (exclusive
-  // cummulative sum of number of rows in sources). This output is optional,
+  // cumulative sum of number of rows in sources). This output is optional,
   // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
@@ -235,7 +235,7 @@ class SwissTableMerge {
   // All input sources must be initialized, but they can be empty.
   //
   // Output in a vector the first target group id for each source (exclusive
-  // cummulative sum of number of groups in sources). This output is optional,
+  // cumulative sum of number of groups in sources). This output is optional,
   // caller can pass in nullptr to indicate that it is not needed.
   //
   static Status PrepareForMerge(SwissTable* target,

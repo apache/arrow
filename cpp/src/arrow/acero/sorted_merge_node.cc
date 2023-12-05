@@ -95,7 +95,7 @@ class BackpressureController : public BackpressureControl {
   std::atomic<int32_t>& backpressure_counter_;
 };
 
-/// InputState correponds to an input. Input record batches are queued up in InputState
+/// InputState corresponds to an input. Input record batches are queued up in InputState
 /// until processed and turned into output record batches.
 class InputState {
  public:

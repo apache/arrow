@@ -604,7 +604,7 @@ struct BasicTest {
     auto r0_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
     auto r1_types = init_types(all_types, [](T& t) { return t->byte_width() > 1; });
 
-    // sample a limited number of type-combinations to keep the runnning time reasonable
+    // sample a limited number of type-combinations to keep the running time reasonable
     // the scoped-traces below help reproduce a test failure, should it happen
     auto start_time = std::chrono::system_clock::now();
     auto seed = start_time.time_since_epoch().count();
@@ -1279,7 +1279,7 @@ TRACED_TEST(AsofJoinTest, TestUnsupportedOntype, {
                                field("r0_v0", float32())}));
 })
 
-TRACED_TEST(AsofJoinTest, TestUnsupportedBytype, {
+TRACED_TEST(AsofJoinTest, TestUnsupportedByType, {
   DoRunInvalidTypeTest(schema({field("time", int64()), field("key", list(int32())),
                                field("l_v0", float64())}),
                        schema({field("time", int64()), field("key", list(int32())),
