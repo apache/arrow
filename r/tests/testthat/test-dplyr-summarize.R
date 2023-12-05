@@ -392,6 +392,8 @@ test_that("median()", {
 })
 
 test_that("quantile()", {
+  skip_if_not_available("dataset")
+
   # The default method for stats::quantile() throws an error when na.rm = FALSE
   # and the input contains NA or NaN, whereas the Arrow tdigest kernels return
   # null in this situation. To work around this known difference, the tests
@@ -488,9 +490,9 @@ test_that("quantile()", {
   )
 
   # with a vector of 2+ probs
-  expect_warning(
-    Table$create(tbl) %>%
-      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
+  expect_error(
+    InMemoryDataset$create(data.frame(x = 1)) %>%
+      summarize(q = quantile(x, probs = c(0.2, 0.8), na.rm = TRUE)),
     "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
@@ -887,28 +889,24 @@ test_that("Not (yet) supported: implicit join", {
 
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl - mean(dbl)
-      ) %>%
+      group_by(x) %>%
+      summarize(y - mean(y)) %>%
       collect(),
-    tbl,
+    data.frame(x = 1, y = 2),
     warning = paste(
-      "Expression dbl - mean\\(dbl\\) is not an aggregate expression",
+      "Expression y - mean\\(y\\) is not an aggregate expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
 
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl
-      ) %>%
+      group_by(x) %>%
+      summarize(y) %>%
       collect(),
-    tbl,
+    data.frame(x = 1, y = 2),
     warning = paste(
-      "Expression dbl is not an aggregate expression",
+      "Expression y is not an aggregate expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
@@ -916,14 +914,12 @@ test_that("Not (yet) supported: implicit join", {
   # This one could possibly be supported--in mutate()
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl - int
-      ) %>%
+      group_by(x) %>%
+      summarize(x - y) %>%
       collect(),
-    tbl,
+    data.frame(x = 1, y = 2, z = 3),
     warning = paste(
-      "Expression dbl - int is not an aggregate expression",
+      "Expression x - y is not an aggregate expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
@@ -1165,12 +1161,12 @@ test_that("Can use across() within summarise()", {
 
   # across() doesn't work in summarise when input expressions evaluate to bare field references
   expect_warning(
-    example_data %>%
+    data.frame(x = 1, y = 2) %>%
       arrow_table() %>%
-      group_by(lgl) %>%
+      group_by(x) %>%
       summarise(across(everything())) %>%
       collect(),
-    regexp = "Expression int is not an aggregate expression or is not supported in Arrow; pulling data into R"
+    regexp = "Expression y is not an aggregate expression or is not supported in Arrow; pulling data into R"
   )
 })
 
