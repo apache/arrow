@@ -130,7 +130,7 @@ struct ARROW_EXPORT S3Options {
   std::string role_arn;
   /// Optional identifier for an assumed role session.
   std::string session_name;
-  /// Optional external idenitifer to pass to STS when assuming a role
+  /// Optional external identifier to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
   int load_frequency = 900;
@@ -185,7 +185,7 @@ struct ARROW_EXPORT S3Options {
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
 
-  /// Configure with credentials from role assumed using a web identitiy token
+  /// Configure with credentials from role assumed using a web identity token
   void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;

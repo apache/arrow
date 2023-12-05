@@ -1042,7 +1042,7 @@ class RegionResolver {
     lock.unlock();
     ARROW_ASSIGN_OR_RAISE(auto region, ResolveRegionUncached(bucket));
     lock.lock();
-    // Note we don't cache a non-existent bucket, as the bucket could be created later
+    // Note we don't cache a nonexistent bucket, as the bucket could be created later
     cache_[bucket] = region;
     return region;
   }
@@ -1546,7 +1546,7 @@ class ObjectOutputStream final : public io::OutputStream {
       nbytes -= offset;
     };
 
-    // Handle case where we have some bytes bufferred from prior calls.
+    // Handle case where we have some bytes buffered from prior calls.
     if (current_part_size_ > 0) {
       // Try to fill current buffer
       const int64_t to_copy = std::min(nbytes, kPartUploadSize - current_part_size_);
@@ -3007,7 +3007,7 @@ S3GlobalOptions S3GlobalOptions::Defaults() {
   auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
 
   if (result.ok()) {
-    // Extract, trim, and downcase the value of the enivronment variable
+    // Extract, trim, and downcase the value of the environment variable
     auto value =
         arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
 

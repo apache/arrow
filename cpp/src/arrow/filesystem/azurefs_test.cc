@@ -420,7 +420,7 @@ TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespace) {
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_NOT_OK(hierarchical_namespace.Enabled("non-existent-container"));
+  ASSERT_NOT_OK(hierarchical_namespace.Enabled("nonexistent-container"));
 }
 
 TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
@@ -433,7 +433,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
 TEST_F(AzuriteFileSystemTest, GetFileInfoContainer) {
   AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
 
-  AssertFileInfo(fs_.get(), "non-existent-container", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "nonexistent-container", FileType::NotFound);
 
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
