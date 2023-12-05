@@ -22,11 +22,10 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport *
-from pyarrow._fs cimport FileSystem
+from pyarrow._fs cimport FileSystem, FileInfo
 
 
-cdef CFileSource _make_file_source(object file, FileSystem filesystem=*)
-
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=*, object file_size=*)
 
 cdef class DatasetFactory(_Weakrefable):
 

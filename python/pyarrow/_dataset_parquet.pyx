@@ -235,7 +235,7 @@ cdef class ParquetFileFormat(FileFormat):
         return f"<ParquetFileFormat read_options={self.read_options}>"
 
     def make_fragment(self, file, filesystem=None,
-                      Expression partition_expression=None, row_groups=None):
+                      Expression partition_expression=None, row_groups=None, *, file_size=None):
         """
         Make a FileFragment from a given file.
 
@@ -251,6 +251,9 @@ cdef class ParquetFileFormat(FileFormat):
             fragment to be potentially skipped while scanning with a filter.
         row_groups : Iterable, optional
             The indices of the row groups to include
+        file_size : int, optional
+            The size of the file in bytes. Can improve performance with high-latency filesystems
+            when file size needs to be known before reading.
 
         Returns
         -------
@@ -259,15 +262,13 @@ cdef class ParquetFileFormat(FileFormat):
         """
         cdef:
             vector[int] c_row_groups
-
         if partition_expression is None:
             partition_expression = _true
-
         if row_groups is None:
             return super().make_fragment(file, filesystem,
-                                         partition_expression)
+                                         partition_expression, file_size=file_size)
 
-        c_source = _make_file_source(file, filesystem)
+        c_source = _make_file_source(file, filesystem, file_size)
         c_row_groups = [<int> row_group for row_group in set(row_groups)]
 
         c_fragment = <shared_ptr[CFragment]> GetResultValue(
