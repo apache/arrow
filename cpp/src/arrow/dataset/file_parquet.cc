@@ -158,7 +158,8 @@ bool IsNan(const Scalar& value) {
 }
 
 std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
-    const FieldRef& field_ref, SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
+    const FieldRef& field_ref, SchemaField& schema_field,
+    const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
   // avoid an optimization which breaks the computation. Second, allow the
@@ -177,7 +178,8 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     return std::nullopt;
   }
 
-  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, field_ref, *statistics);
+  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, field_ref,
+                                                             *statistics);
 }
 
 void AddColumnIndices(const SchemaField& schema_field,
@@ -357,7 +359,8 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 }  // namespace
 
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
-    const Field& field, const FieldRef& field_ref, const parquet::Statistics& statistics) {
+    const Field& field, const FieldRef& field_ref,
+    const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
   // Optimize for corner case where all values are nulls
@@ -902,8 +905,8 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
 
     SchemaField& schema_field = manifest_->schema_fields[match[0]];
     for (size_t i = 1; i < match.indices().size(); ++i) {
-      if (schema_field.field->type()->id() != Type::STRUCT ) {
-        return Status::Invalid("nested paths only supported for structs");  
+      if (schema_field.field->type()->id() != Type::STRUCT) {
+        return Status::Invalid("nested paths only supported for structs");
       }
       schema_field = schema_field.children[match[i]];
     }
