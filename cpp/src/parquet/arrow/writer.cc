@@ -294,7 +294,7 @@ class FileWriterImpl : public FileWriter {
       for (int i = 0; i < schema_->num_fields(); ++i) {
         // Explicitly create each ArrowWriteContext object to avoid unintentional
         // call of the copy constructor. Otherwise, the buffers in the type of
-        // sharad_ptr will be shared among all contexts.
+        // shared_ptr will be shared among all contexts.
         parallel_column_write_contexts_.emplace_back(pool, arrow_properties_.get());
       }
     }

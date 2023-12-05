@@ -745,7 +745,7 @@ void DictEncoderImpl<ByteArrayType>::Put(const ::arrow::Array& values) {
 template <typename DType>
 void AssertCanPutDictionary(DictEncoderImpl<DType>* encoder, const ::arrow::Array& dict) {
   if (dict.null_count() > 0) {
-    throw ParquetException("Inserted dictionary cannot cannot contain nulls");
+    throw ParquetException("Inserted dictionary cannot contain nulls");
   }
 
   if (encoder->num_entries() > 0) {

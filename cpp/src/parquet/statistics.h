@@ -205,7 +205,7 @@ class PARQUET_EXPORT Statistics {
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// \brief Create a new statistics instance given a column schema
-  /// definition and pre-existing state
+  /// definition and preexisting state
   /// \param[in] descr the column schema
   /// \param[in] encoded_min the encoded minimum value
   /// \param[in] encoded_max the encoded maximum value

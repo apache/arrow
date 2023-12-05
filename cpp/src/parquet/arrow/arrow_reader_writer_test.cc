@@ -2410,7 +2410,7 @@ TEST(TestArrowReadWrite, WaitCoalescedReads) {
   ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
-// Use coalesced reads and non-coaleasced reads for different column chunks.
+// Use coalesced reads and non-coalesced reads for different column chunks.
 TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
   constexpr int num_columns = 5;
   constexpr int num_rows = 128;
@@ -2918,7 +2918,7 @@ TEST(ArrowReadWrite, DecimalStats) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
 
   std::shared_ptr<Buffer> buffer;
-  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_grop_size=*/100,
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, /*row_group_size=*/100,
                                              default_arrow_writer_properties(), &buffer));
 
   std::unique_ptr<FileReader> reader;
