@@ -418,6 +418,12 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
   return std::nullopt;
 }
 
+std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
+    const Field& field, const parquet::Statistics& statistics) {
+  const auto field_name = field.name();
+  EvaluateStatisticsAsExpression(field, FieldRef(field_name), statistics);
+}
+
 ParquetFileFormat::ParquetFileFormat()
     : FileFormat(std::make_shared<ParquetFragmentScanOptions>()) {}
 
