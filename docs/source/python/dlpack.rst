@@ -20,37 +20,48 @@
 The DLPack Protocol
 ===================
 
-Producing side of the DLPack Protocol is implemented for ``pa.Array``
-and can be used to interchange data between PyArrow and other tensor
-libraries. The data structures that are supported in the implementation
-of the protocol are integer, unsigned integer and float arrays. The
-protocol has no missing data support meaning PyArrow arrays with
-validity mask can not be used to transfer data through the DLPack
-protocol. Currently Arrow implementation of the protocol only supports
-data on a CPU device.
+The DLPack Protocol is a stable in-memory data structure
+that allows exchange between major frameworks working
+with multidimensional arrays or tensors. It is
+designed for cross hardware support meaning it allows exchange
+of data on devices other than the CPU (e.g. GPU).
 
-The DLPack Protocol is
-`selected as the Python array API standard <https://data-apis.org/array-api/latest/design_topics/data_interchange.html?highlight=dlpack#dlpack-an-in-memory-tensor-structure>`_
+DLPack protocol had been
+`selected as the Python array API standard <https://data-apis.org/array-api/latest/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure>`_
 by the
 `Consortium for Python Data API Standards <https://data-apis.org/>`_
 in order to enable device aware data interchange between array/tensor
-libraries in the Python ecosystem. Being device aware allows exchange
-of data on devices other than the CPU (e.g. GPU). See more about the standard
+libraries in the Python ecosystem. See more about the standard
 in the
 `protocol documentation <https://data-apis.org/array-api/latest/index.html>`_
 and more about the DLPack in the
 `Python Specification for DLPack <https://dmlc.github.io/dlpack/latest/python_spec.html#python-spec>`_.
 
+Implementation of DLPack in PyArrow
+-----------------------------------
+
+Producing side of the DLPack Protocol is implemented for ``pa.Array``
+and can be used to interchange data between PyArrow and other tensor
+libraries. The data structures that are supported in the implementation
+of the protocol are integer, unsigned integer and float arrays. The
+protocol has no missing data support meaning PyArrow arrays with
+missing values cannot be used to transfer data through the DLPack
+protocol. Currently Arrow implementation of the protocol only supports
+data on a CPU device.
+
 Data interchange syntax of the protocol includes
 
-1. ``from_dlpack(x)``: consuming an array object that implements a ``__dlpack__`å` method
-   and creating a new array while sharing the memory.
+1. ``from_dlpack(x)``: consuming an array object that implements a
+   ``__dlpack__`` method and creating a new array while sharing the
+   memory.
 
-2. ``__dlpack__(self, stream=None)`` and ``__dlpack_device__``: producing a PyCapsule with
-   the DLPack struct which is called from within ``from_dlpack(x)``.
+2. ``__dlpack__(self, stream=None)`` and ``__dlpack_device__``:
+   producing a PyCapsule with the DLPack struct which is called from
+   within ``from_dlpack(x)``.
 
-PyArrow implements the second part of the protocol (``__dlpack__(self, stream=None)`` and
-``__dlpack_device__``).
+PyArrow implements the second part of the protocol
+(``__dlpack__(self, stream=None)`` and ``__dlpack_device__``) and can
+thus be consumed by libraries implementing ``from_dlpack``.
 
 Example
 -------
