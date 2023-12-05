@@ -421,7 +421,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
     const Field& field, const parquet::Statistics& statistics) {
   const auto field_name = field.name();
-  EvaluateStatisticsAsExpression(field, FieldRef(field_name), statistics);
+  return EvaluateStatisticsAsExpression(field, FieldRef(field_name), statistics);
 }
 
 ParquetFileFormat::ParquetFileFormat()
