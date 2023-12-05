@@ -35,8 +35,8 @@ class TestExportArray : public ::testing::Test {
 auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
                           std::shared_ptr<DataType> arrow_type,
                           DLDataTypeCode dlpack_type, int64_t length) {
-  DLManagedTensor* dlmtensor;
-  ASSERT_OK(arrow::dlpack::ExportArray(arr, &dlmtensor));
+  ASSERT_OK_AND_ASSIGN(auto dlmtensor,
+                       arrow::dlpack::ExportArray(arr));
   auto dltensor = dlmtensor->dl_tensor;
 
   const auto byte_width = arr->type()->byte_width();
@@ -57,8 +57,7 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
   ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
   ASSERT_EQ(0, dltensor.device.device_id);
 
-  DLDevice device;
-  ASSERT_OK(arrow::dlpack::ExportDevice(arr, &device));
+  ASSERT_OK_AND_ASSIGN(auto device, arrow::dlpack::ExportDevice(arr));
   ASSERT_EQ(DLDeviceType::kDLCPU, device.device_type);
   ASSERT_EQ(0, device.device_id);
 
@@ -96,23 +95,20 @@ TEST_F(TestExportArray, TestUnSupportedArray) {
   random::RandomArrayGenerator gen(0);
 
   const std::shared_ptr<Array> array_with_null = gen.Int8(10, 1, 100, 1);
-  DLManagedTensor* dlmtensor_1;
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: Can only use __dlpack__ on arrays with no nulls.",
-      arrow::dlpack::ExportArray(array_with_null, &dlmtensor_1));
+      arrow::dlpack::ExportArray(array_with_null));
 
   const std::shared_ptr<Array> array_string = gen.String(10, 0, 10, 0);
-  DLManagedTensor* dlmtensor_2;
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: Can only use __dlpack__ on primitive arrays "
                              "without NullType and Decimal types.",
-                             arrow::dlpack::ExportArray(array_string, &dlmtensor_2));
+                             arrow::dlpack::ExportArray(array_string));
 
   const std::shared_ptr<Array> array_boolean = gen.Boolean(10, 0.5, 0);
-  DLManagedTensor* dlmtensor_3;
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
-      arrow::dlpack::ExportArray(array_boolean, &dlmtensor_3));
+      arrow::dlpack::ExportArray(array_boolean));
 }
 
 }  // namespace arrow::dlpack

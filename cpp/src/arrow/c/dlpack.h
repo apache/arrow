@@ -36,19 +36,17 @@ namespace arrow::dlpack {
 /// are not supported.
 ///
 /// \param[in] arr Arrow array
-/// \param[out] out DLManagedTensor struct
-/// \return Status
+/// \return DLManagedTensor struct
 ARROW_EXPORT
-Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out);
+Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr);
 
 /// \brief Get DLDevice with enumerator specifying the
 /// type of the device data is stored on and index of the
 /// device which is 0 by default for CPU.
 ///
 /// \param[in] arr Arrow array
-/// \param[out] out DLDevice struct
-/// \return DLDevice
+/// \return DLDevice struct
 ARROW_EXPORT
-Status ExportDevice(const std::shared_ptr<Array>& arr, DLDevice* out);
+Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr);
 
 }  // namespace arrow::dlpack

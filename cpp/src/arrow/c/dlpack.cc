@@ -69,7 +69,7 @@ static void deleter(DLManagedTensor* arg) {
   delete static_cast<DLMTensorCtx*>(arg->manager_ctx);
 }
 
-Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
+Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   if (arr->null_count() > 0) {
     return Status::TypeError("Can only use __dlpack__ on arrays with no nulls.");
   }
@@ -127,17 +127,15 @@ Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out) {
   dlm_tensor->dl_tensor.strides = NULL;
   dlm_tensor->dl_tensor.byte_offset = 0;
 
-  *out = dlm_tensor;
-  return Status::OK();
+  return dlm_tensor;
 }
 
-Status ExportDevice(const std::shared_ptr<Array>& arr, DLDevice* out) {
+Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
   DLDevice device;
   if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
     device.device_id = 0;
     device.device_type = DLDeviceType::kDLCPU;
-    *out = device;
-    return Status::OK();
+    return device;
   } else {
     return Status::NotImplemented(
         "DLPack support is implemented only for buffers on CPU device.");

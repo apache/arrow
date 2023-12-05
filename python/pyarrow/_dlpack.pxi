@@ -49,14 +49,16 @@ cdef void pycapsule_deleter(object dltensor) noexcept:
 
 cpdef object to_dlpack(Array arr) except *:
 
-    cdef DLManagedTensor* dlm_tensor
-    check_status(ExportToDLPack(pyarrow_unwrap_array(arr), &dlm_tensor))
+    cdef CResult[DLManagedTensor*] c_dlm_tensor
+    c_dlm_tensor = ExportToDLPack(pyarrow_unwrap_array(arr))
+    dlm_tensor = GetResultValue(c_dlm_tensor)
 
     return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
 
 cpdef object dlpack_device(Array arr) except *:
 
-    cdef DLDevice device
-    check_status(ExportDevice(pyarrow_unwrap_array(arr), &device))
+    cdef CResult[DLDevice] c_device
+    c_device = ExportDevice(pyarrow_unwrap_array(arr))
+    device = GetResultValue(c_device)
 
     return (device.device_type, device.device_id)
