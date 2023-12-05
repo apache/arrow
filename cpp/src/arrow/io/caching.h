@@ -43,8 +43,8 @@ struct ARROW_EXPORT CacheOptions {
   int64_t range_size_limit;
   /// \brief A lazy cache does not perform any I/O until requested. 
   ///   lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
-  ///   lazy = True, prefetch_limit = 0: request merged byte ranges when the reader needs 
-  ///   only after the reader needs them. 
+  ///   lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader 
+  ///   needs them. 
   ///   lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the 
   ///   range that is currently being read.
   bool lazy;

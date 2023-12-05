@@ -1979,8 +1979,8 @@ cdef class CacheOptions(_Weakrefable):
         they are not combined
     lazy : bool, default False
         lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
-        lazy = True, prefetch_limit = 0: request merged byte ranges when the reader needs 
-        only after the reader needs them. 
+        lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader 
+        needs them. 
         lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the 
         range that is currently being read.
     prefetch_limit : int, default 0
