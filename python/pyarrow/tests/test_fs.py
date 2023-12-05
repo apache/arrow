@@ -760,6 +760,38 @@ def test_delete_dir(fs, pathfn):
         fs.delete_dir(d)
 
 
+def test_delete_dir_with_explicit_subdir(fs, pathfn):
+    # GH-38618: regression with AWS failing to delete directories,
+    # depending on whether they were created explicitly. Note that
+    # Minio doesn't reproduce the issue, so this test is not a regression
+    # test in itself.
+    skip_fsspec_s3fs(fs)
+
+    d = pathfn('directory/')
+    nd = pathfn('directory/nested/')
+
+    # deleting dir with explicit subdir
+    fs.create_dir(d)
+    fs.create_dir(nd)
+    fs.delete_dir(d)
+    dir_info = fs.get_file_info(d)
+    assert dir_info.type == FileType.NotFound
+
+    # deleting dir with blob in explicit subdir
+    d = pathfn('directory2')
+    nd = pathfn('directory2/nested')
+    f = pathfn('directory2/nested/target-file')
+
+    fs.create_dir(d)
+    fs.create_dir(nd)
+    with fs.open_output_stream(f) as s:
+        s.write(b'data')
+
+    fs.delete_dir(d)
+    dir_info = fs.get_file_info(d)
+    assert dir_info.type == FileType.NotFound
+
+
 def test_delete_dir_contents(fs, pathfn):
     skip_fsspec_s3fs(fs)
 
