@@ -857,7 +857,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.
-
         return ParquetFragmentScanOptions(**kwargs)
 
     def __reduce__(self):
