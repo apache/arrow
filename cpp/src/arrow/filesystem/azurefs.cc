@@ -1157,8 +1157,9 @@ class AzureFileSystem::Impl {
     }
   }
 
- private:
-  Status CopyFileInternal(const AzureLocation& src, const AzureLocation& dest) {
+  Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
+    RETURN_NOT_OK(ValidateFileLocation(src));
+    RETURN_NOT_OK(ValidateFileLocation(dest));
     if (src == dest) {
       return Status::OK();
     }
@@ -1175,20 +1176,6 @@ class AzureFileSystem::Impl {
           exception);
     }
     return Status::OK();
-  }
-
- public:
-  Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
-    RETURN_NOT_OK(ValidateFileLocation(src));
-    if (dest.container.empty()) {
-      return PathNotFound(dest);
-    }
-    if (dest.path.empty() || internal::HasTrailingSlash(dest.path)) {
-      ARROW_ASSIGN_OR_RAISE(auto real_dest, dest.join(src.path_parts.back()));
-      return CopyFileInternal(src, real_dest);
-    } else {
-      return CopyFileInternal(src, dest);
-    }
   }
 };
 

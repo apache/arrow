@@ -789,31 +789,6 @@ TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationSame) {
   EXPECT_EQ(kLoremIpsum, buffer->ToString());
 }
 
-TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationContainer) {
-  const auto container_name = RandomContainerName();
-  ASSERT_OK(fs_->CreateDir(container_name));
-  ASSERT_OK(fs_->CopyFile(PreexistingObjectPath(), container_name));
-  const auto destination_path =
-      internal::ConcatAbstractPath(container_name, PreexistingObjectName());
-  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(destination_path));
-  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(info));
-  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
-  EXPECT_EQ(kLoremIpsum, buffer->ToString());
-}
-
-TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationDirectory) {
-  const auto directory_path = internal::EnsureTrailingSlash(
-      internal::ConcatAbstractPath(RandomContainerName(), RandomDirectoryName()));
-  ASSERT_OK(fs_->CreateDir(directory_path, true));
-  ASSERT_OK(fs_->CopyFile(PreexistingObjectPath(), directory_path));
-  const auto destination_path =
-      internal::ConcatAbstractPath(directory_path, PreexistingObjectName());
-  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(destination_path));
-  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(info));
-  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
-  EXPECT_EQ(kLoremIpsum, buffer->ToString());
-}
-
 TEST_F(AzuriteFileSystemTest, CopyFileFailureSourceNonexistent) {
   const auto destination_path =
       internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
