@@ -761,8 +761,10 @@ def test_delete_dir(fs, pathfn):
 
 
 def test_delete_dir_with_explicit_subdir(fs, pathfn):
-    # https://github.com/apache/arrow/issues/38618 (regression with S3 failing
-    # to delete directories, depending on whether they were created explicitly)
+    # GH-38618: regression with AWS failing to delete directories,
+    # depending on whether they were created explicitly. Note that
+    # Minio doesn't reproduce the issue, so this test is not a regression
+    # test in itself.
     skip_fsspec_s3fs(fs)
 
     d = pathfn('directory/')
