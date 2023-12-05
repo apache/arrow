@@ -17,7 +17,7 @@
 
 groups:
   # these groups are just for convenience
-  # makes it easier to submit related taskshttps://github.com/github/release-radar
+  # makes it easier to submit related tasks https://github.com/github/release-radar
 
 {############################# Packaging tasks ###############################}
 
