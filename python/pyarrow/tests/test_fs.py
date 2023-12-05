@@ -761,6 +761,8 @@ def test_delete_dir(fs, pathfn):
 
 
 def test_delete_dir_with_explicit_subdir(fs, pathfn):
+    # https://github.com/apache/arrow/issues/38618 (regression with S3 failing
+    # to delete directories, depending on whether they were created explicitly)
     skip_fsspec_s3fs(fs)
 
     d = pathfn('directory/')

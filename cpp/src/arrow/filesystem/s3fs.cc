@@ -2410,6 +2410,10 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
                     DCHECK_GT(file_info.path().size(), bucket.size());
                     auto file_path = file_info.path().substr(bucket.size() + 1);
                     if (file_info.IsDirectory()) {
+                      // the selector returns FileInfo objects for directories with a
+                      // a path that never ends in a trailing slash, but for S3 the file
+                      // needs to have a trailing slash to recognize it as direcotory
+                      // (https://github.com/apache/arrow/issues/38618)
                       DCHECK_OK(internal::AssertNoTrailingSlash(file_path));
                       file_path = file_path + kSep;
                     }
