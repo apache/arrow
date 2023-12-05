@@ -38,7 +38,7 @@ if (!file.exists(tasks_yml)) {
   stop("Run this script from the r/ directory of the arrow repo")
 }
 
-print("Extracting libarrow binary paths from tasks.yml")
+cat("Extracting libarrow binary paths from tasks.yml\n")
 # Get the libarrow binary paths from the tasks.yml file
 binary_paths <- readLines(tasks_yml) |>
   grep("r-lib__libarrow", x = _, value = TRUE) |>
@@ -55,12 +55,12 @@ for (path in binary_paths) {
   file <- file.path("tools/checksums", sha_path)
   dirname(file) |> dir.create(path = _, recursive = TRUE, showWarnings = FALSE)
   
-  print(paste0("Downloading ", sha_path))
+  cat(paste0("Downloading ", sha_path, "\n"))
   url <- sprintf(artifactory_root, VERSION, sha_path)
   download.file(url, file, quiet = TRUE, cacheOK = FALSE)
 
   if (grepl("windows", path)) {
-    print(paste0("Converting ", path, " to windows style line endings"))
+    cat(paste0("Converting ", path, " to windows style line endings\n"))
     # UNIX style line endings cause errors with mysys2 sha512sum
     sed_status <- system2("sed", args = c("-i", "s/\\\\r//", file))
     if (sed_status != 0) {
@@ -69,4 +69,4 @@ for (path in binary_paths) {
   }
 }
 
-print("Checksums updated successfully!")
+cat("Checksums updated successfully!\n")
