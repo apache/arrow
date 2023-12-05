@@ -511,36 +511,20 @@ from a remote filesystem into a pandas dataframe you may need to run
 ``sort_index`` to maintain row ordering (as long as the ``preserve_index``
 option was enabled on write).
 
-.. note::
+Other features:
 
-   The ParquetDataset is being reimplemented based on the new generic Dataset
-   API (see the :ref:`dataset` docs for an overview). This is not yet the
-   default, but can already be enabled by passing the ``use_legacy_dataset=False``
-   keyword to :class:`ParquetDataset` or :func:`read_table`::
+- Filtering on all columns (using row group statistics) instead of only on
+   the partition keys.
+- Fine-grained partitioning: support for a directory partitioning scheme
+   in addition to the Hive-like partitioning (e.g. "/2019/11/15/" instead of
+   "/year=2019/month=11/day=15/"), and the ability to specify a schema for
+   the partition keys.
 
-      pq.ParquetDataset('dataset_name/', use_legacy_dataset=False)
+Note:
 
-   Enabling this gives the following new features:
-
-   - Filtering on all columns (using row group statistics) instead of only on
-     the partition keys.
-   - More fine-grained partitioning: support for a directory partitioning scheme
-     in addition to the Hive-like partitioning (e.g. "/2019/11/15/" instead of
-     "/year=2019/month=11/day=15/"), and the ability to specify a schema for
-     the partition keys.
-   - General performance improvement and bug fixes.
-
-   It also has the following changes in behaviour:
-
-   - The partition keys need to be explicitly included in the ``columns``
-     keyword when you want to include them in the result while reading a
-     subset of the columns
-
-   This new implementation is already enabled in ``read_table``, and in the
-   future, this will be turned on by default for ``ParquetDataset``. The new
-   implementation does not yet cover all existing ParquetDataset features (e.g.
-   specifying the ``metadata``, or the ``pieces`` property API). Feedback is
-   very welcome.
+- The partition keys need to be explicitly included in the ``columns``
+   keyword when you want to include them in the result while reading a
+   subset of the columns
 
 
 Using with Spark

@@ -1094,8 +1094,6 @@ def _create_dataset_for_fragments(tempdir, chunk_size=None, filesystem=None):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1144,8 +1142,6 @@ def test_fragments_implicit_cast(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_reconstruct(tempdir, dataset_reader, pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
@@ -1208,8 +1204,6 @@ def test_fragments_reconstruct(tempdir, dataset_reader, pickle_module):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups(tempdir, dataset_reader):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1276,8 +1270,6 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs, pickle_module):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
@@ -1388,16 +1380,13 @@ def _create_dataset_all_types(tempdir, chunk_size=None):
     path = str(tempdir / "test_parquet_dataset_all_types")
 
     # write_to_dataset currently requires pandas
-    pq.write_to_dataset(table, path, use_legacy_dataset=True,
-                        chunk_size=chunk_size)
+    pq.write_to_dataset(table, path, chunk_size=chunk_size)
 
     return table, ds.dataset(path, format="parquet", partitioning="hive")
 
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_parquet_fragment_statistics(tempdir):
     table, dataset = _create_dataset_all_types(tempdir)
 
@@ -1465,8 +1454,6 @@ def test_parquet_empty_row_group_statistics(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_predicate(tempdir):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
@@ -1491,8 +1478,6 @@ def test_fragments_parquet_row_groups_predicate(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader,
                                                   pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
@@ -1536,8 +1521,6 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader,
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
                                       dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1567,8 +1550,6 @@ def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
                                          dataset_reader):
     fs, assert_opens = open_logging_fs
@@ -1602,8 +1583,6 @@ def test_fragments_parquet_subset_filter(tempdir, open_logging_fs,
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
 def test_fragments_parquet_subset_invalid(tempdir):
     _, dataset = _create_dataset_for_fragments(tempdir, chunk_size=1)
     fragment = list(dataset.get_fragments())[0]
@@ -3525,10 +3504,7 @@ def test_parquet_dataset_factory_fsspec(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas  # write_to_dataset currently requires pandas
-@pytest.mark.parametrize('use_legacy_dataset', [False, True])
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
-def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
+def test_parquet_dataset_factory_roundtrip(tempdir):
     # Simple test to ensure we can roundtrip dataset to
     # _metadata/common_metadata and back.  A more complex test
     # using partitioning will have to wait for ARROW-13269.  The
@@ -3540,7 +3516,6 @@ def test_parquet_dataset_factory_roundtrip(tempdir, use_legacy_dataset):
     metadata_collector = []
     pq.write_to_dataset(
         table, str(root_path), metadata_collector=metadata_collector,
-        use_legacy_dataset=use_legacy_dataset
     )
     metadata_path = str(root_path / '_metadata')
     # write _metadata file
@@ -3864,8 +3839,7 @@ def test_write_to_dataset_given_null_just_works(tempdir):
                       'col': list(range(4))}, schema=schema)
 
     path = str(tempdir / 'test_dataset')
-    pq.write_to_dataset(table, path, partition_cols=[
-                        'part'], use_legacy_dataset=False)
+    pq.write_to_dataset(table, path, partition_cols=['part'])
 
     actual_table = pq.read_table(tempdir / 'test_dataset')
     # column.equals can handle the difference in chunking but not the fact
@@ -3873,28 +3847,6 @@ def test_write_to_dataset_given_null_just_works(tempdir):
     assert actual_table.column('part').to_pylist(
     ) == table.column('part').to_pylist()
     assert actual_table.column('col').equals(table.column('col'))
-
-
-@pytest.mark.parquet
-@pytest.mark.pandas
-@pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
-def test_legacy_write_to_dataset_drops_null(tempdir):
-    schema = pa.schema([
-        pa.field('col', pa.int64()),
-        pa.field('part', pa.dictionary(pa.int32(), pa.string()))
-    ])
-    table = pa.table({'part': ['a', 'a', None, None],
-                      'col': list(range(4))}, schema=schema)
-    expected = pa.table(
-        {'part': ['a', 'a'], 'col': list(range(2))}, schema=schema)
-
-    path = str(tempdir / 'test_dataset')
-    pq.write_to_dataset(table, path, partition_cols=[
-                        'part'], use_legacy_dataset=True)
-
-    actual = pq.read_table(tempdir / 'test_dataset')
-    assert actual == expected
 
 
 def _sort_table(tab, sort_col):
