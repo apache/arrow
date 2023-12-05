@@ -449,7 +449,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> import pyarrow as pa
         >>> n_legs = pa.chunked_array([[2, 2, 4], [4, 5, 100]])
         >>> animals = pa.chunked_array((
-        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Flamingo", "Parrot", "Dog"],
         ...             ["Horse", "Brittle stars", "Centipede"]
         ...             ))
         >>> n_legs.equals(n_legs)
@@ -584,7 +584,7 @@ cdef class ChunkedArray(_PandasConvertible):
         --------
         >>> import pyarrow as pa
         >>> animals = pa.chunked_array((
-        ...             ["Flamingo", "Parot", "Dog"],
+        ...             ["Flamingo", "Parrot", "Dog"],
         ...             ["Horse", "Brittle stars", "Centipede"]
         ...             ))
         >>> animals.dictionary_encode()
@@ -594,7 +594,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -610,7 +610,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -1127,7 +1127,7 @@ cdef class ChunkedArray(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> arr_1 = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> arr_1 = pa.array(["Flamingo", "Parrot", "Dog"]).dictionary_encode()
         >>> arr_2 = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
         >>> c_arr = pa.chunked_array([arr_1, arr_2])
         >>> c_arr
@@ -1137,7 +1137,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog"
             ]
           -- indices:
@@ -1167,7 +1167,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -1183,7 +1183,7 @@ cdef class ChunkedArray(_PandasConvertible):
           -- dictionary:
             [
               "Flamingo",
-              "Parot",
+              "Parrot",
               "Dog",
               "Horse",
               "Brittle stars",
@@ -2804,7 +2804,7 @@ cdef class RecordBatch(_Tabular):
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> names = ["n_legs", "animals"]
 
-        Construct a RecordBartch from pyarrow Arrays using names:
+        Construct a RecordBatch from pyarrow Arrays using names:
 
         >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names)
         pyarrow.RecordBatch
@@ -2822,7 +2822,7 @@ cdef class RecordBatch(_Tabular):
         4       5  Brittle stars
         5     100      Centipede
 
-        Construct a RecordBartch from pyarrow Arrays using schema:
+        Construct a RecordBatch from pyarrow Arrays using schema:
 
         >>> my_schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
@@ -3039,9 +3039,12 @@ cdef class RecordBatch(_Tabular):
 
         Parameters
         ----------
-        requested_schema : pyarrow.lib.Schema, default None
-            A schema to attempt to cast the streamed data to. This is currently
-            unsupported and will raise an error.
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+            Currently, this is not supported and will raise a
+            NotImplementedError if the schema doesn't match the current schema.
 
         Returns
         -------
@@ -3656,7 +3659,7 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> arr_1 = pa.array(["Flamingo", "Parot", "Dog"]).dictionary_encode()
+        >>> arr_1 = pa.array(["Flamingo", "Parrot", "Dog"]).dictionary_encode()
         >>> arr_2 = pa.array(["Horse", "Brittle stars", "Centipede"]).dictionary_encode()
         >>> c_arr = pa.chunked_array([arr_1, arr_2])
         >>> table = pa.table([c_arr], names=["animals"])
@@ -3665,7 +3668,7 @@ cdef class Table(_Tabular):
         animals: dictionary<values=string, indices=int32, ordered=0>
         ----
         animals: [  -- dictionary:
-        ["Flamingo","Parot","Dog"]  -- indices:
+        ["Flamingo","Parrot","Dog"]  -- indices:
         [0,1,2],  -- dictionary:
         ["Horse","Brittle stars","Centipede"]  -- indices:
         [0,1,2]]
@@ -3677,9 +3680,9 @@ cdef class Table(_Tabular):
         animals: dictionary<values=string, indices=int32, ordered=0>
         ----
         animals: [  -- dictionary:
-        ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+        ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
         [0,1,2],  -- dictionary:
-        ["Flamingo","Parot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
+        ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
         [3,4,5]]
         """
         cdef:
@@ -4188,12 +4191,12 @@ cdef class Table(_Tabular):
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
-        from pyarrow.pandas_compat import table_to_blockmanager
-        mgr = table_to_blockmanager(
+        from pyarrow.pandas_compat import table_to_dataframe
+        df = table_to_dataframe(
             options, self, categories,
             ignore_metadata=ignore_metadata,
             types_mapper=types_mapper)
-        return pandas_api.data_frame(mgr)
+        return df
 
     @property
     def schema(self):
@@ -4859,9 +4862,12 @@ cdef class Table(_Tabular):
 
         Parameters
         ----------
-        requested_schema : pyarrow.lib.Schema, default None
-            A schema to attempt to cast the streamed data to. This is currently
-            unsupported and will raise an error.
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+            Currently, this is not supported and will raise a
+            NotImplementedError if the schema doesn't match the current schema.
 
         Returns
         -------

@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.2"]
+        r: ["4.3"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -215,6 +215,9 @@ jobs:
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       - uses: r-lib/actions/setup-r@v2
         with:
+          # Note: RTools must be 40 here because RTools40 + ucrt is how we build the Arrow C++
+          # static library. The R is not used here but R 4.1 was the last R to use
+          # Rtools40.
           r-version: "4.1"
           rtools-version: 40
           Ncpus: 2
@@ -234,7 +237,7 @@ jobs:
 
   windows-r:
     needs: [windows-cpp]
-    name: AMD64 Windows R ${{ matrix.config.rversion }} RTools ${{ matrix.config.rtools }}
+    name: AMD64 Windows R ${{ matrix.config.rversion }}
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
@@ -242,8 +245,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 42, rversion: "4.2" }
-        - { rtools: 42, rversion: "devel" }
+        - { rversion: "release" }
+
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
@@ -255,7 +258,6 @@ jobs:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 42 }}
         uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools40-ucrt64.zip
@@ -269,7 +271,6 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
-          rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
         env:
@@ -318,7 +319,7 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        if: ${{ matrix.config.rversion == '4.2' }}
+        if: ${{ matrix.config.rversion == 'release' }}
         env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

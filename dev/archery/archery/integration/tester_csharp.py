@@ -38,6 +38,7 @@ def _load_clr():
     global _clr_loaded
     if not _clr_loaded:
         _clr_loaded = True
+        os.environ['DOTNET_GCHeapHardLimit'] = '0xC800000'  # 200 MiB
         import pythonnet
         pythonnet.load("coreclr")
         import clr

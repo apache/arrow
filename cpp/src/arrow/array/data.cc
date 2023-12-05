@@ -33,6 +33,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/binary_view_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/dict_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ree_util.h"
@@ -90,6 +91,10 @@ bool UnionMayHaveLogicalNulls(const ArrayData& data) {
 }
 
 bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
+  return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+bool DictionaryMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
@@ -174,7 +179,7 @@ int64_t ArrayData::GetNullCount() const {
 }
 
 int64_t ArrayData::ComputeLogicalNullCount() const {
-  if (this->buffers[0]) {
+  if (this->buffers[0] && this->type->id() != Type::DICTIONARY) {
     return GetNullCount();
   }
   return ArraySpan(*this).ComputeLogicalNullCount();
@@ -244,7 +249,20 @@ BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
   auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
   offsets[0] = 0;
   offsets[1] = static_cast<offset_type>(value_size);
+  static_assert(2 * sizeof(offset_type) <= 16);
   return {scratch_space, sizeof(offset_type) * 2};
+}
+
+template <typename offset_type>
+std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_space,
+                                                           offset_type value_size) {
+  auto* offsets = scratch_space;
+  auto* sizes = scratch_space + sizeof(offset_type);
+  reinterpret_cast<offset_type*>(offsets)[0] = 0;
+  reinterpret_cast<offset_type*>(sizes)[0] = value_size;
+  static_assert(2 * sizeof(offset_type) <= 16);
+  return {BufferSpan{offsets, sizeof(offset_type)},
+          BufferSpan{sizes, sizeof(offset_type)}};
 }
 
 int GetNumBuffers(const DataType& type) {
@@ -261,6 +279,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::STRING_VIEW:
     case Type::BINARY_VIEW:
     case Type::DENSE_UNION:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
       return 3;
     case Type::EXTENSION:
       // The number of buffers depends on the storage type
@@ -381,7 +401,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
     this->buffers[1].data = const_cast<uint8_t*>(scalar.value->data());
     this->buffers[1].size = scalar.value->size();
-  } else if (is_list_like(type_id)) {
+  } else if (is_var_length_list_like(type_id) || type_id == Type::FIXED_SIZE_LIST) {
     const auto& scalar = checked_cast<const BaseListScalar&>(value);
 
     int64_t value_length = 0;
@@ -402,7 +422,14 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
           OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST) {
       this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, value_length);
+    } else if (type_id == Type::LIST_VIEW) {
+      std::tie(this->buffers[1], this->buffers[2]) = OffsetsAndSizesForScalar(
+          scalar.scratch_space_, static_cast<int32_t>(value_length));
+    } else if (type_id == Type::LARGE_LIST_VIEW) {
+      std::tie(this->buffers[1], this->buffers[2]) =
+          OffsetsAndSizesForScalar(scalar.scratch_space_, value_length);
     } else {
+      DCHECK_EQ(type_id, Type::FIXED_SIZE_LIST);
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
     }
@@ -520,6 +547,9 @@ int64_t ArraySpan::ComputeLogicalNullCount() const {
   if (t == Type::RUN_END_ENCODED) {
     return ree_util::LogicalNullCount(*this);
   }
+  if (t == Type::DICTIONARY) {
+    return dict_util::LogicalNullCount(*this);
+  }
   return GetNullCount();
 }
 
@@ -615,6 +645,10 @@ bool ArraySpan::UnionMayHaveLogicalNulls() const {
 
 bool ArraySpan::RunEndEncodedMayHaveLogicalNulls() const {
   return ree_util::ValuesArray(*this).MayHaveLogicalNulls();
+}
+
+bool ArraySpan::DictionaryMayHaveLogicalNulls() const {
+  return this->GetNullCount() != 0 || this->dictionary().GetNullCount() != 0;
 }
 
 // ----------------------------------------------------------------------

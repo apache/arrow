@@ -30,6 +30,7 @@
 #include "arrow/array.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/cast.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -39,6 +40,9 @@
 #include "arrow/type_traits.h"
 
 namespace arrow {
+
+using compute::Cast;
+using compute::CastOptions;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -394,6 +398,10 @@ class TestRealScalar : public ::testing::Test {
 
   void TestLargeListOf() { TestListOf<LargeListScalar>(large_list(type_)); }
 
+  void TestListViewOf() { TestListOf<ListViewScalar>(list_view(type_)); }
+
+  void TestLargeListViewOf() { TestListOf<LargeListViewScalar>(large_list_view(type_)); }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_,
@@ -413,6 +421,10 @@ TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
 
 TYPED_TEST(TestRealScalar, LargeListOf) { this->TestLargeListOf(); }
+
+TYPED_TEST(TestRealScalar, ListViewOf) { this->TestListViewOf(); }
+
+TYPED_TEST(TestRealScalar, LargeListViewOf) { this->TestLargeListViewOf(); }
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {
@@ -854,9 +866,9 @@ TEST(TestTimestampScalars, MakeScalar) {
 
 TEST(TestTimestampScalars, Cast) {
   auto convert = [](TimeUnit::type in, TimeUnit::type out, int64_t value) -> int64_t {
-    auto scalar =
-        TimestampScalar(value, timestamp(in)).CastTo(timestamp(out)).ValueOrDie();
-    return internal::checked_pointer_cast<TimestampScalar>(scalar)->value;
+    EXPECT_OK_AND_ASSIGN(auto casted, Cast(TimestampScalar(value, timestamp(in)),
+                                           timestamp(out), CastOptions::Unsafe()));
+    return internal::checked_pointer_cast<TimestampScalar>(casted.scalar())->value;
   };
 
   EXPECT_EQ(convert(TimeUnit::SECOND, TimeUnit::MILLI, 1), 1000);
@@ -1083,7 +1095,7 @@ void CheckInvalidListCast(const Scalar& scalar, const std::shared_ptr<DataType>&
 }
 
 template <typename T>
-class TestListScalar : public ::testing::Test {
+class TestListLikeScalar : public ::testing::Test {
  public:
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
@@ -1177,17 +1189,18 @@ class TestListScalar : public ::testing::Test {
   std::shared_ptr<Array> value_;
 };
 
-using ListScalarTestTypes = ::testing::Types<ListType, LargeListType, FixedSizeListType>;
+using ListScalarTestTypes = ::testing::Types<ListType, LargeListType, ListViewType,
+                                             LargeListViewType, FixedSizeListType>;
 
-TYPED_TEST_SUITE(TestListScalar, ListScalarTestTypes);
+TYPED_TEST_SUITE(TestListLikeScalar, ListScalarTestTypes);
 
-TYPED_TEST(TestListScalar, Basics) { this->TestBasics(); }
+TYPED_TEST(TestListLikeScalar, Basics) { this->TestBasics(); }
 
-TYPED_TEST(TestListScalar, ValidateErrors) { this->TestValidateErrors(); }
+TYPED_TEST(TestListLikeScalar, ValidateErrors) { this->TestValidateErrors(); }
 
-TYPED_TEST(TestListScalar, Hashing) { this->TestHashing(); }
+TYPED_TEST(TestListLikeScalar, Hashing) { this->TestHashing(); }
 
-TYPED_TEST(TestListScalar, Cast) { this->TestCast(); }
+TYPED_TEST(TestListLikeScalar, Cast) { this->TestCast(); }
 
 TEST(TestFixedSizeListScalar, ValidateErrors) {
   const auto ty = fixed_size_list(int16(), 3);

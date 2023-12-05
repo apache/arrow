@@ -84,7 +84,7 @@ library. Source folder includes:
 
 - **C++ documentation** section: ``docs/source/cpp``.
 - **Development** section: ``docs/source/developers``.
-- **Specificatons and protocols** section: ``docs/source/format``.
+- **Specifications and protocols** section: ``docs/source/format``.
 - **Language documentation**
 
   **C (GLib), Java, JavaScript** and **Python** documentation is located
