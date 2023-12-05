@@ -20,9 +20,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/c/dlpack_abi.h"
 
-namespace arrow {
-
-namespace dlpack {
+namespace arrow::dlpack {
 
 /// \brief DLPack protocol for producing DLManagedTensor
 ///
@@ -53,6 +51,4 @@ Status ExportArray(const std::shared_ptr<Array>& arr, DLManagedTensor** out);
 ARROW_EXPORT
 Status ExportDevice(const std::shared_ptr<Array>& arr, DLDevice* out);
 
-}  // namespace dlpack
-
-}  // namespace arrow
+}  // namespace arrow::dlpack

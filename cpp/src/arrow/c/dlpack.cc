@@ -22,9 +22,7 @@
 #include "arrow/device.h"
 #include "arrow/type.h"
 
-namespace arrow {
-
-namespace dlpack {
+namespace arrow::dlpack {
 
 Status getDLDataType(const std::shared_ptr<DataType>& type, DLDataType* out) {
   DLDataType dtype;
@@ -146,6 +144,4 @@ Status ExportDevice(const std::shared_ptr<Array>& arr, DLDevice* out) {
   }
 }
 
-}  // namespace dlpack
-
-}  // namespace arrow
+}  // namespace arrow::dlpack

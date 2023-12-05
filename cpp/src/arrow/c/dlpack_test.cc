@@ -23,9 +23,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
-namespace arrow {
-
-namespace dlpack {
+namespace arrow::dlpack {
 
 // using ExportArray = arrow::dlpack::ExportArray;
 
@@ -117,6 +115,4 @@ TEST_F(TestExportArray, TestUnSupportedArray) {
       arrow::dlpack::ExportArray(array_boolean, &dlmtensor_3));
 }
 
-}  // namespace dlpack
-
-}  // namespace arrow
+}  // namespace arrow::dlpack
