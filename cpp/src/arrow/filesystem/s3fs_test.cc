@@ -365,10 +365,10 @@ TEST_F(S3RegionResolutionTest, RestrictedBucket) {
 }
 
 TEST_F(S3RegionResolutionTest, NonExistentBucket) {
-  auto maybe_region = ResolveS3BucketRegion("ursa-labs-non-existent-bucket");
+  auto maybe_region = ResolveS3BucketRegion("ursa-labs-nonexistent-bucket");
   ASSERT_RAISES(IOError, maybe_region);
   ASSERT_THAT(maybe_region.status().message(),
-              ::testing::HasSubstr("Bucket 'ursa-labs-non-existent-bucket' not found"));
+              ::testing::HasSubstr("Bucket 'ursa-labs-nonexistent-bucket' not found"));
 }
 
 TEST_F(S3RegionResolutionTest, InvalidBucketName) {
@@ -645,13 +645,13 @@ TEST_F(TestS3FS, GetFileInfoObject) {
   // Nonexistent
   AssertFileInfo(fs_.get(), "bucket/emptyd", FileType::NotFound);
   AssertFileInfo(fs_.get(), "bucket/somed", FileType::NotFound);
-  AssertFileInfo(fs_.get(), "non-existent-bucket/somed", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "nonexistent-bucket/somed", FileType::NotFound);
 
   // Trailing slashes
   AssertFileInfo(fs_.get(), "bucket/emptydir/", FileType::Directory, kNoSize);
   AssertFileInfo(fs_.get(), "bucket/somefile/", FileType::File, 9);
   AssertFileInfo(fs_.get(), "bucket/emptyd/", FileType::NotFound);
-  AssertFileInfo(fs_.get(), "non-existent-bucket/somed/", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "nonexistent-bucket/somed/", FileType::NotFound);
 
   // URIs
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:bucket/emptydir"));
@@ -1057,7 +1057,7 @@ TEST_F(TestS3FS, Move) {
   ASSERT_OK(fs_->Move("bucket/a=2/newfile", "bucket/a=3/newfile"));
 
   // Nonexistent
-  ASSERT_RAISES(IOError, fs_->Move("bucket/non-existent", "bucket/newfile2"));
+  ASSERT_RAISES(IOError, fs_->Move("bucket/nonexistent", "bucket/newfile2"));
   ASSERT_RAISES(IOError, fs_->Move("nonexistent-bucket/somefile", "bucket/newfile2"));
   ASSERT_RAISES(IOError, fs_->Move("bucket/somefile", "nonexistent-bucket/newfile2"));
   AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NotFound);

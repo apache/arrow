@@ -335,7 +335,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       }
       return internal::ExceptionToStatus(
           "GetProperties failed for '" + blob_client_->GetUrl() +
-              "' with an unexpected Azure error. Can not initialise an ObjectInputFile "
+              "' with an unexpected Azure error. Cannot initialise an ObjectInputFile "
               "without knowing the file size.",
           exception);
     }
@@ -561,7 +561,7 @@ class ObjectAppendStream final : public io::OutputStream {
         } else {
           return internal::ExceptionToStatus(
               "GetProperties failed for '" + block_blob_client_->GetUrl() +
-                  "' with an unexpected Azure error. Can not initialise an "
+                  "' with an unexpected Azure error. Cannot initialise an "
                   "ObjectAppendStream without knowing whether a file already exists at "
                   "this path, and if it exists, its size.",
               exception);

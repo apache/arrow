@@ -304,7 +304,7 @@ namespace {
 /// Workhorse for streaming async implementation of `GetFileInfo`
 /// (`GetFileInfoGenerator`).
 ///
-/// There are two variants of async discovery functions suported:
+/// There are two variants of async discovery functions supported:
 /// 1. `DiscoverDirectoryFiles`, which parallelizes traversal of individual directories
 ///    so that each directory results are yielded as a separate `FileInfoGenerator` via
 ///    an underlying `DiscoveryImplIterator`, which delivers items in chunks (default size
