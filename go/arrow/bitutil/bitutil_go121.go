@@ -14,12 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.21
+// +build go1.21
+
 package bitutil
 
 import (
 	"math"
 	"math/bits"
-	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v15/arrow/memory"
@@ -154,8 +156,7 @@ func bytesToUint64(b []byte) []uint64 {
 		return nil
 	}
 
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	return unsafe.Slice((*uint64)(unsafe.Pointer(h.Data)), cap(b)/uint64SizeBytes)[:len(b)/uint64SizeBytes]
+	return unsafe.Slice((*uint64)(unsafe.Pointer(unsafe.SliceData(b))), cap(b)/uint64SizeBytes)[:len(b)/uint64SizeBytes]
 }
 
 var (

@@ -14,46 +14,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build go1.21
+// +build go1.21
+
 package arrow
 
 import (
-	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/float16"
 )
 
-var TimestampTraits timestampTraits
+// Float16 traits
+var Float16Traits float16Traits
 
 const (
-	// TimestampSizeBytes specifies the number of bytes required to store a single Timestamp in memory
-	TimestampSizeBytes = int(unsafe.Sizeof(Timestamp(0)))
+	// Float16SizeBytes specifies the number of bytes required to store a single float16 in memory
+	Float16SizeBytes = int(unsafe.Sizeof(uint16(0)))
 )
 
-type timestampTraits struct{}
+type float16Traits struct{}
 
 // BytesRequired returns the number of bytes required to store n elements in memory.
-func (timestampTraits) BytesRequired(n int) int { return TimestampSizeBytes * n }
+func (float16Traits) BytesRequired(n int) int { return Float16SizeBytes * n }
 
-func (timestampTraits) PutValue(b []byte, v Timestamp) {
-	endian.Native.PutUint64(b, uint64(v))
+// PutValue
+func (float16Traits) PutValue(b []byte, v float16.Num) {
+	endian.Native.PutUint16(b, uint16(v.Uint16()))
 }
 
-// CastFromBytes reinterprets the slice b to a slice of type Timestamp.
+// CastFromBytes reinterprets the slice b to a slice of type uint16.
 //
-// NOTE: len(b) must be a multiple of TimestampSizeBytes.
-func (timestampTraits) CastFromBytes(b []byte) []Timestamp {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*Timestamp)(unsafe.Pointer(h.Data)), cap(b)/TimestampSizeBytes)[:len(b)/TimestampSizeBytes]
+// NOTE: len(b) must be a multiple of Uint16SizeBytes.
+func (float16Traits) CastFromBytes(b []byte) []float16.Num {
+	return unsafe.Slice((*float16.Num)(unsafe.Pointer(unsafe.SliceData(b))), cap(b)/Float16SizeBytes)[:len(b)/Float16SizeBytes]
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
-func (timestampTraits) CastToBytes(b []Timestamp) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*TimestampSizeBytes)[:len(b)*TimestampSizeBytes]
+func (float16Traits) CastToBytes(b []float16.Num) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(b))), cap(b)*Float16SizeBytes)[:len(b)*Float16SizeBytes]
 }
 
 // Copy copies src to dst.
-func (timestampTraits) Copy(dst, src []Timestamp) { copy(dst, src) }
+func (float16Traits) Copy(dst, src []float16.Num) { copy(dst, src) }
