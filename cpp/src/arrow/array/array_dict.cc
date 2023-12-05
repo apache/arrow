@@ -212,7 +212,7 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
-struct CompactTransposeMapVistor {
+struct CompactTransposeMapVisitor {
   const std::shared_ptr<ArrayData>& data;
   arrow::MemoryPool* pool;
   std::unique_ptr<Buffer> output_map;
@@ -306,11 +306,11 @@ Result<std::unique_ptr<Buffer>> CompactTransposeMap(
   }
 
   const auto& dict_type = checked_cast<const DictionaryType&>(*data->type);
-  CompactTransposeMapVistor vistor{data, pool, nullptr, nullptr};
-  RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &vistor));
+  CompactTransposeMapVisitor visitor{data, pool, nullptr, nullptr};
+  RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &visitor));
 
-  out_compact_dictionary = vistor.out_compact_dictionary;
-  return std::move(vistor.output_map);
+  out_compact_dictionary = visitor.out_compact_dictionary;
+  return std::move(visitor.output_map);
 }
 }  // namespace
 
