@@ -3627,7 +3627,7 @@ def test_dlpack_not_supported():
         pytest.skip("No dlpack support in numpy versions older than 1.22.0.")
 
     arr = pa.array([1, None, 3])
-    with pytest.raises(TypeError, match="Can only use __dlpack__ "
+    with pytest.raises(TypeError, match="Can only use DLPack "
                        "on arrays with no nulls."):
         np.from_dlpack(arr)
 

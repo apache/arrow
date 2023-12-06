@@ -1793,8 +1793,13 @@ cdef class Array(_PandasConvertible):
         capsule : PyCapsule
             A DLPack capsule for the array, containing a DLPackManagedTensor.
         """
+        cdef CResult[DLManagedTensor*] c_dlm_tensor
+
         if stream is None:
-            return to_dlpack(self)
+            c_dlm_tensor = ExportToDLPack(pyarrow_unwrap_array(self))
+            dlm_tensor = GetResultValue(c_dlm_tensor)
+
+            return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
         else:
             raise NotImplementedError(
                 "Only stream=None is supported."
@@ -1810,7 +1815,11 @@ cdef class Array(_PandasConvertible):
             Tuple with enumerator specifying the type of the device
             and index of the device which is 0 by default for CPU.
         """
-        return dlpack_device(self)
+        cdef CResult[DLDevice] c_device
+        c_device = ExportDevice(pyarrow_unwrap_array(self))
+        device = GetResultValue(c_device)
+
+        return (device.device_type, device.device_id)
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
