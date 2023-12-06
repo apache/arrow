@@ -213,6 +213,7 @@ class AzureFileSystemTest : public ::testing::Test {
       suite_skipped_ = true;
       GTEST_SKIP() << options.status().message();
     }
+    // Stop-gap solution before GH-39119 is fixed.
     container_name_ = "z" + RandomChars(31);
     blob_service_client_ = std::make_unique<Azure::Storage::Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
@@ -327,6 +328,10 @@ class AzureFileSystemTest : public ::testing::Test {
     };
   }
 
+  char const* kSubData = "sub data";
+  char const* kSomeData = "some data";
+  char const* kOtherData = "other data";
+
   void SetUpSmallFileSystemTree() {
     // Set up test containers
     blob_service_client_->GetBlobContainerClient("empty-container").CreateIfNotExists();
@@ -338,18 +343,15 @@ class AzureFileSystemTest : public ::testing::Test {
     blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(""), 0);
 
     blob_client = container_client.GetBlockBlobClient("somedir/subdir/subfile");
-    const char* sub_data = "sub data";
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(sub_data), strlen(sub_data));
+    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kSubData), strlen(kSubData));
 
     blob_client = container_client.GetBlockBlobClient("somefile");
-    const char* some_data = "some data";
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(some_data),
-                           strlen(some_data));
+    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kSomeData),
+                           strlen(kSomeData));
 
     blob_client = container_client.GetBlockBlobClient("otherdir/1/2/3/otherfile");
-    const char* other_data = "other data";
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(other_data),
-                           strlen(other_data));
+    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kOtherData),
+                           strlen(kOtherData));
   }
 
   void AssertInfoAllContainersRecursive(const std::vector<FileInfo>& infos) {
@@ -360,11 +362,13 @@ class AzureFileSystemTest : public ::testing::Test {
     AssertFileInfo(infos[3], "container/otherdir/1", FileType::Directory);
     AssertFileInfo(infos[4], "container/otherdir/1/2", FileType::Directory);
     AssertFileInfo(infos[5], "container/otherdir/1/2/3", FileType::Directory);
-    AssertFileInfo(infos[6], "container/otherdir/1/2/3/otherfile", FileType::File, 10);
+    AssertFileInfo(infos[6], "container/otherdir/1/2/3/otherfile", FileType::File,
+                   strlen(kOtherData));
     AssertFileInfo(infos[7], "container/somedir", FileType::Directory);
     AssertFileInfo(infos[8], "container/somedir/subdir", FileType::Directory);
-    AssertFileInfo(infos[9], "container/somedir/subdir/subfile", FileType::File, 8);
-    AssertFileInfo(infos[10], "container/somefile", FileType::File, 9);
+    AssertFileInfo(infos[9], "container/somedir/subdir/subfile", FileType::File,
+                   strlen(kSubData));
+    AssertFileInfo(infos[10], "container/somefile", FileType::File, strlen(kSomeData));
     AssertFileInfo(infos[11], "empty-container", FileType::Directory);
     AssertFileInfo(infos[12], PreexistingContainerName(), FileType::Directory);
     AssertFileInfo(infos[13], PreexistingObjectPath(), FileType::File);
