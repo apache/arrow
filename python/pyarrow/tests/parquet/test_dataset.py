@@ -1345,7 +1345,7 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
         path, filesystem=filesystem)
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
-    assert dataset.pieces[0].path == expected
+    assert dataset.fragments[0].path == expected
 
 
 @pytest.mark.dataset

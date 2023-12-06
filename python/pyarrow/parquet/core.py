@@ -1321,106 +1321,6 @@ class ParquetPartitions:
                              filter[1])
 
 
-class ParquetManifest:
-
-    def __init__(self, dirpath, open_file_func=None, filesystem=None,
-                 pathsep='/', partition_scheme='hive', metadata_nthreads=1):
-        filesystem, dirpath = _get_filesystem_and_path(filesystem, dirpath)
-        self.filesystem = filesystem
-        self.open_file_func = open_file_func
-        self.pathsep = pathsep
-        self.dirpath = _stringify_path(dirpath)
-        self.partition_scheme = partition_scheme
-        self.partitions = ParquetPartitions()
-        self.pieces = []
-        self._metadata_nthreads = metadata_nthreads
-        self._thread_pool = futures.ThreadPoolExecutor(
-            max_workers=metadata_nthreads)
-
-        self.common_metadata_path = None
-        self.metadata_path = None
-
-        self._visit_level(0, self.dirpath, [])
-
-        # Due to concurrency, pieces will potentially by out of order if the
-        # dataset is partitioned so we sort them to yield stable results
-        self.pieces.sort(key=lambda piece: piece.path)
-
-        if self.common_metadata_path is None:
-            # _common_metadata is a subset of _metadata
-            self.common_metadata_path = self.metadata_path
-
-        self._thread_pool.shutdown()
-
-    def _visit_level(self, level, base_path, part_keys):
-        fs = self.filesystem
-
-        _, directories, files = next(fs.walk(base_path))
-
-        filtered_files = []
-        for path in files:
-            full_path = self.pathsep.join((base_path, path))
-            if path.endswith('_common_metadata'):
-                self.common_metadata_path = full_path
-            elif path.endswith('_metadata'):
-                self.metadata_path = full_path
-            elif self._should_silently_exclude(path):
-                continue
-            else:
-                filtered_files.append(full_path)
-
-        # ARROW-1079: Filter out "private" directories starting with underscore
-        filtered_directories = [self.pathsep.join((base_path, x))
-                                for x in directories
-                                if not _is_private_directory(x)]
-
-        filtered_files.sort()
-        filtered_directories.sort()
-
-        if len(filtered_files) > 0 and len(filtered_directories) > 0:
-            raise ValueError('Found files in an intermediate '
-                             'directory: {}'.format(base_path))
-        elif len(filtered_directories) > 0:
-            self._visit_directories(level, filtered_directories, part_keys)
-        else:
-            self._push_pieces(filtered_files, part_keys)
-
-    def _should_silently_exclude(self, file_name):
-        return (file_name.endswith('.crc') or  # Checksums
-                file_name.endswith('_$folder$') or  # HDFS directories in S3
-                file_name.startswith('.') or  # Hidden files starting with .
-                file_name.startswith('_') or  # Hidden files starting with _
-                file_name in EXCLUDED_PARQUET_PATHS)
-
-    def _visit_directories(self, level, directories, part_keys):
-        futures_list = []
-        for path in directories:
-            head, tail = _path_split(path, self.pathsep)
-            name, key = _parse_hive_partition(tail)
-
-            index = self.partitions.get_index(level, name, key)
-            dir_part_keys = part_keys + [(name, index)]
-            # If you have less threads than levels, the wait call will block
-            # indefinitely due to multiple waits within a thread.
-            if level < self._metadata_nthreads:
-                future = self._thread_pool.submit(self._visit_level,
-                                                  level + 1,
-                                                  path,
-                                                  dir_part_keys)
-                futures_list.append(future)
-            else:
-                self._visit_level(level + 1, path, dir_part_keys)
-        if futures_list:
-            futures.wait(futures_list)
-
-    def _parse_partition(self, dirname):
-        if self.partition_scheme == 'hive':
-            return _parse_hive_partition(dirname)
-        else:
-            raise NotImplementedError('partition schema: {}'
-                                      .format(self.partition_scheme))
-
-
 def _parse_hive_partition(value):
     if '=' not in value:
         raise ValueError('Directory name did not appear to be a '
@@ -2076,14 +1976,6 @@ class _ParquetDatasetV2:
         {'index_columns': [{'kind': 'range', 'name': None, 'start': 0, ...}
         """
         return self.read(use_pandas_metadata=True, **kwargs)
-
-    @property
-    def pieces(self):
-        warnings.warn(
-            _DEPR_MSG.format("ParquetDataset.pieces",
-                             " Use the '.fragments' attribute instead"),
-            FutureWarning, stacklevel=2)
-        return list(self._dataset.get_fragments())
 
     @property
     def fragments(self):
@@ -2895,7 +2787,6 @@ __all__ = (
     "ParquetDataset",
     "ParquetFile",
     "ParquetLogicalType",
-    "ParquetManifest",
     "ParquetPartitions",
     "ParquetReader",
     "ParquetSchema",
