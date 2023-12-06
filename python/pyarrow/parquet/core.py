@@ -1321,52 +1321,13 @@ class ParquetPartitions:
                              filter[1])
 
 
-def _parse_hive_partition(value):
-    if '=' not in value:
-        raise ValueError('Directory name did not appear to be a '
-                         'partition: {}'.format(value))
-    return value.split('=', 1)
-
-
-def _is_private_directory(x):
-    _, tail = os.path.split(x)
-    return (tail.startswith('_') or tail.startswith('.')) and '=' not in tail
-
-
-def _path_split(path, sep):
-    i = path.rfind(sep) + 1
-    head, tail = path[:i], path[i:]
-    head = head.rstrip(sep)
-    return head, tail
-
-
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
-class _ParquetDatasetMetadata:
-    __slots__ = ('fs', 'memory_map', 'read_dictionary', 'common_metadata',
-                 'buffer_size')
-
-
-def _open_dataset_file(dataset, path, meta=None):
-    if (dataset.fs is not None and
-            not isinstance(dataset.fs, legacyfs.LocalFileSystem)):
-        path = dataset.fs.open(path, mode='rb')
-    return ParquetFile(
-        path,
-        metadata=meta,
-        memory_map=dataset.memory_map,
-        read_dictionary=dataset.read_dictionary,
-        common_metadata=dataset.common_metadata,
-        buffer_size=dataset.buffer_size
+def _is_local_file_system(fs):
+    return isinstance(fs, LocalFileSystem) or isinstance(
+        fs, legacyfs.LocalFileSystem
     )
-
-
-_DEPR_MSG = (
-    "'{}' attribute is deprecated as of pyarrow 5.0.0 and will be removed "
-    "in a future version.{}"
-)
-
 
 _read_docstring_common = """\
 read_dictionary : list, default None
@@ -1390,279 +1351,9 @@ default "hive"
     you need to specify the field names or a full schema. See the
     ``pyarrow.dataset.partitioning()`` function for more details."""
 
+
 _parquet_dataset_example = """\
 Generate an example PyArrow Table and write it to a partitioned dataset:
-
->>> import pyarrow as pa
->>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-...                   'n_legs': [2, 2, 4, 4, 5, 100],
-...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-...                              "Brittle stars", "Centipede"]})
-
->>> import pyarrow.parquet as pq
->>> pq.write_to_dataset(table, root_path='dataset_name',
-...                     partition_cols=['year'])
-
-create a ParquetDataset object from the dataset source:
-
->>> dataset = pq.ParquetDataset('dataset_name/')
-
-and read the data:
-
->>> dataset.read().to_pandas()
-   n_legs         animal  year
-0       5  Brittle stars  2019
-1       2       Flamingo  2020
-2       4            Dog  2021
-3     100      Centipede  2021
-4       2         Parrot  2022
-5       4          Horse  2022
-
-create a ParquetDataset object with filter:
-
->>> dataset = pq.ParquetDataset('dataset_name/',
-...                             filters=[('n_legs','=',4)])
->>> dataset.read().to_pandas()
-   n_legs animal  year
-0       4    Dog  2021
-1       4  Horse  2022
-"""
-
-
-class ParquetDataset:
-
-    __doc__ = """
-Encapsulates details of reading a complete Parquet dataset possibly
-consisting of multiple files and partitions in subdirectories.
-
-Parameters
-----------
-path_or_paths : str or List[str]
-    A directory name, single file name, or list of file names.
-filesystem : FileSystem, default None
-    If nothing passed, will be inferred based on path.
-    Path will try to be found in the local on-disk filesystem otherwise
-    it will be parsed as an URI to determine the filesystem.
-schema : pyarrow.parquet.Schema
-    Use schema obtained elsewhere to validate file schemas. Alternative to
-    metadata parameter.
-metadata : pyarrow.parquet.FileMetaData
-    Use metadata obtained elsewhere to validate file schemas.
-split_row_groups : bool, default False
-    Divide files into pieces for each row group in the file.
-validate_schema : bool, default True
-    Check that individual file schemas are all the same / compatible.
-filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
-    Rows which do not match the filter predicate will be removed from scanned
-    data. Partition keys embedded in a nested directory structure will be
-    exploited to avoid loading files at all if they contain no matching rows.
-    Within-file level filtering and different partitioning schemes are supported.
-
-    {1}
-metadata_nthreads : int, default 1
-    How many threads to allow the thread pool which is used to read the
-    dataset metadata. Increasing this is helpful to read partitioned
-    datasets.
-{0}
-pre_buffer : bool, default True
-    Coalesce and issue file reads in parallel to improve performance on
-    high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
-    background I/O thread pool. If using a filesystem layer that itself
-    performs readahead (e.g. fsspec's S3FS), disable readahead for best
-    results. Set to False if you want to prioritize minimal memory usage
-    over maximum speed.
-coerce_int96_timestamp_unit : str, default None
-    Cast timestamps that are stored in INT96 format to a particular resolution
-    (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
-    timestamps will be inferred as timestamps in nanoseconds.
-thrift_string_size_limit : int, default None
-    If not None, override the maximum total string size allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-thrift_container_size_limit : int, default None
-    If not None, override the maximum total size of containers allocated
-    when decoding Thrift structures. The default limit should be
-    sufficient for most Parquet files.
-page_checksum_verification : bool, default False
-    If True, verify the page checksum for each page read from the file.
-
-Examples
---------
-{2}
-""".format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
-
-    def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
-                metadata=None, split_row_groups=False, validate_schema=True,
-                filters=None, metadata_nthreads=None, read_dictionary=None,
-                memory_map=False, buffer_size=0, partitioning="hive",
-                pre_buffer=True,
-                coerce_int96_timestamp_unit=None,
-                thrift_string_size_limit=None,
-                thrift_container_size_limit=None,
-                page_checksum_verification=False):
-
-        return _ParquetDatasetV2(
-            path_or_paths, filesystem=filesystem,
-            filters=filters,
-            partitioning=partitioning,
-            read_dictionary=read_dictionary,
-            memory_map=memory_map,
-            buffer_size=buffer_size,
-            pre_buffer=pre_buffer,
-            coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
-            # unsupported keywords
-            schema=schema, metadata=metadata,
-            split_row_groups=split_row_groups,
-            validate_schema=validate_schema,
-            metadata_nthreads=metadata_nthreads,
-            thrift_string_size_limit=thrift_string_size_limit,
-            thrift_container_size_limit=thrift_container_size_limit,
-            page_checksum_verification=page_checksum_verification,
-        )
-
-    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
-        """
-        Read multiple Parquet files as a single pyarrow.Table.
-
-        Parameters
-        ----------
-        columns : List[str]
-            Names of columns to read from the file.
-        use_threads : bool, default True
-            Perform multi-threaded column reads
-        use_pandas_metadata : bool, default False
-            Passed through to each dataset piece.
-
-        Returns
-        -------
-        pyarrow.Table
-            Content of the file as a table (of columns).
-
-        Examples
-        --------
-        Generate an example dataset:
-
-        >>> import pyarrow as pa
-        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                              "Brittle stars", "Centipede"]})
-        >>> import pyarrow.parquet as pq
-        >>> pq.write_to_dataset(table, root_path='dataset_name_read',
-        ...                     partition_cols=['year'])
-        >>> dataset = pq.ParquetDataset('dataset_name_read/')
-
-        Read multiple Parquet files as a single pyarrow.Table:
-
-        >>> dataset.read(columns=["n_legs"])
-        pyarrow.Table
-        n_legs: int64
-        ----
-        n_legs: [[5],[2],[4,100],[2,4]]
-        """
-        tables = []
-        for piece in self._pieces:
-            table = piece.read(columns=columns,
-                               use_threads=use_threads,
-                               partitions=self._partitions,
-                               use_pandas_metadata=use_pandas_metadata)
-            tables.append(table)
-
-        all_data = lib.concat_tables(tables)
-
-        if use_pandas_metadata:
-            # We need to ensure that this metadata is set in the Table's schema
-            # so that Table.to_pandas will construct pandas.DataFrame with the
-            # right index
-            common_metadata = self._get_common_pandas_metadata()
-            current_metadata = all_data.schema.metadata or {}
-
-            if common_metadata and b'pandas' not in current_metadata:
-                all_data = all_data.replace_schema_metadata({
-                    b'pandas': common_metadata})
-
-        return all_data
-
-    def read_pandas(self, **kwargs):
-        """
-        Read dataset including pandas metadata, if any. Other arguments passed
-        through to ParquetDataset.read, see docstring for further details.
-
-        Parameters
-        ----------
-        **kwargs : optional
-            All additional options to pass to the reader.
-
-        Returns
-        -------
-        pyarrow.Table
-            Content of the file as a table (of columns).
-
-        Examples
-        --------
-        Generate an example PyArrow Table and write it to a partitioned
-        dataset:
-
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> import pyarrow.parquet as pq
-        >>> pq.write_table(table, 'table.parquet')
-        >>> dataset = pq.ParquetDataset('table.parquet')
-
-        Read dataset including pandas metadata:
-
-        >>> dataset.read_pandas(columns=["n_legs"])
-        pyarrow.Table
-        n_legs: int64
-        ----
-        n_legs: [[2,2,4,4,5,100]]
-
-        Select pandas metadata:
-
-        >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
-        {'index_columns': [{'kind': 'range', 'name': None, 'start': 0, ...}
-        """
-        return self.read(use_pandas_metadata=True, **kwargs)
-
-    def _get_common_pandas_metadata(self):
-        if self._common_metadata is None:
-            return None
-
-        keyvalues = self._common_metadata.metadata
-        return keyvalues.get(b'pandas', None)
-
-    def _filter(self, filters):
-        accepts_filter = self._partitions.filter_accepts_partition
-
-        def one_filter_accepts(piece, filter):
-            return all(accepts_filter(part_key, filter, level)
-                       for level, part_key in enumerate(piece.partition_keys))
-
-        def all_filters_accept(piece):
-            return any(all(one_filter_accepts(piece, f) for f in conjunction)
-                       for conjunction in filters)
-
-        self._pieces = [p for p in self._pieces if all_filters_accept(p)]
-
-
-def _is_local_file_system(fs):
-    return isinstance(fs, LocalFileSystem) or isinstance(
-        fs, legacyfs.LocalFileSystem
-    )
-
-
-class _ParquetDatasetV2:
-    """
-    ParquetDataset shim using the Dataset API under the hood.
-
-    Examples
-    --------
-    Generate an example PyArrow Table and write it to a partitioned dataset:
 
     >>> import pyarrow as pa
     >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
@@ -1696,12 +1387,73 @@ class _ParquetDatasetV2:
        n_legs animal  year
     0       4    Dog  2021
     1       4  Horse  2022
-    """
+"""
 
-    def __init__(self, path_or_paths, filesystem=None, *, filters=None,
+
+class ParquetDataset:
+    __doc__ = """
+    Encapsulates details of reading a complete Parquet dataset possibly
+    consisting of multiple files and partitions in subdirectories.
+
+    Parameters
+    ----------
+    path_or_paths : str or List[str]
+        A directory name, single file name, or list of file names.
+    filesystem : FileSystem, default None
+        If nothing passed, will be inferred based on path.
+        Path will try to be found in the local on-disk filesystem otherwise
+        it will be parsed as an URI to determine the filesystem.
+    schema : pyarrow.parquet.Schema
+        Optionally provide the Schema for the Dataset, in which case it will
+        not be inferred from the source.
+    filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
+        Rows which do not match the filter predicate will be removed from scanned
+        data. Partition keys embedded in a nested directory structure will be
+        exploited to avoid loading files at all if they contain no matching rows.
+        Within-file level filtering and different partitioning schemes are supported.
+
+        {1}
+    {0}
+    ignore_prefixes : list, optional
+        Files matching any of these prefixes will be ignored by the
+        discovery process.
+        This is matched to the basename of a path.
+        By default this is ['.', '_'].
+        Note that discovery happens only if a directory is passed as source.
+    pre_buffer : bool, default True
+        Coalesce and issue file reads in parallel to improve performance on
+        high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
+        background I/O thread pool. If using a filesystem layer that itself
+        performs readahead (e.g. fsspec's S3FS), disable readahead for best
+        results. Set to False if you want to prioritize minimal memory usage
+        over maximum speed.
+    coerce_int96_timestamp_unit : str, default None
+        Cast timestamps that are stored in INT96 format to a particular resolution
+        (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
+        timestamps will be inferred as timestamps in nanoseconds.
+    decryption_properties : FileDecryptionProperties or None
+        File-level decryption properties.
+        The decryption properties can be created using
+        ``CryptoFactory.file_decryption_properties()``.
+    thrift_string_size_limit : int, default None
+        If not None, override the maximum total string size allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
+    thrift_container_size_limit : int, default None
+        If not None, override the maximum total size of containers allocated
+        when decoding Thrift structures. The default limit should be
+        sufficient for most Parquet files.
+    page_checksum_verification : bool, default False
+        If True, verify the page checksum for each page read from the file.
+
+    Examples
+    --------
+    """.format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
+
+    def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
                  memory_map=False, ignore_prefixes=None, pre_buffer=True,
-                 coerce_int96_timestamp_unit=None, schema=None,
+                 coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
@@ -1803,7 +1555,7 @@ class _ParquetDatasetV2:
                                    ignore_prefixes=ignore_prefixes)
 
     def equals(self, other):
-        if not isinstance(other, _ParquetDatasetV2):
+        if not isinstance(other, ParquetDataset):
             raise TypeError('`other` must be an instance of ParquetDataset')
 
         return (self.schema == other.schema and
@@ -2213,7 +1965,7 @@ def read_table(source, *, columns=None, use_threads=True,
             "datasets-based implementation."
         )
     try:
-        dataset = _ParquetDatasetV2(
+        dataset = ParquetDataset(
             source,
             schema=schema,
             filesystem=filesystem,
