@@ -94,9 +94,9 @@ TEST_F(TestExportArray, TestUnSupportedArray) {
   random::RandomArrayGenerator gen(0);
 
   const std::shared_ptr<Array> array_with_null = gen.Int8(10, 1, 100, 1);
-  ASSERT_RAISES_WITH_MESSAGE(
-      TypeError, "Type error: Can only use DLPack on arrays with no nulls.",
-      arrow::dlpack::ExportArray(array_with_null));
+  ASSERT_RAISES_WITH_MESSAGE(TypeError,
+                             "Type error: Can only use DLPack on arrays with no nulls.",
+                             arrow::dlpack::ExportArray(array_with_null));
 
   const std::shared_ptr<Array> array_string = gen.String(10, 0, 10, 0);
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
