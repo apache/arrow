@@ -1,3 +1,9 @@
+apache-arrow-apt-source (14.0.2-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Wed, 06 Dec 2023 13:50:08 -0000
+
 apache-arrow-apt-source (14.0.1-1) unstable; urgency=low
 
   * New upstream release.
