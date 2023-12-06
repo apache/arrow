@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <inttypes.h>
+#include <cinttypes>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -26,7 +26,6 @@
 #include <vector>
 
 #include <llvm/Analysis/TargetTransformInfo.h>
-#include <llvm/ExecutionEngine/Orc/LLJIT.h>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -36,11 +35,16 @@
 #include "gandiva/llvm_types.h"
 #include "gandiva/visibility.h"
 
+namespace llvm::orc {
+class LLJIT;
+}  // namespace llvm::orc
+
 namespace gandiva {
 
 /// \brief LLVM Execution engine wrapper.
 class GANDIVA_EXPORT Engine {
  public:
+  ~Engine();
   llvm::LLVMContext* context() { return context_.get(); }
   llvm::IRBuilder<>* ir_builder() { return ir_builder_.get(); }
   LLVMTypes* types() { return &types_; }

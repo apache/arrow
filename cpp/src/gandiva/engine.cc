@@ -46,6 +46,7 @@
 #include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
@@ -217,6 +218,8 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       function_registry_(conf->function_registry()),
       target_machine_(std::move(target_machine)),
       conf_(conf) {}
+
+Engine::~Engine() {}
 
 Status Engine::Init() {
   std::call_once(register_exported_funcs_flag, gandiva::RegisterExportedFuncs);
