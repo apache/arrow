@@ -41,11 +41,11 @@ struct ARROW_EXPORT CacheOptions {
   ///   combining two consecutive ranges would produce a range of a
   ///   size greater than this, they are not combined
   int64_t range_size_limit;
-  /// \brief A lazy cache does not perform any I/O until requested. 
+  /// \brief A lazy cache does not perform any I/O until requested.
   ///   lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
-  ///   lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader 
-  ///   needs them. 
-  ///   lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the 
+  ///   lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader
+  ///   needs them.
+  ///   lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the
   ///   range that is currently being read.
   bool lazy;
   /// \brief The maximum number of ranges to be prefetched. This is only used
