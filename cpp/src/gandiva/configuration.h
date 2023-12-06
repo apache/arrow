@@ -71,9 +71,9 @@ class GANDIVA_EXPORT Configuration {
   bool target_host_cpu_; /* set the mcpu flag to host cpu while compiling llvm ir */
   std::shared_ptr<FunctionRegistry>
       function_registry_; /* function registry that may contain external functions */
-  bool needs_ir_dumping_ =
-      false; /* flag indicating if IR dumping is needed, defaults to false, and turning it
-                on will negatively affect performance */
+  // flag indicating if IR dumping is needed, defaults to false, and turning it on will
+  // negatively affect performance
+  bool needs_ir_dumping_ = false;
 };
 
 /// \brief configuration builder for gandiva

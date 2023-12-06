@@ -103,7 +103,8 @@ Status LLVMGenerator::Build(const ExpressionVector& exprs, SelectionVector::Mode
   // setup the jit functions for each expression.
   for (auto& compiled_expr : compiled_exprs_) {
     auto fn_name = compiled_expr->GetFunctionName(mode);
-    auto jit_fn = reinterpret_cast<EvalFunc>(engine_->CompiledFunction(fn_name));
+    ARROW_ASSIGN_OR_RAISE(auto fn_ptr, engine_->CompiledFunction(fn_name));
+    auto jit_fn = reinterpret_cast<EvalFunc>(fn_ptr);
     compiled_expr->SetJITFunction(selection_vector_mode_, jit_fn);
   }
 

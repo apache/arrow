@@ -453,13 +453,20 @@ Status Engine::FinalizeModule() {
   return Status::OK();
 }
 
-void* Engine::CompiledFunction(std::string& function) {
+Result<void*> Engine::CompiledFunction(std::string& function) {
   DCHECK(module_finalized_);
   auto sym = lljit_->lookup(function);
-  DCHECK(sym) << "Failed to look up function: " << function
-              << " error: " << llvm::toString(sym.takeError());
-
-  return reinterpret_cast<void*>(sym.get().getAddress());
+  if (!sym) {
+    return Status::CodeGenError("Failed to look up function: " + function +
+                                " error: " + llvm::toString(sym.takeError()));
+  }
+  // Since LLVM 15, `LLJIT::lookup` returns ExecutorAddrs rather than JITEvaluatedSymbols
+#if LLVM_VERSION_MAJOR >= 15
+  auto fn_addr = sym->getValue();
+#else
+  auto fn_addr = sym->getAddress();
+#endif
+  return reinterpret_cast<void*>(fn_addr);
 }
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
@@ -470,12 +477,23 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
   constexpr auto linkage = llvm::GlobalValue::ExternalLinkage;
   llvm::Function::Create(prototype, linkage, name, module());
 
-  llvm::JITEvaluatedSymbol symbol(reinterpret_cast<llvm::JITTargetAddress>(function_ptr),
-                                  llvm::JITSymbolFlags::Exported);
   llvm::orc::MangleAndInterner mangle(lljit_->getExecutionSession(),
                                       lljit_->getDataLayout());
-  cantFail(lljit_->getMainJITDylib().define(
-      llvm::orc::absoluteSymbols({{mangle(name), symbol}})));
+
+  // https://github.com/llvm/llvm-project/commit/8b1771bd9f304be39d4dcbdcccedb6d3bcd18200#diff-77984a824d9182e5c67a481740f3bc5da78d5bd4cf6e1716a083ddb30a4a4931
+  // LLVM 17 introduced ExecutorSymbolDef and move most of ORC APIs to ExecutorAddr
+#if LLVM_VERSION_MAJOR >= 17
+  llvm::orc::ExecutorSymbolDef symbol(
+      llvm::orc::ExecutorAddr(reinterpret_cast<uint64_t>(function_ptr)),
+      llvm::JITSymbolFlags::Exported);
+#else
+  llvm::JITEvaluatedSymbol symbol(reinterpret_cast<llvm::JITTargetAddress>(function_ptr),
+                                  llvm::JITSymbolFlags::Exported);
+#endif
+
+  auto error = lljit_->getMainJITDylib().define(
+      llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
+  llvm::cantFail(std::move(error));
 }
 
 arrow::Status Engine::AddGlobalMappings() {

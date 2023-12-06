@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cinttypes>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -56,7 +57,8 @@ class GANDIVA_EXPORT Engine {
   /// \return arrow::Result containing the created engine
   static Result<std::unique_ptr<Engine>> Make(
       const std::shared_ptr<Configuration>& config, bool cached,
-      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache = std::nullopt);
+      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache =
+          std::nullopt);
 
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.
@@ -72,7 +74,7 @@ class GANDIVA_EXPORT Engine {
   void SetLLVMObjectCache(GandivaObjectCache& object_cache);
 
   /// Get the compiled function corresponding to the irfunction.
-  void* CompiledFunction(std::string& function);
+  Result<void*> CompiledFunction(std::string& function);
 
   // Create and add a mapping for the cpp function to make it accessible from LLVM.
   void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
