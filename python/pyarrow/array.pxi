@@ -1791,7 +1791,7 @@ cdef class Array(_PandasConvertible):
         Returns
         -------
         capsule : PyCapsule
-            A DLPack capsule for the array, containing a DLPackManagedTensor.
+            A DLPack capsule for the array, pointing to a DLManagedTensor.
         """
         cdef CResult[DLManagedTensor*] c_dlm_tensor
 
