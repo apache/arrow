@@ -27,7 +27,7 @@ public class SessionOptionValueFactory {
     }
 
     public static SessionOptionValue makeSessionOptionValue(bool value) {
-        return new SessionOptionValueBool(value);
+        return new SessionOptionValueBoolean(value);
     }
 
     public static SessionOptionValue makeSessionOptionValue(int value) {
