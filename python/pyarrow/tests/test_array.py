@@ -3554,6 +3554,16 @@ def PyCapsule_IsValid(capsule, name):
     return ctypes.pythonapi.PyCapsule_IsValid(ctypes.py_object(capsule), name) == 1
 
 
+def check_dlpack_export(arr, expected_arr):
+    DLTensor = arr.__dlpack__()
+    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
+
+    result = np.from_dlpack(arr)
+    np.testing.assert_array_equal(result, expected_arr, strict=True)
+
+    assert arr.__dlpack_device__() == (1, 0)
+
+
 @pytest.mark.parametrize(
     ('value_type', 'np_type'),
     [
@@ -3578,48 +3588,23 @@ def test_dlpack(value_type, np_type):
 
     expected = np.array([1, 2, 3], dtype=np_type)
     arr = pa.array(expected, type=value_type)
-    DLTensor = arr.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
-    result = np.from_dlpack(arr)
-    np.testing.assert_array_equal(result, expected, strict=True)
-
-    assert arr.__dlpack_device__() == (1, 0)
+    check_dlpack_export(arr, expected)
 
     arr_sliced = arr.slice(1, 1)
-    DLTensor = arr_sliced.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
     expected = np.array([2], dtype=np_type)
-    result = np.from_dlpack(arr_sliced)
-    np.testing.assert_array_equal(result, expected, strict=True)
-
-    assert arr.__dlpack_device__() == (1, 0)
+    check_dlpack_export(arr_sliced, expected)
 
     arr_sliced = arr.slice(0, 1)
-    DLTensor = arr_sliced.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
     expected = np.array([1], dtype=np_type)
-    result = np.from_dlpack(arr_sliced)
-    np.testing.assert_array_equal(result, expected, strict=True)
-
-    assert arr.__dlpack_device__() == (1, 0)
+    check_dlpack_export(arr_sliced, expected)
 
     arr_sliced = arr.slice(1)
-    DLTensor = arr_sliced.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
     expected = np.array([2, 3], dtype=np_type)
-    result = np.from_dlpack(arr_sliced)
-    np.testing.assert_array_equal(result, expected, strict=True)
-
-    assert arr.__dlpack_device__() == (1, 0)
+    check_dlpack_export(arr_sliced, expected)
 
     arr_zero = pa.array([], type=value_type)
-    DLTensor = arr_zero.__dlpack__()
-    assert PyCapsule_IsValid(DLTensor, b"dltensor") is True
     expected = np.array([], dtype=np_type)
-    result = np.from_dlpack(arr_zero)
-    np.testing.assert_array_equal(result, expected, strict=True)
-
-    assert arr.__dlpack_device__() == (1, 0)
+    check_dlpack_export(arr_zero, expected)
 
 
 def test_dlpack_not_supported():
