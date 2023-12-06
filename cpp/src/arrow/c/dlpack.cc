@@ -55,15 +55,10 @@ Result<DLDataType> GetDLDataType(const DataType& type) {
   }
 }
 
-struct DLMTensorCtx {
+struct ManagerCtx {
   std::shared_ptr<ArrayData> ref;
-  std::vector<int64_t> shape;
   DLManagedTensor tensor;
 };
-
-static void deleter(DLManagedTensor* arg) {
-  delete static_cast<DLMTensorCtx*>(arg->manager_ctx);
-}
 
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   if (arr->null_count() > 0) {
@@ -75,45 +70,44 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   const DataType* arrow_type = arr->type().get();
   ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(*arrow_type));
 
-  // Create DLMTensorCtx struct with the reference to
+  // Create ManagerCtx with the reference to
   // the data of the array
   std::shared_ptr<ArrayData> array_ref = arr->data();
-  DLMTensorCtx* DLMTensor = new DLMTensorCtx;
-  DLMTensor->ref = array_ref;
-
-  // Define DLManagedTensor struct defined by
-  // DLPack (dlpack_structure.h)
-  DLManagedTensor* dlm_tensor = &DLMTensor->tensor;
-  dlm_tensor->manager_ctx = DLMTensor;
-  dlm_tensor->deleter = &deleter;
+  std::unique_ptr<ManagerCtx> ctx(new ManagerCtx);
+  ctx->ref = array_ref;
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
   if (arr->length() == 0) {
-    dlm_tensor->dl_tensor.data = NULL;
+    ctx->tensor.dl_tensor.data = NULL;
   } else if (arr->offset() > 0) {
     const auto byte_width = arr->type()->byte_width();
     const auto start = arr->offset() * byte_width;
     ARROW_ASSIGN_OR_RAISE(auto sliced_buffer,
                           SliceBufferSafe(array_ref->buffers[1], start));
-    dlm_tensor->dl_tensor.data =
+    ctx->tensor.dl_tensor.data =
         const_cast<void*>(reinterpret_cast<const void*>(sliced_buffer->address()));
   } else {
-    dlm_tensor->dl_tensor.data = const_cast<void*>(
+    ctx->tensor.dl_tensor.data = const_cast<void*>(
         reinterpret_cast<const void*>(array_ref->buffers[1]->address()));
   }
 
   // Define DLDevice struct
   ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
-  dlm_tensor->dl_tensor.device = device;
+  ctx->tensor.dl_tensor.device = device;
 
-  dlm_tensor->dl_tensor.ndim = 1;
-  dlm_tensor->dl_tensor.dtype = dlpack_type;
-  dlm_tensor->dl_tensor.shape = const_cast<int64_t*>(&array_ref->length);
-  dlm_tensor->dl_tensor.strides = NULL;
-  dlm_tensor->dl_tensor.byte_offset = 0;
+  ctx->tensor.dl_tensor.ndim = 1;
+  ctx->tensor.dl_tensor.dtype = dlpack_type;
+  ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(&array_ref->length);
+  ctx->tensor.dl_tensor.strides = NULL;
+  ctx->tensor.dl_tensor.byte_offset = 0;
 
-  return dlm_tensor;
+  // return dlm_tensor;
+  ctx->tensor.manager_ctx = ctx.get();
+  ctx->tensor.deleter = [](struct DLManagedTensor* self) {
+    delete reinterpret_cast<ManagerCtx*>(self->manager_ctx);
+  };
+  return &ctx.release()->tensor;
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
