@@ -39,7 +39,7 @@ namespace fs {
 // -----------------------------------------------------------------------
 // AzureOptions Implementation
 
-AzureOptions::AzureOptions() {}
+AzureOptions::AzureOptions() = default;
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
   return (account_dfs_url == other.account_dfs_url &&
