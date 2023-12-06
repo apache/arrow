@@ -71,6 +71,17 @@ class MyServer(BaseHTTPRequestHandler):
         for buffer in generate_batches(schema, make_reader(schema, batches)):
             self.wfile.write(buffer)
             self.wfile.flush()
+            
+            # if any record batch could be larger than 2 GB, split it
+            # into chunks before passing to self.wfile.write():
+            
+            #chunk_size = int(2e9)
+            #chunk_splits = len(buffer) // chunk_size
+            #for i in range(chunk_splits):
+            #    self.wfile.write(buffer[i * chunk_size:i * chunk_size + chunk_size])
+            #    self.wfile.flush()
+            #self.wfile.write(buffer[chunk_splits * chunk_size:])
+            #self.wfile.flush()
 
 batches = GetPutData()
 
