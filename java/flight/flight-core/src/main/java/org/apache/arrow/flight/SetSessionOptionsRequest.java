@@ -18,20 +18,22 @@
 package org.apache.arrow.flight;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SetSessionOptionsRequest {
-  private final Map<String, SessionOptionValue> session_options;
+  private final Map<String, SessionOptionValue> sessionOptions;
 
-  public SetSessionOptionsRequest(Map<String, SessionOptionValue> session_options) {
-    this.session_options = ConcurrentHashMap(session_options);
+  public SetSessionOptionsRequest(Map<String, SessionOptionValue> sessionOptions) {
+    this.sessionOptions = Collections.unmodifiableMap(new HashMap(sessionOptions));
   }
 
   SetSessionOptionsRequest(Flight.SetSessionOptionsRequest proto) {
-    // FIXME impl
+    sessionOptions = Collections.unmodifiableMap(
+        proto.getSessionOptions().entrySet().stream().collect(Collectors.toMap(
+            Map.Entry::getKey, (e) -> SessionOptionValueFactory.makeSessionOptionValue(e.getValue()))));
   }
 
     /**
@@ -39,12 +41,13 @@ public class SetSessionOptionsRequest {
      * @return An immutable view of the session options map.
      */
   public Map<String, SessionOptionValue> getSessionOptions() {
-      return new Collections.unmodifiableMap(session_options);
+      return new Collections.unmodifiableMap(sessionOptions);
   }
 
   Flight.SetSessionOptionsRequest toProtocol() {
     Flight.SetSessionOptionsRequest.Builder b = Flight.SetSessionOptionsRequest.newBuilder();
-    // FIXME impl
+    b.putAllSessionOptions(sessionOptions.entrySet().stream().collect(Collectors.toMap(
+        Map.Entry::getKey, (e) -> e.getValue().toProtocol())));
     return b.build();
   }
 

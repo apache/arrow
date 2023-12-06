@@ -17,25 +17,23 @@
 
 package org.apache.arrow.flight;
 
+import java.util.stream.Collectors;
+
 import org.apache.arrow.flight.impl.Flight;
 
 /**
  * A union-like container interface for supported session option value types.
  */
-public interface SessionOptionValue {
-    SessionOptionValue(Flight.SessionOptionValue) {
-        // TODO PHOXME impl
-    }
-
+public abstract class SessionOptionValue {
     /**
      * Value access via a caller-provided visitor/functor.
      */
-    void visit(SessionOptionValueVisitor);
+    abstract void acceptVisitor(SessionOptionValueVisitor);
 
     Flight.SessionOptionValue toProtocol() {
         Flight.SessionOptionValue.Builder b = Flight.SessionOptionValue.newBuilder();
         SessionOptionValueToProtocolVisitor visitor = new SessionOptionValueToProtocolVisitor(b);
-        this.visit(visitor);
+        this.acceptVisitor(visitor);
         return b.build();
     }
 }
@@ -45,33 +43,31 @@ class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor {
 
     SessionOptionValueVisitor(Flight.SessionOptionValue.Builder b) { this.b = b; }
 
-    Flight.SessionOptionValue visit(String value) {
+    void visit(String value) {
         b.setStringValue(value);
     }
 
-    Flight.SessionOptionValue visit(boolean value) {
-        b.setBoolValue(value);
-    }
+    void visit(boolean value) { b.setBoolValue(value); }
 
-    Flight.SessionOptionValue visit(int value) {
+    void visit(int value) {
         b.setIn32Value(value);
     }
 
-    Flight.SessionOptionValue visit(long value) {
+    void visit(long value) {
         b.setInt64Value(value);
     }
 
-    Flight.SessionOptionValue visit(float value) {
+    void visit(float value) {
         b.setFloatValue(value);
     }
 
-    Flight.SessionOptionValue visit(double value) {
+    void visit(double value) {
         b.setDoubleValue(value);
     }
 
-    Flight.SessionOptionValue visit(String[] value) {
-        Flight.SessionOptionValue.StringListValue pb_value;
-        pb_value.addAllStringValues(value);
-        b.setValue(pb_value);
+    void visit(String[] value) {
+        Flight.SessionOptionValue.StringListValue pbValue;
+        pbValue.addAllStringValues(value);
+        b.setValue(pbValue);
     }
 }

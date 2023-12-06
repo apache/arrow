@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class SetSessionOptionsResult {
   public enum Status {
@@ -29,47 +30,73 @@ public class SetSessionOptionsResult {
      * (send a NOT_FOUND error if the requested session is not known). Clients can retry
      * the request.
       */
-    UNSPECIFIED,
+    UNSPECIFIED(Flight.SetSessionOptionsResult.Status.UNSPECIFIED),
     /**
      * The session option setting completed successfully.
      */
-    OK,
+    OK(Flight.SetSessionOptionsResult.Status.OK),
     /**
      * The given session option name was an alias for another option name.
      */
-    OK_MAPPED,
+    OK_MAPPED(Flight.SetSessionOptionsResult.Status.OK_MAPPED),
     /**
      * The given session option name is invalid.
      */
-    INVALID_NAME,
+    INVALID_NAME(Flight.SetSessionOptionsResult.Status.INVALID_NAME),
     /**
      * The session option value is invalid.
      */
-    INVALID_VALUE,
+    INVALID_VALUE(Flight.SetSessionOptionsResult.Status.INVALID_VALUE),
     /**
      * The session option cannot be set.
      */
-    ERROR,
+    ERROR(Flight.SetSessionOptionsResult.Status.ERROR),
     ;
+
+    private static final Map<Flight.SetSessionOptionsResult.Status, SetSessionOptionsResult.Status> mapFromProto;
+
+    static {
+      for (Status s : values()) mapFromProto.put(s.proto, s);
+    }
+
+    private final Flight.SetSessionOptionsResult.Status proto;
+
+    private Status(Flight.SetSessionOptionsResult.Status s) {
+      proto = s;
+    }
+
+    public static Status fromProtocol(Flight.SetSessionOptionsResult.Status s) {
+      return mapFromProto.get(s);
+    }
+
+    public Flight.SetSessionOptionsResult.Status toProtocol() {
+      return proto;
+    }
   }
 
   private final Map<String, Status> results;
 
   public SetSessionOptionsResult(Map<String, Status> results) {
-    this.results = HashMap<String, Status>(results);
+    this.results = Collections.unmodifiableMap(new HashMap<String, Status>(results));
   }
 
   SetSessionOptionsResult(Flight.SetSessionOptionsResult proto) {
-    // PHOXME impl
+    results = Collections.unmodifiableMap(proto.getResults().entrySet().stream().collect(
+        Collectors.toMap(Map.Entry::getKey, (e) -> Status.fromProtocol(e.getValue()))));
   }
 
+  /**
+   *
+   * @return An immutable view of the result status map.
+   */
   Map<String, Status> getResults() {
-    return Collections.unmodifiableMap(results);
+    return results;
   }
 
   Flight.SetSessionOptionsResult toProtocol() {
     Flight.SetSessionOptionsResult.Builder b = Flight.SetSessionOptionsResult.newBuilder();
-    // PHOXME impl
+    b.putAllResults(results.entrySet().stream().collect(
+        Collectors.toMap(Map.Entry::getKey, e -> getValue().toProtocol())));
     return b.build();
   }
 
@@ -94,5 +121,4 @@ public class SetSessionOptionsResult {
   public static SetSessionOptionsResult deserialize(ByteBuffer serialized) throws IOException {
     return new SetSessionOptionsResult(Flight.SetSessionOptionsResult.parseFrom(serialized));
   }
-
 }

@@ -27,20 +27,40 @@ public class CloseSessionResult {
      * (send a NOT_FOUND error if the requested session is not known). Clients can
      * retry the request.
      */
-    UNSPECIFIED,
+    UNSPECIFIED(Flight.CloseSessionResult.Status.UNSPECIFIED),
     /**
      * The session close request is complete.
      */
-    CLOSED,
+    CLOSED(Flight.CloseSessionResult.Status.CLOSED),
     /**
      * The session close request is in progress. The client may retry the request.
      */
-    CLOSING,
+    CLOSING(Flight.CloseSessionResult.Status.CLOSING),
     /**
      * The session is not closeable.
      */
-    NOT_CLOSABLE,
+    NOT_CLOSABLE(Flight.CloseSessionResult.Status.NOT_CLOSABLE),
     ;
+
+    private static final Map<Flight.CloseSessionResult.Status, Status> mapFromProto;
+
+    static {
+      for (Status s : values()) mapFromProto.put(s.proto, s);
+    }
+
+    private final Flight.CloseSessionResult.Status proto;
+
+    private Status(Flight.CloseSessionResult.Status s) {
+      proto = s;
+    }
+
+    public static Status fromProtocol(Flight.CloseSessionResult.Status s) {
+      return mapFromProto.get(s);
+    }
+
+    public Flight.CloseSessionResult.Status toProtocol() {
+      return proto;
+    }
   }
 
   private final Status status;
@@ -50,45 +70,20 @@ public class CloseSessionResult {
   }
 
   CloseSessionResult(Flight.CloseSessionResult proto) {
-    switch (proto.getStatus()) {
-      case UNSPECIFIED:
-        status = Status.UNSPECIFIED;
-        break;
-      case CLOSED:
-        status = Status.CLOSED;
-        break;
-      case CLOSING:
-        status = Status.CLOSING;
-        break;
-      case NOT_CLOSABLE:
-        status = Status.NOT_CLOSABLE;
-        break;
-      default:
+    status = Status.fromProtocol(proto.getStatus());
+    if (status == null) {
         // Unreachable
         throw new IllegalArgumentException("");
     }
   }
 
+  Status getStatus() {
+    return status;
+  }
 
   Flight.CloseSessionResult toProtocol() {
     Flight.CloseSessionResult.Builder b = Flight.CloseSessionResult.newBuilder();
-    switch (status) {
-      case UNSPECIFIED:
-        b.setStatus(Flight.CloseSessionResult.Status.UNSPECIFIED);
-        break;
-      case CLOSED:
-        b.setStatus(Flight.CloseSessionResult.Status.CLOSED);
-        break;
-      case CLOSING:
-        b.setStatus(Flight.CloseSessionResult.Status.CLOSING);
-        break;
-      case NOT_CLOSABLE:
-        b.setStatus(Flight.CloseSessionResult.Status.NOT_CLOSABLE);
-        break;
-      default:
-        // Unreachable
-        throw new IllegalStateException("");
-    }
+    b.setStatus(status.toProtocol()):
     return b.build();
   }
 

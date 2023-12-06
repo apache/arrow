@@ -17,90 +17,144 @@
 
 package org.apache.arrow.flight;
 
+import java.util.stream.Collectors;
+
 import org.apache.arrow.flight.SessionOptionValue;
 
 public class SessionOptionValueFactory {
-    public static SessionOptionValue makeSessionOption(String value) {
+    public static SessionOptionValue makeSessionOptionValue(String value) {
         return new SessionOptionValueString(value);
     }
 
-    public static SessionOptionValue makeSessionOption(bool value) {
+    public static SessionOptionValue makeSessionOptionValue(bool value) {
         return new SessionOptionValueBool(value);
     }
 
-    public static SessionOptionValue makeSessionOption(int value) {
+    public static SessionOptionValue makeSessionOptionValue(int value) {
         return new SessionOptionValueInt(value);
     }
 
-    public static SessionOptionValue makeSessionOption(long value) {
+    public static SessionOptionValue makeSessionOptionValue(long value) {
         return new SessionOptionValueLong(value);
     }
 
-    public static SessionOptionValue makeSessionOption(float value) {
+    public static SessionOptionValue makeSessionOptionValue(float value) {
         return new SessionOptionValueFloat(value);
     }
 
-    public static SessionOptionValue makeSessionOption(double value) {
+    public static SessionOptionValue makeSessionOptionValue(double value) {
         return new SessionOptionValueDouble(value);
     }
 
-    public static SessionOptionValue makeSessionOption(String[] value) {
+    public static SessionOptionValue makeSessionOptionValue(String[] value) {
         return new SessionOptionValueStringList(value);
+    }
+
+    public static SessionOptionValue makeSessionOptionValue(Flight.SessionOptionValue proto) {
+        switch(proto.getOptionValueCase()) {
+            case STRING_VALUE:
+                return new SessionOptionValueString(proto.getStringValue());
+            case BOOL_VALUE:
+                return new SessionOptionValueBoolean(proto.getValue());
+            case INT32_VALUE:
+                return new SessionOptionValueInteger(proto.getInt32Value());
+            case INT64_VALUE:
+                return new SessionOptionValueLong(proto.getInt64Value());
+            case FLOAT_VALUE:
+                return new SessionOptionValueFloat(proto.getFloatValue());
+            case DOUBLE_VALUE:
+                return new SessionOptionValueDouble(proto.getDoubleValue());
+            case STRING_LIST_VALUE:
+                // FIXME PHOXME is this what's in the ProtocolStringList?
+                return new SessionOptionValueStringList(proto.getValueStringList().stream().collect(
+                    Collectors.toList(e -> google.protocol.StringValue.parseFrom(e).getValue())));
+            default:
+                // Unreachable
+                throw new IllegalArgumentException("");
+        }
     }
 }
 
-class SessionOptionValueString {
+class SessionOptionValueString extends SessionOptionvalue {
     private final String value;
 
     SessionOptionValue(String value) {
         this.value = value;
     }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+        v.visit(value);
+    }
 }
 
-class SessionOptionValueBool {
+class SessionOptionValueBoolean extends SessionOptionvalue {
     private final boolean value;
 
-    SessionOptionValue(boolean value) {
+    SessionOptionValueBoolean(boolean value) {
         this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+        v.visit(value);
     }
 }
 
-class SessionOptionValueInt {
+class SessionOptionValueInt extends SessionOptionvalue {
     private final int value;
 
-    SessionOptionValue(int value) {
+    SessionOptionValueInt(int value) {
         this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+        v.visit(value);
     }
 }
 
-class SessionOptionValueLong {
+class SessionOptionValueLong extends SessionOptionvalue {
     private final long value;
 
-    SessionOptionValue(long value) {
+    SessionOptionValueLong(long value) {
         this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+        v.visit(value);
     }
 }
 
-class SessionOptionValueFloat {
+class SessionOptionValueFloat extends SessionOptionvalue {
     private final float value;
 
-    SessionOptionValue(Float value) {
+    SessionOptionValueFloat(Float value) {
         this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+        v.visit(value);
     }
 }
 
 
-class SessionOptionValueDouble {
+class SessionOptionValueDouble extends SessionOptionvalue {
     private final double value;
 
-    SessionOptionValue(double value) {
+    SessionOptionValueDouble(double value) {
         this.value = value;
     }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+        v.visit(value);
+    }
 }
-class SessionOptionValueStringList {
+class SessionOptionValueStringList extends SessionOptionvalue {
     private final String[] value;
 
-    SessionOptionValue(String[] value) {
+    SessionOptionValueStringList(String[] value) {
         this.value = value.clone();
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+        v.visit(value);
     }
 }

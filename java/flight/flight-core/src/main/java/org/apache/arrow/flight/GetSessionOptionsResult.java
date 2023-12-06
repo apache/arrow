@@ -19,22 +19,35 @@ package org.apache.arrow.flight;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class GetSessionOptionsResult {
-  private final Map<String, SessionOptionValue> session_options;
+  private final Map<String, SessionOptionValue> sessionOptions;
 
-  public GetSessionOptionsResult(Map<String, SessionOptionValue> session_options) {
-    this.session_options = new HashMap(session_options);
+  public GetSessionOptionsResult(Map<String, SessionOptionValue> sessionOptions) {
+    this.sessionOptions = Collections.unmodifiableMap(new HashMap(sessionOptions));
   }
 
   GetSessionOptionsResult(Flight.GetSessionOptionsResult proto) {
-    // PHOXME impl
+    sessionOptions = Collections.unmodifiableMap(
+        proto.getSessionOptions().entrySet().stream().collect(Collectors.toMap(
+            Map.Entry::getKey, (e) -> SessionOptionValueFactory.makeSessionOptionValue(e.getValue()))));
+  }
+
+  /**
+   *
+   * @return An immutable view of the session options map.
+   */
+  public Map<String, SessionOptionValue> getSessionOptions() {
+    return new sessionOptions;
   }
 
   Flight.GetSessionOptionsResult toProtocol() {
     Flight.GetSessionOptionsResult.Builder b = Flight.GetSessionOptionsResult.newBuilder();
-    // FIXME impl
-    b.putAllSessionOptions();
+    b.putAllSessionOptions(sessionOptions.entrySet().stream().collect(Collectors.toMap(
+        Map.Entry::getKey, (e) -> e.getValue().toProtocol())));
     return b.build();
   }
 
