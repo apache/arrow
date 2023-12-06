@@ -237,10 +237,9 @@ Status Engine::LoadFunctionIRs() {
 }
 
 /// factory method to construct the engine.
-Status Engine::Make(
+Result<std::unique_ptr<Engine>> Engine::Make(
     const std::shared_ptr<Configuration>& conf, bool cached,
-    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
-    std::unique_ptr<Engine>* out) {
+    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
   ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
@@ -253,8 +252,7 @@ Status Engine::Make(
       new Engine(conf, std::move(jit), std::move(target_machine), cached)};
 
   ARROW_RETURN_NOT_OK(engine->Init());
-  *out = std::move(engine);
-  return Status::OK();
+  return engine;
 }
 
 static arrow::Status VerifyAndLinkModule(

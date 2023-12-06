@@ -47,8 +47,7 @@ class TestLLVMGenerator : public ::testing::Test {
     auto external_registry = std::make_shared<FunctionRegistry>();
     auto config = config_factory(std::move(external_registry));
 
-    std::unique_ptr<LLVMGenerator> generator;
-    ASSERT_OK(LLVMGenerator::Make(config, false, std::nullopt, &generator));
+    ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(config, false));
 
     auto module = generator->module();
     ASSERT_OK(generator->engine_->LoadFunctionIRs());
@@ -58,8 +57,7 @@ class TestLLVMGenerator : public ::testing::Test {
 
 // Verify that a valid pc function exists for every function in the registry.
 TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
-  std::unique_ptr<LLVMGenerator> generator;
-  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, std::nullopt, &generator));
+  ASSERT_OK_AND_ASSIGN(auto generator, LLVMGenerator::Make(TestConfiguration(), false));
 
   llvm::Module* module = generator->module();
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
@@ -70,9 +68,8 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
 
 TEST_F(TestLLVMGenerator, TestAdd) {
   // Setup LLVM generator to do an arithmetic add of two vectors
-  std::unique_ptr<LLVMGenerator> generator;
-  ASSERT_OK(
-      LLVMGenerator::Make(TestConfigWithIrDumping(), false, std::nullopt, &generator));
+  ASSERT_OK_AND_ASSIGN(auto generator,
+                       LLVMGenerator::Make(TestConfigWithIrDumping(), false));
   Annotator annotator;
 
   auto field0 = std::make_shared<arrow::Field>("f0", arrow::int32());

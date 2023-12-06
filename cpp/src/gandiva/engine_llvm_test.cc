@@ -28,7 +28,7 @@ using add_vector_func_t = int64_t (*)(int64_t*, int);
 
 class TestEngine : public ::testing::Test {
  protected:
-  static std::string BuildVecAdd(Engine* gdv_engine) {
+  std::string BuildVecAdd(Engine* gdv_engine) {
     auto types = gdv_engine->types();
     llvm::IRBuilder<>* builder = gdv_engine->ir_builder();
     llvm::LLVMContext* context = gdv_engine->context();
@@ -100,7 +100,7 @@ class TestEngine : public ::testing::Test {
   }
 
   void BuildEngine() {
-    ASSERT_OK(Engine::Make(TestConfiguration(), false, std::nullopt, &engine));
+    ASSERT_OK_AND_ASSIGN(engine, Engine::Make(TestConfiguration(), false));
   }
 
   std::unique_ptr<Engine> engine;

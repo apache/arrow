@@ -65,9 +65,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expression
-  std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(
-      LLVMGenerator::Make(configuration, is_cached, obj_cache, &llvm_gen));
+  ARROW_ASSIGN_OR_RAISE(auto llvm_gen,
+                        LLVMGenerator::Make(configuration, is_cached, obj_cache));
 
   if (!is_cached) {
     // Run the validation on the expression.

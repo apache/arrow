@@ -42,18 +42,15 @@ LLVMGenerator::LLVMGenerator(bool cached,
       function_registry_(std::move(function_registry)),
       enable_ir_traces_(false) {}
 
-Status LLVMGenerator::Make(
+Result<std::unique_ptr<LLVMGenerator>> LLVMGenerator::Make(
     const std::shared_ptr<Configuration>& config, bool cached,
-    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
-    std::unique_ptr<LLVMGenerator>* llvm_generator) {
-  std::unique_ptr<LLVMGenerator> llvmgen_obj(
+    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
+  std::unique_ptr<LLVMGenerator> llvm_generator(
       new LLVMGenerator(cached, config->function_registry()));
 
-  ARROW_RETURN_NOT_OK(
-      Engine::Make(config, cached, object_cache, &(llvmgen_obj->engine_)));
-  *llvm_generator = std::move(llvmgen_obj);
-
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(llvm_generator->engine_,
+                        Engine::Make(config, cached, object_cache));
+  return llvm_generator;
 }
 
 std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>

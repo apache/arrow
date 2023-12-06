@@ -49,10 +49,10 @@ class FunctionHolder;
 class GANDIVA_EXPORT LLVMGenerator {
  public:
   /// \brief Factory method to initialize the generator.
-  static Status Make(
+  static Result<std::unique_ptr<LLVMGenerator>> Make(
       const std::shared_ptr<Configuration>& config, bool cached,
-      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
-      std::unique_ptr<LLVMGenerator>* llvm_generator);
+      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache =
+          std::nullopt);
 
   /// \brief Get the cache to be used for LLVM ObjectCache.
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>

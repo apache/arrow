@@ -53,11 +53,10 @@ class GANDIVA_EXPORT Engine {
   /// \param[in] config the engine configuration
   /// \param[in] cached flag to mark if the module is already compiled and cached
   /// \param[in] object_cache an optional object_cache used for building the module
-  /// \param[out] engine the created engine
-  static Status Make(
+  /// \return arrow::Result containing the created engine
+  static Result<std::unique_ptr<Engine>> Make(
       const std::shared_ptr<Configuration>& config, bool cached,
-      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
-      std::unique_ptr<Engine>* engine);
+      std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache = std::nullopt);
 
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.

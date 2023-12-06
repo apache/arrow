@@ -80,9 +80,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expressions
-  std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(
-      LLVMGenerator::Make(configuration, is_cached, obj_cache, &llvm_gen));
+  ARROW_ASSIGN_OR_RAISE(auto llvm_gen,
+                        LLVMGenerator::Make(configuration, is_cached, obj_cache));
 
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
