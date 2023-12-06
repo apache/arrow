@@ -65,7 +65,7 @@
     "tslib": "^2.6.2"
   },
   "devDependencies": {
-    "@openpgp/web-stream-tools": "0.0.13",
+    "@openpgp/web-stream-tools": "0.0.14",
     "@rollup/plugin-alias": "5.0.0",
     "@rollup/plugin-node-resolve": "15.1.0",
     "@rollup/stream": "3.0.1",

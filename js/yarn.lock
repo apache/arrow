@@ -984,10 +984,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@openpgp/web-stream-tools@0.0.13":
-  version "0.0.13"
-  resolved "https://registry.npmjs.org/@openpgp/web-stream-tools/-/web-stream-tools-0.0.13.tgz#f0be50120c152efb11b65df29ab482dc192dbbd7"
-  integrity sha512-VQ0O0lUcD9ilLcMLQMJMgPhp8fDgMd4copd+UhSBGjud0vbI1ONQ3ffAhixEMml/AApLJtqCpd7PJcccPliFSA==
+"@openpgp/web-stream-tools@0.0.14":
+  version "0.0.14"
+  resolved "https://registry.yarnpkg.com/@openpgp/web-stream-tools/-/web-stream-tools-0.0.14.tgz#513214cd2a20903558448980085155752be445e4"
+  integrity sha512-6btCNVf6YSsmlyIS7yw+IbzXeXCEcJxeSpxvSxkDuZj9B/ekt4fXkZj4oOaIxG4SKTftIK1svnlVroJ1cCMT4g==
 
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
