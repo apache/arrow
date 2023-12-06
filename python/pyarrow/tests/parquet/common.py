@@ -18,7 +18,6 @@
 import io
 
 import numpy as np
-import pytest
 
 import pyarrow as pa
 from pyarrow.tests import util

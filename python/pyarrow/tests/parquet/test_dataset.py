@@ -584,7 +584,6 @@ def _partition_test_for_filesystem(fs, base_path):
                    .reset_index(drop=True)
                    .reindex(columns=result_df.columns))
 
-
     # With pandas 2.0.0 Index can store all numeric dtypes (not just
     # int64/uint64/float64). Using astype() to create a categorical
     # column preserves original dtype (int32)
@@ -982,7 +981,7 @@ def test_empty_directory(tempdir):
 def _test_write_to_dataset_with_partitions(base_path,
                                            filesystem=None,
                                            schema=None,
-                                                                                      index_name=None):
+                                           index_name=None):
     import pandas as pd
     import pandas.testing as tm
 

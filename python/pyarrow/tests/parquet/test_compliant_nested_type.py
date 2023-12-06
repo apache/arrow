@@ -86,7 +86,7 @@ def test_write_compliant_nested_type_enable(tempdir, test_data):
 @pytest.mark.pandas
 @pytest.mark.dataset
 @parametrize_test_data
-def test_write_compliant_nested_type_disable(tempdir,test_data):
+def test_write_compliant_nested_type_disable(tempdir, test_data):
     # prepare dataframe for testing
     df = pd.DataFrame(data=test_data)
     # verify that we can read/write with new flag disabled

@@ -17,19 +17,16 @@
 
 
 from collections import defaultdict
-from concurrent import futures
 from contextlib import nullcontext
-from functools import partial, reduce
+from functools import reduce
 
 import inspect
 import json
 from collections.abc import Collection
-import numpy as np
 import os
 import re
 import operator
 import urllib.parse
-import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
@@ -1329,6 +1326,7 @@ def _is_local_file_system(fs):
         fs, legacyfs.LocalFileSystem
     )
 
+
 _read_docstring_common = """\
 read_dictionary : list, default None
     List of names or column paths (for nested types) to read directly
@@ -1406,7 +1404,8 @@ class ParquetDataset:
     schema : pyarrow.parquet.Schema
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
-    filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
+    filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]],
+    default None
         Rows which do not match the filter predicate will be removed from scanned
         data. Partition keys embedded in a nested directory structure will be
         exploited to avoid loading files at all if they contain no matching rows.
@@ -1448,6 +1447,7 @@ class ParquetDataset:
 
     Examples
     --------
+    {2}
     """.format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
 
     def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
@@ -2309,7 +2309,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
     if metadata_collector is not None and file_visitor is not None:
         raise ValueError(msg_confl.format("file_visitor",
                                           "metadata_collector"))
-    
+
     import pyarrow.dataset as ds
 
     # extract write_dataset specific options
