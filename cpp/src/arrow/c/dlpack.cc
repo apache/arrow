@@ -109,10 +109,7 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
 
   dlm_tensor->dl_tensor.ndim = 1;
   dlm_tensor->dl_tensor.dtype = dlpack_type;
-  std::vector<int64_t>* shape_arr = &DLMTensor->shape;
-  shape_arr->resize(1);
-  (*shape_arr)[0] = arr->length();
-  dlm_tensor->dl_tensor.shape = shape_arr->data();
+  dlm_tensor->dl_tensor.shape = const_cast<int64_t*>(&array_ref->length);
   dlm_tensor->dl_tensor.strides = NULL;
   dlm_tensor->dl_tensor.byte_offset = 0;
 
