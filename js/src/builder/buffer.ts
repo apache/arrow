@@ -21,7 +21,7 @@ import { DataType } from '../type.js';
 
 /** @ignore */
 function roundLengthUpToNearest64Bytes(len: number, BPE: number) {
-    const bytesMinus1 = len * BPE - 1;
+    const bytesMinus1 = Math.ceil(len) * BPE - 1;
     return ((bytesMinus1 - bytesMinus1 % 64 + 64) || 64) / BPE;
 }
 /** @ignore */
