@@ -2065,8 +2065,9 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
         this->current_decoder_->Decode(values, static_cast<int>(values_to_read));
     CheckNumberDecoded(num_decoded, values_to_read);
 
+    PARQUET_THROW_NOT_OK(builder_->Reserve(num_decoded));
     for (int64_t i = 0; i < num_decoded; i++) {
-      PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
+      builder_->UnsafeAppend(values[i].ptr);
     }
     ResetValues();
   }
@@ -2081,11 +2082,13 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
         valid_bits, valid_bits_offset);
     ARROW_DCHECK_EQ(num_decoded, values_to_read);
 
+    PARQUET_THROW_NOT_OK(builder_->Reserve(num_decoded));
     for (int64_t i = 0; i < num_decoded; i++) {
-      if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-        PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
+      if (null_count == 0 ||
+          ::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        builder_->UnsafeAppend(values[i].ptr);
       } else {
-        PARQUET_THROW_NOT_OK(builder_->AppendNull());
+        builder_->UnsafeAppendNull();
       }
     }
     ResetValues();
