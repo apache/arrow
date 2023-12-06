@@ -421,7 +421,8 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
     const Field& field, const parquet::Statistics& statistics) {
   const auto field_name = field.name();
-  return EvaluateStatisticsAsExpression(field, FieldRef(field_name), statistics);
+  return EvaluateStatisticsAsExpression(field, FieldRef(std::move(field_name)),
+                                        statistics);
 }
 
 ParquetFileFormat::ParquetFileFormat()
@@ -902,11 +903,11 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
     return std::vector<compute::Expression>{};
   }
 
-  const SchemaField* schema_field = nullptr;
   for (const FieldRef& ref : FieldsInExpression(predicate)) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*physical_schema_));
+
     if (match.empty()) continue;
-    schema_field = &manifest_->schema_fields[match[0]];
+    const SchemaField* schema_field = &manifest_->schema_fields[match[0]];
 
     for (size_t i = 1; i < match.indices().size(); ++i) {
       if (schema_field->field->type()->id() != Type::STRUCT) {
