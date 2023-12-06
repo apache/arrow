@@ -167,7 +167,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -207,7 +207,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -299,7 +299,7 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: '3.10'
       - name: Run Benchmarks
