@@ -1043,22 +1043,22 @@ TYPED_TEST(TestNumericScalar, Cast) {
       std::shared_ptr<Scalar> other_scalar;
       ASSERT_OK_AND_ASSIGN(other_scalar, Scalar::Parse(other_type, repr));
 
-      ASSERT_OK_AND_ASSIGN(auto cast_to_other, scalar->CastTo(other_type))
-      ASSERT_EQ(*cast_to_other, *other_scalar);
+      ASSERT_OK_AND_ASSIGN(auto cast_to_other, Cast(scalar, other_type))
+      ASSERT_EQ(*cast_to_other.scalar(), *other_scalar);
 
-      ASSERT_OK_AND_ASSIGN(auto cast_from_other, other_scalar->CastTo(type))
-      ASSERT_EQ(*cast_from_other, *scalar);
+      ASSERT_OK_AND_ASSIGN(auto cast_from_other, Cast(other_scalar, type))
+      ASSERT_EQ(*cast_from_other.scalar(), *scalar);
     }
 
     ASSERT_OK_AND_ASSIGN(auto cast_from_string,
-                         StringScalar(std::string(repr)).CastTo(type));
-    ASSERT_EQ(*cast_from_string, *scalar);
+                         Cast(StringScalar(std::string(repr)), type));
+    ASSERT_EQ(*cast_from_string.scalar(), *scalar);
 
     if (is_integer_type<TypeParam>::value) {
-      ASSERT_OK_AND_ASSIGN(auto cast_to_string, scalar->CastTo(utf8()));
-      ASSERT_EQ(
-          std::string_view(*checked_cast<const StringScalar&>(*cast_to_string).value),
-          repr);
+      ASSERT_OK_AND_ASSIGN(auto cast_to_string, Cast(scalar, utf8()));
+      ASSERT_EQ(std::string_view(
+                    *checked_cast<const StringScalar&>(*cast_to_string.scalar()).value),
+                repr);
     }
   }
 }
