@@ -2306,7 +2306,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         raise ValueError(msg_confl.format("partitioning",
                                           "partition_cols"))
 
-    metadata_collector = kwargs.pop('metadata_collector', None)
     if metadata_collector is not None and file_visitor is not None:
         raise ValueError(msg_confl.format("file_visitor",
                                           "metadata_collector"))
