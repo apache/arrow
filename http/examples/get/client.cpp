@@ -82,5 +82,5 @@ int main(void)
 }
 
 // to compile (for example):
-//clang++ client.cpp -std=c++17 -I/usr/local/include -L/usr/local/lib -lcurl -larrow -o client
+//clang++ client.cpp -std=c++17 $(pkg-config --cflags --libs arrow libcurl) -o client
 
