@@ -270,7 +270,6 @@ namespace Apache.Arrow.Ipc
             _options = options ?? IpcOptions.Default;
         }
 
-
         private void CreateSelfAndChildrenFieldNodes(ArrayData data)
         {
             if (data.DataType is NestedType)
@@ -319,7 +318,7 @@ namespace Apache.Arrow.Ipc
             if (!HasWrittenDictionaryBatch)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
-                WriteDictionaries(recordBatch);
+                WriteDictionaries(_dictionaryMemo);
                 HasWrittenDictionaryBatch = true;
             }
 
@@ -358,7 +357,7 @@ namespace Apache.Arrow.Ipc
             if (!HasWrittenDictionaryBatch)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
-                await WriteDictionariesAsync(recordBatch, cancellationToken).ConfigureAwait(false);
+                await WriteDictionariesAsync(_dictionaryMemo, cancellationToken).ConfigureAwait(false);
                 HasWrittenDictionaryBatch = true;
             }
 
@@ -492,74 +491,65 @@ namespace Apache.Arrow.Ipc
             return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
         }
 
-
-        private protected void WriteDictionaries(RecordBatch recordBatch)
+        private protected virtual void StartingWritingDictionary()
         {
-            foreach (Field field in recordBatch.Schema.FieldsList)
+        }
+
+        private protected virtual void FinishedWritingDictionary(long bodyLength, long metadataLength)
+        {
+        }
+
+        private protected void WriteDictionaries(DictionaryMemo dictionaryMemo)
+        {
+            int fieldCount = dictionaryMemo?.FieldCount ?? 0;
+            for (int i = 1; i <= fieldCount; i++)
             {
-                WriteDictionary(field);
+                WriteDictionary(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i));
             }
         }
 
-        private protected void WriteDictionary(Field field)
+        private protected void WriteDictionary(long id, IArrowType valueType, IArrowArray dictionary)
         {
-            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
-            {
-                if (field.DataType is NestedType nestedType)
-                {
-                    foreach (Field child in nestedType.Fields)
-                    {
-                        WriteDictionary(child);
-                    }
-                }
-                return;
-            }
+            StartingWritingDictionary();
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
-                CreateDictionaryBatchOffset(field);
+                CreateDictionaryBatchOffset(id, valueType, dictionary);
 
-            WriteMessage(Flatbuf.MessageHeader.DictionaryBatch,
+            long metadataLength = WriteMessage(Flatbuf.MessageHeader.DictionaryBatch,
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength);
 
-            WriteBufferData(recordBatchBuilder.Buffers);
+            long bufferLength = WriteBufferData(recordBatchBuilder.Buffers);
+
+            FinishedWritingDictionary(bufferLength, metadataLength);
         }
 
-        private protected async Task WriteDictionariesAsync(RecordBatch recordBatch, CancellationToken cancellationToken)
+        private protected async Task WriteDictionariesAsync(DictionaryMemo dictionaryMemo, CancellationToken cancellationToken)
         {
-            foreach (Field field in recordBatch.Schema.FieldsList)
+            int fieldCount = dictionaryMemo?.FieldCount ?? 0;
+            for (int i = 1; i <= fieldCount; i++)
             {
-                await WriteDictionaryAsync(field, cancellationToken).ConfigureAwait(false);
+                await WriteDictionaryAsync(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i), cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private protected async Task WriteDictionaryAsync(Field field, CancellationToken cancellationToken)
+        private protected async Task WriteDictionaryAsync(long id, IArrowType valueType, IArrowArray dictionary, CancellationToken cancellationToken)
         {
-            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
-            {
-                if (field.DataType is NestedType nestedType)
-                {
-                    foreach (Field child in nestedType.Fields)
-                    {
-                        await WriteDictionaryAsync(child, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-                return;
-            }
+            StartingWritingDictionary();
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
-                CreateDictionaryBatchOffset(field);
+                CreateDictionaryBatchOffset(id, valueType, dictionary);
 
-            await WriteMessageAsync(Flatbuf.MessageHeader.DictionaryBatch,
+            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.DictionaryBatch,
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength, cancellationToken).ConfigureAwait(false);
 
-            await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+            long bufferLength = await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+
+            FinishedWritingDictionary(bufferLength, metadataLength);
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(Field field)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(long id, IArrowType valueType, IArrowArray dictionary)
         {
-            Field dictionaryField = new Field("dummy", ((DictionaryType)field.DataType).ValueType, false);
-            long id = DictionaryMemo.GetId(field);
-            IArrowArray dictionary = DictionaryMemo.GetDictionary(id);
+            Field dictionaryField = new Field("dummy", valueType, false);
 
             var fields = new Field[] { dictionaryField };
 

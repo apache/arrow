@@ -25,6 +25,7 @@ namespace Apache.Arrow.Ipc
         private readonly Dictionary<long, IArrowArray> _idToDictionary;
         private readonly Dictionary<long, IArrowType> _idToValueType;
         private readonly Dictionary<Field, long> _fieldToId;
+        private Action<long> _loader;
 
         public DictionaryMemo()
         {
@@ -32,6 +33,8 @@ namespace Apache.Arrow.Ipc
             _idToValueType = new Dictionary<long, IArrowType>();
             _fieldToId = new Dictionary<Field, long>();
         }
+
+        public int FieldCount => _fieldToId.Count;
 
         public IArrowType GetDictionaryType(long id)
         {
@@ -46,10 +49,20 @@ namespace Apache.Arrow.Ipc
         {
             if (!_idToDictionary.TryGetValue(id, out IArrowArray dictionary))
             {
-                throw new ArgumentException($"Dictionary with id {id} not found");
+                if (_loader != null)
+                {
+                    _loader(id);
+                }
+
+                if (!_idToDictionary.TryGetValue(id, out dictionary))
+                {
+                    throw new ArgumentException($"Dictionary with id {id} not found");
+                }
             }
             return dictionary;
         }
+
+        public void SetLoader(Action<long> loader) { this._loader = loader; }
 
         public void AddField(long id, Field field)
         {
@@ -72,9 +85,12 @@ namespace Apache.Arrow.Ipc
                     throw new ArgumentException($"Field type {field.DataType.Name} does not match the existing type {valueTypeInDic})");
                 }
             }
+            else
+            {
+                _idToValueType.Add(id, valueType);
+            }
 
             _fieldToId.Add(field, id);
-            _idToValueType.Add(id, valueType);
         }
 
         public long GetId(Field field)

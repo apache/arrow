@@ -138,6 +138,58 @@ namespace Apache.Arrow.Ipc
             _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(CreateByteBuffer(buffer)), ref _dictionaryMemo);
 
             Schema = _footer.Schema;
+
+            // Setup for dictionary deserialization
+            // We don't know in what order the messages have been serialized, so we add a callback
+            // to deserialize them sequentially until we get the one we want. The callback can be
+            // invoked recursively in the case where the dictionaries are nested.
+            //
+            // TODO: This is no longer async...
+            int next = 0;
+            _dictionaryMemo?.SetLoader(id =>
+                {
+                    while (true)
+                    {
+                        Block block = _footer.Dictionaries[next++];
+                        BaseStream.Position = block.Offset;
+
+                        int messageLength = ReadMessageLength(throwOnFullRead: false);
+
+                        if (messageLength == 0)
+                        {
+                            // error?
+                            continue;
+                        }
+
+                        long? foundId = default;
+                        ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
+                        {
+                            int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
+                            EnsureFullRead(messageBuff, bytesRead);
+
+                            Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+                            if (message.HeaderType == Flatbuf.MessageHeader.DictionaryBatch)
+                            {
+                                foundId = message.Header<Flatbuf.DictionaryBatch>().Value.Id;
+                            }
+
+                            int bodyLength = checked((int)message.BodyLength);
+
+                            IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                            Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                            bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
+                            EnsureFullRead(bodyBuff, bytesRead);
+
+                            Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                            CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
+                        });
+
+                        if (foundId == id)
+                        {
+                            return;
+                        }
+                    }
+                });
         }
 
         public async ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)

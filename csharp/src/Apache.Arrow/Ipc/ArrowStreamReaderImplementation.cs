@@ -214,7 +214,7 @@ namespace Apache.Arrow.Ipc
             return messageLength;
         }
 
-        private int ReadMessageLength(bool throwOnFullRead)
+        protected int ReadMessageLength(bool throwOnFullRead)
         {
             int messageLength = 0;
             ArrayPool<byte>.Shared.RentReturn(4, lengthBuffer =>
