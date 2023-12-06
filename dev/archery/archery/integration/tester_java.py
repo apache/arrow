@@ -41,6 +41,8 @@ _JAVA_OPTS = [
     "-Dio.netty.tryReflectionSetAccessible=true",
     "-Darrow.struct.conflict.policy=CONFLICT_APPEND",
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    # GH-39113: avoid failures accessing files in `/tmp/hsperfdata_...`
+    "-XX:-UsePerfData",
 ]
 
 _arrow_version = load_version_from_pom()
