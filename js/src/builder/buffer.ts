@@ -20,7 +20,10 @@ import { TypedArray, BigIntArray, ArrayCtor } from '../interfaces.js';
 import { DataType } from '../type.js';
 
 /** @ignore */
-const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((Math.ceil(len) * BPE) + 63) & ~63) || 64) / BPE;
+function roundLengthUpToNearest64Bytes(len: number, BPE: number) {
+    const bytesMinus1 = len * BPE - 1;
+    return ((bytesMinus1 - bytesMinus1 % 64 + 64) || 64) / BPE;
+}
 /** @ignore */
 const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0) => (
     arr.length >= len ? arr.subarray(0, len) : memcpy(new (arr.constructor as any)(len), arr, 0)
