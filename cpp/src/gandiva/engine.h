@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <cinttypes>
+#include <inttypes.h>
 #include <functional>
 #include <memory>
 #include <optional>
