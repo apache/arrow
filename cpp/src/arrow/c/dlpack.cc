@@ -104,15 +104,8 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   }
 
   // Define DLDevice struct
-  DLDevice ctx;
-  if (array_ref->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
-    ctx.device_id = 0;
-    ctx.device_type = DLDeviceType::kDLCPU;
-  } else {
-    return Status::NotImplemented(
-        "DLPack support is implemented only for buffers on CPU device.");
-  }
-  dlm_tensor->dl_tensor.device = ctx;
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
+  dlm_tensor->dl_tensor.device = device;
 
   dlm_tensor->dl_tensor.ndim = 1;
   dlm_tensor->dl_tensor.dtype = dlpack_type;
