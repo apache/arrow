@@ -186,10 +186,6 @@ cdef class Projector(_Weakrefable):
         self.pool = pool
         return self
 
-    @property
-    def llvm_ir(self):
-        return self.projector.get().DumpIR().decode()
-
     def evaluate(self, RecordBatch batch, SelectionVector selection=None):
         """
         Evaluate the specified record batch and return the arrays at the
@@ -234,10 +230,6 @@ cdef class Filter(_Weakrefable):
         cdef Filter self = Filter.__new__(Filter)
         self.filter = filter
         return self
-
-    @property
-    def llvm_ir(self):
-        return self.filter.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
         """
