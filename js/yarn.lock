@@ -1360,9 +1360,9 @@
   integrity sha512-Gj7cI7z+98M282Tqmp2K5EIsoouUEzbBJhQQzDE3jSIRk6r9gsz0oUokqIUR4u1R3dMHo0pDHM7sNOHyhulypw==
 
 "@types/pad-left@^2.1.1":
-  version "2.1.1"
-  resolved "https://registry.npmjs.org/@types/pad-left/-/pad-left-2.1.1.tgz#17d906fc75804e1cc722da73623f1d978f16a137"
-  integrity sha512-Xd22WCRBydkGSApl5Bw0PhAOHKSVjNL3E3AwzKaps96IMraPqy5BvZIsBVK6JLwdybUzjHnuWVwpDd0JjTfHXA==
+  version "2.1.3"
+  resolved "https://registry.yarnpkg.com/@types/pad-left/-/pad-left-2.1.3.tgz#f636e62154e95bf6660439c51fe828da918124b2"
+  integrity sha512-fayws3T8lGvIY3UEtqFHKSH6FS1Lepo6kd3ZTgdj8rsVIIwzr9MZJt1ZP9UGu+cdAZsJiG2d5iYxyhRXwtUB5A==
 
 "@types/randomatic@3.1.3":
   version "3.1.3"
