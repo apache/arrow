@@ -34,19 +34,18 @@ in order to enable device aware data interchange between array/tensor
 libraries in the Python ecosystem. See more about the standard
 in the
 `protocol documentation <https://data-apis.org/array-api/latest/index.html>`_
-and more about the DLPack in the
+and more about DLPack in the
 `Python Specification for DLPack <https://dmlc.github.io/dlpack/latest/python_spec.html#python-spec>`_.
 
 Implementation of DLPack in PyArrow
 -----------------------------------
 
-Producing side of the DLPack Protocol is implemented for ``pa.Array``
+The producing side of the DLPack Protocol is implemented for ``pa.Array``
 and can be used to interchange data between PyArrow and other tensor
-libraries. The data structures that are supported in the implementation
-of the protocol are integer, unsigned integer and float arrays. The
+libraries. Supported data types are integer, unsigned integer and float. The
 protocol has no missing data support meaning PyArrow arrays with
-missing values cannot be used to transfer data through the DLPack
-protocol. Currently Arrow implementation of the protocol only supports
+missing values cannot be transferred through the DLPack
+protocol. Currently, the Arrow implementation of the protocol only supports
 data on a CPU device.
 
 Data interchange syntax of the protocol includes
