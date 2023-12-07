@@ -20,11 +20,12 @@
 The DLPack Protocol
 ===================
 
-The DLPack Protocol is a stable in-memory data structure
-that allows exchange between major frameworks working
-with multidimensional arrays or tensors. It is
-designed for cross hardware support meaning it allows exchange
-of data on devices other than the CPU (e.g. GPU).
+`The DLPack Protocol <https://github.com/dmlc/dlpack>`_
+is a stable in-memory data structure that allows exchange
+between major frameworks working with multidimensional
+arrays or tensors. It is designed for cross hardware
+support meaning it allows exchange of data on devices other
+than the CPU (e.g. GPU).
 
 DLPack protocol had been
 `selected as the Python array API standard <https://data-apis.org/array-api/latest/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure>`_
