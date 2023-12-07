@@ -17,7 +17,6 @@
 
 package org.apache.arrow.maven.plugins;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -26,14 +25,10 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 /**
- * A maven plugin for compiler module-info files in main code with JDK8.
+ * A maven plugin for compiler module-info files in unit tests with JDK8.
  */
-@Mojo(name = "compile", defaultPhase = LifecyclePhase.COMPILE)
-public class ModuleInfoCompilerPlugin extends BaseModuleInfoCompilerPlugin {
-
-  @Parameter(defaultValue = "${project.compileSourceRoots}", property = "compileSourceRoots",
-      required = true)
-  private final List<String> compileSourceRoots = new ArrayList<>();
+@Mojo(name = "testCompile", defaultPhase = LifecyclePhase.TEST_COMPILE)
+public class ModuleInfoTestCompilerPlugin extends BaseModuleInfoCompilerPlugin {
 
   @Parameter(defaultValue = "false", property = "skip", required = false)
   private boolean skip = false;
@@ -43,7 +38,7 @@ public class ModuleInfoCompilerPlugin extends BaseModuleInfoCompilerPlugin {
 
   @Override
   protected List<String> getSourceRoots() {
-    return compileSourceRoots;
+    return project.getTestCompileSourceRoots();
   }
 
   @Override
@@ -53,6 +48,6 @@ public class ModuleInfoCompilerPlugin extends BaseModuleInfoCompilerPlugin {
 
   @Override
   protected String getOutputDirectory() {
-    return project.getBuild().getOutputDirectory();
+    return project.getBuild().getTestOutputDirectory();
   }
 }

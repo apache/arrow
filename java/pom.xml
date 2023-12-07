@@ -377,8 +377,15 @@
         <artifactId>module-info-compiler-maven-plugin</artifactId>
         <executions>
           <execution>
+            <id>default-compile</id>
             <goals>
-              <goal>module-info-compile</goal>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <goals>
+              <goal>testCompile</goal>
             </goals>
           </execution>
         </executions>
@@ -413,6 +420,7 @@
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
             <excludes>**/module-info.java</excludes>
+            <testExcludes>**/module-info.java</testExcludes>
             <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
