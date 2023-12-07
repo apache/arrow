@@ -130,3 +130,74 @@ constexpr span<std::byte> as_writable_bytes(span<T> s) {
 }
 
 }  // namespace arrow::util
+
+#if __has_include(<span>)
+
+template <>
+class arrow::util::span<std::byte> : public std::span<std::byte> {
+ public:
+  explicit arrow::util::span(const arrow::util::span<std::byte>& other)
+      : std::span<std::byte>(other.data(), other.size()) {}
+
+  std::byte* data() const { return this->data_; }
+
+  size_t size() const { return this->size_; }
+
+  operator std::span<std::byte>() const {
+    return std::span<std::byte>(this->data_, this->size_);
+  }
+
+  bool operator==(const arrow::util::span<std::byte>& other) const {
+    return this->data_ == other.data_ && this->size_ == other.size_;
+  }
+
+  bool operator!=(const arrow::util::span<std::byte>& other) const {
+    return !(*this == other);
+  }
+};
+
+template <>
+class std::span<arrow::util::span<std::byte>> {
+ public:
+  explicit std::span(const std::span<arrow::util::span<std::byte>>& other) {
+    data_.resize(other.size());
+    size_ = other.size();
+    for (size_t i = 0; i < size_; ++i) {
+      data_[i] = arrow::util::span<std::byte>(other[i].data(), other[i].size());
+    }
+  }
+
+  arrow::util::span<std::byte>& operator[](size_t idx) { return data_[idx]; }
+
+  const arrow::util::span<std::byte>& operator[](size_t idx) const { return data_[idx]; }
+
+  arrow::util::span<std::byte>* data() const { return &data_[0]; }
+
+  size_t size() const { return size_; }
+
+  operator arrow::util::span<std::byte>() const {
+    return arrow::util::span<std::byte>(data_[0].data(), size_ * data_[0].size());
+  }
+
+  bool operator==(const std::span<arrow::util::span<std::byte>>& other) const {
+    if (size_ != other.size_) {
+      return false;
+    }
+    for (size_t i = 0; i < size_; ++i) {
+      if (data_[i] != other[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool operator!=(const std::span<arrow::util::span<std::byte>>& other) const {
+    return !(*this == other);
+  }
+
+ private:
+  std::vector<arrow::util::span<std::byte>> data_;
+  size_t size_;
+};
+
+#endif
