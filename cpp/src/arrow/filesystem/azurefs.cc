@@ -843,7 +843,7 @@ class AzureFileSystem::Impl {
   static FileInfo FileInfoFromBlob(const std::string& container,
                                    const Azure::Storage::Blobs::Models::BlobItem& blob) {
     auto path = internal::ConcatAbstractPath(container, blob.Name);
-    if (blob.Name.back() == internal::kSep) {
+    if (internal::HasTrailingSlash(blob.Name)) {
       return DirectoryFileInfoFromPath(path);
     }
     FileInfo info{std::move(path), FileType::File};
@@ -889,10 +889,10 @@ class AzureFileSystem::Impl {
     options.PageSizeHint = page_size_hint;
     options.Include = Azure::Storage::Blobs::Models::ListBlobsIncludeFlags::Metadata;
 
-    // When Prefix.Value() contains a trailing slash and we find a blob that
-    // matches it completely, it is an empty directory marker blob for the
-    // directory we're listing from, and we should skip it.
-    auto is_empty_dir_marker =
+    // When Prefix contains a value and we find a blob that matches it completely, it is
+    // an empty directory marker blob for the directory we're listing from, and we should
+    // skip it.
+    auto is_the_root_empty_dir_marker =
         [&options](const Azure::Storage::Blobs::Models::BlobItem& blob) noexcept -> bool {
       return options.Prefix.HasValue() && blob.Name == options.Prefix.Value();
     };
@@ -912,38 +912,16 @@ class AzureFileSystem::Impl {
       return Status::OK();
     };
 
-    // (*acc_results)[*last_dir_reported] is the last FileType::Directory in the results
-    // produced through this loop over the response pages.
-    std::optional<size_t> last_dir_reported{};
-    auto matches_last_dir_reported = [&last_dir_reported,
-                                      acc_results](const FileInfo& info) noexcept {
-      if (!last_dir_reported.has_value() || info.type() != FileType::Directory) {
-        return false;
-      }
-      const auto& last_dir = (*acc_results)[*last_dir_reported];
-      return BasenameView(info.path()) == BasenameView(last_dir.path());
-    };
-
     auto process_blob =
         [&](const Azure::Storage::Blobs::Models::BlobItem& blob) noexcept {
-          if (!is_empty_dir_marker(blob)) {
-            const auto& info = acc_results->emplace_back(
-                FileInfoFromBlob(base_location.container, blob));
-            if (info.type() == FileType::Directory) {
-              last_dir_reported = acc_results->size() - 1;
-            }
+          if (!is_the_root_empty_dir_marker(blob)) {
+            acc_results->push_back(FileInfoFromBlob(base_location.container, blob));
           }
         };
     auto process_prefix = [&](const std::string& prefix) noexcept -> Status {
       const auto path = internal::ConcatAbstractPath(base_location.container, prefix);
-      const auto& info = acc_results->emplace_back(DirectoryFileInfoFromPath(path));
-      if (ARROW_PREDICT_FALSE(matches_last_dir_reported(info))) {
-        acc_results->pop_back();
-      } else {
-        last_dir_reported = acc_results->size() - 1;
-        return recurse(prefix);
-      }
-      return Status::OK();
+      acc_results->push_back(DirectoryFileInfoFromPath(path));
+      return recurse(prefix);
     };
 
     try {
@@ -969,11 +947,19 @@ class AzureFileSystem::Impl {
           } else if (cmp > 0) {
             RETURN_NOT_OK(process_prefix(prefix));
             blob_prefix_index += 1;
-          } else {  // there is a blob (empty dir marker) and a prefix with the same name
+          } else {
             DCHECK_EQ(blob.Name, prefix);
             RETURN_NOT_OK(process_prefix(prefix));
             blob_index += 1;
             blob_prefix_index += 1;
+            // If the container has an empty dir marker blob and another blob starting
+            // with this blob name as a prefix, the blob doesn't appear in the listing
+            // that also contains the prefix, so AFAICT this branch in unreachable. The
+            // code above is kept just in case, but if this DCHECK(false) is ever reached,
+            // we should refactor this loop to ensure no duplicate entries are ever
+            // reported.
+            DCHECK(false)
+                << "Unexpected blob/prefix name collision on the same listing request";
           }
         }
         for (; blob_index < list_response.Blobs.size(); blob_index++) {
