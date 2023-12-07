@@ -141,7 +141,7 @@ static std::string GetModuleIR(const llvm::Module& module) {
 // LLVM >= 18 does this automatically
 static void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
   lljit.getMainJITDylib().addGenerator(
-      cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+      llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
 }
 
