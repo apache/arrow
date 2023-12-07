@@ -129,10 +129,6 @@ constexpr span<std::byte> as_writable_bytes(span<T> s) {
   return {reinterpret_cast<std::byte*>(s.data()), s.size_bytes()};
 }
 
-}  // namespace arrow::util
-
-#if __has_include(<span>)
-
 template <>
 class arrow::util::span<std::byte> : public std::span<std::byte> {
  public:
@@ -155,12 +151,6 @@ class arrow::util::span<std::byte> : public std::span<std::byte> {
     return !(*this == other);
   }
 };
-
-template <>
-class arrow::util::span<std::byte>;
-
-template <>
-class std::span<arrow::util::span<std::byte>>;
 
 template <>
 class std::span<arrow::util::span<std::byte>> {
@@ -206,4 +196,5 @@ class std::span<arrow::util::span<std::byte>> {
   size_t size_;
 };
 
-#endif
+}  // namespace arrow::util
+
