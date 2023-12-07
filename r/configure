@@ -62,7 +62,7 @@ PKG_CONFIG_NAME="arrow"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
 
-# Some env vars that control the build (all logical, case insensitive)
+# Some env vars that control the build (all logical, case-insensitive)
 # Development mode, also increases verbosity in the bundled build
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 # The bundled build compiles arrow C++ from source; FORCE ensures we don't pick up
