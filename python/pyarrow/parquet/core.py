@@ -1956,8 +1956,7 @@ Examples
 
 
 def write_to_dataset(table, root_path, partition_cols=None,
-                     partition_filename_cb=None, filesystem=None,
-                     schema=None,
+                     filesystem=None, schema=None,
                      partitioning=None, basename_template=None,
                      use_threads=None, file_visitor=None,
                      existing_data_behavior=None,
@@ -2085,10 +2084,6 @@ def write_to_dataset(table, root_path, partition_cols=None,
         "The '{1}' argument is not supported. "
         "Use only '{0}' instead."
     )
-    if partition_filename_cb is not None and basename_template is not None:
-        raise ValueError(msg_confl.format("basename_template",
-                                          "partition_filename_cb"))
-
     if partition_cols is not None and partitioning is not None:
         raise ValueError(msg_confl.format("partitioning",
                                           "partition_cols"))
@@ -2108,16 +2103,10 @@ def write_to_dataset(table, root_path, partition_cols=None,
     write_dataset_kwargs['max_rows_per_group'] = kwargs.pop(
         'row_group_size', kwargs.pop("chunk_size", None)
     )
-    # raise for unsupported keywords
-    msg = (
-        "The '{}' argument is not supported with the new dataset "
-        "implementation."
-    )
+
     if metadata_collector is not None:
         def file_visitor(written_file):
             metadata_collector.append(written_file.metadata)
-    if partition_filename_cb is not None:
-        raise ValueError(msg.format("partition_filename_cb"))
 
     # map format arguments
     parquet_format = ds.ParquetFileFormat()
