@@ -456,8 +456,9 @@ Status Engine::FinalizeModule() {
   return Status::OK();
 }
 
-Result<void*> Engine::CompiledFunction(std::string& function) {
-  DCHECK(module_finalized_);
+Result<void*> Engine::CompiledFunction(const std::string& function) {
+  DCHECK(module_finalized_)
+      << "module must be finalized before getting compiled function";
   auto sym = lljit_->lookup(function);
   if (!sym) {
     return Status::CodeGenError("Failed to look up function: " + function +
@@ -469,7 +470,11 @@ Result<void*> Engine::CompiledFunction(std::string& function) {
 #else
   auto fn_addr = sym->getAddress();
 #endif
-  return reinterpret_cast<void*>(fn_addr);
+  auto fn_ptr = reinterpret_cast<void*>(fn_addr);
+  if (fn_ptr == nullptr) {
+    return Status::CodeGenError("Failed to get address for function: " + function);
+  }
+  return fn_ptr;
 }
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,

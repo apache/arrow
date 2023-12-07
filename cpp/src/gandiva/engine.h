@@ -78,7 +78,7 @@ class GANDIVA_EXPORT Engine {
   void SetLLVMObjectCache(GandivaObjectCache& object_cache);
 
   /// Get the compiled function corresponding to the irfunction.
-  Result<void*> CompiledFunction(std::string& function);
+  Result<void*> CompiledFunction(const std::string& function);
 
   // Create and add a mapping for the cpp function to make it accessible from LLVM.
   void AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,

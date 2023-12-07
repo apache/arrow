@@ -109,8 +109,9 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   EXPECT_THAT(ir, testing::HasSubstr("vector.body"));
 
   EXPECT_OK_AND_ASSIGN(auto fn_ptr, generator->engine_->CompiledFunction(fn_name));
-  auto eval_func = (EvalFunc)fn_ptr;
+  EXPECT_NE(fn_ptr, nullptr);
 
+  auto eval_func = (EvalFunc)fn_ptr;
   constexpr size_t kNumRecords = 4;
   std::array<uint32_t, kNumRecords> a0{1, 2, 3, 4};
   std::array<uint32_t, kNumRecords> a1{5, 6, 7, 8};
@@ -125,6 +126,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
       reinterpret_cast<uint8_t*>(out.data()), reinterpret_cast<uint8_t*>(&out_bitmap),
   };
   std::array<int64_t, 6> addr_offsets{0, 0, 0, 0, 0, 0};
+
   eval_func(addrs.data(), addr_offsets.data(), nullptr, nullptr, nullptr,
             0 /* dummy context ptr */, kNumRecords);
 
