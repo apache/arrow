@@ -22,7 +22,7 @@ from cpython.pycapsule cimport PyCapsule_New
 from cython import sizeof
 
 
-cdef void pycapsule_deleter(object dltensor) noexcept:
+cdef void dlpack_pycapsule_deleter(object dltensor) noexcept:
     cdef DLManagedTensor* dlm_tensor
     cdef PyObject* err_type
     cdef PyObject* err_value
@@ -36,12 +36,14 @@ cdef void pycapsule_deleter(object dltensor) noexcept:
     # we create another one
     cpython.PyErr_Fetch(&err_type, &err_value, &err_traceback)
 
-    if cpython.PyCapsule_IsValid(dltensor, 'dltensor'):
-        dlm_tensor = <DLManagedTensor*>cpython.PyCapsule_GetPointer(
-            dltensor, 'dltensor')
-        dlm_tensor.deleter(dlm_tensor)
-    else:
+    dlm_tensor = <DLManagedTensor*>cpython.PyCapsule_GetPointer(dltensor, 'dltensor')
+    if dlm_tensor == NULL:
         cpython.PyErr_WriteUnraisable(dltensor)
+    # The deleter can be NULL if there is no way for the caller
+    # to provide a reasonable destructor
+    elif dlm_tensor.deleter:
+        dlm_tensor.deleter(dlm_tensor)
+        assert (not cpython.PyErr_Occurred())
 
     # Set the error indicator from err_type, err_value, err_traceback
     cpython.PyErr_Restore(err_type, err_value, err_traceback)

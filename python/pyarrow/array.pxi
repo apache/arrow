@@ -1799,7 +1799,7 @@ cdef class Array(_PandasConvertible):
             c_dlm_tensor = ExportToDLPack(pyarrow_unwrap_array(self))
             dlm_tensor = GetResultValue(c_dlm_tensor)
 
-            return PyCapsule_New(dlm_tensor, 'dltensor', pycapsule_deleter)
+            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
         else:
             raise NotImplementedError(
                 "Only stream=None is supported."
