@@ -70,6 +70,9 @@ using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
 
+namespace Blobs = Azure::Storage::Blobs;
+namespace Files = Azure::Storage::Files;
+
 auto const* kLoremIpsum = R"""(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
 incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
@@ -193,9 +196,8 @@ TEST(AzureFileSystem, OptionsCompare) {
 class AzureFileSystemTest : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
-  std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
-  std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-      datalake_service_client_;
+  std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
+  std::unique_ptr<Files::DataLake::DataLakeServiceClient> datalake_service_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
@@ -215,14 +217,12 @@ class AzureFileSystemTest : public ::testing::Test {
     }
     // Stop-gap solution before GH-39119 is fixed.
     container_name_ = "z" + RandomChars(31);
-    blob_service_client_ = std::make_unique<Azure::Storage::Blobs::BlobServiceClient>(
+    blob_service_client_ = std::make_unique<Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
-    datalake_service_client_ =
-        std::make_unique<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
-            options_.account_dfs_url, options_.storage_credentials_provider);
+    datalake_service_client_ = std::make_unique<Files::DataLake::DataLakeServiceClient>(
+        options_.account_dfs_url, options_.storage_credentials_provider);
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
-    auto container_client = blob_service_client_->GetBlobContainerClient(container_name_);
-    container_client.CreateIfNotExists();
+    auto container_client = CreateContainer(container_name_);
 
     auto blob_client = container_client.GetBlockBlobClient(PreexistingObjectName());
     blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum),
@@ -238,6 +238,20 @@ class AzureFileSystemTest : public ::testing::Test {
         container_client.DeleteIfExists();
       }
     }
+  }
+
+  Blobs::BlobContainerClient CreateContainer(const std::string& name) {
+    auto container_client = blob_service_client_->GetBlobContainerClient(name);
+    (void)container_client.CreateIfNotExists();
+    return container_client;
+  }
+
+  Blobs::BlobClient CreateBlob(Blobs::BlobContainerClient& container_client,
+                               const std::string& name, const std::string& data = "") {
+    auto blob_client = container_client.GetBlockBlobClient(name);
+    (void)blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
+                                 data.size());
+    return blob_client;
   }
 
   std::string PreexistingContainerName() const { return container_name_; }
@@ -334,24 +348,13 @@ class AzureFileSystemTest : public ::testing::Test {
 
   void SetUpSmallFileSystemTree() {
     // Set up test containers
-    blob_service_client_->GetBlobContainerClient("empty-container").CreateIfNotExists();
+    CreateContainer("empty-container");
+    auto container = CreateContainer("container");
 
-    auto container_client = blob_service_client_->GetBlobContainerClient("container");
-    container_client.CreateIfNotExists();
-
-    auto blob_client = container_client.GetBlockBlobClient("emptydir/");
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(""), 0);
-
-    blob_client = container_client.GetBlockBlobClient("somedir/subdir/subfile");
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kSubData), strlen(kSubData));
-
-    blob_client = container_client.GetBlockBlobClient("somefile");
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kSomeData),
-                           strlen(kSomeData));
-
-    blob_client = container_client.GetBlockBlobClient("otherdir/1/2/3/otherfile");
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kOtherData),
-                           strlen(kOtherData));
+    CreateBlob(container, "emptydir/");
+    CreateBlob(container, "somedir/subdir/subfile", kSubData);
+    CreateBlob(container, "somefile", kSomeData);
+    CreateBlob(container, "otherdir/1/2/3/otherfile", kOtherData);
   }
 
   void AssertInfoAllContainersRecursive(const std::vector<FileInfo>& infos) {
