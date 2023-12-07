@@ -877,7 +877,7 @@ class AzureFileSystem::Impl {
 
     bool found = false;
     Azure::Storage::Blobs::ListBlobsOptions options;
-    if (internal::GetAbstractPathDepth(base_location.path) == 0) {
+    if (internal::IsEmptyPath(base_location.path)) {
       // If the base_dir is the root of the container, then we want to list all blobs in
       // the container and the Prefix should be empty and not even include the trailing
       // slash because the container itself represents the `<container>/` directory.
@@ -888,14 +888,6 @@ class AzureFileSystem::Impl {
     }
     options.PageSizeHint = page_size_hint;
     options.Include = Azure::Storage::Blobs::Models::ListBlobsIncludeFlags::Metadata;
-
-    // When Prefix contains a value and we find a blob that matches it completely, it is
-    // an empty directory marker blob for the directory we're listing from, and we should
-    // skip it.
-    auto is_the_root_empty_dir_marker =
-        [&options](const Azure::Storage::Blobs::Models::BlobItem& blob) noexcept -> bool {
-      return options.Prefix.HasValue() && blob.Name == options.Prefix.Value();
-    };
 
     auto recurse = [&](const std::string& blob_prefix) noexcept -> Status {
       if (select.recursive && select.max_recursion > 0) {
@@ -913,7 +905,10 @@ class AzureFileSystem::Impl {
 
     auto process_blob =
         [&](const Azure::Storage::Blobs::Models::BlobItem& blob) noexcept {
-          if (!is_the_root_empty_dir_marker(blob)) {
+          // blob.Name has trailing slash only when Prefix is an empty
+          // directory marker blob for the directory we're listing
+          // from, and we should skip it.
+          if (!internal::HasTrailingSlash(blob.Name)) {
             acc_results->push_back(FileInfoFromBlob(base_location.container, blob));
           }
         };
