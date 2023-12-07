@@ -21,6 +21,7 @@
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/device.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 
 namespace arrow::dlpack {
 
@@ -61,12 +62,12 @@ struct ManagerCtx {
 };
 
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
-  if (arr->null_count() > 0) {
-    return Status::TypeError("Can only use DLPack on arrays with no nulls.");
-  }
+  // Define DLDevice struct nad check if array type is supported
+  // by the DLPack protocol at the same time. Raise TypeError if not.
+  // Supported data types: int, uint, float with no validity buffer.
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
 
   // Define the DLDataType struct
-  // Supported data types: int, uint, float
   const DataType* arrow_type = arr->type().get();
   ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(*arrow_type));
 
@@ -92,10 +93,7 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
         reinterpret_cast<const void*>(array_ref->buffers[1]->address()));
   }
 
-  // Define DLDevice struct
-  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
   ctx->tensor.dl_tensor.device = device;
-
   ctx->tensor.dl_tensor.ndim = 1;
   ctx->tensor.dl_tensor.dtype = dlpack_type;
   ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(&array_ref->length);
@@ -111,6 +109,21 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
 }
 
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
+  // Check if array is supported by the DLPack protocol.
+  if (arr->null_count() > 0) {
+    return Status::TypeError("Can only use DLPack on arrays with no nulls.");
+  }
+  const DataType* arrow_type = arr->type().get();
+  if (arrow_type->id() == Type::BOOL) {
+    return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
+  }
+  if (!is_integer(arrow_type->id()) && !is_unsigned_integer(arrow_type->id()) &&
+      !is_floating(arrow_type->id())) {
+    return Status::TypeError("DataType is not compatible with DLPack spec: ",
+                             arrow_type->ToString());
+  }
+
+  // Define DLDevice struct
   DLDevice device;
   if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
     device.device_id = 0;

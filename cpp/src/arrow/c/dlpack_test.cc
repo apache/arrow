@@ -108,6 +108,10 @@ TEST_F(TestExportArray, TestUnSupportedArray) {
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
       arrow::dlpack::ExportArray(array_boolean));
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
+      arrow::dlpack::ExportDevice(array_boolean));
 }
 
 }  // namespace arrow::dlpack
