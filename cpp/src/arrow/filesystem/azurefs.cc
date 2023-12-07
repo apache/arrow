@@ -115,6 +115,10 @@ struct AzureLocation {
     return parent;
   }
 
+  Result<AzureLocation> join(const std::string& stem) const {
+    return FromString(internal::ConcatAbstractPath(all, stem));
+  }
+
   bool has_parent() const { return !path.empty(); }
 
   bool empty() const { return container.empty() && path.empty(); }
@@ -149,6 +153,7 @@ Status ValidateFileLocation(const AzureLocation& location) {
   if (location.path.empty()) {
     return NotAFile(location);
   }
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
   return Status::OK();
 }
 
@@ -818,7 +823,6 @@ class AzureFileSystem::Impl {
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const AzureLocation& location,
                                                          AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
-    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
         blob_service_client_->GetBlobContainerClient(location.container)
             .GetBlobClient(location.path));
@@ -831,7 +835,6 @@ class AzureFileSystem::Impl {
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
                                                          AzureFileSystem* fs) {
-    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
     if (info.type() == FileType::NotFound) {
       return ::arrow::fs::internal::PathNotFound(info.path());
     }
@@ -951,7 +954,6 @@ class AzureFileSystem::Impl {
       const std::shared_ptr<const KeyValueMetadata>& metadata, const bool truncate,
       AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
-    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
 
     auto block_blob_client = std::make_shared<Azure::Storage::Blobs::BlockBlobClient>(
         blob_service_client_->GetBlobContainerClient(location.container)
@@ -971,7 +973,7 @@ class AzureFileSystem::Impl {
   }
 
  private:
-  Status DeleteDirContentsWihtoutHierarchicalNamespace(const AzureLocation& location,
+  Status DeleteDirContentsWithoutHierarchicalNamespace(const AzureLocation& location,
                                                        bool missing_dir_ok) {
     auto container_client =
         blob_service_client_->GetBlobContainerClient(location.container);
@@ -1092,7 +1094,7 @@ class AzureFileSystem::Impl {
             exception);
       }
     } else {
-      return DeleteDirContentsWihtoutHierarchicalNamespace(location,
+      return DeleteDirContentsWithoutHierarchicalNamespace(location,
                                                            /*missing_dir_ok=*/true);
     }
   }
@@ -1149,8 +1151,29 @@ class AzureFileSystem::Impl {
       }
       return Status::OK();
     } else {
-      return DeleteDirContentsWihtoutHierarchicalNamespace(location, missing_dir_ok);
+      return DeleteDirContentsWithoutHierarchicalNamespace(location, missing_dir_ok);
     }
+  }
+
+  Status CopyFile(const AzureLocation& src, const AzureLocation& dest) {
+    RETURN_NOT_OK(ValidateFileLocation(src));
+    RETURN_NOT_OK(ValidateFileLocation(dest));
+    if (src == dest) {
+      return Status::OK();
+    }
+    auto dest_blob_client = blob_service_client_->GetBlobContainerClient(dest.container)
+                                .GetBlobClient(dest.path);
+    auto src_url = blob_service_client_->GetBlobContainerClient(src.container)
+                       .GetBlobClient(src.path)
+                       .GetUrl();
+    try {
+      dest_blob_client.CopyFromUri(src_url);
+    } catch (const Azure::Storage::StorageException& exception) {
+      return internal::ExceptionToStatus(
+          "Failed to copy a blob. (" + src_url + " -> " + dest_blob_client.GetUrl() + ")",
+          exception);
+    }
+    return Status::OK();
   }
 };
 
@@ -1208,7 +1231,9 @@ Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {
 }
 
 Status AzureFileSystem::CopyFile(const std::string& src, const std::string& dest) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto src_location, AzureLocation::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto dest_location, AzureLocation::FromString(dest));
+  return impl_->CopyFile(src_location, dest_location);
 }
 
 Result<std::shared_ptr<io::InputStream>> AzureFileSystem::OpenInputStream(
