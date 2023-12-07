@@ -41,7 +41,7 @@ namespace arrow::matlab::bit {
         }
     }
 
-    // Pack an unpacked MATLAB logical array into into a bit-packed arrow::Buffer.
+    // Pack an unpacked MATLAB logical array into a bit-packed arrow::Buffer.
     arrow::Result<std::shared_ptr<arrow::Buffer>> pack(const ::matlab::data::TypedArray<bool> matlab_logical_array) {
         // Validate that the input arrow::Buffer has sufficient size to store a full bit-packed
         // representation of the input MATLAB logical array.

@@ -27,7 +27,7 @@ dnf -y install 'dnf-command(config-manager)'
 dnf config-manager --set-enabled powertools
 dnf -y update
 dnf -y module disable nodejs
-dnf -y module enable nodejs:16
+dnf -y module enable nodejs:18
 dnf -y module disable ruby
 dnf -y module enable ruby:2.7
 dnf -y groupinstall "Development Tools"
@@ -44,8 +44,7 @@ dnf -y install \
   ninja-build \
   nodejs \
   openssl-devel \
-  python38-devel \
-  python38-pip \
+  python3.11-devel \
   ruby-devel \
   sqlite-devel \
   vala-devel \
@@ -54,5 +53,5 @@ dnf -y install \
 
 npm install -g yarn
 
-python3 -m pip install -U pip
+python3 -m ensurepip --upgrade
 alternatives --set python /usr/bin/python3

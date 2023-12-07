@@ -287,6 +287,45 @@ class AzureFileSystemTest : public ::testing::Test {
 
   void RunGetFileInfoObjectWithNestedStructureTest();
   void RunGetFileInfoObjectTest();
+
+  struct HierarchicalPaths {
+    std::string container;
+    std::string directory;
+    std::vector<std::string> sub_paths;
+  };
+
+  // Need to use "void" as the return type to use ASSERT_* in this method.
+  void CreateHierarchicalData(HierarchicalPaths& paths) {
+    const auto container_path = RandomContainerName();
+    const auto directory_path =
+        internal::ConcatAbstractPath(container_path, RandomDirectoryName());
+    const auto sub_directory_path =
+        internal::ConcatAbstractPath(directory_path, "new-sub");
+    const auto sub_blob_path =
+        internal::ConcatAbstractPath(sub_directory_path, "sub.txt");
+    const auto top_blob_path = internal::ConcatAbstractPath(directory_path, "top.txt");
+    ASSERT_OK(fs_->CreateDir(sub_directory_path, true));
+    ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(sub_blob_path));
+    ASSERT_OK(output->Write(std::string_view("sub")));
+    ASSERT_OK(output->Close());
+    ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(top_blob_path));
+    ASSERT_OK(output->Write(std::string_view("top")));
+    ASSERT_OK(output->Close());
+
+    AssertFileInfo(fs_.get(), container_path, FileType::Directory);
+    AssertFileInfo(fs_.get(), directory_path, FileType::Directory);
+    AssertFileInfo(fs_.get(), sub_directory_path, FileType::Directory);
+    AssertFileInfo(fs_.get(), sub_blob_path, FileType::File);
+    AssertFileInfo(fs_.get(), top_blob_path, FileType::File);
+
+    paths.container = container_path;
+    paths.directory = directory_path;
+    paths.sub_paths = {
+        sub_directory_path,
+        sub_blob_path,
+        top_blob_path,
+    };
+  }
 };
 
 class AzuriteFileSystemTest : public AzureFileSystemTest {
@@ -381,7 +420,7 @@ TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespace) {
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_NOT_OK(hierarchical_namespace.Enabled("non-existent-container"));
+  ASSERT_NOT_OK(hierarchical_namespace.Enabled("nonexistent-container"));
 }
 
 TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
@@ -394,7 +433,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
 TEST_F(AzuriteFileSystemTest, GetFileInfoContainer) {
   AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
 
-  AssertFileInfo(fs_.get(), "non-existent-container", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "nonexistent-container", FileType::NotFound);
 
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
@@ -664,6 +703,117 @@ TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveDirectory) 
 
 TEST_F(AzuriteFileSystemTest, DeleteDirUri) {
   ASSERT_RAISES(Invalid, fs_->DeleteDir("abfs://" + PreexistingContainerPath()));
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessContainer) {
+#ifdef __APPLE__
+  GTEST_SKIP() << "This test fails by an Azurite problem: "
+                  "https://github.com/Azure/Azurite/pull/2302";
+#endif
+  HierarchicalPaths paths;
+  CreateHierarchicalData(paths);
+  ASSERT_OK(fs_->DeleteDirContents(paths.container));
+  arrow::fs::AssertFileInfo(fs_.get(), paths.container, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), paths.directory, FileType::NotFound);
+  for (const auto& sub_path : paths.sub_paths) {
+    arrow::fs::AssertFileInfo(fs_.get(), sub_path, FileType::NotFound);
+  }
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessDirectory) {
+#ifdef __APPLE__
+  GTEST_SKIP() << "This test fails by an Azurite problem: "
+                  "https://github.com/Azure/Azurite/pull/2302";
+#endif
+  HierarchicalPaths paths;
+  CreateHierarchicalData(paths);
+  ASSERT_OK(fs_->DeleteDirContents(paths.directory));
+  // GH-38772: We may change this to FileType::Directory.
+  arrow::fs::AssertFileInfo(fs_.get(), paths.directory, FileType::NotFound);
+  for (const auto& sub_path : paths.sub_paths) {
+    arrow::fs::AssertFileInfo(fs_.get(), sub_path, FileType::NotFound);
+  }
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessNonexistent) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_OK(fs_->DeleteDirContents(directory_path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzuriteFileSystemTest, DeleteDirContentsFailureNonexistent) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_RAISES(IOError, fs_->DeleteDirContents(directory_path, false));
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirContentsSuccessExist) {
+  HierarchicalPaths paths;
+  CreateHierarchicalData(paths);
+  ASSERT_OK(fs_->DeleteDirContents(paths.directory));
+  arrow::fs::AssertFileInfo(fs_.get(), paths.directory, FileType::Directory);
+  for (const auto& sub_path : paths.sub_paths) {
+    arrow::fs::AssertFileInfo(fs_.get(), sub_path, FileType::NotFound);
+  }
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirContentsSuccessNonexistent) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_OK(fs_->DeleteDirContents(directory_path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+}
+
+TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirContentsFailureNonexistent) {
+  const auto directory_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  ASSERT_RAISES(IOError, fs_->DeleteDirContents(directory_path, false));
+}
+
+TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationNonexistent) {
+  const auto destination_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
+  ASSERT_OK(fs_->CopyFile(PreexistingObjectPath(), destination_path));
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(destination_path));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
+  EXPECT_EQ(kLoremIpsum, buffer->ToString());
+}
+
+TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationSame) {
+  ASSERT_OK(fs_->CopyFile(PreexistingObjectPath(), PreexistingObjectPath()));
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(info));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
+  EXPECT_EQ(kLoremIpsum, buffer->ToString());
+}
+
+TEST_F(AzuriteFileSystemTest, CopyFileFailureDestinationTrailingSlash) {
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile(PreexistingObjectPath(),
+                              internal::EnsureTrailingSlash(PreexistingObjectPath())));
+}
+
+TEST_F(AzuriteFileSystemTest, CopyFileFailureSourceNonexistent) {
+  const auto destination_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
+  ASSERT_RAISES(IOError, fs_->CopyFile(NotFoundObjectPath(), destination_path));
+}
+
+TEST_F(AzuriteFileSystemTest, CopyFileFailureDestinationParentNonexistent) {
+  const auto destination_path =
+      internal::ConcatAbstractPath(RandomContainerName(), "copy-destionation");
+  ASSERT_RAISES(IOError, fs_->CopyFile(PreexistingObjectPath(), destination_path));
+}
+
+TEST_F(AzuriteFileSystemTest, CopyFileUri) {
+  const auto destination_path =
+      internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
+  ASSERT_RAISES(Invalid,
+                fs_->CopyFile("abfs://" + PreexistingObjectPath(), destination_path));
+  ASSERT_RAISES(Invalid,
+                fs_->CopyFile(PreexistingObjectPath(), "abfs://" + destination_path));
 }
 
 TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {

@@ -72,7 +72,7 @@ find_latest_nightly <- function(description_version,
     lg("Failed to find latest nightly for %s", description_version)
     latest <- description_version
   } else {
-    lg("Found latest nightly for %s: %s", description_version, res)
+    lg("Latest available nightly for %s: %s", description_version, res)
     latest <- res
   }
   latest
@@ -81,8 +81,9 @@ find_latest_nightly <- function(description_version,
 try_download <- function(from_url, to_file, hush = quietly) {
   # We download some fairly large files, so ensure the timeout is set appropriately.
   # This assumes a static library size of 100 MB (generous) and a download speed
-  # of 1 MB/s (slow).
-  opts <- options(timeout = max(100, getOption("timeout")))
+  # of .3 MB/s (slow). This is to anticipate slower user connections or load on
+  # artifactory servers.
+  opts <- options(timeout = max(300, getOption("timeout")))
   on.exit(options(opts))
 
   status <- try(

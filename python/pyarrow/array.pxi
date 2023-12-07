@@ -254,7 +254,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         schema_capsule, array_capsule = obj.__arrow_c_array__(requested_type)
         out_array = Array._import_from_c_capsule(schema_capsule, array_capsule)
         if type is not None and out_array.type != type:
-            # PyCapsule interface type coersion is best effort, so we need to
+            # PyCapsule interface type coercion is best effort, so we need to
             # check the type of the returned array and cast if necessary
             out_array = array.cast(type, safe=safe, memory_pool=memory_pool)
         return out_array
@@ -3415,7 +3415,7 @@ cdef class RunEndEncodedArray(Array):
         Find the physical offset of this REE array.
 
         This is the offset of the run that contains the value of the first
-        logical element of this array considering its offet.
+        logical element of this array considering its offset.
 
         This function uses binary-search, so it has a O(log N) cost.
         """

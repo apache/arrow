@@ -111,6 +111,7 @@ cdef class NativeFile(_Weakrefable):
         self.is_readable = False
         self.is_writable = False
         self.is_seekable = False
+        self._is_appending = False
 
     def __dealloc__(self):
         if self.own_file:
@@ -139,12 +140,15 @@ cdef class NativeFile(_Weakrefable):
         * rb: binary read
         * wb: binary write
         * rb+: binary read and write
+        * ab: binary append
         """
         # Emulate built-in file modes
         if self.is_readable and self.is_writable:
             return 'rb+'
         elif self.is_readable:
             return 'rb'
+        elif self.is_writable and self._is_appending:
+            return 'ab'
         elif self.is_writable:
             return 'wb'
         else:
@@ -1113,6 +1117,19 @@ cdef class OSFile(NativeFile):
     'rb'
     b'OSFile'
 
+    Open the file to append:
+
+    >>> with pa.OSFile('example_osfile.arrow', mode='ab') as f:
+    ...     f.mode
+    ...     f.write(b' is super!')
+    ...
+    'ab'
+    10
+    >>> with pa.OSFile('example_osfile.arrow') as f:
+    ...     f.read()
+    ...
+    b'OSFile is super!'
+
     Inspect created OSFile:
 
     >>> pa.OSFile('example_osfile.arrow')
@@ -1134,6 +1151,8 @@ cdef class OSFile(NativeFile):
             self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
         elif mode in ('w', 'wb'):
             self._open_writable(c_path)
+        elif mode in ('a', 'ab'):
+            self._open_writable(c_path, append=True)
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
@@ -1146,10 +1165,13 @@ cdef class OSFile(NativeFile):
         self.is_readable = True
         self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
 
-    cdef _open_writable(self, c_string path):
+    cdef _open_writable(self, c_string path, c_bool append=False):
         with nogil:
-            self.output_stream = GetResultValue(FileOutputStream.Open(path))
+            self.output_stream = GetResultValue(
+                FileOutputStream.OpenWithAppend(path, append)
+            )
         self.is_writable = True
+        self._is_appending = append
 
     def fileno(self):
         self._assert_open()
@@ -1418,7 +1440,7 @@ cdef class Buffer(_Weakrefable):
 
     def __getreadbuffer__(self, Py_ssize_t idx, void **p):
         if idx != 0:
-            raise SystemError("accessing non-existent buffer segment")
+            raise SystemError("accessing nonexistent buffer segment")
         if p != NULL:
             p[0] = <void*> self.buffer.get().data()
         return self.size
@@ -1427,7 +1449,7 @@ cdef class Buffer(_Weakrefable):
         if not self.buffer.get().is_mutable():
             raise SystemError("trying to write an immutable buffer")
         if idx != 0:
-            raise SystemError("accessing non-existent buffer segment")
+            raise SystemError("accessing nonexistent buffer segment")
         if p != NULL:
             p[0] = <void*> self.buffer.get().data()
         return self.size
@@ -1609,7 +1631,7 @@ cdef class CompressedInputStream(NativeFile):
 
     Examples
     --------
-    Create an ouput stream wich compresses the data:
+    Create an output stream wich compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
@@ -1666,7 +1688,7 @@ cdef class CompressedOutputStream(NativeFile):
 
     Examples
     --------
-    Create an ouput stream wich compresses the data:
+    Create an output stream wich compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"

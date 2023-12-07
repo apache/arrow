@@ -424,7 +424,7 @@ TYPED_TEST(MultipathLevelBuilderListTest, NestedListsWithSomeNulls) {
                      /*rep_levels=*/std::vector<int16_t>{0, 0, 2, 2, 1, 1, 0, 2});
 }
 
-TYPED_TEST(MultipathLevelBuilderListTest, NestedListsWithSomeNullsSomeEmptys) {
+TYPED_TEST(MultipathLevelBuilderListTest, NestedListsWithSomeNullsSomeEmpties) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
   auto nested_list_type = TypeParam::get_list(list_field);
@@ -485,7 +485,7 @@ TYPED_TEST(MultipathLevelBuilderListTest, TripleNestedListsAllPresent) {
                      });
 }
 
-TYPED_TEST(MultipathLevelBuilderListTest, TripleNestedListsWithSomeNullsSomeEmptys) {
+TYPED_TEST(MultipathLevelBuilderListTest, TripleNestedListsWithSomeNullsSomeEmpties) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", TypeParam::get_list(entries), /*nullable=*/true);
   auto nested_list_type = TypeParam::get_list(list_field);

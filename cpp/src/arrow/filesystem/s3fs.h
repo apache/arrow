@@ -130,7 +130,7 @@ struct ARROW_EXPORT S3Options {
   std::string role_arn;
   /// Optional identifier for an assumed role session.
   std::string session_name;
-  /// Optional external idenitifer to pass to STS when assuming a role
+  /// Optional external identifier to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
   int load_frequency = 900;
@@ -143,6 +143,14 @@ struct ARROW_EXPORT S3Options {
 
   /// Type of credentials being used. Set along with credentials_provider.
   S3CredentialsKind credentials_kind = S3CredentialsKind::Default;
+
+  /// Whether to use virtual addressing of buckets
+  ///
+  /// If true, then virtual addressing is always enabled.
+  /// If false, then virtual addressing is only enabled if `endpoint_override` is empty.
+  ///
+  /// This can be used for non-AWS backends that only support virtual hosted-style access.
+  bool force_virtual_addressing = false;
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
@@ -185,7 +193,7 @@ struct ARROW_EXPORT S3Options {
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
 
-  /// Configure with credentials from role assumed using a web identitiy token
+  /// Configure with credentials from role assumed using a web identity token
   void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;
