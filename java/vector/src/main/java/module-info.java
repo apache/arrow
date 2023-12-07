@@ -41,6 +41,7 @@ module org.apache.arrow.vector {
   requires com.fasterxml.jackson.databind;
   requires com.fasterxml.jackson.datatype.jsr310;
   requires flatbuffers.java;
+  requires jdk.unsupported;
   requires org.apache.arrow.format;
   requires org.apache.arrow.memory.core;
   requires org.apache.commons.codec;
