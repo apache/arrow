@@ -153,6 +153,7 @@ Status ValidateFileLocation(const AzureLocation& location) {
   if (location.path.empty()) {
     return NotAFile(location);
   }
+  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
   return Status::OK();
 }
 
@@ -822,7 +823,6 @@ class AzureFileSystem::Impl {
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const AzureLocation& location,
                                                          AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
-    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
     auto blob_client = std::make_shared<Azure::Storage::Blobs::BlobClient>(
         blob_service_client_->GetBlobContainerClient(location.container)
             .GetBlobClient(location.path));
@@ -835,7 +835,6 @@ class AzureFileSystem::Impl {
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const FileInfo& info,
                                                          AzureFileSystem* fs) {
-    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(info.path()));
     if (info.type() == FileType::NotFound) {
       return ::arrow::fs::internal::PathNotFound(info.path());
     }
@@ -955,7 +954,6 @@ class AzureFileSystem::Impl {
       const std::shared_ptr<const KeyValueMetadata>& metadata, const bool truncate,
       AzureFileSystem* fs) {
     RETURN_NOT_OK(ValidateFileLocation(location));
-    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
 
     auto block_blob_client = std::make_shared<Azure::Storage::Blobs::BlockBlobClient>(
         blob_service_client_->GetBlobContainerClient(location.container)

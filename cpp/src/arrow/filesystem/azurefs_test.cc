@@ -789,6 +789,12 @@ TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationSame) {
   EXPECT_EQ(kLoremIpsum, buffer->ToString());
 }
 
+TEST_F(AzuriteFileSystemTest, CopyFileFailureDestinationTrailingSlash) {
+  ASSERT_RAISES(IOError,
+                fs_->CopyFile(PreexistingObjectPath(),
+                              internal::EnsureTrailingSlash(PreexistingObjectPath())));
+}
+
 TEST_F(AzuriteFileSystemTest, CopyFileFailureSourceNonexistent) {
   const auto destination_path =
       internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
