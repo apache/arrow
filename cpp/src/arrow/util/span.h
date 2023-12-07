@@ -157,6 +157,12 @@ class arrow::util::span<std::byte> : public std::span<std::byte> {
 };
 
 template <>
+class arrow::util::span<std::byte>;
+
+template <>
+class std::span<arrow::util::span<std::byte>>;
+
+template <>
 class std::span<arrow::util::span<std::byte>> {
  public:
   explicit std::span(const std::span<arrow::util::span<std::byte>>& other) {
