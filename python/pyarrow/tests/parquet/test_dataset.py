@@ -50,10 +50,9 @@ except ImportError:
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'
-pytestmark = pytest.mark.parquet
+pytestmark = [pytest.mark.parquet, pytest.mark.dataset]
 
 
-@pytest.mark.dataset
 def test_filesystem_uri(tempdir):
     table = pa.table({"a": [1, 2, 3]})
 
@@ -74,14 +73,12 @@ def test_filesystem_uri(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_read_partitioned_directory(tempdir):
     fs = LocalFileSystem._get_instance()
     _partition_test_for_filesystem(fs, tempdir)
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_read_partitioned_columns_selection(tempdir):
     # ARROW-3861 - do not include partition columns in resulting table when
     # `columns` keyword was passed without those columns
@@ -95,7 +92,6 @@ def test_read_partitioned_columns_selection(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filters_equivalency(tempdir):
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
@@ -167,7 +163,6 @@ def test_filters_equivalency(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filters_cutoff_exclusive_integer(tempdir):
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
@@ -207,7 +202,6 @@ def test_filters_cutoff_exclusive_integer(tempdir):
     raises=(TypeError, AssertionError),
     reason='Loss of type information in creation of categoricals.'
 )
-@pytest.mark.dataset
 @pytest.mark.pandas
 def test_filters_cutoff_exclusive_datetime(tempdir):
     fs = LocalFileSystem._get_instance()
@@ -252,7 +246,6 @@ def test_filters_cutoff_exclusive_datetime(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filters_inclusive_datetime(tempdir):
     # ARROW-11480
     path = tempdir / 'timestamps.parquet'
@@ -270,7 +263,6 @@ def test_filters_inclusive_datetime(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filters_inclusive_integer(tempdir):
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
@@ -305,7 +297,6 @@ def test_filters_inclusive_integer(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filters_inclusive_set(tempdir):
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
@@ -353,7 +344,6 @@ def test_filters_inclusive_set(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filters_invalid_pred_op(tempdir):
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
@@ -395,7 +385,6 @@ def test_filters_invalid_pred_op(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filters_invalid_column(tempdir):
     # ARROW-5572 - raise error on invalid name in filter specification
     # works with new dataset
@@ -420,7 +409,6 @@ def test_filters_invalid_column(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 @pytest.mark.parametrize("filters",
                          ([('integers', '<', 3)],
                           [[('integers', '<', 3)]],
@@ -455,7 +443,6 @@ def test_filters_read_table(tempdir, filters, read_method):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_partition_keys_with_underscores(tempdir):
     # ARROW-5666 - partition field values with underscores preserve underscores
     fs = LocalFileSystem._get_instance()
@@ -480,7 +467,6 @@ def test_partition_keys_with_underscores(tempdir):
 
 
 @pytest.mark.s3
-@pytest.mark.dataset
 def test_read_s3fs(s3_example_s3fs, ):
     fs, path = s3_example_s3fs
     path = path + "/test.parquet"
@@ -492,7 +478,6 @@ def test_read_s3fs(s3_example_s3fs, ):
 
 
 @pytest.mark.s3
-@pytest.mark.dataset
 def test_read_directory_s3fs(s3_example_s3fs):
     fs, directory = s3_example_s3fs
     path = directory + "/test.parquet"
@@ -504,7 +489,6 @@ def test_read_directory_s3fs(s3_example_s3fs):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_read_single_file_list(tempdir):
     data_path = str(tempdir / 'data.parquet')
 
@@ -517,7 +501,6 @@ def test_read_single_file_list(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.s3
-@pytest.mark.dataset
 def test_read_partitioned_directory_s3fs_wrapper(s3_example_s3fs):
     import s3fs
 
@@ -538,7 +521,6 @@ def test_read_partitioned_directory_s3fs_wrapper(s3_example_s3fs):
 
 @pytest.mark.pandas
 @pytest.mark.s3
-@pytest.mark.dataset
 def test_read_partitioned_directory_s3fs(s3_example_s3fs):
     fs, path = s3_example_s3fs
     _partition_test_for_filesystem(fs, path)
@@ -640,7 +622,6 @@ def _filter_partition(df, part_keys):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_filter_before_validate_schema(tempdir):
     # ARROW-4076 apply filter before schema validation
     # to avoid checking unneeded schemas
@@ -663,7 +644,6 @@ def test_filter_before_validate_schema(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_read_multiple_files(tempdir):
     nfiles = 10
     size = 5
@@ -742,7 +722,6 @@ def test_read_multiple_files(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_dataset_read_pandas(tempdir):
     nfiles = 5
     size = 5
@@ -781,7 +760,6 @@ def test_dataset_read_pandas(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_dataset_memory_map(tempdir):
     # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
@@ -798,7 +776,6 @@ def test_dataset_memory_map(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_dataset_enable_buffered_stream(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -819,7 +796,6 @@ def test_dataset_enable_buffered_stream(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_dataset_enable_pre_buffer(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -855,7 +831,6 @@ def _assert_dataset_paths(dataset, paths):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_private_directories(tempdir, dir_prefix):
     dirpath = tempdir / guid()
@@ -873,7 +848,6 @@ def test_ignore_private_directories(tempdir, dir_prefix):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_ignore_hidden_files_dot(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -893,7 +867,6 @@ def test_ignore_hidden_files_dot(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_ignore_hidden_files_underscore(tempdir):
     dirpath = tempdir / guid()
     dirpath.mkdir()
@@ -913,7 +886,6 @@ def test_ignore_hidden_files_underscore(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 @pytest.mark.parametrize('dir_prefix', ['_', '.'])
 def test_ignore_no_private_directories_in_base_path(tempdir, dir_prefix):
     # ARROW-8427 - don't ignore explicitly listed files if parent directory
@@ -933,7 +905,6 @@ def test_ignore_no_private_directories_in_base_path(tempdir, dir_prefix):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_ignore_custom_prefixes(tempdir):
     # ARROW-9573 - allow override of default ignore_prefixes
     part = ["xxx"] * 3 + ["yyy"] * 3
@@ -955,7 +926,6 @@ def test_ignore_custom_prefixes(tempdir):
     assert read.equals(table)
 
 
-@pytest.mark.dataset
 def test_empty_directory(tempdir):
     empty_dir = tempdir / 'dataset'
     empty_dir.mkdir()
@@ -1071,13 +1041,11 @@ def _test_write_to_dataset_no_partitions(base_path,
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_with_partitions(tempdir):
     _test_write_to_dataset_with_partitions(str(tempdir))
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_with_partitions_and_schema(tempdir):
     schema = pa.schema([pa.field('group1', type=pa.string()),
                         pa.field('group2', type=pa.string()),
@@ -1089,20 +1057,17 @@ def test_write_to_dataset_with_partitions_and_schema(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_with_partitions_and_index_name(tempdir):
     _test_write_to_dataset_with_partitions(
         str(tempdir), index_name='index_name')
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_no_partitions(tempdir):
     _test_write_to_dataset_no_partitions(str(tempdir))
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_pathlib(tempdir):
     _test_write_to_dataset_with_partitions(tempdir / "test1")
     _test_write_to_dataset_no_partitions(tempdir / "test2")
@@ -1110,7 +1075,6 @@ def test_write_to_dataset_pathlib(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.s3
-@pytest.mark.dataset
 def test_write_to_dataset_pathlib_nonlocal(tempdir, s3_example_s3fs):
     # pathlib paths are only accepted for local files
     fs, _ = s3_example_s3fs
@@ -1126,7 +1090,6 @@ def test_write_to_dataset_pathlib_nonlocal(tempdir, s3_example_s3fs):
 
 @pytest.mark.pandas
 @pytest.mark.s3
-@pytest.mark.dataset
 def test_write_to_dataset_with_partitions_s3fs(s3_example_s3fs):
     fs, path = s3_example_s3fs
 
@@ -1136,7 +1099,6 @@ def test_write_to_dataset_with_partitions_s3fs(s3_example_s3fs):
 
 @pytest.mark.pandas
 @pytest.mark.s3
-@pytest.mark.dataset
 def test_write_to_dataset_no_partitions_s3fs(s3_example_s3fs):
     fs, path = s3_example_s3fs
 
@@ -1144,7 +1106,6 @@ def test_write_to_dataset_no_partitions_s3fs(s3_example_s3fs):
         path, filesystem=fs)
 
 
-@pytest.mark.dataset
 @pytest.mark.pandas
 def test_write_to_dataset_filesystem(tempdir):
     df = pd.DataFrame({'A': [1, 2, 3]})
@@ -1185,7 +1146,6 @@ def _make_dataset_for_pickling(tempdir, N=100):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pickle_dataset(tempdir, pickle_module):
     def is_pickleable(obj):
         return obj == pickle_module.loads(pickle_module.dumps(obj))
@@ -1195,7 +1155,6 @@ def test_pickle_dataset(tempdir, pickle_module):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_partitioned_dataset(tempdir):
     # ARROW-3208: Segmentation fault when reading a Parquet partitioned dataset
     # to a Parquet file
@@ -1213,7 +1172,6 @@ def test_partitioned_dataset(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_dataset_read_dictionary(tempdir):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])
@@ -1237,7 +1195,6 @@ def test_dataset_read_dictionary(tempdir):
         assert c1.equals(ex_chunks[0])
 
 
-@pytest.mark.dataset
 @pytest.mark.pandas
 def test_read_table_schema(tempdir):
     # test that schema keyword is passed through in read_table
@@ -1262,7 +1219,6 @@ def test_read_table_schema(tempdir):
     assert result.read().equals(expected)
 
 
-@pytest.mark.dataset
 def test_dataset_unsupported_keywords():
 
     with pytest.raises(ValueError, match="not yet supported with the new"):
@@ -1281,7 +1237,6 @@ def test_dataset_unsupported_keywords():
         pq.read_table("", metadata=pa.schema([]))
 
 
-@pytest.mark.dataset
 def test_dataset_partitioning(tempdir):
     import pyarrow.dataset as ds
 
@@ -1306,7 +1261,6 @@ def test_dataset_partitioning(tempdir):
     assert result.column_names == ["a", "year", "month", "day"]
 
 
-@pytest.mark.dataset
 def test_parquet_dataset_new_filesystem(tempdir):
     # Ensure we can pass new FileSystem object to ParquetDataset
     table = pa.table({'a': [1, 2, 3]})
@@ -1317,7 +1271,6 @@ def test_parquet_dataset_new_filesystem(tempdir):
     assert result.equals(table)
 
 
-@pytest.mark.dataset
 def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ARROW-10462 ensure that on Windows we properly use posix-style paths
     # as used by fsspec
@@ -1335,7 +1288,6 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     assert dataset.fragments[0].path == expected
 
 
-@pytest.mark.dataset
 def test_parquet_write_to_dataset_exposed_keywords(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'partitioning'
@@ -1360,7 +1312,6 @@ def test_parquet_write_to_dataset_exposed_keywords(tempdir):
     assert paths_written_set == expected_paths
 
 
-@pytest.mark.dataset
 @pytest.mark.parametrize("write_dataset_kwarg", (
     ("create_dir", True),
     ("create_dir", False),
@@ -1387,7 +1338,6 @@ def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_category_observed(tempdir):
     # if we partition on a categorical variable with "unobserved" categories
     # (values present in the dictionary, but not in the actual data)

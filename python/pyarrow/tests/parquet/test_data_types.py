@@ -53,7 +53,6 @@ pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 @pytest.mark.parametrize('chunk_size', [None, 1000])
 def test_parquet_2_0_roundtrip(tempdir, chunk_size):
     df = alltypes_sample(size=10000, categorical=True)
@@ -75,7 +74,6 @@ def test_parquet_2_0_roundtrip(tempdir, chunk_size):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_parquet_1_0_roundtrip(tempdir):
     size = 10000
     np.random.seed(0)
@@ -121,7 +119,6 @@ def _simple_table_write_read(table):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_direct_read_dictionary():
     # ARROW-3325
     repeats = 10
@@ -146,7 +143,6 @@ def test_direct_read_dictionary():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_direct_read_dictionary_subfield():
     repeats = 10
     nunique = 5
@@ -177,7 +173,6 @@ def test_direct_read_dictionary_subfield():
     assert result[0].num_chunks == 1
 
 
-@pytest.mark.dataset
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
@@ -209,7 +204,6 @@ def test_dictionary_array_automatically_read():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_decimal_roundtrip(tempdir):
     num_values = 10
 
@@ -254,7 +248,6 @@ def test_decimal_roundtrip_negative_scale(tempdir):
 # -----------------------------------------------------------------------------
 
 
-@pytest.mark.dataset
 @pytest.mark.parametrize('dtype', [int, float])
 def test_single_pylist_column_roundtrip(tempdir, dtype,):
     filename = tempdir / 'single_{}_column.parquet'.format(dtype.__name__)
@@ -272,7 +265,6 @@ def test_single_pylist_column_roundtrip(tempdir, dtype,):
         assert data_written.equals(data_read)
 
 
-@pytest.mark.dataset
 def test_empty_lists_table_roundtrip():
     # ARROW-2744: Shouldn't crash when writing an array of empty lists
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
@@ -280,7 +272,6 @@ def test_empty_lists_table_roundtrip():
     _check_roundtrip(table)
 
 
-@pytest.mark.dataset
 def test_nested_list_nonnullable_roundtrip_bug():
     # Reproduce failure in ARROW-5630
     typ = pa.list_(pa.field("item", pa.float32(), False))
@@ -293,7 +284,6 @@ def test_nested_list_nonnullable_roundtrip_bug():
         t, data_page_size=4096)
 
 
-@pytest.mark.dataset
 def test_nested_list_struct_multiple_batches_roundtrip(tempdir):
     # Reproduce failure in ARROW-11024
     data = [[{'x': 'abc', 'y': 'abc'}]]*100 + [[{'x': 'abc', 'y': 'gcb'}]]*100
@@ -357,7 +347,6 @@ def test_large_list_records():
     _check_roundtrip(table)
 
 
-@pytest.mark.dataset
 @pytest.mark.pandas
 def test_parquet_nested_convenience(tempdir):
     # ARROW-1684
@@ -421,7 +410,6 @@ def _simple_table_roundtrip(table, **write_kwargs):
 
 @pytest.mark.slow
 @pytest.mark.large_memory
-@pytest.mark.dataset
 def test_byte_array_exactly_2gb():
     # Test edge case reported in ARROW-3762
     val = b'x' * (1 << 10)
@@ -443,7 +431,6 @@ def test_byte_array_exactly_2gb():
 @pytest.mark.slow
 @pytest.mark.pandas
 @pytest.mark.large_memory
-@pytest.mark.dataset
 def test_binary_array_overflow_to_chunked():
     # ARROW-3762
 
@@ -468,7 +455,6 @@ def test_binary_array_overflow_to_chunked():
 @pytest.mark.slow
 @pytest.mark.pandas
 @pytest.mark.large_memory
-@pytest.mark.dataset
 def test_list_of_binary_large_cell():
     # ARROW-4688
     data = []

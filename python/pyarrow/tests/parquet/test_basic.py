@@ -62,7 +62,6 @@ def test_parquet_invalid_version(tempdir):
                      data_page_version="2.2")
 
 
-@pytest.mark.dataset
 def test_set_data_page_size():
     arr = pa.array([1, 2, 3] * 100000)
     t = pa.Table.from_arrays([arr], names=['f0'])
@@ -73,7 +72,6 @@ def test_set_data_page_size():
         _check_roundtrip(t, data_page_size=target_page_size)
 
 
-@pytest.mark.dataset
 @pytest.mark.pandas
 def test_set_write_batch_size():
     df = _test_dataframe(100)
@@ -84,7 +82,6 @@ def test_set_write_batch_size():
     )
 
 
-@pytest.mark.dataset
 @pytest.mark.pandas
 def test_set_dictionary_pagesize_limit():
     df = _test_dataframe(100)
@@ -98,7 +95,6 @@ def test_set_dictionary_pagesize_limit():
                          data_page_size=10, version='2.4')
 
 
-@pytest.mark.dataset
 @pytest.mark.pandas
 def test_chunked_table_write():
     # ARROW-232
@@ -119,7 +115,6 @@ def test_chunked_table_write():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_memory_map(tempdir):
     df = alltypes_sample(size=10)
 
@@ -135,7 +130,6 @@ def test_memory_map(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_enable_buffered_stream(tempdir):
     df = alltypes_sample(size=10)
 
@@ -150,7 +144,6 @@ def test_enable_buffered_stream(tempdir):
     assert table_read.equals(table)
 
 
-@pytest.mark.dataset
 def test_special_chars_filename(tempdir):
     table = pa.Table.from_arrays([pa.array([42])], ["ints"])
     filename = "foo # bar"
@@ -162,11 +155,9 @@ def test_special_chars_filename(tempdir):
     assert table_read.equals(table)
 
 
-@pytest.mark.dataset
 def test_invalid_source():
     # Test that we provide an helpful error message pointing out
     # that None wasn't expected when trying to open a Parquet None file.
-    #
     with pytest.raises(TypeError, match="None"):
         pq.read_table(None)
 
@@ -186,7 +177,6 @@ def test_file_with_over_int16_max_row_groups():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_empty_table_roundtrip():
     df = alltypes_sample(size=10)
 
@@ -203,14 +193,12 @@ def test_empty_table_roundtrip():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_empty_table_no_columns():
     df = pd.DataFrame()
     empty = pa.Table.from_pandas(df, preserve_index=False)
     _check_roundtrip(empty)
 
 
-@pytest.mark.dataset
 def test_write_nested_zero_length_array_chunk_failure():
     # Bug report in ARROW-3792
     cols = OrderedDict(
@@ -240,7 +228,6 @@ def test_write_nested_zero_length_array_chunk_failure():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_multiple_path_types(tempdir):
     # Test compatibility with PEP 519 path-like objects
     path = tempdir / 'zzz.parquet'
@@ -259,7 +246,6 @@ def test_multiple_path_types(tempdir):
     tm.assert_frame_equal(df, df_read)
 
 
-@pytest.mark.dataset
 def test_fspath(tempdir):
     # ARROW-12472 support __fspath__ objects without using str()
     path = tempdir / "test.parquet"
@@ -276,7 +262,6 @@ def test_fspath(tempdir):
         _read_table(fs_protocol_obj, filesystem=FileSystem())
 
 
-@pytest.mark.dataset
 @pytest.mark.parametrize("filesystem", [
     None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
 ])
@@ -302,14 +287,12 @@ def test_relative_paths(tempdir, filesystem, name):
     assert result.equals(table)
 
 
-@pytest.mark.dataset
 def test_read_non_existing_file():
     # ensure we have a proper error message
     with pytest.raises(FileNotFoundError):
         pq.read_table('i-am-not-existing.parquet')
 
 
-@pytest.mark.dataset
 def test_file_error_python_exception():
     class BogusFile(io.BytesIO):
         def read(self, *args):
@@ -323,7 +306,6 @@ def test_file_error_python_exception():
         pq.read_table(BogusFile(b""))
 
 
-@pytest.mark.dataset
 def test_parquet_read_from_buffer(tempdir):
     # reading from a buffer from python's open()
     table = pa.table({"a": [1, 2, 3]})
@@ -338,7 +320,6 @@ def test_parquet_read_from_buffer(tempdir):
     assert result.equals(table)
 
 
-@pytest.mark.dataset
 def test_byte_stream_split():
     # This is only a smoke test.
     arr_float = pa.array(list(map(float, range(100))))
@@ -376,7 +357,6 @@ def test_byte_stream_split():
                          use_dictionary=False)
 
 
-@pytest.mark.dataset
 def test_column_encoding():
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
@@ -502,7 +482,6 @@ def test_column_encoding():
                          column_encoding=True)
 
 
-@pytest.mark.dataset
 def test_compression_level():
     arr = pa.array(list(map(int, range(1000))))
     data = [arr, arr]
@@ -560,7 +539,6 @@ def test_sanitized_spark_field_names():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_multithreaded_read():
     df = alltypes_sample(size=10000)
 
@@ -579,7 +557,6 @@ def test_multithreaded_read():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_min_chunksize():
     data = pd.DataFrame([np.arange(4)], columns=['A', 'B', 'C', 'D'])
     table = pa.Table.from_pandas(data.reset_index())
@@ -623,7 +600,6 @@ def test_write_error_deletes_incomplete_file(tempdir):
     assert not filename.exists()
 
 
-@pytest.mark.dataset
 def test_read_non_existent_file(tempdir):
     path = 'nonexistent-file.parquet'
     try:
@@ -632,7 +608,6 @@ def test_read_non_existent_file(tempdir):
         assert path in e.args[0]
 
 
-@pytest.mark.dataset
 def test_read_table_doesnt_warn(datadir):
     with warnings.catch_warnings():
         warnings.simplefilter(action="error")
@@ -640,7 +615,6 @@ def test_read_table_doesnt_warn(datadir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_zlib_compression_bug():
     # ARROW-3514: "zlib deflate failed, output buffer too small"
     table = pa.Table.from_arrays([pa.array(['abc', 'def'])], ['some_col'])
@@ -652,7 +626,6 @@ def test_zlib_compression_bug():
     tm.assert_frame_equal(roundtrip.to_pandas(), table.to_pandas())
 
 
-@pytest.mark.dataset
 def test_parquet_file_too_small(tempdir):
     path = str(tempdir / "test.parquet")
     # TODO(dataset) with datasets API it raises OSError instead
@@ -709,17 +682,15 @@ def test_fastparquet_cross_compatibility(tempdir):
     tm.assert_frame_equal(table_fp.to_pandas(), df)
 
 
-@pytest.mark.dataset
 @pytest.mark.parametrize('array_factory', [
     lambda: pa.array([0, None] * 10),
     lambda: pa.array([0, None] * 10).dictionary_encode(),
     lambda: pa.array(["", None] * 10),
     lambda: pa.array(["", None] * 10).dictionary_encode(),
 ])
-@pytest.mark.parametrize('use_dictionary', [False, True])
 @pytest.mark.parametrize('read_dictionary', [False, True])
 def test_buffer_contents(
-        array_factory, use_dictionary, read_dictionary
+        array_factory, read_dictionary
 ):
     # Test that null values are deterministically initialized to zero
     # after a roundtrip through Parquet.
@@ -782,7 +753,6 @@ def test_reads_over_batch(tempdir):
     assert table == table2
 
 
-@pytest.mark.dataset
 def test_permutation_of_column_order(tempdir):
     # ARROW-2366
     case = tempdir / "dataset_column_order_permutation"
@@ -940,6 +910,7 @@ def test_checksum_write_to_dataset(tempdir):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
 
 
+@pytest.mark.dataset
 def test_deprecated_use_legacy_dataset(tempdir):
     # Test that specifying use_legacy_dataset in ParquetDataset, write_to_dataset
     # and read_table doesn't raise an error but gives a warning.

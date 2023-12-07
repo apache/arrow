@@ -57,7 +57,6 @@ parametrize_test_data = pytest.mark.parametrize(
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 @parametrize_test_data
 def test_write_compliant_nested_type_enable(tempdir, test_data):
     # prepare dataframe for testing
