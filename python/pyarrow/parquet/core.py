@@ -22,14 +22,11 @@ from functools import reduce
 
 import inspect
 import json
-from collections.abc import Collection
 import os
 import re
 import operator
-import urllib.parse
 
 import pyarrow as pa
-import pyarrow.lib as lib
 
 try:
     import pyarrow._parquet as _parquet
@@ -50,28 +47,6 @@ from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
-
-_URI_STRIP_SCHEMES = ('hdfs',)
-
-
-def _parse_uri(path):
-    path = _stringify_path(path)
-    parsed_uri = urllib.parse.urlparse(path)
-    if parsed_uri.scheme in _URI_STRIP_SCHEMES:
-        return parsed_uri.path
-    else:
-        # ARROW-4073: On Windows returning the path with the scheme
-        # stripped removes the drive letter, if any
-        return path
-
-
-def _get_filesystem_and_path(passed_filesystem, path):
-    if passed_filesystem is None:
-        return legacyfs.resolve_filesystem_and_path(path, passed_filesystem)
-    else:
-        passed_filesystem = legacyfs._ensure_filesystem(passed_filesystem)
-        parsed_path = _parse_uri(path)
-        return passed_filesystem, parsed_path
 
 
 def _check_contains_null(val):
@@ -1138,186 +1113,6 @@ def _get_pandas_index_columns(keyvalues):
             ['index_columns'])
 
 
-# ----------------------------------------------------------------------
-# Metadata container providing instructions about reading a single Parquet
-# file, possibly part of a partitioned dataset
-
-class PartitionSet:
-    """
-    A data structure for cataloguing the observed Parquet partitions at a
-    particular level. So if we have
-
-    /foo=a/bar=0
-    /foo=a/bar=1
-    /foo=a/bar=2
-    /foo=b/bar=0
-    /foo=b/bar=1
-    /foo=b/bar=2
-
-    Then we have two partition sets, one for foo, another for bar. As we visit
-    levels of the partition hierarchy, a PartitionSet tracks the distinct
-    values and assigns categorical codes to use when reading the pieces
-
-    Parameters
-    ----------
-    name : str
-        Name of the partition set. Under which key to collect all values.
-    keys : list
-        All possible values that have been collected for that partition set.
-    """
-
-    def __init__(self, name, keys=None):
-        self.name = name
-        self.keys = keys or []
-        self.key_indices = {k: i for i, k in enumerate(self.keys)}
-        self._dictionary = None
-
-    def get_index(self, key):
-        """
-        Get the index of the partition value if it is known, otherwise assign
-        one
-
-        Parameters
-        ----------
-        key : str or int
-            The value for which we want to known the index.
-        """
-        if key in self.key_indices:
-            return self.key_indices[key]
-        else:
-            index = len(self.key_indices)
-            self.keys.append(key)
-            self.key_indices[key] = index
-            return index
-
-    @property
-    def dictionary(self):
-        if self._dictionary is not None:
-            return self._dictionary
-
-        if len(self.keys) == 0:
-            raise ValueError('No known partition keys')
-
-        # Only integer and string partition types are supported right now
-        try:
-            integer_keys = [int(x) for x in self.keys]
-            dictionary = lib.array(integer_keys)
-        except ValueError:
-            dictionary = lib.array(self.keys)
-
-        self._dictionary = dictionary
-        return dictionary
-
-    @property
-    def is_sorted(self):
-        return list(self.keys) == sorted(self.keys)
-
-
-class ParquetPartitions:
-
-    def __init__(self):
-        self.levels = []
-        self.partition_names = set()
-
-    def __len__(self):
-        return len(self.levels)
-
-    def __getitem__(self, i):
-        return self.levels[i]
-
-    def equals(self, other):
-        if not isinstance(other, ParquetPartitions):
-            raise TypeError('`other` must be an instance of ParquetPartitions')
-
-        return (self.levels == other.levels and
-                self.partition_names == other.partition_names)
-
-    def __eq__(self, other):
-        try:
-            return self.equals(other)
-        except TypeError:
-            return NotImplemented
-
-    def get_index(self, level, name, key):
-        """
-        Record a partition value at a particular level, returning the distinct
-        code for that value at that level.
-
-        Examples
-        --------
-
-        partitions.get_index(1, 'foo', 'a') returns 0
-        partitions.get_index(1, 'foo', 'b') returns 1
-        partitions.get_index(1, 'foo', 'c') returns 2
-        partitions.get_index(1, 'foo', 'a') returns 0
-
-        Parameters
-        ----------
-        level : int
-            The nesting level of the partition we are observing
-        name : str
-            The partition name
-        key : str or int
-            The partition value
-        """
-        if level == len(self.levels):
-            if name in self.partition_names:
-                raise ValueError('{} was the name of the partition in '
-                                 'another level'.format(name))
-
-            part_set = PartitionSet(name)
-            self.levels.append(part_set)
-            self.partition_names.add(name)
-
-        return self.levels[level].get_index(key)
-
-    def filter_accepts_partition(self, part_key, filter, level):
-        p_column, p_value_index = part_key
-        f_column, op, f_value = filter
-        if p_column != f_column:
-            return True
-
-        f_type = type(f_value)
-
-        if op in {'in', 'not in'}:
-            if not isinstance(f_value, Collection):
-                raise TypeError(
-                    "'%s' object is not a collection", f_type.__name__)
-            if not f_value:
-                raise ValueError("Cannot use empty collection as filter value")
-            if len({type(item) for item in f_value}) != 1:
-                raise ValueError("All elements of the collection '%s' must be"
-                                 " of same type", f_value)
-            f_type = type(next(iter(f_value)))
-
-        elif not isinstance(f_value, str) and isinstance(f_value, Collection):
-            raise ValueError(
-                "Op '%s' not supported with a collection value", op)
-
-        p_value = f_type(self.levels[level]
-                         .dictionary[p_value_index].as_py())
-
-        if op == "=" or op == "==":
-            return p_value == f_value
-        elif op == "!=":
-            return p_value != f_value
-        elif op == '<':
-            return p_value < f_value
-        elif op == '>':
-            return p_value > f_value
-        elif op == '<=':
-            return p_value <= f_value
-        elif op == '>=':
-            return p_value >= f_value
-        elif op == 'in':
-            return p_value in f_value
-        elif op == 'not in':
-            return p_value not in f_value
-        else:
-            raise ValueError("'%s' is not a valid operator in predicates.",
-                             filter[1])
-
-
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
@@ -2160,14 +1955,6 @@ Examples
 """.format(_parquet_writer_arg_docs, _write_table_example)
 
 
-def _mkdir_if_not_exists(fs, path):
-    if fs._isfilestore() and not fs.exists(path):
-        try:
-            fs.mkdir(path)
-        except OSError:
-            assert fs.exists(path)
-
-
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
                      schema=None,
@@ -2538,11 +2325,9 @@ __all__ = (
     "ParquetDataset",
     "ParquetFile",
     "ParquetLogicalType",
-    "ParquetPartitions",
     "ParquetReader",
     "ParquetSchema",
     "ParquetWriter",
-    "PartitionSet",
     "RowGroupMetaData",
     "Statistics",
     "read_metadata",

@@ -53,18 +53,6 @@ except ImportError:
 pytestmark = pytest.mark.parquet
 
 
-def test_partition_set_dictionary_type():
-    set1 = pq.PartitionSet('key1', ['foo', 'bar', 'baz'])
-    set2 = pq.PartitionSet('key2', [2007, 2008, 2009])
-
-    assert isinstance(set1.dictionary, pa.StringArray)
-    assert isinstance(set2.dictionary, pa.IntegerArray)
-
-    set3 = pq.PartitionSet('key2', [datetime.datetime(2007, 1, 1)])
-    with pytest.raises(TypeError):
-        set3.dictionary
-
-
 @pytest.mark.dataset
 def test_filesystem_uri(tempdir):
     table = pa.table({"a": [1, 2, 3]})
