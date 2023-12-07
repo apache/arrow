@@ -514,17 +514,17 @@ option was enabled on write).
 Other features:
 
 - Filtering on all columns (using row group statistics) instead of only on
-   the partition keys.
+  the partition keys.
 - Fine-grained partitioning: support for a directory partitioning scheme
-   in addition to the Hive-like partitioning (e.g. "/2019/11/15/" instead of
-   "/year=2019/month=11/day=15/"), and the ability to specify a schema for
-   the partition keys.
+  in addition to the Hive-like partitioning (e.g. "/2019/11/15/" instead of
+  "/year=2019/month=11/day=15/"), and the ability to specify a schema for
+  the partition keys.
 
 Note:
 
 - The partition keys need to be explicitly included in the ``columns``
-   keyword when you want to include them in the result while reading a
-   subset of the columns
+  keyword when you want to include them in the result while reading a
+  subset of the columns
 
 
 Using with Spark
