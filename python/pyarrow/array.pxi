@@ -1206,8 +1206,9 @@ cdef class Array(_PandasConvertible):
         cdef:
             CResult[int64_t] c_size_res
 
-        c_size_res = ReferencedBufferSize(deref(self.ap))
-        size = GetResultValue(c_size_res)
+        with nogil:
+            c_size_res = ReferencedBufferSize(deref(self.ap))
+            size = GetResultValue(c_size_res)
         return size
 
     def get_total_buffer_size(self):
