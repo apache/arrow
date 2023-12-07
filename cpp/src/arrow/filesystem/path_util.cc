@@ -137,10 +137,10 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
   return Status::OK();
 }
 
-std::string ConcatAbstractPath(const std::string& base, const std::string& stem) {
+std::string ConcatAbstractPath(std::string_view base, std::string_view stem) {
   DCHECK(!stem.empty());
   if (base.empty()) {
-    return stem;
+    return std::string{stem};
   }
   std::string result;
   result.reserve(base.length() + stem.length() + 1);  // extra 1 is for potential kSep

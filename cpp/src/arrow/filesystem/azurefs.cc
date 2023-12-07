@@ -900,9 +900,8 @@ class AzureFileSystem::Impl {
     auto recurse = [&](const std::string& blob_prefix) noexcept -> Status {
       if (select.recursive && select.max_recursion > 0) {
         FileSelector sub_select;
-        sub_select.base_dir = base_location.container;
-        sub_select.base_dir += internal::kSep;
-        sub_select.base_dir += internal::RemoveTrailingSlash(blob_prefix);
+        sub_select.base_dir = internal::ConcatAbstractPath(
+            base_location.container, internal::RemoveTrailingSlash(blob_prefix));
         sub_select.allow_not_found = true;
         sub_select.recursive = true;
         sub_select.max_recursion = select.max_recursion - 1;
