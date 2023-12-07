@@ -25,6 +25,7 @@ import json
 import os
 import re
 import operator
+import warnings
 
 import pyarrow as pa
 
@@ -1253,6 +1254,14 @@ class ParquetDataset:
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
                  **kwargs):
+
+        use_legacy_dataset = kwargs.pop('use_legacy_dataset', None)
+        if use_legacy_dataset is not None:
+            warnings.warn(
+                "Passing 'use_legacy_dataset' is deprecated as of pyarrow 15.0.0 "
+                "and will be removed in a future version.",
+                FutureWarning, stacklevel=2)
+
         import pyarrow.dataset as ds
 
         # Raise error for not supported keywords
@@ -1747,12 +1756,18 @@ Read data from a single Parquet file:
 def read_table(source, *, columns=None, use_threads=True,
                schema=None, use_pandas_metadata=False, read_dictionary=None,
                memory_map=False, buffer_size=0, partitioning="hive",
-               filesystem=None, filters=None,
+               filesystem=None, filters=None, use_legacy_dataset=None,
                ignore_prefixes=None, pre_buffer=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
                page_checksum_verification=False, metadata=None,):
+
+    if use_legacy_dataset is not None:
+        warnings.warn(
+            "Passing 'use_legacy_dataset' is deprecated as of pyarrow 15.0.0 "
+            "and will be removed in a future version.",
+            FutureWarning, stacklevel=2)
 
     if metadata is not None:
         raise ValueError(
@@ -1956,10 +1971,10 @@ Examples
 
 
 def write_to_dataset(table, root_path, partition_cols=None,
-                     filesystem=None, schema=None,
-                     partitioning=None, basename_template=None,
-                     use_threads=None, file_visitor=None,
-                     existing_data_behavior=None,
+                     filesystem=None, use_legacy_dataset=None,
+                     schema=None, partitioning=None,
+                     basename_template=None, use_threads=None,
+                     file_visitor=None, existing_data_behavior=None,
                      **kwargs):
     """Wrapper around dataset.write_dataset for writing a Table to
     Parquet format by partitions.
@@ -2076,6 +2091,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
     >>> pq.ParquetDataset('dataset_name_4/').files
     ['dataset_name_4/...-0.parquet']
     """
+    if use_legacy_dataset is not None:
+        warnings.warn(
+            "Passing 'use_legacy_dataset' is deprecated as of pyarrow 15.0.0 "
+            "and will be removed in a future version.",
+            FutureWarning, stacklevel=2)
 
     metadata_collector = kwargs.pop('metadata_collector', None)
 
