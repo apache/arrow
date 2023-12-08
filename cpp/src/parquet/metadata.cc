@@ -826,10 +826,10 @@ class FileMetaData::FileMetaDataImpl {
     file_decryptor_ = file_decryptor;
   }
 
-  void set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets) {
+  void set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets, int64_t expected_num_rows) {
     if (num_row_groups() != 1) {
       throw ParquetException(
-              "This operation can only be applied to metadata with a single row group ");
+              "This operation can only be applied to metadata with a single row group");
     }
 
     format::RowGroup& row_group = metadata_->row_groups[0];
@@ -838,8 +838,17 @@ class FileMetaData::FileMetaDataImpl {
       // Debug. A chunk can only have 1 page??
       auto pages = column_offsets[idx++].get()->page_locations();
       for(PageLocation& page: pages) {
-        chunk->meta_data.__set_data_page_offset(page.offset);
-        chunk->meta_data.__set_total_compressed_size(page.compressed_page_size);
+        if(chunk.meta_data.dictionary_page_offset > 0) {
+          int64_t dictionary_offset = chunk.meta_data.dictionary_page_offset - chunk.meta_data.data_page_offset;
+          chunk.meta_data.__set_dictionary_page_offset(page.offset+dictionary_offset);
+        }
+        chunk.meta_data.__set_data_page_offset(page.offset);
+        chunk.meta_data.__set_num_values(expected_num_rows);
+        // The page index sizes seem to differ from the pages sizes in the row groups
+        // Try final = base*5-54
+        chunk.meta_data.__set_total_compressed_size(page.compressed_page_size*5-54);
+
+
       }
     }
   }
@@ -1002,9 +1011,9 @@ std::shared_ptr<FileMetaData> FileMetaData::Subset(
   return impl_->Subset(row_groups);
 }
 
-void FileMetaData::set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets) {
+void FileMetaData::set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets, int64_t expected_num_rows) {
 
-  impl_->set_column_offsets(column_offsets);
+  impl_->set_column_offsets(column_offsets, expected_num_rows);
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,

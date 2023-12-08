@@ -263,6 +263,7 @@ class PARQUET_EXPORT RowGroupMetaData {
 };
 
 class FileMetaDataBuilder;
+class OffsetIndex;
 
 /// \brief FileMetaData is a proxy around format::FileMetaData.
 class PARQUET_EXPORT FileMetaData {
@@ -389,6 +390,9 @@ class PARQUET_EXPORT FileMetaData {
   /// \brief Return a FileMetaData containing a subset of the row groups in this
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
+
+  /// \brief Override column chunk offsets with provided page offsets
+  void set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets, int64_t expected_num_rows);
 
  private:
   friend FileMetaDataBuilder;
