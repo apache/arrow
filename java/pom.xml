@@ -308,7 +308,7 @@
           <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
-            <version>1.7.5</version>
+            <version>${dep.slf4j.version}</version>
           </dependency>
         </dependencies>
         <executions>
