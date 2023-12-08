@@ -42,7 +42,7 @@ namespace Apache.Arrow.Ipc
         {
         }
 
-        public async ValueTask<int> RecordBatchCountAsync()
+        public async ValueTask<int> RecordBatchCountAsync(CancellationToken cancellationToken = default)
         {
             if (!HasReadSchema)
             {
@@ -145,7 +145,7 @@ namespace Apache.Arrow.Ipc
         public async ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
-            await ReadDictionariesAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync(cancellationToken).ConfigureAwait(false);
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -179,7 +179,7 @@ namespace Apache.Arrow.Ipc
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
-            await ReadDictionariesAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync(cancellationToken).ConfigureAwait(false);
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
@@ -208,22 +208,43 @@ namespace Apache.Arrow.Ipc
             return result;
         }
 
-        private async ValueTask ReadDictionariesAsync()
+        private async ValueTask ReadDictionariesAsync(CancellationToken cancellationToken = default)
         {
             if (HasReadDictionaries)
             {
                 return;
             }
 
-            // We don't know in what order the dictionaries have been serialized, so we deserialize
-            // just their indices and then construct them in X order
-            foreach (Block block in _footer.Dictionaries)
+            int index = 0;
+            while (index < _footer.DictionaryCount)
             {
-                BaseStream.Position = block.Offset;
-                await ReadRecordBatchAsync(deferDictionaryLoad: true).ConfigureAwait(false);
+                index = await ReadNextDictionaryAsync(index, cancellationToken).ConfigureAwait(false);
             }
+        }
 
-            DictionaryMemo.FinishLoad();
+        private async ValueTask<int> ReadNextDictionaryAsync(int index, CancellationToken cancellationToken)
+        {
+            Block block = _footer.Dictionaries[index++];
+            BaseStream.Position = block.Offset;
+            await ReadMessageAsync(async (message, cancellationToken) =>
+            {
+                if (message.HeaderType != Flatbuf.MessageHeader.DictionaryBatch)
+                {
+                    return null;
+                }
+                Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
+
+                long position = BaseStream.Position;
+                while (!DictionaryMemo.CanLoad(dictionaryBatch.Id))
+                {
+                    // recursive load
+                    index = await ReadNextDictionaryAsync(index, cancellationToken);
+                }
+                BaseStream.Position = position;
+                return await CreateArrowObjectAsync(message, cancellationToken);
+            }, cancellationToken).ConfigureAwait(false);
+
+            return index;
         }
 
         private void ReadDictionaries()
@@ -233,15 +254,36 @@ namespace Apache.Arrow.Ipc
                 return;
             }
 
-            // We don't know in what order the dictionaries have been serialized, so we deserialize
-            // just their indices and then construct them in X order
-            foreach (Block block in _footer.Dictionaries)
+            int index = 0;
+            while (index < _footer.DictionaryCount)
             {
-                BaseStream.Position = block.Offset;
-                ReadRecordBatch(deferDictionaryLoad: true);
+                index = ReadNextDictionary(index);
             }
+        }
 
-            DictionaryMemo.FinishLoad();
+        private int ReadNextDictionary(int index)
+        {
+            Block block = _footer.Dictionaries[index++];
+            BaseStream.Position = block.Offset;
+            ReadMessage(message =>
+            {
+                if (message.HeaderType != Flatbuf.MessageHeader.DictionaryBatch)
+                {
+                    return null;
+                }
+                Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
+
+                long position = BaseStream.Position;
+                while (!DictionaryMemo.CanLoad(dictionaryBatch.Id))
+                {
+                    // recursive load
+                    index = ReadNextDictionary(index);
+                }
+                BaseStream.Position = position;
+                return CreateArrowObject(message);
+            });
+
+            return index;
         }
 
         /// <summary>

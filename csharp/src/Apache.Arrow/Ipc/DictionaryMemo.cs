@@ -117,12 +117,46 @@ namespace Apache.Arrow.Ipc
             AddOrReplaceDictionary(id, dictionary);
         }
 
-        public void AddDictionaryValues(long id, ArrayData values)
+        // Returns true if the corresponding dictionaries have been loaded
+        public bool CanLoad(long id)
         {
+            IArrowType type = GetDictionaryType(id);
+            if (type is NestedType)
+            {
+                NestedTypeVisitor visitor = new NestedTypeVisitor(this);
+                type.Accept(visitor);
+                return visitor.CanLoad;
+            }
+
+            return true;
         }
 
-        public void FinishLoad()
+        private sealed class NestedTypeVisitor : IArrowTypeVisitor<NestedType>
         {
+            private readonly DictionaryMemo _memo;
+            public bool CanLoad { get; private set; }
+
+            public NestedTypeVisitor(DictionaryMemo memo)
+            {
+                _memo = memo;
+                CanLoad = true;
+            }
+
+            public void Visit(NestedType type)
+            {
+                foreach (Field field in type.Fields)
+                {
+                    if (field.DataType is DictionaryType && (
+                        !_memo._fieldToId.TryGetValue(field, out long id) ||
+                        !_memo._idToDictionary.TryGetValue(id, out IArrowArray array)))
+                    {
+                        CanLoad = false;
+                        break;
+                    }
+                }
+            }
+
+            public void Visit(IArrowType type) { }
         }
     }
 }
