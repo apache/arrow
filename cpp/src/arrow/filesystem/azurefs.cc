@@ -66,9 +66,8 @@ Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_n
 
 namespace {
 
-// An AzureFileSystem represents a single Azure storage
-// account. AzureLocation describes a container and path within
-// that storage account.
+// An AzureFileSystem represents an Azure storage account. An AzureLocation describes a
+// container in that storage account and a path within that container.
 struct AzureLocation {
   std::string all;
   std::string container;
@@ -82,8 +81,8 @@ struct AzureLocation {
     // path_parts = [testdir, testfile.txt]
     if (internal::IsLikelyUri(string)) {
       return Status::Invalid(
-          "Expected an Azure object location of the form 'container/path...', got a URI: "
-          "'",
+          "Expected an Azure object location of the form 'container/path...',"
+          " got a URI: '",
           string, "'");
     }
     auto first_sep = string.find_first_of(internal::kSep);
@@ -130,11 +129,7 @@ struct AzureLocation {
  private:
   Status Validate() {
     auto status = internal::ValidateAbstractPathParts(path_parts);
-    if (!status.ok()) {
-      return Status::Invalid(status.message(), " in location ", all);
-    } else {
-      return status;
-    }
+    return status.ok() ? status : Status::Invalid(status.message(), " in location ", all);
   }
 };
 
@@ -153,21 +148,39 @@ Status ValidateFileLocation(const AzureLocation& location) {
   if (location.path.empty()) {
     return NotAFile(location);
   }
-  ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(location.path));
-  return Status::OK();
+  return internal::AssertNoTrailingSlash(location.path);
+}
+
+std::string_view BodyTextView(const Azure::Core::Http::RawResponse& raw_response) {
+  const auto& body = raw_response.GetBody();
+#ifndef NDEBUG
+  auto& headers = raw_response.GetHeaders();
+  auto content_type = headers.find("Content-Type");
+  if (content_type != headers.end()) {
+    DCHECK_EQ(std::string_view{content_type->second}.substr(5), "text/");
+  }
+#endif
+  return std::string_view{reinterpret_cast<const char*>(body.data()), body.size()};
 }
 
 Status StatusFromErrorResponse(const std::string& url,
-                               Azure::Core::Http::RawResponse* raw_response,
+                               const Azure::Core::Http::RawResponse& raw_response,
                                const std::string& context) {
-  const auto& body = raw_response->GetBody();
   // There isn't an Azure specification that response body on error
   // doesn't contain any binary data but we assume it. We hope that
   // error response body has useful information for the error.
-  std::string_view body_text(reinterpret_cast<const char*>(body.data()), body.size());
-  return Status::IOError(context, ": ", url, ": ", raw_response->GetReasonPhrase(), " (",
-                         static_cast<int>(raw_response->GetStatusCode()),
+  auto body_text = BodyTextView(raw_response);
+  return Status::IOError(context, ": ", url, ": ", raw_response.GetReasonPhrase(), " (",
+                         static_cast<int>(raw_response.GetStatusCode()),
                          "): ", body_text);
+}
+
+bool IsContainerNotFound(const Azure::Storage::StorageException& exception) {
+  if (exception.ErrorCode == "ContainerNotFound") {
+    DCHECK_EQ(exception.StatusCode, Azure::Core::Http::HttpStatusCode::NotFound);
+    return true;
+  }
+  return false;
 }
 
 template <typename ArrowType>
@@ -701,7 +714,7 @@ class AzureFileSystem::Impl {
   AzureOptions options_;
   internal::HierarchicalNamespaceDetector hierarchical_namespace_;
 
-  explicit Impl(AzureOptions options, io::IOContext io_context)
+  Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
@@ -710,8 +723,7 @@ class AzureFileSystem::Impl {
     datalake_service_client_ =
         std::make_unique<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
             options_.account_dfs_url, options_.storage_credentials_provider);
-    RETURN_NOT_OK(hierarchical_namespace_.Init(datalake_service_client_.get()));
-    return Status::OK();
+    return hierarchical_namespace_.Init(datalake_service_client_.get());
   }
 
   const AzureOptions& options() const { return options_; }
@@ -722,12 +734,10 @@ class AzureFileSystem::Impl {
     info.set_path(location.all);
 
     if (location.container.empty()) {
-      // The location is invalid if the container is empty but not
-      // path.
+      // The location is invalid if the container is empty but the path is not.
       DCHECK(location.path.empty());
-      // The location must refer to the root of the Azure storage
-      // account. This is a directory, and there isn't any extra
-      // metadata to fetch.
+      // This location must be derived from the root path. FileInfo should describe it
+      // as a directory and there isn't any extra metadata to fetch.
       info.set_type(FileType::Directory);
       return info;
     }
@@ -739,10 +749,10 @@ class AzureFileSystem::Impl {
         auto properties = container_client.GetProperties();
         info.set_type(FileType::Directory);
         info.set_mtime(
-            std::chrono::system_clock::time_point(properties.Value.LastModified));
+            std::chrono::system_clock::time_point{properties.Value.LastModified});
         return info;
       } catch (const Azure::Storage::StorageException& exception) {
-        if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
+        if (IsContainerNotFound(exception)) {
           info.set_type(FileType::NotFound);
           return info;
         }
@@ -753,6 +763,8 @@ class AzureFileSystem::Impl {
             exception);
       }
     }
+
+    // There is a path to search within the container.
     auto file_client = datalake_service_client_->GetFileSystemClient(location.container)
                            .GetFileClient(location.path);
     try {
@@ -770,7 +782,7 @@ class AzureFileSystem::Impl {
         info.set_size(properties.Value.FileSize);
       }
       info.set_mtime(
-          std::chrono::system_clock::time_point(properties.Value.LastModified));
+          std::chrono::system_clock::time_point{properties.Value.LastModified});
       return info;
     } catch (const Azure::Storage::StorageException& exception) {
       if (exception.StatusCode == Azure::Core::Http::HttpStatusCode::NotFound) {
@@ -785,11 +797,9 @@ class AzureFileSystem::Impl {
         // On flat namespace accounts there are no real directories. Directories are only
         // implied by using `/` in the blob name.
         Azure::Storage::Blobs::ListBlobsOptions list_blob_options;
-
         // If listing the prefix `path.path_to_file` with trailing slash returns at least
         // one result then `path` refers to an implied directory.
-        auto prefix = internal::EnsureTrailingSlash(location.path);
-        list_blob_options.Prefix = prefix;
+        list_blob_options.Prefix = internal::EnsureTrailingSlash(location.path);
         // We only need to know if there is at least one result, so minimise page size
         // for efficiency.
         list_blob_options.PageSizeHint = 1;
@@ -798,15 +808,13 @@ class AzureFileSystem::Impl {
           auto paged_list_result =
               blob_service_client_->GetBlobContainerClient(location.container)
                   .ListBlobs(list_blob_options);
-          if (paged_list_result.Blobs.size() > 0) {
-            info.set_type(FileType::Directory);
-          } else {
-            info.set_type(FileType::NotFound);
-          }
+          auto file_type = paged_list_result.Blobs.size() > 0 ? FileType::Directory
+                                                              : FileType::NotFound;
+          info.set_type(file_type);
           return info;
         } catch (const Azure::Storage::StorageException& exception) {
           return internal::ExceptionToStatus(
-              "ListBlobs for '" + prefix +
+              "ListBlobs for '" + *list_blob_options.Prefix +
                   "' failed with an unexpected Azure error. GetFileInfo is unable to "
                   "determine whether the path should be considered an implied directory.",
               exception);
@@ -840,7 +848,7 @@ class AzureFileSystem::Impl {
     return Status::OK();
   }
 
-  static FileInfo FileInfoFromBlob(const std::string& container,
+  static FileInfo FileInfoFromBlob(std::string_view container,
                                    const Azure::Storage::Blobs::Models::BlobItem& blob) {
     auto path = internal::ConcatAbstractPath(container, blob.Name);
     if (internal::HasTrailingSlash(blob.Name)) {
@@ -852,7 +860,7 @@ class AzureFileSystem::Impl {
     return info;
   }
 
-  static FileInfo DirectoryFileInfoFromPath(const std::string& path) {
+  static FileInfo DirectoryFileInfoFromPath(std::string_view path) {
     return FileInfo{std::string{internal::RemoveTrailingSlash(path)},
                     FileType::Directory};
   }
@@ -965,7 +973,7 @@ class AzureFileSystem::Impl {
         }
       }
     } catch (const Azure::Storage::StorageException& exception) {
-      if (exception.ErrorCode == "ContainerNotFound") {
+      if (IsContainerNotFound(exception)) {
         found = false;
       } else {
         return internal::ExceptionToStatus(
@@ -1070,7 +1078,7 @@ class AzureFileSystem::Impl {
           return Status::OK();
         } else {
           return StatusFromErrorResponse(
-              container_client.GetUrl(), response.RawResponse.get(),
+              container_client.GetUrl(), *response.RawResponse,
               "Failed to create a container: " + location.container);
         }
       } catch (const Azure::Storage::StorageException& exception) {
@@ -1098,8 +1106,7 @@ class AzureFileSystem::Impl {
       if (response.Value.Created) {
         return Status::OK();
       } else {
-        return StatusFromErrorResponse(directory_client.GetUrl(),
-                                       response.RawResponse.get(),
+        return StatusFromErrorResponse(directory_client.GetUrl(), *response.RawResponse,
                                        "Failed to create a directory: " + location.path);
       }
     } catch (const Azure::Storage::StorageException& exception) {
@@ -1264,7 +1271,7 @@ class AzureFileSystem::Impl {
           return Status::OK();
         } else {
           return StatusFromErrorResponse(
-              container_client.GetUrl(), response.RawResponse.get(),
+              container_client.GetUrl(), *response.RawResponse,
               "Failed to delete a container: " + location.container);
         }
       } catch (const Azure::Storage::StorageException& exception) {
@@ -1287,7 +1294,7 @@ class AzureFileSystem::Impl {
           return Status::OK();
         } else {
           return StatusFromErrorResponse(
-              directory_client.GetUrl(), response.RawResponse.get(),
+              directory_client.GetUrl(), *response.RawResponse,
               "Failed to delete a directory: " + location.path);
         }
       } catch (const Azure::Storage::StorageException& exception) {
