@@ -654,8 +654,7 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
                              "', which is outside base dir '", source_sel.base_dir, "'");
     }
 
-    auto destination_path =
-        internal::ConcatAbstractPath(destination_base_dir, std::string(*relative));
+    auto destination_path = internal::ConcatAbstractPath(destination_base_dir, *relative);
 
     if (source_info.IsDirectory()) {
       dirs.push_back(destination_path);

@@ -157,7 +157,7 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
       const AzureOptions& options, const io::IOContext& = io::default_io_context());
 
  private:
-  explicit AzureFileSystem(const AzureOptions& options, const io::IOContext& io_context);
+  AzureFileSystem(const AzureOptions& options, const io::IOContext& io_context);
 
   class Impl;
   std::unique_ptr<Impl> impl_;

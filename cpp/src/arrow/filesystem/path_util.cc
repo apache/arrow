@@ -52,7 +52,7 @@ std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   }
 
   auto append_part = [&parts, &v](size_t start, size_t end) {
-    parts.push_back(std::string(v.substr(start, end - start)));
+    parts.emplace_back(v.substr(start, end - start));
   };
 
   size_t start = 0;
@@ -72,15 +72,12 @@ std::string SliceAbstractPath(const std::string& s, int offset, int length, char
     return "";
   }
   std::vector<std::string> components = SplitAbstractPath(s, sep);
-  std::stringstream combined;
   if (offset >= static_cast<int>(components.size())) {
     return "";
   }
-  int end = offset + length;
-  if (end > static_cast<int>(components.size())) {
-    end = static_cast<int>(components.size());
-  }
-  for (int i = offset; i < end; i++) {
+  const auto end = std::min(static_cast<size_t>(offset) + length, components.size());
+  std::stringstream combined;
+  for (auto i = static_cast<size_t>(offset); i < end; i++) {
     combined << components[i];
     if (i < end - 1) {
       combined << sep;
@@ -140,16 +137,20 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
   return Status::OK();
 }
 
-std::string ConcatAbstractPath(const std::string& base, const std::string& stem) {
+std::string ConcatAbstractPath(std::string_view base, std::string_view stem) {
   DCHECK(!stem.empty());
   if (base.empty()) {
-    return stem;
+    return std::string{stem};
   }
-  return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
+  std::string result;
+  result.reserve(base.length() + stem.length() + 1);  // extra 1 is for potential kSep
+  result += EnsureTrailingSlash(base);
+  result += RemoveLeadingSlash(stem);
+  return result;
 }
 
 std::string EnsureTrailingSlash(std::string_view v) {
-  if (v.length() > 0 && v.back() != kSep) {
+  if (!v.empty() && !HasTrailingSlash(v)) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "C:/"...
     // Unless the local filesystem always uses absolute paths
     return std::string(v) + kSep;
@@ -159,7 +160,7 @@ std::string EnsureTrailingSlash(std::string_view v) {
 }
 
 std::string EnsureLeadingSlash(std::string_view v) {
-  if (v.length() == 0 || v.front() != kSep) {
+  if (!HasLeadingSlash(v)) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "/C:"...
     return kSep + std::string(v);
   } else {
@@ -196,10 +197,6 @@ Status AssertNoTrailingSlash(std::string_view key) {
   }
   return Status::OK();
 }
-
-bool HasTrailingSlash(std::string_view key) { return key.back() == '/'; }
-
-bool HasLeadingSlash(std::string_view key) { return key.front() == '/'; }
 
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
                                              const std::string& path) {
@@ -383,7 +380,7 @@ struct Globber::Impl {
 
 Globber::Globber(std::string pattern) : impl_(new Impl(pattern)) {}
 
-Globber::~Globber() {}
+Globber::~Globber() = default;
 
 bool Globber::Matches(const std::string& path) {
   return regex_match(path, impl_->pattern_);
