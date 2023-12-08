@@ -42,7 +42,7 @@ class TestEngine : public ::testing::Test {
         llvm::FunctionType::get(types->i64_type(), arguments, false /*isVarArg*/);
 
     // Create fn
-    std::string func_name = "add_longs";
+    std::string func_name = "add_longs_test_expr";
     gdv_engine->AddFunctionToCompile(func_name);
     llvm::Function* fn = llvm::Function::Create(
         prototype, llvm::GlobalValue::ExternalLinkage, func_name, gdv_engine->module());

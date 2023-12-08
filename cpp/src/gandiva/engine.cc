@@ -211,13 +211,16 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
     : context_(std::make_unique<llvm::LLVMContext>()),
       lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
-      module_(std::make_unique<llvm::Module>("codegen", *context_)),
       types_(*context_),
       optimize_(conf->optimize()),
       cached_(cached),
       function_registry_(conf->function_registry()),
       target_machine_(std::move(target_machine)),
-      conf_(conf) {}
+      conf_(conf) {
+  // LLVM 10 doesn't like the expr function name to be the same as the module name
+  auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<int64_t>(this));
+  module_ = std::make_unique<llvm::Module>(module_id, *context_);
+}
 
 Engine::~Engine() {}
 

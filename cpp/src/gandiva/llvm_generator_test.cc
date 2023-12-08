@@ -98,7 +98,9 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   auto field_sum = std::make_shared<arrow::Field>("out", arrow::int32());
   auto desc_sum = annotator.CheckAndAddInputFieldDescriptor(field_sum);
 
-  std::string fn_name = "codegen";
+  // LLVM 10 doesn't like the expr function name to be the same as the module name when
+  // LLJIT is used
+  std::string fn_name = "llvm_gen_test_add_expr";
 
   ASSERT_OK(generator->engine_->LoadFunctionIRs());
   ASSERT_OK(generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, fn_name,
