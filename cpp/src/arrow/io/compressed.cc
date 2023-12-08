@@ -279,6 +279,8 @@ class CompressedInputStream::Impl {
   // Decompress some data from the compressed_ buffer.
   // Call this function only if the decompressed_ buffer is empty.
   Status DecompressData() {
+    DCHECK_NE(compressed_->data(), nullptr);
+
     int64_t decompress_size = kDecompressSize;
 
     while (true) {
@@ -329,7 +331,7 @@ class CompressedInputStream::Impl {
   // Try to feed more data into the decompressed_ buffer.
   Status RefillDecompressed(bool* has_data) {
     // First try to read data from the decompressor
-    if (compressed_) {
+    if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
         RETURN_NOT_OK(decompressor_->Reset());
