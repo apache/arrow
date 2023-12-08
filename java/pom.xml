@@ -321,6 +321,7 @@
           </execution>
         </executions>
         <configuration>
+          <excludes>**/module-info.java</excludes>
           <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
@@ -371,6 +372,17 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.arrow.maven.plugins</groupId>
+        <artifactId>module-info-compiler-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>module-info-compile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -400,6 +412,7 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <excludes>**/module-info.java</excludes>
             <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
@@ -545,6 +558,11 @@
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.arrow.maven.plugins</groupId>
+          <artifactId>module-info-compiler-maven-plugin</artifactId>
+          <version>${project.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -735,6 +753,7 @@
   </reporting>
 
   <modules>
+    <module>maven</module>
     <module>bom</module>
     <module>format</module>
     <module>memory</module>
@@ -870,7 +889,7 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
-              <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+              <argLine>--add-opens java.base/jdk.internal.misc=io.netty.common --patch-module=io.netty.buffer=${project.basedir}/../memory-netty-buffer-patch/target/arrow-memory-netty-buffer-patch-${project.version}.jar --add-opens=java.base/java.nio=org.apache.arrow.memory.core,io.netty.common,ALL-UNNAMED</argLine>
             </configuration>
           </plugin>
         </plugins>
@@ -1236,7 +1255,6 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 
 </project>
