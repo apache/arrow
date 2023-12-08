@@ -35,6 +35,8 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
+        private bool HasReadDictionaries => HasReadSchema && DictionaryMemo.LoadedDictionaryCount >= _footer.DictionaryCount;
+
         public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
             : base(stream, allocator, compressionCodecFactory, leaveOpen)
         {
@@ -138,63 +140,12 @@ namespace Apache.Arrow.Ipc
             _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(CreateByteBuffer(buffer)), ref _dictionaryMemo);
 
             Schema = _footer.Schema;
-
-            // Setup for dictionary deserialization
-            // We don't know in what order the messages have been serialized, so we add a callback
-            // to deserialize them sequentially until we get the one we want. The callback can be
-            // invoked recursively in the case where the dictionaries are nested.
-            //
-            // TODO: This is no longer async...
-            int next = 0;
-            _dictionaryMemo?.SetLoader(id =>
-                {
-                    while (true)
-                    {
-                        Block block = _footer.Dictionaries[next++];
-                        BaseStream.Position = block.Offset;
-
-                        int messageLength = ReadMessageLength(throwOnFullRead: false);
-
-                        if (messageLength == 0)
-                        {
-                            // error?
-                            continue;
-                        }
-
-                        long? foundId = default;
-                        ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
-                        {
-                            int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
-                            EnsureFullRead(messageBuff, bytesRead);
-
-                            Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
-                            if (message.HeaderType == Flatbuf.MessageHeader.DictionaryBatch)
-                            {
-                                foundId = message.Header<Flatbuf.DictionaryBatch>().Value.Id;
-                            }
-
-                            int bodyLength = checked((int)message.BodyLength);
-
-                            IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                            Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-                            bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
-                            EnsureFullRead(bodyBuff, bytesRead);
-
-                            Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                            CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
-                        });
-
-                        if (foundId == id)
-                        {
-                            return;
-                        }
-                    }
-                });
         }
 
         public async ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync().ConfigureAwait(false);
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -211,6 +162,7 @@ namespace Apache.Arrow.Ipc
         public RecordBatch ReadRecordBatch(int index)
         {
             ReadSchema();
+            ReadDictionaries();
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -227,6 +179,7 @@ namespace Apache.Arrow.Ipc
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync().ConfigureAwait(false);
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
@@ -242,6 +195,7 @@ namespace Apache.Arrow.Ipc
         public override RecordBatch ReadNextRecordBatch()
         {
             ReadSchema();
+            ReadDictionaries();
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
@@ -252,6 +206,42 @@ namespace Apache.Arrow.Ipc
             _recordBatchIndex++;
 
             return result;
+        }
+
+        private async ValueTask ReadDictionariesAsync()
+        {
+            if (HasReadDictionaries)
+            {
+                return;
+            }
+
+            // We don't know in what order the dictionaries have been serialized, so we deserialize
+            // just their indices and then construct them in X order
+            foreach (Block block in _footer.Dictionaries)
+            {
+                BaseStream.Position = block.Offset;
+                await ReadRecordBatchAsync(deferDictionaryLoad: true).ConfigureAwait(false);
+            }
+
+            DictionaryMemo.FinishLoad();
+        }
+
+        private void ReadDictionaries()
+        {
+            if (HasReadDictionaries)
+            {
+                return;
+            }
+
+            // We don't know in what order the dictionaries have been serialized, so we deserialize
+            // just their indices and then construct them in X order
+            foreach (Block block in _footer.Dictionaries)
+            {
+                BaseStream.Position = block.Offset;
+                ReadRecordBatch(deferDictionaryLoad: true);
+            }
+
+            DictionaryMemo.FinishLoad();
         }
 
         /// <summary>

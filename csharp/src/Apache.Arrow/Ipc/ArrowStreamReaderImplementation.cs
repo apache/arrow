@@ -61,35 +61,43 @@ namespace Apache.Arrow.Ipc
 
             while (result == null)
             {
-                int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
-                    .ConfigureAwait(false);
-
-                if (messageLength == 0)
-                {
-                    // reached end
-                    return null;
-                }
-
-                await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
-                {
-                    int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
-                        .ConfigureAwait(false);
-                    EnsureFullRead(messageBuff, bytesRead);
-
-                    Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
-
-                    int bodyLength = checked((int)message.BodyLength);
-
-                    IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                    Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-                    bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
-                        .ConfigureAwait(false);
-                    EnsureFullRead(bodyBuff, bytesRead);
-
-                    Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                    result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
-                }).ConfigureAwait(false);
+                result = await ReadRecordBatchAsync(deferDictionaryLoad: false, cancellationToken);
             }
+
+            return result;
+        }
+
+        protected async ValueTask<RecordBatch> ReadRecordBatchAsync(bool deferDictionaryLoad, CancellationToken cancellationToken = default)
+        {
+            int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (messageLength == 0)
+            {
+                // reached end
+                return null;
+            }
+
+            RecordBatch result = null;
+            await ArrayPool<byte>.Shared.RentReturnAsync(messageLength, async (messageBuff) =>
+            {
+                int bytesRead = await BaseStream.ReadFullBufferAsync(messageBuff, cancellationToken)
+                    .ConfigureAwait(false);
+                EnsureFullRead(messageBuff, bytesRead);
+
+                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+
+                int bodyLength = checked((int)message.BodyLength);
+
+                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
+                    .ConfigureAwait(false);
+                EnsureFullRead(bodyBuff, bytesRead);
+
+                Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner, deferDictionaryLoad);
+            }).ConfigureAwait(false);
 
             return result;
         }
@@ -102,32 +110,40 @@ namespace Apache.Arrow.Ipc
 
             while (result == null)
             {
-                int messageLength = ReadMessageLength(throwOnFullRead: false);
-
-                if (messageLength == 0)
-                {
-                    // reached end
-                    return null;
-                }
-
-                ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
-                {
-                    int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
-                    EnsureFullRead(messageBuff, bytesRead);
-
-                    Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
-
-                    int bodyLength = checked((int)message.BodyLength);
-
-                    IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-                    Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-                    bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
-                    EnsureFullRead(bodyBuff, bytesRead);
-
-                    Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-                    result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
-                });
+                result = ReadRecordBatch(deferDictionaryLoad: false);
             }
+
+            return result;
+        }
+
+        protected RecordBatch ReadRecordBatch(bool deferDictionaryLoad)
+        {
+            int messageLength = ReadMessageLength(throwOnFullRead: false);
+
+            if (messageLength == 0)
+            {
+                // reached end
+                return null;
+            }
+
+            RecordBatch result = null;
+            ArrayPool<byte>.Shared.RentReturn(messageLength, messageBuff =>
+            {
+                int bytesRead = BaseStream.ReadFullBuffer(messageBuff);
+                EnsureFullRead(messageBuff, bytesRead);
+
+                Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
+
+                int bodyLength = checked((int)message.BodyLength);
+
+                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
+                EnsureFullRead(bodyBuff, bytesRead);
+
+                Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner, deferDictionaryLoad);
+            });
 
             return result;
         }

@@ -25,7 +25,6 @@ namespace Apache.Arrow.Ipc
         private readonly Dictionary<long, IArrowArray> _idToDictionary;
         private readonly Dictionary<long, IArrowType> _idToValueType;
         private readonly Dictionary<Field, long> _fieldToId;
-        private Action<long> _loader;
 
         public DictionaryMemo()
         {
@@ -34,7 +33,8 @@ namespace Apache.Arrow.Ipc
             _fieldToId = new Dictionary<Field, long>();
         }
 
-        public int FieldCount => _fieldToId.Count;
+        public int DictionaryCount => _fieldToId.Count;
+        public int LoadedDictionaryCount => _idToDictionary.Count;
 
         public IArrowType GetDictionaryType(long id)
         {
@@ -49,11 +49,6 @@ namespace Apache.Arrow.Ipc
         {
             if (!_idToDictionary.TryGetValue(id, out IArrowArray dictionary))
             {
-                if (_loader != null)
-                {
-                    _loader(id);
-                }
-
                 if (!_idToDictionary.TryGetValue(id, out dictionary))
                 {
                     throw new ArgumentException($"Dictionary with id {id} not found");
@@ -61,8 +56,6 @@ namespace Apache.Arrow.Ipc
             }
             return dictionary;
         }
-
-        public void SetLoader(Action<long> loader) { this._loader = loader; }
 
         public void AddField(long id, Field field)
         {
@@ -122,6 +115,14 @@ namespace Apache.Arrow.Ipc
             IArrowArray currentDictionary = _idToDictionary[id];
             IArrowArray dictionary = ArrowArrayConcatenator.Concatenate(new List<IArrowArray>{ currentDictionary, deltaDictionary }, allocator);
             AddOrReplaceDictionary(id, dictionary);
+        }
+
+        public void AddDictionaryValues(long id, ArrayData values)
+        {
+        }
+
+        public void FinishLoad()
+        {
         }
     }
 }

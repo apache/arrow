@@ -107,7 +107,10 @@ namespace Apache.Arrow.Ipc
         /// Null when the message type is not RecordBatch.
         /// </returns>
         protected RecordBatch CreateArrowObjectFromMessage(
-            Flatbuf.Message message, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
+            Flatbuf.Message message,
+            ByteBuffer bodyByteBuffer,
+            IMemoryOwner<byte> memoryOwner,
+            bool deferDictionaryLoad = false)
         {
             switch (message.HeaderType)
             {
@@ -116,11 +119,11 @@ namespace Apache.Arrow.Ipc
                     break;
                 case Flatbuf.MessageHeader.DictionaryBatch:
                     Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
-                    ReadDictionaryBatch(message.Version, dictionaryBatch, bodyByteBuffer, memoryOwner);
+                    ReadDictionaryBatch(message.Version, dictionaryBatch, bodyByteBuffer, memoryOwner, deferDictionaryLoad);
                     break;
                 case Flatbuf.MessageHeader.RecordBatch:
                     Flatbuf.RecordBatch rb = message.Header<Flatbuf.RecordBatch>().Value;
-                    List<IArrowArray> arrays = BuildArrays(message.Version, Schema, bodyByteBuffer, rb);
+                    List<IArrowArray> arrays = BuildArrays(message.Version, Schema, bodyByteBuffer, rb, deferDictionaryLoad);
                     return new RecordBatch(Schema, memoryOwner, arrays, (int)rb.Length);
                 default:
                     // NOTE: Skip unsupported message type
@@ -140,7 +143,8 @@ namespace Apache.Arrow.Ipc
             MetadataVersion version,
             Flatbuf.DictionaryBatch dictionaryBatch,
             ByteBuffer bodyByteBuffer,
-            IMemoryOwner<byte> memoryOwner)
+            IMemoryOwner<byte> memoryOwner,
+            bool deferDictionaryLoad)
         {
             long id = dictionaryBatch.Id;
             IArrowType valueType = DictionaryMemo.GetDictionaryType(id);
@@ -153,14 +157,18 @@ namespace Apache.Arrow.Ipc
 
             Field valueField = new Field("dummy", valueType, true);
             var schema = new Schema(new[] { valueField }, default);
-            IList<IArrowArray> arrays = BuildArrays(version, schema, bodyByteBuffer, recordBatch.Value);
+            IList<IArrowArray> arrays = BuildArrays(version, schema, bodyByteBuffer, recordBatch.Value, deferDictionaryLoad);
 
             if (arrays.Count != 1)
             {
                 throw new InvalidDataException("Dictionary record batch must contain only one field");
             }
 
-            if (dictionaryBatch.IsDelta)
+            if (deferDictionaryLoad)
+            {
+                DictionaryMemo.AddDictionaryValues(id, arrays[0].Data);
+            }
+            else if (dictionaryBatch.IsDelta)
             {
                 DictionaryMemo.AddDeltaDictionary(id, arrays[0], _allocator);
             }
@@ -174,7 +182,8 @@ namespace Apache.Arrow.Ipc
             MetadataVersion version,
             Schema schema,
             ByteBuffer messageBuffer,
-            Flatbuf.RecordBatch recordBatchMessage)
+            Flatbuf.RecordBatch recordBatchMessage,
+            bool deferDictionaryLoad)
         {
             var arrays = new List<IArrowArray>(recordBatchMessage.NodesLength);
 
@@ -192,8 +201,8 @@ namespace Apache.Arrow.Ipc
                 Flatbuf.FieldNode fieldNode = recordBatchEnumerator.CurrentNode;
 
                 ArrayData arrayData = field.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator)
-                    : LoadVariableField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator);
+                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator, deferDictionaryLoad)
+                    : LoadVariableField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator, deferDictionaryLoad);
 
                 arrays.Add(ArrowArrayFactory.BuildArray(arrayData));
             } while (recordBatchEnumerator.MoveNextNode());
@@ -235,7 +244,8 @@ namespace Apache.Arrow.Ipc
             Field field,
             in Flatbuf.FieldNode fieldNode,
             ByteBuffer bodyData,
-            IBufferCreator bufferCreator)
+            IBufferCreator bufferCreator,
+            bool deferDictionaryLoad)
         {
 
             int fieldLength = (int)fieldNode.Length;
@@ -288,10 +298,10 @@ namespace Apache.Arrow.Ipc
                 recordBatchEnumerator.MoveNextBuffer();
             }
 
-            ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator);
+            ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator, deferDictionaryLoad);
 
             IArrowArray dictionary = null;
-            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
+            if (field.DataType.TypeId == ArrowTypeId.Dictionary && !deferDictionaryLoad)
             {
                 long id = DictionaryMemo.GetId(field);
                 dictionary = DictionaryMemo.GetDictionary(id);
@@ -306,9 +316,9 @@ namespace Apache.Arrow.Ipc
             Field field,
             in Flatbuf.FieldNode fieldNode,
             ByteBuffer bodyData,
-            IBufferCreator bufferCreator)
+            IBufferCreator bufferCreator,
+            bool deferDictionaryLoad)
         {
-
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
             if (!recordBatchEnumerator.MoveNextBuffer())
             {
@@ -336,10 +346,10 @@ namespace Apache.Arrow.Ipc
             }
 
             ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
-            ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator);
+            ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator, deferDictionaryLoad);
 
             IArrowArray dictionary = null;
-            if (field.DataType.TypeId == ArrowTypeId.Dictionary)
+            if (field.DataType.TypeId == ArrowTypeId.Dictionary && !deferDictionaryLoad)
             {
                 long id = DictionaryMemo.GetId(field);
                 dictionary = DictionaryMemo.GetDictionary(id);
@@ -353,7 +363,8 @@ namespace Apache.Arrow.Ipc
             ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
             ByteBuffer bodyData,
-            IBufferCreator bufferCreator)
+            IBufferCreator bufferCreator,
+            bool deferDictionaryLoad)
         {
             if (!(field.DataType is NestedType type)) return null;
 
@@ -366,8 +377,8 @@ namespace Apache.Arrow.Ipc
 
                 Field childField = type.Fields[index];
                 ArrayData child = childField.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator)
-                    : LoadVariableField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator);
+                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator, deferDictionaryLoad)
+                    : LoadVariableField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator, deferDictionaryLoad);
 
                 children[index] = child;
             }
