@@ -132,7 +132,8 @@ public class ArrowReader {
     }
 
     public func fromStream( // swiftlint:disable:this function_body_length
-        _ fileData: Data
+        _ fileData: Data,
+        useUnalignedBuffers: Bool = false
     ) -> Result<ArrowReaderResult, ArrowError> {
         let footerLength = fileData.withUnsafeBytes { rawBuffer in
             rawBuffer.loadUnaligned(fromByteOffset: fileData.count - 4, as: Int32.self)
@@ -141,7 +142,9 @@ public class ArrowReader {
         let result = ArrowReaderResult()
         let footerStartOffset = fileData.count - Int(footerLength + 4)
         let footerData = fileData[footerStartOffset...]
-        let footerBuffer = ByteBuffer(data: footerData)
+        let footerBuffer = ByteBuffer(
+            data: footerData,
+            allowReadingUnalignedBuffers: useUnalignedBuffers)
         let footer = org_apache_arrow_flatbuf_Footer.getRootAsFooter(bb: footerBuffer)
         let schemaResult = loadSchema(footer.schema!)
         switch schemaResult {
@@ -170,7 +173,9 @@ public class ArrowReader {
             let messageStartOffset = recordBatch.offset + (Int64(MemoryLayout<Int32>.size) * messageOffset)
             let messageEndOffset = messageStartOffset + Int64(messageLength)
             let recordBatchData = fileData[messageStartOffset ..< messageEndOffset]
-            let mbb = ByteBuffer(data: recordBatchData)
+            let mbb = ByteBuffer(
+                data: recordBatchData,
+                allowReadingUnalignedBuffers: useUnalignedBuffers)
             let message = org_apache_arrow_flatbuf_Message.getRootAsMessage(bb: mbb)
             switch message.headerType {
             case .recordbatch:
@@ -219,9 +224,12 @@ public class ArrowReader {
     public func fromMessage(
         _ dataHeader: Data,
         dataBody: Data,
-        result: ArrowReaderResult
+        result: ArrowReaderResult,
+        useUnalignedBuffers: Bool = false
     ) -> Result<Void, ArrowError> {
-        let mbb = ByteBuffer(data: dataHeader)
+        let mbb = ByteBuffer(
+            data: dataHeader,
+            allowReadingUnalignedBuffers: useUnalignedBuffers)
         let message = org_apache_arrow_flatbuf_Message.getRootAsMessage(bb: mbb)
         switch message.headerType {
         case .schema:
