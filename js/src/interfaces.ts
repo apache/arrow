@@ -339,11 +339,11 @@ type DataTypeToBuilder<T extends DataType = any, TNull = any> = {
     [Type.Interval]: T extends type.Interval ? IntervalBuilder<T, TNull> : never;
     [Type.IntervalDayTime]: T extends type.IntervalDayTime ? IntervalDayTimeBuilder<TNull> : never;
     [Type.IntervalYearMonth]: T extends type.IntervalYearMonth ? IntervalYearMonthBuilder<TNull> : never;
-    [Type.Duration]: T extends type.Duration ? DurationBuilder<T, TNull>: never;
+    [Type.Duration]: T extends type.Duration ? DurationBuilder<T, TNull> : never;
     [Type.DurationSecond]: T extends type.DurationSecond ? DurationSecondBuilder<TNull> : never;
     [Type.DurationMillisecond]: T extends type.DurationMillisecond ? DurationMillisecondBuilder<TNull> : never;
-    [Type.DurationMicrosecond]: T extends type.DurationMicrosecond ? DurationMicrosecondBuilder<TNull>: never;
-    [Type.DurationNanosecond]: T extends type.DurationNanosecond ? DurationNanosecondBuilder<TNull>: never;
+    [Type.DurationMicrosecond]: T extends type.DurationMicrosecond ? DurationMicrosecondBuilder<TNull> : never;
+    [Type.DurationNanosecond]: T extends type.DurationNanosecond ? DurationNanosecondBuilder<TNull> : never;
     [Type.Map]: T extends type.Map_ ? MapBuilder<T['keyType'], T['valueType'], TNull> : never;
     [Type.List]: T extends type.List ? ListBuilder<T['valueType'], TNull> : never;
     [Type.Struct]: T extends type.Struct ? StructBuilder<T['dataTypes'], TNull> : never;
