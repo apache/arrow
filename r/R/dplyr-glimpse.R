@@ -102,8 +102,52 @@ glimpse.ArrowTabular <- function(x,
 glimpse.Dataset <- glimpse.ArrowTabular
 
 glimpse.arrow_dplyr_query <- function(x,
+
                                       width = getOption("pillar.width", getOption("width")),
+                                      simple = FALSE,
                                       ...) {
+
+  # An alternative to glimpse datasets
+  if(simple){
+
+    schm <- x$.data$schema
+
+    col_types <- sapply(
+
+      x$selected_columns,
+
+      FUN = function(expr) {
+        name <- expr$field_name
+        if (nzchar(name)) {
+          schm$GetFieldByName(name)$type$ToString()
+        }
+        else {
+          expr$type(schm)$ToString()
+        }
+
+      })
+
+
+    fields <- paste(
+      names(col_types),
+      col_types,
+      sep = ": ",
+      collapse = "\n"
+    )
+
+    cat(
+      paste0("FileSystemDataset (query)\n",
+             formatC(nrow(x), format = "f", big.mark = ",", digits = 0),
+             " rows x ",
+             formatC(ncol(x), format = "f", big.mark = ",", digits = 0),
+             " columns\n\n",
+             fields)
+    )
+
+    invisible(x)
+  }
+
+
   if (any(map_lgl(all_sources(x), ~ inherits(., "RecordBatchReader")))) {
     msg <- paste(
       "Cannot glimpse() data from a RecordBatchReader because it can only be",
