@@ -35,6 +35,7 @@
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/thrift_internal.h"
+#include "parquet/page_index.h"
 
 namespace parquet {
 
@@ -825,6 +826,25 @@ class FileMetaData::FileMetaDataImpl {
     file_decryptor_ = file_decryptor;
   }
 
+  void set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets) {
+    if (num_row_groups() != 1) {
+      throw ParquetException(
+              "This operation can only be applied to metadata with a single row group ");
+    }
+
+    format::RowGroup& row_group = metadata_->row_groups[0];
+    int idx = 0;
+    for (format::ColumnChunk& chunk : row_group.columns) {
+      // Debug. A chunk can only have 1 page??
+      auto pages = column_offsets[idx].get()->page_locations();
+      for(PageLocation& page: pages) {
+        // chunk->meta_data.__set_statistics(ToThrift(val));
+        chunk->meta_data.__set_data_page_offset(page.offset);
+        chunk->meta_data.__set_total_compressed_size(page.compressed_page_size);
+      }
+    }
+  }
+
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_ = 0;
@@ -981,6 +1001,11 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
 std::shared_ptr<FileMetaData> FileMetaData::Subset(
     const std::vector<int>& row_groups) const {
   return impl_->Subset(row_groups);
+}
+
+void FileMetaData::set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets) {
+
+  impl_->set_column_offsets(column_offsets);
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
