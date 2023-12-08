@@ -70,6 +70,9 @@ using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
 
+namespace Blobs = Azure::Storage::Blobs;
+namespace Files = Azure::Storage::Files;
+
 auto const* kLoremIpsum = R"""(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
 incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
@@ -193,9 +196,8 @@ TEST(AzureFileSystem, OptionsCompare) {
 class AzureFileSystemTest : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
-  std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient> blob_service_client_;
-  std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
-      datalake_service_client_;
+  std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
+  std::unique_ptr<Files::DataLake::DataLakeServiceClient> datalake_service_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
@@ -213,15 +215,14 @@ class AzureFileSystemTest : public ::testing::Test {
       suite_skipped_ = true;
       GTEST_SKIP() << options.status().message();
     }
-    container_name_ = RandomChars(32);
-    blob_service_client_ = std::make_unique<Azure::Storage::Blobs::BlobServiceClient>(
+    // Stop-gap solution before GH-39119 is fixed.
+    container_name_ = "z" + RandomChars(31);
+    blob_service_client_ = std::make_unique<Blobs::BlobServiceClient>(
         options_.account_blob_url, options_.storage_credentials_provider);
-    datalake_service_client_ =
-        std::make_unique<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
-            options_.account_dfs_url, options_.storage_credentials_provider);
+    datalake_service_client_ = std::make_unique<Files::DataLake::DataLakeServiceClient>(
+        options_.account_dfs_url, options_.storage_credentials_provider);
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
-    auto container_client = blob_service_client_->GetBlobContainerClient(container_name_);
-    container_client.CreateIfNotExists();
+    auto container_client = CreateContainer(container_name_);
 
     auto blob_client = container_client.GetBlockBlobClient(PreexistingObjectName());
     blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum),
@@ -237,6 +238,20 @@ class AzureFileSystemTest : public ::testing::Test {
         container_client.DeleteIfExists();
       }
     }
+  }
+
+  Blobs::BlobContainerClient CreateContainer(const std::string& name) {
+    auto container_client = blob_service_client_->GetBlobContainerClient(name);
+    (void)container_client.CreateIfNotExists();
+    return container_client;
+  }
+
+  Blobs::BlobClient CreateBlob(Blobs::BlobContainerClient& container_client,
+                               const std::string& name, const std::string& data = "") {
+    auto blob_client = container_client.GetBlockBlobClient(name);
+    (void)blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(data.data()),
+                                 data.size());
+    return blob_client;
   }
 
   std::string PreexistingContainerName() const { return container_name_; }
@@ -325,6 +340,45 @@ class AzureFileSystemTest : public ::testing::Test {
         sub_blob_path,
         top_blob_path,
     };
+  }
+
+  char const* kSubData = "sub data";
+  char const* kSomeData = "some data";
+  char const* kOtherData = "other data";
+
+  void SetUpSmallFileSystemTree() {
+    // Set up test containers
+    CreateContainer("empty-container");
+    auto container = CreateContainer("container");
+
+    CreateBlob(container, "emptydir/");
+    CreateBlob(container, "somedir/subdir/subfile", kSubData);
+    CreateBlob(container, "somefile", kSomeData);
+    // Add an explicit marker for a non-empty directory.
+    CreateBlob(container, "otherdir/1/2/");
+    // otherdir/{1/,2/,3/} are implicitly assumed to exist because of
+    // the otherdir/1/2/3/otherfile blob.
+    CreateBlob(container, "otherdir/1/2/3/otherfile", kOtherData);
+  }
+
+  void AssertInfoAllContainersRecursive(const std::vector<FileInfo>& infos) {
+    ASSERT_EQ(infos.size(), 14);
+    AssertFileInfo(infos[0], "container", FileType::Directory);
+    AssertFileInfo(infos[1], "container/emptydir", FileType::Directory);
+    AssertFileInfo(infos[2], "container/otherdir", FileType::Directory);
+    AssertFileInfo(infos[3], "container/otherdir/1", FileType::Directory);
+    AssertFileInfo(infos[4], "container/otherdir/1/2", FileType::Directory);
+    AssertFileInfo(infos[5], "container/otherdir/1/2/3", FileType::Directory);
+    AssertFileInfo(infos[6], "container/otherdir/1/2/3/otherfile", FileType::File,
+                   strlen(kOtherData));
+    AssertFileInfo(infos[7], "container/somedir", FileType::Directory);
+    AssertFileInfo(infos[8], "container/somedir/subdir", FileType::Directory);
+    AssertFileInfo(infos[9], "container/somedir/subdir/subfile", FileType::File,
+                   strlen(kSubData));
+    AssertFileInfo(infos[10], "container/somefile", FileType::File, strlen(kSomeData));
+    AssertFileInfo(infos[11], "empty-container", FileType::Directory);
+    AssertFileInfo(infos[12], PreexistingContainerName(), FileType::Directory);
+    AssertFileInfo(infos[13], PreexistingObjectPath(), FileType::File);
   }
 };
 
@@ -516,6 +570,180 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoObject) { RunGetFileInfoObjectTest(); }
 
 TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObject) {
   RunGetFileInfoObjectTest();
+}
+
+TEST_F(AzuriteFileSystemTest, GetFileInfoSelector) {
+  SetUpSmallFileSystemTree();
+
+  FileSelector select;
+  std::vector<FileInfo> infos;
+
+  // Root dir
+  select.base_dir = "";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 3);
+  ASSERT_EQ(infos, SortedInfos(infos));
+  AssertFileInfo(infos[0], "container", FileType::Directory);
+  AssertFileInfo(infos[1], "empty-container", FileType::Directory);
+  AssertFileInfo(infos[2], container_name_, FileType::Directory);
+
+  // Empty container
+  select.base_dir = "empty-container";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+  // Nonexistent container
+  select.base_dir = "nonexistent-container";
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
+  select.allow_not_found = true;
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+  select.allow_not_found = false;
+  // Non-empty container
+  select.base_dir = "container";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos, SortedInfos(infos));
+  ASSERT_EQ(infos.size(), 4);
+  AssertFileInfo(infos[0], "container/emptydir", FileType::Directory);
+  AssertFileInfo(infos[1], "container/otherdir", FileType::Directory);
+  AssertFileInfo(infos[2], "container/somedir", FileType::Directory);
+  AssertFileInfo(infos[3], "container/somefile", FileType::File, 9);
+
+  // Empty "directory"
+  select.base_dir = "container/emptydir";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+  // Non-empty "directories"
+  select.base_dir = "container/somedir";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 1);
+  AssertFileInfo(infos[0], "container/somedir/subdir", FileType::Directory);
+  select.base_dir = "container/somedir/subdir";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 1);
+  AssertFileInfo(infos[0], "container/somedir/subdir/subfile", FileType::File, 8);
+  // Nonexistent
+  select.base_dir = "container/nonexistent";
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
+  select.allow_not_found = true;
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+  select.allow_not_found = false;
+
+  // Trailing slashes
+  select.base_dir = "empty-container/";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+  select.base_dir = "nonexistent-container/";
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
+  select.base_dir = "container/";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos, SortedInfos(infos));
+  ASSERT_EQ(infos.size(), 4);
+}
+
+TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
+  SetUpSmallFileSystemTree();
+
+  FileSelector select;
+  select.recursive = true;
+
+  std::vector<FileInfo> infos;
+  // Root dir
+  select.base_dir = "";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 14);
+  ASSERT_EQ(infos, SortedInfos(infos));
+  AssertInfoAllContainersRecursive(infos);
+
+  // Empty container
+  select.base_dir = "empty-container";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+
+  // Non-empty container
+  select.base_dir = "container";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos, SortedInfos(infos));
+  ASSERT_EQ(infos.size(), 10);
+  AssertFileInfo(infos[0], "container/emptydir", FileType::Directory);
+  AssertFileInfo(infos[1], "container/otherdir", FileType::Directory);
+  AssertFileInfo(infos[2], "container/otherdir/1", FileType::Directory);
+  AssertFileInfo(infos[3], "container/otherdir/1/2", FileType::Directory);
+  AssertFileInfo(infos[4], "container/otherdir/1/2/3", FileType::Directory);
+  AssertFileInfo(infos[5], "container/otherdir/1/2/3/otherfile", FileType::File, 10);
+  AssertFileInfo(infos[6], "container/somedir", FileType::Directory);
+  AssertFileInfo(infos[7], "container/somedir/subdir", FileType::Directory);
+  AssertFileInfo(infos[8], "container/somedir/subdir/subfile", FileType::File, 8);
+  AssertFileInfo(infos[9], "container/somefile", FileType::File, 9);
+
+  // Empty "directory"
+  select.base_dir = "container/emptydir";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+
+  // Non-empty "directories"
+  select.base_dir = "container/somedir";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos, SortedInfos(infos));
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "container/somedir/subdir", FileType::Directory);
+  AssertFileInfo(infos[1], "container/somedir/subdir/subfile", FileType::File, 8);
+
+  select.base_dir = "container/otherdir";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos, SortedInfos(infos));
+  ASSERT_EQ(infos.size(), 4);
+  AssertFileInfo(infos[0], "container/otherdir/1", FileType::Directory);
+  AssertFileInfo(infos[1], "container/otherdir/1/2", FileType::Directory);
+  AssertFileInfo(infos[2], "container/otherdir/1/2/3", FileType::Directory);
+  AssertFileInfo(infos[3], "container/otherdir/1/2/3/otherfile", FileType::File, 10);
+}
+
+TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorExplicitImplicitDirDedup) {
+  {
+    auto container = CreateContainer("container");
+    CreateBlob(container, "mydir/emptydir1/");
+    CreateBlob(container, "mydir/emptydir2/");
+    CreateBlob(container, "mydir/nonemptydir1/");  // explicit dir marker
+    CreateBlob(container, "mydir/nonemptydir1/somefile", kSomeData);
+    CreateBlob(container, "mydir/nonemptydir2/somefile", kSomeData);
+  }
+  std::vector<FileInfo> infos;
+
+  FileSelector select;  // non-recursive
+  select.base_dir = "container";
+
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 1);
+  ASSERT_EQ(infos, SortedInfos(infos));
+  AssertFileInfo(infos[0], "container/mydir", FileType::Directory);
+
+  select.base_dir = "container/mydir";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 4);
+  ASSERT_EQ(infos, SortedInfos(infos));
+  AssertFileInfo(infos[0], "container/mydir/emptydir1", FileType::Directory);
+  AssertFileInfo(infos[1], "container/mydir/emptydir2", FileType::Directory);
+  AssertFileInfo(infos[2], "container/mydir/nonemptydir1", FileType::Directory);
+  AssertFileInfo(infos[3], "container/mydir/nonemptydir2", FileType::Directory);
+
+  select.base_dir = "container/mydir/emptydir1";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+
+  select.base_dir = "container/mydir/emptydir2";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+
+  select.base_dir = "container/mydir/nonemptydir1";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 1);
+  AssertFileInfo(infos[0], "container/mydir/nonemptydir1/somefile", FileType::File);
+
+  select.base_dir = "container/mydir/nonemptydir2";
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 1);
+  AssertFileInfo(infos[0], "container/mydir/nonemptydir2/somefile", FileType::File);
 }
 
 TEST_F(AzuriteFileSystemTest, CreateDirFailureNoContainer) {
