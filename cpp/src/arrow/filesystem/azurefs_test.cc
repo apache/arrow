@@ -699,7 +699,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
   AssertFileInfo(infos[3], "container/otherdir/1/2/3/otherfile", FileType::File, 10);
 }
 
-TEST_F(AzuriteFileSystemTest, TestGetFileInfoSelectorExplicitImplicitDirDedup) {
+TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorExplicitImplicitDirDedup) {
   {
     auto container = CreateContainer("container");
     CreateBlob(container, "mydir/emptydir1/");
