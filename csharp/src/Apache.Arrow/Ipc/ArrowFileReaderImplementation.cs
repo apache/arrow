@@ -42,7 +42,7 @@ namespace Apache.Arrow.Ipc
         {
         }
 
-        public async ValueTask<int> RecordBatchCountAsync(CancellationToken cancellationToken = default)
+        public async ValueTask<int> RecordBatchCountAsync()
         {
             if (!HasReadSchema)
             {

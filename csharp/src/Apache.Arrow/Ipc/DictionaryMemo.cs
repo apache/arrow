@@ -153,6 +153,8 @@ namespace Apache.Arrow.Ipc
                         CanLoad = false;
                         break;
                     }
+
+                    field.DataType.Accept(this);
                 }
             }
 
