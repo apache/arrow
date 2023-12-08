@@ -770,16 +770,12 @@ using SessionOptionValue = std::variant<std::string, bool, int32_t, int64_t, flo
                                         double, std::vector<std::string>>;
 
 /// \brief The result of setting a session option.
-enum class SetSessionOptionStatus : int8_t {
+enum class SetSessionOptionErrorValue : int8_t {
   /// \brief The status of setting the option is unknown.
   ///
   /// Servers should avoid using this value (send a NOT_FOUND error if the requested
   /// session is not known). Clients can retry the request.
   kUnspecified,
-  // The session option setting completed successfully.
-  kOk,
-  /// \brief The given session option name was an alias for another option name.
-  kOkMapped,
   /// \brief The given session option name is invalid.
   kInvalidName,
   /// \brief The session option value is invalid.
@@ -787,8 +783,8 @@ enum class SetSessionOptionStatus : int8_t {
   /// \brief The session option cannot be set.
   kError
 };
-std::string ToString(const SetSessionOptionStatus& status);
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& status);
+std::string ToString(const SetSessionOptionErrorValue& error_value);
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionErrorValue& error_value);
 
 /// \brief The result of closing a session.
 enum class CloseSessionStatus : int8_t {
@@ -838,19 +834,19 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
 
 /// \brief The result(s) of setting session option(s).
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
-  struct Result {
-    SetSessionOptionStatus status;
+  struct Error {
+    SetSessionOptionErrorValue value;
 
-    bool Equals(const Result& other) const { return status == other.status; }
-    friend bool operator==(const Result& left, const Result& right) {
+    bool Equals(const Error& other) const { return value == other.value; }
+    friend bool operator==(const Error& left, const Error& right) {
       return left.Equals(right);
     }
-    friend bool operator!=(const Result& left, const Result& right) {
+    friend bool operator!=(const Error& left, const Error& right) {
       return !(left == right);
     }
   };
 
-  std::map<std::string, Result> results;
+  std::map<std::string, Error> errors;
 
   std::string ToString() const;
   bool Equals(const SetSessionOptionsResult& other) const;

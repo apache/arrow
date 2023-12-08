@@ -476,17 +476,17 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
 }
 
 static const char* const SetSessionOptionStatusNames[] = {
-    "Unspecified", "Ok", "OkMapped", "InvalidName", "InvalidValue", "Error"};
+    "Unspecified", "InvalidName", "InvalidValue", "Error"};
 static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
                                                       "NotClosable"};
 
 // Helpers for stringifying maps containing various types
-std::string ToString(const SetSessionOptionStatus& status) {
-  return SetSessionOptionStatusNames[static_cast<int>(status)];
+std::string ToString(const SetSessionOptionErrorValue& error_value) {
+  return SetSessionOptionStatusNames[static_cast<int>(error_value)];
 }
 
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionStatus& status) {
-  os << ToString(status);
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionErrorValue& error_value) {
+  os << ToString(error_value);
   return os;
 }
 
@@ -516,8 +516,8 @@ std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Result& r) {
-  os << '{' << r.status << '}';
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Error& e) {
+  os << '{' << e.value << '}';
   return os;
 }
 
@@ -613,13 +613,13 @@ arrow::Result<SetSessionOptionsRequest> SetSessionOptionsRequest::Deserialize(
 std::string SetSessionOptionsResult::ToString() const {
   std::stringstream ss;
 
-  ss << "<SetSessionOptionsResult results=" << results << '>';
+  ss << "<SetSessionOptionsResult errors=" << errors << '>';
 
   return ss.str();
 }
 
 bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const {
-  if (results != other.results) {
+  if (errors != other.errors) {
     return false;
   }
   return true;
