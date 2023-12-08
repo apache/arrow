@@ -836,9 +836,8 @@ class FileMetaData::FileMetaDataImpl {
     int idx = 0;
     for (format::ColumnChunk& chunk : row_group.columns) {
       // Debug. A chunk can only have 1 page??
-      auto pages = column_offsets[idx].get()->page_locations();
+      auto pages = column_offsets[idx++].get()->page_locations();
       for(PageLocation& page: pages) {
-        // chunk->meta_data.__set_statistics(ToThrift(val));
         chunk->meta_data.__set_data_page_offset(page.offset);
         chunk->meta_data.__set_total_compressed_size(page.compressed_page_size);
       }
