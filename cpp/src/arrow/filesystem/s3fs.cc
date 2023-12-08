@@ -65,6 +65,7 @@
 #include <aws/s3/model/CreateBucketRequest.h>
 #include <aws/s3/model/CreateMultipartUploadRequest.h>
 #include <aws/s3/model/DeleteBucketRequest.h>
+#include <aws/s3/model/DeleteContainerRequest.h>
 #include <aws/s3/model/DeleteObjectRequest.h>
 #include <aws/s3/model/DeleteObjectsRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
@@ -386,6 +387,9 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
     } else if (kv.first == "allow_bucket_deletion") {
       ARROW_ASSIGN_OR_RAISE(options.allow_bucket_deletion,
                             ::arrow::internal::ParseBoolean(kv.second));
+    } else if (kv.first == "allow_container_deletion") {
+      ARROW_ASSIGN_OR_RAISE(options.allow_container_deletion,
+                            ::arrow::internal::ParseBoolean(kv.second));                   
     } else {
       return Status::Invalid("Unexpected query parameter in S3 URI: '", kv.first, "'");
     }
@@ -422,6 +426,7 @@ bool S3Options::Equals(const S3Options& other) const {
           background_writes == other.background_writes &&
           allow_bucket_creation == other.allow_bucket_creation &&
           allow_bucket_deletion == other.allow_bucket_deletion &&
+          allow_container_deletion == other.allow_container_deletion &&
           default_metadata_equals && GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
           GetSessionToken() == other.GetSessionToken());
@@ -449,6 +454,7 @@ struct S3Path {
   std::string full_path;
   std::string bucket;
   std::string key;
+  std::string container;
   std::vector<std::string> key_parts;
 
   static Result<S3Path> FromString(const std::string& s) {
@@ -467,6 +473,7 @@ struct S3Path {
     S3Path path;
     path.full_path = std::string(src);
     path.bucket = std::string(src.substr(0, first_sep));
+    path.container = std::string(src.substr(0, first_sep));
     path.key = std::string(src.substr(first_sep + 1));
     path.key_parts = internal::SplitAbstractPath(path.key);
     RETURN_NOT_OK(Validate(path));
@@ -533,7 +540,7 @@ Status NotAFile(const S3Path& path) {
 }
 
 Status ValidateFilePath(const S3Path& path) {
-  if (path.bucket.empty() || path.key.empty()) {
+  if (path.bucket.empty() || path.key.empty() || path.container.empty()) {
     return NotAFile(path);
   }
   return Status::OK();
@@ -1103,6 +1110,7 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
                                                 int64_t length, void* out) {
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
+  req.SetContainer(ToAwsString(path.container));
   req.SetKey(ToAwsString(path.key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
   req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
@@ -2760,7 +2768,29 @@ Future<> S3FileSystem::DeleteDirContentsAsync(const std::string& s, bool missing
 }
 
 Status S3FileSystem::DeleteRootDirContents() {
-  return Status::NotImplemented("Cannot delete all S3 buckets");
+  ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
+
+  if (path.container.empty()) {
+    if (options().allow_container_deletion) {
+      // Loop through all containers and delete them
+      for (auto const& container : impl_->ListContainers()) {
+        ARROW_ASSIGN_OR_RAISE(auto status, impl_->DeleteContainer(container));
+        if (!status.ok()) {
+          return Status::IOError("Failed to delete container ", container, ": ",
+                                  status.ToString());
+        }
+      }
+      return Status::OK();
+    } else {
+      return Status::IOError("Would delete all containers. To enable this, set the ",
+                              "allow_container_deletion option.");
+    }
+  } else {
+    RETURN_NOT_OK(DeleteDirContents(path));
+  }
+
+  // Ensure parent exists after potential implicit deletion
+  return impl_->EnsureParentExists(path);
 }
 
 Status S3FileSystem::DeleteFile(const std::string& s) {

@@ -158,6 +158,9 @@ struct ARROW_EXPORT S3Options {
   /// Whether to allow deletion of buckets
   bool allow_bucket_deletion = false;
 
+  /// Whether to allow deletion of container
+  bool allow_container_deletion = false;
+  
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
