@@ -558,30 +558,28 @@ message SetSessionOptionsRequest {
 
 /*
  * EXPERIMENTAL: The results (individually) of setting a set of session options.
+ *
+ * Option names should only be present in the 
  */
 message SetSessionOptionsResult {
-  enum Status {
+  enum ErrorValue {
     // The status of setting the option is unknown. Servers should avoid using
     // this value (send a NOT_FOUND error if the requested query is
     // not known). Clients can retry the request.
     UNSPECIFIED = 0;
-    // The session option setting completed successfully.
-    OK = 1;
-    // The given session option name was an alias for another option name.
-    OK_MAPPED = 2;
     // The given session option name is invalid.
-    INVALID_NAME = 3;
+    INVALID_NAME = 1;
     // The session option value is invalid.
-    INVALID_VALUE = 4;
+    INVALID_VALUE = 2;
     // The session option cannot be set.
-    ERROR = 5;
+    ERROR = 3;
   }
 
-  message Result {
-    Status status = 1;
+  message Error {
+    ErrorValue value = 1;
   }
   
-  map<string, Result> results = 1;
+  map<string, Error> errors = 1;
 }
 
 /*
