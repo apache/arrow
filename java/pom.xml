@@ -31,7 +31,7 @@
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.10.1</dep.junit.jupiter.version>
-    <dep.slf4j.version>1.7.25</dep.slf4j.version>
+    <dep.slf4j.version>2.0.7</dep.slf4j.version>
     <dep.guava-bom.version>32.1.3-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.100.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.59.0</dep.grpc-bom.version>
@@ -308,7 +308,7 @@
           <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
-            <version>1.7.5</version>
+            <version>${dep.slf4j.version}</version>
           </dependency>
         </dependencies>
         <executions>
@@ -698,7 +698,7 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.13</version>
+      <version>1.3.14</version>
       <scope>test</scope>
     </dependency>
     <dependency>
