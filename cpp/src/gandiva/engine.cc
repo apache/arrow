@@ -484,9 +484,8 @@ void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_ty
                                      const std::vector<llvm::Type*>& args,
                                      void* function_ptr) {
   constexpr bool is_var_arg = false;
-  auto prototype = llvm::FunctionType::get(ret_type, args, is_var_arg);
-  constexpr auto linkage = llvm::GlobalValue::ExternalLinkage;
-  llvm::Function::Create(prototype, linkage, name, module());
+  auto const prototype = llvm::FunctionType::get(ret_type, args, is_var_arg);
+  llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
 
   llvm::orc::MangleAndInterner mangle(lljit_->getExecutionSession(),
                                       lljit_->getDataLayout());

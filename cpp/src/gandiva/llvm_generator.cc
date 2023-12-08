@@ -73,7 +73,7 @@ Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr out
   ValueValidityPairPtr value_validity;
   ARROW_RETURN_NOT_OK(decomposer.Decompose(*expr->root(), &value_validity));
   // Generate the IR function for the decomposed expression.
-  std::unique_ptr<CompiledExpr> compiled_expr(new CompiledExpr(value_validity, output));
+  auto compiled_expr = std::make_unique<CompiledExpr>(value_validity, output);
   std::string fn_name = "expr_" + std::to_string(idx) + "_" +
                         std::to_string(static_cast<int>(selection_vector_mode_));
   if (!cached_) {
