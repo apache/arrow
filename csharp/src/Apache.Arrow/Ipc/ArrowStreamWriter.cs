@@ -977,12 +977,12 @@ namespace Apache.Arrow.Ipc
                 arrayData.Dictionary.EnsureDataType(dictionaryType.ValueType.TypeId);
 
                 IArrowArray dictionary = ArrowArrayFactory.BuildArray(arrayData.Dictionary);
+                WalkChildren(dictionary.Data, ref dictionaryMemo);
 
                 dictionaryMemo ??= new DictionaryMemo();
                 long id = dictionaryMemo.GetOrAssignId(field);
 
                 dictionaryMemo.AddOrReplaceDictionary(id, dictionary);
-                WalkChildren(dictionary.Data, ref dictionaryMemo);
             }
             else
             {

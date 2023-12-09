@@ -215,36 +215,11 @@ namespace Apache.Arrow.Ipc
                 return;
             }
 
-            int index = 0;
-            while (index < _footer.DictionaryCount)
+            foreach (Block block in _footer.Dictionaries)
             {
-                index = await ReadNextDictionaryAsync(index, cancellationToken).ConfigureAwait(false);
+                BaseStream.Position = block.Offset;
+                await ReadMessageAsync(cancellationToken);
             }
-        }
-
-        private async ValueTask<int> ReadNextDictionaryAsync(int index, CancellationToken cancellationToken)
-        {
-            Block block = _footer.Dictionaries[index++];
-            BaseStream.Position = block.Offset;
-            await ReadMessageAsync(async (message, cancellationToken) =>
-            {
-                if (message.HeaderType != Flatbuf.MessageHeader.DictionaryBatch)
-                {
-                    return null;
-                }
-                Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
-
-                long position = BaseStream.Position;
-                while (!DictionaryMemo.CanLoad(dictionaryBatch.Id))
-                {
-                    // recursive load
-                    index = await ReadNextDictionaryAsync(index, cancellationToken);
-                }
-                BaseStream.Position = position;
-                return await CreateArrowObjectAsync(message, cancellationToken);
-            }, cancellationToken).ConfigureAwait(false);
-
-            return index;
         }
 
         private void ReadDictionaries()
@@ -254,36 +229,11 @@ namespace Apache.Arrow.Ipc
                 return;
             }
 
-            int index = 0;
-            while (index < _footer.DictionaryCount)
+            foreach (Block block in _footer.Dictionaries)
             {
-                index = ReadNextDictionary(index);
+                BaseStream.Position = block.Offset;
+                ReadMessage();
             }
-        }
-
-        private int ReadNextDictionary(int index)
-        {
-            Block block = _footer.Dictionaries[index++];
-            BaseStream.Position = block.Offset;
-            ReadMessage(message =>
-            {
-                if (message.HeaderType != Flatbuf.MessageHeader.DictionaryBatch)
-                {
-                    return null;
-                }
-                Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
-
-                long position = BaseStream.Position;
-                while (!DictionaryMemo.CanLoad(dictionaryBatch.Id))
-                {
-                    // recursive load
-                    index = ReadNextDictionary(index);
-                }
-                BaseStream.Position = position;
-                return CreateArrowObject(message);
-            });
-
-            return index;
         }
 
         /// <summary>

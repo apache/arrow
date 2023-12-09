@@ -43,6 +43,7 @@ namespace Apache.Arrow.IntegrationTest
                 "json-to-arrow" => JsonToArrow,
                 "stream-to-file" => StreamToFile,
                 "file-to-stream" => FileToStream,
+                "round-trip-json-arrow" => RoundTripJsonArrow,
                 _ => () =>
                 {
                     Console.WriteLine($"Mode '{Mode}' is not supported.");
@@ -50,6 +51,14 @@ namespace Apache.Arrow.IntegrationTest
                 }
             };
             return await commandDelegate();
+        }
+
+        private async Task<int> RoundTripJsonArrow()
+        {
+            int status = await JsonToArrow();
+            if (status != 0) { return status; }
+
+            return await Validate();
         }
 
         private async Task<int> Validate()

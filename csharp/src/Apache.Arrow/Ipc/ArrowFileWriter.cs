@@ -195,7 +195,7 @@ namespace Apache.Arrow.Ipc
             int dictionaryCount = DictionaryBlocks?.Count ?? 0;
             Flatbuf.Footer.StartDictionariesVector(Builder, dictionaryCount);
 
-            for (int i = 0; i < dictionaryCount; i++)
+            for (int i = dictionaryCount - 1; i >= 0; i--)
             {
                 Block dictionary = DictionaryBlocks[i];
                 Flatbuf.Block.CreateBlock(
@@ -262,7 +262,7 @@ namespace Apache.Arrow.Ipc
             int dictionaryCount = DictionaryBlocks?.Count ?? 0;
             Flatbuf.Footer.StartDictionariesVector(Builder, dictionaryCount);
 
-            for (int i = 0; i < dictionaryCount; i++)
+            for (int i = dictionaryCount - 1; i >= 0; i--)
             {
                 Block dictionary = DictionaryBlocks[i];
                 Flatbuf.Block.CreateBlock(

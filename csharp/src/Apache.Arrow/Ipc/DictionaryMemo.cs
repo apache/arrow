@@ -49,10 +49,7 @@ namespace Apache.Arrow.Ipc
         {
             if (!_idToDictionary.TryGetValue(id, out IArrowArray dictionary))
             {
-                if (!_idToDictionary.TryGetValue(id, out dictionary))
-                {
-                    throw new ArgumentException($"Dictionary with id {id} not found");
-                }
+                throw new ArgumentException($"Dictionary with id {id} not found");
             }
             return dictionary;
         }
@@ -115,50 +112,6 @@ namespace Apache.Arrow.Ipc
             IArrowArray currentDictionary = _idToDictionary[id];
             IArrowArray dictionary = ArrowArrayConcatenator.Concatenate(new List<IArrowArray>{ currentDictionary, deltaDictionary }, allocator);
             AddOrReplaceDictionary(id, dictionary);
-        }
-
-        // Returns true if the corresponding dictionaries have been loaded
-        public bool CanLoad(long id)
-        {
-            IArrowType type = GetDictionaryType(id);
-            if (type is NestedType)
-            {
-                NestedTypeVisitor visitor = new NestedTypeVisitor(this);
-                type.Accept(visitor);
-                return visitor.CanLoad;
-            }
-
-            return true;
-        }
-
-        private sealed class NestedTypeVisitor : IArrowTypeVisitor<NestedType>
-        {
-            private readonly DictionaryMemo _memo;
-            public bool CanLoad { get; private set; }
-
-            public NestedTypeVisitor(DictionaryMemo memo)
-            {
-                _memo = memo;
-                CanLoad = true;
-            }
-
-            public void Visit(NestedType type)
-            {
-                foreach (Field field in type.Fields)
-                {
-                    if (field.DataType is DictionaryType && (
-                        !_memo._fieldToId.TryGetValue(field, out long id) ||
-                        !_memo._idToDictionary.TryGetValue(id, out IArrowArray array)))
-                    {
-                        CanLoad = false;
-                        break;
-                    }
-
-                    field.DataType.Accept(this);
-                }
-            }
-
-            public void Visit(IArrowType type) { }
         }
     }
 }

@@ -60,15 +60,13 @@ namespace Apache.Arrow.Ipc
             ReadResult result = default;
             do
             {
-                result = await ReadMessageAsync(CreateArrowObjectAsync, cancellationToken).ConfigureAwait(false);
+                result = await ReadMessageAsync(cancellationToken).ConfigureAwait(false);
             } while (result.Batch == null && result.MessageLength > 0);
 
             return result.Batch;
         }
 
-        protected async ValueTask<ReadResult> ReadMessageAsync(
-            Func<Flatbuf.Message, CancellationToken, ValueTask<RecordBatch>> ctor,
-            CancellationToken cancellationToken)
+        protected async ValueTask<ReadResult> ReadMessageAsync(CancellationToken cancellationToken)
         {
             int messageLength = await ReadMessageLengthAsync(throwOnFullRead: false, cancellationToken)
                 .ConfigureAwait(false);
@@ -88,24 +86,19 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                result = await ctor(message, cancellationToken);
+                int bodyLength = checked((int)message.BodyLength);
+
+                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
+                    .ConfigureAwait(false);
+                EnsureFullRead(bodyBuff, bytesRead);
+
+                Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
             }).ConfigureAwait(false);
 
             return new ReadResult(messageLength, result);
-        }
-
-        protected async ValueTask<RecordBatch> CreateArrowObjectAsync(Flatbuf.Message message, CancellationToken cancellationToken = default)
-        {
-            int bodyLength = checked((int)message.BodyLength);
-
-            IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-            Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-            int bytesRead = await BaseStream.ReadFullBufferAsync(bodyBuff, cancellationToken)
-                .ConfigureAwait(false);
-            EnsureFullRead(bodyBuff, bytesRead);
-
-            Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-            return CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
         }
 
         protected RecordBatch ReadRecordBatch()
@@ -115,13 +108,13 @@ namespace Apache.Arrow.Ipc
             ReadResult result = default;
             do
             {
-                result = ReadMessage(CreateArrowObject);
+                result = ReadMessage();
             } while (result.Batch == null && result.MessageLength > 0);
 
             return result.Batch;
         }
 
-        protected ReadResult ReadMessage(Func<Flatbuf.Message, RecordBatch> ctor)
+        protected ReadResult ReadMessage()
         {
             int messageLength = ReadMessageLength(throwOnFullRead: false);
 
@@ -139,23 +132,18 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                result = ctor(message);
+                int bodyLength = checked((int)message.BodyLength);
+
+                IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
+                Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
+                bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
+                EnsureFullRead(bodyBuff, bytesRead);
+
+                Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
             });
 
             return new ReadResult(messageLength, result);
-        }
-
-        protected RecordBatch CreateArrowObject(Flatbuf.Message message)
-        {
-            int bodyLength = checked((int)message.BodyLength);
-
-            IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
-            Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
-            int bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
-            EnsureFullRead(bodyBuff, bytesRead);
-
-            Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
-            return CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
         }
 
         protected virtual async ValueTask ReadSchemaAsync()
