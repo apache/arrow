@@ -502,7 +502,7 @@ namespace Apache.Arrow.Ipc
         private protected void WriteDictionaries(DictionaryMemo dictionaryMemo)
         {
             int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
-            for (int i = 1; i <= fieldCount; i++)
+            for (int i = 0; i < fieldCount; i++)
             {
                 WriteDictionary(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i));
             }
@@ -526,7 +526,7 @@ namespace Apache.Arrow.Ipc
         private protected async Task WriteDictionariesAsync(DictionaryMemo dictionaryMemo, CancellationToken cancellationToken)
         {
             int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
-            for (int i = 1; i <= fieldCount; i++)
+            for (int i = 0; i < fieldCount; i++)
             {
                 await WriteDictionaryAsync(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i), cancellationToken).ConfigureAwait(false);
             }

@@ -96,7 +96,7 @@ namespace Apache.Arrow.Ipc
         {
             if (!_fieldToId.TryGetValue(field, out long id))
             {
-                id = _fieldToId.Count + 1;
+                id = _fieldToId.Count;
                 AddField(id, field);
             }
             return id;

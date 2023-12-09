@@ -61,6 +61,22 @@ namespace Apache.Arrow.IntegrationTest
             return schema;
         }
 
+        /// <summary>
+        /// Return both the schema and a specific batch number.
+        /// This method is used by C Data Interface integration testing.
+        /// </summary>
+        public Schema ToArrow(int batchNumber, out RecordBatch batch)
+        {
+            Schema schema = Schema.ToArrow(out Dictionary<DictionaryType, int> dictionaryIndexes);
+
+            Func<DictionaryType, IArrowArray> lookup = null;
+            lookup = type => Dictionaries.Single(d => d.Id == dictionaryIndexes[type]).Data.ToArrow(type.ValueType, lookup);
+
+            batch = Batches[batchNumber].ToArrow(schema, lookup);
+
+            return schema;
+        }
+
         private static JsonSerializerOptions GetJsonOptions()
         {
             JsonSerializerOptions options = new JsonSerializerOptions()
@@ -364,15 +380,6 @@ namespace Apache.Arrow.IntegrationTest
         public RecordBatch ToArrow(Schema schema, Func<DictionaryType, IArrowArray> dictionaries)
         {
             return CreateRecordBatch(schema, dictionaries, this);
-        }
-
-        /// <summary>
-        /// Decode this JSON record batch as a RecordBatch instance without supporting dictionaries.
-        /// This method is used by C Data Interface integration testing.
-        /// </summary>
-        public RecordBatch ToArrow(Schema schema)
-        {
-            return CreateRecordBatch(schema, _ => throw new NotImplementedException(), this);
         }
 
         public IArrowArray ToArrow(IArrowType arrowType, Func<DictionaryType, IArrowArray> dictionaries)
