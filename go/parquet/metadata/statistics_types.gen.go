@@ -67,7 +67,7 @@ func NewInt32Statistics(descr *schema.Column, mem memory.Allocator) *Int32Statis
 	}
 }
 
-// NewInt32StatisticsFromEncoded will construct a propertly typed statistics object
+// NewInt32StatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewInt32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Int32Statistics {
 	ret := NewInt32Statistics(descr, mem)
@@ -367,7 +367,7 @@ func NewInt64Statistics(descr *schema.Column, mem memory.Allocator) *Int64Statis
 	}
 }
 
-// NewInt64StatisticsFromEncoded will construct a propertly typed statistics object
+// NewInt64StatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewInt64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Int64Statistics {
 	ret := NewInt64Statistics(descr, mem)
@@ -667,7 +667,7 @@ func NewInt96Statistics(descr *schema.Column, mem memory.Allocator) *Int96Statis
 	}
 }
 
-// NewInt96StatisticsFromEncoded will construct a propertly typed statistics object
+// NewInt96StatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewInt96StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Int96Statistics {
 	ret := NewInt96Statistics(descr, mem)
@@ -952,7 +952,7 @@ func NewFloat32Statistics(descr *schema.Column, mem memory.Allocator) *Float32St
 	}
 }
 
-// NewFloat32StatisticsFromEncoded will construct a propertly typed statistics object
+// NewFloat32StatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewFloat32StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Float32Statistics {
 	ret := NewFloat32Statistics(descr, mem)
@@ -1251,7 +1251,7 @@ func NewFloat64Statistics(descr *schema.Column, mem memory.Allocator) *Float64St
 	}
 }
 
-// NewFloat64StatisticsFromEncoded will construct a propertly typed statistics object
+// NewFloat64StatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewFloat64StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Float64Statistics {
 	ret := NewFloat64Statistics(descr, mem)
@@ -1550,7 +1550,7 @@ func NewBooleanStatistics(descr *schema.Column, mem memory.Allocator) *BooleanSt
 	}
 }
 
-// NewBooleanStatisticsFromEncoded will construct a propertly typed statistics object
+// NewBooleanStatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewBooleanStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *BooleanStatistics {
 	ret := NewBooleanStatistics(descr, mem)
@@ -1838,7 +1838,7 @@ func NewByteArrayStatistics(descr *schema.Column, mem memory.Allocator) *ByteArr
 	}
 }
 
-// NewByteArrayStatisticsFromEncoded will construct a propertly typed statistics object
+// NewByteArrayStatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *ByteArrayStatistics {
 	ret := NewByteArrayStatistics(descr, mem)
@@ -2149,7 +2149,7 @@ func NewFixedLenByteArrayStatistics(descr *schema.Column, mem memory.Allocator) 
 	}
 }
 
-// NewFixedLenByteArrayStatisticsFromEncoded will construct a propertly typed statistics object
+// NewFixedLenByteArrayStatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewFixedLenByteArrayStatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *FixedLenByteArrayStatistics {
 	ret := NewFixedLenByteArrayStatistics(descr, mem)
@@ -2470,7 +2470,7 @@ func NewFloat16Statistics(descr *schema.Column, mem memory.Allocator) *Float16St
 	}
 }
 
-// NewFloat16StatisticsFromEncoded will construct a propertly typed statistics object
+// NewFloat16StatisticsFromEncoded will construct a properly typed statistics object
 // initializing it with the provided information.
 func NewFloat16StatisticsFromEncoded(descr *schema.Column, mem memory.Allocator, nvalues int64, encoded StatProvider) *Float16Statistics {
 	ret := NewFloat16Statistics(descr, mem)

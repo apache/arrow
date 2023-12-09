@@ -745,7 +745,7 @@ void DictEncoderImpl<ByteArrayType>::Put(const ::arrow::Array& values) {
 template <typename DType>
 void AssertCanPutDictionary(DictEncoderImpl<DType>* encoder, const ::arrow::Array& dict) {
   if (dict.null_count() > 0) {
-    throw ParquetException("Inserted dictionary cannot cannot contain nulls");
+    throw ParquetException("Inserted dictionary cannot contain nulls");
   }
 
   if (encoder->num_entries() > 0) {
@@ -1196,24 +1196,40 @@ struct ArrowBinaryHelper<ByteArrayType> {
         chunk_space_remaining_(::arrow::kBinaryMemoryLimit -
                                acc_->builder->value_data_length()) {}
 
+  // Prepare will reserve the number of entries remaining in the current chunk.
+  // If estimated_data_length is provided, it will also reserve the estimated data length,
+  // and the caller should better call `UnsafeAppend` instead of `Append` to avoid
+  // double-checking the data length.
   Status Prepare(std::optional<int64_t> estimated_data_length = {}) {
     RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
     if (estimated_data_length.has_value()) {
       RETURN_NOT_OK(acc_->builder->ReserveData(
-          std::min<int64_t>(*estimated_data_length, ::arrow::kBinaryMemoryLimit)));
+          std::min<int64_t>(*estimated_data_length, this->chunk_space_remaining_)));
     }
     return Status::OK();
   }
 
-  Status PrepareNextInput(int64_t next_value_length,
-                          std::optional<int64_t> estimated_remaining_data_length = {}) {
+  Status PrepareNextInput(int64_t next_value_length) {
     if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
       // This element would exceed the capacity of a chunk
       RETURN_NOT_OK(PushChunk());
       RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
-      if (estimated_remaining_data_length.has_value()) {
+    }
+    return Status::OK();
+  }
+
+  // If estimated_remaining_data_length is provided, it will also reserve the estimated
+  // data length, and the caller should better call `UnsafeAppend` instead of
+  // `Append` to avoid double-checking the data length.
+  Status PrepareNextInput(int64_t next_value_length,
+                          int64_t estimated_remaining_data_length) {
+    if (ARROW_PREDICT_FALSE(!CanFit(next_value_length))) {
+      // This element would exceed the capacity of a chunk
+      RETURN_NOT_OK(PushChunk());
+      RETURN_NOT_OK(acc_->builder->Reserve(entries_remaining_));
+      if (estimated_remaining_data_length) {
         RETURN_NOT_OK(acc_->builder->ReserveData(
-            std::min<int64_t>(*estimated_remaining_data_length, chunk_space_remaining_)));
+            std::min<int64_t>(estimated_remaining_data_length, chunk_space_remaining_)));
       }
     }
     return Status::OK();
@@ -1271,8 +1287,10 @@ struct ArrowBinaryHelper<FLBAType> {
     return acc_->Reserve(entries_remaining_);
   }
 
+  Status PrepareNextInput(int64_t next_value_length) { return Status::OK(); }
+
   Status PrepareNextInput(int64_t next_value_length,
-                          std::optional<int64_t> estimated_remaining_data_length = {}) {
+                          int64_t estimated_remaining_data_length) {
     return Status::OK();
   }
 
@@ -1915,6 +1933,9 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int32_t indices[kBufferSize];
 
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
+    // The `len_` in the ByteArrayDictDecoder is the total length of the
+    // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
+    // space for binary data.
     RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
@@ -1983,7 +2004,10 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
     int values_decoded = 0;
 
     ArrowBinaryHelper<ByteArrayType> helper(out, num_values);
-    RETURN_NOT_OK(helper.Prepare(len_));
+    // The `len_` in the ByteArrayDictDecoder is the total length of the
+    // RLE/Bit-pack encoded data size, so, we cannot use `len_` to reserve
+    // space for binary data.
+    RETURN_NOT_OK(helper.Prepare());
 
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 

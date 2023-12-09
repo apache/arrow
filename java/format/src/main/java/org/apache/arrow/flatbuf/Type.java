@@ -23,6 +23,7 @@ package org.apache.arrow.flatbuf;
  * Top-level Type value, enabling extensible type-specific metadata. We can
  * add new logical types to Type without breaking backwards compatibility
  */
+@SuppressWarnings("unused")
 public final class Type {
   private Type() { }
   public static final byte NONE = 0;

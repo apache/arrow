@@ -487,7 +487,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def total_compressed_size(self):
-        """Compresssed size in bytes (int)."""
+        """Compressed size in bytes (int)."""
         return self.metadata.total_compressed_size()
 
     @property
@@ -1183,7 +1183,8 @@ cdef class ParquetReader(_Weakrefable):
              coerce_int96_timestamp_unit=None,
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
-             thrift_container_size_limit=None):
+             thrift_container_size_limit=None,
+             page_checksum_verification=False):
         """
         Open a parquet file for reading.
 
@@ -1199,6 +1200,7 @@ cdef class ParquetReader(_Weakrefable):
         decryption_properties : FileDecryptionProperties, optional
         thrift_string_size_limit : int, optional
         thrift_container_size_limit : int, optional
+        page_checksum_verification : bool, default False
         """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
@@ -1235,6 +1237,8 @@ cdef class ParquetReader(_Weakrefable):
                 decryption_properties.unwrap())
 
         arrow_props.set_pre_buffer(pre_buffer)
+
+        properties.set_page_checksum_verification(page_checksum_verification)
 
         if coerce_int96_timestamp_unit is None:
             # use the default defined in default_arrow_reader_properties()
@@ -1559,7 +1563,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         FileEncryptionProperties encryption_properties=None,
         write_batch_size=None,
         dictionary_pagesize_limit=None,
-        write_page_index=False) except *:
+        write_page_index=False,
+        write_page_checksum=False) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1650,7 +1655,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         if use_byte_stream_split:
             if column_encoding is not None:
                 raise ValueError(
-                    "'use_byte_stream_split' can not be passed"
+                    "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
             else:
                 props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
@@ -1662,7 +1667,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 column_encoding[column] = 'BYTE_STREAM_SPLIT'
             else:
                 raise ValueError(
-                    "'use_byte_stream_split' can not be passed"
+                    "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
 
     # column_encoding
@@ -1702,6 +1707,13 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # is smaller) when calling write_table.  If the call to write_table uses
     # a size larger than this then it will be latched to this value.
     props.max_row_group_length(_MAX_ROW_GROUP_SIZE)
+
+    # checksum
+
+    if write_page_checksum:
+        props.enable_page_checksum()
+    else:
+        props.disable_page_checksum()
 
     # page index
 
@@ -1822,7 +1834,8 @@ cdef class ParquetWriter(_Weakrefable):
                   write_batch_size=None,
                   dictionary_pagesize_limit=None,
                   store_schema=True,
-                  write_page_index=False):
+                  write_page_index=False,
+                  write_page_checksum=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1853,7 +1866,8 @@ cdef class ParquetWriter(_Weakrefable):
             encryption_properties=encryption_properties,
             write_batch_size=write_batch_size,
             dictionary_pagesize_limit=dictionary_pagesize_limit,
-            write_page_index=write_page_index
+            write_page_index=write_page_index,
+            write_page_checksum=write_page_checksum
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

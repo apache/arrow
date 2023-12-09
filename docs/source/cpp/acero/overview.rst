@@ -58,7 +58,7 @@ A Library for Data Scientists
 Acero is not intended to be used directly by data scientists.  It is expected that
 end users will typically be using some kind of frontend.  For example, Pandas, Ibis,
 or SQL.  The API for Acero is focused around capabilities and available algorithms.
-However, such users may be intersted in knowing more about how Acero works so that
+However, such users may be interested in knowing more about how Acero works so that
 they can better understand how the backend processing for their libraries operates.
 
 A Database
@@ -149,7 +149,7 @@ strings to uppercase strings would not be a part of the core Arrow library becau
 require examining the contents of the array.
 
 The compute module expands on the core library and provides functions which analyze and
-transform data.  The compute module's capabilites are all exposed via a function registry.
+transform data.  The compute module's capabilities are all exposed via a function registry.
 An Arrow "function" accepts zero or more arrays, batches, or tables, and produces an array,
 batch, or table.  In addition, function calls can be combined, along with field references
 and literals, to form an expression (a tree of function calls) which the compute module can

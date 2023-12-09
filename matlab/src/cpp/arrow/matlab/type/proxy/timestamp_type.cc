@@ -48,7 +48,7 @@ namespace arrow::matlab::type::proxy {
         const std::u16string& utf16_timeunit = timeunit_mda[0];
         MATLAB_ASSIGN_OR_ERROR(const auto timeunit,
                                arrow::matlab::type::timeUnitFromString(utf16_timeunit),
-                               error::UKNOWN_TIME_UNIT_ERROR_ID);
+                               error::UNKNOWN_TIME_UNIT_ERROR_ID);
 
         auto type = arrow::timestamp(timeunit, timezone);
         auto time_type = std::static_pointer_cast<arrow::TimestampType>(type);

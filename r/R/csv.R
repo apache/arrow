@@ -76,7 +76,7 @@
 #'
 #' Note that if you are specifying column names, whether by `schema` or
 #' `col_names`, and the CSV file has a header row that would otherwise be used
-#' to idenfity column names, you'll need to add `skip = 1` to skip that row.
+#' to identify column names, you'll need to add `skip = 1` to skip that row.
 #'
 #' @param file A character file name or URI, literal data (either a single string or a [raw] vector),
 #' an Arrow input stream, or a `FileSystem` with path (`SubTreeFileSystem`).

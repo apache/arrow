@@ -73,16 +73,16 @@ class TypedComparator : public Comparator {
 
   /// \brief Scalar comparison of two elements, return true if first
   /// is strictly less than the second
-  virtual bool Compare(const T& a, const T& b) = 0;
+  virtual bool Compare(const T& a, const T& b) const = 0;
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements without any nulls
-  virtual std::pair<T, T> GetMinMax(const T* values, int64_t length) = 0;
+  virtual std::pair<T, T> GetMinMax(const T* values, int64_t length) const = 0;
 
   /// \brief Compute minimum and maximum elements from an Arrow array. Only
   /// valid for certain Parquet Type / Arrow Type combinations, like BYTE_ARRAY
   /// / arrow::BinaryArray
-  virtual std::pair<T, T> GetMinMax(const ::arrow::Array& values) = 0;
+  virtual std::pair<T, T> GetMinMax(const ::arrow::Array& values) const = 0;
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements with accompanying bitmap indicating which elements are
@@ -96,7 +96,7 @@ class TypedComparator : public Comparator {
   /// the first element in the sequence
   virtual std::pair<T, T> GetMinMaxSpaced(const T* values, int64_t length,
                                           const uint8_t* valid_bits,
-                                          int64_t valid_bits_offset) = 0;
+                                          int64_t valid_bits_offset) const = 0;
 };
 
 /// \brief Typed version of Comparator::Make
@@ -205,7 +205,7 @@ class PARQUET_EXPORT Statistics {
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// \brief Create a new statistics instance given a column schema
-  /// definition and pre-existing state
+  /// definition and preexisting state
   /// \param[in] descr the column schema
   /// \param[in] encoded_min the encoded minimum value
   /// \param[in] encoded_max the encoded maximum value

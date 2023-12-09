@@ -182,7 +182,7 @@ def has_function(fns, ext_file, fn_name):
 
 def test_get_supported_functions():
     supported_functions = pa._substrait.get_supported_functions()
-    # It probably doesn't make sense to exhaustively verfiy this list but
+    # It probably doesn't make sense to exhaustively verify this list but
     # we can check a sample aggregate and a sample non-aggregate entry
     assert has_function(supported_functions,
                         'functions_arithmetic.yaml', 'add')

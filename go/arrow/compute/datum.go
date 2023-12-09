@@ -250,7 +250,7 @@ func (d *TableDatum) Equals(other Datum) bool {
 // an array.Table gets a TableDatum
 // a scalar.Scalar gets a ScalarDatum
 //
-// Anything else is passed to scalar.MakeScalar and recieves a scalar
+// Anything else is passed to scalar.MakeScalar and receives a scalar
 // datum of that appropriate type.
 func NewDatum(value interface{}) Datum {
 	switch v := value.(type) {

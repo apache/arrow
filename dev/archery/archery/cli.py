@@ -42,7 +42,7 @@ logging.basicConfig(level=logging.INFO)
 BOOL = ArrowBool()
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--debug", type=BOOL, is_flag=True, default=False,
               help="Increase logging with debugging output.")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
@@ -167,7 +167,7 @@ def _apply_options(cmd, options):
 @click.option("--with-hdfs", default=None, type=BOOL,
               help="Build the Arrow HDFS bridge.")
 @click.option("--with-hiveserver2", default=None, type=BOOL,
-              help="Build the HiveServer2 client and arrow adapater.")
+              help="Build the HiveServer2 client and arrow adapter.")
 @click.option("--with-ipc", default=None, type=BOOL,
               help="Build the Arrow IPC extensions.")
 @click.option("--with-json", default=None, type=BOOL,
@@ -177,7 +177,7 @@ def _apply_options(cmd, options):
 @click.option("--with-parquet", default=None, type=BOOL,
               help="Build with Parquet file support.")
 @click.option("--with-python", default=None, type=BOOL,
-              help="Build the Arrow CPython extesions.")
+              help="Build the Arrow CPython extensions.")
 @click.option("--with-r", default=None, type=BOOL,
               help="Build the Arrow R extensions. This is not a CMake option, "
               "it will toggle required options")

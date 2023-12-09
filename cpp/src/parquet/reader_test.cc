@@ -88,7 +88,7 @@ std::string lz4_raw_compressed_larger() {
   return data_file("lz4_raw_compressed_larger.parquet");
 }
 
-std::string overflow_i16_page_oridinal() {
+std::string overflow_i16_page_ordinal() {
   return data_file("overflow_i16_page_cnt.parquet");
 }
 
@@ -114,6 +114,10 @@ std::string rle_dict_snappy_checksum() {
 
 std::string rle_dict_uncompressed_corrupt_checksum() {
   return data_file("rle-dict-uncompressed-corrupt-checksum.parquet");
+}
+
+std::string concatenated_gzip_members() {
+  return data_file("concatenated_gzip_members.parquet");
 }
 
 // TODO: Assert on definition and repetition levels
@@ -425,7 +429,7 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   ASSERT_FALSE(col->HasNext());
 }
 
-TEST_F(TestAllTypesPlain, RowGroupColumnBoundchecking) {
+TEST_F(TestAllTypesPlain, RowGroupColumnBoundsChecking) {
   // Part of PARQUET-1857
   ASSERT_THROW(reader_->RowGroup(reader_->metadata()->num_row_groups()),
                ParquetException);
@@ -775,6 +779,28 @@ TEST_F(TestCheckDataPageCrc, CorruptDict) {
 
     CheckNextPageCorrupt(page_readers_[1].get());
     EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+  }
+}
+
+TEST(TestGzipMembersRead, TwoConcatenatedMembers) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
+  auto file_reader = ParquetFileReader::OpenFile(concatenated_gzip_members(),
+                                                 /*memory_map=*/false);
+  auto col_reader = std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(
+      file_reader->RowGroup(0)->Column(0));
+  int64_t num_values = 0;
+  int64_t num_repdef = 0;
+  std::vector<int16_t> reps(1024);
+  std::vector<int16_t> defs(1024);
+  std::vector<int64_t> vals(1024);
+
+  num_repdef =
+      col_reader->ReadBatch(1024, defs.data(), reps.data(), vals.data(), &num_values);
+  EXPECT_EQ(num_repdef, 513);
+  for (int64_t i = 0; i < num_repdef; i++) {
+    EXPECT_EQ(i + 1, vals[i]);
   }
 }
 
@@ -1285,7 +1311,7 @@ INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_code
 // INT16_MAX pages. (GH-15074).
 TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
   ReaderProperties reader_props;
-  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_oridinal(),
+  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_ordinal(),
                                                  /*memory_map=*/false, reader_props);
   auto metadata_ptr = file_reader->metadata();
   EXPECT_EQ(1, metadata_ptr->num_row_groups());

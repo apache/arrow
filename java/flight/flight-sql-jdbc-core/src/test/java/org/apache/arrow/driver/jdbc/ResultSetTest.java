@@ -25,10 +25,12 @@ import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -467,6 +469,16 @@ public class ResultSetTest {
         ++rowCount;
       }
       assertEquals(2, rowCount);
+    }
+  }
+
+  @Test
+  public void testResultSetAppMetadata() throws Exception {
+    try (Statement statement = connection.createStatement();
+         ResultSet resultSet = statement.executeQuery(
+             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+      assertArrayEquals(((ArrowFlightJdbcFlightStreamResultSet) resultSet).getAppMetadata(),
+              "foo".getBytes(StandardCharsets.UTF_8));
     }
   }
 }

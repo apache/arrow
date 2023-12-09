@@ -289,6 +289,8 @@ class ParquetFile:
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    page_checksum_verification : bool, default False
+        If True, verify the checksum for each page read from the file.
 
     Examples
     --------
@@ -336,7 +338,8 @@ class ParquetFile:
                  read_dictionary=None, memory_map=False, buffer_size=0,
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
-                 thrift_container_size_limit=None, filesystem=None):
+                 thrift_container_size_limit=None, filesystem=None,
+                 page_checksum_verification=False):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -355,6 +358,7 @@ class ParquetFile:
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            page_checksum_verification=page_checksum_verification,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -833,7 +837,7 @@ use_byte_stream_split : bool or list, default False
     and should be combined with a compression codec.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
-    Can only be used when when ``use_dictionary`` is set to False, and
+    Can only be used when ``use_dictionary`` is set to False, and
     cannot be used in combination with ``use_byte_stream_split``.
     Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT',
     'DELTA_BINARY_PACKED', 'DELTA_LENGTH_BYTE_ARRAY', 'DELTA_BYTE_ARRAY'}.
@@ -896,6 +900,10 @@ write_page_index : bool, default False
     filtering more efficient than the page header, as it gathers all the
     statistics for a Parquet file in a single place, avoiding scattered I/O.
     Note that the page index is not yet used on the read size by PyArrow.
+write_page_checksum : bool, default False
+    Whether to write page checksums in general for all columns.
+    Page checksums enable detection of data corruption, which might occur during
+    transmission or in the storage.
 """
 
 _parquet_writer_example_doc = """\
@@ -989,6 +997,7 @@ Examples
                  dictionary_pagesize_limit=None,
                  store_schema=True,
                  write_page_index=False,
+                 write_page_checksum=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1046,6 +1055,7 @@ Examples
             dictionary_pagesize_limit=dictionary_pagesize_limit,
             store_schema=store_schema,
             write_page_index=write_page_index,
+            write_page_checksum=write_page_checksum,
             **options)
         self.is_open = True
 
@@ -1775,6 +1785,8 @@ thrift_container_size_limit : int, default None
     If not None, override the maximum total size of containers allocated
     when decoding Thrift structures. The default limit should be
     sufficient for most Parquet files.
+page_checksum_verification : bool, default False
+    If True, verify the page checksum for each page read from the file.
 
 Examples
 --------
@@ -1788,7 +1800,8 @@ Examples
                 use_legacy_dataset=None, pre_buffer=True,
                 coerce_int96_timestamp_unit=None,
                 thrift_string_size_limit=None,
-                thrift_container_size_limit=None):
+                thrift_container_size_limit=None,
+                page_checksum_verification=False):
 
         extra_msg = ""
         if use_legacy_dataset is None:
@@ -1821,6 +1834,7 @@ Examples
                 metadata_nthreads=metadata_nthreads,
                 thrift_string_size_limit=thrift_string_size_limit,
                 thrift_container_size_limit=thrift_container_size_limit,
+                page_checksum_verification=page_checksum_verification,
             )
         warnings.warn(
             "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
@@ -1837,7 +1851,8 @@ Examples
                  use_legacy_dataset=None, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  thrift_string_size_limit=None,
-                 thrift_container_size_limit=None):
+                 thrift_container_size_limit=None,
+                 page_checksum_verification=False):
         if partitioning != "hive":
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
@@ -1900,7 +1915,7 @@ Examples
             warnings.warn(
                 "Specifying the 'schema' argument with 'use_legacy_dataset="
                 "True' is deprecated as of pyarrow 8.0.0. You can still "
-                "specify it in combination with 'use_legacy_dataet=False', "
+                "specify it in combination with 'use_legacy_dataset=False', "
                 "but in that case you need to specify a pyarrow.Schema "
                 "instead of a ParquetSchema.",
                 FutureWarning, stacklevel=2)
@@ -2428,6 +2443,7 @@ class _ParquetDatasetV2:
                  coerce_int96_timestamp_unit=None, schema=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
+                 page_checksum_verification=False,
                  **kwargs):
         import pyarrow.dataset as ds
 
@@ -2446,6 +2462,7 @@ class _ParquetDatasetV2:
             "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit,
             "thrift_string_size_limit": thrift_string_size_limit,
             "thrift_container_size_limit": thrift_container_size_limit,
+            "page_checksum_verification": page_checksum_verification,
         }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
@@ -2864,6 +2881,8 @@ thrift_container_size_limit : int, default None
     If not None, override the maximum total size of containers allocated
     when decoding Thrift structures. The default limit should be
     sufficient for most Parquet files.
+page_checksum_verification : bool, default False
+    If True, verify the checksum for each page read from the file.
 
 Returns
 -------
@@ -2958,7 +2977,8 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
                ignore_prefixes=None, pre_buffer=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
-               thrift_container_size_limit=None):
+               thrift_container_size_limit=None,
+               page_checksum_verification=False):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -2982,6 +3002,7 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
                 coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
                 thrift_string_size_limit=thrift_string_size_limit,
                 thrift_container_size_limit=thrift_container_size_limit,
+                page_checksum_verification=page_checksum_verification,
             )
         except ImportError:
             # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -3013,6 +3034,7 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
                 decryption_properties=decryption_properties,
                 thrift_string_size_limit=thrift_string_size_limit,
                 thrift_container_size_limit=thrift_container_size_limit,
+                page_checksum_verification=page_checksum_verification,
             )
 
         return dataset.read(columns=columns, use_threads=use_threads,
@@ -3027,6 +3049,11 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
     if ignore_prefixes is not None:
         raise ValueError(
             "The 'ignore_prefixes' keyword is only supported when "
+            "use_legacy_dataset=False")
+
+    if page_checksum_verification:
+        raise ValueError(
+            "The 'page_checksum_verification' keyword is only supported when "
             "use_legacy_dataset=False")
 
     if schema is not None:
@@ -3110,6 +3137,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 dictionary_pagesize_limit=None,
                 store_schema=True,
                 write_page_index=False,
+                write_page_checksum=False,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -3138,6 +3166,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 dictionary_pagesize_limit=dictionary_pagesize_limit,
                 store_schema=store_schema,
                 write_page_index=write_page_index,
+                write_page_checksum=write_page_checksum,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -3252,13 +3281,13 @@ def write_to_dataset(table, root_path, partition_cols=None,
         passed, the filename will consist of a uuid.
         This option is only supported for use_legacy_dataset=True.
         When use_legacy_dataset=None and this option is specified,
-        use_legacy_datase will be set to True.
+        use_legacy_dataset will be set to True.
     filesystem : FileSystem, default None
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
     use_legacy_dataset : bool
-        Default is False. Set to True to use the the legacy behaviour
+        Default is False. Set to True to use the legacy behaviour
         (this option is deprecated, and the legacy implementation will be
         removed in a future version). The legacy implementation still
         supports the `partition_filename_cb` keyword but is less efficient
@@ -3366,7 +3395,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         else:
             use_legacy_dataset = False
 
-    # Check for conflicting kewords
+    # Check for conflicting keywords
     msg_confl_0 = (
         "The '{0}' argument is not supported by use_legacy_dataset={2}. "
         "Use only '{1}' instead."

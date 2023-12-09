@@ -2388,10 +2388,10 @@ if(ARROW_USE_XSIMD)
   resolve_dependency(xsimd
                      FORCE_ANY_NEWER_VERSION
                      TRUE
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE
                      REQUIRED_VERSION
-                     "8.1.0"
-                     PC_PACKAGE_NAMES
-                     xsimd)
+                     "8.1.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(arrow::xsimd INTERFACE IMPORTED)
@@ -5063,6 +5063,9 @@ if(ARROW_S3)
         string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
       endif()
       string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
+      if(APPLE)
+        string(APPEND ARROW_PC_LIBS_PRIVATE " -framework Security")
+      endif()
     endif()
   endif()
 

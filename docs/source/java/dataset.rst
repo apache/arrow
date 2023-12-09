@@ -149,7 +149,7 @@ ScanOptions:
 
     ScanOptions options = new ScanOptions(32768, Optional.empty());
 
-Or use shortcut construtor:
+Or use shortcut constructor:
 
 .. code-block:: Java
 
@@ -199,7 +199,7 @@ Native Memory Management
 ========================
 
 To gain better performance and reduce code complexity, Java
-``FileSystemDataset`` internally relys on C++
+``FileSystemDataset`` internally relies on C++
 ``arrow::dataset::FileSystemDataset`` via JNI.
 As a result, all Arrow data read from ``FileSystemDataset`` is supposed to be
 allocated off the JVM heap. To manage this part of memory, an utility class

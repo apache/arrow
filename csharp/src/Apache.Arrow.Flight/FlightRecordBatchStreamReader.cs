@@ -38,11 +38,11 @@ namespace Apache.Arrow.Flight
         //Temporary until .NET 5.0 upgrade
         private static ValueTask CompletedValueTask = new ValueTask();
 
-        private readonly RecordBatcReaderImplementation _arrowReaderImplementation;
+        private readonly RecordBatchReaderImplementation _arrowReaderImplementation;
 
         private protected FlightRecordBatchStreamReader(IAsyncStreamReader<Protocol.FlightData> flightDataStream)
         {
-            _arrowReaderImplementation = new RecordBatcReaderImplementation(flightDataStream);
+            _arrowReaderImplementation = new RecordBatchReaderImplementation(flightDataStream);
         }
 
         public ValueTask<Schema> Schema => _arrowReaderImplementation.ReadSchema();
@@ -53,7 +53,7 @@ namespace Apache.Arrow.Flight
         }        
 
         /// <summary>
-        /// Get the application metadata from the latest recieved record batch
+        /// Get the application metadata from the latest received record batch
         /// </summary>
         public IReadOnlyList<ByteString> ApplicationMetadata => _arrowReaderImplementation.ApplicationMetadata;
 

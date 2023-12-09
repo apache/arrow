@@ -623,7 +623,7 @@ class TypeInferrer {
 
     // XXX(wesm): In ARROW-4324 I added accounting to check whether
     // all of the non-null values have NumPy dtypes, but the
-    // total_count not not being properly incremented here
+    // total_count not being properly incremented here
     ++(*list_inferrer_).total_count_;
     return list_inferrer_->VisitDType(dtype, keep_going);
   }

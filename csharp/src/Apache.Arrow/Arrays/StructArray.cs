@@ -72,11 +72,11 @@ namespace Apache.Arrow
 
         IRecordType IArrowRecord.Schema => (StructType)Data.DataType;
 
-        int IArrowRecord.ColumnCount => _fields.Count;
+        int IArrowRecord.ColumnCount => Fields.Count;
 
         IArrowArray IArrowRecord.Column(string columnName, IEqualityComparer<string> comparer) =>
-            _fields[((StructType)Data.DataType).GetFieldIndex(columnName, comparer)];
+            Fields[((StructType)Data.DataType).GetFieldIndex(columnName, comparer)];
 
-        IArrowArray IArrowRecord.Column(int columnIndex) => _fields[columnIndex];
+        IArrowArray IArrowRecord.Column(int columnIndex) => Fields[columnIndex];
     }
 }

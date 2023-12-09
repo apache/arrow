@@ -774,8 +774,11 @@ TEST_F(TestPrettyPrint, BinaryNoNewlines) {
   CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
 }
 
-TEST_F(TestPrettyPrint, ListType) {
-  auto list_type = list(int64());
+template <typename TypeClass>
+void TestPrettyPrintVarLengthListLike() {
+  using LargeTypeClass = typename TypeTraits<TypeClass>::LargeType;
+  auto var_list_type = std::make_shared<TypeClass>(int64());
+  auto var_large_list_type = std::make_shared<LargeTypeClass>(int64());
 
   static const char* ex = R"expected([
   [
@@ -836,7 +839,7 @@ TEST_F(TestPrettyPrint, ListType) {
   ]
 ])expected";
 
-  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  auto array = ArrayFromJSON(var_list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
   auto make_options = [](int indent, int window, int container_window) {
     auto options = PrettyPrintOptions(indent, window);
     options.container_window = container_window;
@@ -850,8 +853,7 @@ TEST_F(TestPrettyPrint, ListType) {
               ex_3);
   CheckArray(*array, {0, 10}, ex_4);
 
-  list_type = large_list(int64());
-  array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
+  array = ArrayFromJSON(var_large_list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/5),
               ex);
   CheckStream(*array, make_options(/*indent=*/2, /*window=*/10, /*container_window=*/5),
@@ -859,6 +861,93 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/1),
               ex_3);
   CheckArray(*array, {0, 10}, ex_4);
+}
+
+TEST_F(TestPrettyPrint, ListType) { TestPrettyPrintVarLengthListLike<arrow::ListType>(); }
+
+template <typename ListViewType>
+void TestListViewSpecificPrettyPrinting() {
+  using ArrayType = typename TypeTraits<ListViewType>::ArrayType;
+  using OffsetType = typename TypeTraits<ListViewType>::OffsetType;
+
+  auto string_values = ArrayFromJSON(utf8(), R"(["Hello", "World", null])");
+  auto int32_values = ArrayFromJSON(int32(), "[1, 20, 3]");
+  auto int16_values = ArrayFromJSON(int16(), "[10, 2, 30]");
+
+  auto Offsets = [](std::string_view json) {
+    return ArrayFromJSON(TypeTraits<OffsetType>::type_singleton(), json);
+  };
+  auto Sizes = Offsets;
+
+  ASSERT_OK_AND_ASSIGN(auto int_list_view_array,
+                       ArrayType::FromArrays(*Offsets("[0, 0, 1, 2]"),
+                                             *Sizes("[2, 1, 1, 1]"), *int32_values));
+  ASSERT_OK(int_list_view_array->ValidateFull());
+  static const char* ex1 =
+      "[\n"
+      "  [\n"
+      "    1,\n"
+      "    20\n"
+      "  ],\n"
+      "  [\n"
+      "    1\n"
+      "  ],\n"
+      "  [\n"
+      "    20\n"
+      "  ],\n"
+      "  [\n"
+      "    3\n"
+      "  ]\n"
+      "]";
+  CheckStream(*int_list_view_array, {}, ex1);
+
+  ASSERT_OK_AND_ASSIGN(auto string_list_view_array,
+                       ArrayType::FromArrays(*Offsets("[0, 0, 1, 2]"),
+                                             *Sizes("[2, 1, 1, 1]"), *string_values));
+  ASSERT_OK(string_list_view_array->ValidateFull());
+  static const char* ex2 =
+      "[\n"
+      "  [\n"
+      "    \"Hello\",\n"
+      "    \"World\"\n"
+      "  ],\n"
+      "  [\n"
+      "    \"Hello\"\n"
+      "  ],\n"
+      "  [\n"
+      "    \"World\"\n"
+      "  ],\n"
+      "  [\n"
+      "    null\n"
+      "  ]\n"
+      "]";
+  CheckStream(*string_list_view_array, {}, ex2);
+
+  auto sliced_array = string_list_view_array->Slice(1, 2);
+  static const char* ex3 =
+      "[\n"
+      "  [\n"
+      "    \"Hello\"\n"
+      "  ],\n"
+      "  [\n"
+      "    \"World\"\n"
+      "  ]\n"
+      "]";
+  CheckStream(*sliced_array, {}, ex3);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto empty_array,
+      ArrayType::FromArrays(*Offsets("[]"), *Sizes("[]"), *int16_values));
+  ASSERT_OK(empty_array->ValidateFull());
+  static const char* ex4 = "[]";
+  CheckStream(*empty_array, {}, ex4);
+}
+
+TEST_F(TestPrettyPrint, ListViewType) {
+  TestPrettyPrintVarLengthListLike<arrow::ListViewType>();
+
+  TestListViewSpecificPrettyPrinting<arrow::ListViewType>();
+  TestListViewSpecificPrettyPrinting<arrow::LargeListViewType>();
 }
 
 TEST_F(TestPrettyPrint, ListTypeNoNewlines) {

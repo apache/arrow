@@ -459,7 +459,7 @@ register_bindings_datetime_timezone <- function() {
         roll_dst[1],
         "error" = 0L,
         "boundary" = 2L,
-        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for non-existent times; other values")
+        arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for nonexistent times; other values")
       )
 
       ambiguous <- switch(
@@ -467,7 +467,7 @@ register_bindings_datetime_timezone <- function() {
         "error" = 0L,
         "pre" = 1L,
         "post" = 2L,
-        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times")
+        arrow_not_supported("`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times")
       )
 
       if (identical(tzone, "")) {

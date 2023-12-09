@@ -136,7 +136,7 @@ TEST(SplitString, OuterLeftAndOuterRightDelimiter) {
   EXPECT_EQ(parts[4], "");
 }
 
-TEST(SplitString, OnlyDemiliter) {
+TEST(SplitString, OnlyDelimiter) {
   std::string input = ":";
   auto parts = SplitString(input, ':');
   ASSERT_EQ(parts.size(), 2);
