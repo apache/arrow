@@ -86,6 +86,16 @@ namespace Apache.Arrow.IntegrationTest
             return CreateSchema(this, dictionaryIndexes);
         }
 
+        /// <summary>
+        /// Decode this JSON schema as a Schema instance without computing dictionaries.
+        /// This method is used by C Data Interface integration testing.
+        /// </summary>
+        public Schema ToArrow()
+        {
+            Dictionary<DictionaryType, int> dictionaryIndexes = new Dictionary<DictionaryType, int>();
+            return CreateSchema(this, dictionaryIndexes);
+        }
+
         private static Schema CreateSchema(JsonSchema jsonSchema, Dictionary<DictionaryType, int> dictionaryIndexes)
         {
             Schema.Builder builder = new Schema.Builder();
@@ -354,6 +364,15 @@ namespace Apache.Arrow.IntegrationTest
         public RecordBatch ToArrow(Schema schema, Func<DictionaryType, IArrowArray> dictionaries)
         {
             return CreateRecordBatch(schema, dictionaries, this);
+        }
+
+        /// <summary>
+        /// Decode this JSON record batch as a RecordBatch instance without supporting dictionaries.
+        /// This method is used by C Data Interface integration testing.
+        /// </summary>
+        public RecordBatch ToArrow(Schema schema)
+        {
+            return CreateRecordBatch(schema, _ => throw new NotImplementedException(), this);
         }
 
         public IArrowArray ToArrow(IArrowType arrowType, Func<DictionaryType, IArrowArray> dictionaries)
