@@ -113,7 +113,7 @@ TEST_F(TestLLVMGenerator, TestAdd) {
   EXPECT_OK_AND_ASSIGN(auto fn_ptr, generator->engine_->CompiledFunction(fn_name));
   EXPECT_NE(fn_ptr, nullptr);
 
-  auto eval_func = (EvalFunc)fn_ptr;
+  auto eval_func = reinterpret_cast<EvalFunc>(fn_ptr);
   constexpr size_t kNumRecords = 4;
   std::array<uint32_t, kNumRecords> a0{1, 2, 3, 4};
   std::array<uint32_t, kNumRecords> a1{5, 6, 7, 8};

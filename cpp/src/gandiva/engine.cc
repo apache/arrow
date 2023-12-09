@@ -124,7 +124,7 @@ static Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
     jtmb.setCPU(cpu_name.str());
     jtmb.addFeatures(cpu_attrs);
   }
-  auto opt_level =
+  auto const opt_level =
       conf.optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
   jtmb.setCodeGenOptLevel(opt_level);
   return jtmb;
@@ -289,8 +289,8 @@ llvm::Module* Engine::module() {
 
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
-  auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
-                                 kPrecompiledBitcodeSize);
+  auto const bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
+                                       kPrecompiledBitcodeSize);
 
   /// Read from file into memory buffer.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
@@ -312,8 +312,8 @@ Status Engine::LoadPreCompiledIR() {
 }
 
 static llvm::MemoryBufferRef AsLLVMMemoryBuffer(const arrow::Buffer& arrow_buffer) {
-  auto data = reinterpret_cast<const char*>(arrow_buffer.data());
-  auto size = arrow_buffer.size();
+  auto const data = reinterpret_cast<const char*>(arrow_buffer.data());
+  auto const size = arrow_buffer.size();
   return {llvm::StringRef(data, size), "external_bitcode"};
 }
 
