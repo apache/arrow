@@ -102,13 +102,12 @@ glimpse.ArrowTabular <- function(x,
 glimpse.Dataset <- glimpse.ArrowTabular
 
 glimpse.arrow_dplyr_query <- function(x,
-
                                       width = getOption("pillar.width", getOption("width")),
                                       simple = FALSE,
                                       ...) {
 
   # An alternative to glimpse datasets
-  if(simple){
+  if (simple) {
 
     schm <- x$.data$schema
 
@@ -120,13 +119,11 @@ glimpse.arrow_dplyr_query <- function(x,
         name <- expr$field_name
         if (nzchar(name)) {
           schm$GetFieldByName(name)$type$ToString()
-        }
-        else {
+        } else {
           expr$type(schm)$ToString()
         }
 
       })
-
 
     fields <- paste(
       names(col_types),
