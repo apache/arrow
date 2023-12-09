@@ -40,6 +40,7 @@ public class GetSessionOptionsResult {
   }
 
   /**
+   * Get the session options map contained in the request.
    *
    * @return An immutable view of the session options map.
    */

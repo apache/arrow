@@ -19,6 +19,8 @@ package org.apache.arrow.flight;
 
 /**
  * A visitor interface to access SessionOptionValue's contained value.
+ *
+ * @param <T> Return type of the visit operation.
  */
 public interface SessionOptionValueVisitor<T> {
   /**

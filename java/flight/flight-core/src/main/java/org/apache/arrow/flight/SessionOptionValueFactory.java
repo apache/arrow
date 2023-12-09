@@ -42,7 +42,7 @@ public class SessionOptionValueFactory {
   }
 
   public static SessionOptionValue makeSessionOptionValue(double value) {
-   return new SessionOptionValueDouble(value);
+    return new SessionOptionValueDouble(value);
   }
 
   public static SessionOptionValue makeSessionOptionValue(String[] value) {
@@ -50,7 +50,7 @@ public class SessionOptionValueFactory {
   }
 
   public static SessionOptionValue makeSessionOptionValue(Flight.SessionOptionValue proto) {
-    switch(proto.getOptionValueCase()) {
+    switch (proto.getOptionValueCase()) {
       case STRING_VALUE:
         return new SessionOptionValueString(proto.getStringValue());
       case BOOL_VALUE:
@@ -72,88 +72,88 @@ public class SessionOptionValueFactory {
         throw new IllegalArgumentException("");
     }
   }
-}
 
-class SessionOptionValueString extends SessionOptionvalue {
-  private final String value;
+  class SessionOptionValueString extends SessionOptionvalue {
+    private final String value;
 
-  SessionOptionValue(String value) {
-    this.value = value;
+    SessionOptionValue(String value) {
+      this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+      v.visit(value);
+    }
   }
 
-  void acceptVisitor(SessionOptionValueVisitor v) {
-    v.visit(value);
-  }
-}
+  class SessionOptionValueBoolean extends SessionOptionvalue {
+    private final boolean value;
 
-class SessionOptionValueBoolean extends SessionOptionvalue {
-  private final boolean value;
+    SessionOptionValueBoolean(boolean value) {
+      this.value = value;
+    }
 
-  SessionOptionValueBoolean(boolean value) {
-    this.value = value;
-  }
-
-  void acceptVisitor(SessionOptionValueVisitor v) {
-    v.visit(value);
-  }
-}
-
-class SessionOptionValueInt extends SessionOptionvalue {
-  private final int value;
-
-  SessionOptionValueInt(int value) {
-    this.value = value;
+    void acceptVisitor(SessionOptionValueVisitor v) {
+      v.visit(value);
+    }
   }
 
-  void acceptVisitor(SessionOptionValueVisitor v) {
-    v.visit(value);
-  }
-}
+  class SessionOptionValueInt extends SessionOptionvalue {
+    private final int value;
 
-class SessionOptionValueLong extends SessionOptionvalue {
-  private final long value;
+    SessionOptionValueInt(int value) {
+      this.value = value;
+    }
 
-  SessionOptionValueLong(long value) {
-        this.value = value;
-  }
-
-  void acceptVisitor(SessionOptionValueVisitor v) {
-        v.visit(value);
-  }
-}
-
-class SessionOptionValueFloat extends SessionOptionvalue {
-  private final float value;
-
-  SessionOptionValueFloat(Float value) {
-        this.value = value;
+    void acceptVisitor(SessionOptionValueVisitor v) {
+      v.visit(value);
+    }
   }
 
-  void acceptVisitor(SessionOptionValueVisitor v) {
-        v.visit(value);
+  class SessionOptionValueLong extends SessionOptionvalue {
+    private final long value;
+
+    SessionOptionValueLong(long value) {
+      this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+      v.visit(value);
+    }
   }
-}
 
+  class SessionOptionValueFloat extends SessionOptionvalue {
+    private final float value;
 
-class SessionOptionValueDouble extends SessionOptionvalue {
+    SessionOptionValueFloat(Float value) {
+      this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+      v.visit(value);
+    }
+  }
+
+  class SessionOptionValueDouble extends SessionOptionvalue {
     private final double value;
 
-  SessionOptionValueDouble(double value) {
-        this.value = value;
+    SessionOptionValueDouble(double value) {
+      this.value = value;
+    }
+
+    void acceptVisitor(SessionOptionValueVisitor v) {
+      v.visit(value);
+    }
   }
 
-  void acceptVisitor(SessionOptionValueVisitor v) {
-        v.visit(value);
-  }
-}
-class SessionOptionValueStringList extends SessionOptionvalue {
-  private final String[] value;
+  class SessionOptionValueStringList extends SessionOptionvalue {
+    private final String[] value;
 
-  SessionOptionValueStringList(String[] value) {
-        this.value = value.clone();
-  }
+    SessionOptionValueStringList(String[] value) {
+      this.value = value.clone();
+    }
 
-  void acceptVisitor(SessionOptionValueVisitor v) {
-        v.visit(value);
+    void acceptVisitor(SessionOptionValueVisitor v) {
+      v.visit(value);
+    }
   }
 }

@@ -34,47 +34,49 @@ public abstract class SessionOptionValue {
     this.acceptVisitor(visitor);
     return b.build();
   }
-}
 
-class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor<Void> {
-  final Flight.SessionOptionValue.Builder b;
+  private class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor<Void> {
+    final Flight.SessionOptionValue.Builder b;
 
-  SessionOptionValueVisitor(Flight.SessionOptionValue.Builder b) { this.b = b; }
+    SessionOptionValueVisitor(Flight.SessionOptionValue.Builder b) {
+      this.b = b;
+    }
 
-  Void visit(String value) {
-    b.setStringValue(value);
-    return null;
-  }
+    Void visit(String value) {
+      b.setStringValue(value);
+      return null;
+    }
 
-  Void visit(boolean value) {
-    b.setBoolValue(value);
-    return null;
-  }
+    Void visit(boolean value) {
+      b.setBoolValue(value);
+      return null;
+    }
 
-  Void visit(int value) {
-    b.setIn32Value(value);
-    return null;
-  }
+    Void visit(int value) {
+      b.setIn32Value(value);
+      return null;
+    }
 
-  Void visit(long value) {
-    b.setInt64Value(value);
-    return null;
-  }
+    Void visit(long value) {
+      b.setInt64Value(value);
+      return null;
+    }
 
-  Void visit(float value) {
-    b.setFloatValue(value);
-    return null;
-  }
+    Void visit(float value) {
+      b.setFloatValue(value);
+      return null;
+    }
 
-  Void visit(double value) {
-    b.setDoubleValue(value);
-    return null;
-  }
+    Void visit(double value) {
+      b.setDoubleValue(value);
+      return null;
+    }
 
-  Void visit(String[] value) {
-    Flight.SessionOptionValue.StringListValue pbValue;
-    pbValue.addAllStringValues(value);
-    b.setValue(pbValue);
-    return null;
+    Void visit(String[] value) {
+      Flight.SessionOptionValue.StringListValue pbValue;
+      pbValue.addAllStringValues(value);
+      b.setValue(pbValue);
+      return null;
+    }
   }
 }

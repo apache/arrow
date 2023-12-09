@@ -24,6 +24,9 @@ import org.apache.arrow.flight.impl.Flight;
 
 /** The result of attempting to close/invalidate a server session context. */
 public class CloseSessionResult {
+  /**
+   * Close operation result status values.
+   */
   public enum Status {
     /**
      * The session close status is unknown. Servers should avoid using this value
