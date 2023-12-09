@@ -20,6 +20,9 @@ package org.apache.arrow.flight;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.apache.arrow.flight.impl.Flight;
+
+/** The result of attempting to close/invalidate a server session context. */
 public class CloseSessionResult {
   public enum Status {
     /**
@@ -27,39 +30,27 @@ public class CloseSessionResult {
      * (send a NOT_FOUND error if the requested session is not known). Clients can
      * retry the request.
      */
-    UNSPECIFIED(Flight.CloseSessionResult.Status.UNSPECIFIED),
+    UNSPECIFIED,
     /**
      * The session close request is complete.
      */
-    CLOSED(Flight.CloseSessionResult.Status.CLOSED),
+    CLOSED,
     /**
      * The session close request is in progress. The client may retry the request.
      */
-    CLOSING(Flight.CloseSessionResult.Status.CLOSING),
+    CLOSING,
     /**
      * The session is not closeable.
      */
-    NOT_CLOSABLE(Flight.CloseSessionResult.Status.NOT_CLOSABLE),
+    NOT_CLOSABLE,
     ;
 
-    private static final Map<Flight.CloseSessionResult.Status, Status> mapFromProto;
-
-    static {
-      for (Status s : values()) mapFromProto.put(s.proto, s);
-    }
-
-    private final Flight.CloseSessionResult.Status proto;
-
-    private Status(Flight.CloseSessionResult.Status s) {
-      proto = s;
-    }
-
     public static Status fromProtocol(Flight.CloseSessionResult.Status s) {
-      return mapFromProto.get(s);
+      return values()[t.ordinal()];
     }
 
     public Flight.CloseSessionResult.Status toProtocol() {
-      return proto;
+      return Flight.CloseSessionResult.Status.values()[ordinal()];
     }
   }
 

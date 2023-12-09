@@ -28,7 +28,7 @@ public abstract class SessionOptionValue {
     /**
      * Value access via a caller-provided visitor/functor.
      */
-    abstract void acceptVisitor(SessionOptionValueVisitor);
+    abstract <T> acceptVisitor(SessionOptionValueVisitor);
 
     Flight.SessionOptionValue toProtocol() {
         Flight.SessionOptionValue.Builder b = Flight.SessionOptionValue.newBuilder();
@@ -38,36 +38,45 @@ public abstract class SessionOptionValue {
     }
 }
 
-class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor {
+class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor<Void> {
     final Flight.SessionOptionValue.Builder b;
 
     SessionOptionValueVisitor(Flight.SessionOptionValue.Builder b) { this.b = b; }
 
-    void visit(String value) {
+    Void visit(String value) {
         b.setStringValue(value);
+        return null;
     }
 
-    void visit(boolean value) { b.setBoolValue(value); }
+    Void visit(boolean value) {
+        b.setBoolValue(value);
+        return null;
+    }
 
-    void visit(int value) {
+    Void visit(int value) {
         b.setIn32Value(value);
+        return null;
     }
 
-    void visit(long value) {
+    Void visit(long value) {
         b.setInt64Value(value);
+        return null;
     }
 
-    void visit(float value) {
+    Void visit(float value) {
         b.setFloatValue(value);
+        return null;
     }
 
-    void visit(double value) {
+    Void visit(double value) {
         b.setDoubleValue(value);
+        return null;
     }
 
-    void visit(String[] value) {
+    Void visit(String[] value) {
         Flight.SessionOptionValue.StringListValue pbValue;
         pbValue.addAllStringValues(value);
         b.setValue(pbValue);
+        return null;
     }
 }

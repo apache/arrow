@@ -23,6 +23,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flight.impl.Flight;
+
+/** A request to view the currently-set options for the current server session. */
 public class GetSessionOptionsResult {
   private final Map<String, SessionOptionValue> sessionOptions;
 

@@ -23,6 +23,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flight.impl.Flight;
+
+/** A request to set option(s) in an existing or implicitly-created server session. */
 public class SetSessionOptionsRequest {
   private final Map<String, SessionOptionValue> sessionOptions;
 

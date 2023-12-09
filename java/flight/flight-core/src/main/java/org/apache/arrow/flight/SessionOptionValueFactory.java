@@ -19,8 +19,9 @@ package org.apache.arrow.flight;
 
 import java.util.stream.Collectors;
 
-import org.apache.arrow.flight.SessionOptionValue;
+import com.google.protobuf;
 
+/** Abstract factory for concrete SessionOptionValue instances. */
 public class SessionOptionValueFactory {
     public static SessionOptionValue makeSessionOptionValue(String value) {
         return new SessionOptionValueString(value);

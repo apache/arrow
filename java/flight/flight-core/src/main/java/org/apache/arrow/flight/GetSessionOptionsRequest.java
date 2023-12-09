@@ -20,6 +20,8 @@ package org.apache.arrow.flight;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.apache.arrow.flight.impl.Flight;
+
 public class GetSessionOptionsRequest {
   public GetSessionOptionsRequest() {}
 

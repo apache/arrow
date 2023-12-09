@@ -20,6 +20,9 @@ package org.apache.arrow.flight;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.apache.arrow.flight.impl.Flight;
+
+/** A request to close/invalidate a server session context. */
 public class CloseSessionRequest {
   public CloseSessionRequest() {}
 

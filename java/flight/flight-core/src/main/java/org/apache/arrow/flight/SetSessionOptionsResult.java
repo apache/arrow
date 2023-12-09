@@ -23,80 +23,85 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.flight.impl.Flight;
+
+/** The result of attempting to set a set of session options. */
 public class SetSessionOptionsResult {
-  public enum Status {
+  public enum ErrorValue {
     /**
      * The status of setting the option is unknown. Servers should avoid using this value
      * (send a NOT_FOUND error if the requested session is not known). Clients can retry
      * the request.
       */
-    UNSPECIFIED(Flight.SetSessionOptionsResult.Status.UNSPECIFIED),
-    /**
-     * The session option setting completed successfully.
-     */
-    OK(Flight.SetSessionOptionsResult.Status.OK),
-    /**
-     * The given session option name was an alias for another option name.
-     */
-    OK_MAPPED(Flight.SetSessionOptionsResult.Status.OK_MAPPED),
+    UNSPECIFIED(Flight.SetSessionOptionsResult.ErrorValue.UNSPECIFIED),
     /**
      * The given session option name is invalid.
      */
-    INVALID_NAME(Flight.SetSessionOptionsResult.Status.INVALID_NAME),
+    INVALID_NAME(Flight.SetSessionOptionsResult.ErrorValue.INVALID_NAME),
     /**
      * The session option value is invalid.
      */
-    INVALID_VALUE(Flight.SetSessionOptionsResult.Status.INVALID_VALUE),
+    INVALID_VALUE(Flight.SetSessionOptionsResult.ErrorValue.INVALID_VALUE),
     /**
      * The session option cannot be set.
      */
-    ERROR(Flight.SetSessionOptionsResult.Status.ERROR),
+    ERROR(Flight.SetSessionOptionsResult.ErrorValue.ERROR),
     ;
 
-    private static final Map<Flight.SetSessionOptionsResult.Status, SetSessionOptionsResult.Status> mapFromProto;
-
-    static {
-      for (Status s : values()) mapFromProto.put(s.proto, s);
+    static ErrorValue fromProtocol(Flight.SetSessionOptionsResult.ErrorValue s) {
+      return values()[s.ordinal()];
     }
 
-    private final Flight.SetSessionOptionsResult.Status proto;
-
-    private Status(Flight.SetSessionOptionsResult.Status s) {
-      proto = s;
-    }
-
-    public static Status fromProtocol(Flight.SetSessionOptionsResult.Status s) {
-      return mapFromProto.get(s);
-    }
-
-    public Flight.SetSessionOptionsResult.Status toProtocol() {
-      return proto;
+    Flight.SetSessionOptionsResult.Status toProtocol() {
+      return return Flight.SetSessionOptionsResult.ErrorValue.values()[ordinal()];
     }
   }
 
-  private final Map<String, Status> results;
+  public class Error {
+    public ErrorValue value;
 
-  public SetSessionOptionsResult(Map<String, Status> results) {
-    this.results = Collections.unmodifiableMap(new HashMap<String, Status>(results));
+    static Error fromProtocol(Flight.SetSessionOptionsResult.Error e) {
+      return Error(ErrorValue.fromProtocol(e.getValue()));
+    }
+
+    Flight.SetSessionOptionsResult.Error toProtocol() {
+      Flight.SetSessionOptionsResult.Error b = Flight.SetSessionOptionsResult.newBuilder();
+      b.setValue(value.toProtocol());
+      return b.build();
+    }
+  }
+
+  private final Map<String, ErrorValue> errors;
+
+  public SetSessionOptionsResult(Map<String, ErrorValue> errors) {
+    this.errors = Collections.unmodifiableMap(new HashMap<String, ErrorValue>(errors));
   }
 
   SetSessionOptionsResult(Flight.SetSessionOptionsResult proto) {
-    results = Collections.unmodifiableMap(proto.getResults().entrySet().stream().collect(
-        Collectors.toMap(Map.Entry::getKey, (e) -> Status.fromProtocol(e.getValue()))));
+    errors = Collections.unmodifiableMap(proto.getErrors().entrySet().stream().collect(
+        Collectors.toMap(Map.Entry::getKey, (e) -> Error.fromProtocol(e.getValue()))));
+  }
+
+  public boolean hasErrors() {
+    return errors.size() > 0;
   }
 
   /**
    *
-   * @return An immutable view of the result status map.
+   * @return An immutable view of the error status map.
    */
-  Map<String, Status> getResults() {
-    return results;
+  public Map<String, ErrorValue> getErrors() {
+    return errors;
   }
 
   Flight.SetSessionOptionsResult toProtocol() {
     Flight.SetSessionOptionsResult.Builder b = Flight.SetSessionOptionsResult.newBuilder();
-    b.putAllResults(results.entrySet().stream().collect(
-        Collectors.toMap(Map.Entry::getKey, e -> getValue().toProtocol())));
+    b.putAllResults(errors.entrySet().stream().collect(Collectors.toMap(
+        Map.Entry::getKey,
+        (e) -> {
+          Flight.SetSessionOptionsResult.Error.builder b = Flight.SetSessionOptionsResult.Error.newBuilder();
+          b.setValue(Error.fromProtocol(e.getValue()));
+          return b.build(); } )));
     return b.build();
   }
 
