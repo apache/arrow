@@ -133,9 +133,4 @@ TEST_F(TestEngine, TestAddOptimised) {
   EXPECT_EQ(add_func(my_array, 5), 17);
 }
 
-TEST_F(TestEngine, TestLookup) {
-  auto status = gandiva::Engine::LookupFunctionTest();
-  ARROW_EXPECT_OK(status);
-}
-
 }  // namespace gandiva

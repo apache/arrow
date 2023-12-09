@@ -242,48 +242,6 @@ Status Engine::LoadFunctionIRs() {
   return Status::OK();
 }
 
-Status Engine::LookupFunctionTest() {
-  std::call_once(llvm_init_once_flag, InitOnce);
-  // llvm::InitializeNativeTarget();
-  // llvm::InitializeNativeTargetAsmPrinter();
-  // llvm::InitializeNativeTargetAsmParser();
-  // llvm::InitializeNativeTargetDisassembler();
-  // llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
-  //
-  // auto cpu_name = llvm::sys::getHostCPUName();
-
-  llvm::orc::JITTargetMachineBuilder jtmb(
-      (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
-  jtmb.setCPU(cpu_name.str());
-  jtmb.setCodeGenOptLevel(llvm::CodeGenOpt::Aggressive);
-  auto jit_builder = llvm::orc::LLJITBuilder();
-  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
-  auto maybe_jit = jit_builder.create();
-  ARROW_ASSIGN_OR_RAISE(auto jit,
-                        AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
-
-  jit->getMainJITDylib().addGenerator(
-      llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
-          jit->getDataLayout().getGlobalPrefix())));
-  const std::string function = "atexit";
-  auto sym = jit->lookup(function);
-  if (!sym) {
-    return Status::CodeGenError("Failed to look up function: " + function +
-                                " error: " + llvm::toString(sym.takeError()));
-  }
-  // Since LLVM 15, `LLJIT::lookup` returns ExecutorAddrs rather than JITEvaluatedSymbols
-#if LLVM_VERSION_MAJOR >= 15
-  auto fn_addr = sym->getValue();
-#else
-  auto fn_addr = sym->getAddress();
-#endif
-  auto fn_ptr = reinterpret_cast<void*>(fn_addr);
-  if (fn_ptr == nullptr) {
-    return Status::CodeGenError("Failed to get address for function: " + function);
-  }
-  return Status::OK();
-}
-
 /// factory method to construct the engine.
 Result<std::unique_ptr<Engine>> Engine::Make(
     const std::shared_ptr<Configuration>& conf, bool cached,
