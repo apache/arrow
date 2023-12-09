@@ -1082,6 +1082,37 @@ class AzureFileSystem::Impl {
       return Status::OK();
     }
   }
+
+  Status DeleteFile(const AzureLocation& location) {
+    if (location.path.empty()) {
+      return Status::Invalid("Cannot delete an empty path");
+    }
+
+    auto last_sep = location.path.find_last_of(internal::kSep);
+    auto directory = location.path.substr(0, last_sep);
+    auto file = location.path.substr(last_sep + 1);
+
+    auto file_client =
+      datalake_service_client_->GetFileSystemClient(location.container)
+        .GetDirectoryClient(directory).GetFileClient(file);
+
+    try {
+      auto response = file_client.DeleteIfExists();
+      if (response.Value.Deleted) {
+        return Status::OK();
+      } else {
+        return StatusFromErrorResponse(
+            container_client.GetUrl(), response.RawResponse.get(),
+            "Failed to delete a container: " + location.container);
+      }
+    } catch (const Azure::Storage::StorageException& exception) {
+      return internal::ExceptionToStatus(
+          "Failed to delete a file: " + location.all + ": " +
+              file_client.GetUrl(),
+          exception);
+    }
+  }
+
 };
 
 const AzureOptions& AzureFileSystem::options() const { return impl_->options(); }
@@ -1129,7 +1160,8 @@ Status AzureFileSystem::DeleteRootDirContents() {
 }
 
 Status AzureFileSystem::DeleteFile(const std::string& path) {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
+  return impl_->DeleteFile(location);
 }
 
 Status AzureFileSystem::Move(const std::string& src, const std::string& dest) {
