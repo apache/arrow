@@ -84,7 +84,7 @@ Status BinaryViewBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   BufferVector buffers(byte_buffers.size() + 2);
   buffers[0] = std::move(null_bitmap);
   buffers[1] = std::move(data);
-  std::move(byte_buffers.begin(), byte_buffers.end(), byte_buffers.begin() + 2);
+  std::move(byte_buffers.begin(), byte_buffers.end(), buffers.begin() + 2);
   *out = ArrayData::Make(type(), length_, std::move(buffers), null_count_);
   Reset();
   return Status::OK();
