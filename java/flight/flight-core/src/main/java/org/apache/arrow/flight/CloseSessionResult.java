@@ -63,8 +63,8 @@ public class CloseSessionResult {
   CloseSessionResult(Flight.CloseSessionResult proto) {
     status = Status.fromProtocol(proto.getStatus());
     if (status == null) {
-        // Unreachable
-        throw new IllegalArgumentException("");
+      // Unreachable
+      throw new IllegalArgumentException("");
     }
   }
 
@@ -74,7 +74,7 @@ public class CloseSessionResult {
 
   Flight.CloseSessionResult toProtocol() {
     Flight.CloseSessionResult.Builder b = Flight.CloseSessionResult.newBuilder();
-    b.setStatus(status.toProtocol()):
+    b.setStatus(status.toProtocol());
     return b.build();
   }
 

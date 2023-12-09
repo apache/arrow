@@ -53,7 +53,7 @@ public class SetSessionOptionsResult {
     }
 
     Flight.SetSessionOptionsResult.Status toProtocol() {
-      return return Flight.SetSessionOptionsResult.ErrorValue.values()[ordinal()];
+      return Flight.SetSessionOptionsResult.ErrorValue.values()[ordinal()];
     }
   }
 

@@ -39,12 +39,12 @@ public class SetSessionOptionsRequest {
             Map.Entry::getKey, (e) -> SessionOptionValueFactory.makeSessionOptionValue(e.getValue()))));
   }
 
-    /**
-     *
-     * @return An immutable view of the session options map.
-     */
+  /**
+   *
+   * @return An immutable view of the session options map.
+   */
   public Map<String, SessionOptionValue> getSessionOptions() {
-      return new Collections.unmodifiableMap(sessionOptions);
+    return new Collections.unmodifiableMap(sessionOptions);
   }
 
   Flight.SetSessionOptionsRequest toProtocol() {

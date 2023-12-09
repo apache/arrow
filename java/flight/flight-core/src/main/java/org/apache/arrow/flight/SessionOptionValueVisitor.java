@@ -21,38 +21,38 @@ package org.apache.arrow.flight;
  * A visitor interface to access SessionOptionValue's contained value.
  */
 public interface SessionOptionValueVisitor<T> {
-    /**
-     * A callback to handle SessionOptionValue containing a String.
-     */
-    T visit(String value);
+  /**
+   * A callback to handle SessionOptionValue containing a String.
+   */
+  T visit(String value);
 
-    /**
-     * A callback to handle SessionOptionValue containing a boolean.
-     */
-    T visit(boolean value);
+  /**
+   * A callback to handle SessionOptionValue containing a boolean.
+   */
+  T visit(boolean value);
 
-    /**
-     * A callback to handle SessionOptionValue containing an int.
-     */
-    T visit(int value);
+  /**
+   * A callback to handle SessionOptionValue containing an int.
+   */
+  T visit(int value);
 
-    /**
-     * A callback to handle SessionOptionValue containing a long.
-     */
-    T visit(long value);
+  /**
+   * A callback to handle SessionOptionValue containing a long.
+   */
+  T visit(long value);
 
-    /**
-     * A callback to handle SessionOptionValue containing a float.
-     */
-    T visit(float value);
+  /**
+   * A callback to handle SessionOptionValue containing a float.
+   */
+  T visit(float value);
 
-    /**
-     * A callback to handle SessionOptionValue containing a double.
-     */
-    T visit(double value);
+  /**
+   * A callback to handle SessionOptionValue containing a double.
+   */
+  T visit(double value);
 
-    /**
-     * A callback to handle SessionOptionValue containing an array of String.
-     */
-    T visit(String[] value);
+  /**
+   * A callback to handle SessionOptionValue containing an array of String.
+   */
+  T visit(String[] value);
 }

@@ -44,7 +44,7 @@ public class GetSessionOptionsResult {
    * @return An immutable view of the session options map.
    */
   public Map<String, SessionOptionValue> getSessionOptions() {
-    return new sessionOptions;
+    return sessionOptions;
   }
 
   Flight.GetSessionOptionsResult toProtocol() {
