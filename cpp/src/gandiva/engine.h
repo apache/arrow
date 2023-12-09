@@ -44,6 +44,7 @@ namespace gandiva {
 /// \brief LLVM Execution engine wrapper.
 class GANDIVA_EXPORT Engine {
  public:
+  static Status LookupFunctionTest();
   ~Engine();
   llvm::LLVMContext* context() { return context_.get(); }
   llvm::IRBuilder<>* ir_builder() { return ir_builder_.get(); }
