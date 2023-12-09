@@ -71,7 +71,8 @@ using ::testing::Not;
 using ::testing::NotNull;
 
 namespace Blobs = Azure::Storage::Blobs;
-namespace Files = Azure::Storage::Files;
+namespace Core = Azure::Core;
+namespace DataLake = Azure::Storage::Files::DataLake;
 
 auto const* kLoremIpsum = R"""(
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
@@ -87,8 +88,8 @@ class AzuriteEnv : public ::testing::Environment {
   AzuriteEnv() {
     account_name_ = "devstoreaccount1";
     account_key_ =
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
-        "KBHBeksoGMGw==";
+        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
+        "K1SZFPTOtr/KBHBeksoGMGw==";
     auto exe_path = bp::search_path("azurite");
     if (exe_path.empty()) {
       auto error = std::string("Could not find Azurite emulator.");
@@ -197,7 +198,7 @@ class AzureFileSystemTest : public ::testing::Test {
  public:
   std::shared_ptr<FileSystem> fs_;
   std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
-  std::unique_ptr<Files::DataLake::DataLakeServiceClient> datalake_service_client_;
+  std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
   AzureOptions options_;
   std::mt19937_64 generator_;
   std::string container_name_;
@@ -1200,7 +1201,7 @@ TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
           .GetBlockBlobClient(path)
           .GetProperties()
           .Value.Metadata;
-  EXPECT_EQ(Azure::Core::CaseInsensitiveMap{std::make_pair("foo", "bar")}, blob_metadata);
+  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("foo", "bar")}, blob_metadata);
 
   // Check that explicit metadata overrides the defaults.
   ASSERT_OK_AND_ASSIGN(
@@ -1213,7 +1214,7 @@ TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
                       .GetProperties()
                       .Value.Metadata;
   // Defaults are overwritten and not merged.
-  EXPECT_EQ(Azure::Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
+  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
 }
 
 TEST_F(AzuriteFileSystemTest, OpenOutputStreamSmall) {
