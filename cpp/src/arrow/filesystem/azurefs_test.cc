@@ -217,10 +217,8 @@ class AzureFileSystemTest : public ::testing::Test {
     }
     // Stop-gap solution before GH-39119 is fixed.
     container_name_ = "z" + RandomChars(31);
-    blob_service_client_ = std::make_unique<Blobs::BlobServiceClient>(
-        options_.account_blob_url, options_.storage_credentials_provider);
-    datalake_service_client_ = std::make_unique<Files::DataLake::DataLakeServiceClient>(
-        options_.account_dfs_url, options_.storage_credentials_provider);
+    blob_service_client_ = options_.MakeBlobServiceClient();
+    datalake_service_client_ = options_.MakeDataLakeServiceClient();
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
     auto container_client = CreateContainer(container_name_);
 
@@ -388,8 +386,8 @@ class AzuriteFileSystemTest : public AzureFileSystemTest {
     ARROW_EXPECT_OK(GetAzuriteEnv()->status());
     ARROW_ASSIGN_OR_RAISE(debug_log_start_, GetAzuriteEnv()->GetDebugLogSize());
     AzureOptions options;
-    options.backend = AzureBackend::Azurite;
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
+    options.backend = AzureBackend::kAzurite;
+    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(
         GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key()));
     return options;
   }
@@ -413,7 +411,7 @@ class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
     const auto account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
     const auto account_name = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME");
     if (account_key && account_name) {
-      RETURN_NOT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
+      RETURN_NOT_OK(options.ConfigureAccountKeyCredential(account_name, account_key));
       return options;
     }
     return Status::Cancelled(
@@ -444,7 +442,7 @@ class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
     const auto account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
     const auto account_name = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME");
     if (account_key && account_name) {
-      RETURN_NOT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
+      RETURN_NOT_OK(options.ConfigureAccountKeyCredential(account_name, account_key));
       return options;
     }
     return Status::Cancelled(

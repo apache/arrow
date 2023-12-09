@@ -33,35 +33,79 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
+
+namespace Blobs = Azure::Storage::Blobs;
+namespace Core = Azure::Core;
+namespace DataLake = Azure::Storage::Files::DataLake;
+namespace Storage = Azure::Storage;
 
 // -----------------------------------------------------------------------
 // AzureOptions Implementation
 
 AzureOptions::AzureOptions() = default;
 
+AzureOptions::~AzureOptions() = default;
+
 bool AzureOptions::Equals(const AzureOptions& other) const {
-  return (account_dfs_url == other.account_dfs_url &&
-          account_blob_url == other.account_blob_url &&
-          credentials_kind == other.credentials_kind &&
-          default_metadata == other.default_metadata);
+  // TODO(GH-38598): update here when more auth methods are added.
+  const bool ret = backend == other.backend &&
+                   default_metadata == other.default_metadata &&
+                   account_blob_url_ == other.account_blob_url_ &&
+                   account_dfs_url_ == other.account_dfs_url_ &&
+                   credential_kind_ == other.credential_kind_;
+  if (!ret) {
+    return false;
+  }
+  switch (credential_kind_) {
+    case CredentialKind::kAnonymous:
+      return true;
+    case CredentialKind::kStorageSharedKeyCredential:
+      return storage_shared_key_credential_->AccountName ==
+             other.storage_shared_key_credential_->AccountName;
+  }
+  DCHECK(false);
+  return false;
 }
 
-Status AzureOptions::ConfigureAccountKeyCredentials(const std::string& account_name,
-                                                    const std::string& account_key) {
-  if (this->backend == AzureBackend::Azurite) {
-    account_blob_url = "http://127.0.0.1:10000/" + account_name + "/";
-    account_dfs_url = "http://127.0.0.1:10000/" + account_name + "/";
+Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_name,
+                                                   const std::string& account_key) {
+  if (this->backend == AzureBackend::kAzurite) {
+    account_blob_url_ = "http://127.0.0.1:10000/" + account_name + "/";
+    account_dfs_url_ = "http://127.0.0.1:10000/" + account_name + "/";
   } else {
-    account_dfs_url = "https://" + account_name + ".dfs.core.windows.net/";
-    account_blob_url = "https://" + account_name + ".blob.core.windows.net/";
+    account_dfs_url_ = "https://" + account_name + ".dfs.core.windows.net/";
+    account_blob_url_ = "https://" + account_name + ".blob.core.windows.net/";
   }
-  storage_credentials_provider =
-      std::make_shared<Azure::Storage::StorageSharedKeyCredential>(account_name,
-                                                                   account_key);
-  credentials_kind = AzureCredentialsKind::StorageCredentials;
+  credential_kind_ = CredentialKind::kStorageSharedKeyCredential;
+  storage_shared_key_credential_ =
+      std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
   return Status::OK();
+}
+
+std::unique_ptr<Blobs::BlobServiceClient> AzureOptions::MakeBlobServiceClient() const {
+  switch (credential_kind_) {
+    case CredentialKind::kAnonymous:
+      break;
+    case CredentialKind::kStorageSharedKeyCredential:
+      return std::make_unique<Blobs::BlobServiceClient>(account_blob_url_,
+                                                        storage_shared_key_credential_);
+  }
+  DCHECK(false) << "AzureOptions doesn't contain a valid auth configuration";
+  return nullptr;
+}
+
+std::unique_ptr<DataLake::DataLakeServiceClient> AzureOptions::MakeDataLakeServiceClient()
+    const {
+  switch (credential_kind_) {
+    case CredentialKind::kAnonymous:
+      break;
+    case CredentialKind::kStorageSharedKeyCredential:
+      return std::make_unique<DataLake::DataLakeServiceClient>(
+          account_dfs_url_, storage_shared_key_credential_);
+  }
+  DCHECK(false) << "AzureOptions doesn't contain a valid auth configuration";
+  return nullptr;
 }
 
 namespace {
@@ -718,11 +762,8 @@ class AzureFileSystem::Impl {
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
-    blob_service_client_ = std::make_unique<Azure::Storage::Blobs::BlobServiceClient>(
-        options_.account_blob_url, options_.storage_credentials_provider);
-    datalake_service_client_ =
-        std::make_unique<Azure::Storage::Files::DataLake::DataLakeServiceClient>(
-            options_.account_dfs_url, options_.storage_credentials_provider);
+    blob_service_client_ = options_.MakeBlobServiceClient();
+    datalake_service_client_ = options_.MakeDataLakeServiceClient();
     return hierarchical_namespace_.Init(datalake_service_client_.get());
   }
 

@@ -25,69 +25,73 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
 
-namespace Azure {
-namespace Core {
-namespace Credentials {
-
+namespace Azure::Core::Credentials {
 class TokenCredential;
+}
 
-}  // namespace Credentials
-}  // namespace Core
-namespace Storage {
-
+namespace Azure::Storage {
 class StorageSharedKeyCredential;
+}
 
-}  // namespace Storage
-}  // namespace Azure
+namespace Azure::Storage::Blobs {
+class BlobServiceClient;
+}
 
-namespace arrow {
-namespace fs {
+namespace Azure::Storage::Files::DataLake {
+class DataLakeServiceClient;
+}
 
-enum class AzureCredentialsKind : int8_t {
-  /// Anonymous access (no credentials used), public
-  Anonymous,
-  /// Use explicitly-provided access key pair
-  StorageCredentials,
-  /// Use ServicePrincipleCredentials
-  ServicePrincipleCredentials,
-  /// Use Sas Token to authenticate
-  Sas,
-  /// Use Connection String
-  ConnectionString
-};
+namespace arrow::fs {
 
 enum class AzureBackend : bool {
-  /// Official Azure Remote Backend
-  Azure,
-  /// Local Simulated Storage
-  Azurite
+  /// \brief Official Azure Remote Backend
+  kAzure,
+  /// \brief Local Simulated Storage
+  kAzurite
 };
 
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
-  std::string account_dfs_url;
-  std::string account_blob_url;
-  AzureBackend backend = AzureBackend::Azure;
-  AzureCredentialsKind credentials_kind = AzureCredentialsKind::Anonymous;
+  /// \brief The backend to connect to: Azure or Azurite (for testing).
+  AzureBackend backend = AzureBackend::kAzure;
 
-  std::string sas_token;
-  std::string connection_string;
-  std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
-      storage_credentials_provider;
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential>
-      service_principle_credentials_provider;
+  // TODO(GH-38598): Add support for more auth methods.
+  // std::string connection_string;
+  // std::string sas_token;
 
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
-  AzureOptions();
+ private:
+  std::string account_blob_url_;
+  std::string account_dfs_url_;
 
-  Status ConfigureAccountKeyCredentials(const std::string& account_name,
-                                        const std::string& account_key);
+  enum class CredentialKind {
+    kAnonymous,
+    kStorageSharedKeyCredential,
+  } credential_kind_ = CredentialKind::kAnonymous;
+
+  std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
+      storage_shared_key_credential_;
+
+ public:
+  AzureOptions();
+  ~AzureOptions();
+
+  Status ConfigureAccountKeyCredential(const std::string& account_name,
+                                       const std::string& account_key);
 
   bool Equals(const AzureOptions& other) const;
+
+  const std::string& AccountBlobUrl() const { return account_blob_url_; }
+  const std::string& AccountDfsUrl() const { return account_dfs_url_; }
+
+  std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient> MakeBlobServiceClient() const;
+
+  std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+  MakeDataLakeServiceClient() const;
 };
 
 /// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and
@@ -177,5 +181,4 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs
