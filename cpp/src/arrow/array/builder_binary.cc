@@ -80,10 +80,11 @@ Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offse
 Status BinaryViewBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_ASSIGN_OR_RAISE(auto null_bitmap, null_bitmap_builder_.FinishWithLength(length_));
   ARROW_ASSIGN_OR_RAISE(auto data, data_builder_.FinishWithLength(length_));
-  BufferVector buffers = {null_bitmap, data};
-  for (auto&& buffer : data_heap_builder_.Finish()) {
-    buffers.push_back(std::move(buffer));
-  }
+  ARROW_ASSIGN_OR_RAISE(auto byte_buffers, data_heap_builder_.Finish());
+  BufferVector buffers(byte_buffers.size() + 2);
+  buffers[0] = std::move(null_bitmap);
+  buffers[1] = std::move(data);
+  std::move(byte_buffers.begin(), byte_buffers.end(), buffers.begin() + 2);
   *out = ArrayData::Make(type(), length_, std::move(buffers), null_count_);
   Reset();
   return Status::OK();
