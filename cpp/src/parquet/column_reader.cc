@@ -1369,6 +1369,24 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     return bytes_for_values;
   }
 
+  const uint8_t* ReadDictionary(int32_t* dictionary_length) override {
+    if (this->current_decoder_ == nullptr && !this->HasNextInternal()) {
+      dictionary_length = 0;
+      return nullptr;
+    }
+    // Verify the current data page is dictionary encoded.
+    if (this->current_encoding_ != Encoding::RLE_DICTIONARY) {
+      std::stringstream ss;
+      ss << "Data page is not dictionary encoded. Encoding: "
+         << EncodingToString(this->current_encoding_);
+      throw ParquetException(ss.str());
+    }
+    auto decoder = dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
+    const T* dictionary = nullptr;
+    decoder->GetDictionary(&dictionary, dictionary_length);
+    return reinterpret_cast<const uint8_t*>(dictionary);
+  }
+
   int64_t ReadRecords(int64_t num_records) override {
     if (num_records == 0) return 0;
     // Delimit records, then read values at the end
