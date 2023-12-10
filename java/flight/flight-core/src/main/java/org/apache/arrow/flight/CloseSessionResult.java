@@ -49,7 +49,7 @@ public class CloseSessionResult {
     ;
 
     public static Status fromProtocol(Flight.CloseSessionResult.Status proto) {
-      return values()[proto.ordinal()];
+      return values()[proto.getNumber()];
     }
 
     public Flight.CloseSessionResult.Status toProtocol() {

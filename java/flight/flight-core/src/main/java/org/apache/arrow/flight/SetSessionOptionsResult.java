@@ -51,7 +51,7 @@ public class SetSessionOptionsResult {
     ;
 
     static ErrorValue fromProtocol(Flight.SetSessionOptionsResult.ErrorValue s) {
-      return values()[s.ordinal()];
+      return values()[s.getNumber()];
     }
 
     Flight.SetSessionOptionsResult.ErrorValue toProtocol() {
