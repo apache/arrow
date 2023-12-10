@@ -171,7 +171,7 @@ class PrimitiveFilterImpl {
     }
 
     if (out_arr->buffers[0] != nullptr) {
-      // May not be allocated if neither filter nor values contains nulls
+      // May be unallocated if neither filter nor values contain nulls
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
     }
     out_data_ = reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data());

@@ -140,7 +140,7 @@ TEST_P(TestMessage, SerializeTo) {
               output_length);
     ASSERT_OK_AND_EQ(output_length, stream->Tell());
     ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
-    // chech whether length is written in little endian
+    // check whether length is written in little endian
     auto buffer_ptr = buffer.get()->data();
     ASSERT_EQ(output_length - body_length - prefix_size,
               bit_util::FromLittleEndian(*(uint32_t*)(buffer_ptr + 4)));
@@ -363,7 +363,7 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
   std::string root;
   ASSERT_OK(GetTestResourceRoot(&root));
 
-  // schema_v6.arrow with currently non-existent MetadataVersion::V6
+  // schema_v6.arrow with currently nonexistent MetadataVersion::V6
   std::stringstream schema_v6_path;
   schema_v6_path << root << "/forward-compatibility/schema_v6.arrow";
 
@@ -520,7 +520,7 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 };
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
-  // Verify UBSAN is ok with casting out of range metdata version.
+  // Verify UBSAN is ok with casting out of range metadata version.
   EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
 }
 
@@ -3019,14 +3019,14 @@ TEST(TestRecordBatchFileReaderIo, SkipTheFieldInTheMiddle) {
   GetReadRecordBatchReadRanges({0, 2}, {1, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFields) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFields) {
   // read the int32 field and the int64 field
   // + 5 int32: 5 * 4 bytes
   // + 5 int64: 5 * 8 bytes
   GetReadRecordBatchReadRanges({1, 2}, {20, 40});
 }
 
-TEST(TestRecordBatchFileReaderIo, ReadTwoContinousFieldsWithIoMerged) {
+TEST(TestRecordBatchFileReaderIo, ReadTwoContinuousFieldsWithIoMerged) {
   // change the array length to 64 so that bool field and int32 are continuous without
   // padding
   // read the bool field and the int32 field since the bool field's aligned offset

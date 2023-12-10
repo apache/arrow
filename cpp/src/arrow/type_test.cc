@@ -612,7 +612,7 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   AssertSchemaEqual(schema2, schema1);
   AssertSchemaNotEqual(schema2, schema1, /*check_metadata=*/true);
 
-  // Field has different metatadata
+  // Field has different metadata
   AssertSchemaEqual(schema2, schema3);
   AssertSchemaNotEqual(schema2, schema3, /*check_metadata=*/true);
 

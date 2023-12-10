@@ -3131,7 +3131,7 @@ TEST_F(TestArrayImport, RunEndEncodedWithOffset) {
                        REEFromJSON(ree_type, "[-2.0, -2.0, -2.0, -2.0, 3.0, 3.0, 3.0]"));
   CheckImport(expected);
 
-  // Ofsset in parent
+  // Offset in parent
   FillPrimitive(AddChild(), 5, 0, 0, run_ends_buffers5);
   FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls5);
   FillRunEndEncoded(5, 2);
@@ -3383,7 +3383,7 @@ TEST_F(TestArrayImport, ListError) {
 }
 
 TEST_F(TestArrayImport, ListViewNoError) {
-  // Unlike with lists, importing a length-0 list-view with all buffers ommitted is
+  // Unlike with lists, importing a length-0 list-view with all buffers omitted is
   // not an error. List-views don't need an extra offset value, so an empty offsets
   // buffer is valid in this case.
 

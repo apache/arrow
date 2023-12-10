@@ -109,7 +109,7 @@ void BenchmarkWriteCsv(benchmark::State& state, const WriteOptions& options,
   state.counters["null_percent"] = static_cast<double>(state.range(0));
 }
 
-// Exercies UnQuotedColumnPopulator with integer
+// Exercises UnQuotedColumnPopulator with integer
 void WriteCsvNumeric(benchmark::State& state) {
   auto batch = MakeIntTestBatch(kCsvRows, kCsvCols, state.range(0));
   BenchmarkWriteCsv(state, WriteOptions::Defaults(), *batch);

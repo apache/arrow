@@ -194,7 +194,7 @@ TEST_F(TestExtensionType, MetadataSerializationRoundtrip) {
                              "Invalid dim_names");
 }
 
-TEST_F(TestExtensionType, RoudtripBatch) {
+TEST_F(TestExtensionType, RoundtripBatch) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
@@ -383,7 +383,7 @@ TEST_F(TestExtensionType, SliceTensor) {
   ASSERT_EQ(sliced->length(), partial->length());
 }
 
-TEST_F(TestExtensionType, RoudtripBatchFromTensor) {
+TEST_F(TestExtensionType, RoundtripBatchFromTensor) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
   ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, Buffer::Wrap(values_),
                                                  shape_, {}, {"n", "x", "y"}));
