@@ -54,13 +54,7 @@ using arrow::internal::AddWithOverflow;
 
 namespace parquet {
 
-// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
-static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
-static constexpr uint32_t kFooterSize = 8;
-
-// For PARQUET-816
-static constexpr int64_t kMaxDictHeaderSize = 100;
-
+namespace {
 bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
   // Check the encoding_stats to see if all data pages are dictionary encoded.
   const std::vector<PageEncodingStats>& encoding_stats = col.encoding_stats();
@@ -88,6 +82,14 @@ bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
   }
   return true;
 }
+}  // namespace
+
+// PARQUET-978: Minimize footer reads by reading 64 KB from the end of the file
+static constexpr int64_t kDefaultFooterReadSize = 64 * 1024;
+static constexpr uint32_t kFooterSize = 8;
+
+// For PARQUET-816
+static constexpr int64_t kMaxDictHeaderSize = 100;
 
 // ----------------------------------------------------------------------
 // RowGroupReader public API

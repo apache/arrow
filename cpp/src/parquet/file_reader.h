@@ -84,7 +84,7 @@ class PARQUET_EXPORT RowGroupReader {
   // Construct a RecordReader, trying to enable exposed encoding.
   //
   // For dictionary encoding, currently we only support column chunks that are
-  // fully dictionary encoded byte arrays. The caller can verify if the reader can read
+  // fully dictionary encoded byte arrays. The caller should verify if the reader can read
   // and expose the dictionary by checking the reader's read_dictionary(). If a column
   // chunk uses dictionary encoding but then falls back to plain encoding, the returned
   // reader will read decoded data without exposing the dictionary.
