@@ -215,7 +215,7 @@ namespace Apache.Arrow.Ipc
 
             // Write footer length
 
-            Buffers.RentReturn(4, (buffer) =>
+            using (Buffers.RentReturn(4, out Memory<byte> buffer))
             {
                 int footerLength;
                 checked
@@ -226,7 +226,7 @@ namespace Apache.Arrow.Ipc
                 BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, footerLength);
 
                 BaseStream.Write(buffer);
-            });
+            }
 
             // Write magic
 
@@ -286,7 +286,7 @@ namespace Apache.Arrow.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            await Buffers.RentReturnAsync(4, async (buffer) =>
+            using (Buffers.RentReturn(4, out Memory<byte> buffer))
             {
                 int footerLength;
                 checked
@@ -297,7 +297,7 @@ namespace Apache.Arrow.Ipc
                 BinaryPrimitives.WriteInt32LittleEndian(buffer.Span, footerLength);
 
                 await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            }
 
             // Write magic
 

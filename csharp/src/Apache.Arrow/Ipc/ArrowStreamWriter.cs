@@ -890,7 +890,7 @@ namespace Apache.Arrow.Ipc
 
         private void WriteIpcMessageLength(int length)
         {
-            Buffers.RentReturn(_options.SizeOfIpcLength, (buffer) =>
+            using (Buffers.RentReturn(_options.SizeOfIpcLength, out Memory<byte> buffer))
             {
                 Memory<byte> currentBufferPosition = buffer;
                 if (!_options.WriteLegacyIpcFormat)
@@ -902,12 +902,12 @@ namespace Apache.Arrow.Ipc
 
                 BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
                 BaseStream.Write(buffer);
-            });
+            }
         }
 
         private async ValueTask WriteIpcMessageLengthAsync(int length, CancellationToken cancellationToken)
         {
-            await Buffers.RentReturnAsync(_options.SizeOfIpcLength, async (buffer) =>
+            using (Buffers.RentReturn(_options.SizeOfIpcLength, out Memory<byte> buffer))
             {
                 Memory<byte> currentBufferPosition = buffer;
                 if (!_options.WriteLegacyIpcFormat)
@@ -919,7 +919,7 @@ namespace Apache.Arrow.Ipc
 
                 BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
                 await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            }
         }
 
         protected int CalculatePadding(long offset, int alignment = 8)
