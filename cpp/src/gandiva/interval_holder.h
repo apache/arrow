@@ -70,7 +70,7 @@ class GANDIVA_EXPORT IntervalHolder : public FunctionHolder {
     return std::make_shared<INTERVAL_TYPE>(suppress_errors);
   }
 
-  explicit IntervalHolder(int32_t supress_errors) : suppress_errors_(supress_errors) {}
+  explicit IntervalHolder(int32_t suppress_errors) : suppress_errors_(suppress_errors) {}
 
   // If the flag is equals to 0, the errors will not be suppressed, any other value
   // will made the errors being suppressed
@@ -99,17 +99,17 @@ class GANDIVA_EXPORT IntervalDaysHolder : public IntervalHolder<IntervalDaysHold
   int64_t operator()(ExecutionContext* ctx, const char* data, int32_t data_len,
                      bool in_valid, bool* out_valid);
 
-  explicit IntervalDaysHolder(int32_t supress_errors)
-      : IntervalHolder<IntervalDaysHolder>(supress_errors) {}
+  explicit IntervalDaysHolder(int32_t suppress_errors)
+      : IntervalHolder<IntervalDaysHolder>(suppress_errors) {}
 
  private:
-  /// Retrieves the day interval from the number of milliseconds enconded as
+  /// Retrieves the day interval from the number of milliseconds encoded as
   /// a string
   static int64_t GetIntervalDayFromMillis(ExecutionContext* context,
                                           std::string& number_as_string,
                                           int32_t suppress_errors, bool* out_valid);
 
-  /// Retrieves the day interval from the number of weeks enconded as
+  /// Retrieves the day interval from the number of weeks encoded as
   /// a string.
   static int64_t GetIntervalDayFromWeeks(ExecutionContext* context,
                                          std::string& number_as_string,
@@ -134,8 +134,8 @@ class GANDIVA_EXPORT IntervalYearsHolder : public IntervalHolder<IntervalYearsHo
   int32_t operator()(ExecutionContext* ctx, const char* data, int32_t data_len,
                      bool in_valid, bool* out_valid);
 
-  explicit IntervalYearsHolder(int32_t supress_errors)
-      : IntervalHolder<IntervalYearsHolder>(supress_errors) {}
+  explicit IntervalYearsHolder(int32_t suppress_errors)
+      : IntervalHolder<IntervalYearsHolder>(suppress_errors) {}
 
  private:
   static int32_t GetIntervalYearFromNumber(ExecutionContext* context,
