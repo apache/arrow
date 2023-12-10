@@ -48,8 +48,8 @@ public class CloseSessionResult {
     NOT_CLOSABLE,
     ;
 
-    public static Status fromProtocol(Flight.CloseSessionResult.Status s) {
-      return values()[t.ordinal()];
+    public static Status fromProtocol(Flight.CloseSessionResult.Status proto) {
+      return values()[proto.ordinal()];
     }
 
     public Flight.CloseSessionResult.Status toProtocol() {

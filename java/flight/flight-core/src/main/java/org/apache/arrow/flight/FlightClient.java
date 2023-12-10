@@ -598,7 +598,7 @@ public class FlightClient implements AutoCloseable {
 
     SetSessionOptionsResult result;
     try {
-      result = FlightEndpoint.deserialize(ByteBuffer.wrap(results.next().getBody()));
+      result = SetSessionOptionsResult.deserialize(ByteBuffer.wrap(results.next().getBody()));
     } catch (IOException | URISyntaxException e) {
       throw CallStatus.INTERNAL
           .withDescription("Failed to parse server response: " + e)
@@ -626,7 +626,7 @@ public class FlightClient implements AutoCloseable {
           .toRuntimeException();
     }
 
-    FlightGetSessionOptionsResultEndpoint result;
+    GetSessionOptionsResult result;
     try {
       result = GetSessionOptionsResult.deserialize(ByteBuffer.wrap(results.next().getBody()));
     } catch (IOException e) {

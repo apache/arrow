@@ -22,6 +22,9 @@ import java.nio.ByteBuffer;
 
 import org.apache.arrow.flight.impl.Flight;
 
+/**
+ * A request to get current session options.
+ */
 public class GetSessionOptionsRequest {
   public GetSessionOptionsRequest() {}
 

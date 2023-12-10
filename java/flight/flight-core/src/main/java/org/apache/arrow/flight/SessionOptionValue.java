@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Arrays;
+
 import org.apache.arrow.flight.impl.Flight;
 
 /**
@@ -26,7 +28,7 @@ public abstract class SessionOptionValue {
   /**
    * Value access via a caller-provided visitor/functor.
    */
-  abstract <T> T acceptVisitor(SessionOptionValueVisitor<T> v);
+  public abstract <T> T acceptVisitor(SessionOptionValueVisitor<T> v);
 
   Flight.SessionOptionValue toProtocol() {
     Flight.SessionOptionValue.Builder b = Flight.SessionOptionValue.newBuilder();
@@ -38,44 +40,45 @@ public abstract class SessionOptionValue {
   private class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor<Void> {
     final Flight.SessionOptionValue.Builder b;
 
-    SessionOptionValueVisitor(Flight.SessionOptionValue.Builder b) {
+    SessionOptionValueToProtocolVisitor(Flight.SessionOptionValue.Builder b) {
       this.b = b;
     }
 
-    Void visit(String value) {
+    public Void visit(String value) {
       b.setStringValue(value);
       return null;
     }
 
-    Void visit(boolean value) {
+    public Void visit(boolean value) {
       b.setBoolValue(value);
       return null;
     }
 
-    Void visit(int value) {
-      b.setIn32Value(value);
+    public Void visit(int value) {
+      b.setInt32Value(value);
       return null;
     }
 
-    Void visit(long value) {
+    public Void visit(long value) {
       b.setInt64Value(value);
       return null;
     }
 
-    Void visit(float value) {
+    public Void visit(float value) {
       b.setFloatValue(value);
       return null;
     }
 
-    Void visit(double value) {
+    public Void visit(double value) {
       b.setDoubleValue(value);
       return null;
     }
 
-    Void visit(String[] value) {
-      Flight.SessionOptionValue.StringListValue pbValue;
-      pbValue.addAllStringValues(value);
-      b.setValue(pbValue);
+    public Void visit(String[] value) {
+      Flight.SessionOptionValue.StringListValue.Builder pbSLVBuilder =
+          Flight.SessionOptionValue.StringListValue.newBuilder();
+      pbSLVBuilder.addAllValues(Arrays.asList(value));
+      b.setStringListValue(pbSLVBuilder.build());
       return null;
     }
   }

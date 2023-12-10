@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -30,7 +31,7 @@ public class SetSessionOptionsRequest {
   private final Map<String, SessionOptionValue> sessionOptions;
 
   public SetSessionOptionsRequest(Map<String, SessionOptionValue> sessionOptions) {
-    this.sessionOptions = Collections.unmodifiableMap(new HashMap(sessionOptions));
+    this.sessionOptions = Collections.unmodifiableMap(new HashMap<String, SessionOptionValue>(sessionOptions));
   }
 
   SetSessionOptionsRequest(Flight.SetSessionOptionsRequest proto) {
@@ -40,11 +41,12 @@ public class SetSessionOptionsRequest {
   }
 
   /**
+   * Get the session option map from the request.
    *
    * @return An immutable view of the session options map.
    */
   public Map<String, SessionOptionValue> getSessionOptions() {
-    return new Collections.unmodifiableMap(sessionOptions);
+    return Collections.unmodifiableMap(sessionOptions);
   }
 
   Flight.SetSessionOptionsRequest toProtocol() {

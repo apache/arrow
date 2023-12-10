@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -27,81 +28,89 @@ import org.apache.arrow.flight.impl.Flight;
 
 /** The result of attempting to set a set of session options. */
 public class SetSessionOptionsResult {
+  /** Error status value for per-option errors. */
   public enum ErrorValue {
     /**
      * The status of setting the option is unknown. Servers should avoid using this value
      * (send a NOT_FOUND error if the requested session is not known). Clients can retry
      * the request.
       */
-    UNSPECIFIED(Flight.SetSessionOptionsResult.ErrorValue.UNSPECIFIED),
+    UNSPECIFIED,
     /**
      * The given session option name is invalid.
      */
-    INVALID_NAME(Flight.SetSessionOptionsResult.ErrorValue.INVALID_NAME),
+    INVALID_NAME,
     /**
      * The session option value is invalid.
      */
-    INVALID_VALUE(Flight.SetSessionOptionsResult.ErrorValue.INVALID_VALUE),
+    INVALID_VALUE,
     /**
      * The session option cannot be set.
      */
-    ERROR(Flight.SetSessionOptionsResult.ErrorValue.ERROR),
+    ERROR,
     ;
 
     static ErrorValue fromProtocol(Flight.SetSessionOptionsResult.ErrorValue s) {
       return values()[s.ordinal()];
     }
 
-    Flight.SetSessionOptionsResult.Status toProtocol() {
+    Flight.SetSessionOptionsResult.ErrorValue toProtocol() {
       return Flight.SetSessionOptionsResult.ErrorValue.values()[ordinal()];
     }
   }
 
+  /** Per-option extensible error response container. */
   public class Error {
     public ErrorValue value;
 
-    static Error fromProtocol(Flight.SetSessionOptionsResult.Error e) {
-      return Error(ErrorValue.fromProtocol(e.getValue()));
+    public Error(ErrorValue value) {
+      this.value = value;
+    }
+
+    Error(Flight.SetSessionOptionsResult.Error e) {
+      value = ErrorValue.fromProtocol(e.getValue());
     }
 
     Flight.SetSessionOptionsResult.Error toProtocol() {
-      Flight.SetSessionOptionsResult.Error b = Flight.SetSessionOptionsResult.newBuilder();
+      Flight.SetSessionOptionsResult.Error.Builder b = Flight.SetSessionOptionsResult.Error.newBuilder();
       b.setValue(value.toProtocol());
       return b.build();
     }
   }
 
-  private final Map<String, ErrorValue> errors;
+  private final Map<String, Error> errors;
 
-  public SetSessionOptionsResult(Map<String, ErrorValue> errors) {
-    this.errors = Collections.unmodifiableMap(new HashMap<String, ErrorValue>(errors));
+  public SetSessionOptionsResult(Map<String, Error> errors) {
+    this.errors = Collections.unmodifiableMap(new HashMap<String, Error>(errors));
   }
 
   SetSessionOptionsResult(Flight.SetSessionOptionsResult proto) {
     errors = Collections.unmodifiableMap(proto.getErrors().entrySet().stream().collect(
-        Collectors.toMap(Map.Entry::getKey, (e) -> Error.fromProtocol(e.getValue()))));
+        Collectors.toMap(Map.Entry::getKey, (e) -> new Error(e.getValue()))));
   }
 
+  /** Report whether the error map has nonzero length. */
   public boolean hasErrors() {
     return errors.size() > 0;
   }
 
   /**
+   * Get the error status map from the result object.
    *
    * @return An immutable view of the error status map.
    */
-  public Map<String, ErrorValue> getErrors() {
+  public Map<String, Error> getErrors() {
     return errors;
   }
 
   Flight.SetSessionOptionsResult toProtocol() {
     Flight.SetSessionOptionsResult.Builder b = Flight.SetSessionOptionsResult.newBuilder();
-    b.putAllResults(errors.entrySet().stream().collect(Collectors.toMap(
+    b.putAllErrors(errors.entrySet().stream().collect(Collectors.toMap(
         Map.Entry::getKey,
         (e) -> {
-          Flight.SetSessionOptionsResult.Error.builder b = Flight.SetSessionOptionsResult.Error.newBuilder();
-          b.setValue(Error.fromProtocol(e.getValue()));
-          return b.build(); } )));
+          Flight.SetSessionOptionsResult.Error.Builder eb = Flight.SetSessionOptionsResult.Error.newBuilder();
+          eb.setValue(e.getValue().toProtocol());
+          return eb.build(); } )));
     return b.build();
   }
 
