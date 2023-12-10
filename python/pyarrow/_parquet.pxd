@@ -588,7 +588,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     FileEncryptionProperties encryption_properties=*,
     write_batch_size=*,
     dictionary_pagesize_limit=*,
-    write_page_index=*
+    write_page_index=*,
     write_page_checksum=*,
     sorting_columns=*,
 ) except *
