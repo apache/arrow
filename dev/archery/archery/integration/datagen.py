@@ -1836,15 +1836,12 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('C#')
         .skip_tester('JS'),
 
-        generate_dictionary_case()
-        .skip_tester('C#'),
+        generate_dictionary_case(),
 
         generate_dictionary_unsigned_case()
-        .skip_tester('C#')
         .skip_tester('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
-        .skip_tester('C#')
         .skip_tester('Java'),  # TODO(ARROW-7779)
 
         generate_run_end_encoded_case()

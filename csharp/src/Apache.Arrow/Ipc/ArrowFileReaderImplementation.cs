@@ -35,6 +35,8 @@ namespace Apache.Arrow.Ipc
 
         private ArrowFooter _footer;
 
+        private bool HasReadDictionaries => HasReadSchema && DictionaryMemo.LoadedDictionaryCount >= _footer.DictionaryCount;
+
         public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
             : base(stream, allocator, compressionCodecFactory, leaveOpen)
         {
@@ -143,6 +145,7 @@ namespace Apache.Arrow.Ipc
         public async ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync(cancellationToken).ConfigureAwait(false);
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -159,6 +162,7 @@ namespace Apache.Arrow.Ipc
         public RecordBatch ReadRecordBatch(int index)
         {
             ReadSchema();
+            ReadDictionaries();
 
             if (index >= _footer.RecordBatchCount)
             {
@@ -175,6 +179,7 @@ namespace Apache.Arrow.Ipc
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             await ReadSchemaAsync().ConfigureAwait(false);
+            await ReadDictionariesAsync(cancellationToken).ConfigureAwait(false);
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
@@ -190,6 +195,7 @@ namespace Apache.Arrow.Ipc
         public override RecordBatch ReadNextRecordBatch()
         {
             ReadSchema();
+            ReadDictionaries();
 
             if (_recordBatchIndex >= _footer.RecordBatchCount)
             {
@@ -200,6 +206,34 @@ namespace Apache.Arrow.Ipc
             _recordBatchIndex++;
 
             return result;
+        }
+
+        private async ValueTask ReadDictionariesAsync(CancellationToken cancellationToken = default)
+        {
+            if (HasReadDictionaries)
+            {
+                return;
+            }
+
+            foreach (Block block in _footer.Dictionaries)
+            {
+                BaseStream.Position = block.Offset;
+                await ReadMessageAsync(cancellationToken);
+            }
+        }
+
+        private void ReadDictionaries()
+        {
+            if (HasReadDictionaries)
+            {
+                return;
+            }
+
+            foreach (Block block in _footer.Dictionaries)
+            {
+                BaseStream.Position = block.Offset;
+                ReadMessage();
+            }
         }
 
         /// <summary>

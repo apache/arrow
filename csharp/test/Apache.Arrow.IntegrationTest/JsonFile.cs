@@ -15,9 +15,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
@@ -31,8 +31,10 @@ namespace Apache.Arrow.IntegrationTest
     public class JsonFile
     {
         public JsonSchema Schema { get; set; }
+
+        public List<JsonDictionary> Dictionaries { get; set; }
+
         public List<JsonRecordBatch> Batches { get; set; }
-        //public List<DictionaryBatch> Dictionaries {get;set;}
 
         public static async ValueTask<JsonFile> ParseAsync(FileInfo fileInfo)
         {
@@ -46,6 +48,33 @@ namespace Apache.Arrow.IntegrationTest
             using var fileStream = fileInfo.OpenRead();
             var options = GetJsonOptions();
             return JsonSerializer.Deserialize<JsonFile>(fileStream, options);
+        }
+
+        public Schema GetSchemaAndDictionaries(out Func<DictionaryType, IArrowArray> dictionaries)
+        {
+            Schema schema = Schema.ToArrow(out Dictionary<DictionaryType, int> dictionaryIndexes);
+
+            Func<DictionaryType, IArrowArray> lookup = null;
+            lookup = type => Dictionaries.Single(d => d.Id == dictionaryIndexes[type]).Data.ToArrow(type.ValueType, lookup);
+            dictionaries = lookup;
+
+            return schema;
+        }
+
+        /// <summary>
+        /// Return both the schema and a specific batch number.
+        /// This method is used by C Data Interface integration testing.
+        /// </summary>
+        public Schema ToArrow(int batchNumber, out RecordBatch batch)
+        {
+            Schema schema = Schema.ToArrow(out Dictionary<DictionaryType, int> dictionaryIndexes);
+
+            Func<DictionaryType, IArrowArray> lookup = null;
+            lookup = type => Dictionaries.Single(d => d.Id == dictionaryIndexes[type]).Data.ToArrow(type.ValueType, lookup);
+
+            batch = Batches[batchNumber].ToArrow(schema, lookup);
+
+            return schema;
         }
 
         private static JsonSerializerOptions GetJsonOptions()
@@ -67,22 +96,33 @@ namespace Apache.Arrow.IntegrationTest
         /// <summary>
         /// Decode this JSON schema as a Schema instance.
         /// </summary>
-        public Schema ToArrow()
+        public Schema ToArrow(out Dictionary<DictionaryType, int> dictionaryIndexes)
         {
-            return CreateSchema(this);
+            dictionaryIndexes = new Dictionary<DictionaryType, int>();
+            return CreateSchema(this, dictionaryIndexes);
         }
 
-        private static Schema CreateSchema(JsonSchema jsonSchema)
+        /// <summary>
+        /// Decode this JSON schema as a Schema instance without computing dictionaries.
+        /// This method is used by C Data Interface integration testing.
+        /// </summary>
+        public Schema ToArrow()
+        {
+            Dictionary<DictionaryType, int> dictionaryIndexes = new Dictionary<DictionaryType, int>();
+            return CreateSchema(this, dictionaryIndexes);
+        }
+
+        private static Schema CreateSchema(JsonSchema jsonSchema, Dictionary<DictionaryType, int> dictionaryIndexes)
         {
             Schema.Builder builder = new Schema.Builder();
             for (int i = 0; i < jsonSchema.Fields.Count; i++)
             {
-                builder.Field(f => CreateField(f, jsonSchema.Fields[i]));
+                builder.Field(f => CreateField(f, jsonSchema.Fields[i], dictionaryIndexes));
             }
             return builder.Build();
         }
 
-        private static void CreateField(Field.Builder builder, JsonField jsonField)
+        private static void CreateField(Field.Builder builder, JsonField jsonField, Dictionary<DictionaryType, int> dictionaryIndexes)
         {
             Field[] children = null;
             if (jsonField.Children?.Count > 0)
@@ -91,13 +131,26 @@ namespace Apache.Arrow.IntegrationTest
                 for (int i = 0; i < jsonField.Children.Count; i++)
                 {
                     Field.Builder field = new Field.Builder();
-                    CreateField(field, jsonField.Children[i]);
+                    CreateField(field, jsonField.Children[i], dictionaryIndexes);
                     children[i] = field.Build();
                 }
             }
 
+            IArrowType type = ToArrowType(jsonField.Type, children);
+
+            if (jsonField.Dictionary != null)
+            {
+                DictionaryType dictType = new DictionaryType(
+                    ToArrowType(jsonField.Dictionary.IndexType, new Field[0]),
+                    type,
+                    jsonField.Dictionary.IsOrdered);
+
+                dictionaryIndexes[dictType] = jsonField.Dictionary.Id;
+                type = dictType;
+            }
+
             builder.Name(jsonField.Name)
-                .DataType(ToArrowType(jsonField.Type, children))
+                .DataType(type)
                 .Nullable(jsonField.Nullable);
 
             if (jsonField.Metadata != null)
@@ -300,8 +353,16 @@ namespace Apache.Arrow.IntegrationTest
     public class JsonDictionaryIndex
     {
         public int Id { get; set; }
-        public JsonArrowType Type { get; set; }
+        public JsonArrowType IndexType { get; set; }
         public bool IsOrdered { get; set; }
+    }
+
+    public class JsonDictionary
+    {
+        public int Id { get; set; }
+
+        [JsonPropertyName("data")]
+        public JsonRecordBatch Data { get; set; }
     }
 
     public class JsonMetadata : List<KeyValuePair<string, string>>
@@ -316,12 +377,19 @@ namespace Apache.Arrow.IntegrationTest
         /// <summary>
         /// Decode this JSON record batch as a RecordBatch instance.
         /// </summary>
-        public RecordBatch ToArrow(Schema schema)
+        public RecordBatch ToArrow(Schema schema, Func<DictionaryType, IArrowArray> dictionaries)
         {
-            return CreateRecordBatch(schema, this);
+            return CreateRecordBatch(schema, dictionaries, this);
         }
 
-        private RecordBatch CreateRecordBatch(Schema schema, JsonRecordBatch jsonRecordBatch)
+        public IArrowArray ToArrow(IArrowType arrowType, Func<DictionaryType, IArrowArray> dictionaries)
+        {
+            ArrayCreator creator = new ArrayCreator(this.Columns[0], dictionaries);
+            arrowType.Accept(creator);
+            return creator.Array;
+        }
+
+        private RecordBatch CreateRecordBatch(Schema schema, Func<DictionaryType, IArrowArray> dictionaries, JsonRecordBatch jsonRecordBatch)
         {
             if (schema.FieldsList.Count != jsonRecordBatch.Columns.Count)
             {
@@ -333,7 +401,7 @@ namespace Apache.Arrow.IntegrationTest
             {
                 JsonFieldData data = jsonRecordBatch.Columns[i];
                 Field field = schema.FieldsList[i];
-                ArrayCreator creator = new ArrayCreator(data);
+                ArrayCreator creator = new ArrayCreator(data, dictionaries);
                 field.DataType.Accept(creator);
                 arrays.Add(creator.Array);
             }
@@ -369,14 +437,18 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<MapType>,
+            IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; set; }
             public IArrowArray Array { get; private set; }
 
-            public ArrayCreator(JsonFieldData jsonFieldData)
+            private readonly Func<DictionaryType, IArrowArray> dictionaries;
+
+            public ArrayCreator(JsonFieldData jsonFieldData, Func<DictionaryType, IArrowArray> dictionaries)
             {
                 JsonFieldData = jsonFieldData;
+                this.dictionaries = dictionaries;
             }
 
             public void Visit(BooleanType type)
@@ -654,6 +726,12 @@ namespace Apache.Arrow.IntegrationTest
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
                     new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
                 Array = new MapArray(arrayData);
+            }
+
+            public void Visit(DictionaryType type)
+            {
+                type.IndexType.Accept(this);
+                Array = new DictionaryArray(type, Array, this.dictionaries(type));
             }
 
             private ArrayData[] GetChildren(NestedType type)
