@@ -73,7 +73,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
       message(STATUS "Disable AVX512 support on MINGW for now")
     else()
       # Check for AVX512 support in the compiler.
-      set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+      set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
       set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
       check_cxx_source_compiles("
         #ifdef _MSC_VER
@@ -89,7 +89,7 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
           return 0;
         }"
                                 CXX_SUPPORTS_AVX512)
-      set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+      set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
     endif()
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
@@ -459,7 +459,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
 
     if(CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
       # Avoid C++17 std::get 'not available' issue on macOS 10.13
-      # This will be required until atleast R 4.4 is released and
+      # This will be required until at least R 4.4 is released and
       # CRAN (hopefully) stops checking on 10.13
       string(APPEND CXX_ONLY_FLAGS " -D_LIBCPP_DISABLE_AVAILABILITY")
     endif()
@@ -527,7 +527,7 @@ if(ARROW_CPU_FLAG STREQUAL "aarch64")
         set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msve-vector-bits=${SVE_VECTOR_BITS}")
       else()
         set(ARROW_HAVE_SVE_SIZELESS ON)
-        add_definitions(-DARROW_HAVE_SVE_SIZELSS)
+        add_definitions(-DARROW_HAVE_SVE_SIZELESS)
       endif()
     endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=${ARROW_ARMV8_MARCH}")
