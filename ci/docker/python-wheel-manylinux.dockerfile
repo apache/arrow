@@ -73,7 +73,7 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FEATURE_FLAGS="manifests"
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
-# ssl related fixies as well as we can patch the vcpkg portfile to support
+# ssl related fixes as well as we can patch the vcpkg portfile to support
 # arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
 # but we cannot patch those portfiles since vcpkg-tool handles the checkout of
 # previous versions => use bundled S3 build

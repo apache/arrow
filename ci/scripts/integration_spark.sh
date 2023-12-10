@@ -27,7 +27,7 @@ test_pyarrow_only=${3:-false}
 # Spark branch to checkout
 spark_version=${SPARK_VERSION:-master}
 
-# Use old behavior that always dropped tiemzones.
+# Use old behavior that always dropped timezones.
 export PYARROW_IGNORE_TIMEZONE=1
 
 if [ "${SPARK_VERSION:1:2}" == "2." ]; then
