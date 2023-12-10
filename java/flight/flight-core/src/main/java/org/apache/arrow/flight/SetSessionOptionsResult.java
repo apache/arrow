@@ -107,10 +107,7 @@ public class SetSessionOptionsResult {
     Flight.SetSessionOptionsResult.Builder b = Flight.SetSessionOptionsResult.newBuilder();
     b.putAllErrors(errors.entrySet().stream().collect(Collectors.toMap(
         Map.Entry::getKey,
-        (e) -> {
-          Flight.SetSessionOptionsResult.Error.Builder eb = Flight.SetSessionOptionsResult.Error.newBuilder();
-          eb.setValue(e.getValue().toProtocol());
-          return eb.build(); } )));
+        (e) -> e.getValue().toProtocol())));
     return b.build();
   }
 
