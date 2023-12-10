@@ -829,6 +829,50 @@ namespace Apache.Arrow.Tests
             CArrowArrayStream.Free(cArrayStream);
         }
 
+        [SkippableFact]
+        public unsafe void ImportRecordBatchFromBuffer()
+        {
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic batch = pa.record_batch(
+                    new PyList(new PyObject[]
+                    {
+                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
+                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
+                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 }),
+                        pa.array(new bool?[] { true, false, null, false, true }),
+                    }),
+                    new[] { null, "", "column", "column" });
+
+                dynamic sink = pa.BufferOutputStream();
+                dynamic writer = pa.ipc.new_stream(sink, batch.schema);
+                writer.write_batch(batch);
+                ((IDisposable)writer).Dispose();
+
+                dynamic buf = sink.getvalue();
+                // buf.address, buf.size
+
+                IntPtr address = (IntPtr)(long)buf.address;
+                int size = buf.size;
+                byte[] buffer = new byte[size];
+                byte* ptr = (byte*)address.ToPointer();
+                for (int i = 0; i < size; i++)
+                {
+                    buffer[i] = ptr[i];
+                }
+
+                using (ArrowStreamReader reader = new ArrowStreamReader(new ReadOnlyMemory<byte>(buffer)))
+                {
+                    RecordBatch batch2 = reader.ReadNextRecordBatch();
+                    Assert.Equal("None", batch2.Schema.FieldsList[0].Name);
+                    Assert.Equal("", batch2.Schema.FieldsList[1].Name);
+                    Assert.Equal("column", batch2.Schema.FieldsList[2].Name);
+                    Assert.Equal("column", batch2.Schema.FieldsList[3].Name);
+                }
+            }
+        }
+
         private static PyObject List(params int?[] values)
         {
             return new PyList(values.Select(i => i == null ? PyObject.None : new PyInt(i.Value)).ToArray());
