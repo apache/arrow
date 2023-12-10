@@ -70,7 +70,6 @@ public class SessionOptionValueFactory {
       case DOUBLE_VALUE:
         return new SessionOptionValueDouble(proto.getDoubleValue());
       case STRING_LIST_VALUE:
-        // FIXME PHOXME is this what's in the ProtocolStringList?
         return new SessionOptionValueStringList(proto.getStringListValue().getValuesList().asByteStringList().stream()
           .map((e) -> {
             try {
