@@ -22,10 +22,10 @@ namespace Apache.Arrow.Scalars
     public struct DayTimeInterval : IEquatable<DayTimeInterval>
     {
         [FieldOffset(0)]
-        public int Days;
+        public readonly int Days;
 
         [FieldOffset(4)]
-        public int Milliseconds;
+        public readonly int Milliseconds;
 
         public DayTimeInterval(int days, int milliseconds)
         {

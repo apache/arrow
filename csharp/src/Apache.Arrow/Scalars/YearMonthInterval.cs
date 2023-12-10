@@ -24,7 +24,7 @@ namespace Apache.Arrow.Scalars
         private const int MonthsPerYear = 12;
 
         [FieldOffset(0)]
-        public int Months;
+        public readonly int Months;
 
         public YearMonthInterval(int totalMonths)
         {

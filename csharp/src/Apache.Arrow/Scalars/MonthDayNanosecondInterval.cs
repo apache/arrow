@@ -22,13 +22,13 @@ namespace Apache.Arrow.Scalars
     public struct MonthDayNanosecondInterval : IEquatable<MonthDayNanosecondInterval>
     {
         [FieldOffset(0)]
-        public int Months;
+        public readonly int Months;
 
         [FieldOffset(4)]
-        public int Days;
+        public readonly int Days;
 
         [FieldOffset(8)]
-        public long Nanoseconds;
+        public readonly long Nanoseconds;
 
         public MonthDayNanosecondInterval(int months, int days, long nanoseconds)
         {
