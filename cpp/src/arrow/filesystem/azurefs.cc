@@ -1427,7 +1427,7 @@ Status AzureFileSystem::DeleteDirContents(const std::string& path, bool missing_
 }
 
 Status AzureFileSystem::DeleteRootDirContents() {
-  return Status::NotImplemented("The Azure FileSystem is not fully implemented");
+  return Status::NotImplemented("Cannot delete all Azure Blob Storage containers");
 }
 
 Status AzureFileSystem::DeleteFile(const std::string& path) {
