@@ -46,6 +46,8 @@ namespace Apache.Arrow
                     return Types.IntervalUnit.DayTime;
                 case Flatbuf.IntervalUnit.YEAR_MONTH:
                     return Types.IntervalUnit.YearMonth;
+                case Flatbuf.IntervalUnit.MONTH_DAY_NANO:
+                    return Types.IntervalUnit.MonthDayNanosecond;
                 default:
                     throw new ArgumentException($"Unexpected Flatbuf IntervalUnit", nameof(unit));
             }

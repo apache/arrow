@@ -16,8 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using Apache.Arrow.Memory;
+using Apache.Arrow.Scalars;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -97,6 +96,9 @@ namespace Apache.Arrow.Tests
                         new Field.Builder().Name("key").DataType(StringType.Default).Nullable(false).Build(),
                         new Field.Builder().Name("value").DataType(Int32Type.Default).Nullable(true).Build(),
                         keySorted: false),
+                    IntervalType.YearMonth,
+                    IntervalType.DayTime,
+                    IntervalType.MonthDayNanosecond,
                 };
 
             foreach (IArrowType type in targetTypes)
@@ -126,6 +128,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<DurationType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
@@ -256,7 +259,6 @@ namespace Apache.Arrow.Tests
             public void Visit(DurationType type)
             {
                 DurationArray.Builder resultBuilder = new DurationArray.Builder(type).Reserve(_baseDataTotalElementCount);
-                DateTimeOffset basis = DateTimeOffset.UtcNow;
 
                 for (int i = 0; i < _baseDataListCount; i++)
                 {
@@ -279,6 +281,63 @@ namespace Apache.Arrow.Tests
                 }
 
                 ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(IntervalType type)
+            {
+                switch (type.Unit)
+                {
+                    case IntervalUnit.YearMonth:
+                        YearMonthIntervalArray.Builder yearMonthBuilder = new YearMonthIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            YearMonthIntervalArray.Builder yearMonthBuilder1 = new YearMonthIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                YearMonthInterval? ymi = value != null ? new YearMonthInterval(value.Value) : null;
+                                yearMonthBuilder.Append(ymi);
+                                yearMonthBuilder1.Append(ymi);
+                            }
+                            TestTargetArrayList.Add(yearMonthBuilder1.Build());
+                        }
+                        ExpectedArray = yearMonthBuilder.Build();
+                        break;
+
+                    case IntervalUnit.DayTime:
+                        DayTimeIntervalArray.Builder dayTimeBuilder = new DayTimeIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            DayTimeIntervalArray.Builder dayTimeBuilder1 = new DayTimeIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                DayTimeInterval? dti = value != null ? new DayTimeInterval(100 - 50 * value.Value, 100 * value.Value) : null;
+                                dayTimeBuilder.Append(dti);
+                                dayTimeBuilder1.Append(dti);
+                            }
+                            TestTargetArrayList.Add(dayTimeBuilder1.Build());
+                        }
+                        ExpectedArray = dayTimeBuilder.Build();
+                        break;
+
+                    case IntervalUnit.MonthDayNanosecond:
+                        MonthDayNanosecondIntervalArray.Builder monthDayNanoBuilder = new MonthDayNanosecondIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            MonthDayNanosecondIntervalArray.Builder monthDayNanoBuilder1 = new MonthDayNanosecondIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                MonthDayNanosecondInterval? mdni = value != null ? new MonthDayNanosecondInterval(value.Value, 5 - value.Value, 100 * value.Value) : null;
+                                monthDayNanoBuilder.Append(mdni);
+                                monthDayNanoBuilder1.Append(mdni);
+                            }
+                            TestTargetArrayList.Add(monthDayNanoBuilder1.Build());
+                        }
+                        ExpectedArray = monthDayNanoBuilder.Build();
+                        break;
+
+                    default:
+                        throw new InvalidOperationException($"unsupported interval unit <{type.Unit}>");
+                }
             }
 
             public void Visit(BinaryType type)

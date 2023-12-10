@@ -185,6 +185,15 @@ namespace Apache.Arrow.C
                 // Timestamp
                 case TimestampType timestampType:
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
+                // Interval
+                case IntervalType intervalType:
+                    return intervalType.Unit switch
+                    {
+                        IntervalUnit.YearMonth => "tiM",
+                        IntervalUnit.DayTime => "tiD",
+                        IntervalUnit.MonthDayNanosecond => "tin",
+                        _ => throw new InvalidDataException($"Unsupported interval unit for export: {intervalType.Unit}"),
+                    };
                 // Nested
                 case ListType _: return "+l";
                 case FixedSizeListType fixedListType:
