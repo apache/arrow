@@ -317,7 +317,12 @@ class ARROW_EXPORT Listener {
 /// \since 0.17.0
 class ARROW_EXPORT CollectListener : public Listener {
  public:
-  CollectListener() : schema_(), filtered_schema_(), record_batches_(), metadatas_() {}
+  explicit CollectListener(bool copy_record_batch = false)
+      : copy_record_batch_(copy_record_batch),
+        schema_(),
+        filtered_schema_(),
+        record_batches_(),
+        metadatas_() {}
   virtual ~CollectListener() = default;
 
   Status OnSchemaDecoded(std::shared_ptr<Schema> schema,
@@ -328,11 +333,7 @@ class ARROW_EXPORT CollectListener : public Listener {
   }
 
   Status OnRecordBatchWithMetadataDecoded(
-      RecordBatchWithMetadata record_batch_with_metadata) override {
-    record_batches_.push_back(std::move(record_batch_with_metadata.batch));
-    metadatas_.push_back(std::move(record_batch_with_metadata.custom_metadata));
-    return Status::OK();
-  }
+      RecordBatchWithMetadata record_batch_with_metadata) override;
 
   /// \return the decoded schema
   std::shared_ptr<Schema> schema() const { return schema_; }
@@ -375,6 +376,7 @@ class ARROW_EXPORT CollectListener : public Listener {
   }
 
  private:
+  bool copy_record_batch_;
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<Schema> filtered_schema_;
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;

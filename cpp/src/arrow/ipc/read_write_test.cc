@@ -1334,7 +1334,7 @@ struct StreamDecoderWriterHelper : public StreamWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
                      ReadStats* out_stats = nullptr,
                      MetadataVector* out_metadata_list = nullptr) override {
-    auto listener = std::make_shared<CollectListener>();
+    auto listener = std::make_shared<CollectListener>(true);
     StreamDecoder decoder(listener, options);
     RETURN_NOT_OK(DoConsume(&decoder));
     *out_batches = listener->record_batches();
@@ -1358,7 +1358,10 @@ struct StreamDecoderWriterHelper : public StreamWriterHelper {
 
 struct StreamDecoderDataWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
-    return decoder->Consume(buffer_->data(), buffer_->size());
+    // This data is valid only in this function.
+    ARROW_ASSIGN_OR_RAISE(auto temporary_buffer,
+                          Buffer::Copy(buffer_, arrow::default_cpu_memory_manager()));
+    return decoder->Consume(temporary_buffer->data(), temporary_buffer->size());
   }
 };
 
@@ -1369,7 +1372,9 @@ struct StreamDecoderBufferWriterHelper : public StreamDecoderWriterHelper {
 struct StreamDecoderSmallChunksWriterHelper : public StreamDecoderWriterHelper {
   Status DoConsume(StreamDecoder* decoder) override {
     for (int64_t offset = 0; offset < buffer_->size() - 1; ++offset) {
-      RETURN_NOT_OK(decoder->Consume(buffer_->data() + offset, 1));
+      // This data is valid only in this block.
+      ARROW_ASSIGN_OR_RAISE(auto temporary_buffer, buffer_->CopySlice(offset, 1));
+      RETURN_NOT_OK(decoder->Consume(temporary_buffer->data(), temporary_buffer->size()));
     }
     return Status::OK();
   }

@@ -2052,6 +2052,39 @@ Status Listener::OnRecordBatchWithMetadataDecoded(
   return OnRecordBatchDecoded(std::move(record_batch_with_metadata.batch));
 }
 
+namespace {
+Status CopyArrayData(std::shared_ptr<ArrayData> data) {
+  auto& buffers = data->buffers;
+  for (size_t i = 0; i < buffers.size(); ++i) {
+    auto& buffer = buffers[i];
+    if (!buffer) {
+      continue;
+    }
+    ARROW_ASSIGN_OR_RAISE(buffers[i], Buffer::Copy(buffer, buffer->memory_manager()));
+  }
+  for (auto child_data : data->child_data) {
+    ARROW_RETURN_NOT_OK(CopyArrayData(child_data));
+  }
+  if (data->dictionary) {
+    ARROW_RETURN_NOT_OK(CopyArrayData(data->dictionary));
+  }
+  return Status::OK();
+}
+};  // namespace
+
+Status CollectListener::OnRecordBatchWithMetadataDecoded(
+    RecordBatchWithMetadata record_batch_with_metadata) {
+  auto record_batch = std::move(record_batch_with_metadata.batch);
+  if (copy_record_batch_) {
+    for (auto column_data : record_batch->column_data()) {
+      ARROW_RETURN_NOT_OK(CopyArrayData(column_data));
+    }
+  }
+  record_batches_.push_back(std::move(record_batch));
+  metadatas_.push_back(std::move(record_batch_with_metadata.custom_metadata));
+  return Status::OK();
+}
+
 class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
  public:
   explicit StreamDecoderImpl(std::shared_ptr<Listener> listener, IpcReadOptions options)
