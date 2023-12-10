@@ -50,6 +50,9 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<DurationArray>,
+            IArrowArrayVisitor<YearMonthIntervalArray>,
+            IArrowArrayVisitor<DayTimeIntervalArray>,
+            IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
@@ -106,6 +109,9 @@ namespace Apache.Arrow.Ipc
             public void Visit(Time32Array array) => CreateBuffers(array);
             public void Visit(Time64Array array) => CreateBuffers(array);
             public void Visit(DurationArray array) => CreateBuffers(array);
+            public void Visit(YearMonthIntervalArray array) => CreateBuffers(array);
+            public void Visit(DayTimeIntervalArray array) => CreateBuffers(array);
+            public void Visit(MonthDayNanosecondIntervalArray array) => CreateBuffers(array);
 
             public void Visit(ListArray array)
             {

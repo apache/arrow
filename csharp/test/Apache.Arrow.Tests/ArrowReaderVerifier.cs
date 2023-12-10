@@ -86,6 +86,9 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<DurationArray>,
+            IArrowArrayVisitor<YearMonthIntervalArray>,
+            IArrowArrayVisitor<DayTimeIntervalArray>,
+            IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
@@ -129,6 +132,9 @@ namespace Apache.Arrow.Tests
             public void Visit(Time32Array array) => CompareArrays(array);
             public void Visit(Time64Array array) => CompareArrays(array);
             public void Visit(DurationArray array) => CompareArrays(array);
+            public void Visit(YearMonthIntervalArray array) => CompareArrays(array);
+            public void Visit(DayTimeIntervalArray array) => CompareArrays(array);
+            public void Visit(MonthDayNanosecondIntervalArray array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
             public void Visit(FixedSizeListArray array) => CompareArrays(array);
             public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
@@ -276,7 +282,13 @@ namespace Apache.Arrow.Tests
                 {
                     for (int i = 0; i < expectedArray.Length; i++)
                     {
-                        Assert.Equal(expectedArray.GetValue(i), actualArray.GetValue(i));
+                        T? expected = expectedArray.GetValue(i);
+                        T? actual = actualArray.GetValue(i);
+                        Assert.Equal(expected.HasValue, actual.HasValue);
+                        if (expected.HasValue)
+                        {
+                            Assert.Equal(expected.Value, actual.Value);
+                        }
                     }
                 }
             }

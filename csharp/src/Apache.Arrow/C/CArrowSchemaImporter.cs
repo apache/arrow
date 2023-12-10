@@ -319,7 +319,7 @@ namespace Apache.Arrow.C
                     "tDn" => DurationType.Nanosecond,
                     "tiM" => IntervalType.YearMonth,
                     "tiD" => IntervalType.DayTime,
-                    //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented
+                    "tin" => IntervalType.MonthDayNanosecond,
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }

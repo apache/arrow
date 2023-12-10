@@ -22,6 +22,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.C;
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Scalars;
 using Apache.Arrow.Types;
 using Python.Runtime;
 using Xunit;
@@ -122,6 +123,8 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("duration_us").DataType(DurationType.Microsecond).Nullable(false))
                     .Field(f => f.Name("duration_ns").DataType(DurationType.Nanosecond).Nullable(true))
 
+                    .Field(f => f.Name("interval").DataType(IntervalType.FromIntervalUnit(IntervalUnit.MonthDayNanosecond)))
+
                     // Checking wider characters.
                     .Field(f => f.Name("hello 你好 😄").DataType(BooleanType.Default).Nullable(true))
 
@@ -191,6 +194,8 @@ namespace Apache.Arrow.Tests
                 yield return pa.field("duration_ms", pa.duration("ms"), true);
                 yield return pa.field("duration_us", pa.duration("us"), false);
                 yield return pa.field("duration_ns", pa.duration("ns"), true);
+
+                yield return pa.field("interval", pa.month_day_nano_interval());
 
                 yield return pa.field("hello 你好 😄", pa.bool_(), true);
             }
@@ -531,8 +536,11 @@ namespace Apache.Arrow.Tests
                             pa.array(List("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")),
                             pa.array(List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10))),
                         pa.array(List(1234, 2345, 3456, null, 6789), pa.duration("ms")),
+                        pa.array(
+                            List(Tuple(1, 2, 3), PyObject.None, Tuple(-1, -2, -3), Tuple(10, 0, 0), Tuple(0, 0, 20)),
+                            pa.month_day_nano_interval()),
                     }),
-                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9", "col10", "col11" });
+                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9", "col10", "col11", "col12" });
 
                 dynamic batch = table.to_batches()[0];
 
@@ -612,6 +620,14 @@ namespace Apache.Arrow.Tests
 
             DurationArray col11 = (DurationArray)recordBatch.Column("col11");
             Assert.Equal(5, col11.Length);
+
+            MonthDayNanosecondIntervalArray col12 = (MonthDayNanosecondIntervalArray)recordBatch.Column("col12");
+            Assert.Equal(5, col12.Length);
+            Assert.Equal(new MonthDayNanosecondInterval(1, 2, 3), col12.GetValue(0));
+            Assert.Null(col12.GetValue(1));
+            Assert.Equal(new MonthDayNanosecondInterval(-1, -2, -3), col12.GetValue(2));
+            Assert.Equal(new MonthDayNanosecondInterval(10, 0, 0), col12.GetValue(3));
+            Assert.Equal(new MonthDayNanosecondInterval(0, 0, 20), col12.GetValue(4));
         }
 
         [SkippableFact]
@@ -836,6 +852,11 @@ namespace Apache.Arrow.Tests
         private static PyObject List(params PyObject[] values)
         {
             return new PyList(values);
+        }
+
+        private static PyObject Tuple(params int?[] values)
+        {
+            return new PyTuple(values.Select(i => i == null ? PyObject.None : new PyInt(i.Value)).ToArray());
         }
 
         sealed class TestArrayStream : IArrowArrayStream
