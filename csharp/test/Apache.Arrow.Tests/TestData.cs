@@ -23,7 +23,7 @@ namespace Apache.Arrow.Tests
 {
     public static class TestData
     {
-        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = false)
+        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = true)
         {
             return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray);
         }
