@@ -26,9 +26,9 @@ for currently available features.
 
 # Implementation
 
-- Arrow 0.11 (specification)
-- C# 8
-- .NET Standard 1.3
+- Arrow specification 1.0.0. (Support for reading 0.11+.)
+- C# 11
+- .NET Standard 2.0 and .NET 6.0
 - Asynchronous I/O
 - Uses modern .NET runtime features such as **Span&lt;T&gt;**, **Memory&lt;T&gt;**, **MemoryManager&lt;T&gt;**, and **System.Buffers** primitives for memory allocation, memory storage, and fast serialization.
 - Uses **Acyclic Visitor Pattern** for array types and arrays to facilitate serialization, record batch traversal, and format growth.
@@ -95,6 +95,10 @@ for currently available features.
 - Binary (fixed-length)
 - List
 - Struct
+- Union
+- Map
+- Duration
+- Interval
 
 ### Type Metadata
 
@@ -121,15 +125,21 @@ for currently available features.
 
 - Serialization
     - Exhaustive validation
-    - Dictionary Batch
-        - Cannot serialize files or streams containing dictionary batches
-    - Dictionary Encoding
+    - Run End Encoding
 - Types
     - Tensor
 - Arrays
-    - Union
-        - Dense
-        - Sparse
+    - Large Arrays
+        - Large Binary
+        - Large List
+        - Large String
+    - Views
+        - Binary
+        - List
+        - String
+        - Large Binary
+        - Large List
+        - Large String
 - Array Operations
 	- Equality / Comparison
 	- Casting
