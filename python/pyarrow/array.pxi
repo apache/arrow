@@ -3610,9 +3610,6 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         The first dimension of ndarray will become the length of the fixed
         shape tensor array.
 
-        Numpy array needs to be C-contiguous in memory
-        (``obj.flags["C_CONTIGUOUS"]==True``).
-
         Parameters
         ----------
         obj : numpy.ndarray
@@ -3645,17 +3642,20 @@ cdef class FixedShapeTensorArray(ExtensionArray):
           ]
         ]
         """
-        if not obj.flags["C_CONTIGUOUS"]:
-            raise ValueError('The data in the numpy array need to be in a single, '
-                             'C-style contiguous segment.')
+        if not np.argmax(obj.strides) == 0:
+            raise ValueError('First stride needs to be largest to ensure that '
+                             'individual tensor data is contiguous in memory.')
 
         arrow_type = from_numpy_dtype(obj.dtype)
         shape = obj.shape[1:]
+        permutation = (-np.array(obj.strides)).argsort()[1:]
         size = obj.size / obj.shape[0]
+        bw = obj.dtype.itemsize
+        values = np.lib.stride_tricks.as_strided(obj, shape=(obj.size,), strides=(bw,))
 
         return ExtensionArray.from_storage(
-            fixed_shape_tensor(arrow_type, shape),
-            FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
+            fixed_shape_tensor(arrow_type, shape, permutation=permutation),
+            FixedSizeListArray.from_arrays(values, size)
         )
 
 
