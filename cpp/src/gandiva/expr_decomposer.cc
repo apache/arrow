@@ -248,7 +248,7 @@ Status ExprDecomposer::Visit(const LiteralNode& node) {
   return Status::OK();
 }
 
-// The bolow functions use a stack to detect :
+// The below functions use a stack to detect :
 // a. nested if-else expressions.
 //    In such cases,  the local bitmap can be re-used.
 // b. detect terminal else expressions

@@ -146,7 +146,7 @@ class GANDIVA_EXPORT LLVMGenerator {
                                           const ValueValidityPairVector& args,
                                           bool with_validity, bool with_context);
 
-    // Generate code to onvoke a function call.
+    // Generate code to invoke a function call.
     LValuePtr BuildFunctionCall(const NativeFunction* func, DataTypePtr arrow_return_type,
                                 std::vector<llvm::Value*>* params);
 
