@@ -59,7 +59,7 @@ namespace Apache.Arrow.Ipc
             for (int i = 0; i < schema.FieldsLength; i++)
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
-                fields.Add(FieldFromFlatbuffer(field, ref dictionaryMemo, allowBlankName: false));
+                fields.Add(FieldFromFlatbuffer(field, ref dictionaryMemo));
             }
 
             Dictionary<string, string> metadata = schema.CustomMetadataLength > 0 ? new Dictionary<string, string>() : null;
@@ -73,14 +73,13 @@ namespace Apache.Arrow.Ipc
             return new Schema(fields, metadata, copyCollections: false);
         }
 
-        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField, ref DictionaryMemo dictionaryMemo, bool allowBlankName)
+        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField, ref DictionaryMemo dictionaryMemo)
         {
-            bool allowBlankNameChild = flatbufField.ChildrenLength == 1 && flatbufField.TypeType == Flatbuf.Type.FixedSizeList;
             Field[] childFields = flatbufField.ChildrenLength > 0 ? new Field[flatbufField.ChildrenLength] : null;
             for (int i = 0; i < flatbufField.ChildrenLength; i++)
             {
                 Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
-                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value, ref dictionaryMemo, allowBlankNameChild);
+                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value, ref dictionaryMemo);
             }
 
             Flatbuf.DictionaryEncoding? dictionaryEncoding = flatbufField.Dictionary;
@@ -104,7 +103,7 @@ namespace Apache.Arrow.Ipc
                 metadata[keyValue.Key] = keyValue.Value;
             }
 
-            var arrowField = new Field(flatbufField.Name, type, flatbufField.Nullable, metadata, copyCollections: false, allowBlankName);
+            var arrowField = new Field(flatbufField.Name, type, flatbufField.Nullable, metadata, copyCollections: false);
 
             if (dictionaryEncoding.HasValue)
             {

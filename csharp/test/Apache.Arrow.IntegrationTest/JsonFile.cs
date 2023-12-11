@@ -120,6 +120,12 @@ namespace Apache.Arrow.IntegrationTest
             {
                 builder.Field(f => CreateField(f, jsonSchema.Fields[i], dictionaryIndexes));
             }
+
+            if (jsonSchema.Metadata != null)
+            {
+                builder.Metadata(jsonSchema.Metadata);
+            }
+
             return builder.Build();
         }
 
