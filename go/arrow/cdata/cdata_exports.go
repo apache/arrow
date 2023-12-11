@@ -39,6 +39,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"os"
 	"reflect"
 	"runtime/cgo"
 	"strconv"

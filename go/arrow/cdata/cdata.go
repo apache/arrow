@@ -683,13 +683,8 @@ func (imp *cimporter) importBinaryViewLike() (err error) {
 		return
 	}
 
-	var dataBufferSizes *memory.Buffer
-	if dataBufferSizes, err = imp.importFixedSizeBuffer(1, int64(len(buffers))-2); err != nil {
-		return
-	}
-	defer dataBufferSizes.Release()
-
-	for i, size := range arrow.Int64Traits.CastFromBytes(dataBufferSizes.Bytes()) {
+  dataBufferSizes := unsafe.Slice((*int64)(unsafe.Pointer(imp.cbuffers[len(buffers)])), len(buffers)-2)
+	for i, size := range dataBufferSizes {
 		if buffers[i+2], err = imp.importVariableValuesBuffer(i+2, 1, size); err != nil {
 			return
 		}
