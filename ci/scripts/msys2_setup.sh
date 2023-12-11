@@ -43,7 +43,6 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
     packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
     packages+=(${MINGW_PACKAGE_PREFIX}-nlohmann-json)
-    packages+=(${MINGW_PACKAGE_PREFIX}-openssl)
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)
     packages+=(${MINGW_PACKAGE_PREFIX}-rapidjson)
     packages+=(${MINGW_PACKAGE_PREFIX}-re2)
@@ -52,8 +51,17 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-thrift)
     packages+=(${MINGW_PACKAGE_PREFIX}-xsimd)
     packages+=(${MINGW_PACKAGE_PREFIX}-uriparser)
-    packages+=(${MINGW_PACKAGE_PREFIX}-zlib)
     packages+=(${MINGW_PACKAGE_PREFIX}-zstd)
+
+    if [ "${target}" != "ruby" ]; then
+      # We don't update the exiting packages for Ruby because
+      # RubyInstaller for Windows bundles some DLLs such as libffi,
+      # OpenSSL and zlib separately. They should be ABI compatible
+      # with packages installed by MSYS2. If we specify packages
+      # explicitly here, the existing packages may be updated.
+      packages+=(${MINGW_PACKAGE_PREFIX}-openssl)
+      packages+=(${MINGW_PACKAGE_PREFIX}-zlib)
+    fi
   ;;
 esac
 
@@ -78,7 +86,6 @@ esac
 pacman \
   --needed \
   --noconfirm \
-  --refresh \
   --sync \
   "${packages[@]}"
 

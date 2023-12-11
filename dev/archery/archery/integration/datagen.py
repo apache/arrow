@@ -1804,17 +1804,14 @@ def get_generated_json_files(tempdir=None):
         generate_duration_case(),
 
         generate_interval_case()
-        .skip_tester('C#')
         .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_month_day_nano_interval_case()
-        .skip_tester('C#')
         .skip_tester('JS'),
 
         generate_map_case(),
 
         generate_non_canonical_map_case()
-        .skip_tester('C#')
         .skip_tester('Java')  # TODO(ARROW-8715)
         # Canonical map names are restored on import, so the schemas are unequal
         .skip_format(SKIP_C_SCHEMA, 'C++'),
@@ -1829,22 +1826,17 @@ def get_generated_json_files(tempdir=None):
 
         generate_unions_case(),
 
-        generate_custom_metadata_case()
-        .skip_tester('C#'),
+        generate_custom_metadata_case(),
 
         generate_duplicate_fieldnames_case()
-        .skip_tester('C#')
         .skip_tester('JS'),
 
-        generate_dictionary_case()
-        .skip_tester('C#'),
+        generate_dictionary_case(),
 
         generate_dictionary_unsigned_case()
-        .skip_tester('C#')
         .skip_tester('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
-        .skip_tester('C#')
         .skip_tester('Java'),  # TODO(ARROW-7779)
 
         generate_run_end_encoded_case()
@@ -1861,7 +1853,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_extension_case()
-        .skip_tester('C#')
         # TODO: ensure the extension is registered in the C++ entrypoint
         .skip_format(SKIP_C_SCHEMA, 'C++')
         .skip_format(SKIP_C_ARRAY, 'C++'),
