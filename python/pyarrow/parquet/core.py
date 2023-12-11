@@ -1165,7 +1165,7 @@ create a ParquetDataset object from the dataset source:
 and read the data:
 
 >>> dataset.read().to_pandas()
-    n_legs         animal  year
+   n_legs         animal  year
 0       5  Brittle stars  2019
 1       2       Flamingo  2020
 2       4            Dog  2021
@@ -1178,7 +1178,7 @@ create a ParquetDataset object with filter:
 >>> dataset = pq.ParquetDataset('dataset_v2/',
 ...                             filters=[('n_legs','=',4)])
 >>> dataset.read().to_pandas()
-    n_legs animal  year
+   n_legs animal  year
 0       4    Dog  2021
 1       4  Horse  2022
 """
