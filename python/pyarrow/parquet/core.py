@@ -1251,8 +1251,8 @@ Examples
 """.format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
 
     def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
-                 partitioning="hive", read_dictionary=None, buffer_size=None,
-                 memory_map=False, ignore_prefixes=None, pre_buffer=True,
+                 read_dictionary=None, memory_map=False, buffer_size=None,
+                 partitioning="hive", ignore_prefixes=None, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
