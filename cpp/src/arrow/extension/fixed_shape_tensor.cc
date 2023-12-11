@@ -350,7 +350,14 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   ARROW_RETURN_IF(!is_fixed_width(*ext_arr->value_type()),
                   Status::Invalid(ext_arr->value_type()->ToString(),
                                   " is not valid data type for a tensor"));
-  auto permutation = ext_type->permutation();
+  std::vector<int64_t> permutation = ext_type->permutation();
+  if (permutation.empty()) {
+    for (int64_t i = 0; i < static_cast<int64_t>(ext_type->ndim()); i++) {
+      permutation.emplace_back(i);
+    }
+    ARROW_LOG(INFO) << "generated permutation: "
+                    << ::arrow::internal::PrintVector{permutation, ","};
+  }
 
   std::vector<std::string> dim_names;
   if (!ext_type->dim_names().empty()) {

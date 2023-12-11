@@ -28,6 +28,7 @@
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/sort.h"
 
 namespace arrow {
 
@@ -337,6 +338,24 @@ void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor) {
   ASSERT_TRUE(tensor->Equals(*tensor_from_array));
 }
 
+void CheckToTensor(const std::shared_ptr<DataType>& ext_type,
+                   const std::shared_ptr<Tensor>& expected_tensor) {
+  const std::vector<int64_t> values = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
+                                       12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                                       24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
+  const std::shared_ptr<DataType> cell_type = fixed_size_list(int64(), 12);
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values)};
+
+  auto arr_data = std::make_shared<ArrayData>(int64(), values.size(), buffers);
+  auto arr = std::make_shared<Int64Array>(arr_data);
+  ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type));
+  auto ext_arr = ExtensionType::WrapArray(ext_type, fsla_arr);
+  const auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
+
+  ASSERT_OK_AND_ASSIGN(const auto actual_tensor, tensor_array->ToTensor());
+  ASSERT_TRUE(actual_tensor->Equals(*expected_tensor));
+}
+
 TEST_F(TestExtensionType, RoundtripTensor) {
   auto values = Buffer::Wrap(values_);
 
@@ -355,6 +374,28 @@ TEST_F(TestExtensionType, RoundtripTensor) {
     ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, values, shapes[i],
                                                    strides[i], tensor_dim_names[i]));
     CheckTensorRoundtrip(tensor);
+  }
+
+  for (size_t i = 0; i < shapes.size(); i++) {
+    auto cell_shape = std::vector<int64_t>(shapes[i].begin() + 1, shapes[i].end());
+    auto cell_dim_names = std::vector<std::string>(tensor_dim_names[i].begin() + 1,
+                                                   tensor_dim_names[i].end());
+    auto cell_strides = std::vector<int64_t>(strides[i].begin() + 1, strides[i].end());
+    auto cell_permutation = internal::ArgSort(cell_strides, std::greater<>());
+    // std::vector<int64_t> cell_shape;
+    // for (auto j : cell_permutation) {
+    //   cell_shape.push_back(shapes[i][cell_permutation[j] + 1]);
+    // }
+
+    const auto ext_type =
+        fixed_shape_tensor(value_type_, cell_shape, cell_permutation, cell_dim_names);
+    auto tmp_dim_names = tensor_dim_names[i];
+    tmp_dim_names[0] = "";
+    ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, values, shapes[i],
+                                                   strides[i], tmp_dim_names));
+    CheckToTensor(ext_type, tensor);
+    // TODO: handle non-trivial cases
+    break;
   }
 }
 
