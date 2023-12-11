@@ -39,7 +39,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"os"
 	"reflect"
 	"runtime/cgo"
 	"strconv"
@@ -428,7 +427,9 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 			for i, buf := range buffers[2:] {
 				sizes[i] = C.int64_t(buf.Len())
 			}
-			cBufs[nbuffers-1] = (*C.void)(unsafe.Pointer(&sizes[0]))
+			if len(sizes) > 0 {
+				cBufs[nbuffers-1] = (*C.void)(unsafe.Pointer(&sizes[0]))
+			}
 		}
 		out.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cBufs[0]))
 	}

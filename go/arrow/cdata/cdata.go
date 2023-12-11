@@ -683,7 +683,7 @@ func (imp *cimporter) importBinaryViewLike() (err error) {
 		return
 	}
 
-  dataBufferSizes := unsafe.Slice((*int64)(unsafe.Pointer(imp.cbuffers[len(buffers)])), len(buffers)-2)
+	dataBufferSizes := unsafe.Slice((*int64)(unsafe.Pointer(imp.cbuffers[len(buffers)])), len(buffers)-2)
 	for i, size := range dataBufferSizes {
 		if buffers[i+2], err = imp.importVariableValuesBuffer(i+2, 1, size); err != nil {
 			return
@@ -691,8 +691,6 @@ func (imp *cimporter) importBinaryViewLike() (err error) {
 	}
 
 	imp.data = array.NewData(imp.dt, int(imp.arr.length), buffers, nil, int(imp.arr.null_count), int(imp.arr.offset))
-
-	buffers = []*memory.Buffer{}
 	return
 }
 
