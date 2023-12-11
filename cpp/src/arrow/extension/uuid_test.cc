@@ -23,9 +23,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
-#include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/key_value_metadata.h"
 
 #include "arrow/testing/extension_type.h"
 
@@ -33,9 +31,7 @@ namespace arrow {
 
 using extension::uuid;
 
-class TestUuuidExtensionType : public ::testing::Test {};
-
-TEST_F(TestUuuidExtensionType, ExtensionTypeTest) {
+TEST(TestUuuidExtensionType, ExtensionTypeTest) {
   auto type = uuid();
   ASSERT_EQ(type->id(), Type::EXTENSION);
 
