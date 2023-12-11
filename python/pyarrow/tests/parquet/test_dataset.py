@@ -1219,24 +1219,6 @@ def test_read_table_schema(tempdir):
     assert result.read().equals(expected)
 
 
-def test_dataset_unsupported_keywords():
-
-    with pytest.raises(ValueError, match="not yet supported with the new"):
-        pq.ParquetDataset("", metadata=pa.schema([]))
-
-    with pytest.raises(ValueError, match="not yet supported with the new"):
-        pq.ParquetDataset("", validate_schema=False)
-
-    with pytest.raises(ValueError, match="not yet supported with the new"):
-        pq.ParquetDataset("", split_row_groups=True)
-
-    with pytest.raises(ValueError, match="not yet supported with the new"):
-        pq.ParquetDataset("", metadata_nthreads=4)
-
-    with pytest.raises(ValueError, match="no longer supported"):
-        pq.read_table("", metadata=pa.schema([]))
-
-
 def test_dataset_partitioning(tempdir):
     import pyarrow.dataset as ds
 

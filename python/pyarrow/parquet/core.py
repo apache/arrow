@@ -1240,7 +1240,7 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
-use_legacy_dataset : bool
+use_legacy_dataset : bool, optional
     Deprecated and has no effect from PyArrow version 15.0.0.
 
 Examples
@@ -1632,7 +1632,7 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
     Within-file level filtering and different partitioning schemes are supported.
 
     {3}
-use_legacy_dataset : bool
+use_legacy_dataset : bool, optional
     Deprecated and has no effect from PyArrow version 15.0.0.
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
@@ -2005,7 +2005,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
-    use_legacy_dataset : bool
+    use_legacy_dataset : bool, optional
         Deprecated and has no effect from PyArrow version 15.0.0.
     schema : Schema, optional
         This Schema of the dataset.
