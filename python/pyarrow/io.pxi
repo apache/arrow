@@ -2228,7 +2228,7 @@ cdef class CacheOptions(_Weakrefable):
             data load. The value is a positive float less than 1.
         max_ideal_request_size_mib : int
             The maximum single data request size (in MiB) to maximize the net data load.
-        
+
         Returns
         -------
         CacheOptions
