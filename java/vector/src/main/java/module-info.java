@@ -46,5 +46,5 @@ module org.apache.arrow.vector {
   requires org.apache.arrow.memory.core;
   requires org.apache.commons.codec;
   requires org.eclipse.collections.impl;
-  requires slf4j.api;
+  requires org.slf4j;
 }
