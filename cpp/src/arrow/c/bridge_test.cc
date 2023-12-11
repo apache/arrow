@@ -2166,10 +2166,15 @@ TEST_F(TestSchemaImport, RunEndEncoded) {
 #endif
 
 TEST_F(TestSchemaImport, Dictionary) {
+  FillPrimitive("w:16");
+  c_struct_.metadata = kEncodedUuidMetadata.c_str();
+  auto expected = uuid();
+  CheckImport(expected);
+
   FillPrimitive(AddChild(), "u");
   FillPrimitive("c");
   FillDictionary();
-  auto expected = dictionary(int8(), utf8());
+  expected = dictionary(int8(), utf8());
   CheckImport(expected);
 
   FillPrimitive(AddChild(), "u");
@@ -3712,6 +3717,7 @@ std::shared_ptr<Field> GetStorageWithMetadata(const std::string& field_name,
 }
 
 TEST_F(TestSchemaRoundtrip, UnregisteredExtension) {
+  TestWithTypeFactory(uuid, []() { return uuid(); });
   TestWithTypeFactory(complex128, []() {
     return struct_({::arrow::field("real", float64(), /*nullable=*/false),
                     ::arrow::field("imag", float64(), /*nullable=*/false)});

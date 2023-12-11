@@ -76,7 +76,7 @@ class UuidType : public ExtensionType {
     return Status::NotImplemented("");
   }
 
-  std::string Serialize() const override { return "uuid-serialized"; }
+  std::string Serialize() const override { return ""; }
 };
 
 std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,
