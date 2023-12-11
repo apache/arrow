@@ -24,5 +24,5 @@ module org.apache.arrow.memory.core {
   requires transitive jdk.unsupported;
   requires jsr305;
   requires org.immutables.value;
-  requires slf4j.api;
+  requires org.slf4j;
 }
