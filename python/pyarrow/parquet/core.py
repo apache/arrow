@@ -1189,6 +1189,9 @@ class ParquetDataset:
 Encapsulates details of reading a complete Parquet dataset possibly
 consisting of multiple files and partitions in subdirectories.
 
+Keywords `metadata`, `split_row_groups=True` and `validate_schema=False`
+are not yet supported.
+
 Parameters
 ----------
 path_or_paths : str or List[str]
@@ -1241,9 +1244,6 @@ page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 use_legacy_dataset : bool, optional
     Deprecated and has no effect from PyArrow version 15.0.0.
-
-Keywords `metadata`, `split_row_groups=True` and `validate_schema=False`
-are not yet supported.
 
 Examples
 --------
@@ -1617,8 +1617,6 @@ columns : list
     no columns.
 use_threads : bool, default True
     Perform multi-threaded column reads.
-metadata : FileMetaData
-    If separately computed
 schema : Schema, optional
     Optionally provide the Schema for the parquet dataset, in which case it
     will not be inferred from the source.
@@ -1667,6 +1665,9 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
+metadata : FileMetaData
+    This keyword is no longer supported and is being deprecated with
+    PyArrow version 15.0.0.
 
 Returns
 -------
@@ -1773,7 +1774,8 @@ def read_table(source, *, columns=None, use_threads=True,
     if metadata is not None:
         raise ValueError(
             "The 'metadata' keyword is no longer supported with the new "
-            "datasets-based implementation."
+            "datasets-based implementation and will be removed in future "
+            "versions."
         )
     try:
         dataset = ParquetDataset(
