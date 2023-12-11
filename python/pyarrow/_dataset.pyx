@@ -2051,6 +2051,36 @@ cdef class CacheOptions(_Weakrefable):
             return False
 
     @staticmethod
+    def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec, 
+        ideal_bandwidth_utilization_frac, max_ideal_request_size_mib):
+        """
+        Create suiteable CacheOptions based on provided network metrics.
+
+        Typically this will be used with object storage solutions like Amazon S3, 
+        Google Cloud Storage and Azure Blob Storage.
+
+        Parameters
+        ----------
+        time_to_first_byte_millis : int
+            Seek-time or Time-To-First-Byte (TTFB) in milliseconds, also called call 
+            setup latency of a new read request. The value is a positive integer. 
+        transfer_bandwidth_mib_per_sec : int
+            Data transfer Bandwidth (BW) in MiB/sec (per connection). The value is a positive 
+            integer.
+        ideal_bandwidth_utilization_frac : int
+            Transfer bandwidth utilization fraction (per connection) to maximize the net 
+            data load. The value is a positive float less than 1.
+        max_ideal_request_size_mib : int
+            The maximum single data request size (in MiB) to maximize the net data load.
+        Returns
+        -------
+        CacheOptions
+        """
+        return CacheOptions.wrap(CCacheOptions.MakeFromNetworkMetrics(
+            time_to_first_byte_millis, transfer_bandwidth_mib_per_sec, 
+            ideal_bandwidth_utilization_frac, max_ideal_request_size_mib))
+
+    @staticmethod
     @binding(True)  # Required for Cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the

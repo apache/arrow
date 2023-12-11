@@ -1355,6 +1355,12 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         c_bool Equals "operator==" (CCacheOptions other)
 
         @staticmethod
+        CCacheOptions MakeFromNetworkMetrics(int64_t time_to_first_byte_millis, 
+        int64_t transfer_bandwidth_mib_per_sec, 
+        double ideal_bandwidth_utilization_frac, 
+        int64_t max_ideal_request_size_mib)
+
+        @staticmethod
         CCacheOptions Defaults()
 
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,

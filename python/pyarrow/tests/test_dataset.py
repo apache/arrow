@@ -26,7 +26,6 @@ import textwrap
 import threading
 import time
 from shutil import copytree
-
 from urllib.parse import quote
 
 import numpy as np
@@ -903,6 +902,10 @@ def test_cache_options():
     opts4 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True)
     opts5 = ds.CacheOptions(hole_size_limit=4096,
                             range_size_limit=8192, lazy=True, prefetch_limit=5)
+    opts6 = ds.CacheOptions.from_network_metrics(time_to_first_byte_millis=100, 
+                                                 transfer_bandwidth_mib_per_sec=200, 
+                                                 ideal_bandwidth_utilization_frac=0.9, 
+                                                 max_ideal_request_size_mib=64)
 
     assert opts1.hole_size_limit == 8192
     assert opts1.range_size_limit == 32 * 1024 * 1024
@@ -929,10 +932,14 @@ def test_cache_options():
     assert opts5.lazy is True
     assert opts5.prefetch_limit == 5
 
+    assert opts6.lazy is False
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
+    assert opts4 != opts5
+    assert opts6 != opts1
 
 
 def test_cache_options_pickling(pickle_module):

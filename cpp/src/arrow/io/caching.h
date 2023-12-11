@@ -61,9 +61,10 @@ struct ARROW_EXPORT CacheOptions {
   /// \brief Construct CacheOptions from network storage metrics (e.g. S3).
   ///
   /// \param[in] time_to_first_byte_millis Seek-time or Time-To-First-Byte (TTFB) in
-  ///   milliseconds, also called call setup latency of a new S3 request.
+  ///   milliseconds, also called call setup latency of a new read request.
   ///   The value is a positive integer.
-  /// \param[in] transfer_bandwidth_mib_per_sec Data transfer Bandwidth (BW) in MiB/sec.
+  /// \param[in] transfer_bandwidth_mib_per_sec Data transfer Bandwidth (BW) in MiB/sec
+  ///   (per connection).
   ///   The value is a positive integer.
   /// \param[in] ideal_bandwidth_utilization_frac Transfer bandwidth utilization fraction
   ///   (per connection) to maximize the net data load.
