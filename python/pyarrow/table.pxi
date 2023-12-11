@@ -4014,11 +4014,12 @@ cdef class Table(_Tabular):
         1    None       4  2022.0
         """
         if isinstance(struct_array, Array):
-            struct_array = chunked_array([struct_array])
-        return Table.from_batches([
-            RecordBatch.from_struct_array(chunk)
-            for chunk in struct_array.chunks
-        ])
+            return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
+        else:
+            return Table.from_batches([
+                RecordBatch.from_struct_array(chunk)
+                for chunk in struct_array.chunks
+            ])
 
     def to_struct_array(self, max_chunksize=None):
         """
