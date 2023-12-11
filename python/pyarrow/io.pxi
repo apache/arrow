@@ -2120,6 +2120,139 @@ cdef CCompressionType _ensure_compression(str name) except *:
         raise ValueError('Invalid value for compression: {!r}'.format(name))
 
 
+cdef class CacheOptions(_Weakrefable):
+    """
+    Cache options for a pre-buffered fragment scan.
+
+    Parameters
+    ----------
+    hole_size_limit : int, default 8Ki
+        The maximum distance in bytes between two consecutive ranges; beyond 
+        this value, ranges are not combined.
+    range_size_limit : int, default 32Mi
+        The maximum size in bytes of a combined range; if combining two 
+        consecutive ranges would produce a range of a size greater than this, 
+        they are not combined
+    lazy : bool, default False
+        lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
+        lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader 
+        needs them. 
+        lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the 
+        range that is currently being read.
+    prefetch_limit : int, default 0
+        The maximum number of ranges to be prefetched. This is only used for 
+        lazy cache to asynchronously read some ranges after reading the target 
+        range.
+    """
+
+    def __init__(self, *, hole_size_limit=None, range_size_limit=None, lazy=None, prefetch_limit=None):
+        self.wrapped = CCacheOptions.Defaults()
+        if hole_size_limit is not None:
+            self.hole_size_limit = hole_size_limit
+        if range_size_limit is not None:
+            self.range_size_limit = range_size_limit
+        if lazy is not None:
+            self.lazy = lazy
+        if prefetch_limit is not None:
+            self.prefetch_limit = prefetch_limit
+
+    cdef void init(self, CCacheOptions options):
+        self.wrapped = options
+
+    cdef inline CCacheOptions unwrap(self):
+        return self.wrapped
+
+    @staticmethod
+    cdef wrap(CCacheOptions options):
+        self = CacheOptions()
+        self.init(options)
+        return self
+
+    @property
+    def hole_size_limit(self):
+        return self.wrapped.hole_size_limit
+
+    @hole_size_limit.setter
+    def hole_size_limit(self, hole_size_limit):
+        self.wrapped.hole_size_limit = hole_size_limit
+
+    @property
+    def range_size_limit(self):
+        return self.wrapped.range_size_limit
+
+    @range_size_limit.setter
+    def range_size_limit(self, range_size_limit):
+        self.wrapped.range_size_limit = range_size_limit
+
+    @property
+    def lazy(self):
+        return self.wrapped.lazy
+
+    @lazy.setter
+    def lazy(self, lazy):
+        self.wrapped.lazy = lazy
+
+    @property
+    def prefetch_limit(self):
+        return self.wrapped.prefetch_limit
+
+    @prefetch_limit.setter
+    def prefetch_limit(self, prefetch_limit):
+        self.wrapped.prefetch_limit = prefetch_limit
+
+    def __eq__(self, CacheOptions other):
+        try:
+            return self.unwrap().Equals(other.unwrap())
+        except TypeError:
+            return False
+
+    @staticmethod
+    def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec, 
+        ideal_bandwidth_utilization_frac, max_ideal_request_size_mib):
+        """
+        Create suiteable CacheOptions based on provided network metrics.
+
+        Typically this will be used with object storage solutions like Amazon S3, 
+        Google Cloud Storage and Azure Blob Storage.
+
+        Parameters
+        ----------
+        time_to_first_byte_millis : int
+            Seek-time or Time-To-First-Byte (TTFB) in milliseconds, also called call 
+            setup latency of a new read request. The value is a positive integer. 
+        transfer_bandwidth_mib_per_sec : int
+            Data transfer Bandwidth (BW) in MiB/sec (per connection). The value is a positive 
+            integer.
+        ideal_bandwidth_utilization_frac : int
+            Transfer bandwidth utilization fraction (per connection) to maximize the net 
+            data load. The value is a positive float less than 1.
+        max_ideal_request_size_mib : int
+            The maximum single data request size (in MiB) to maximize the net data load.
+        Returns
+        -------
+        CacheOptions
+        """
+        return CacheOptions.wrap(CCacheOptions.MakeFromNetworkMetrics(
+            time_to_first_byte_millis, transfer_bandwidth_mib_per_sec, 
+            ideal_bandwidth_utilization_frac, max_ideal_request_size_mib))
+
+    @staticmethod
+    @binding(True)  # Required for Cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return CacheOptions(**kwargs)
+
+    def __reduce__(self):
+        kwargs = dict(
+            hole_size_limit=self.hole_size_limit,
+            range_size_limit=self.range_size_limit,
+            lazy=self.lazy,
+            prefetch_limit=self.prefetch_limit,
+        )
+        return CacheOptions._reconstruct, (kwargs,)
+
+
 cdef class Codec(_Weakrefable):
     """
     Compression codec.

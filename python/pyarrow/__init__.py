@@ -243,7 +243,7 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
 
 # I/O
 from pyarrow.lib import (NativeFile, PythonFile,
-                         BufferedInputStream, BufferedOutputStream,
+                         BufferedInputStream, BufferedOutputStream, CacheOptions,
                          CompressedInputStream, CompressedOutputStream,
                          TransformInputStream, transcoding_input_stream,
                          FixedSizeBufferWriter,

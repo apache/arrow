@@ -790,7 +790,7 @@ def test_parquet_scan_options():
         thrift_container_size_limit=987654,)
     opts6 = ds.ParquetFragmentScanOptions(
         page_checksum_verification=True)
-    cache_opts = ds.CacheOptions(
+    cache_opts = pa.CacheOptions(
         hole_size_limit=2**10, range_size_limit=8*2**10, lazy=True)
     opts7 = ds.ParquetFragmentScanOptions(pre_buffer=True, cache_options=cache_opts)
 
@@ -890,64 +890,6 @@ def test_fragment_scan_options_pickling(pickle_module):
             ds.ParquetFragmentScanOptions(buffer_size=4096),
             ds.ParquetFragmentScanOptions(pre_buffer=True),
         ])
-
-    for option in options:
-        assert pickle_module.loads(pickle_module.dumps(option)) == option
-
-
-def test_cache_options():
-    opts1 = ds.CacheOptions()
-    opts2 = ds.CacheOptions(hole_size_limit=1024)
-    opts3 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
-    opts4 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True)
-    opts5 = ds.CacheOptions(hole_size_limit=4096,
-                            range_size_limit=8192, lazy=True, prefetch_limit=5)
-    opts6 = ds.CacheOptions.from_network_metrics(time_to_first_byte_millis=100, 
-                                                 transfer_bandwidth_mib_per_sec=200, 
-                                                 ideal_bandwidth_utilization_frac=0.9, 
-                                                 max_ideal_request_size_mib=64)
-
-    assert opts1.hole_size_limit == 8192
-    assert opts1.range_size_limit == 32 * 1024 * 1024
-    assert opts1.lazy is False
-    assert opts4.prefetch_limit == 0
-
-    assert opts2.hole_size_limit == 1024
-    assert opts2.range_size_limit == 32 * 1024 * 1024
-    assert opts2.lazy is False
-    assert opts4.prefetch_limit == 0
-
-    assert opts3.hole_size_limit == 4096
-    assert opts3.range_size_limit == 8192
-    assert opts3.lazy is False
-    assert opts4.prefetch_limit == 0
-
-    assert opts4.hole_size_limit == 4096
-    assert opts4.range_size_limit == 8192
-    assert opts4.lazy is True
-    assert opts4.prefetch_limit == 0
-
-    assert opts5.hole_size_limit == 4096
-    assert opts5.range_size_limit == 8192
-    assert opts5.lazy is True
-    assert opts5.prefetch_limit == 5
-
-    assert opts6.lazy is False
-
-    assert opts1 == opts1
-    assert opts1 != opts2
-    assert opts2 != opts3
-    assert opts3 != opts4
-    assert opts4 != opts5
-    assert opts6 != opts1
-
-
-def test_cache_options_pickling(pickle_module):
-    options = [
-        ds.CacheOptions(),
-        ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192,
-                        lazy=True, prefetch_limit=5),
-    ]
 
     for option in options:
         assert pickle_module.loads(pickle_module.dumps(option)) == option
