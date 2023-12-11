@@ -100,10 +100,10 @@ class ExampleUuidScalarType(pa.ExtensionScalar):
         return None if self.value is None else UUID(bytes=self.value.as_py())
 
 
-class ExampleUuidType(pa.PyExtensionType):
+class ExampleUuidType(pa.ExtensionType):
 
     def __init__(self):
-        super().__init__(pa.binary(16), 'pyarrow.tests.UuidType')
+        super().__init__(pa.binary(16), 'pyarrow.tests.ExampleUuidType')
 
     def __reduce__(self):
         return ExampleUuidType, ()
@@ -119,10 +119,10 @@ class ExampleUuidType(pa.PyExtensionType):
         return cls()
 
 
-class ExampleUuidType2(pa.PyExtensionType):
+class ExampleUuidType2(pa.ExtensionType):
 
     def __init__(self):
-        super().__init__(pa.binary(16), 'pyarrow.tests.UuidType2')
+        super().__init__(pa.binary(16), 'pyarrow.tests.ExampleUuidType2')
 
     def __arrow_ext_serialize__(self):
         return b''
@@ -254,7 +254,7 @@ def ipc_read_batch(buf):
 
 def test_ext_type_basics():
     ty = ExampleUuidType()
-    assert ty.extension_name == "arrow.py_extension_type"
+    assert ty.extension_name == "pyarrow.tests.ExampleUuidType"
 
 
 def test_ext_type_str():
@@ -350,7 +350,7 @@ def test_uuid_type_pickle(pickle_module):
         del ty
         ty = pickle_module.loads(ser)
         wr = weakref.ref(ty)
-        assert ty.extension_name == "pyarrow.tests.UuidType"
+        assert ty.extension_name == "pyarrow.tests.ExampleUuidType"
         del ty
         assert wr() is None
 

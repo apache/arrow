@@ -2166,15 +2166,10 @@ TEST_F(TestSchemaImport, RunEndEncoded) {
 #endif
 
 TEST_F(TestSchemaImport, Dictionary) {
-  FillPrimitive("w:16");
-  c_struct_.metadata = kEncodedUuidMetadata.c_str();
-  auto expected = uuid();
-  CheckImport(expected);
-
   FillPrimitive(AddChild(), "u");
   FillPrimitive("c");
   FillDictionary();
-  expected = dictionary(int8(), utf8());
+  auto expected = dictionary(int8(), utf8());
   CheckImport(expected);
 
   FillPrimitive(AddChild(), "u");
@@ -2199,11 +2194,16 @@ TEST_F(TestSchemaImport, Dictionary) {
 }
 
 TEST_F(TestSchemaImport, UnregisteredExtension) {
+  FillPrimitive("w:16");
+  c_struct_.metadata = kEncodedUuidMetadata.c_str();
+  auto expected = uuid();
+  CheckImport(expected);
+
   FillPrimitive(AddChild(), "u");
   FillPrimitive("c");
   FillDictionary();
   c_struct_.metadata = kEncodedDictExtensionMetadata.c_str();
-  auto expected = dictionary(int8(), utf8());
+  expected = dictionary(int8(), utf8());
   CheckImport(expected);
 }
 
