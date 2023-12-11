@@ -671,9 +671,9 @@ def test_cache_options():
     opts4 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True)
     opts5 = pa.CacheOptions(hole_size_limit=4096,
                             range_size_limit=8192, lazy=True, prefetch_limit=5)
-    opts6 = pa.CacheOptions.from_network_metrics(time_to_first_byte_millis=100, 
-                                                 transfer_bandwidth_mib_per_sec=200, 
-                                                 ideal_bandwidth_utilization_frac=0.9, 
+    opts6 = pa.CacheOptions.from_network_metrics(time_to_first_byte_millis=100,
+                                                 transfer_bandwidth_mib_per_sec=200,
+                                                 ideal_bandwidth_utilization_frac=0.9,
                                                  max_ideal_request_size_mib=64)
 
     assert opts1.hole_size_limit == 8192

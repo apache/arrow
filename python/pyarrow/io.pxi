@@ -2207,8 +2207,8 @@ cdef class CacheOptions(_Weakrefable):
             return False
 
     @staticmethod
-    def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec, 
-        ideal_bandwidth_utilization_frac, max_ideal_request_size_mib):
+    def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
+                             ideal_bandwidth_utilization_frac, max_ideal_request_size_mib):
         """
         Create suiteable CacheOptions based on provided network metrics.
 
@@ -2233,7 +2233,7 @@ cdef class CacheOptions(_Weakrefable):
         CacheOptions
         """
         return CacheOptions.wrap(CCacheOptions.MakeFromNetworkMetrics(
-            time_to_first_byte_millis, transfer_bandwidth_mib_per_sec, 
+            time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
             ideal_bandwidth_utilization_frac, max_ideal_request_size_mib))
 
     @staticmethod
