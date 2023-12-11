@@ -38,4 +38,4 @@ In the case of PARQUET issues on JIRA the title also supports:
 See also:
 
   * [Other pull requests](https://github.com/apache/arrow/pulls/)
-  * [Contribution Guidelines - How to contribute patches](https://arrow.apache.org/docs/developers/contributing.html#how-to-contribute-patches)
+  * [Contribution Guidelines - Contributing Overview](https://arrow.apache.org/docs/developers/overview.html)
