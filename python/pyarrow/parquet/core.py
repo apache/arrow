@@ -1149,102 +1149,104 @@ default "hive"
 _parquet_dataset_example = """\
 Generate an example PyArrow Table and write it to a partitioned dataset:
 
-    >>> import pyarrow as pa
-    >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-    ...                   'n_legs': [2, 2, 4, 4, 5, 100],
-    ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-    ...                              "Brittle stars", "Centipede"]})
-    >>> import pyarrow.parquet as pq
-    >>> pq.write_to_dataset(table, root_path='dataset_v2',
-    ...                     partition_cols=['year'])
+>>> import pyarrow as pa
+>>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+...                   'n_legs': [2, 2, 4, 4, 5, 100],
+...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+...                              "Brittle stars", "Centipede"]})
+>>> import pyarrow.parquet as pq
+>>> pq.write_to_dataset(table, root_path='dataset_v2',
+...                     partition_cols=['year'])
 
-    create a ParquetDataset object from the dataset source:
+create a ParquetDataset object from the dataset source:
 
-    >>> dataset = pq.ParquetDataset('dataset_v2/')
+>>> dataset = pq.ParquetDataset('dataset_v2/')
 
-    and read the data:
+and read the data:
 
-    >>> dataset.read().to_pandas()
-       n_legs         animal  year
-    0       5  Brittle stars  2019
-    1       2       Flamingo  2020
-    2       4            Dog  2021
-    3     100      Centipede  2021
-    4       2         Parrot  2022
-    5       4          Horse  2022
+>>> dataset.read().to_pandas()
+    n_legs         animal  year
+0       5  Brittle stars  2019
+1       2       Flamingo  2020
+2       4            Dog  2021
+3     100      Centipede  2021
+4       2         Parrot  2022
+5       4          Horse  2022
 
-    create a ParquetDataset object with filter:
+create a ParquetDataset object with filter:
 
-    >>> dataset = pq.ParquetDataset('dataset_v2/',
-    ...                             filters=[('n_legs','=',4)])
-    >>> dataset.read().to_pandas()
-       n_legs animal  year
-    0       4    Dog  2021
-    1       4  Horse  2022
+>>> dataset = pq.ParquetDataset('dataset_v2/',
+...                             filters=[('n_legs','=',4)])
+>>> dataset.read().to_pandas()
+    n_legs animal  year
+0       4    Dog  2021
+1       4  Horse  2022
 """
 
 
 class ParquetDataset:
     __doc__ = """
-    Encapsulates details of reading a complete Parquet dataset possibly
-    consisting of multiple files and partitions in subdirectories.
+Encapsulates details of reading a complete Parquet dataset possibly
+consisting of multiple files and partitions in subdirectories.
 
-    Parameters
-    ----------
-    path_or_paths : str or List[str]
-        A directory name, single file name, or list of file names.
-    filesystem : FileSystem, default None
-        If nothing passed, will be inferred based on path.
-        Path will try to be found in the local on-disk filesystem otherwise
-        it will be parsed as an URI to determine the filesystem.
-    schema : pyarrow.parquet.Schema
-        Optionally provide the Schema for the Dataset, in which case it will
-        not be inferred from the source.
-    filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]],
-    default None
-        Rows which do not match the filter predicate will be removed from scanned
-        data. Partition keys embedded in a nested directory structure will be
-        exploited to avoid loading files at all if they contain no matching rows.
-        Within-file level filtering and different partitioning schemes are supported.
+Parameters
+----------
+path_or_paths : str or List[str]
+    A directory name, single file name, or list of file names.
+filesystem : FileSystem, default None
+    If nothing passed, will be inferred based on path.
+    Path will try to be found in the local on-disk filesystem otherwise
+    it will be parsed as an URI to determine the filesystem.
+schema : pyarrow.parquet.Schema
+    Optionally provide the Schema for the Dataset, in which case it will
+    not be inferred from the source.
+filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]],
+default None
+    Rows which do not match the filter predicate will be removed from scanned
+    data. Partition keys embedded in a nested directory structure will be
+    exploited to avoid loading files at all if they contain no matching rows.
+    Within-file level filtering and different partitioning schemes are supported.
 
-        {1}
-    {0}
-    ignore_prefixes : list, optional
-        Files matching any of these prefixes will be ignored by the
-        discovery process.
-        This is matched to the basename of a path.
-        By default this is ['.', '_'].
-        Note that discovery happens only if a directory is passed as source.
-    pre_buffer : bool, default True
-        Coalesce and issue file reads in parallel to improve performance on
-        high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
-        background I/O thread pool. If using a filesystem layer that itself
-        performs readahead (e.g. fsspec's S3FS), disable readahead for best
-        results. Set to False if you want to prioritize minimal memory usage
-        over maximum speed.
-    coerce_int96_timestamp_unit : str, default None
-        Cast timestamps that are stored in INT96 format to a particular resolution
-        (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
-        timestamps will be inferred as timestamps in nanoseconds.
-    decryption_properties : FileDecryptionProperties or None
-        File-level decryption properties.
-        The decryption properties can be created using
-        ``CryptoFactory.file_decryption_properties()``.
-    thrift_string_size_limit : int, default None
-        If not None, override the maximum total string size allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    thrift_container_size_limit : int, default None
-        If not None, override the maximum total size of containers allocated
-        when decoding Thrift structures. The default limit should be
-        sufficient for most Parquet files.
-    page_checksum_verification : bool, default False
-        If True, verify the page checksum for each page read from the file.
+    {1}
+{0}
+ignore_prefixes : list, optional
+    Files matching any of these prefixes will be ignored by the
+    discovery process.
+    This is matched to the basename of a path.
+    By default this is ['.', '_'].
+    Note that discovery happens only if a directory is passed as source.
+pre_buffer : bool, default True
+    Coalesce and issue file reads in parallel to improve performance on
+    high-latency filesystems (e.g. S3, GCS). If True, Arrow will use a
+    background I/O thread pool. If using a filesystem layer that itself
+    performs readahead (e.g. fsspec's S3FS), disable readahead for best
+    results. Set to False if you want to prioritize minimal memory usage
+    over maximum speed.
+coerce_int96_timestamp_unit : str, default None
+    Cast timestamps that are stored in INT96 format to a particular resolution
+    (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
+    timestamps will be inferred as timestamps in nanoseconds.
+decryption_properties : FileDecryptionProperties or None
+    File-level decryption properties.
+    The decryption properties can be created using
+    ``CryptoFactory.file_decryption_properties()``.
+thrift_string_size_limit : int, default None
+    If not None, override the maximum total string size allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+thrift_container_size_limit : int, default None
+    If not None, override the maximum total size of containers allocated
+    when decoding Thrift structures. The default limit should be
+    sufficient for most Parquet files.
+page_checksum_verification : bool, default False
+    If True, verify the page checksum for each page read from the file.
+use_legacy_dataset : bool
+    Deprecated and has no effect from PyArrow version 15.0.0.
 
-    Examples
-    --------
-    {2}
-    """.format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
+Examples
+--------
+{2}
+""".format(_read_docstring_common, _DNF_filter_doc, _parquet_dataset_example)
 
     def __init__(self, path_or_paths, filesystem=None, schema=None, *, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
@@ -1253,9 +1255,8 @@ class ParquetDataset:
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False,
-                 **kwargs):
+                 use_legacy_dataset=None):
 
-        use_legacy_dataset = kwargs.pop('use_legacy_dataset', None)
         if use_legacy_dataset is not None:
             warnings.warn(
                 "Passing 'use_legacy_dataset' is deprecated as of pyarrow 15.0.0 "
@@ -1263,15 +1264,6 @@ class ParquetDataset:
                 FutureWarning, stacklevel=2)
 
         import pyarrow.dataset as ds
-
-        # Raise error for not supported keywords
-        for keyword, default in [
-                ("metadata", None), ("split_row_groups", False),
-                ("validate_schema", True), ("metadata_nthreads", None)]:
-            if keyword in kwargs and kwargs[keyword] is not default:
-                raise ValueError(
-                    "Keyword '{0}' is not yet supported with the new "
-                    "Dataset API".format(keyword))
 
         # map format arguments
         read_options = {
@@ -1503,7 +1495,12 @@ class ParquetDataset:
     def read_pandas(self, **kwargs):
         """
         Read dataset including pandas metadata, if any. Other arguments passed
-        through to ParquetDataset.read, see docstring for further details.
+        through to :func:`read`, see docstring for further details.
+
+        Parameters
+        ----------
+        **kwargs : optional
+            Additional options for :func:`read`
 
         Examples
         --------
@@ -1635,6 +1632,8 @@ filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], defaul
     Within-file level filtering and different partitioning schemes are supported.
 
     {3}
+use_legacy_dataset : bool
+    Deprecated and has no effect from PyArrow version 15.0.0.
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process.
@@ -2006,6 +2005,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    use_legacy_dataset : bool
+        Deprecated and has no effect from PyArrow version 15.0.0.
     schema : Schema, optional
         This Schema of the dataset.
     partitioning : Partitioning or list[str], optional
@@ -2059,10 +2060,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
     **kwargs : dict,
-        Used as additional kwargs for `dataset.write_dataset` function for
-        matching kwargs, and remainder to `ParquetFileFormat.make_write_options`.
-        See the docstring of `write_table` and `dataset.write_dataset` for
-        the available options.
+        Used as additional kwargs for :func:`pyarrow.dataset.write_dataset`
+        function for matching kwargs, and remainder to
+        :func:`pyarrow.dataset.ParquetFileFormat.make_write_options`.
+        See the docstring of :func:`write_table` and
+        :func:`pyarrow.dataset.write_dataset` for the available options.
         Using `metadata_collector` in kwargs allows one to collect the
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
