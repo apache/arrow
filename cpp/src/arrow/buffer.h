@@ -70,7 +70,7 @@ class ARROW_EXPORT Buffer {
 
   Buffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
          std::shared_ptr<Buffer> parent = NULLPTR,
-         std::optional<DeviceAllocationType> device_type = std::nullopt)
+         std::optional<DeviceAllocationType> device_type_override = std::nullopt)
       : is_mutable_(false),
         data_(data),
         size_(size),
@@ -78,11 +78,11 @@ class ARROW_EXPORT Buffer {
         parent_(std::move(parent)) {
     // SetMemoryManager will also set device_type_
     SetMemoryManager(std::move(mm));
-    // if a device type is specified, use that instead. for example:
-    // CUDA_HOST. The CudaMemoryManager will set device_type_ to CUDA,
-    // but you can specify CUDA_HOST as the device type to override it.
-    if (device_type != std::nullopt) {
-      device_type_ = device_type;
+    // If a device type is specified, use that instead. Example of when this can be
+    // useful: the CudaMemoryManager can set device_type_ to kCUDA, but you can specify
+    // device_type_override=kCUDA_HOST as the device type to override it.
+    if (device_type_override != std::nullopt) {
+      device_type_ = *device_type_override;
     }
   }
 
@@ -296,7 +296,7 @@ class ARROW_EXPORT Buffer {
 
   const std::shared_ptr<MemoryManager>& memory_manager() const { return memory_manager_; }
 
-  std::optional<DeviceAllocationType> device_type() const { return device_type_; }
+  DeviceAllocationType device_type() const { return device_type_; }
 
   std::shared_ptr<Buffer> parent() const { return parent_; }
 
@@ -354,7 +354,7 @@ class ARROW_EXPORT Buffer {
   const uint8_t* data_;
   int64_t size_;
   int64_t capacity_;
-  std::optional<DeviceAllocationType> device_type_;
+  DeviceAllocationType device_type_;
 
   // null by default, but may be set
   std::shared_ptr<Buffer> parent_;
