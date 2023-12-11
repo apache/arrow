@@ -1675,7 +1675,8 @@ Associative transforms
 |                   |       | Temporal, Binary- and String-like |             |       |
 +-------------------+-------+-----------------------------------+-------------+-------+
 
-* \(1) Output is ``Dictionary(Int32, input type)``.
+* \(1) Output is ``Dictionary(Int32, input type)``. It is a no-op if input is
+  already a Dictionary array.
 
 * \(2) Duplicates are removed from the output while the original order is
   maintained.
