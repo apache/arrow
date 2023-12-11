@@ -17,7 +17,6 @@
 
 #include "arrow/acero/hash_join_node.h"
 #include "arrow/acero/schema_util.h"
-#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
