@@ -25,8 +25,6 @@
 
 namespace arrow::dlpack {
 
-// using ExportArray = arrow::dlpack::ExportArray;
-
 class TestExportArray : public ::testing::Test {
  public:
   void SetUp() {}
