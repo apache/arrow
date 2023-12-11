@@ -22,6 +22,7 @@ module org.apache.arrow.tools {
   requires com.google.common;
   requires commons.cli;
   requires org.apache.arrow.compression;
+  requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
   requires slf4j.api;
 }
