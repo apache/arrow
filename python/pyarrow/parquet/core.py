@@ -1200,8 +1200,7 @@ filesystem : FileSystem, default None
 schema : pyarrow.parquet.Schema
     Optionally provide the Schema for the Dataset, in which case it will
     not be inferred from the source.
-filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]],
-default None
+filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
     Rows which do not match the filter predicate will be removed from scanned
     data. Partition keys embedded in a nested directory structure will be
     exploited to avoid loading files at all if they contain no matching rows.
@@ -1242,6 +1241,9 @@ page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 use_legacy_dataset : bool, optional
     Deprecated and has no effect from PyArrow version 15.0.0.
+
+Keywords `metadata`, `split_row_groups=True` and `validate_schema=False`
+are not yet supported.
 
 Examples
 --------

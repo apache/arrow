@@ -969,11 +969,8 @@ def _test_write_to_dataset_with_partitions(base_path,
     else:
         pq.write_metadata(output_table.schema, metadata_path)
 
-    # ARROW-2891: Ensure the output_schema is preserved when writing a
-    # partitioned dataset
     dataset = pq.ParquetDataset(base_path,
-                                filesystem=filesystem,
-                                validate_schema=True)
+                                filesystem=filesystem)
     # ARROW-2209: Ensure the dataset schema also includes the partition columns
     # NB schema property is an arrow and not parquet schema
     dataset_cols = set(dataset.schema.names)
