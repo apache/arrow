@@ -151,7 +151,7 @@
           issues in the arrow-tools tests looking up FlatBuffer
           dependencies.
          -->
-        <version>3.2.4</version>
+        <version>3.5.1</version>
         <executions>
           <execution>
             <id>shade-main</id>
