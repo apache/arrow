@@ -36,8 +36,8 @@ std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) cons
 
 Result<std::shared_ptr<DataType>> UuidType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
-  if (serialized != "uuid-serialized") {
-    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  if (!serialized.empty()) {
+    return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
   }
   if (!storage_type->Equals(*fixed_size_binary(16))) {
     return Status::Invalid("Invalid storage type for UuidType: ",
