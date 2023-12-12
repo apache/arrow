@@ -1808,9 +1808,10 @@ cdef class Array(_PandasConvertible):
 
         Returns
         -------
-        tuple : Tuple[DLDeviceType, int]
-            Tuple with enumerator specifying the type of the device
-            and index of the device which is 0 by default for CPU.
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
+            device which is 0 by default for CPU.
         """
         device = GetResultValue(ExportDevice(pyarrow_unwrap_array(self)))
         return (device.device_type, device.device_id)
