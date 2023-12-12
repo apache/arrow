@@ -26,7 +26,6 @@ import (
 	"github.com/apache/arrow/go/v15/arrow"
 	"github.com/apache/arrow/go/v15/arrow/array"
 	"github.com/apache/arrow/go/v15/arrow/compute"
-	"github.com/apache/arrow/go/v15/arrow/compute/exec"
 	"github.com/apache/arrow/go/v15/arrow/decimal128"
 	"github.com/apache/arrow/go/v15/arrow/decimal256"
 	"github.com/apache/arrow/go/v15/arrow/memory"
