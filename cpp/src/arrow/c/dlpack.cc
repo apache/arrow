@@ -25,6 +25,8 @@
 
 namespace arrow::dlpack {
 
+namespace {
+
 Result<DLDataType> GetDLDataType(const DataType& type) {
   DLDataType dtype;
   dtype.lanes = 1;
@@ -56,6 +58,7 @@ Result<DLDataType> GetDLDataType(const DataType& type) {
   }
 }
 
+}  // namespace
 struct ManagerCtx {
   std::shared_ptr<ArrayData> ref;
   DLManagedTensor tensor;
@@ -100,7 +103,6 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   ctx->tensor.dl_tensor.strides = NULL;
   ctx->tensor.dl_tensor.byte_offset = 0;
 
-  // return dlm_tensor;
   ctx->tensor.manager_ctx = ctx.get();
   ctx->tensor.deleter = [](struct DLManagedTensor* self) {
     delete reinterpret_cast<ManagerCtx*>(self->manager_ctx);
@@ -117,8 +119,7 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
   if (arrow_type->id() == Type::BOOL) {
     return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
   }
-  if (!is_integer(arrow_type->id()) && !is_unsigned_integer(arrow_type->id()) &&
-      !is_floating(arrow_type->id())) {
+  if (!is_integer(arrow_type->id()) && !is_floating(arrow_type->id())) {
     return Status::TypeError("DataType is not compatible with DLPack spec: ",
                              arrow_type->ToString());
   }
