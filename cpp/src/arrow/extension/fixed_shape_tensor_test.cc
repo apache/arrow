@@ -324,6 +324,70 @@ TEST_F(TestExtensionType, TestFromTensorType) {
   }
 }
 
+void CheckToTensor(const std::vector<int64_t> values, const int64_t cell_size,
+                   const std::vector<int64_t> cell_shape,
+                   const std::vector<int64_t> cell_permutation,
+                   const std::vector<std::string> cell_dim_names,
+                   const std::vector<int64_t> tensor_shape,
+                   const std::vector<std::string> tensor_dim_names,
+                   const std::vector<int64_t> tensor_strides) {
+  auto buffer = Buffer::Wrap(values);
+  const std::shared_ptr<DataType> cell_type = fixed_size_list(int64(), cell_size);
+  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, buffer};
+  auto arr_data = std::make_shared<ArrayData>(int64(), values.size(), buffers);
+  auto arr = std::make_shared<Int64Array>(arr_data);
+  ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_tensor,
+      Tensor::Make(int64(), buffer, tensor_shape, tensor_strides, tensor_dim_names));
+  const auto ext_type =
+      fixed_shape_tensor(int64(), cell_shape, cell_permutation, cell_dim_names);
+
+  auto ext_arr = ExtensionType::WrapArray(ext_type, fsla_arr);
+  const auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
+  ASSERT_OK_AND_ASSIGN(const auto actual_tensor, tensor_array->ToTensor());
+
+  ASSERT_EQ(actual_tensor->type(), expected_tensor->type());
+  ASSERT_EQ(actual_tensor->shape(), expected_tensor->shape());
+  ASSERT_EQ(actual_tensor->strides(), expected_tensor->strides());
+  ASSERT_EQ(actual_tensor->dim_names(), expected_tensor->dim_names());
+  ASSERT_TRUE(actual_tensor->data()->Equals(*expected_tensor->data()));
+  ASSERT_TRUE(actual_tensor->Equals(*expected_tensor));
+}
+
+TEST_F(TestExtensionType, ToTensor) {
+  auto cell_sizes = std::vector<int64_t>{12, 12, 12, 12, 6, 6, 18, 18, 18, 18};
+
+  auto cell_shapes =
+      std::vector<std::vector<int64_t>>{{3, 4}, {4, 3}, {4, 3}, {3, 4},    {2, 3},
+                                        {3, 2}, {3, 6}, {6, 3}, {3, 2, 3}, {3, 2, 3}};
+  auto tensor_shapes = std::vector<std::vector<int64_t>>{
+      {3, 3, 4}, {3, 4, 3}, {3, 4, 3}, {3, 3, 4},    {6, 2, 3},
+      {6, 3, 2}, {2, 3, 6}, {2, 6, 3}, {2, 3, 2, 3}, {2, 3, 2, 3}};
+
+  auto cell_permutations =
+      std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0},    {0, 1},
+                                        {1, 0}, {0, 1}, {1, 0}, {0, 1, 2}, {2, 1, 0}};
+  auto tensor_strides = std::vector<std::vector<int64_t>>{
+      {96, 32, 8}, {96, 8, 32},  {96, 24, 8},  {96, 8, 24},      {48, 24, 8},
+      {48, 8, 24}, {144, 48, 8}, {144, 8, 48}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+
+  auto cell_dim_names = std::vector<std::vector<std::string>>{
+      {"y", "z"}, {"y", "z"}, {"y", "z"}, {"y", "z"},      {"y", "z"},
+      {"y", "z"}, {"y", "z"}, {"y", "z"}, {"H", "W", "C"}, {"H", "W", "C"}};
+  auto tensor_dim_names = std::vector<std::vector<std::string>>{
+      {"", "y", "z"},      {"", "y", "z"},     {"", "y", "z"}, {"", "y", "z"},
+      {"", "y", "z"},      {"", "y", "z"},     {"", "y", "z"}, {"", "y", "z"},
+      {"", "H", "W", "C"}, {"", "H", "W", "C"}};
+
+  for (size_t i = 0; i < cell_shapes.size(); i++) {
+    CheckToTensor(values_, cell_sizes[i], cell_shapes[i], cell_permutations[i],
+                  cell_dim_names[i], tensor_shapes[i], tensor_dim_names[i],
+                  tensor_strides[i]);
+  }
+}
+
 void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor) {
   ASSERT_OK_AND_ASSIGN(auto ext_arr, FixedShapeTensorArray::FromTensor(tensor));
   ASSERT_OK_AND_ASSIGN(auto tensor_from_array, ext_arr->ToTensor());
@@ -338,24 +402,6 @@ void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor) {
   ASSERT_TRUE(tensor->Equals(*tensor_from_array));
 }
 
-void CheckToTensor(const std::shared_ptr<DataType>& ext_type,
-                   const std::shared_ptr<Tensor>& expected_tensor) {
-  const std::vector<int64_t> values = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
-                                       12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-                                       24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
-  const std::shared_ptr<DataType> cell_type = fixed_size_list(int64(), 12);
-  std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values)};
-
-  auto arr_data = std::make_shared<ArrayData>(int64(), values.size(), buffers);
-  auto arr = std::make_shared<Int64Array>(arr_data);
-  ASSERT_OK_AND_ASSIGN(auto fsla_arr, FixedSizeListArray::FromArrays(arr, cell_type));
-  auto ext_arr = ExtensionType::WrapArray(ext_type, fsla_arr);
-  const auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
-
-  ASSERT_OK_AND_ASSIGN(const auto actual_tensor, tensor_array->ToTensor());
-  ASSERT_TRUE(actual_tensor->Equals(*expected_tensor));
-}
-
 TEST_F(TestExtensionType, RoundtripTensor) {
   auto values = Buffer::Wrap(values_);
 
@@ -365,6 +411,9 @@ TEST_F(TestExtensionType, RoundtripTensor) {
   auto strides = std::vector<std::vector<int64_t>>{
       {96, 32, 8}, {96, 8, 32},  {96, 24, 8},  {96, 8, 24},      {48, 24, 8},
       {48, 8, 24}, {144, 48, 8}, {144, 8, 48}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+  auto permutations =
+      std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0},    {0, 1},
+                                        {1, 0}, {0, 1}, {0, 1}, {0, 1, 2}, {2, 1, 0}};
   auto tensor_dim_names = std::vector<std::vector<std::string>>{
       {"x", "y", "z"},      {"x", "y", "z"},     {"x", "y", "z"}, {"x", "y", "z"},
       {"x", "y", "z"},      {"x", "y", "z"},     {"x", "y", "z"}, {"x", "y", "z"},
@@ -374,28 +423,6 @@ TEST_F(TestExtensionType, RoundtripTensor) {
     ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, values, shapes[i],
                                                    strides[i], tensor_dim_names[i]));
     CheckTensorRoundtrip(tensor);
-  }
-
-  for (size_t i = 0; i < shapes.size(); i++) {
-    auto cell_shape = std::vector<int64_t>(shapes[i].begin() + 1, shapes[i].end());
-    auto cell_dim_names = std::vector<std::string>(tensor_dim_names[i].begin() + 1,
-                                                   tensor_dim_names[i].end());
-    auto cell_strides = std::vector<int64_t>(strides[i].begin() + 1, strides[i].end());
-    auto cell_permutation = internal::ArgSort(cell_strides, std::greater<>());
-    // std::vector<int64_t> cell_shape;
-    // for (auto j : cell_permutation) {
-    //   cell_shape.push_back(shapes[i][cell_permutation[j] + 1]);
-    // }
-
-    const auto ext_type =
-        fixed_shape_tensor(value_type_, cell_shape, cell_permutation, cell_dim_names);
-    auto tmp_dim_names = tensor_dim_names[i];
-    tmp_dim_names[0] = "";
-    ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, values, shapes[i],
-                                                   strides[i], tmp_dim_names));
-    CheckToTensor(ext_type, tensor);
-    // TODO: handle non-trivial cases
-    break;
   }
 }
 
