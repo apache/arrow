@@ -84,16 +84,6 @@ Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& sh
 
 }  // namespace
 
-const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::GetTensor(
-    const int64_t i) const {
-  auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
-  const auto ext_type =
-      internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
-  ARROW_ASSIGN_OR_RAISE(const auto tensor_scalar, this->GetScalar(i));
-  return ext_type->GetTensor(
-      internal::checked_pointer_cast<ExtensionScalar>(tensor_scalar));
-}
-
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;
@@ -359,19 +349,24 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   std::vector<std::string> dim_names = ext_type->dim_names();
   if (!dim_names.empty()) {
     dim_names.insert(dim_names.begin(), 1, "");
+    internal::Permute<std::string>(permutation, &dim_names);
   }
 
   std::vector<int64_t> shape = ext_type->shape();
   shape.insert(shape.begin(), 1, this->length());
+  internal::Permute<int64_t>(permutation, &shape);
 
   std::vector<int64_t> tensor_strides;
   auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
   ARROW_RETURN_NOT_OK(
       ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
-  ARROW_ASSIGN_OR_RAISE(auto buffers, ext_arr->Flatten());
-  ARROW_ASSIGN_OR_RAISE(
-      auto tensor, Tensor::Make(ext_arr->value_type(), buffers->data()->buffers[1], shape,
-                                tensor_strides, dim_names));
+  ARROW_ASSIGN_OR_RAISE(auto flattened_array, ext_arr->Flatten());
+  // ARROW_ASSIGN_OR_RAISE(auto array, flattened_array->SliceSafe(this->offset(),
+  // this->length()));
+
+  ARROW_ASSIGN_OR_RAISE(auto tensor, Tensor::Make(ext_arr->value_type(),
+                                                  flattened_array->data()->buffers[1],
+                                                  shape, tensor_strides, dim_names));
   return tensor;
 }
 

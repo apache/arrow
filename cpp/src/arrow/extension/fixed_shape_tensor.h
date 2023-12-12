@@ -43,14 +43,6 @@ class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
   /// dimensions as the FixedShapeTensorType's shape. Shape and dim_names will be
   /// permuted according to permutation stored in the FixedShapeTensorType metadata.
   const Result<std::shared_ptr<Tensor>> ToTensor() const;
-
-  /// \brief Get i-th Tensor from FixedShapeTensorArray
-  ///
-  /// This method will return a Tensor from FixedShapeTensorArray with strides
-  /// derived from shape and permutation of FixedShapeTensorArray. Shape and
-  /// dim_names will be permuted according to permutation stored in the
-  /// FixedShapeTensorArray metadata.
-  const Result<std::shared_ptr<Tensor>> GetTensor(const int64_t i) const;
 };
 
 /// \brief Concrete type class for constant-size Tensor data.
@@ -102,7 +94,12 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
   /// Create a FixedShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
-  /// \brief Create a FixedShapeTensorArray from a Scalar Tensor
+  /// \brief Create a Tensor from a Scalar value from a FixedShapeTensorArray
+  ///
+  /// This method will return a Tensor from FixedShapeTensorArray with strides
+  /// derived from shape and permutation of FixedShapeTensorType. Shape and
+  /// dim_names will be permuted according to permutation stored in the
+  /// FixedShapeTensorType metadata.
   const Result<std::shared_ptr<Tensor>> GetTensor(
       const std::shared_ptr<ExtensionScalar>& scalar) const;
 

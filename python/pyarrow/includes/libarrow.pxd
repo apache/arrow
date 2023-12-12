@@ -2695,9 +2695,9 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
-cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
-            " arrow::extension::FixedShapeTensorType"(CExtensionType) nogil:
+            " arrow::extension::FixedShapeTensorType"(CExtensionType):
 
         CResult[shared_ptr[CTensor]] GetTensor(const shared_ptr[CExtensionScalar]& scalar) const
 
@@ -2713,8 +2713,7 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const vector[c_string] dim_names()
 
     cdef cppclass CFixedShapeTensorArray \
-            " arrow::extension::FixedShapeTensorArray"(CExtensionArray) nogil:
-        const CResult[shared_ptr[CTensor]] GetTensor(const int64_t i) const
+            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
         const CResult[shared_ptr[CTensor]] ToTensor() const
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:

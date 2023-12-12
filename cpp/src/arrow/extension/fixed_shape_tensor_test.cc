@@ -50,7 +50,6 @@ class TestExtensionType : public ::testing::Test {
                18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
     values_partial_ = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
                        12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
-    values_second_cell_ = {12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
     shape_partial_ = {2, 3, 4};
     tensor_strides_ = {96, 32, 8};
     cell_strides_ = {32, 8};
@@ -67,7 +66,6 @@ class TestExtensionType : public ::testing::Test {
   std::shared_ptr<ExtensionType> ext_type_;
   std::vector<int64_t> values_;
   std::vector<int64_t> values_partial_;
-  std::vector<int64_t> values_second_cell_;
   std::vector<int64_t> tensor_strides_;
   std::vector<int64_t> cell_strides_;
   std::string serialized_;
@@ -363,23 +361,23 @@ TEST_F(TestExtensionType, ToTensor) {
       std::vector<std::vector<int64_t>>{{3, 4}, {4, 3}, {4, 3}, {3, 4},    {2, 3},
                                         {3, 2}, {3, 6}, {6, 3}, {3, 2, 3}, {3, 2, 3}};
   auto tensor_shapes = std::vector<std::vector<int64_t>>{
-      {3, 3, 4}, {3, 4, 3}, {3, 4, 3}, {3, 3, 4},    {6, 2, 3},
-      {6, 3, 2}, {2, 3, 6}, {2, 6, 3}, {2, 3, 2, 3}, {2, 3, 2, 3}};
+      {3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3},    {6, 2, 3},
+      {6, 2, 3}, {2, 3, 6}, {2, 3, 6}, {2, 3, 2, 3}, {2, 3, 2, 3}};
 
   auto cell_permutations =
       std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0},    {0, 1},
                                         {1, 0}, {0, 1}, {1, 0}, {0, 1, 2}, {2, 1, 0}};
   auto tensor_strides = std::vector<std::vector<int64_t>>{
-      {96, 32, 8}, {96, 8, 32},  {96, 24, 8},  {96, 8, 24},      {48, 24, 8},
-      {48, 8, 24}, {144, 48, 8}, {144, 8, 48}, {144, 48, 24, 8}, {144, 8, 24, 48}};
+      {96, 32, 8}, {96, 8, 24},  {96, 24, 8},  {96, 8, 32},      {48, 24, 8},
+      {48, 8, 16}, {144, 48, 8}, {144, 8, 24}, {144, 48, 24, 8}, {144, 8, 24, 48}};
 
   auto cell_dim_names = std::vector<std::vector<std::string>>{
-      {"y", "z"}, {"y", "z"}, {"y", "z"}, {"y", "z"},      {"y", "z"},
-      {"y", "z"}, {"y", "z"}, {"y", "z"}, {"H", "W", "C"}, {"H", "W", "C"}};
+      {"y", "z"}, {"z", "y"}, {"y", "z"}, {"z", "y"},      {"y", "z"},
+      {"z", "y"}, {"y", "z"}, {"z", "y"}, {"H", "W", "C"}, {"H", "W", "C"}};
   auto tensor_dim_names = std::vector<std::vector<std::string>>{
       {"", "y", "z"},      {"", "y", "z"},     {"", "y", "z"}, {"", "y", "z"},
       {"", "y", "z"},      {"", "y", "z"},     {"", "y", "z"}, {"", "y", "z"},
-      {"", "H", "W", "C"}, {"", "H", "W", "C"}};
+      {"", "H", "W", "C"}, {"", "C", "W", "H"}};
 
   for (size_t i = 0; i < cell_shapes.size(); i++) {
     CheckToTensor(values_, cell_sizes[i], cell_shapes[i], cell_permutations[i],
@@ -411,9 +409,6 @@ TEST_F(TestExtensionType, RoundtripTensor) {
   auto strides = std::vector<std::vector<int64_t>>{
       {96, 32, 8}, {96, 8, 32},  {96, 24, 8},  {96, 8, 24},      {48, 24, 8},
       {48, 8, 24}, {144, 48, 8}, {144, 8, 48}, {144, 48, 24, 8}, {144, 8, 24, 48}};
-  auto permutations =
-      std::vector<std::vector<int64_t>>{{0, 1}, {1, 0}, {0, 1}, {1, 0},    {0, 1},
-                                        {1, 0}, {0, 1}, {0, 1}, {0, 1, 2}, {2, 1, 0}};
   auto tensor_dim_names = std::vector<std::vector<std::string>>{
       {"x", "y", "z"},      {"x", "y", "z"},     {"x", "y", "z"}, {"x", "y", "z"},
       {"x", "y", "z"},      {"x", "y", "z"},     {"x", "y", "z"}, {"x", "y", "z"},
@@ -560,66 +555,58 @@ TEST_F(TestExtensionType, GetScalar) {
 }
 
 TEST_F(TestExtensionType, GetTensor) {
-  // Get tensor from extension array
-  auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
   auto arr = ArrayFromJSON(cell_type_,
                            "[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],"
                            "[12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]]");
+  auto cell_values =
+      std::vector<std::vector<int64_t>>{{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+                                        {12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}};
+
+  auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
+  auto permuted_ext_type = fixed_shape_tensor(value_type_, {3, 4}, {1, 0}, {"x", "y"});
+  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto exact_permuted_ext_type =
+      internal::checked_pointer_cast<FixedShapeTensorType>(permuted_ext_type);
+
   auto array = std::static_pointer_cast<FixedShapeTensorArray>(
       ExtensionType::WrapArray(ext_type, arr));
-
-  ASSERT_OK_AND_ASSIGN(auto actual_tensor, array->GetTensor(1));
-  ASSERT_OK_AND_ASSIGN(auto expected_tensor,
-                       Tensor::Make(value_type_, Buffer::Wrap(values_second_cell_),
-                                    {3, 4}, {}, {"x", "y"}));
-  ASSERT_EQ(expected_tensor->shape(), actual_tensor->shape());
-  ASSERT_EQ(expected_tensor->dim_names(), actual_tensor->dim_names());
-  ASSERT_EQ(expected_tensor->strides(), actual_tensor->strides());
-  ASSERT_EQ(actual_tensor->strides(), std::vector<int64_t>({32, 8}));
-  ASSERT_EQ(expected_tensor->type(), actual_tensor->type());
-  ASSERT_TRUE(expected_tensor->Equals(*actual_tensor));
-
-  // Get tensor from extension array with non-trivial permutation
-  auto permuted_ext_type = fixed_shape_tensor(value_type_, {3, 4}, {1, 0}, {"x", "y"});
   auto permuted_array = std::static_pointer_cast<FixedShapeTensorArray>(
       ExtensionType::WrapArray(permuted_ext_type, arr));
 
-  std::vector<int64_t> values_second_cell = {12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
-  ASSERT_OK_AND_ASSIGN(auto expected_permuted_tensor,
-                       Tensor::Make(value_type_, Buffer::Wrap(values_second_cell), {4, 3},
-                                    {8, 24}, {"y", "x"}));
+  for (size_t i = 0; i < cell_values.size(); i++) {
+    // Get tensor from extension array with trivial permutation
+    ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(i));
+    auto actual_ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+    ASSERT_OK_AND_ASSIGN(auto actual_tensor,
+                         exact_ext_type->GetTensor(actual_ext_scalar));
+    ASSERT_OK_AND_ASSIGN(
+        auto expected_tensor,
+        Tensor::Make(value_type_, Buffer::Wrap(cell_values[i]), {3, 4}, {}, {"x", "y"}));
+    ASSERT_EQ(expected_tensor->shape(), actual_tensor->shape());
+    ASSERT_EQ(expected_tensor->dim_names(), actual_tensor->dim_names());
+    ASSERT_EQ(expected_tensor->strides(), actual_tensor->strides());
+    ASSERT_EQ(actual_tensor->strides(), std::vector<int64_t>({32, 8}));
+    ASSERT_EQ(expected_tensor->type(), actual_tensor->type());
+    ASSERT_TRUE(expected_tensor->Equals(*actual_tensor));
 
-  ASSERT_OK_AND_ASSIGN(auto actual_permuted_tensor, permuted_array->GetTensor(1));
-  ASSERT_EQ(expected_permuted_tensor->shape(), actual_permuted_tensor->shape());
-  ASSERT_EQ(expected_permuted_tensor->dim_names(), actual_permuted_tensor->dim_names());
-  ASSERT_EQ(expected_permuted_tensor->strides(), actual_permuted_tensor->strides());
-  ASSERT_EQ(expected_permuted_tensor->type(), actual_permuted_tensor->type());
-  ASSERT_TRUE(expected_permuted_tensor->Equals(*actual_permuted_tensor));
-
-  auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
-  ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(1));
-  auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
-  ASSERT_OK_AND_ASSIGN(auto t, exact_ext_type->GetTensor(ext_scalar));
-  ASSERT_EQ(expected_tensor->strides(), t->strides());
-  ASSERT_EQ(expected_tensor->shape(), t->shape());
-  ASSERT_EQ(expected_tensor->dim_names(), t->dim_names());
-  ASSERT_EQ(expected_tensor->type(), t->type());
-  ASSERT_EQ(expected_tensor->is_contiguous(), t->is_contiguous());
-  ASSERT_EQ(expected_tensor->is_column_major(), t->is_column_major());
-  ASSERT_TRUE(expected_tensor->Equals(*t));
-
-  auto exact_permuted_ext_type =
-      internal::checked_pointer_cast<FixedShapeTensorType>(permuted_ext_type);
-  ASSERT_OK_AND_ASSIGN(scalar, permuted_array->GetScalar(1));
-  ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
-  ASSERT_OK_AND_ASSIGN(t, exact_permuted_ext_type->GetTensor(ext_scalar));
-  ASSERT_EQ(expected_permuted_tensor->strides(), t->strides());
-  ASSERT_EQ(expected_permuted_tensor->shape(), t->shape());
-  ASSERT_EQ(expected_permuted_tensor->dim_names(), t->dim_names());
-  ASSERT_EQ(expected_permuted_tensor->type(), t->type());
-  ASSERT_EQ(expected_permuted_tensor->is_contiguous(), t->is_contiguous());
-  ASSERT_EQ(expected_permuted_tensor->is_column_major(), t->is_column_major());
-  ASSERT_TRUE(expected_permuted_tensor->Equals(*t));
+    // Get tensor from extension array with non-trivial permutation
+    ASSERT_OK_AND_ASSIGN(auto expected_permuted_tensor,
+                         Tensor::Make(value_type_, Buffer::Wrap(cell_values[i]), {4, 3},
+                                      {8, 24}, {"y", "x"}));
+    ASSERT_OK_AND_ASSIGN(scalar, permuted_array->GetScalar(i));
+    ASSERT_OK_AND_ASSIGN(auto actual_permuted_tensor,
+                         exact_permuted_ext_type->GetTensor(
+                             internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+    ASSERT_EQ(expected_permuted_tensor->strides(), actual_permuted_tensor->strides());
+    ASSERT_EQ(expected_permuted_tensor->shape(), actual_permuted_tensor->shape());
+    ASSERT_EQ(expected_permuted_tensor->dim_names(), actual_permuted_tensor->dim_names());
+    ASSERT_EQ(expected_permuted_tensor->type(), actual_permuted_tensor->type());
+    ASSERT_EQ(expected_permuted_tensor->is_contiguous(),
+              actual_permuted_tensor->is_contiguous());
+    ASSERT_EQ(expected_permuted_tensor->is_column_major(),
+              actual_permuted_tensor->is_column_major());
+    ASSERT_TRUE(expected_permuted_tensor->Equals(*actual_permuted_tensor));
+  }
 }
 
 }  // namespace arrow

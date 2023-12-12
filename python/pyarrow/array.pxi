@@ -3584,25 +3584,6 @@ cdef class FixedShapeTensorArray(ExtensionArray):
             ctensor = ext_array.ToTensor()
         return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
-    def get_tensor(self, int64_t i):
-        """
-        Get i-th tensor from fixed shape tensor extension array.
-
-        Parameters
-        ----------
-        i : int64_t
-            The index of the tensor to get.
-        Returns
-        -------
-        tensor : Tensor
-        """
-        cdef:
-            CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
-            CResult[shared_ptr[CTensor]] ctensor
-        with nogil:
-            ctensor = ext_array.GetTensor(i)
-        return pyarrow_wrap_tensor(GetResultValue(ctensor))
-
     @staticmethod
     def from_numpy_ndarray(obj):
         """
@@ -3648,7 +3629,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         arrow_type = from_numpy_dtype(obj.dtype)
         shape = obj.shape[1:]
-        permutation = (-np.array(obj.strides)).argsort()[1:]
+        permutation = (-np.array(obj.strides)).argsort()[1:] - 1
         size = obj.size / obj.shape[0]
         bw = obj.dtype.itemsize
         values = np.lib.stride_tricks.as_strided(obj, shape=(obj.size,), strides=(bw,))

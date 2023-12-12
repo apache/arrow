@@ -1322,23 +1322,18 @@ def test_tensor_class_methods():
     from numpy.lib.stride_tricks import as_strided
 
     values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    np_arr = np.array(values, dtype=np.int8)
+    np_arr = np.array(values, dtype=np.float32)
     tensor_type = pa.fixed_shape_tensor(pa.float32(), [2, 3])
     storage = pa.array(np_arr.reshape(2, 6).tolist(), pa.list_(pa.float32(), 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-
-    # TODO: add more get_tensor tests
-    assert arr.get_tensor(0) == pa.Tensor.from_numpy(
-        np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
 
     expected = np_arr.reshape(2, 2, 3).astype(np.float32).tolist()
     np.testing.assert_array_equal(arr.to_tensor(), expected)
     np.testing.assert_array_equal(arr.to_numpy_ndarray(), expected)
 
-    # TODO: offset not correctly handled
-    expected = np_arr[6:].reshape(1, 2, 3).astype(np.float32)
-    # expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.float32)
-    result = arr[:1].to_numpy_ndarray()
+    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.float32)
+    result = arr[1:].to_numpy_ndarray()
+    # TODO: offset of sliced arrays not correctly handled
     # np.testing.assert_array_equal(result, expected)
 
     arr = np.array(
@@ -1349,35 +1344,53 @@ def test_tensor_class_methods():
     assert tensor_array_from_numpy.type.value_type == pa.float32()
     assert tensor_array_from_numpy.type.shape == [2, 3]
 
-    arr = np_arr.reshape((-1, 3), order="F")
+    arr = np_arr.copy().reshape((-1, 3), order="F")
     with pytest.raises(ValueError, match="First stride needs to be largest"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    bw = np.int8().itemsize
-    arr = as_strided(np_arr, shape=(3, 4), strides=(bw * 4, bw), writeable=False)
+    bw = np.int32().itemsize
+    arr = as_strided(np_arr, shape=(1, 3, 4), strides=(
+        bw * 4, bw * 4, bw), writeable=False)
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
-    assert tensor_array_from_numpy.type.shape == [4]
-    assert tensor_array_from_numpy.type.permutation == [1]
-    # TODO: strides not correctly handled
-    # assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
-    # assert tensor_array_from_numpy.strides == [bw * 4, bw]
+    assert tensor_array_from_numpy.type.shape == [3, 4]
+    assert tensor_array_from_numpy.type.permutation == [0, 1]
+    assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
     arr = as_strided(np_arr, shape=(1, 2, 3, 2), strides=(
-        bw * 12, bw, bw * 2, bw * 6), writeable=False)
-    expected = np.array(values, dtype=np.int8).reshape(1, 2, 3, 2)
-    # TODO: strides not correctly handled
-    # np.testing.assert_array_equal(arr, expected)
+        bw * 12, bw * 6, bw, bw * 3), writeable=False)
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+    assert tensor_array_from_numpy.type.shape == [2, 3, 2]
+    assert tensor_array_from_numpy.type.permutation == [0, 2, 1]
+    # TODO
+    # assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
-    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1])
+    arr = as_strided(np_arr, shape=(1, 2, 3, 2), strides=(
+        bw * 12, bw * 6, bw * 2, bw), writeable=False)
+    expected = np.array(values, dtype=np.int8).reshape(1, 2, 3, 2)
+    np.testing.assert_array_equal(arr, expected)
+
     storage = pa.array([values], pa.list_(pa.int8(), 12))
-    result = pa.ExtensionArray.from_storage(tensor_type, storage)
-    # TODO: strides not correctly handled
-    # assert np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
     expected = np.array(values, dtype=np.int8).reshape(1, 2, 2, 3)
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 1, 2])
-    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
-    np.testing.assert_array_equal(arr.to_numpy_ndarray(), expected)
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+
+    expected = as_strided(np_arr, shape=(1, 2, 3, 2), strides=(
+        bw * 12, bw * 6, bw, bw * 3), writeable=False)
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1])
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+
+    expected = as_strided(np_arr, shape=(1, 3, 2, 2), strides=(
+        bw * 12, bw, bw * 6, bw * 2), writeable=False)
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[2, 0, 1])
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+    assert result.type.permutation == [2, 0, 1]
+    assert result.type.shape == [2, 2, 3]
+    assert result.to_tensor().shape == (1, 3, 2, 2)
+    assert result.to_tensor().strides == (12, 1, 6, 2)
 
 
 @pytest.mark.parametrize("tensor_type", (
