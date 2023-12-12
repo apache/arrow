@@ -15,11 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from libc.stdlib cimport malloc, free
-
 cimport cpython
 from cpython.pycapsule cimport PyCapsule_New
-from cython import sizeof
 
 
 cdef void dlpack_pycapsule_deleter(object dltensor) noexcept:
