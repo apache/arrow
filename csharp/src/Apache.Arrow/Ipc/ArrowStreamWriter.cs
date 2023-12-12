@@ -579,7 +579,7 @@ namespace Apache.Arrow.Ipc
 
         protected bool HasWrittenSchema { get; set; }
 
-        private bool HasWrittenDictionaryBatch { get; set; }
+        protected bool HasWrittenDictionaryBatch { get; set; }
 
         private bool HasWrittenStart { get; set; }
 
@@ -668,7 +668,7 @@ namespace Apache.Arrow.Ipc
 
             if (!HasWrittenDictionaryBatch)
             {
-                DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
+                DictionaryCollector.Collect(Schema, recordBatch, ref _dictionaryMemo);
                 WriteDictionaries(_dictionaryMemo);
                 HasWrittenDictionaryBatch = true;
             }
@@ -707,7 +707,7 @@ namespace Apache.Arrow.Ipc
 
             if (!HasWrittenDictionaryBatch)
             {
-                DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
+                DictionaryCollector.Collect(Schema, recordBatch, ref _dictionaryMemo);
                 await WriteDictionariesAsync(_dictionaryMemo, cancellationToken).ConfigureAwait(false);
                 HasWrittenDictionaryBatch = true;
             }
@@ -862,7 +862,7 @@ namespace Apache.Arrow.Ipc
         {
         }
 
-        private protected void WriteDictionaries(DictionaryMemo dictionaryMemo)
+        private protected virtual void WriteDictionaries(DictionaryMemo dictionaryMemo)
         {
             int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
             for (int i = 0; i < fieldCount; i++)
@@ -886,7 +886,7 @@ namespace Apache.Arrow.Ipc
             FinishedWritingDictionary(bufferLength, metadataLength);
         }
 
-        private protected async Task WriteDictionariesAsync(DictionaryMemo dictionaryMemo, CancellationToken cancellationToken)
+        private protected virtual async Task WriteDictionariesAsync(DictionaryMemo dictionaryMemo, CancellationToken cancellationToken)
         {
             int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
             for (int i = 0; i < fieldCount; i++)
@@ -1319,9 +1319,8 @@ namespace Apache.Arrow.Ipc
 
     internal static class DictionaryCollector
     {
-        internal static void Collect(RecordBatch recordBatch, ref DictionaryMemo dictionaryMemo)
+        internal static void Collect(Schema schema, RecordBatch recordBatch, ref DictionaryMemo dictionaryMemo)
         {
-            Schema schema = recordBatch.Schema;
             for (int i = 0; i < schema.FieldsList.Count; i++)
             {
                 Field field = schema.GetFieldByIndex(i);
