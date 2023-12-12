@@ -83,7 +83,7 @@ public abstract class SessionOptionValue {
     }
 
     public Void visit(Void ignored) {
-      // Proto SessionOptionValue builder is assumed to have its value unset.
+      b.clearOptionValue();
       return null;
     }
   }

@@ -62,7 +62,7 @@ public interface SessionOptionValueVisitor<T> {
    * A callback to handle SessionOptionValue containing no value.
    *
    * By convention, an attempt to set a valueless SessionOptionValue should
-   * attempt to unset or clear the named option v      value on the server.
+   * attempt to unset or clear the named option value on the server.
    */
   T visit(Void value);
 }
