@@ -30,7 +30,7 @@ specific to Python, but for Python libraries this interface is extended with a P
 specific layer: :ref:`arrow-pycapsule-interface`.
 
 This Python interface ensures that different libraries that support the C Data interface
-can recognize each other objects and export Arrow data structures in a standard way.
+can export Arrow data structures in a standard way and recognize each other's objects.
 
 If you have a library providing data structures that hold Arrow-compatible data
 under the hood, you can implement the following dunder methods on those objects:
