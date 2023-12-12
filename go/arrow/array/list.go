@@ -1418,7 +1418,7 @@ func (b *baseListViewBuilder) UnmarshalJSON(data []byte) error {
 //	input.Len() > 0
 func minListViewOffset[Offset int32 | int64](input arrow.ArrayData) Offset {
 	inputOffset := input.Offset()
-	offsets := arrow.CastFromBytesTo[Offset](input.Buffers()[1].Bytes())[inputOffset:]
+	offsets := arrow.GetData[Offset](input.Buffers()[1].Bytes())[inputOffset:]
 
 	i := 0
 	minOffset := offsets[i] // safe because input.Len() > 0
@@ -1444,8 +1444,8 @@ func minListViewOffset[Offset int32 | int64](input arrow.ArrayData) Offset {
 //	input.Len() > 0
 func maxListViewEnd[Offset int32 | int64](input arrow.ArrayData) Offset {
 	inputOffset := input.Offset()
-	offsets := arrow.CastFromBytesTo[Offset](input.Buffers()[1].Bytes())[inputOffset:]
-	sizes := arrow.CastFromBytesTo[Offset](input.Buffers()[2].Bytes())[inputOffset:]
+	offsets := arrow.GetData[Offset](input.Buffers()[1].Bytes())[inputOffset:]
+	sizes := arrow.GetData[Offset](input.Buffers()[2].Bytes())[inputOffset:]
 
 	maxLegalOffset := Offset(input.Children()[0].Len())
 

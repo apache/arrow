@@ -36,7 +36,7 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-func checkUniqueDict[I exec.IntTypes | exec.UintTypes](t *testing.T, input compute.ArrayLikeDatum, expected arrow.Array) {
+func checkUniqueDict[I arrow.IntType | arrow.UintType](t *testing.T, input compute.ArrayLikeDatum, expected arrow.Array) {
 	out, err := compute.Unique(context.TODO(), input)
 	require.NoError(t, err)
 	defer out.Release()
@@ -52,8 +52,8 @@ func checkUniqueDict[I exec.IntTypes | exec.UintTypes](t *testing.T, input compu
 
 	require.Truef(t, array.Equal(exDict, resultDict), "wanted: %s\ngot: %s", exDict, resultDict)
 
-	want := exec.GetValues[I](expected.(*array.Dictionary).Indices().Data(), 1)
-	got := exec.GetValues[I](result.Indices().Data(), 1)
+	want := arrow.GetValues[I](expected.(*array.Dictionary).Indices().Data(), 1)
+	got := arrow.GetValues[I](result.Indices().Data(), 1)
 	assert.ElementsMatchf(t, got, want, "wanted: %s\ngot: %s", want, got)
 }
 
@@ -81,15 +81,15 @@ func checkDictionaryUnique(t *testing.T, input compute.ArrayLikeDatum, expected 
 	}
 }
 
-func checkUniqueFixedWidth[T exec.FixedWidthTypes](t *testing.T, input, expected arrow.Array) {
+func checkUniqueFixedWidth[T arrow.FixedWidthType](t *testing.T, input, expected arrow.Array) {
 	result, err := compute.UniqueArray(context.TODO(), input)
 	require.NoError(t, err)
 	defer result.Release()
 
 	require.Truef(t, arrow.TypeEqual(result.DataType(), expected.DataType()),
 		"wanted: %s\ngot: %s", expected.DataType(), result.DataType())
-	want := exec.GetValues[T](expected.Data(), 1)
-	got := exec.GetValues[T](expected.Data(), 1)
+	want := arrow.GetValues[T](expected.Data(), 1)
+	got := arrow.GetValues[T](expected.Data(), 1)
 
 	assert.ElementsMatchf(t, got, want, "wanted: %s\ngot: %s", want, got)
 }
@@ -124,7 +124,7 @@ func checkUniqueVariableWidth[OffsetType int32 | int64](t *testing.T, input, exp
 }
 
 type ArrowType interface {
-	exec.FixedWidthTypes | string | []byte
+	arrow.FixedWidthType | string | []byte
 }
 
 type builder[T ArrowType] interface {
@@ -166,7 +166,7 @@ func checkUniqueFixedSizeBinary(t *testing.T, mem memory.Allocator, dt *arrow.Fi
 	assert.ElementsMatch(t, want, got)
 }
 
-func checkUniqueFW[T exec.FixedWidthTypes](t *testing.T, mem memory.Allocator, dt arrow.DataType, inValues, outValues []T, inValid, outValid []bool) {
+func checkUniqueFW[T arrow.FixedWidthType](t *testing.T, mem memory.Allocator, dt arrow.DataType, inValues, outValues []T, inValid, outValid []bool) {
 	input := makeArray(mem, dt, inValues, inValid)
 	defer input.Release()
 	expected := makeArray(mem, dt, outValues, outValid)
@@ -189,7 +189,7 @@ func checkUniqueVW[T string | []byte](t *testing.T, mem memory.Allocator, dt arr
 	}
 }
 
-type PrimitiveHashKernelSuite[T exec.IntTypes | exec.UintTypes | constraints.Float] struct {
+type PrimitiveHashKernelSuite[T arrow.IntType | arrow.UintType | constraints.Float] struct {
 	suite.Suite
 
 	mem *memory.CheckedAllocator
@@ -197,7 +197,7 @@ type PrimitiveHashKernelSuite[T exec.IntTypes | exec.UintTypes | constraints.Flo
 }
 
 func (ps *PrimitiveHashKernelSuite[T]) SetupSuite() {
-	ps.dt = exec.GetDataType[T]()
+	ps.dt = arrow.GetDataType[T]()
 }
 
 func (ps *PrimitiveHashKernelSuite[T]) SetupTest() {

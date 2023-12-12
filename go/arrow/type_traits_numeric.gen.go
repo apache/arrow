@@ -20,7 +20,6 @@ package arrow
 
 import (
 	"math"
-	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v15/arrow/endian"
@@ -65,14 +64,12 @@ func (int64Traits) PutValue(b []byte, v int64) {
 //
 // NOTE: len(b) must be a multiple of Int64SizeBytes.
 func (int64Traits) CastFromBytes(b []byte) []int64 {
-	return CastFromBytesTo[int64](b)
+	return GetData[int64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (int64Traits) CastToBytes(b []int64) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Int64SizeBytes)[:len(b)*Int64SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -99,14 +96,12 @@ func (uint64Traits) PutValue(b []byte, v uint64) {
 //
 // NOTE: len(b) must be a multiple of Uint64SizeBytes.
 func (uint64Traits) CastFromBytes(b []byte) []uint64 {
-	return CastFromBytesTo[uint64](b)
+	return GetData[uint64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (uint64Traits) CastToBytes(b []uint64) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Uint64SizeBytes)[:len(b)*Uint64SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -133,14 +128,12 @@ func (float64Traits) PutValue(b []byte, v float64) {
 //
 // NOTE: len(b) must be a multiple of Float64SizeBytes.
 func (float64Traits) CastFromBytes(b []byte) []float64 {
-	return CastFromBytesTo[float64](b)
+	return GetData[float64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (float64Traits) CastToBytes(b []float64) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Float64SizeBytes)[:len(b)*Float64SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -167,14 +160,12 @@ func (int32Traits) PutValue(b []byte, v int32) {
 //
 // NOTE: len(b) must be a multiple of Int32SizeBytes.
 func (int32Traits) CastFromBytes(b []byte) []int32 {
-	return CastFromBytesTo[int32](b)
+	return GetData[int32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (int32Traits) CastToBytes(b []int32) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Int32SizeBytes)[:len(b)*Int32SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -201,14 +192,12 @@ func (uint32Traits) PutValue(b []byte, v uint32) {
 //
 // NOTE: len(b) must be a multiple of Uint32SizeBytes.
 func (uint32Traits) CastFromBytes(b []byte) []uint32 {
-	return CastFromBytesTo[uint32](b)
+	return GetData[uint32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (uint32Traits) CastToBytes(b []uint32) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Uint32SizeBytes)[:len(b)*Uint32SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -235,14 +224,12 @@ func (float32Traits) PutValue(b []byte, v float32) {
 //
 // NOTE: len(b) must be a multiple of Float32SizeBytes.
 func (float32Traits) CastFromBytes(b []byte) []float32 {
-	return CastFromBytesTo[float32](b)
+	return GetData[float32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (float32Traits) CastToBytes(b []float32) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Float32SizeBytes)[:len(b)*Float32SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -269,14 +256,12 @@ func (int16Traits) PutValue(b []byte, v int16) {
 //
 // NOTE: len(b) must be a multiple of Int16SizeBytes.
 func (int16Traits) CastFromBytes(b []byte) []int16 {
-	return CastFromBytesTo[int16](b)
+	return GetData[int16](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (int16Traits) CastToBytes(b []int16) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Int16SizeBytes)[:len(b)*Int16SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -303,14 +288,12 @@ func (uint16Traits) PutValue(b []byte, v uint16) {
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
 func (uint16Traits) CastFromBytes(b []byte) []uint16 {
-	return CastFromBytesTo[uint16](b)
+	return GetData[uint16](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (uint16Traits) CastToBytes(b []uint16) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Uint16SizeBytes)[:len(b)*Uint16SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -337,14 +320,12 @@ func (int8Traits) PutValue(b []byte, v int8) {
 //
 // NOTE: len(b) must be a multiple of Int8SizeBytes.
 func (int8Traits) CastFromBytes(b []byte) []int8 {
-	return CastFromBytesTo[int8](b)
+	return GetData[int8](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (int8Traits) CastToBytes(b []int8) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Int8SizeBytes)[:len(b)*Int8SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -371,14 +352,12 @@ func (uint8Traits) PutValue(b []byte, v uint8) {
 //
 // NOTE: len(b) must be a multiple of Uint8SizeBytes.
 func (uint8Traits) CastFromBytes(b []byte) []uint8 {
-	return CastFromBytesTo[uint8](b)
+	return GetData[uint8](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (uint8Traits) CastToBytes(b []uint8) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Uint8SizeBytes)[:len(b)*Uint8SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -405,14 +384,12 @@ func (time32Traits) PutValue(b []byte, v Time32) {
 //
 // NOTE: len(b) must be a multiple of Time32SizeBytes.
 func (time32Traits) CastFromBytes(b []byte) []Time32 {
-	return CastFromBytesTo[Time32](b)
+	return GetData[Time32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (time32Traits) CastToBytes(b []Time32) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Time32SizeBytes)[:len(b)*Time32SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -439,14 +416,12 @@ func (time64Traits) PutValue(b []byte, v Time64) {
 //
 // NOTE: len(b) must be a multiple of Time64SizeBytes.
 func (time64Traits) CastFromBytes(b []byte) []Time64 {
-	return CastFromBytesTo[Time64](b)
+	return GetData[Time64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (time64Traits) CastToBytes(b []Time64) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Time64SizeBytes)[:len(b)*Time64SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -473,14 +448,12 @@ func (date32Traits) PutValue(b []byte, v Date32) {
 //
 // NOTE: len(b) must be a multiple of Date32SizeBytes.
 func (date32Traits) CastFromBytes(b []byte) []Date32 {
-	return CastFromBytesTo[Date32](b)
+	return GetData[Date32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (date32Traits) CastToBytes(b []Date32) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Date32SizeBytes)[:len(b)*Date32SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -507,14 +480,12 @@ func (date64Traits) PutValue(b []byte, v Date64) {
 //
 // NOTE: len(b) must be a multiple of Date64SizeBytes.
 func (date64Traits) CastFromBytes(b []byte) []Date64 {
-	return CastFromBytesTo[Date64](b)
+	return GetData[Date64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (date64Traits) CastToBytes(b []Date64) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Date64SizeBytes)[:len(b)*Date64SizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
@@ -541,14 +512,12 @@ func (durationTraits) PutValue(b []byte, v Duration) {
 //
 // NOTE: len(b) must be a multiple of DurationSizeBytes.
 func (durationTraits) CastFromBytes(b []byte) []Duration {
-	return CastFromBytesTo[Duration](b)
+	return GetData[Duration](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (durationTraits) CastToBytes(b []Duration) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*DurationSizeBytes)[:len(b)*DurationSizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.

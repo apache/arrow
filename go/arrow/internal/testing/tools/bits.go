@@ -22,7 +22,7 @@ import "math/bits"
 // The low bit of each nibble is tested, therefore integers should be written as 8-digit
 // hex numbers consisting of 1s or 0s.
 //
-//     IntsToBitsLSB(0x11001010) -> 0x35
+//	IntsToBitsLSB(0x11001010) -> 0x35
 func IntsToBitsLSB(v ...int32) []byte {
 	res := make([]byte, 0, len(v))
 	for _, b := range v {

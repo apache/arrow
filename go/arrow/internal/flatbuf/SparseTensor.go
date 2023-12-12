@@ -54,9 +54,9 @@ func (rcv *SparseTensor) MutateTypeType(n Type) bool {
 	return rcv._tab.MutateByteSlot(4, byte(n))
 }
 
-/// The type of data contained in a value cell.
-/// Currently only fixed-width value types are supported,
-/// no strings or nested types.
+// / The type of data contained in a value cell.
+// / Currently only fixed-width value types are supported,
+// / no strings or nested types.
 func (rcv *SparseTensor) Type(obj *flatbuffers.Table) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
 	if o != 0 {
@@ -66,10 +66,10 @@ func (rcv *SparseTensor) Type(obj *flatbuffers.Table) bool {
 	return false
 }
 
-/// The type of data contained in a value cell.
-/// Currently only fixed-width value types are supported,
-/// no strings or nested types.
-/// The dimensions of the tensor, optionally named.
+// / The type of data contained in a value cell.
+// / Currently only fixed-width value types are supported,
+// / no strings or nested types.
+// / The dimensions of the tensor, optionally named.
 func (rcv *SparseTensor) Shape(obj *TensorDim, j int) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
@@ -90,8 +90,8 @@ func (rcv *SparseTensor) ShapeLength() int {
 	return 0
 }
 
-/// The dimensions of the tensor, optionally named.
-/// The number of non-zero values in a sparse tensor.
+// / The dimensions of the tensor, optionally named.
+// / The number of non-zero values in a sparse tensor.
 func (rcv *SparseTensor) NonZeroLength() int64 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
 	if o != 0 {
@@ -100,7 +100,7 @@ func (rcv *SparseTensor) NonZeroLength() int64 {
 	return 0
 }
 
-/// The number of non-zero values in a sparse tensor.
+// / The number of non-zero values in a sparse tensor.
 func (rcv *SparseTensor) MutateNonZeroLength(n int64) bool {
 	return rcv._tab.MutateInt64Slot(10, n)
 }
@@ -117,7 +117,7 @@ func (rcv *SparseTensor) MutateSparseIndexType(n SparseTensorIndex) bool {
 	return rcv._tab.MutateByteSlot(12, byte(n))
 }
 
-/// Sparse tensor index
+// / Sparse tensor index
 func (rcv *SparseTensor) SparseIndex(obj *flatbuffers.Table) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
 	if o != 0 {
@@ -127,8 +127,8 @@ func (rcv *SparseTensor) SparseIndex(obj *flatbuffers.Table) bool {
 	return false
 }
 
-/// Sparse tensor index
-/// The location and size of the tensor's data
+// / Sparse tensor index
+// / The location and size of the tensor's data
 func (rcv *SparseTensor) Data(obj *Buffer) *Buffer {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(16))
 	if o != 0 {
@@ -142,7 +142,7 @@ func (rcv *SparseTensor) Data(obj *Buffer) *Buffer {
 	return nil
 }
 
-/// The location and size of the tensor's data
+// / The location and size of the tensor's data
 func SparseTensorStart(builder *flatbuffers.Builder) {
 	builder.StartObject(7)
 }

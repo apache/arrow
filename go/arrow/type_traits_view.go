@@ -17,7 +17,6 @@
 package arrow
 
 import (
-	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v15/arrow/endian"
@@ -39,13 +38,11 @@ func (viewHeaderTraits) PutValue(b []byte, v ViewHeader) {
 }
 
 func (viewHeaderTraits) CastFromBytes(b []byte) (res []ViewHeader) {
-	return CastFromBytesTo[ViewHeader](b)
+	return GetData[ViewHeader](b)
 }
 
 func (viewHeaderTraits) CastToBytes(b []ViewHeader) (res []byte) {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*ViewHeaderSizeBytes)[:len(b)*ViewHeaderSizeBytes]
+	return GetBytes(b)
 }
 
 func (viewHeaderTraits) Copy(dst, src []ViewHeader) { copy(dst, src) }

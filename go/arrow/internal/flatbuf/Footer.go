@@ -22,9 +22,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// ----------------------------------------------------------------------
-/// Arrow File metadata
-///
+// / ----------------------------------------------------------------------
+// / Arrow File metadata
+// /
 type Footer struct {
 	_tab flatbuffers.Table
 }
@@ -108,7 +108,7 @@ func (rcv *Footer) RecordBatchesLength() int {
 	return 0
 }
 
-/// User-defined metadata
+// / User-defined metadata
 func (rcv *Footer) CustomMetadata(obj *KeyValue, j int) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
 	if o != 0 {
@@ -129,7 +129,7 @@ func (rcv *Footer) CustomMetadataLength() int {
 	return 0
 }
 
-/// User-defined metadata
+// / User-defined metadata
 func FooterStart(builder *flatbuffers.Builder) {
 	builder.StartObject(5)
 }

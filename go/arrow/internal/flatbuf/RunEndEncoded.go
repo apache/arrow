@@ -22,11 +22,11 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Contains two child arrays, run_ends and values.
-/// The run_ends child array must be a 16/32/64-bit integer array
-/// which encodes the indices at which the run with the value in 
-/// each corresponding index in the values child array ends.
-/// Like list/struct types, the value array can be of any type.
+// / Contains two child arrays, run_ends and values.
+// / The run_ends child array must be a 16/32/64-bit integer array
+// / which encodes the indices at which the run with the value in
+// / each corresponding index in the values child array ends.
+// / Like list/struct types, the value array can be of any type.
 type RunEndEncoded struct {
 	_tab flatbuffers.Table
 }

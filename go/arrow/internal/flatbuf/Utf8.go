@@ -22,7 +22,7 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Unicode with UTF-8 encoding
+// / Unicode with UTF-8 encoding
 type Utf8 struct {
 	_tab flatbuffers.Table
 }

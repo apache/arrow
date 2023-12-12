@@ -22,9 +22,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Optional compression for the memory buffers constituting IPC message
-/// bodies. Intended for use with RecordBatch but could be used for other
-/// message types
+// / Optional compression for the memory buffers constituting IPC message
+// / bodies. Intended for use with RecordBatch but could be used for other
+// / message types
 type BodyCompression struct {
 	_tab flatbuffers.Table
 }
@@ -45,8 +45,8 @@ func (rcv *BodyCompression) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-/// Compressor library.
-/// For LZ4_FRAME, each compressed buffer must consist of a single frame.
+// / Compressor library.
+// / For LZ4_FRAME, each compressed buffer must consist of a single frame.
 func (rcv *BodyCompression) Codec() CompressionType {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
@@ -55,13 +55,13 @@ func (rcv *BodyCompression) Codec() CompressionType {
 	return 0
 }
 
-/// Compressor library.
-/// For LZ4_FRAME, each compressed buffer must consist of a single frame.
+// / Compressor library.
+// / For LZ4_FRAME, each compressed buffer must consist of a single frame.
 func (rcv *BodyCompression) MutateCodec(n CompressionType) bool {
 	return rcv._tab.MutateInt8Slot(4, int8(n))
 }
 
-/// Indicates the way the record batch body was compressed
+// / Indicates the way the record batch body was compressed
 func (rcv *BodyCompression) Method() BodyCompressionMethod {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
 	if o != 0 {
@@ -70,7 +70,7 @@ func (rcv *BodyCompression) Method() BodyCompressionMethod {
 	return 0
 }
 
-/// Indicates the way the record batch body was compressed
+// / Indicates the way the record batch body was compressed
 func (rcv *BodyCompression) MutateMethod(n BodyCompressionMethod) bool {
 	return rcv._tab.MutateInt8Slot(6, int8(n))
 }

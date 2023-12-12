@@ -678,8 +678,8 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 				// the allocated space is for duration (an int64) but we
 				// wrote the time32 - time32 as if the output was time32
 				// so a quick copy in reverse expands the int32s to int64.
-				rawData := exec.GetData[int32](out.Buffers[1].Buf)
-				outData := exec.GetData[int64](out.Buffers[1].Buf)
+				rawData := arrow.GetData[int32](out.Buffers[1].Buf)
+				outData := arrow.GetData[int64](out.Buffers[1].Buf)
 
 				for i := out.Len - 1; i >= 0; i-- {
 					outData[i] = int64(rawData[i])

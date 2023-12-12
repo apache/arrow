@@ -17,7 +17,6 @@
 package arrow
 
 import (
-	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v15/arrow/endian"
@@ -43,14 +42,12 @@ func (timestampTraits) PutValue(b []byte, v Timestamp) {
 //
 // NOTE: len(b) must be a multiple of TimestampSizeBytes.
 func (timestampTraits) CastFromBytes(b []byte) []Timestamp {
-	return CastFromBytesTo[Timestamp](b)
+	return GetData[Timestamp](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (timestampTraits) CastToBytes(b []Timestamp) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*TimestampSizeBytes)[:len(b)*TimestampSizeBytes]
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
