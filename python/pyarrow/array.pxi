@@ -3592,6 +3592,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         array and the rest of the dimensions will match the permuted shape of the fixed
         shape tensor.
 
+
         Returns
         -------
         pyarrow.Tensor
