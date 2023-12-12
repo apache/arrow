@@ -3572,11 +3572,33 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         """
         Convert fixed shape tensor extension array to a numpy.ndarray with zero copy.
         First dimension of ndarray will be the length of the fixed shape tensor array
-        and the rest of the dimensions will match the shape of the fixed shape tensor.
+        and the rest of the dimensions will match the permuted shape of the fixed
+        shape tensor.
+
+
+        Returns
+        -------
+        numpy.ndarray
+            Ndarray representing tensors in the fixed shape tensor array concatenated
+            along the first dimension.
         """
+
         return self.to_tensor().to_numpy()
 
     def to_tensor(self):
+        """
+        Convert fixed shape tensor extension array to a pyarrow.Tensor with zero copy.
+        First dimension of pyarrow.Tensor will be the length of the fixed shape tensor
+        array and the rest of the dimensions will match the permuted shape of the fixed
+        shape tensor.
+
+        Returns
+        -------
+        pyarrow.Tensor
+            Tensor representing tensors in the fixed shape tensor array concatenated
+            along the first dimension.
+        """
+
         cdef:
             CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
             CResult[shared_ptr[CTensor]] ctensor
@@ -3623,20 +3645,20 @@ cdef class FixedShapeTensorArray(ExtensionArray):
           ]
         ]
         """
-        if not np.argmax(obj.strides) == 0:
+
+        permutation = (-np.array(obj.strides)).argsort()
+        if not permutation[0] == 0:
             raise ValueError('First stride needs to be largest to ensure that '
                              'individual tensor data is contiguous in memory.')
 
         arrow_type = from_numpy_dtype(obj.dtype)
-        shape = obj.shape[1:]
-        permutation = (-np.array(obj.strides)).argsort()[1:] - 1
-        size = obj.size / obj.shape[0]
-        bw = obj.dtype.itemsize
-        values = np.lib.stride_tricks.as_strided(obj, shape=(obj.size,), strides=(bw,))
+        shape = np.take(obj.shape, permutation)
+        values = np.lib.stride_tricks.as_strided(
+            obj, shape=(obj.size,), strides=(obj.dtype.itemsize,))
 
         return ExtensionArray.from_storage(
-            fixed_shape_tensor(arrow_type, shape, permutation=permutation),
-            FixedSizeListArray.from_arrays(values, size)
+            fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
+            FixedSizeListArray.from_arrays(values, obj.size / obj.shape[0])
         )
 
 
