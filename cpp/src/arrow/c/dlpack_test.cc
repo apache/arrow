@@ -20,8 +20,8 @@
 #include "arrow/array/array_base.h"
 #include "arrow/c/dlpack.h"
 #include "arrow/c/dlpack_abi.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
 
 namespace arrow::dlpack {
 
@@ -62,47 +62,60 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
 };
 
 TEST_F(TestExportArray, TestSupportedArray) {
-  random::RandomArrayGenerator gen(0);
+  std::vector<std::pair<std::shared_ptr<DataType>, DLDataTypeCode>> cases = {
+      {int8(), DLDataTypeCode::kDLInt},
+      {uint8(), DLDataTypeCode::kDLUInt},
+      {
+          int16(),
+          DLDataTypeCode::kDLInt,
+      },
+      {uint16(), DLDataTypeCode::kDLUInt},
+      {
+          int32(),
+          DLDataTypeCode::kDLInt,
+      },
+      {uint32(), DLDataTypeCode::kDLUInt},
+      {
+          int64(),
+          DLDataTypeCode::kDLInt,
+      },
+      {uint64(), DLDataTypeCode::kDLUInt},
+      {float16(), DLDataTypeCode::kDLFloat},
+      {float32(), DLDataTypeCode::kDLFloat},
+      {float64(), DLDataTypeCode::kDLFloat}};
 
-  std::vector<std::shared_ptr<DataType>> arrow_types = {
-      int8(),  uint8(),  int16(),   uint16(),  int32(),   uint32(),
-      int64(), uint64(), float16(), float32(), float64(),
-  };
+  const auto allocated_bytes = arrow::default_memory_pool()->bytes_allocated();
 
-  std::vector<DLDataTypeCode> dlpack_types = {
-      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,
-      DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,
-      DLDataTypeCode::kDLInt,   DLDataTypeCode::kDLUInt,  DLDataTypeCode::kDLFloat,
-      DLDataTypeCode::kDLFloat, DLDataTypeCode::kDLFloat,
-  };
-
-  for (int64_t i = 0; i < 11; ++i) {
-    const std::shared_ptr<Array> array = gen.ArrayOf(arrow_types[i], 10, 0);
-    check_dlptensor(array, arrow_types[i], dlpack_types[i], 10);
+  for (auto [arrow_type, dlpack_type] : cases) {
+    const std::shared_ptr<Array> array =
+        ArrayFromJSON(arrow_type, "[1, 0, 10, 0, 2, 1, 3, 5, 1, 0]");
+    check_dlptensor(array, arrow_type, dlpack_type, 10);
     ASSERT_OK_AND_ASSIGN(auto sliced_1, array->SliceSafe(1, 5));
-    check_dlptensor(sliced_1, arrow_types[i], dlpack_types[i], 5);
+    check_dlptensor(sliced_1, arrow_type, dlpack_type, 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_2, array->SliceSafe(0, 5));
-    check_dlptensor(sliced_2, arrow_types[i], dlpack_types[i], 5);
+    check_dlptensor(sliced_2, arrow_type, dlpack_type, 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_3, array->SliceSafe(3));
-    check_dlptensor(sliced_3, arrow_types[i], dlpack_types[i], 7);
+    check_dlptensor(sliced_3, arrow_type, dlpack_type, 7);
   }
+
+  ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
 }
 
 TEST_F(TestExportArray, TestUnSupportedArray) {
-  random::RandomArrayGenerator gen(0);
+  const std::shared_ptr<Array> array_with_null = ArrayFromJSON(int8(), "[1, 100, null]");
+  const std::shared_ptr<Array> array_string =
+      ArrayFromJSON(utf8(), R"(["itsy", "bitsy", "spider"])");
+  const std::shared_ptr<Array> array_boolean = ArrayFromJSON(boolean(), "[true, false]");
 
-  const std::shared_ptr<Array> array_with_null = gen.Int8(10, 1, 100, 1);
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: Can only use DLPack on arrays with no nulls.",
                              arrow::dlpack::ExportArray(array_with_null));
 
-  const std::shared_ptr<Array> array_string = gen.String(10, 0, 10, 0);
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: DataType is not compatible with DLPack spec: " +
                                  array_string->type()->ToString(),
                              arrow::dlpack::ExportArray(array_string));
 
-  const std::shared_ptr<Array> array_boolean = gen.Boolean(10, 0.5, 0);
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
       arrow::dlpack::ExportArray(array_boolean));
