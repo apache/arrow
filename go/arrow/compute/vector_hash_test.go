@@ -106,7 +106,7 @@ func checkUniqueVariableWidth[OffsetType int32 | int64](t *testing.T, input, exp
 
 	createSlice := func(v arrow.Array) [][]byte {
 		var (
-			offsets = exec.GetOffsets[OffsetType](v.Data(), 1)
+			offsets = arrow.GetOffsets[OffsetType](v.Data(), 1)
 			data    = v.Data().Buffers()[2].Bytes()
 			out     = make([][]byte, v.Len())
 		)
