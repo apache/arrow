@@ -43,7 +43,7 @@ class ARROW_EXPORT UuidType : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized) const override;
 
-  std::string Serialize() const override { return "uuid-serialized"; }
+  std::string Serialize() const override { return ""; }
 
   /// \brief Create a UuidType instance
   static Result<std::shared_ptr<DataType>> Make() { return std::make_shared<UuidType>(); }

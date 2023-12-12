@@ -376,7 +376,6 @@ set(ARROW_SRCS
     extension_type.cc
     extension/bool8.cc
     extension/uuid.cc
-    memory_pool.cc
     pretty_print.cc
     record_batch.cc
     result.cc

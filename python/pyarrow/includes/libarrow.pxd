@@ -2878,7 +2878,7 @@ cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension":
         const shared_ptr[CDataType] value_type()
 
 
-cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
 

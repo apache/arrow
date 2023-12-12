@@ -469,7 +469,7 @@ static const char* json_example2 = R"example(
         "children" : [],
         "metadata" : [
            {"key": "ARROW:extension:name", "value": "arrow.uuid"},
-           {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
+           {"key": "ARROW:extension:metadata", "value": ""}
         ]
       },
       {
