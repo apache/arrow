@@ -4180,7 +4180,7 @@ class UuidArray(ExtensionArray):
     """
 
 
-class FixedShapeTensorArray(ExtensionArray):
+cdef class FixedShapeTensorArray(ExtensionArray):
     """
     Concrete class for fixed shape tensor extension arrays.
 
