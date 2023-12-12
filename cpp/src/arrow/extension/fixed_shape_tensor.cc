@@ -209,6 +209,12 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorType::GetTensor(
     const std::shared_ptr<ExtensionScalar>& scalar) const {
   const auto array =
       internal::checked_pointer_cast<const FixedSizeListScalar>(scalar->value)->value;
+  if (array->null_count() > 0) {
+    return Status::Invalid("Cannot convert data with nulls values to Tensor");
+  }
+  if (!is_fixed_width(*this->value_type())) {
+    return Status::Invalid("Cannot convert non-fixed-width values to Tensor");
+  }
   const auto value_type =
       internal::checked_pointer_cast<FixedWidthType>(this->value_type());
   const auto byte_width = value_type->byte_width();
