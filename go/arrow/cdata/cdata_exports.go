@@ -232,6 +232,10 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "+l"
 	case *arrow.LargeListType:
 		return "+L"
+	case *arrow.ListViewType:
+		return "+vl"
+	case *arrow.LargeListViewType:
+		return "+vL"
 	case *arrow.FixedSizeListType:
 		return fmt.Sprintf("+w:%d", dt.Len())
 	case *arrow.StructType:
