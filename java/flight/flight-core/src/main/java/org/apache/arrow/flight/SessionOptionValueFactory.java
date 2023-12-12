@@ -79,7 +79,7 @@ public class SessionOptionValueFactory {
               return null;
             }
           }).toArray(String[]::new));
-      case OPTION_VALUE_NOT_SET:
+      case OPTIONVALUE_NOT_SET:
         return new SessionOptionValueEmpty();
       default:
         // Unreachable

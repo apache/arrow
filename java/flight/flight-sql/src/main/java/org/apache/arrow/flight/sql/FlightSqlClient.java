@@ -924,15 +924,15 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   public SetSessionOptionsResult setSessionOptions(SetSessionOptionsRequest request, CallOption... options) {
-    return client.cancelFlightInfo(request, options);
+    return client.setSessionOptions(request, options);
   }
 
   public GetSessionOptionsResult getSessionOptions(GetSessionOptionsRequest request, CallOption... options) {
-    return client.cancelFlightInfo(request, options);
+    return client.getSessionOptions(request, options);
   }
 
   public CloseSessionResult closeSession(CloseSessionRequest request, CallOption... options) {
-    return client.cancelFlightInfo(request, options);
+    return client.closeSession(request, options);
   }
 
   @Override

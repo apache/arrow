@@ -22,10 +22,10 @@ import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.Result;
 
 /** Typed StreamListener for renewFlightEndpoint. */
-public class FlightEndpointListener implements FlightProducer.StreamListener<CloseSessionResult> {
+public class CloseSessionResultListener implements FlightProducer.StreamListener<CloseSessionResult> {
   private final FlightProducer.StreamListener<Result> listener;
 
-  FlightEndpointListener(FlightProducer.StreamListener<Result> listener) {
+  CloseSessionResultListener(FlightProducer.StreamListener<Result> listener) {
     this.listener = listener;
   }
 

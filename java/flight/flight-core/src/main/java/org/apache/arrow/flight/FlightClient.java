@@ -617,7 +617,7 @@ public class FlightClient implements AutoCloseable {
    * @param options Call options.
    * @return The result containing the set of session options configured on the server.
    */
-  public GetSessionOptionsResult getSessionOptions(SetSessionOptionsRequest request, CallOption... options) {
+  public GetSessionOptionsResult getSessionOptions(GetSessionOptionsRequest request, CallOption... options) {
     Action action = new Action(FlightConstants.GET_SESSION_OPTIONS.getType(), request.serialize().array());
     Iterator<Result> results = doAction(action, options);
     if (!results.hasNext()) {
@@ -647,7 +647,7 @@ public class FlightClient implements AutoCloseable {
    * @param options Call options.
    * @return The result containing the status of the close operation.
    */
-  public CloseSessionResult closeSession(SetSessionOptionsRequest request, CallOption... options) {
+  public CloseSessionResult closeSession(CloseSessionRequest request, CallOption... options) {
     Action action = new Action(FlightConstants.CLOSE_SESSION.getType(), request.serialize().array());
     Iterator<Result> results = doAction(action, options);
     if (!results.hasNext()) {
