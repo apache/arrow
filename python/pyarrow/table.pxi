@@ -4023,7 +4023,7 @@ cdef class Table(_Tabular):
 
     def to_struct_array(self, max_chunksize=None):
         """
-        Convert to a struct array.
+        Convert to a chunked array of struct type.
 
         Parameters
         ----------
