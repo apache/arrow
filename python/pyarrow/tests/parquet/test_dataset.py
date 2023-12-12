@@ -679,12 +679,6 @@ def test_read_multiple_files(tempdir):
 
     assert result.equals(expected)
 
-    # Read with provided metadata
-    # TODO specifying metadata not yet supported
-    metadata = pq.read_metadata(paths[0])
-    with pytest.raises(ValueError, match="no longer supported"):
-        pq.read_table(paths, metadata=metadata)
-
     # Read column subset
     to_read = [0, 2, 6, result.num_columns - 1]
 

@@ -1665,9 +1665,6 @@ thrift_container_size_limit : int, default None
     sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
-metadata : FileMetaData
-    This keyword is no longer supported and is being deprecated with
-    PyArrow version 15.0.0.
 
 Returns
 -------
@@ -1763,7 +1760,7 @@ def read_table(source, *, columns=None, use_threads=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
-               page_checksum_verification=False, metadata=None,):
+               page_checksum_verification=False):
 
     if use_legacy_dataset is not None:
         warnings.warn(
@@ -1771,12 +1768,6 @@ def read_table(source, *, columns=None, use_threads=True,
             "and will be removed in a future version.",
             FutureWarning, stacklevel=2)
 
-    if metadata is not None:
-        raise ValueError(
-            "The 'metadata' keyword is no longer supported with the new "
-            "datasets-based implementation and will be removed in future "
-            "versions."
-        )
     try:
         dataset = ParquetDataset(
             source,
