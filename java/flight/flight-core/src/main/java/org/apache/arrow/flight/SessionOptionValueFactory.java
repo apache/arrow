@@ -79,6 +79,8 @@ public class SessionOptionValueFactory {
               return null;
             }
           }).toArray(String[]::new));
+      case OPTION_VALUE_NOT_SET:
+        return new SessionOptionValueEmpty();
       default:
         // Unreachable
         throw new IllegalArgumentException("");
@@ -166,6 +168,12 @@ public class SessionOptionValueFactory {
 
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
+    }
+  }
+
+  private static class SessionOptionValueEmpty extends SessionOptionValue {
+    public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
+      return v.visit((Void) null);
     }
   }
 }

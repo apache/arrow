@@ -57,4 +57,12 @@ public interface SessionOptionValueVisitor<T> {
    * A callback to handle SessionOptionValue containing an array of String.
    */
   T visit(String[] value);
+
+  /**
+   * A callback to handle SessionOptionValue containing no value.
+   *
+   * By convention, an attempt to set a valueless SessionOptionValue should
+   * attempt to unset or clear the named option v      value on the server.
+   */
+  T visit(Void value);
 }

@@ -81,5 +81,10 @@ public abstract class SessionOptionValue {
       b.setStringListValue(pbSLVBuilder.build());
       return null;
     }
+
+    public Void visit(Void ignored) {
+      // Proto SessionOptionValue builder is assumed to have its value unset.
+      return null;
+    }
   }
 }
