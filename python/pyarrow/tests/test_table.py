@@ -17,7 +17,6 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
-import re
 import sys
 import weakref
 
