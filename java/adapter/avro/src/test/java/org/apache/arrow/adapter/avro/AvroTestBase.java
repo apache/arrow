@@ -24,9 +24,9 @@ import static org.junit.Assert.assertTrue;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,11 +62,23 @@ public class AvroTestBase {
     config = new AvroToArrowConfigBuilder(allocator).build();
   }
 
-  protected Schema getSchema(String schemaName) throws Exception {
-    Path schemaPath = Paths.get(Paths.get(TestWriteReadAvroRecord.class.getResource("/").toURI()).toString(),
-        "schema", schemaName);
-
-    return new Schema.Parser().parse(schemaPath.toFile());
+  public static Schema getSchema(String schemaName) throws Exception {
+    try {
+      // Attempt to use JDK 9 behavior of getting the module then the resource stream from the module.
+      // Note that this code is caller-sensitive.
+      Method getModuleMethod = Class.class.getMethod("getModule");
+      Object module = getModuleMethod.invoke(TestWriteReadAvroRecord.class);
+      Method getResourceAsStreamFromModule = module.getClass().getMethod("getResourceAsStream", String.class);
+      try (InputStream is = (InputStream) getResourceAsStreamFromModule.invoke(module, "/schema/" + schemaName)) {
+        return new Schema.Parser()
+            .parse(is);
+      }
+    } catch (NoSuchMethodException ex) {
+      // Use JDK8 behavior.
+      try (InputStream is = TestWriteReadAvroRecord.class.getResourceAsStream("/schema/" + schemaName)) {
+        return new Schema.Parser().parse(is);
+      }
+    }
   }
 
   protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {

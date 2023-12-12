@@ -20,8 +20,6 @@ package org.apache.arrow.adapter.avro;
 import static org.junit.Assert.assertEquals;
 
 import java.io.File;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,10 +46,7 @@ public class TestWriteReadAvroRecord {
   public void testWriteAndRead() throws Exception {
 
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths.get(
-            Paths.get(TestWriteReadAvroRecord.class.getResource("/").toURI()).toString(),
-            "schema", "test.avsc");
-    Schema schema = new Schema.Parser().parse(schemaPath.toFile());
+    Schema schema = AvroTestBase.getSchema("test.avsc");
 
     //write data to disk
     GenericRecord user1 = new GenericData.Record(schema);
