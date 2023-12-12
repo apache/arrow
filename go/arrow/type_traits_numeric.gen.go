@@ -65,9 +65,7 @@ func (int64Traits) PutValue(b []byte, v int64) {
 //
 // NOTE: len(b) must be a multiple of Int64SizeBytes.
 func (int64Traits) CastFromBytes(b []byte) []int64 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*int64)(unsafe.Pointer(h.Data)), cap(b)/Int64SizeBytes)[:len(b)/Int64SizeBytes]
+	return CastFromBytesTo[int64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -101,9 +99,7 @@ func (uint64Traits) PutValue(b []byte, v uint64) {
 //
 // NOTE: len(b) must be a multiple of Uint64SizeBytes.
 func (uint64Traits) CastFromBytes(b []byte) []uint64 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*uint64)(unsafe.Pointer(h.Data)), cap(b)/Uint64SizeBytes)[:len(b)/Uint64SizeBytes]
+	return CastFromBytesTo[uint64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -137,9 +133,7 @@ func (float64Traits) PutValue(b []byte, v float64) {
 //
 // NOTE: len(b) must be a multiple of Float64SizeBytes.
 func (float64Traits) CastFromBytes(b []byte) []float64 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*float64)(unsafe.Pointer(h.Data)), cap(b)/Float64SizeBytes)[:len(b)/Float64SizeBytes]
+	return CastFromBytesTo[float64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -173,9 +167,7 @@ func (int32Traits) PutValue(b []byte, v int32) {
 //
 // NOTE: len(b) must be a multiple of Int32SizeBytes.
 func (int32Traits) CastFromBytes(b []byte) []int32 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*int32)(unsafe.Pointer(h.Data)), cap(b)/Int32SizeBytes)[:len(b)/Int32SizeBytes]
+	return CastFromBytesTo[int32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -209,9 +201,7 @@ func (uint32Traits) PutValue(b []byte, v uint32) {
 //
 // NOTE: len(b) must be a multiple of Uint32SizeBytes.
 func (uint32Traits) CastFromBytes(b []byte) []uint32 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*uint32)(unsafe.Pointer(h.Data)), cap(b)/Uint32SizeBytes)[:len(b)/Uint32SizeBytes]
+	return CastFromBytesTo[uint32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -245,9 +235,7 @@ func (float32Traits) PutValue(b []byte, v float32) {
 //
 // NOTE: len(b) must be a multiple of Float32SizeBytes.
 func (float32Traits) CastFromBytes(b []byte) []float32 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*float32)(unsafe.Pointer(h.Data)), cap(b)/Float32SizeBytes)[:len(b)/Float32SizeBytes]
+	return CastFromBytesTo[float32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -281,9 +269,7 @@ func (int16Traits) PutValue(b []byte, v int16) {
 //
 // NOTE: len(b) must be a multiple of Int16SizeBytes.
 func (int16Traits) CastFromBytes(b []byte) []int16 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*int16)(unsafe.Pointer(h.Data)), cap(b)/Int16SizeBytes)[:len(b)/Int16SizeBytes]
+	return CastFromBytesTo[int16](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -317,9 +303,7 @@ func (uint16Traits) PutValue(b []byte, v uint16) {
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
 func (uint16Traits) CastFromBytes(b []byte) []uint16 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*uint16)(unsafe.Pointer(h.Data)), cap(b)/Uint16SizeBytes)[:len(b)/Uint16SizeBytes]
+	return CastFromBytesTo[uint16](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -353,9 +337,7 @@ func (int8Traits) PutValue(b []byte, v int8) {
 //
 // NOTE: len(b) must be a multiple of Int8SizeBytes.
 func (int8Traits) CastFromBytes(b []byte) []int8 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*int8)(unsafe.Pointer(h.Data)), cap(b)/Int8SizeBytes)[:len(b)/Int8SizeBytes]
+	return CastFromBytesTo[int8](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -389,9 +371,7 @@ func (uint8Traits) PutValue(b []byte, v uint8) {
 //
 // NOTE: len(b) must be a multiple of Uint8SizeBytes.
 func (uint8Traits) CastFromBytes(b []byte) []uint8 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*uint8)(unsafe.Pointer(h.Data)), cap(b)/Uint8SizeBytes)[:len(b)/Uint8SizeBytes]
+	return CastFromBytesTo[uint8](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -425,9 +405,7 @@ func (time32Traits) PutValue(b []byte, v Time32) {
 //
 // NOTE: len(b) must be a multiple of Time32SizeBytes.
 func (time32Traits) CastFromBytes(b []byte) []Time32 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*Time32)(unsafe.Pointer(h.Data)), cap(b)/Time32SizeBytes)[:len(b)/Time32SizeBytes]
+	return CastFromBytesTo[Time32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -461,9 +439,7 @@ func (time64Traits) PutValue(b []byte, v Time64) {
 //
 // NOTE: len(b) must be a multiple of Time64SizeBytes.
 func (time64Traits) CastFromBytes(b []byte) []Time64 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*Time64)(unsafe.Pointer(h.Data)), cap(b)/Time64SizeBytes)[:len(b)/Time64SizeBytes]
+	return CastFromBytesTo[Time64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -497,9 +473,7 @@ func (date32Traits) PutValue(b []byte, v Date32) {
 //
 // NOTE: len(b) must be a multiple of Date32SizeBytes.
 func (date32Traits) CastFromBytes(b []byte) []Date32 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*Date32)(unsafe.Pointer(h.Data)), cap(b)/Date32SizeBytes)[:len(b)/Date32SizeBytes]
+	return CastFromBytesTo[Date32](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -533,9 +507,7 @@ func (date64Traits) PutValue(b []byte, v Date64) {
 //
 // NOTE: len(b) must be a multiple of Date64SizeBytes.
 func (date64Traits) CastFromBytes(b []byte) []Date64 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*Date64)(unsafe.Pointer(h.Data)), cap(b)/Date64SizeBytes)[:len(b)/Date64SizeBytes]
+	return CastFromBytesTo[Date64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -569,9 +541,7 @@ func (durationTraits) PutValue(b []byte, v Duration) {
 //
 // NOTE: len(b) must be a multiple of DurationSizeBytes.
 func (durationTraits) CastFromBytes(b []byte) []Duration {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*Duration)(unsafe.Pointer(h.Data)), cap(b)/DurationSizeBytes)[:len(b)/DurationSizeBytes]
+	return CastFromBytesTo[Duration](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.

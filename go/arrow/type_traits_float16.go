@@ -46,9 +46,7 @@ func (float16Traits) PutValue(b []byte, v float16.Num) {
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
 func (float16Traits) CastFromBytes(b []byte) []float16.Num {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*float16.Num)(unsafe.Pointer(h.Data)), cap(b)/Float16SizeBytes)[:len(b)/Float16SizeBytes]
+	return CastFromBytesTo[float16.Num](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.

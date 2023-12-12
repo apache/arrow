@@ -19,33 +19,14 @@ package arrow
 import (
 	"reflect"
 	"unsafe"
-
-	"github.com/apache/arrow/go/v15/arrow/endian"
 )
 
-var ViewHeaderTraits viewHeaderTraits
-
-const (
-	ViewHeaderSizeBytes = int(unsafe.Sizeof(ViewHeader{}))
-)
-
-type viewHeaderTraits struct{}
-
-func (viewHeaderTraits) BytesRequired(n int) int { return ViewHeaderSizeBytes * n }
-
-func (viewHeaderTraits) PutValue(b []byte, v ViewHeader) {
-	endian.Native.PutUint32(b, uint32(v.size))
-	copy(b[4:], v.data[:])
-}
-
-func (viewHeaderTraits) CastFromBytes(b []byte) (res []ViewHeader) {
-	return CastFromBytesTo[ViewHeader](b)
-}
-
-func (viewHeaderTraits) CastToBytes(b []ViewHeader) (res []byte) {
+// CastFromBytesTo[T] reinterprets the slice b to a slice of type T.
+//
+// NOTE: len(b) must be a multiple of T's size.
+func CastFromBytesTo[T interface{}](b []byte) []T {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*ViewHeaderSizeBytes)[:len(b)*ViewHeaderSizeBytes]
+	ptr := (*T)(unsafe.Pointer(h.Data))
+	size := int(unsafe.Sizeof(*ptr))
+	return unsafe.Slice(ptr, cap(b)/size)[:len(b)/size]
 }
-
-func (viewHeaderTraits) Copy(dst, src []ViewHeader) { copy(dst, src) }

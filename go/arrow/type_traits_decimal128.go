@@ -47,9 +47,7 @@ func (decimal128Traits) PutValue(b []byte, v decimal128.Num) {
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
 func (decimal128Traits) CastFromBytes(b []byte) []decimal128.Num {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*decimal128.Num)(unsafe.Pointer(h.Data)), cap(b)/Decimal128SizeBytes)[:len(b)/Decimal128SizeBytes]
+	return CastFromBytesTo[decimal128.Num](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.

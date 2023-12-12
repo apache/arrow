@@ -266,11 +266,11 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 		case 'L': // large list
 			dt = arrow.LargeListOfField(childFields[0])
 		case 'v': // list view/large list view
-      if f[2] == 'l' {
-			  dt = arrow.ListViewOfField(childFields[0])
-      } else if f[2] == 'L' {
-			  dt = arrow.LargeListViewOfField(childFields[0])
-      }
+			if f[2] == 'l' {
+				dt = arrow.ListViewOfField(childFields[0])
+			} else if f[2] == 'L' {
+				dt = arrow.LargeListViewOfField(childFields[0])
+			}
 		case 'w': // fixed size list is w:# where # is the list size.
 			listSize, err := strconv.Atoi(strings.Split(f, ":")[1])
 			if err != nil {

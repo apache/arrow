@@ -57,9 +57,7 @@ func (monthTraits) PutValue(b []byte, v MonthInterval) {
 //
 // NOTE: len(b) must be a multiple of MonthIntervalSizeBytes.
 func (monthTraits) CastFromBytes(b []byte) []MonthInterval {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*MonthInterval)(unsafe.Pointer(h.Data)), cap(b)/MonthIntervalSizeBytes)[:len(b)/MonthIntervalSizeBytes]
+	return CastFromBytesTo[MonthInterval](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -94,9 +92,7 @@ func (daytimeTraits) PutValue(b []byte, v DayTimeInterval) {
 //
 // NOTE: len(b) must be a multiple of DayTimeIntervalSizeBytes.
 func (daytimeTraits) CastFromBytes(b []byte) []DayTimeInterval {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*DayTimeInterval)(unsafe.Pointer(h.Data)), cap(b)/DayTimeIntervalSizeBytes)[:len(b)/DayTimeIntervalSizeBytes]
+	return CastFromBytesTo[DayTimeInterval](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
@@ -132,9 +128,7 @@ func (monthDayNanoTraits) PutValue(b []byte, v MonthDayNanoInterval) {
 //
 // NOTE: len(b) must be a multiple of MonthDayNanoIntervalSizeBytes.
 func (monthDayNanoTraits) CastFromBytes(b []byte) []MonthDayNanoInterval {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	return unsafe.Slice((*MonthDayNanoInterval)(unsafe.Pointer(h.Data)), cap(b)/MonthDayNanoIntervalSizeBytes)[:len(b)/MonthDayNanoIntervalSizeBytes]
+	return CastFromBytesTo[MonthDayNanoInterval](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
