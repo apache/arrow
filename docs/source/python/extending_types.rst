@@ -33,7 +33,7 @@ This Python interface ensures that different libraries that support the C Data i
 can export Arrow data structures in a standard way and recognize each other's objects.
 
 If you have a library providing data structures that hold Arrow-compatible data
-under the hood, you can implement the following dunder methods on those objects:
+under the hood, you can implement the following methods on those objects:
 
 - ``__arrow_c_schema__`` for schema or type-like objects.
 - ``__arrow_c_array__`` for arrays and record batches (contiguous tables).
@@ -43,13 +43,13 @@ Those methods return `PyCapsule <https://docs.python.org/3/c-api/capsule.html>`_
 objects, and more details on the exact semantics can be found in the
 :ref:`specification <arrow-pycapsule-interface>`.
 
-When your data structures have those dunder methods defined, the pyarrow constructors
+When your data structures have those methods defined, the PyArrow constructors
 (such as :func:`pyarrow.array` or :func:`pyarrow.table`) will recognize those objects as
 supporting this protocol, and convert them to PyArrow data structures zero-copy. And the
 same can be true for any other library supporting this protocol on ingesting data.
 
 Similarly, if your library has functions that accept user-provided data, you can add
-support for this protocol by checking for the presence of those dunder methods, and
+support for this protocol by checking for the presence of those methods, and
 therefore accept any Arrow data (instead of harcoding support for a specific
 Arrow producer such as PyArrow).
 
