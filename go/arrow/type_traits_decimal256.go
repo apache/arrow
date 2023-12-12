@@ -47,7 +47,7 @@ func (decimal256Traits) CastFromBytes(b []byte) []decimal256.Num {
 }
 
 func (decimal256Traits) CastToBytes(b []decimal256.Num) []byte {
-  return GetBytes(b)
+	return GetBytes(b)
 }
 
 func (decimal256Traits) Copy(dst, src []decimal256.Num) { copy(dst, src) }

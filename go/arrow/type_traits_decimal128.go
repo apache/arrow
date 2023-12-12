@@ -51,7 +51,7 @@ func (decimal128Traits) CastFromBytes(b []byte) []decimal128.Num {
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (decimal128Traits) CastToBytes(b []decimal128.Num) []byte {
-  return GetBytes(b)
+	return GetBytes(b)
 }
 
 // Copy copies src to dst.
