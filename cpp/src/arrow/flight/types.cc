@@ -512,7 +512,17 @@ std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
 }
 
 std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
-  std::visit([&](const auto& x) { os << x; }, v);
+  if (std::holds_alternative<std::monostate>(v)) {
+    os << "<EMPTY>";
+  } else {
+    std::visit([&](const auto& x) {
+      if constexpr (std::is_convertible_v<std::decay_t<decltype(x)>, std::string_view>) {
+        os << std::quoted(x);
+      } else {
+        os << x;
+      }
+    }, v);
+  }
   return os;
 }
 

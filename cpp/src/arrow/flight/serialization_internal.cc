@@ -393,7 +393,8 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
 Status FromProto(const pb::SessionOptionValue& pb_val, SessionOptionValue* val) {
   switch (pb_val.option_value_case()) {
     case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
-      return Status::Invalid("Unset SessionOptionValue found");
+      *val = std::monostate{};
+      break;
     case pb::SessionOptionValue::kStringValue:
       *val = pb_val.string_value();
       break;
@@ -424,17 +425,19 @@ Status FromProto(const pb::SessionOptionValue& pb_val, SessionOptionValue* val) 
 }
 
 Status ToProto(const SessionOptionValue& val, pb::SessionOptionValue* pb_val) {
-  std::visit(overloaded{[&](std::string v) { pb_val->set_string_value(v); },
-                        [&](bool v) { pb_val->set_bool_value(v); },
-                        [&](int32_t v) { pb_val->set_int32_value(v); },
-                        [&](int64_t v) { pb_val->set_int64_value(v); },
-                        [&](float v) { pb_val->set_float_value(v); },
-                        [&](double v) { pb_val->set_double_value(v); },
-                        [&](std::vector<std::string> v) {
-                          auto* string_list_value = pb_val->mutable_string_list_value();
-                          for (const std::string& s : v) string_list_value->add_values(s);
-                        }},
-             val);
+  std::visit(overloaded{
+    [&](std::monostate v) { pb_val->clear_option_value(); },
+    [&](std::string v) { pb_val->set_string_value(v); },
+    [&](bool v) { pb_val->set_bool_value(v); },
+    [&](int32_t v) { pb_val->set_int32_value(v); },
+    [&](int64_t v) { pb_val->set_int64_value(v); },
+    [&](float v) { pb_val->set_float_value(v); },
+    [&](double v) { pb_val->set_double_value(v); },
+    [&](std::vector<std::string> v) {
+      auto* string_list_value = pb_val->mutable_string_list_value();
+      for (const std::string& s : v) string_list_value->add_values(s);
+    }},
+    val);
   return Status::OK();
 }
 
