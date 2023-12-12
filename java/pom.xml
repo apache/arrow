@@ -321,6 +321,7 @@
           </execution>
         </executions>
         <configuration>
+          <excludes>**/module-info.java</excludes>
           <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
@@ -371,6 +372,24 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.arrow.maven.plugins</groupId>
+        <artifactId>module-info-compiler-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -400,6 +419,8 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <excludes>**/module-info.java</excludes>
+            <testExcludes>**/module-info.java</testExcludes>
             <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
@@ -545,6 +566,11 @@
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.arrow.maven.plugins</groupId>
+          <artifactId>module-info-compiler-maven-plugin</artifactId>
+          <version>${project.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -735,6 +761,7 @@
   </reporting>
 
   <modules>
+    <module>maven</module>
     <module>bom</module>
     <module>format</module>
     <module>memory</module>
@@ -1236,7 +1263,6 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 
 </project>
