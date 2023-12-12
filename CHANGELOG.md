@@ -1,4 +1,46 @@
 
+# Apache Arrow 14.0.2 (2023-11-29 08:00:00)
+
+## New Features and Improvements
+
+* [GH-27839](https://github.com/apache/arrow/issues/27839) - [R] Fetch latest nightly binary for arrow R dev versions. (#38236)
+* [GH-38342](https://github.com/apache/arrow/issues/38342) - [Python] Update to_pandas to use non-deprecated DataFrame constructor (#38374)
+* [GH-38364](https://github.com/apache/arrow/issues/38364) - [Python] Initialize S3 on first use (#38375)
+* [GH-38430](https://github.com/apache/arrow/issues/38430) - [R] Add test + fix corner cases after nixlibs.R refactor (#38534)
+* [GH-38432](https://github.com/apache/arrow/issues/38432) - [C++][Parquet] Try to fix performance regression in the DictByteArrayDecoderImpl (#38784)
+* [GH-38449](https://github.com/apache/arrow/issues/38449) - [Release][Go][macOS] Use local test data if possible (#38450)
+* [GH-38570](https://github.com/apache/arrow/issues/38570) - [R] Ensure that test-nix-libs is warning free (#38571)
+* [GH-38591](https://github.com/apache/arrow/issues/38591) - [Parquet][C++] Remove redundant open calls in `ParquetFileFormat::GetReaderAsync`  (#38621)
+* [GH-38756](https://github.com/apache/arrow/issues/38756) - [R] More debug output for r/configure and nixlibs.R (#38819)
+* [GH-38864](https://github.com/apache/arrow/issues/38864) - [R] Update NEWS.md for 14.0.0.1 (#38866)
+* [GH-38904](https://github.com/apache/arrow/issues/38904) - [R] Update news.md for 14.0.0.2 (#39022)
+* [GH-39041](https://github.com/apache/arrow/issues/39041) - [R] Improve `update-checksum.R` output (#39042)
+
+
+## Bug Fixes
+
+* [GH-38345](https://github.com/apache/arrow/issues/38345) - [Release] Use local test data for verification if possible (#38362)
+* [GH-38438](https://github.com/apache/arrow/issues/38438) - [C++] Dataset: Trying to fix the async bug in Parquet dataset (#38466)
+* [GH-38577](https://github.com/apache/arrow/issues/38577) - Reading parquet file behavior change from 13.0.0 to 14.0.0
+* [GH-38618](https://github.com/apache/arrow/issues/38618) - [C++] S3FileSystem: fix regression in deleting explicitly created sub-directories (#38845)
+* [GH-38626](https://github.com/apache/arrow/issues/38626) - [Python] Fix segfault when PyArrow is imported at shutdown (#38637)
+* [GH-38676](https://github.com/apache/arrow/issues/38676) - [Python] Fix potential deadlock when CSV reading errors out (#38713)
+* [GH-38715](https://github.com/apache/arrow/issues/38715) - [R] Fix possible bashism in configure script (#38716)
+* [GH-38752](https://github.com/apache/arrow/issues/38752) - [R] Wrap rosetta detection in tryCatch (#38754)
+* [GH-38766](https://github.com/apache/arrow/issues/38766) - [R] Add timeout option to try_download (#38767)
+* [GH-38779](https://github.com/apache/arrow/issues/38779) - [R][CI] Use devtools on self-hosted machines and use macos-11 for intel package build (#38974)
+* [GH-38861](https://github.com/apache/arrow/issues/38861) - [C++] Add missing "-framework Security" to Libs.private in arrow.pc (#38869)
+* [GH-38893](https://github.com/apache/arrow/issues/38893) - [R] Fix printf syntax in altrep.cpp (#38894)
+* [GH-38902](https://github.com/apache/arrow/issues/38902) - [R] Handle failing library detection with pkg-config (#38970)
+* [GH-38984](https://github.com/apache/arrow/issues/38984) - [Python][Packaging] Verification of wheels on AlmaLinux 8 are failing due to missing pip (#38985)
+* [GH-39003](https://github.com/apache/arrow/issues/39003) - [CI][macOS] Don't update Homebrew (#39016)
+* [GH-39072](https://github.com/apache/arrow/issues/39072) - [Release][CI] Python3.11-devel is required for the verification job on AlmaLinux 8 (#39073)
+* [GH-39074](https://github.com/apache/arrow/issues/39074) - [Release][Packaging] Use UTF-8 explicitly for KEYS (#39082)
+* [GH-39076](https://github.com/apache/arrow/issues/39076) - [R] Fix tests that trigger confusing dplyr warnings (#39077)
+* [GH-39138](https://github.com/apache/arrow/issues/39138) - [R] Compile with \`-Wconversion\` on clang15 results in compiler warnings
+
+
+
 # Apache Arrow 14.0.1 (2023-11-06)
 
 ## Bug Fixes
