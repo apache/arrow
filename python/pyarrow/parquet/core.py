@@ -1808,7 +1808,7 @@ def read_table(source, *, columns=None, use_threads=True,
             source = filesystem.open_input_file(path)
         # TODO test that source is not a directory or a list
         dataset = ParquetFile(
-            source, metadata=metadata, read_dictionary=read_dictionary,
+            source, read_dictionary=read_dictionary,
             memory_map=memory_map, buffer_size=buffer_size,
             pre_buffer=pre_buffer,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
