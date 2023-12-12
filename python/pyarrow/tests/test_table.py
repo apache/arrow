@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
+import re
 import sys
 import weakref
 
@@ -895,8 +896,10 @@ def test_recordbatch_to_struct_array():
 def test_table_from_struct_array_invalid():
     with pytest.raises(
         TypeError,
-        match="Argument 'struct_array' has incorrect type "
-        "(expected pyarrow.lib.StructArray, got pyarrow.lib.Int64Array)",
+        match=re.escape(
+            "Argument 'struct_array' has incorrect type "
+            "(expected pyarrow.lib.StructArray, got pyarrow.lib.Int64Array)",
+        ),
     ):
         pa.Table.from_struct_array(pa.array(range(5)))
 
@@ -917,7 +920,7 @@ def test_table_from_struct_array():
 
 def test_table_from_struct_array_chunked_array():
     chunked_struct_array = pa.chunked_array(
-        [{"ints": 1}, {"floats": 1.0}],
+        [[{"ints": 1}, {"floats": 1.0}]],
         type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
     )
     result = pa.Table.from_struct_array(chunked_struct_array)
