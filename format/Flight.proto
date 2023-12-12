@@ -528,6 +528,9 @@ message PutResult {
 
 /*
  * EXPERIMENTAL: Union of possible value types for a Session Option to be set to.
+ *
+ * By convention, an attempt to set a valueless SessionOptionValue should
+ * attempt to unset or clear the named option value on the server.
  */
 message SessionOptionValue {
   message StringListValue {
