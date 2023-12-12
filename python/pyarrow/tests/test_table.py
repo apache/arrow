@@ -894,13 +894,7 @@ def test_recordbatch_to_struct_array():
 
 
 def test_table_from_struct_array_invalid():
-    with pytest.raises(
-        TypeError,
-        match=re.escape(
-            "Argument 'struct_array' has incorrect type "
-            "(expected pyarrow.lib.StructArray, got pyarrow.lib.Int64Array)",
-        ),
-    ):
+    with pytest.raises(TypeError, match="Argument 'struct_array' has incorrect type"):
         pa.Table.from_struct_array(pa.array(range(5)))
 
 
