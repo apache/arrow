@@ -132,11 +132,19 @@ class AzureEnvImpl : public BaseAzureEnv {
       const std::string& account_name_var, const std::string& account_key_var) {
     const auto account_name = std::getenv(account_name_var.c_str());
     const auto account_key = std::getenv(account_key_var.c_str());
+    if (!account_name && !account_key) {
+      return Status::Cancelled(account_name_var + " and " + account_key_var +
+                               " are not set. Skipping tests.");
+    }
+    // If only one of the variables is set. Don't cancel tests,
+    // fail with a Status::Invalid.
     if (!account_name) {
-      return Status::Cancelled(account_name_var + " not set.");
+      return Status::Invalid(account_name_var + " not set while " + account_key_var +
+                             " is set.");
     }
     if (!account_key) {
-      return Status::Cancelled(account_key_var + " not set.");
+      return Status::Invalid(account_key_var + " not set while " + account_name_var +
+                             " is set.");
     }
     return std::unique_ptr<AzureEnvClass>{new AzureEnvClass(account_name, account_key)};
   }
