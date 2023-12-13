@@ -315,20 +315,20 @@ culpa qui officia deserunt mollit anim id est laborum.
   static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
   static std::string RandomDirectoryName(RNG& rng) { return RandomChars(32, rng); }
 
-  static std::string RandomLine(int lineno, std::size_t width, RNG& rng) {
+  static std::string RandomLine(int lineno, int width, RNG& rng) {
     auto line = std::to_string(lineno) + ":    ";
-    line += RandomChars(width - line.size() - 1, rng);
+    line += RandomChars(width - static_cast<int>(line.size()) - 1, rng);
     line += '\n';
     return line;
   }
 
-  static std::size_t RandomIndex(std::size_t end, RNG& rng) {
-    return std::uniform_int_distribution<std::size_t>(0, end - 1)(rng);
+  static int RandomIndex(int end, RNG& rng) {
+    return std::uniform_int_distribution<int>(0, end - 1)(rng);
   }
 
-  static std::string RandomChars(std::size_t count, RNG& rng) {
+  static std::string RandomChars(int count, RNG& rng) {
     auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
-    std::uniform_int_distribution<std::size_t> d(0, fillers.size() - 1);
+    std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
     std::string s;
     std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
     return s;
