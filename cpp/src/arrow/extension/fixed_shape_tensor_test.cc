@@ -607,6 +607,42 @@ TEST_F(TestExtensionType, GetTensor) {
               actual_permuted_tensor->is_column_major());
     ASSERT_TRUE(expected_permuted_tensor->Equals(*actual_permuted_tensor));
   }
+
+  // Test null values fail
+  auto cell_type = fixed_size_list(int64(), 1);
+  auto fsla_arr = ArrayFromJSON(cell_type, "[[1], [null], null]");
+  ext_type = fixed_shape_tensor(int64(), {1});
+  exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+  auto ext_arr = ExtensionType::WrapArray(ext_type, fsla_arr);
+  auto tensor_array = std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
+
+  ASSERT_OK_AND_ASSIGN(auto scalar, tensor_array->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(
+      auto tensor,
+      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+
+  ASSERT_OK_AND_ASSIGN(scalar, tensor_array->GetScalar(1));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Cannot convert data with nulls values to Tensor."),
+      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+
+  ASSERT_OK_AND_ASSIGN(scalar, tensor_array->GetScalar(2));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Cannot convert data with nulls values to Tensor."),
+      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+
+  // Test non-fixed size list array fails
+  cell_type = list(utf8());
+  scalar = std::make_shared<ListScalar>(ArrayFromJSON(cell_type, R"([["a", "b"]])"));
+  ext_type = fixed_shape_tensor(utf8(), {1});
+  exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Cannot convert non-fixed-width values to Tensor."),
+      exact_ext_type->GetTensor(internal::checked_pointer_cast<ExtensionScalar>(scalar)));
 }
 
 }  // namespace arrow
