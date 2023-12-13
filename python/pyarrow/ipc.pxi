@@ -884,6 +884,43 @@ cdef class RecordBatchReader(_Weakrefable):
         return self
 
     @staticmethod
+    def from_stream(data, schema=None):
+        """
+        Create RecordBatchReader from a Arrow-compatible stream object.
+
+        This accepts objects implementing the Arrow PyCapsule Protocol for
+        streams, i.e. objects that have a ``__arrow_c_stream__`` method.
+
+        Parameters
+        ----------
+        data : Arrow-compatible stream object
+            Any object that implements the Arrow PyCapsule Protocol for
+            streams.
+        schema : Schema, default None
+            The schema to which the stream should be casted, is supported
+            by the stream object.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+
+        if not hasattr(data, "__arrow_c_stream__"):
+            raise TypeError(
+                "Expected an object implementing the Arrow PyCapsule Protocol for "
+                "streams (i.e. having a `__arrow_c_stream__` method), "
+                f"got {type(data)!r}."
+            )
+
+        if schema is not None:
+            requested = schema.__arrow_c_schema__()
+        else:
+            requested = None
+
+        capsule = data.__arrow_c_stream__(requested)
+        return RecordBatchReader._import_from_c_capsule(capsule)
+
+    @staticmethod
     def from_batches(Schema schema not None, batches):
         """
         Create RecordBatchReader from an iterable of batches.
