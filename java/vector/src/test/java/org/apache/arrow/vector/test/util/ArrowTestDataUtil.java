@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector.util;
+package org.apache.arrow.vector.test.util;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
