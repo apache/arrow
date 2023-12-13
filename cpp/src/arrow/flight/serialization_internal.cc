@@ -450,7 +450,7 @@ Status FromProto(const google::protobuf::Map<std::string, pb::SessionOptionValue
   if (pb_map.empty()) {
     return Status::OK();
   }
-  for (auto& [key, pb_val] : pb_map) {
+  for (const auto& [key, pb_val] : pb_map) {
     RETURN_NOT_OK(FromProto(pb_val, &(*map)[key]));
   }
   return Status::OK();

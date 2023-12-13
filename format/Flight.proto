@@ -552,8 +552,10 @@ message SessionOptionValue {
  * EXPERIMENTAL: A request to set session options for an existing or new (implicit)
  * server session.
  *
- * Sessions are persisted and referenced via RFC 6265 HTTP cookies, canonically
- * 'arrow_flight_session_id', although implementations may freely choose their own name.
+ * Sessions are persisted and referenced via a transport-level state management, typically
+ * RFC 6265 HTTP cookies when using an HTTP transport.  The suggested cookie name or state
+ * context key is 'arrow_flight_session_id', although implementations may freely choose their
+ * own name.
  */
 message SetSessionOptionsRequest {
   map<string, SessionOptionValue> session_options = 1;
@@ -588,8 +590,9 @@ message SetSessionOptionsResult {
 /*
  * EXPERIMENTAL: A request to access the session options for the current server session.
  *
- * The existing session is referenced via a cookie header; it is an error to make this
- * request with a missing, invalid, or expired session cookie header.
+ * The existing session is referenced via a cookie header or similar (see SetSessionOptionsRequest
+ * above); it is an error to make this request with a missing, invalid, or expired session cookie
+ * header or other implementation-defined session reference token.
  */
 message GetSessionOptionsRequest {
 }
