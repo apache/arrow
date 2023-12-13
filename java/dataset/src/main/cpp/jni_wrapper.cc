@@ -551,10 +551,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createRange
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
   if (filter != nullptr) {
-    // TODO: PR 32625 OR PR 14287
-//    arrow::compute::Expression filter_expr = JniGetOrThrow(
-//        arrow::compute::Expression::FromString(JStringToCString(env, filter)));
-//    JniAssertOkOrThrow(scanner_builder->Filter(filter_expr));
+    // TODO: PR 32625 OR PR 14287.
   }
   JniAssertOkOrThrow(scanner_builder->StartOffset(start_offset));
   JniAssertOkOrThrow(scanner_builder->Length(length));

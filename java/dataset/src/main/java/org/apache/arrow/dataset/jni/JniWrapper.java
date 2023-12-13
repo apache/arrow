@@ -88,10 +88,10 @@ public class JniWrapper {
    * @param columns desired column names.
    *                Columns not in this list will not be emitted when performing scan operation. Null equals
    *                to "all columns".
-   * @param filter the filter to apply on the scan
+   * @param filter the filter to apply on the scan.
    * @param batchSize batch size of scanned record batches.
-   * @param startOffset start offset of the range scan
-   * @param length length of the range scan
+   * @param startOffset start offset of the range scan.
+   * @param length length of the range scan.
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */

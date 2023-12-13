@@ -138,12 +138,12 @@ struct ARROW_DS_EXPORT ScanOptions {
   acero::BackpressureOptions backpressure =
       acero::BackpressureOptions::DefaultBackpressure();
 
-  /// Parameters which control where the scan starts
-  /// This is used in reading a big file by splitting into multiple scanners
+  /// Parameters which control where the scan starts.
+  /// This is used in reading a big file by splitting into multiple scanners.
   int64_t start_offset = kDefaultStartOffset;
 
-  /// Parameters which control how long the scanner should read
-  /// This is used in reading a big file by splitting into multiple scanners
+  /// Parameters which control how long the scanner should read.
+  /// This is used in reading a big file by splitting into multiple scanners.
   int64_t length;
 };
 
