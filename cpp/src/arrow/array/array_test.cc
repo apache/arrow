@@ -508,7 +508,12 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
     auto req = [](auto type) { return field("", std::move(type), /*nullable=*/false); };
 
     // union with no nullable fields cannot represent a null
-    ASSERT_RAISES(Invalid, MakeArrayOfNull(dense_union({req(int8())}), length));
+    ASSERT_RAISES(TypeError, MakeArrayOfNull(dense_union({req(int8())}), length));
+    // run end encoded with non nullable child cannot represent a null
+    // (not directly constructible, but not invalid per Columnar.rst)
+    auto ree = run_end_encoded(int16(), utf8());
+    const_cast<FieldVector&>(ree->fields())[1] = req(utf8());
+    ASSERT_RAISES(TypeError, MakeArrayOfNull(ree, length));
 
     // struct with no nullable fields has a top level bitmap and can mask them
     ASSERT_OK_AND_ASSIGN(auto s, MakeArrayOfNull(struct_({req(int8())}), length));

@@ -183,9 +183,6 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   /// \brief Return the type category of the storage type
   virtual Type::type storage_id() const { return id_; }
 
-  /// \brief Return a reference to the storage type
-  virtual const DataType& storage_type_ref() const { return *this; }
-
   /// \brief Return the storage type
   virtual std::shared_ptr<DataType> storage_type() const { return GetSharedPtr(); }
 

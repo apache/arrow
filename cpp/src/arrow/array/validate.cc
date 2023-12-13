@@ -581,15 +581,15 @@ struct ValidateArrayImpl {
 
     if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
       // Do not call GetNullCount() as it would also set the `null_count` member
-      return null_count = data.length -
-                          CountSetBits(data.buffers[0]->data(), data.offset, data.length);
+      null_count =
+          data.length - CountSetBits(data.buffers[0]->data(), data.offset, data.length);
+    } else if (data.type->storage_id() == Type::NA) {
+      null_count = data.length;
+    } else {
+      null_count = 0;
     }
 
-    if (data.type->storage_id() == Type::NA) {
-      return null_count = data.length;
-    }
-
-    return null_count = 0;
+    return null_count;
   }
 
   Status ValidateFixedWidthBuffers() {
