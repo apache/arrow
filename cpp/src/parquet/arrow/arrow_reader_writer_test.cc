@@ -5225,6 +5225,8 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
 }
 
 TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
+  // GH-39211: WriteRecordBatch should prevent from writing a empty row group
+  // in the end of the file.
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
   // Limit the max number of rows in a row group to 2
@@ -5247,18 +5249,18 @@ TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
                              &arrow_writer));
   // NewBufferedRowGroup() is not called explicitly and it will be called
   // inside WriteRecordBatch().
-  // Write 50 rows for two times
+  // Write 20 rows for two times
   for (int i = 0; i < 2; ++i) {
     auto record_batch =
-        gen.BatchOf({::arrow::field("a", ::arrow::int64())}, /*length=*/50);
+        gen.BatchOf({::arrow::field("a", ::arrow::int64())}, /*length=*/20);
     ASSERT_OK_NO_THROW(arrow_writer->WriteRecordBatch(*record_batch));
   }
   ASSERT_OK_NO_THROW(arrow_writer->Close());
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   auto fileMetadata = arrow_writer->metadata();
-  EXPECT_EQ(50, fileMetadata->num_row_groups());
-  for (int i = 0; i < 50; ++i) {
+  EXPECT_EQ(20, fileMetadata->num_row_groups());
+  for (int i = 0; i < 20; ++i) {
     EXPECT_EQ(2, fileMetadata->RowGroup(i)->num_rows());
   }
 }
