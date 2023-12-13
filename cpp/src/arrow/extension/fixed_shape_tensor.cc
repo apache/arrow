@@ -392,6 +392,12 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     return Status::Invalid("dim_names size must match shape size. Expected: ",
                            shape.size(), " Got: ", dim_names.size());
   }
+  for (auto i : permutation) {
+    if (i < 0 || i >= static_cast<int64_t>(shape.size())) {
+      return Status::Invalid("permutation indices must be in [0, shape.size()). Got: ",
+                             i);
+    }
+  }
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
   return std::make_shared<FixedShapeTensorType>(value_type, static_cast<int32_t>(size),
