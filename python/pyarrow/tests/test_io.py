@@ -668,7 +668,8 @@ def test_cache_options():
     opts1 = pa.CacheOptions()
     opts2 = pa.CacheOptions(hole_size_limit=1024)
     opts3 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
-    opts4 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192, prefetch_limit=5)
+    opts4 = pa.CacheOptions(hole_size_limit=4096,
+                            range_size_limit=8192, prefetch_limit=5)
     opts5 = pa.CacheOptions(hole_size_limit=4096,
                             range_size_limit=8192, lazy=False)
     opts6 = pa.CacheOptions.from_network_metrics(time_to_first_byte_millis=100,
