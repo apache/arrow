@@ -677,15 +677,12 @@ class AzureFileSystemTestImpl : public AzureFileSystemTest {
 // You need an Azure account. You should be able to create a free account [1].
 // Through the portal Web UI, you should create a storage account [2].
 //
-//
 // A few suggestions on configuration:
 //
 // * Use Standard general-purpose v2 not premium
 // * Use LRS redundancy
 // * Set the default access tier to hot
 // * SFTP, NFS and file shares are not required.
-//
-// You need to enable Hierarchical Namespace on the storage account
 //
 // You must not enable Hierarchical Namespace on the storage account used for
 // AzureFlatNSFileSystemTest, but you must enable it on the storage account
