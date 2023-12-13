@@ -31,7 +31,7 @@
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.10.1</dep.junit.jupiter.version>
-    <dep.slf4j.version>1.7.25</dep.slf4j.version>
+    <dep.slf4j.version>2.0.9</dep.slf4j.version>
     <dep.guava-bom.version>32.1.3-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.100.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.59.0</dep.grpc-bom.version>
@@ -308,7 +308,7 @@
           <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
-            <version>1.7.5</version>
+            <version>${dep.slf4j.version}</version>
           </dependency>
         </dependencies>
         <executions>
@@ -321,6 +321,7 @@
           </execution>
         </executions>
         <configuration>
+          <excludes>**/module-info.java</excludes>
           <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
@@ -371,6 +372,24 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.arrow.maven.plugins</groupId>
+        <artifactId>module-info-compiler-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
 
     <pluginManagement>
@@ -400,6 +419,8 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <excludes>**/module-info.java</excludes>
+            <testExcludes>**/module-info.java</testExcludes>
             <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
@@ -431,7 +452,7 @@
             <dependency>
               <groupId>org.apache.maven.surefire</groupId>
               <artifactId>surefire-junit-platform</artifactId>
-              <version>3.0.0-M7</version>
+              <version>3.2.2</version>
             </dependency>
           </dependencies>
           <configuration>
@@ -545,6 +566,11 @@
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.arrow.maven.plugins</groupId>
+          <artifactId>module-info-compiler-maven-plugin</artifactId>
+          <version>${project.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -698,7 +724,7 @@
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.2.3</version>
+      <version>1.3.14</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -735,6 +761,7 @@
   </reporting>
 
   <modules>
+    <module>maven</module>
     <module>bom</module>
     <module>format</module>
     <module>memory</module>
@@ -1236,7 +1263,6 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 
 </project>

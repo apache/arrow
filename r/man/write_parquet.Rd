@@ -86,7 +86,7 @@ value for each column, in positional order
 value for the setting is used when not supplied
 }
 
-The \code{compression} argument can be any of the following (case insensitive):
+The \code{compression} argument can be any of the following (case-insensitive):
 "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
 Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
 are almost always included. See \code{\link[=codec_is_available]{codec_is_available()}}.

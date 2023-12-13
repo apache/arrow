@@ -28,20 +28,20 @@ filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) 
     out$group_by_vars <- by$names
   }
 
-  filts <- expand_across(out, quos(...))
-  if (length(filts) == 0) {
+  expanded_filters <- expand_across(out, quos(...))
+  if (length(expanded_filters) == 0) {
     # Nothing to do
     return(as_adq(.data))
   }
 
   # tidy-eval the filter expressions inside an Arrow data_mask
-  filters <- lapply(filts, arrow_eval, arrow_mask(out))
+  filters <- lapply(expanded_filters, arrow_eval, arrow_mask(out))
   bad_filters <- map_lgl(filters, ~ inherits(., "try-error"))
   if (any(bad_filters)) {
     # This is similar to abandon_ship() except that the filter eval is
     # vectorized, and we apply filters that _did_ work before abandoning ship
     # with the rest
-    expr_labs <- map_chr(filts[bad_filters], format_expr)
+    expr_labs <- map_chr(expanded_filters[bad_filters], format_expr)
     if (query_on_dataset(out)) {
       # Abort. We don't want to auto-collect if this is a Dataset because that
       # could blow up, too big.
@@ -71,7 +71,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) 
       if (by$from_by) {
         out <- dplyr::ungroup(out)
       }
-      return(dplyr::filter(out, !!!filts[bad_filters], .by = {{ .by }}))
+      return(dplyr::filter(out, !!!expanded_filters[bad_filters], .by = {{ .by }}))
     }
   }
 

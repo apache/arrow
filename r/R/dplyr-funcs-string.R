@@ -516,7 +516,7 @@ register_bindings_string_other <- function() {
         msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
       )
 
-      # substr treats values as if they're on a continous number line, so values
+      # substr treats values as if they're on a continuous number line, so values
       # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics
       # this behavior
       if (start <= 0) {

@@ -142,7 +142,7 @@ what names to give the virtual columns that come from the path segments.
 
 The default behavior in \code{open_dataset()} is to inspect the file paths
 contained in the provided directory, and if they look like Hive-style, parse
-them as Hive. If your dataset has Hive-style partioning in the file paths,
+them as Hive. If your dataset has Hive-style partitioning in the file paths,
 you do not need to provide anything in the \code{partitioning} argument to
 \code{open_dataset()} to use them. If you do provide a character vector of
 partition column names, they will be ignored if they match what is detected,

@@ -230,7 +230,7 @@ be dropped.
 
 Note that if you are specifying column names, whether by \code{schema} or
 \code{col_names}, and the CSV file has a header row that would otherwise be used
-to idenfity column names, you'll need to add \code{skip = 1} to skip that row.
+to identify column names, you'll need to add \code{skip = 1} to skip that row.
 }
 
 \examples{
