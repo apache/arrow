@@ -29,13 +29,14 @@ from shutil import copytree
 from urllib.parse import quote
 
 import numpy as np
+import pytest
+
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 import pyarrow.json
-import pytest
 from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
                                 _configure_s3_limited_user, _filesystem_uri,
                                 change_cwd)
