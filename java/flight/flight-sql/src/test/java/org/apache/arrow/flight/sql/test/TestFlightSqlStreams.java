@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight;
+package org.apache.arrow.flight.sql.test;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -28,6 +28,15 @@ import static org.hamcrest.CoreMatchers.is;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightEndpoint;
+import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.BasicFlightSqlProducer;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlProducer;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.flight;
+package org.apache.arrow.flight.sql.test;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -38,6 +38,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import org.apache.arrow.flight.CancelFlightInfoRequest;
+import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightInfo;
+import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightStatusCode;
+import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlClient.PreparedStatement;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
@@ -914,7 +923,7 @@ public class TestFlightSql {
     FlightInfo info = sqlClient.getSqlInfo();
     CancelFlightInfoRequest request = new CancelFlightInfoRequest(info);
     FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, () -> sqlClient.cancelFlightInfo(request));
-    assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
+    Assertions.assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
   }
 
   @Test
