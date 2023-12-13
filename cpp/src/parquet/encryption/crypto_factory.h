@@ -41,6 +41,7 @@ struct PARQUET_EXPORT EncryptionConfiguration {
       : footer_key(footer_key) {}
 
   /// ID of the master key for footer encryption/signing
+  /// If uniform_encryption is True, will use this key to encrypt all columns as well.
   std::string footer_key;
 
   /// List of columns to encrypt, with master key IDs (see HIVE-21848).
@@ -53,7 +54,7 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   /// thrown.
   std::string column_keys;
 
-  /// Encrypt footer and all columns with the same encryption key.
+  /// Encrypt footer and all columns with the same encryption key (footer_key).
   bool uniform_encryption = kDefaultUniformEncryption;
 
   /// Parquet encryption algorithm. Can be "AES_GCM_V1" (default), or "AES_GCM_CTR_V1".
