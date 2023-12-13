@@ -108,15 +108,15 @@ static std::vector<std::string> cpu_attrs;
 std::once_flag register_exported_funcs_flag;
 
 template <typename T>
-static arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
-                                      const std::string& error_context = "") {
+arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
+                               const std::string& error_context = "") {
   if (!expected) {
     return Status::CodeGenError(error_context, llvm::toString(expected.takeError()));
   }
   return std::move(expected.get());
 }
 
-static Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
+Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
     const Configuration& conf) {
   llvm::orc::JITTargetMachineBuilder jtmb(
       (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
@@ -130,19 +130,46 @@ static Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
   return jtmb;
 }
 
-static std::string GetModuleIR(const llvm::Module& module) {
+std::string GetModuleIR(const llvm::Module& module) {
   std::string ir;
   llvm::raw_string_ostream stream(ir);
   module.print(stream, nullptr);
   return ir;
 }
 
+void AddAbsoluteSymbol(llvm::orc::LLJIT& lljit, const std::string& name,
+                       void* function_ptr) {
+  llvm::orc::MangleAndInterner mangle(lljit.getExecutionSession(), lljit.getDataLayout());
+
+  // https://github.com/llvm/llvm-project/commit/8b1771bd9f304be39d4dcbdcccedb6d3bcd18200#diff-77984a824d9182e5c67a481740f3bc5da78d5bd4cf6e1716a083ddb30a4a4931
+  // LLVM 17 introduced ExecutorSymbolDef and move most of ORC APIs to ExecutorAddr
+#if LLVM_VERSION_MAJOR >= 17
+  llvm::orc::ExecutorSymbolDef symbol(
+      llvm::orc::ExecutorAddr(reinterpret_cast<uint64_t>(function_ptr)),
+      llvm::JITSymbolFlags::Exported);
+#else
+  llvm::JITEvaluatedSymbol symbol(reinterpret_cast<llvm::JITTargetAddress>(function_ptr),
+                                  llvm::JITSymbolFlags::Exported);
+#endif
+
+  auto error = lljit.getMainJITDylib().define(
+      llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
+  llvm::cantFail(std::move(error));
+}
+
 // add current process symbol to dylib
 // LLVM >= 18 does this automatically
-static void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
+void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
   lljit.getMainJITDylib().addGenerator(
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
+// the `atexit` symbol cannot be found for ASAN
+#if defined(__SANITIZE_ADDRESS__) || \
+    (defined(__has_feature) && (__has_feature(address_sanitizer)))
+  if (!lljit.lookup("atexit")) {
+    AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
+  }
+#endif
 }
 
 static Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
@@ -176,7 +203,7 @@ void Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   auto cached_buffer = object_cache.getObject(nullptr);
   if (cached_buffer) {
     auto error = lljit_->addObjectFile(std::move(cached_buffer));
-    DCHECK(!error) << "Failed to load object cache" << llvm::toString(std::move(error));
+    DCHECK(!error) << "Failed to load object cache: " << llvm::toString(std::move(error));
   }
 }
 
@@ -440,13 +467,13 @@ Status Engine::FinalizeModule() {
     ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                     Status::CodeGenError("Module verification failed after optimizer"));
 
-    // copy the module if IR dumping is needed since the module will be moved to construct
-    // LLJIT instance, and it is not available after LLJIT instance is constructed
+    // print the module IR and save it for later use if IR dumping is needed
+    // since the module will be moved to construct LLJIT instance, and it is not available
+    // after LLJIT instance is constructed
     if (conf_->needs_ir_dumping()) {
       module_ir_ = GetModuleIR(*module_);
     }
 
-    // do the compilation
     llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
     auto error = lljit_->addIRModule(std::move(tsm));
     if (error) {
@@ -481,29 +508,10 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
 }
 
 void Engine::AddGlobalMappingForFunc(const std::string& name, llvm::Type* ret_type,
-                                     const std::vector<llvm::Type*>& args,
-                                     void* function_ptr) {
-  constexpr bool is_var_arg = false;
-  auto const prototype = llvm::FunctionType::get(ret_type, args, is_var_arg);
+                                     const std::vector<llvm::Type*>& args, void* func) {
+  auto const prototype = llvm::FunctionType::get(ret_type, args, /*is_var_arg*/ false);
   llvm::Function::Create(prototype, llvm::GlobalValue::ExternalLinkage, name, module());
-
-  llvm::orc::MangleAndInterner mangle(lljit_->getExecutionSession(),
-                                      lljit_->getDataLayout());
-
-  // https://github.com/llvm/llvm-project/commit/8b1771bd9f304be39d4dcbdcccedb6d3bcd18200#diff-77984a824d9182e5c67a481740f3bc5da78d5bd4cf6e1716a083ddb30a4a4931
-  // LLVM 17 introduced ExecutorSymbolDef and move most of ORC APIs to ExecutorAddr
-#if LLVM_VERSION_MAJOR >= 17
-  llvm::orc::ExecutorSymbolDef symbol(
-      llvm::orc::ExecutorAddr(reinterpret_cast<uint64_t>(function_ptr)),
-      llvm::JITSymbolFlags::Exported);
-#else
-  llvm::JITEvaluatedSymbol symbol(reinterpret_cast<llvm::JITTargetAddress>(function_ptr),
-                                  llvm::JITSymbolFlags::Exported);
-#endif
-
-  auto error = lljit_->getMainJITDylib().define(
-      llvm::orc::absoluteSymbols({{mangle(name), symbol}}));
-  llvm::cantFail(std::move(error));
+  AddAbsoluteSymbol(*lljit_, name, func);
 }
 
 arrow::Status Engine::AddGlobalMappings() {
