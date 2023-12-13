@@ -644,11 +644,15 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
                                                 field("data", data_type_)};
   ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({shapes, data}, fields));
   auto ext_arr = ExtensionType::WrapArray(ext_type_, storage_arr);
+  auto exact_ext_type =
+      internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);
   auto ext_array = std::static_pointer_cast<VariableShapeTensorArray>(ext_arr);
 
   std::shared_ptr<Tensor> t, tensor;
 
-  ASSERT_OK_AND_ASSIGN(t, ext_array->GetTensor(0));
+  ASSERT_OK_AND_ASSIGN(auto scalar, ext_array->GetScalar(0));
+  auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(ext_scalar));
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 3, 1}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 8, 8}));
 
@@ -661,11 +665,15 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
                        Tensor::Make(int64(), data_buffer, shape, strides, dim_names_));
   ASSERT_TRUE(tensor->Equals(*t));
 
-  ASSERT_OK_AND_ASSIGN(t, ext_array->GetTensor(1));
+  ASSERT_OK_AND_ASSIGN(scalar, ext_array->GetScalar(1));
+  ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(ext_scalar));
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 1, 2}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{16, 16, 8}));
 
-  ASSERT_OK_AND_ASSIGN(t, ext_array->GetTensor(2));
+  ASSERT_OK_AND_ASSIGN(scalar, ext_array->GetScalar(2));
+  ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+  ASSERT_OK_AND_ASSIGN(t, exact_ext_type->GetTensor(ext_scalar));
   ASSERT_EQ(t->shape(), (std::vector<int64_t>{3, 1, 3}));
   ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 24, 8}));
 
@@ -683,9 +691,6 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(tensor->is_contiguous(), t->is_contiguous());
   ASSERT_EQ(tensor->is_column_major(), t->is_column_major());
   ASSERT_TRUE(tensor->Equals(*t));
-
-  auto exact_ext_type =
-      internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);
 
   ASSERT_OK_AND_ASSIGN(auto sc, ext_arr->GetScalar(2));
   auto s = internal::checked_pointer_cast<ExtensionScalar>(sc);

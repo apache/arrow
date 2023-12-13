@@ -25,14 +25,6 @@ namespace extension {
 class ARROW_EXPORT VariableShapeTensorArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
-
-  /// \brief Get a Tensor of VariableShapeTensorArray at i
-  ///
-  /// This method will return a Tensor from VariableShapeTensorArray with strides
-  /// derived from shape and permutation of VariableShapeTensorType. Shape and
-  /// dim_names will be permuted according to permutation stored in the
-  /// VariableShapeTensorType metadata.
-  const Result<std::shared_ptr<Tensor>> GetTensor(const int64_t i) const;
 };
 
 /// \brief Concrete type class for variable-shape Tensor data.
@@ -82,7 +74,11 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   /// Create a VariableShapeTensorArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
-  /// Convert an ExtensionScalar to a Tensor
+  /// \brief Convert an ExtensionScalar to a Tensor
+  ///
+  /// This method will return a Tensor from ExtensionScalar with strides derived
+  /// from shape and permutation stored. Shape and dim_names will be permuted
+  /// according to permutation stored in the VariableShapeTensorType.
   Result<std::shared_ptr<Tensor>> GetTensor(
       const std::shared_ptr<ExtensionScalar>&) const;
 
