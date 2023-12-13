@@ -158,8 +158,8 @@ register_bindings_type_cast <- function() {
         if (identical(fix.empty.names, TRUE)) {
           names(args) <- make.names(names(args), unique = TRUE)
         } else {
-          name_emtpy <- names(args) == ""
-          names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+          name_empty <- names(args) == ""
+          names(args)[!name_empty] <- make.names(names(args)[!name_empty], unique = TRUE)
         }
       }
 

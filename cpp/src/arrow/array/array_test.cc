@@ -728,6 +728,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 
   for (auto scalar : scalars) {
+    ARROW_SCOPED_TRACE("scalar type: ", scalar->type->ToString());
     AssertAppendScalar(pool_, scalar);
   }
 }

@@ -80,10 +80,10 @@
 
 ## Installation
 
-* MacOS builds now use the same installation pathway as on Linux (@assignUser,
+* macOS builds now use the same installation pathway as on Linux (@assignUser,
   #37684).
 * A warning message is now issued on package load when running under emulation
-  on MacOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
+  on macOS (i.e., use of x86 installation of R on M1/aarch64; #37777).
 * R scripts that run during configuration and installation are now run
   using the correct R interpreter (@meztez, #37225).
 * Failed libarrow builds now return more detailed output (@amoeba, #37727).
@@ -416,7 +416,7 @@ As of version 10.0.0, `arrow` requires C++17 to build. This means that:
 
 * The `arrow.dev_repo` for nightly builds of the R package and prebuilt
   libarrow binaries is now <https://nightlies.apache.org/arrow/r/>.
-* Brotli and BZ2 are shipped with MacOS binaries. BZ2 is shipped with Windows binaries. (#13484)
+* Brotli and BZ2 are shipped with macOS binaries. BZ2 is shipped with Windows binaries. (#13484)
 
 # arrow 8.0.0
 
@@ -549,7 +549,7 @@ Arrow arrays and tables can be easily concatenated:
 ## Other improvements and fixes
 
 * Many of the vignettes have been reorganized, restructured and expanded to improve their usefulness and clarity.
-* Code to generate schemas (and individual data type specficiations) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
+* Code to generate schemas (and individual data type specifications) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
 * Arrow `Duration` type has been mapped to R's `difftime` class.
 * The `decimal256()` type is supported. The `decimal()` function has been revised to call either `decimal256()` or `decimal128()` based on the value of the `precision` argument.
 * `write_parquet()` uses a reasonable guess at `chunk_size` instead of always writing a single chunk. This improves the speed of reading and writing large Parquet files.
@@ -824,7 +824,7 @@ to send and receive data. See `vignette("flight", package = "arrow")` for an ove
 
 * `arrow` now depends on [`cpp11`](https://cpp11.r-lib.org/), which brings more robust UTF-8 handling and faster compilation
 * The Linux build script now succeeds on older versions of R
-* MacOS binary packages now ship with zstandard compression enabled
+* macOS binary packages now ship with zstandard compression enabled
 
 ## Bug fixes and other enhancements
 

@@ -1328,8 +1328,8 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
-  # Snappy unconditionaly enables Werror when building with clang this can lead
-  # to build failues by way of new compiler warnings. This adds a flag to disable
+  # Snappy unconditionally enables -Werror when building with clang this can lead
+  # to build failures by way of new compiler warnings. This adds a flag to disable
   # Werror to the very end of the invocation to override the snappy internal setting.
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
@@ -4238,7 +4238,7 @@ macro(build_google_cloud_cpp_storage)
   target_include_directories(google-cloud-cpp::common BEFORE
                              INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   # Refer to https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/google_cloud_cpp_common.cmake
-  # (subsitute `main` for the SHA of the version we use)
+  # (substitute `main` for the SHA of the version we use)
   # Version 1.39.0 is at a different place (they refactored after):
   # https://github.com/googleapis/google-cloud-cpp/blob/29e5af8ca9b26cec62106d189b50549f4dc1c598/google/cloud/CMakeLists.txt#L146-L155
   target_link_libraries(google-cloud-cpp::common
@@ -5071,7 +5071,7 @@ if(ARROW_S3)
 
   if(APPLE)
     # CoreFoundation's path is hardcoded in the CMake files provided by
-    # aws-sdk-cpp to use the MacOSX SDK provided by XCode which makes
+    # aws-sdk-cpp to use the macOS SDK provided by XCode which makes
     # XCode a hard dependency. Command Line Tools is often used instead
     # of the full XCode suite, so let the linker to find it.
     set_target_properties(AWS::aws-c-common

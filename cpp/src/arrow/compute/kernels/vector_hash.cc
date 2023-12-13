@@ -718,8 +718,9 @@ const DictionaryEncodeOptions* GetDefaultDictionaryEncodeOptions() {
 
 const FunctionDoc dictionary_encode_doc(
     "Dictionary-encode array",
-    ("Return a dictionary-encoded version of the input array."), {"array"},
-    "DictionaryEncodeOptions");
+    ("Return a dictionary-encoded version of the input array.\n"
+     "This function does nothing if the input is already a dictionary array."),
+    {"array"}, "DictionaryEncodeOptions");
 
 // ----------------------------------------------------------------------
 // This function does not use any hashing utilities
@@ -803,9 +804,11 @@ void RegisterVectorHash(FunctionRegistry* registry) {
       GetDefaultDictionaryEncodeOptions());
   AddHashKernels<DictEncodeAction>(dict_encode.get(), base, DictEncodeOutput);
 
-  // Calling dictionary_encode on dictionary input not supported, but if it
-  // ends up being needed (or convenience), a kernel could be added to make it
-  // a no-op
+  auto no_op = [](KernelContext*, const ExecSpan& span, ExecResult* out) {
+    out->value = span[0].array.ToArrayData();
+    return Status::OK();
+  };
+  DCHECK_OK(dict_encode->AddKernel({Type::DICTIONARY}, OutputType(FirstType), no_op));
 
   DCHECK_OK(registry->AddFunction(std::move(dict_encode)));
 }
