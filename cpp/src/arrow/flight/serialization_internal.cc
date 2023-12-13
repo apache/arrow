@@ -414,12 +414,12 @@ Status FromProto(const pb::SessionOptionValue& pb_val, SessionOptionValue* val) 
       *val = pb_val.double_value();
       break;
     case pb::SessionOptionValue::kStringListValue: {
-      (*val).emplace<std::vector<std::string>>();
-      std::get<std::vector<std::string>>(*val).reserve(
-          pb_val.string_list_value().values_size());
+      std::vector<std::string> vec;
+      vec.reserve(pb_val.string_list_value().values_size());
       for (const std::string& s : pb_val.string_list_value().values()) {
-        std::get<std::vector<std::string>>(*val).push_back(s);
+        vec.push_back(s);
       }
+      (*val).emplace<std::vector<std::string>>(std::move(vec));
       break;
     }
   }
