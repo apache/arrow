@@ -264,18 +264,17 @@ class PrepareTest < Test::Unit::TestCase
     end
 
     Dir.glob("java/**/pom.xml") do |path|
-      version = "<version>#{@snapshot_version}</version>"
-      lines = File.readlines(path, chomp: true)
-      target_lines = lines.grep(/#{Regexp.escape(version)}/)
-      hunks = []
-      target_lines.each do |line|
-        new_line = line.gsub(@snapshot_version) do
-          @release_version
+      hunks = generate_hunks(File.readlines(path, chomp: true)) do |line|
+        if line.include?("<version>#{@snapshot_version}</version>")
+          new_line = line.gsub(@snapshot_version) do
+            @release_version
+          end
+          [line, new_line]
+        elsif line.include?("<project.build.outputTimestamp>")
+          [line, normalize_pom_xml_output_timestamp(line)]
+        else
+          [nil, nil]
         end
-        hunks << [
-          "-#{line}",
-          "+#{new_line}",
-        ]
       end
       expected_changes << {hunks: hunks, path: path}
     end

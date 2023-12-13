@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>18</version>
+    <version>31</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
@@ -26,6 +26,7 @@
   <description>Arrow Bill of Materials</description>
 
   <properties>
+    <minimalMavenBuildVersion>3.5.0</minimalMavenBuildVersion>
     <arrow.vector.classifier/>
   </properties>
 

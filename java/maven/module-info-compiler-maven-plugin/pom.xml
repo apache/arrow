@@ -30,6 +30,7 @@
   </prerequisites>
 
   <properties>
+    <project.build.outputTimestamp>2023-12-13T00:00:00Z</project.build.outputTimestamp>
     <maven.version>3.8.7</maven.version>
   </properties>
 

@@ -80,6 +80,7 @@
     </dependencies>
 
     <properties>
+        <project.build.outputTimestamp>2023-12-13T00:00:00Z</project.build.outputTimestamp>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jmh.version>1.37</jmh.version>
         <javac.target>1.8</javac.target>
