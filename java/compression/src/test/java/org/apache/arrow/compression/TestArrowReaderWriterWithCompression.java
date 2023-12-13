@@ -28,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -36,6 +35,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.GenerateSampleData;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
@@ -56,7 +56,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.Disabled;
 
 public class TestArrowReaderWriterWithCompression {
 
@@ -94,9 +93,10 @@ public class TestArrowReaderWriterWithCompression {
     final int rowCount = 10;
     GenerateSampleData.generateTestData(root.getVector(0), rowCount);
     root.setRowCount(rowCount);
-
+    CompressionCodec codec = CommonsCompressionFactory.INSTANCE.createCodec(codecType,
+        /*compressionLevel=*/7);
     try (final ArrowFileWriter writer = new ArrowFileWriter(root, provider, Channels.newChannel(out),
-        new HashMap<>(), IpcOption.DEFAULT, CommonsCompressionFactory.INSTANCE, codecType, Optional.of(7))) {
+        new HashMap<>(), IpcOption.DEFAULT, codec)) {
       writer.start();
       writer.writeBatch();
       writer.end();
@@ -137,10 +137,10 @@ public class TestArrowReaderWriterWithCompression {
   private File writeArrowStream(VectorSchemaRoot root, DictionaryProvider provider,
       CompressionUtil.CodecType codecType) throws IOException {
     File tempFile = File.createTempFile("dictionary_compression", ".arrow");
+    CompressionCodec codec = CommonsCompressionFactory.INSTANCE.createCodec(codecType, 7);
     try (FileOutputStream fileOut = new FileOutputStream(tempFile);
         ArrowStreamWriter writer = new ArrowStreamWriter(root, provider,
-            Channels.newChannel(fileOut), IpcOption.DEFAULT,
-            CommonsCompressionFactory.INSTANCE, codecType, Optional.of(7))) {
+            Channels.newChannel(fileOut), IpcOption.DEFAULT, codec)) {
       writer.start();
       writer.writeBatch();
       writer.end();
@@ -149,7 +149,6 @@ public class TestArrowReaderWriterWithCompression {
   }
 
   @Test
-  @Disabled
   public void testArrowFileZstdRoundTrip() throws Exception {
     createAndWriteArrowFile(null, CompressionUtil.CodecType.ZSTD);
     // with compression

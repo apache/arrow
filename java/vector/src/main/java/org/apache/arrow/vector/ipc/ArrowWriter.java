@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import org.apache.arrow.vector.FieldVector;
@@ -60,12 +59,9 @@ public abstract class ArrowWriter implements AutoCloseable {
   private final VectorUnloader unloader;
   private final DictionaryProvider dictionaryProvider;
   private final Set<Long> dictionaryIdsUsed = new HashSet<>();
-
-  private final CompressionCodec.Factory compressionFactory;
-  private final CompressionUtil.CodecType codecType;
-  private final Optional<Integer> compressionLevel;
   private boolean started = false;
   private boolean ended = false;
+  private final CompressionCodec codec;
 
   protected IpcOption option;
 
@@ -74,8 +70,8 @@ public abstract class ArrowWriter implements AutoCloseable {
   }
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
-    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION,
-            Optional.empty());
+    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE.createCodec(
+        CompressionUtil.CodecType.NO_COMPRESSION));
   }
 
   /**
@@ -85,22 +81,16 @@ public abstract class ArrowWriter implements AutoCloseable {
    * @param provider           where to find the dictionaries
    * @param out                the output where to write
    * @param option             IPC write options
-   * @param compressionFactory Compression codec factory
-   * @param codecType          Compression codec
-   * @param compressionLevel   Compression level
+   * @param codec              the compression codec
    */
-  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
-                        CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
-                        Optional<Integer> compressionLevel) {
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+      IpcOption option, CompressionCodec codec) {
     this.out = new WriteChannel(out);
     this.option = option;
     this.dictionaryProvider = provider;
-
-    this.compressionFactory = compressionFactory;
-    this.codecType = codecType;
-    this.compressionLevel = compressionLevel;
+    this.codec = codec;
     this.unloader = new VectorUnloader(root, /*includeNullCount*/ true,
-        getCodec(), /*alignBuffers*/ true);
+        codec, /*alignBuffers*/ true);
 
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
 
@@ -136,7 +126,7 @@ public abstract class ArrowWriter implements AutoCloseable {
         Collections.singletonList(vector.getField()),
         Collections.singletonList(vector),
         count);
-    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true, getCodec(),
+    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true, codec,
         /*alignBuffers*/ true);
     ArrowRecordBatch batch = unloader.getRecordBatch();
     ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
@@ -176,12 +166,6 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   public long bytesWritten() {
     return out.getCurrentPosition();
-  }
-
-  private CompressionCodec getCodec() {
-    return this.compressionLevel.isPresent() ?
-        this.compressionFactory.createCodec(this.codecType, this.compressionLevel.get()) :
-        this.compressionFactory.createCodec(this.codecType);
   }
 
   private void ensureStarted() throws IOException {
