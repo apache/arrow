@@ -819,7 +819,7 @@ TEST_F(AzureHierarchicalNSFileSystemTest, DeleteDirContentsFailureNonexistent) {
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_NOT_OK(hierarchical_namespace.Enabled("nonexistent-container"));
+  ASSERT_RAISES(IOError, hierarchical_namespace.Enabled("nonexistent-container"));
 }
 
 TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
