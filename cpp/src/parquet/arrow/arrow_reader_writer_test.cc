@@ -5224,6 +5224,45 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   EXPECT_TRUE(record_batch->Equals(*read_record_batch));
 }
 
+TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
+  auto pool = ::arrow::default_memory_pool();
+  auto sink = CreateOutputStream();
+  // Limit the max number of rows in a row group to 2
+  auto writer_properties = WriterProperties::Builder().max_row_group_length(2)->build();
+  auto arrow_writer_properties = default_arrow_writer_properties();
+
+  // Prepare schema
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::int64())});
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                     *arrow_writer_properties, &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+  auto gen = ::arrow::random::RandomArrayGenerator(/*seed=*/42);
+
+  // Create writer to write data via RecordBatch.
+  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
+                             &arrow_writer));
+  // NewBufferedRowGroup() is not called explicitly and it will be called
+  // inside WriteRecordBatch().
+  // Write 50 rows for two times
+  for (int i = 0; i < 2; ++i) {
+    auto record_batch =
+        gen.BatchOf({::arrow::field("a", ::arrow::int64())}, /*length=*/50);
+    ASSERT_OK_NO_THROW(arrow_writer->WriteRecordBatch(*record_batch));
+  }
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto fileMetadata = arrow_writer->metadata();
+  EXPECT_EQ(50, fileMetadata->num_row_groups());
+  for (int i = 0; i < 50; ++i) {
+    EXPECT_EQ(2, fileMetadata->RowGroup(i)->num_rows());
+  }
+}
+
 TEST(TestArrowReadWrite, MultithreadedWrite) {
   const int num_columns = 20;
   const int num_rows = 1000;
