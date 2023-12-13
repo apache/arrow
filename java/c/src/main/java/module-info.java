@@ -15,7 +15,7 @@
   * limitations under the License.
   */
 
-module org.apache.arrow.c {
+open module org.apache.arrow.c {
   exports org.apache.arrow.c;
   exports org.apache.arrow.c.jni;
 
