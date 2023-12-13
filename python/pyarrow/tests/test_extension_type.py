@@ -1334,7 +1334,7 @@ def test_tensor_class_methods(value_type):
 
     expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=value_type)
     result = arr[1:].to_numpy_ndarray()
-    # TODO: offset of sliced arrays not correctly handled
+    # TODO: offset of sliced pa.array is not correctly handled
     # np.testing.assert_array_equal(result, expected)
 
     values = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]]
@@ -1409,6 +1409,12 @@ def test_tensor_array_from_numpy(value_type):
     expected = np.array(
         [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+
+    arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]], dtype=value_type)
+    expected = arr[1:]
+    result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)[1:].to_numpy_ndarray()
+    # TODO: offset of sliced pa.array is not correctly handled
+    # np.testing.assert_array_equal(result, expected)
 
 
 @pytest.mark.parametrize("tensor_type", (

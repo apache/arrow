@@ -3659,7 +3659,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         return ExtensionArray.from_storage(
             fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
-            FixedSizeListArray.from_arrays(values, obj.size / obj.shape[0])
+            FixedSizeListArray.from_arrays(values, obj[0].size)
         )
 
 
