@@ -322,7 +322,7 @@ TEST_F(TestExtensionType, TestFromTensorType) {
   }
 }
 
-void CheckToTensor(const std::vector<int64_t> values, const int64_t cell_size,
+void CheckToTensor(const std::vector<int64_t> values, const int32_t cell_size,
                    const std::vector<int64_t> cell_shape,
                    const std::vector<int64_t> cell_permutation,
                    const std::vector<std::string> cell_dim_names,
@@ -355,7 +355,7 @@ void CheckToTensor(const std::vector<int64_t> values, const int64_t cell_size,
 }
 
 TEST_F(TestExtensionType, ToTensor) {
-  auto cell_sizes = std::vector<int64_t>{12, 12, 12, 12, 6, 6, 18, 18, 18, 18};
+  auto cell_sizes = std::vector<int32_t>{12, 12, 12, 12, 6, 6, 18, 18, 18, 18};
 
   auto cell_shapes =
       std::vector<std::vector<int64_t>>{{3, 4}, {4, 3}, {4, 3}, {3, 4},    {2, 3},
