@@ -4422,7 +4422,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
 
         Parameters
         ----------
-        obj : list(numpy.ndarray)
+        obj : list of numpy.ndarray
 
         Examples
         --------

@@ -5291,7 +5291,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         :ref:`fixed_shape_tensor_extension`.
     uniform_shape : tuple or list of integers, default None
         Shape of dimensions that are guaranteed to stay constant over all tensors
-        in the array if all their non-dimensions sizes were replaced by None.
+        in the array if all their non-uniform sizes were replaced by None.
 
     Examples
     --------
@@ -5328,7 +5328,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
     of tensor dimensions:
 
     >>> tensor_type = pa.variable_shape_tensor(pa.int8(), 3,
-    ...                                     dim_names=['C', 'H', 'W'])
+    ...                                        dim_names=['C', 'H', 'W'])
     >>> tensor_type.dim_names
     ['C', 'H', 'W']
 
@@ -5336,7 +5336,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
     permutation:
 
     >>> tensor_type = pa.variable_shape_tensor(pa.int8(), 3,
-    ...                                     permutation=[0, 2, 1])
+    ...                                        permutation=[0, 2, 1])
     >>> tensor_type.permutation
     [0, 2, 1]
 
