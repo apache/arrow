@@ -350,7 +350,7 @@ class NullArrayFactory {
   // - buffers = []
   // - child_data = [nullptr] * type.num_fields()
   // - dictionary = nullptr
-  bool presizing_zero_buffer_;
+  const bool presizing_zero_buffer_;
 
   NullArrayFactory(const std::shared_ptr<DataType>& type, bool nullable, int64_t length)
       : presizing_zero_buffer_{true},
@@ -497,8 +497,8 @@ class NullArrayFactory {
     for (auto [field, id] : Zip(type.fields(), type.type_codes())) {
       if (field->nullable()) return id;
     }
-    return Status::Invalid("Cannot produce an array of null ", type,
-                           " because no child field is nullable");
+    return Status::TypeError("Cannot produce an array of null ", type,
+                             " because no child field is nullable");
   }
 
   Status Visit(const UnionType& type) {
@@ -539,6 +539,7 @@ class NullArrayFactory {
     }
 
     if (type.mode() == UnionMode::DENSE) {
+      // offsets
       out_->buffers.push_back(*zero_buffer_);
     }
 
@@ -576,8 +577,8 @@ class NullArrayFactory {
 
     out_->buffers = {nullptr};
     if (!type.field(1)->nullable()) {
-      return Status::Invalid("Cannot produce an array of null ", type,
-                             " because the values field is not nullable");
+      return Status::TypeError("Cannot produce an array of null ", type,
+                               " because the values field is not nullable");
     }
 
     std::shared_ptr<Array> run_ends, values;
