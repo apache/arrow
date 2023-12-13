@@ -651,7 +651,24 @@ void AzureFileSystemTest::GetFileInfoObjectWithNestedStructureTest() {
                  FileType::NotFound);
   AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_di",
                  FileType::NotFound);
+
+  if (WithHierarchicalNamespace()) {
+    datalake_service_client_->GetFileSystemClient(PreexistingContainerName())
+        .GetDirectoryClient("test-empty-object-dir")
+        .Create();
+
+    AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-empty-object-dir",
+                   FileType::Directory);
+  }
 }
+
+template <class AzureEnvClass>
+class AzureFileSystemTestImpl : public AzureFileSystemTest {
+ public:
+  using AzureFileSystemTest::AzureFileSystemTest;
+
+  Result<BaseAzureEnv*> GetAzureEnv() const final { return AzureEnvClass::GetInstance(); }
+};
 
 // How to enable the non-Azurite tests:
 //
@@ -682,60 +699,53 @@ void AzureFileSystemTest::GetFileInfoObjectWithNestedStructureTest() {
 // [1]: https://azure.microsoft.com/en-gb/free/
 // [2]:
 // https://learn.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account
-class AzureFlatNSFileSystemTest : public AzureFileSystemTest {
- public:
-  using AzureFileSystemTest::AzureFileSystemTest;
+using AzureFlatNSFileSystemTest = AzureFileSystemTestImpl<AzureFlatNSEnv>;
+using AzureHierarchicalNSFileSystemTest = AzureFileSystemTestImpl<AzureHierarchicalNSEnv>;
+using AzuriteFileSystemTest = AzureFileSystemTestImpl<AzuriteEnv>;
 
-  Result<BaseAzureEnv*> GetAzureEnv() const final {
-    return AzureFlatNSEnv::GetInstance();
-  }
-};
+// Tests using all the 3 environments (Azurite, Azure w/o HNS (flat), Azure w/ HNS)
 
-class AzureHierarchicalNSFileSystemTest : public AzureFileSystemTest {
- public:
-  using AzureFileSystemTest::AzureFileSystemTest;
+template <class AzureEnvClass>
+using AzureFileSystemTestOnAllEnvs = AzureFileSystemTestImpl<AzureEnvClass>;
 
-  Result<BaseAzureEnv*> GetAzureEnv() const final {
-    return AzureHierarchicalNSEnv::GetInstance();
-  }
-};
+using AllEnvironments =
+    ::testing::Types<AzuriteEnv, AzureFlatNSEnv, AzureHierarchicalNSEnv>;
 
-class AzuriteFileSystemTest : public AzureFileSystemTest {
- public:
-  using AzureFileSystemTest::AzureFileSystemTest;
+TYPED_TEST_SUITE(AzureFileSystemTestOnAllEnvs, AllEnvironments);
 
-  Result<BaseAzureEnv*> GetAzureEnv() const final { return AzuriteEnv::GetInstance(); }
-};
-
-// Tests using a real storage account *without Hierarchical Namespace enabled*
-
-TEST_F(AzureFlatNSFileSystemTest, DetectHierarchicalNamespace) {
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, DetectHierarchicalNamespace) {
   this->DetectHierarchicalNamespaceTest();
 }
 
-// Tests using a real storage account *with Hierarchical Namespace enabled*
-
-TEST_F(AzureHierarchicalNSFileSystemTest, DetectHierarchicalNamespace) {
-  this->DetectHierarchicalNamespaceTest();
-}
-
-TEST_F(AzureHierarchicalNSFileSystemTest, GetFileInfoObject) {
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, GetFileInfoObject) {
   this->GetFileInfoObjectTest();
 }
 
-TEST_F(AzureHierarchicalNSFileSystemTest, GetFileInfoObjectWithNestedStructure) {
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, DeleteDirSuccessEmpty) {
+  this->DeleteDirSuccessEmptyTest();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, GetFileInfoObjectWithNestedStructure) {
   this->GetFileInfoObjectWithNestedStructureTest();
-  datalake_service_client_->GetFileSystemClient(PreexistingContainerName())
-      .GetDirectoryClient("test-empty-object-dir")
-      .Create();
-
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-empty-object-dir",
-                 FileType::Directory);
 }
 
-TEST_F(AzureHierarchicalNSFileSystemTest, DeleteDirSuccessEmpty) {
-  return DeleteDirSuccessEmptyTest();
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirSuccessContainerAndDirectory) {
+  this->CreateDirSuccessContainerAndDirectoryTest();
 }
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirRecursiveSuccessContainerOnly) {
+  this->CreateDirRecursiveSuccessContainerOnlyTest();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirRecursiveSuccessDirectoryOnly) {
+  this->CreateDirRecursiveSuccessDirectoryOnlyTest();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirRecursiveSuccessContainerAndDirectory) {
+  this->CreateDirRecursiveSuccessContainerAndDirectoryTest();
+}
+
+// Tests using a real storage account *with Hierarchical Namespace enabled*
 
 TEST_F(AzureHierarchicalNSFileSystemTest, DeleteDirFailureNonexistent) {
   const auto path =
@@ -767,23 +777,6 @@ TEST_F(AzureHierarchicalNSFileSystemTest, DeleteDirSuccessHaveDirectory) {
   arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
 }
 
-TEST_F(AzureHierarchicalNSFileSystemTest, CreateDirSuccessContainerAndDirectory) {
-  this->CreateDirSuccessContainerAndDirectoryTest();
-}
-
-TEST_F(AzureHierarchicalNSFileSystemTest, CreateDirRecursiveSuccessContainerOnly) {
-  this->CreateDirRecursiveSuccessContainerOnlyTest();
-}
-
-TEST_F(AzureHierarchicalNSFileSystemTest, CreateDirRecursiveSuccessDirectoryOnly) {
-  this->CreateDirRecursiveSuccessDirectoryOnlyTest();
-}
-
-TEST_F(AzureHierarchicalNSFileSystemTest,
-       CreateDirRecursiveSuccessContainerAndDirectory) {
-  this->CreateDirRecursiveSuccessContainerAndDirectoryTest();
-}
-
 TEST_F(AzureHierarchicalNSFileSystemTest, DeleteDirContentsSuccessExist) {
   HierarchicalPaths paths;
   CreateHierarchicalData(paths);
@@ -804,20 +797,10 @@ TEST_F(AzureHierarchicalNSFileSystemTest, DeleteDirContentsFailureNonexistent) {
 
 // Tests using Azurite (the local Azure emulator)
 
-TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespace) {
-  this->DetectHierarchicalNamespaceTest();
-}
-
 TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
   ASSERT_NOT_OK(hierarchical_namespace.Enabled("nonexistent-container"));
-}
-
-TEST_F(AzuriteFileSystemTest, GetFileInfoObject) { this->GetFileInfoObjectTest(); }
-
-TEST_F(AzuriteFileSystemTest, GetFileInfoObjectWithNestedStructure) {
-  this->GetFileInfoObjectWithNestedStructureTest();
 }
 
 TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
@@ -1020,10 +1003,6 @@ TEST_F(AzuriteFileSystemTest, CreateDirSuccessContainerOnly) {
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirSuccessContainerAndDirectory) {
-  this->CreateDirSuccessContainerAndDirectoryTest();
-}
-
 TEST_F(AzuriteFileSystemTest, CreateDirFailureDirectoryWithMissingContainer) {
   const auto path = std::string("not-a-container/new-directory");
   ASSERT_RAISES(IOError, fs_->CreateDir(path, false));
@@ -1031,18 +1010,6 @@ TEST_F(AzuriteFileSystemTest, CreateDirFailureDirectoryWithMissingContainer) {
 
 TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureNoContainer) {
   ASSERT_RAISES(Invalid, fs_->CreateDir("", true));
-}
-
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessContainerOnly) {
-  this->CreateDirRecursiveSuccessContainerOnlyTest();
-}
-
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessDirectoryOnly) {
-  this->CreateDirRecursiveSuccessDirectoryOnlyTest();
-}
-
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessContainerAndDirectory) {
-  this->CreateDirRecursiveSuccessContainerAndDirectoryTest();
 }
 
 TEST_F(AzuriteFileSystemTest, CreateDirUri) {
@@ -1055,10 +1022,6 @@ TEST_F(AzuriteFileSystemTest, DeleteDirSuccessContainer) {
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
   ASSERT_OK(fs_->DeleteDir(container_name));
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::NotFound);
-}
-
-TEST_F(AzuriteFileSystemTest, DeleteDirSuccessEmpty) {
-  this->DeleteDirSuccessEmptyTest();
 }
 
 TEST_F(AzuriteFileSystemTest, DeleteDirSuccessNonexistent) {
