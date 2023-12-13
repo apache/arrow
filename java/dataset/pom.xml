@@ -48,6 +48,10 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>org.immutables</groupId>
+            <artifactId>value</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-netty</artifactId>
             <scope>test</scope>
@@ -161,6 +165,15 @@
         </resources>
 
         <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <enableAssertions>false</enableAssertions>
+                    <systemPropertyVariables>
+                        <arrow.test.dataRoot>${project.basedir}/../../testing/data</arrow.test.dataRoot>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
