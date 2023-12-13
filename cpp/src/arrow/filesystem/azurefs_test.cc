@@ -101,16 +101,33 @@ class BaseAzureEnv : public ::testing::Environment {
 
 template <class AzureEnvClass>
 class AzureEnvImpl : public BaseAzureEnv {
- protected:
+ private:
+  /// \brief Factory function that registers the singleton instance as a global test
+  /// environment. Must be called only once per implementation (see GetInstance()).
+  ///
+  /// Every BaseAzureEnv implementation defines a static and parameter-less member
+  /// function called Make() that returns a Result<std::unique_ptr<BaseAzureEnv>>.
+  /// This templated function performs the following steps:
+  ///
+  /// 1) Calls AzureEnvClass::Make() to get an instance of AzureEnvClass.
+  /// 2) Passes ownership of the AzureEnvClass instance to the testing environment.
+  /// 3) Returns a Result<BaseAzureEnv*> wrapping the raw heap-allocated pointer.
   static Result<BaseAzureEnv*> MakeAndAddToGlobalTestEnvironment() {
-    ARROW_ASSIGN_OR_RAISE(auto instance, AzureEnvClass::Make());
-    auto* heap_ptr = instance.release();
+    ARROW_ASSIGN_OR_RAISE(auto env, AzureEnvClass::Make());
+    auto* heap_ptr = env.release();
     ::testing::AddGlobalTestEnvironment(heap_ptr);
     return heap_ptr;
   }
 
+ protected:
   using BaseAzureEnv::BaseAzureEnv;
 
+  /// \brief Create an AzureEnvClass instance from environment variables.
+  ///
+  /// Reads the account name and key from the environment variables. This can be
+  /// used in BaseAzureEnv implementations that don't need to do any additional
+  /// setup to create the singleton instance (e.g. AzureFlatNSEnv,
+  /// AzureHierarchicalNSEnv).
   static Result<std::unique_ptr<AzureEnvClass>> MakeFromEnvVars(
       const std::string& account_name_var, const std::string& account_key_var) {
     const auto account_name = std::getenv(account_name_var.c_str());
@@ -128,11 +145,10 @@ class AzureEnvImpl : public BaseAzureEnv {
   ~AzureEnvImpl() override = default;
 
   static Result<BaseAzureEnv*> GetInstance() {
-    static auto env = MakeAndAddToGlobalTestEnvironment();
-    if (env.ok()) {
-      return env;
-    }
-    return env.status();
+    // Ensure MakeAndAddToGlobalTestEnvironment() is called only once by storing the
+    // Result<BaseAzureEnv*> in a static variable.
+    static auto singleton_env = MakeAndAddToGlobalTestEnvironment();
+    return singleton_env;
   }
 
   AzureBackend backend() const final { return AzureEnvClass::kBackend; }
