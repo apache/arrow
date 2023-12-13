@@ -2208,7 +2208,7 @@ cdef class CacheOptions(_Weakrefable):
 
     @staticmethod
     def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
-                             ideal_bandwidth_utilization_frac, max_ideal_request_size_mib):
+                             ideal_bandwidth_utilization_frac=0.9, max_ideal_request_size_mib=64):
         """
         Create suiteable CacheOptions based on provided network metrics.
 
@@ -2223,10 +2223,10 @@ cdef class CacheOptions(_Weakrefable):
         transfer_bandwidth_mib_per_sec : int
             Data transfer Bandwidth (BW) in MiB/sec (per connection). The value is a positive 
             integer.
-        ideal_bandwidth_utilization_frac : int
+        ideal_bandwidth_utilization_frac : int, default 0.9
             Transfer bandwidth utilization fraction (per connection) to maximize the net 
             data load. The value is a positive float less than 1.
-        max_ideal_request_size_mib : int
+        max_ideal_request_size_mib : int, default 64
             The maximum single data request size (in MiB) to maximize the net data load.
 
         Returns
