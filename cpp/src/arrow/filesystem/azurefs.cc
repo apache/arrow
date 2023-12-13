@@ -49,12 +49,12 @@ AzureOptions::~AzureOptions() = default;
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
   // TODO(GH-38598): update here when more auth methods are added.
-  const bool ret = backend == other.backend &&
-                   default_metadata == other.default_metadata &&
-                   account_blob_url_ == other.account_blob_url_ &&
-                   account_dfs_url_ == other.account_dfs_url_ &&
-                   credential_kind_ == other.credential_kind_;
-  if (!ret) {
+  const bool equals = backend == other.backend &&
+                      default_metadata == other.default_metadata &&
+                      account_blob_url_ == other.account_blob_url_ &&
+                      account_dfs_url_ == other.account_dfs_url_ &&
+                      credential_kind_ == other.credential_kind_;
+  if (!equals) {
     return false;
   }
   switch (credential_kind_) {

@@ -43,7 +43,7 @@ class DataLakeServiceClient;
 
 namespace arrow::fs {
 
-enum class AzureBackend : bool {
+enum class AzureBackend {
   /// \brief Official Azure Remote Backend
   kAzure,
   /// \brief Local Simulated Storage
