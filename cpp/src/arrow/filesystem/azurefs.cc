@@ -83,7 +83,8 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_na
   return Status::OK();
 }
 
-std::unique_ptr<Blobs::BlobServiceClient> AzureOptions::MakeBlobServiceClient() const {
+Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceClient()
+    const {
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
@@ -91,12 +92,11 @@ std::unique_ptr<Blobs::BlobServiceClient> AzureOptions::MakeBlobServiceClient() 
       return std::make_unique<Blobs::BlobServiceClient>(account_blob_url_,
                                                         storage_shared_key_credential_);
   }
-  DCHECK(false) << "AzureOptions doesn't contain a valid auth configuration";
-  return nullptr;
+  return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
 
-std::unique_ptr<DataLake::DataLakeServiceClient> AzureOptions::MakeDataLakeServiceClient()
-    const {
+Result<std::unique_ptr<DataLake::DataLakeServiceClient>>
+AzureOptions::MakeDataLakeServiceClient() const {
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
@@ -104,8 +104,7 @@ std::unique_ptr<DataLake::DataLakeServiceClient> AzureOptions::MakeDataLakeServi
       return std::make_unique<DataLake::DataLakeServiceClient>(
           account_dfs_url_, storage_shared_key_credential_);
   }
-  DCHECK(false) << "AzureOptions doesn't contain a valid auth configuration";
-  return nullptr;
+  return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
 
 namespace {
@@ -760,8 +759,8 @@ class AzureFileSystem::Impl {
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
-    blob_service_client_ = options_.MakeBlobServiceClient();
-    datalake_service_client_ = options_.MakeDataLakeServiceClient();
+    ARROW_ASSIGN_OR_RAISE(blob_service_client_, options_.MakeBlobServiceClient());
+    ARROW_ASSIGN_OR_RAISE(datalake_service_client_, options_.MakeDataLakeServiceClient());
     return hierarchical_namespace_.Init(datalake_service_client_.get());
   }
 

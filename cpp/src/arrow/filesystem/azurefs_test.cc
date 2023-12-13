@@ -387,8 +387,8 @@ class AzureFileSystemTest : public ::testing::Test {
     }
 
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
-    blob_service_client_ = options_.MakeBlobServiceClient();
-    datalake_service_client_ = options_.MakeDataLakeServiceClient();
+    EXPECT_OK_AND_ASSIGN(blob_service_client_, options_.MakeBlobServiceClient());
+    EXPECT_OK_AND_ASSIGN(datalake_service_client_, options_.MakeDataLakeServiceClient());
     set_up_succeeded_ = true;
   }
 

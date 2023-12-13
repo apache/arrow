@@ -88,9 +88,9 @@ struct ARROW_EXPORT AzureOptions {
   const std::string& AccountBlobUrl() const { return account_blob_url_; }
   const std::string& AccountDfsUrl() const { return account_dfs_url_; }
 
-  std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient> MakeBlobServiceClient() const;
+  Result<std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient>> MakeBlobServiceClient() const;
 
-  std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>
+  Result<std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>>
   MakeDataLakeServiceClient() const;
 };
 
