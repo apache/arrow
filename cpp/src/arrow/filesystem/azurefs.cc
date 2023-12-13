@@ -753,7 +753,7 @@ class AzureFileSystem::Impl {
       datalake_service_client_;
   std::unique_ptr<Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
-  internal::HierarchicalNamespaceDetector hierarchical_namespace_;
+  internal::HierarchicalNamespaceDetector hns_detector_;
 
   Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(io_context), options_(std::move(options)) {}
@@ -761,7 +761,7 @@ class AzureFileSystem::Impl {
   Status Init() {
     ARROW_ASSIGN_OR_RAISE(blob_service_client_, options_.MakeBlobServiceClient());
     ARROW_ASSIGN_OR_RAISE(datalake_service_client_, options_.MakeDataLakeServiceClient());
-    return hierarchical_namespace_.Init(datalake_service_client_.get());
+    return hns_detector_.Init(datalake_service_client_.get());
   }
 
   const AzureOptions& options() const { return options_; }
@@ -827,7 +827,7 @@ class AzureFileSystem::Impl {
     } catch (const Storage::StorageException& exception) {
       if (exception.StatusCode == Core::Http::HttpStatusCode::NotFound) {
         ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                              hierarchical_namespace_.Enabled(location.container));
+                              hns_detector_.Enabled(location.container));
         if (hierarchical_namespace_enabled) {
           // If the hierarchical namespace is enabled, then the storage account will have
           // explicit directories. Neither a file nor a directory was found.
@@ -1127,7 +1127,7 @@ class AzureFileSystem::Impl {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hierarchical_namespace_.Enabled(location.container));
+                          hns_detector_.Enabled(location.container));
     if (!hierarchical_namespace_enabled) {
       // Without hierarchical namespace enabled Azure blob storage has no directories.
       // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
@@ -1171,7 +1171,7 @@ class AzureFileSystem::Impl {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hierarchical_namespace_.Enabled(location.container));
+                          hns_detector_.Enabled(location.container));
     if (!hierarchical_namespace_enabled) {
       // Without hierarchical namespace enabled Azure blob storage has no directories.
       // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
@@ -1319,7 +1319,7 @@ class AzureFileSystem::Impl {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hierarchical_namespace_.Enabled(location.container));
+                          hns_detector_.Enabled(location.container));
     if (hierarchical_namespace_enabled) {
       auto directory_client =
           datalake_service_client_->GetFileSystemClient(location.container)
@@ -1351,7 +1351,7 @@ class AzureFileSystem::Impl {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hierarchical_namespace_.Enabled(location.container));
+                          hns_detector_.Enabled(location.container));
     if (hierarchical_namespace_enabled) {
       auto file_system_client =
           datalake_service_client_->GetFileSystemClient(location.container);
