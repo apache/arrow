@@ -335,13 +335,16 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
 
-  const auto ext_arr =
+  const auto storage_array =
       internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
+  ARROW_ASSIGN_OR_RAISE(const auto flattened_storage_array, storage_array->Flatten());
+
   const auto ext_type =
       internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
-  ARROW_RETURN_IF(!is_fixed_width(*ext_arr->value_type()),
-                  Status::Invalid(ext_arr->value_type()->ToString(),
-                                  " is not valid data type for a tensor"));
+  const auto value_type = ext_type->value_type();
+  ARROW_RETURN_IF(
+      !is_fixed_width(*value_type),
+      Status::Invalid(value_type->ToString(), " is not valid data type for a tensor"));
 
   std::vector<int64_t> permutation = ext_type->permutation();
   if (permutation.empty()) {
@@ -361,18 +364,21 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   }
 
   std::vector<int64_t> shape = ext_type->shape();
+  auto cell_size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
+                                   std::multiplies<>());
   shape.insert(shape.begin(), 1, this->length());
   internal::Permute<int64_t>(permutation, &shape);
 
   std::vector<int64_t> tensor_strides;
-  const auto value_type =
-      internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
+  const auto fw_value_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
   ARROW_RETURN_NOT_OK(
-      ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
-  ARROW_ASSIGN_OR_RAISE(const auto flattened_array, ext_arr->Flatten());
+      ComputeStrides(*fw_value_type.get(), shape, permutation, &tensor_strides));
 
-  return Tensor::Make(ext_arr->value_type(), flattened_array->data()->buffers[1], shape,
-                      tensor_strides, dim_names);
+  ARROW_ASSIGN_OR_RAISE(
+      const auto buffer,
+      SliceBufferSafe(flattened_storage_array->data()->buffers[1],
+                      this->offset() * cell_size * value_type->byte_width()));
+  return Tensor::Make(value_type, buffer, shape, tensor_strides, dim_names);
 }
 
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
