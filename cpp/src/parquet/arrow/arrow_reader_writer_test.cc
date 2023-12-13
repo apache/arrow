@@ -5258,10 +5258,10 @@ TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
   ASSERT_OK_NO_THROW(arrow_writer->Close());
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
-  auto fileMetadata = arrow_writer->metadata();
-  EXPECT_EQ(20, fileMetadata->num_row_groups());
+  auto file_metadata = arrow_writer->metadata();
+  EXPECT_EQ(20, file_metadata->num_row_groups());
   for (int i = 0; i < 20; ++i) {
-    EXPECT_EQ(2, fileMetadata->RowGroup(i)->num_rows());
+    EXPECT_EQ(2, file_metadata->RowGroup(i)->num_rows());
   }
 }
 
