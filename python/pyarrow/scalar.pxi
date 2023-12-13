@@ -1049,6 +1049,10 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
     def to_tensor(self):
         """
         Convert variable shape tensor extension scalar to a pyarrow.Tensor.
+
+        Returns
+        -------
+        tensor : pyarrow.Tensor
         """
         cdef:
             CVariableShapeTensorType* c_type = static_pointer_cast[CVariableShapeTensorType, CDataType](
