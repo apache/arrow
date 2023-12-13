@@ -20,6 +20,10 @@
     <name>Arrow Tools</name>
     <description>Java applications for working with Arrow ValueVectors.</description>
 
+    <properties>
+        <project.build.outputTimestamp>2023-12-13T00:00:00Z</project.build.outputTimestamp>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.arrow</groupId>
@@ -85,7 +89,7 @@
       <plugins>
         <plugin>
           <artifactId>maven-assembly-plugin</artifactId>
-          <version>3.0.0</version>
+          <version>3.2.0</version>
           <configuration>
             <descriptorRefs>
               <descriptorRef>jar-with-dependencies</descriptorRef>

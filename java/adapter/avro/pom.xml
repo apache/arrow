@@ -25,6 +25,10 @@
   <description>(Contrib/Experimental) A library for converting Avro data to Arrow data.</description>
   <url>http://maven.apache.org</url>
 
+  <properties>
+    <project.build.outputTimestamp>2023-12-13T00:00:00Z</project.build.outputTimestamp>
+  </properties>
+
   <dependencies>
 
     <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->

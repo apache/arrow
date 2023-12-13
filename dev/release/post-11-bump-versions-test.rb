@@ -262,37 +262,19 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       end
 
       import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
-      hunks = []
       if release_type == :major
-        lines = File.readlines(path, chomp: true)
-        target_lines = lines.each_with_index.select do |line, i|
-          line.include?(import_path)
-        end
-        next if target_lines.empty?
-        n_context_lines = 3 # The default of Git's diff.context
-        target_hunks = [[target_lines.first[0]]]
-        previous_i = target_lines.first[1]
-        target_lines[1..-1].each do |line, i|
-          if i - previous_i < n_context_lines
-            target_hunks.last << line
-          else
-            target_hunks << [line]
-          end
-          previous_i = i
-        end
-        target_hunks.each do |lines|
-          hunk = []
-          lines.each do |line,|
-            hunk << "-#{line}"
-          end
-          lines.each do |line|
+        hunks = generate_hunks(File.readlines(path, chomp: true)) do |line|
+          if line.include?(import_path)
             new_line = line.gsub("v#{@snapshot_major_version}") do
               "v#{@next_major_version}"
             end
-            hunk << "+#{new_line}"
+            [line, new_line]
+          else
+            [nil, nil]
           end
-          hunks << hunk
         end
+      else
+        hunks = []
       end
       if path == "go/parquet/writer_properties.go"
         hunks << [
@@ -305,18 +287,17 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     end
 
     Dir.glob("java/**/pom.xml") do |path|
-      version = "<version>#{@snapshot_version}</version>"
-      lines = File.readlines(path, chomp: true)
-      target_lines = lines.grep(/#{Regexp.escape(version)}/)
-      hunks = []
-      target_lines.each do |line|
-        new_line = line.gsub(@snapshot_version) do
-          @next_snapshot_version
+      hunks = generate_hunks(File.readlines(path, chomp: true)) do |line|
+        if line.include?("<version>#{@snapshot_version}</version>")
+          new_line = line.gsub(@snapshot_version) do
+            @next_snapshot_version
+          end
+          [line, new_line]
+        elsif line.include?("<project.build.outputTimestamp>")
+          [line, normalize_pom_xml_output_timestamp(line)]
+        else
+          [nil, nil]
         end
-        hunks << [
-          "-#{line}",
-          "+#{new_line}",
-        ]
       end
       expected_changes << {hunks: hunks, path: path}
     end

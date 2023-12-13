@@ -83,15 +83,60 @@ module GitRunnable
       when /\A@@/
         in_hunk = true
         diffs.last[:hunks] << []
-      when /\A[-+]/
+      when /\A-/
         next unless in_hunk
         diffs.last[:hunks].last << line.chomp
+		  when /\A\+/
+		    next unless in_hunk
+			diffs.last[:hunks].last << normalize_added_line(line.chomp)
       end
     end
     diffs.sort_by do |diff|
       diff[:path]
     end
   end
+
+  def generate_hunks(lines)
+    git_diff_context = 3 # The default of Git's diff.context
+    max_lines_for_same_hunk = git_diff_context * 2 + 1
+    previous_i = nil
+    grouped_change_blocks = []
+    lines.each_with_index do |line, i|
+      deleted, added = yield(line)
+      next if deleted.nil? and added.nil?
+      if previous_i.nil? or (i - previous_i) > max_lines_for_same_hunk
+        grouped_change_blocks << []
+      end
+      if i - 1 != previous_i
+        grouped_change_blocks.last << []
+      end
+      grouped_change_blocks.last.last << [deleted, added]
+      previous_i = i
+    end
+    grouped_change_blocks.collect do |change_blocks|
+      hunk = []
+      change_blocks.each do |continuous_changes|
+        continuous_changes.each do |deleted, _|
+          hunk << "-#{deleted}" if deleted
+        end
+        continuous_changes.each do |_, added|
+          hunk << "+#{added}" if added
+        end
+      end
+      hunk
+    end
+  end
+
+  def normalize_pom_xml_output_timestamp(line)
+    line.gsub(/<project\.build\.outputTimestamp>.+?</) do
+      "<project.build.outputTimestamp>2023-12-13T00:00:00Z<"
+    end
+  end
+
+  def normalize_added_line(line)
+    normalize_pom_xml_output_timestamp(line)
+  end
+
 end
 
 module VersionDetectable
