@@ -80,28 +80,28 @@ type TemporalType interface {
 
 func getSlice[Out, T interface{}](b []T, l int) []Out {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-  return unsafe.Slice((*Out)(unsafe.Pointer(h.Data)), l)
+	return unsafe.Slice((*Out)(unsafe.Pointer(h.Data)), l)
 }
 
 func GetValues[T FixedWidthType](data ArrayData, i int) []T {
 	if data.Buffers()[i] == nil || data.Buffers()[i].Len() == 0 {
 		return nil
 	}
-  return getSlice[T](data.Buffers()[i].Bytes(), data.Offset()+data.Len())[data.Offset():]
+	return getSlice[T](data.Buffers()[i].Bytes(), data.Offset()+data.Len())[data.Offset():]
 }
 
 func GetOffsets[T int32 | int64](data ArrayData, i int) []T {
-  return getSlice[T](data.Buffers()[i].Bytes(), data.Offset()+data.Len()+1)[data.Offset():]
+	return getSlice[T](data.Buffers()[i].Bytes(), data.Offset()+data.Len()+1)[data.Offset():]
 }
 
 func GetBytes[T FixedWidthType | ViewHeader](in []T) []byte {
 	var z T
-  return getSlice[byte](in, len(in)*int(unsafe.Sizeof(z)))
+	return getSlice[byte](in, len(in)*int(unsafe.Sizeof(z)))
 }
 
 func GetData[T FixedWidthType | ViewHeader](in []byte) []T {
 	var z T
-  return getSlice[T](in, len(in)/int(unsafe.Sizeof(z)))
+	return getSlice[T](in, len(in)/int(unsafe.Sizeof(z)))
 }
 
 var typMap = map[reflect.Type]DataType{
