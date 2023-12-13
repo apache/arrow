@@ -102,24 +102,25 @@ TEST_F(TestExportArray, TestSupportedArray) {
 }
 
 TEST_F(TestExportArray, TestUnSupportedArray) {
-  const std::shared_ptr<Array> array_with_null = ArrayFromJSON(int8(), "[1, 100, null]");
-  const std::shared_ptr<Array> array_string =
-      ArrayFromJSON(utf8(), R"(["itsy", "bitsy", "spider"])");
-  const std::shared_ptr<Array> array_boolean = ArrayFromJSON(boolean(), "[true, false]");
+  const std::shared_ptr<Array> array_null = ArrayFromJSON(null(), "[]");
+  ASSERT_RAISES_WITH_MESSAGE(TypeError,
+                             "Type error: DataType is not compatible with DLPack spec: " +
+                                 array_null->type()->ToString(),
+                             arrow::dlpack::ExportArray(array_null));
 
+  const std::shared_ptr<Array> array_with_null = ArrayFromJSON(int8(), "[1, 100, null]");
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: Can only use DLPack on arrays with no nulls.",
                              arrow::dlpack::ExportArray(array_with_null));
 
+  const std::shared_ptr<Array> array_string =
+      ArrayFromJSON(utf8(), R"(["itsy", "bitsy", "spider"])");
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: DataType is not compatible with DLPack spec: " +
                                  array_string->type()->ToString(),
                              arrow::dlpack::ExportArray(array_string));
 
-  ASSERT_RAISES_WITH_MESSAGE(
-      TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
-      arrow::dlpack::ExportArray(array_boolean));
-
+  const std::shared_ptr<Array> array_boolean = ArrayFromJSON(boolean(), "[true, false]");
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
       arrow::dlpack::ExportDevice(array_boolean));
