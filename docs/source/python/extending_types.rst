@@ -32,7 +32,7 @@ specific layer: :ref:`arrow-pycapsule-interface`.
 This Python interface ensures that different libraries that support the C Data interface
 can export Arrow data structures in a standard way and recognize each other's objects.
 
-If you have a library providing data structures that hold Arrow-compatible data
+If you have a Python library providing data structures that hold Arrow-compatible data
 under the hood, you can implement the following methods on those objects:
 
 - ``__arrow_c_schema__`` for schema or type-like objects.
