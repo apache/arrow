@@ -2126,10 +2126,10 @@ cdef class CacheOptions(_Weakrefable):
 
     Parameters
     ----------
-    hole_size_limit : int, default 8Ki
+    hole_size_limit : int, default 8KiB
         The maximum distance in bytes between two consecutive ranges; beyond 
         this value, ranges are not combined.
-    range_size_limit : int, default 32Mi
+    range_size_limit : int, default 32MiB
         The maximum size in bytes of a combined range; if combining two 
         consecutive ranges would produce a range of a size greater than this, 
         they are not combined
