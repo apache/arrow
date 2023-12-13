@@ -383,7 +383,7 @@ class AzureFileSystemTest : public ::testing::Test {
     if (options_res.status().IsCancelled()) {
       GTEST_SKIP() << options_res.status().message();
     } else {
-      EXPECT_OK_AND_ASSIGN(options_, std::move(options_res));
+      EXPECT_OK_AND_ASSIGN(options_, options_res);
     }
 
     ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
