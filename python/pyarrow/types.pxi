@@ -1108,6 +1108,9 @@ cdef class Time32Type(DataType):
     """
     Concrete class for time32 data types.
 
+    Supported time unit resolutions are 's' [second]
+    and 'ms' [millisecond].
+
     Examples
     --------
     Create an instance of time32 type:
@@ -1139,6 +1142,9 @@ cdef class Time32Type(DataType):
 cdef class Time64Type(DataType):
     """
     Concrete class for time64 data types.
+
+    Supported time unit resolutions are 'us' [microsecond]
+    and 'ns' [nanosecond].
 
     Examples
     --------
