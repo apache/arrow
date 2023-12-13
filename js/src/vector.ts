@@ -324,7 +324,7 @@ export class Vector<T extends DataType = any> {
      * Returns a vector without memoization of the {@link get} method. If this
      * vector is not memoized, this method returns this vector.
      *
-     * @returns A a vector without memoization.
+     * @returns A new vector without memoization.
      */
     public unmemoize(): Vector<T> {
         if (DataType.isDictionary(this.type) && this.isMemoized) {
