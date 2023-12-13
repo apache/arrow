@@ -51,7 +51,7 @@ cdef class EncryptionConfiguration(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, footer_key, *, column_keys=None,
+    def __init__(self, footer_key, *, column_keys=None, uniform_encryption=None,
                  encryption_algorithm=None,
                  plaintext_footer=None, double_wrapping=None,
                  cache_lifetime=None, internal_key_material=None,
@@ -60,6 +60,8 @@ cdef class EncryptionConfiguration(_Weakrefable):
             new CEncryptionConfiguration(tobytes(footer_key)))
         if column_keys is not None:
             self.column_keys = column_keys
+        if uniform_encryption is not None:
+            self.uniform_encryption = uniform_encryption
         if encryption_algorithm is not None:
             self.encryption_algorithm = encryption_algorithm
         if plaintext_footer is not None:
@@ -75,17 +77,26 @@ cdef class EncryptionConfiguration(_Weakrefable):
 
     @property
     def footer_key(self):
-        """ID of the master key for footer encryption/signing"""
+        """ID of the master key for footer encryption/signing.
+        
+        If uniform_encryption is True, this key will also be used
+        to encrypt the columns.
+        """
         return frombytes(self.configuration.get().footer_key)
 
     @property
     def column_keys(self):
         """
-        List of columns to encrypt, with master key IDs.
+        Dictionnary of columns to encrypt, with master key IDs.
+
+        This cannot be used together with uniform_encryption.
         """
         column_keys_str = frombytes(self.configuration.get().column_keys)
         # Convert from "masterKeyID:colName,colName;masterKeyID:colName..."
         # (see HIVE-21848) to dictionary of master key ID to column name lists
+        if column_keys_str == "":
+            return {}
+
         column_keys_to_key_list_str = dict(subString.replace(" ", "").split(
             ":") for subString in column_keys_str.split(";"))
         column_keys_dict = {k: v.split(
@@ -102,6 +113,19 @@ cdef class EncryptionConfiguration(_Weakrefable):
             column_keys = "; ".join(
                 ["{}: {}".format(k, ", ".join(v)) for k, v in value.items()])
             self.configuration.get().column_keys = tobytes(column_keys)
+
+    @property
+    def uniform_encryption(self):
+        """Encrypt footer and all columns with the same encryption key (footer_key).
+        
+        This cannot be used together with column_keys.
+        """
+        return self.configuration.get().uniform_encryption
+
+
+    @uniform_encryption.setter
+    def uniform_encryption(self, value):
+        self.configuration.get().uniform_encryption = value
 
     @property
     def encryption_algorithm(self):

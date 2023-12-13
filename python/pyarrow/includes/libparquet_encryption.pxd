@@ -72,6 +72,7 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         CEncryptionConfiguration(const c_string& footer_key) except +
         c_string footer_key
         c_string column_keys
+        c_bool uniform_encryption
         ParquetCipher encryption_algorithm
         c_bool plaintext_footer
         c_bool double_wrapping
