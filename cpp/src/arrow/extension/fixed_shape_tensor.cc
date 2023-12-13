@@ -335,8 +335,10 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
 
-  auto ext_arr = std::static_pointer_cast<FixedSizeListArray>(this->storage());
-  auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
+  const auto ext_arr =
+      internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
+  const auto ext_type =
+      internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
   ARROW_RETURN_IF(!is_fixed_width(*ext_arr->value_type()),
                   Status::Invalid(ext_arr->value_type()->ToString(),
                                   " is not valid data type for a tensor"));
@@ -363,17 +365,14 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   internal::Permute<int64_t>(permutation, &shape);
 
   std::vector<int64_t> tensor_strides;
-  auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
+  const auto value_type =
+      internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
   ARROW_RETURN_NOT_OK(
       ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
-  ARROW_ASSIGN_OR_RAISE(auto flattened_array, ext_arr->Flatten());
-  // ARROW_ASSIGN_OR_RAISE(auto array, flattened_array->SliceSafe(this->offset(),
-  // this->length()));
+  ARROW_ASSIGN_OR_RAISE(const auto flattened_array, ext_arr->Flatten());
 
-  ARROW_ASSIGN_OR_RAISE(auto tensor, Tensor::Make(ext_arr->value_type(),
-                                                  flattened_array->data()->buffers[1],
-                                                  shape, tensor_strides, dim_names));
-  return tensor;
+  return Tensor::Make(ext_arr->value_type(), flattened_array->data()->buffers[1], shape,
+                      tensor_strides, dim_names);
 }
 
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
