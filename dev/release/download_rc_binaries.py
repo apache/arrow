@@ -123,7 +123,10 @@ class Downloader:
         ]
         # Retry subprocess in case it fails with OpenSSL Connection errors
         # https://issues.apache.org/jira/browse/INFRA-25274
-        for _ in range(5):
+        for attempt in range(5):
+            if delay := attempt * 3:
+                print(f"Waiting {delay} seconds before retrying {url}")
+                time.sleep(delay)
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE)
             stdout, stderr = proc.communicate()
