@@ -22,20 +22,20 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 // MetadataVersion represents the Arrow metadata version.
 type MetadataVersion flatbuf.MetadataVersion
 
 const (
-	MetadataV1 = MetadataVersion(flatbuf.MetadataVersionV1) // version for Arrow-0.1.0
-	MetadataV2 = MetadataVersion(flatbuf.MetadataVersionV2) // version for Arrow-0.2.0
-	MetadataV3 = MetadataVersion(flatbuf.MetadataVersionV3) // version for Arrow-0.3.0 to 0.7.1
-	MetadataV4 = MetadataVersion(flatbuf.MetadataVersionV4) // version for >= Arrow-0.8.0
-	MetadataV5 = MetadataVersion(flatbuf.MetadataVersionV5) // version for >= Arrow-1.0.0, backward compatible with v4
+	MetadataV1 = MetadataVersion(flatbuf.MetadataVersionV1) // version for Arrow Format-0.1.0
+	MetadataV2 = MetadataVersion(flatbuf.MetadataVersionV2) // version for Arrow Format-0.2.0
+	MetadataV3 = MetadataVersion(flatbuf.MetadataVersionV3) // version for Arrow Format-0.3.0 to 0.7.1
+	MetadataV4 = MetadataVersion(flatbuf.MetadataVersionV4) // version for >= Arrow Format-0.8.0
+	MetadataV5 = MetadataVersion(flatbuf.MetadataVersionV5) // version for >= Arrow Format-1.0.0, backward compatible with v4
 )
 
 func (m MetadataVersion) String() string {

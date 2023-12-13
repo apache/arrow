@@ -1390,7 +1390,7 @@ class TakeOptions(_TakeOptions):
     ----------
     boundscheck : boolean, default True
         Whether to check indices are within bounds. If False and an
-        index is out of boundes, behavior is undefined (the process
+        index is out of bounds, behavior is undefined (the process
         may crash).
     """
 
@@ -1468,7 +1468,7 @@ cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
 
         if isinstance(indices, (list, tuple)) and not len(indices):
-            # Allow empty indices; effecitively return same array
+            # Allow empty indices; effectively return same array
             self.wrapped.reset(
                 new CStructFieldOptions(<vector[int]>indices))
             return
@@ -1682,6 +1682,9 @@ class StrptimeOptions(_StrptimeOptions):
     ----------
     format : str
         Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+        Note that the semantics of the format follow the C/C++ strptime, not the Python one.
+        There are differences in behavior, for example how the "%y" placeholder
+        handles years with less than four digits.
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
@@ -2988,7 +2991,7 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
 
-    Note that currently the size of any input column can not exceed 2 GB
+    Note that currently the size of any input column cannot exceed 2 GB
     for a single segment (all groups combined).
 
     Parameters
@@ -3073,7 +3076,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     UdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
-    correspoding to the schema.
+    corresponding to the schema.
 
     Parameters
     ----------

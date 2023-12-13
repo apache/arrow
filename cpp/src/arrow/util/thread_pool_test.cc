@@ -699,7 +699,7 @@ TEST_F(TestThreadPool, SetCapacity) {
   }
   ASSERT_OK(gating_task->WaitForRunning(3));
   SleepFor(0.001);  // Sleep a bit just to make sure it isn't making any threads
-  ASSERT_EQ(pool->GetActualCapacity(), 3);  // maxxed out
+  ASSERT_EQ(pool->GetActualCapacity(), 3);  // maxed out
 
   // The tasks have not finished yet, increasing the desired capacity
   // should spawn threads immediately.

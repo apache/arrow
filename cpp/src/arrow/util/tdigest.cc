@@ -341,7 +341,7 @@ class TDigest::TDigestImpl {
   double total_weight() const { return total_weight_; }
 
  private:
-  // must be delcared before merger_, see constructor initialization list
+  // must be declared before merger_, see constructor initialization list
   const uint32_t delta_;
 
   TDigestMerger<> merger_;

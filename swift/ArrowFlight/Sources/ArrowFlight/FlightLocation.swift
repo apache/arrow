@@ -19,15 +19,15 @@ import Foundation
 
 public class FlightLocation {
     public let uri: String
-    
+
     init(_ location: Arrow_Flight_Protocol_Location) {
         self.uri = location.uri
     }
-    
+
     public init(_ uri: String) {
-        self.uri = uri;
+        self.uri = uri
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_Location {
         var location = Arrow_Flight_Protocol_Location()
         location.uri = uri

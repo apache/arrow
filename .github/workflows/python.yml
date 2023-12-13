@@ -89,18 +89,18 @@ jobs:
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -161,21 +161,13 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
-          rm -f /usr/local/bin/2to3* || :
-          rm -f /usr/local/bin/idle3* || :
-          rm -f /usr/local/bin/pydoc3* || :
-          rm -f /usr/local/bin/python3* || :
-          rm -f /usr/local/bin/python3-config || :
-          brew update --preinstall || :
-          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
-          brew install coreutils
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt

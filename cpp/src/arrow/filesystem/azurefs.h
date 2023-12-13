@@ -77,7 +77,15 @@ struct ARROW_EXPORT AzureOptions {
   std::shared_ptr<Azure::Core::Credentials::TokenCredential>
       service_principle_credentials_provider;
 
+  /// \brief Default metadata for OpenOutputStream.
+  ///
+  /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
+  std::shared_ptr<const KeyValueMetadata> default_metadata;
+
   AzureOptions();
+
+  Status ConfigureAccountKeyCredentials(const std::string& account_name,
+                                        const std::string& account_key);
 
   bool Equals(const AzureOptions& other) const;
 };
@@ -149,7 +157,7 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
       const AzureOptions& options, const io::IOContext& = io::default_io_context());
 
  private:
-  explicit AzureFileSystem(const AzureOptions& options, const io::IOContext& io_context);
+  AzureFileSystem(const AzureOptions& options, const io::IOContext& io_context);
 
   class Impl;
   std::unique_ptr<Impl> impl_;

@@ -67,7 +67,8 @@ GLib (replace the version number in the following commands with the
 one you use):
 
 ```console
-$ wget 'https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-12.0.0/apache-arrow-12.0.0.tar.gz'
+$ wget 'https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-12.0.0/apache-arrow-12.0.0.tar.gz' \
+    --output-document apache-arrow-12.0.0.tar.gz
 $ tar xf apache-arrow-12.0.0.tar.gz
 $ cd apache-arrow-12.0.0
 ```
@@ -81,7 +82,7 @@ required packages.
 macOS:
 
 ```console
-$ brew bundle
+$ brew bundle --file=c_glib/Brewfile
 $ meson setup c_glib.build c_glib --buildtype=release
 $ meson compile -C c_glib.build
 $ sudo meson install -C c_glib.build
@@ -127,7 +128,7 @@ $ sudo pip3 install meson
 On macOS with [Homebrew](https://brew.sh/):
 
 ```console
-$ brew bundle
+$ brew bundle --file=c_glib/Brewfile
 ```
 
 You can build and install Arrow GLib by the followings:

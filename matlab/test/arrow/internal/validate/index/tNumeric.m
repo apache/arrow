@@ -20,7 +20,7 @@ classdef tNumeric < matlab.unittest.TestCase
     methods (Test)
 
         function NonPositiveError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonPositive" if the index array provided
             % has non-positive values.
 
@@ -39,7 +39,7 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function NonIntegerError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonInteger" if the index array provided
             % has non-integer values.
 
@@ -61,7 +61,7 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function NonRealError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonReal" if the index array is
             % complex.
 
@@ -77,7 +77,7 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function ExceedsIntMaxError(testCase)
-            % Verify numeric() throws an error whose idenitifier is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:ExceedsIntMax" if the index array 
             % provided has values that exceed the intmax(intType).
 
@@ -122,7 +122,7 @@ classdef tNumeric < matlab.unittest.TestCase
         end
 
         function ErrorIfNonNumeric(testCase)
-            % Verify numeric() throws an error whose idenitifer is 
+            % Verify numeric() throws an error whose identifier is 
             % "arrow:badsubscript:NonNumeric" if provided a non-numeric
             % array as the index.
 

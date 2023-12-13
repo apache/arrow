@@ -147,8 +147,8 @@ public class MemoryUtil {
       // This exception will get swallowed, but it's necessary for the static analysis that ensures
       // the static fields above get initialized
       final RuntimeException failure = new RuntimeException(
-          "Failed to initialize MemoryUtil. Was Java started with " +
-              "`--add-opens=java.base/java.nio=ALL-UNNAMED`? " +
+          "Failed to initialize MemoryUtil. You must start Java with " +
+              "`--add-opens=java.base/java.nio=ALL-UNNAMED` " +
               "(See https://arrow.apache.org/docs/java/install.html)", e);
       failure.printStackTrace();
       throw failure;

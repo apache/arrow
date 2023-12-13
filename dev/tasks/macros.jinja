@@ -182,6 +182,11 @@ on:
     displayName: Clone arrow
 {% endmacro %}
 
+{%- macro azure_free_space() -%}
+  - script: arrow/ci/scripts/util_free_space.sh
+    displayName: Free up disk space
+{% endmacro %}
+
 {%- macro azure_upload_releases(pattern) -%}
   - task: UsePythonVersion@0
     inputs:
@@ -232,7 +237,7 @@ on:
       brew config
       brew doctor || true
       # The GHA runners install of python > 3.10 is incompatible with brew so we
-      # have to force overwritting of the symlinks
+      # have to force overwriting of the symlinks
       # see https://github.com/actions/runner-images/issues/6868
       brew install --overwrite python@3.11 python@3.10
 

@@ -155,7 +155,7 @@ is signed. For example:
 | float32, int64    | float32              | int64 is wider, still promotes to float32      |
 +-------------------+----------------------+------------------------------------------------+
 
-In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+In particular, note that comparing a ``uint64`` column to an ``int16`` column
 may emit an error if one of the ``uint64`` values cannot be expressed as the
 common type ``int64`` (for example, ``2 ** 63``).
 
@@ -1622,10 +1622,10 @@ Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
 Cumulative functions are vector functions that perform a running accumulation on 
-their input using a given binary associative operation with an identidy element 
+their input using a given binary associative operation with an identity element 
 (a monoid) and output an array containing the corresponding intermediate running 
 values. The input is expected to be of numeric type. By default these functions 
-do not detect overflow. They are alsoavailable in an overflow-checking variant, 
+do not detect overflow. They are also available in an overflow-checking variant, 
 suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
 overflow is detected.
 
@@ -1675,7 +1675,8 @@ Associative transforms
 |                   |       | Temporal, Binary- and String-like |             |       |
 +-------------------+-------+-----------------------------------+-------------+-------+
 
-* \(1) Output is ``Dictionary(Int32, input type)``.
+* \(1) Output is ``Dictionary(Int32, input type)``. It is a no-op if input is
+  already a Dictionary array.
 
 * \(2) Duplicates are removed from the output while the original order is
   maintained.

@@ -29,11 +29,16 @@ import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
+import org.apache.arrow.vector.complex.writer.Float8Writer;
+import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.holders.ComplexHolder;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -289,5 +294,56 @@ public class TestStructVector {
       assertEquals(IntVector.class, s1.getChild("struct_child", IntVector.class).getClass());
       assertEquals(IntVector.class, s1.getVectorById(0, IntVector.class).getClass());
     }
+  }
+
+  @Test
+  public void testGetTransferPair() {
+    try (final StructVector fromVector = simpleStructVector("s1", allocator)) {
+      TransferPair tp = fromVector.getTransferPair(fromVector.getField(), allocator);
+      final StructVector toVector = (StructVector) tp.getTo();
+      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      assertSame(toVector.getField(), fromVector.getField());
+      toVector.clear();
+    }
+  }
+
+  @Test
+  public void testGetTransferPairWithFieldAndCallBack() {
+    SchemaChangeCallBack callBack = new SchemaChangeCallBack();
+    try (final StructVector fromVector = simpleStructVector("s1", allocator)) {
+      TransferPair tp = fromVector.getTransferPair(fromVector.getField(), allocator, callBack);
+      final StructVector toVector = (StructVector) tp.getTo();
+      // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+      assertSame(toVector.getField(), fromVector.getField());
+      toVector.clear();
+    }
+  }
+
+  private StructVector simpleStructVector(String name, BufferAllocator allocator) {
+    final String INT_COL = "struct_int_child";
+    final String FLT_COL = "struct_flt_child";
+    StructVector structVector = StructVector.empty(name, allocator);
+    final int size = 6; // number of structs
+
+    NullableStructWriter structWriter = structVector.getWriter();
+    structVector.addOrGet(
+        INT_COL, FieldType.nullable(Types.MinorType.INT.getType()), IntVector.class);
+    structVector.addOrGet(
+        FLT_COL, FieldType.nullable(Types.MinorType.INT.getType()), IntVector.class);
+    structVector.allocateNew();
+    IntWriter intWriter = structWriter.integer(INT_COL);
+    Float8Writer float8Writer = structWriter.float8(FLT_COL);
+
+    for (int i = 0; i < size; i++) {
+      structWriter.setPosition(i);
+      structWriter.start();
+      intWriter.writeInt(i);
+      float8Writer.writeFloat8(i * .1);
+      structWriter.end();
+    }
+
+    structWriter.setValueCount(size);
+
+    return structVector;
   }
 }

@@ -20,7 +20,7 @@ limitations under the License.
 
 This directory is responsible to generate the jar files for the Arrow components that depend on C++ shared libraries to execute.
 
-The Arrow C++ libraries are compiled both on MacOS and Linux distributions, with their dependencies linked statically, and they are added
+The Arrow C++ libraries are compiled both on macOS and Linux distributions, with their dependencies linked statically, and they are added
 in the jars at the end, so the file can be used on both systems.
 
 ## Linux Docker Image

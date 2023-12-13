@@ -165,9 +165,9 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
         return Collections.singletonList(importFixedBytes(type, 0, UnionVector.TYPE_WIDTH));
       case Dense:
         return Arrays.asList(importFixedBytes(type, 0, DenseUnionVector.TYPE_WIDTH),
-            importFixedBytes(type, 0, DenseUnionVector.OFFSET_WIDTH));
+            importFixedBytes(type, 1, DenseUnionVector.OFFSET_WIDTH));
       default:
-        throw new UnsupportedOperationException("Importing buffers for type: " + type);
+        throw new UnsupportedOperationException("Importing buffers for union type: " + type);
     }
   }
 

@@ -1622,7 +1622,7 @@ def test_read_table_schema(tempdir):
     expected = pa.table({'a': [1, 2, 3]}, schema=schema)
     assert result.equals(expected)
 
-    # reading multiple fiels
+    # reading multiple fields
     result = pq.read_table(tempdir, schema=schema)
     expected = pa.table({'a': [1, 2, 3, 1, 2, 3]}, schema=schema)
     assert result.equals(expected)
@@ -1796,7 +1796,7 @@ def test_parquet_write_to_dataset_deprecated_properties(tempdir):
 
 
 @pytest.mark.dataset
-def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
+def test_parquet_write_to_dataset_unsupported_keywords_in_legacy(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
 

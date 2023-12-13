@@ -22,8 +22,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -152,6 +153,9 @@ func ExampleNewSchemaFromStruct_logicaltypes() {
 		JSON                  string   `parquet:"logical=json"`
 		BSON                  []byte   `parquet:"logical=BSON"`
 		UUID                  [16]byte `parquet:"logical=uuid"`
+		Float16               [2]byte  `parquet:"logical=float16"`
+		Float16Optional       *[2]byte `parquet:"logical=float16"`
+		Float16Num            float16.Num
 	}
 
 	sc, err := schema.NewSchemaFromStruct(LogicalTypes{})
@@ -180,6 +184,9 @@ func ExampleNewSchemaFromStruct_logicaltypes() {
 	//   required byte_array field_id=-1 JSON (JSON);
 	//   required byte_array field_id=-1 BSON (BSON);
 	//   required fixed_len_byte_array field_id=-1 UUID (UUID);
+	//   required fixed_len_byte_array field_id=-1 Float16 (Float16);
+	//   optional fixed_len_byte_array field_id=-1 Float16Optional (Float16);
+	//   required fixed_len_byte_array field_id=-1 Float16Num (Float16);
 	// }
 }
 

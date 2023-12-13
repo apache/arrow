@@ -200,7 +200,7 @@ class ARROW_EXPORT BitBlockCounter {
   int64_t offset_;
 };
 
-/// \brief A tool to iterate through a possibly non-existent validity bitmap,
+/// \brief A tool to iterate through a possibly nonexistent validity bitmap,
 /// to allow us to write one code path for both the with-nulls and no-nulls
 /// cases without giving up a lot of performance.
 class ARROW_EXPORT OptionalBitBlockCounter {

@@ -21,7 +21,7 @@ set -eu
 
 declare -A platforms
 platforms=([windows]=Windows
-           [macos]=MacOSX
+           [macos]=macOS
            [linux]=Linux)
 
 declare -A versions
@@ -43,7 +43,7 @@ platform=${platforms[$1]}
 version=$2
 full_version=${versions[$2]}
 
-if [ $platform = "MacOSX" ]; then
+if [ $platform = "macOS" ]; then
     echo "Downloading Python installer..."
 
     if [ "$(uname -m)" = "arm64" ] || [ "$version" = "3.10" ] || [ "$version" = "3.11" ] || [ "$version" = "3.12" ]; then

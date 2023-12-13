@@ -70,6 +70,13 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+def ensure_s3_finalized():
+    """
+    Finalize S3 if already initialized
+    """
+    check_status(CEnsureS3Finalized())
+
+
 def resolve_s3_region(bucket):
     """
     Resolve the S3 region of a bucket.
@@ -92,6 +99,8 @@ def resolve_s3_region(bucket):
     cdef:
         c_string c_bucket
         c_string c_region
+
+    ensure_s3_initialized()
 
     c_bucket = tobytes(bucket)
     with nogil:

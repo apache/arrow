@@ -18,9 +18,18 @@
 import cffi
 from contextlib import contextmanager
 import functools
+import os
+import sys
 
 from .tester import CDataExporter, CDataImporter
 
+
+if sys.platform == "darwin":
+    dll_suffix = ".dylib"
+elif os.name == "nt":
+    dll_suffix = ".dll"
+else:
+    dll_suffix = ".so"
 
 _c_data_decls = """
     struct ArrowSchema {
@@ -80,6 +89,15 @@ def ffi() -> cffi.FFI:
     return ffi
 
 
+def _release_memory_steps(exporter: CDataExporter, importer: CDataImporter):
+    yield
+    for i in range(max(exporter.required_gc_runs, importer.required_gc_runs)):
+        importer.run_gc()
+        yield
+        exporter.run_gc()
+        yield
+
+
 @contextmanager
 def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
     """
@@ -96,12 +114,13 @@ def check_memory_released(exporter: CDataExporter, importer: CDataImporter):
     if do_check:
         before = exporter.record_allocation_state()
     yield
-    # We don't use a `finally` clause: if the enclosed block raised an
-    # exception, no need to add another one.
+    # Only check for memory state if `yield` didn't raise.
     if do_check:
-        ok = exporter.compare_allocation_state(before, importer.gc_until)
-        if not ok:
+        for _ in _release_memory_steps(exporter, importer):
             after = exporter.record_allocation_state()
+            if after == before:
+                break
+        if after != before:
             raise RuntimeError(
                 f"Memory was not released correctly after roundtrip: "
                 f"before = {before}, after = {after} (should have been equal)")

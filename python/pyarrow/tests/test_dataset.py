@@ -25,6 +25,7 @@ import textwrap
 import tempfile
 import threading
 import time
+from shutil import copytree
 
 from urllib.parse import quote
 
@@ -788,12 +789,15 @@ def test_parquet_scan_options():
     opts5 = ds.ParquetFragmentScanOptions(
         thrift_string_size_limit=123456,
         thrift_container_size_limit=987654,)
+    opts6 = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=True)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
+    assert opts1.page_checksum_verification is False
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
@@ -810,11 +814,14 @@ def test_parquet_scan_options():
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
 
+    assert opts6.page_checksum_verification is True
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
     assert opts5 != opts1
+    assert opts6 != opts1
 
 
 def test_file_format_pickling(pickle_module):
@@ -979,6 +986,64 @@ def test_make_fragment(multisourcefs):
             assert f.path == path
             assert isinstance(f.filesystem, type(multisourcefs))
         assert row_group_fragment.row_groups == [0]
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_make_fragment_with_size(s3_example_simple):
+    """
+    Test passing file_size to make_fragment. Not all FS implementations make use
+    of the file size (by implementing an OpenInputFile that takes a FileInfo), but
+    s3 does, which is why it's used here.
+    """
+    table, path, fs, uri, host, port, access_key, secret_key = s3_example_simple
+
+    file_format = ds.ParquetFileFormat()
+    paths = [path]
+
+    fragments = [file_format.make_fragment(path, fs)
+                 for path in paths]
+    dataset = ds.FileSystemDataset(
+        fragments, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    # true sizes -> works
+    sizes_true = [dataset.filesystem.get_file_info(x).size for x in dataset.files]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_true)]
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    # too small sizes -> error
+    sizes_toosmall = [1 for path in paths]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_toosmall)]
+
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    with pytest.raises(pyarrow.lib.ArrowInvalid, match='Parquet file size is 1 bytes'):
+        table = dataset_with_size.to_table()
+
+    # too large sizes -> error
+    sizes_toolarge = [1000000 for path in paths]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_toolarge)]
+
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    # invalid range
+    with pytest.raises(OSError, match='HTTP status 416'):
+        table = dataset_with_size.to_table()
 
 
 def test_make_csv_fragment_from_buffer(dataset_reader, pickle_module):
@@ -2242,7 +2307,7 @@ def test_construct_from_list_of_files(tempdir, dataset_reader):
 
 @pytest.mark.parquet
 def test_construct_from_list_of_mixed_paths_fails(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     files = [
         'subdir/1/xxx/file0.parquet',
         'subdir/1/xxx/doesnt-exist.parquet',
@@ -2253,7 +2318,7 @@ def test_construct_from_list_of_mixed_paths_fails(mockfs):
 
 @pytest.mark.parquet
 def test_construct_from_mixed_child_datasets(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     a = ds.dataset(['subdir/1/xxx/file0.parquet',
                     'subdir/2/yyy/file1.parquet'], filesystem=mockfs)
     b = ds.dataset('subdir', filesystem=mockfs)
@@ -5376,3 +5441,76 @@ def test_dataset_sort_by(tempdir, dstype):
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+
+def test_checksum_write_dataset_read_dataset_to_table(tempdir):
+    """Check that checksum verification works for datasets created with
+    ds.write_dataset and read with ds.dataset.to_table"""
+
+    table_orig = pa.table({'a': [1, 2, 3, 4]})
+
+    # Write a sample dataset with page checksum enabled
+    pq_write_format = pa.dataset.ParquetFileFormat()
+    write_options = pq_write_format.make_write_options(
+        write_page_checksum=True)
+
+    original_dir_path = tempdir / 'correct_dir'
+    ds.write_dataset(
+        data=table_orig,
+        base_dir=original_dir_path,
+        format=pq_write_format,
+        file_options=write_options,
+    )
+
+    # Open dataset and verify that the data is correct
+    pq_scan_opts_crc = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=True)
+    pq_read_format_crc = pa.dataset.ParquetFileFormat(
+        default_fragment_scan_options=pq_scan_opts_crc)
+    table_check = ds.dataset(
+        original_dir_path,
+        format=pq_read_format_crc
+    ).to_table()
+    assert table_orig == table_check
+
+    # Copy dataset dir (which should be just one file)
+    corrupted_dir_path = tempdir / 'corrupted_dir'
+    copytree(original_dir_path, corrupted_dir_path)
+
+    # Read the only file in the path as binary and swap the 31-th and 36-th
+    # bytes. This should be equivalent to storing the following data:
+    #    pa.table({'a': [1, 3, 2, 4]})
+    corrupted_file_path_list = list(corrupted_dir_path.iterdir())
+    assert len(corrupted_file_path_list) == 1
+    corrupted_file_path = corrupted_file_path_list[0]
+    bin_data = bytearray(corrupted_file_path.read_bytes())
+
+    # Swap two bytes to emulate corruption. Also, check that the two bytes are
+    # different, otherwise no corruption occurs
+    assert bin_data[31] != bin_data[36]
+    bin_data[31], bin_data[36] = bin_data[36], bin_data[31]
+
+    # Write the corrupted data to the parquet file
+    corrupted_file_path.write_bytes(bin_data)
+
+    # Case 1: Reading the corrupted file with dataset().to_table() and without
+    # page checksum verification succeeds but yields corrupted data
+    pq_scan_opts_no_crc = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=False)
+    pq_read_format_no_crc = pa.dataset.ParquetFileFormat(
+        default_fragment_scan_options=pq_scan_opts_no_crc)
+    table_corrupt = ds.dataset(
+        corrupted_dir_path, format=pq_read_format_no_crc).to_table()
+
+    # The read should complete without error, but the table has different
+    # content than the original file!
+    assert table_corrupt != table_orig
+    assert table_corrupt == pa.table({'a': [1, 3, 2, 4]})
+
+    # Case 2: Reading the corrupted file with read_table() and with page
+    # checksum verification enabled raises an exception
+    with pytest.raises(OSError, match="CRC checksum verification"):
+        _ = ds.dataset(
+            corrupted_dir_path,
+            format=pq_read_format_crc
+        ).to_table()

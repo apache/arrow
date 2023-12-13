@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Arrays;
+using Apache.Arrow.Scalars;
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
@@ -23,7 +24,7 @@ namespace Apache.Arrow.Tests
 {
     public static class TestData
     {
-        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = false)
+        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = true)
         {
             return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray);
         }
@@ -55,6 +56,9 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(new Decimal128Type(10, 6), i));
                 builder.Field(CreateField(new Decimal256Type(16, 8), i));
                 builder.Field(CreateField(new MapType(StringType.Default, Int32Type.Default), i));
+                builder.Field(CreateField(IntervalType.YearMonth, i));
+                builder.Field(CreateField(IntervalType.DayTime, i));
+                builder.Field(CreateField(IntervalType.MonthDayNanosecond, i));
 
                 if (createAdvancedTypeArrays)
                 {
@@ -135,6 +139,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<MapType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<NullType>
         {
             private int Length { get; }
@@ -440,6 +445,39 @@ namespace Apache.Arrow.Tests
                 valueBuilder.Append(0);
 
                 Array = builder.Build();
+            }
+
+            public void Visit(IntervalType type)
+            {
+                switch (type.Unit)
+                {
+                    case IntervalUnit.YearMonth:
+                        var yearMonthBuilder = new YearMonthIntervalArray.Builder().Reserve(Length);
+                        for (var i = 0; i < Length; i++)
+                        {
+                            yearMonthBuilder.Append(new YearMonthInterval(i));
+                        }
+                        Array = yearMonthBuilder.Build();
+                        break;
+                    case IntervalUnit.DayTime:
+                        var dayTimeBuilder = new DayTimeIntervalArray.Builder().Reserve(Length);
+                        for (var i = 0; i < Length; i++)
+                        {
+                            dayTimeBuilder.Append(new DayTimeInterval(100 - 50*i, 100 * i));
+                        }
+                        Array = dayTimeBuilder.Build();
+                        break;
+                    case IntervalUnit.MonthDayNanosecond:
+                        var monthDayNanoBuilder = new MonthDayNanosecondIntervalArray.Builder().Reserve(Length);
+                        for (var i = 0; i < Length; i++)
+                        {
+                            monthDayNanoBuilder.Append(new MonthDayNanosecondInterval(i, 5-i, 100*i));
+                        }
+                        Array = monthDayNanoBuilder.Build();
+                        break;
+                    default:
+                        throw new InvalidOperationException($"unsupported interval unit <{type.Unit}>");
+                }
             }
 
             public void Visit(NullType type)

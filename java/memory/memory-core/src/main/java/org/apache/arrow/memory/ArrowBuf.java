@@ -94,10 +94,8 @@ public final class ArrowBuf implements AutoCloseable {
     this.capacity = capacity;
     this.readerIndex = 0;
     this.writerIndex = 0;
-    if (BaseAllocator.DEBUG) {
-      if (historicalLog != null) {
-        historicalLog.recordEvent("create()");
-      }
+    if (BaseAllocator.DEBUG && historicalLog != null) {
+      historicalLog.recordEvent("create()");
     }
   }
 
@@ -1115,8 +1113,8 @@ public final class ArrowBuf implements AutoCloseable {
     CommonUtil.indent(sb, indent).append(toString());
 
     if (BaseAllocator.DEBUG && verbosity.includeHistoricalLog) {
-      sb.append("\n");
       if (historicalLog != null) {
+        sb.append("\n");
         historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
       }
     }

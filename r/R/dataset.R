@@ -46,7 +46,7 @@
 #'
 #' The default behavior in `open_dataset()` is to inspect the file paths
 #' contained in the provided directory, and if they look like Hive-style, parse
-#' them as Hive. If your dataset has Hive-style partioning in the file paths,
+#' them as Hive. If your dataset has Hive-style partitioning in the file paths,
 #' you do not need to provide anything in the `partitioning` argument to
 #' `open_dataset()` to use them. If you do provide a character vector of
 #' partition column names, they will be ignored if they match what is detected,
@@ -112,7 +112,8 @@
 #' * "csv"/"text", aliases for the same thing (because comma is the default
 #'   delimiter for text files
 #' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
-#'
+#' * "json", for JSON format datasets Note: only newline-delimited JSON (aka ND-JSON) datasets
+#'   are currently supported
 #' Default is "parquet", unless a `delimiter` is also specified, in which case
 #' it is assumed to be "text".
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
@@ -525,6 +526,9 @@ names.Dataset <- function(x) names(x$schema)
 
 #' @export
 dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
+
+#' @export
+dimnames.Dataset <- function(x) list(NULL, names(x))
 
 #' @export
 c.Dataset <- function(...) Dataset$create(list(...))

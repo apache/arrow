@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 1
           path: arrow
@@ -53,14 +53,14 @@ jobs:
           ref: main
           submodules: recursive
       - name: Checkout Crossbow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           path: crossbow
           repository: ursacomputing/crossbow
           ref: main
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           cache: 'pip'
           python-version: 3.8
@@ -86,7 +86,7 @@ jobs:
             exit 1
           fi
       - name: Cache Repo
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: repo
           key: r-nightly-${{ github.run_id }}

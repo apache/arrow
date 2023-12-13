@@ -112,13 +112,14 @@ public class DictionaryEncoder {
    * @param valueCount dictionary vector valueCount.
    * @return index type.
    */
+  @SuppressWarnings("ComparisonOutOfRange")
   public static ArrowType.Int getIndexType(int valueCount) {
     Preconditions.checkArgument(valueCount >= 0);
     if (valueCount <= Byte.MAX_VALUE) {
       return new ArrowType.Int(8, true);
     } else if (valueCount <= Character.MAX_VALUE) {
       return new ArrowType.Int(16, true);
-    } else if (valueCount <= Integer.MAX_VALUE) {
+    } else if (valueCount <= Integer.MAX_VALUE) { //this comparison will always evaluate to true
       return new ArrowType.Int(32, true);
     } else {
       return new ArrowType.Int(64, true);

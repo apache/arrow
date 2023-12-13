@@ -91,6 +91,27 @@ test_that("Group by sum on dataset", {
   )
 })
 
+test_that("Group by prod on dataset", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(prod = prod(int, na.rm = TRUE)) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(some_grouping) %>%
+      summarize(
+        prod = prod(int, na.rm = FALSE),
+        prod2 = base::prod(int, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Group by mean on dataset", {
   compare_dplyr_binding(
     .input %>%
@@ -319,6 +340,7 @@ test_that("Functions that take ... but we only accept a single arg", {
   # the agg_funcs directly
   expect_error(call_binding_agg("n_distinct"), "n_distinct() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("sum"), "sum() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding_agg("prod"), "prod() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("any"), "any() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("all"), "all() with 0 arguments", fixed = TRUE)
   expect_error(call_binding_agg("min"), "min() with 0 arguments", fixed = TRUE)
@@ -333,7 +355,7 @@ test_that("Functions that take ... but we only accept a single arg", {
 
 test_that("median()", {
   # When medians are integer-valued, stats::median() sometimes returns output of
-  # type integer, whereas whereas the Arrow approx_median kernels always return
+  # type integer, whereas the Arrow approx_median kernels always return
   # output of type float64. The calls to median(int, ...) in the tests below
   # are enclosed in as.double() to work around this known difference.
 
@@ -392,6 +414,8 @@ test_that("median()", {
 })
 
 test_that("quantile()", {
+  skip_if_not_available("dataset")
+
   # The default method for stats::quantile() throws an error when na.rm = FALSE
   # and the input contains NA or NaN, whereas the Arrow tdigest kernels return
   # null in this situation. To work around this known difference, the tests
@@ -410,7 +434,7 @@ test_that("quantile()", {
   # returned by Arrow.
 
   # When quantiles are integer-valued, stats::quantile() sometimes returns
-  # output of type integer, whereas whereas the Arrow tdigest kernels always
+  # output of type integer, whereas the Arrow tdigest kernels always
   # return output of type float64. The calls to quantile(int, ...) in the tests
   # below are enclosed in as.double() to work around this known difference.
 
@@ -488,9 +512,9 @@ test_that("quantile()", {
   )
 
   # with a vector of 2+ probs
-  expect_warning(
-    Table$create(tbl) %>%
-      summarize(q = quantile(dbl, probs = c(0.2, 0.8), na.rm = TRUE)),
+  expect_error(
+    InMemoryDataset$create(data.frame(x = 1)) %>%
+      summarize(q = quantile(x, probs = c(0.2, 0.8), na.rm = TRUE)),
     "quantile() with length(probs) != 1 not supported in Arrow",
     fixed = TRUE
   )
@@ -642,6 +666,7 @@ test_that("summarise() with !!sym()", {
       group_by(false) %>%
       summarise(
         sum = sum(!!sym(test_dbl_col)),
+        prod = prod(!!sym(test_dbl_col)),
         any = any(!!sym(test_lgl_col)),
         all = all(!!sym(test_lgl_col)),
         mean = mean(!!sym(test_dbl_col)),
@@ -816,7 +841,7 @@ test_that("Expressions on aggregations", {
     )
   )
 
-  # Check aggregates on aggeregates with more complex calls
+  # Check aggregates on aggregates with more complex calls
   expect_warning(
     record_batch(tbl) %>% summarise(any(any(!lgl))),
     paste(
@@ -887,28 +912,24 @@ test_that("Not (yet) supported: implicit join", {
 
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl - mean(dbl)
-      ) %>%
+      group_by(x) %>%
+      summarize(y - mean(y)) %>%
       collect(),
-    tbl,
+    data.frame(x = 1, y = 2),
     warning = paste(
-      "Expression dbl - mean\\(dbl\\) is not an aggregate expression",
+      "Expression y - mean\\(y\\) is not an aggregate expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
 
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl
-      ) %>%
+      group_by(x) %>%
+      summarize(y) %>%
       collect(),
-    tbl,
+    data.frame(x = 1, y = 2),
     warning = paste(
-      "Expression dbl is not an aggregate expression",
+      "Expression y is not an aggregate expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
@@ -916,14 +937,12 @@ test_that("Not (yet) supported: implicit join", {
   # This one could possibly be supported--in mutate()
   compare_dplyr_binding(
     .input %>%
-      group_by(some_grouping) %>%
-      summarize(
-        dbl - int
-      ) %>%
+      group_by(x) %>%
+      summarize(x - y) %>%
       collect(),
-    tbl,
+    data.frame(x = 1, y = 2, z = 3),
     warning = paste(
-      "Expression dbl - int is not an aggregate expression",
+      "Expression x - y is not an aggregate expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
@@ -1165,12 +1184,12 @@ test_that("Can use across() within summarise()", {
 
   # across() doesn't work in summarise when input expressions evaluate to bare field references
   expect_warning(
-    example_data %>%
+    data.frame(x = 1, y = 2) %>%
       arrow_table() %>%
-      group_by(lgl) %>%
+      group_by(x) %>%
       summarise(across(everything())) %>%
       collect(),
-    regexp = "Expression int is not an aggregate expression or is not supported in Arrow; pulling data into R"
+    regexp = "Expression y is not an aggregate expression or is not supported in Arrow; pulling data into R"
   )
 })
 

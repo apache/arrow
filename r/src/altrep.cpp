@@ -152,12 +152,15 @@ struct AltrepVectorBase {
     const char* class_name = CHAR(PRINTNAME(data_class_sym));
 
     if (IsMaterialized(alt)) {
-      Rprintf("materialized %s len=%d\n", class_name, Rf_xlength(Representation(alt)));
+      Rprintf("materialized %s len=%ld\n", class_name,
+              static_cast<long>(Rf_xlength(Representation(alt))));  // NOLINT: runtime/int
     } else {
       const auto& chunked_array = GetChunkedArray(alt);
-      Rprintf("%s<%p, %s, %d chunks, %d nulls> len=%d\n", class_name, chunked_array.get(),
+      Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", class_name,
+              reinterpret_cast<void*>(chunked_array.get()),
               chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
-              chunked_array->null_count(), chunked_array->length());
+              static_cast<long>(chunked_array->null_count()),  // NOLINT: runtime/int
+              static_cast<long>(chunked_array->length()));     // NOLINT: runtime/int
     }
 
     return TRUE;
@@ -744,7 +747,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   // Helper class to convert to R strings. We declare one of these for the
   // class to avoid having to stack-allocate one for every STRING_ELT call.
   // This class does not own a reference to any arrays: it is the caller's
-  // responsibility to ensure the Array lifetime exeeds that of the viewer.
+  // responsibility to ensure the Array lifetime exceeds that of the viewer.
   struct RStringViewer {
     RStringViewer() : strip_out_nuls_(false), nul_was_stripped_(false) {}
 
@@ -819,7 +822,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
           "'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul "
           "= TRUE)";
 
-      Rf_error(stripped_string_.c_str());
+      Rf_error("%s", stripped_string_.c_str());
     }
 
     void SetArray(const std::shared_ptr<Array>& array) {

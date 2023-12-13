@@ -16,62 +16,57 @@
 {% import 'macros.jinja' as macros with context %}
 
 jobs:
-  - job: linux
-    pool:
-      vmImage: ubuntu-latest
-    timeoutInMinutes: 360
-    {% if env is defined %}
-    variables:
+- job: linux
+  pool:
+    vmImage: ubuntu-latest
+  timeoutInMinutes: 360
+  {% if env is defined %}
+  variables:
     {% for key, value in env.items() %}
-      {{ key }}: {{ value }}
+    {{ key }}: {{ value }}
     {% endfor %}
-    {% endif %}
-    steps:
-      - script: |
-          set -ex
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-        displayName: Clone arrow
+  {% endif %}
+  steps:
+  {{ macros.azure_checkout_arrow() }}
+  {{ macros.azure_free_space() }}
 
-      - script: |
-          set -ex
-          docker -v
-          docker-compose -v
-          cd arrow
-          export R_ORG={{ r_org }}
-          export R_IMAGE={{ r_image }}
-          export R_TAG={{ r_tag }}
-          export DEVTOOLSET_VERSION={{ devtoolset_version|default("") }}
-          export R_CUSTOM_CCACHE={{ r_custom_ccache|default("false") }}
-          docker-compose pull --ignore-pull-failures r
-          docker-compose build r
-        displayName: Docker build
-        env:
-        {{ macros.azure_set_sccache_envvars()|indent(8) }}
+  - script: |
+      set -ex
+      docker -v
+      docker-compose -v
+      cd arrow
+      export R_ORG={{ r_org }}
+      export R_IMAGE={{ r_image }}
+      export R_TAG={{ r_tag }}
+      export DEVTOOLSET_VERSION={{ devtoolset_version|default("") }}
+      export R_CUSTOM_CCACHE={{ r_custom_ccache|default("false") }}
+      docker-compose pull --ignore-pull-failures r
+      docker-compose build r
+    displayName: Docker build
+    env:
+    {{ macros.azure_set_sccache_envvars()|indent(4) }}
 
-      - script: |
-          set -ex
-          cd arrow
-          export R_ORG={{ r_org }}
-          export R_IMAGE={{ r_image }}
-          export R_TAG={{ r_tag }}
-          export ARROW_R_DEV={{ not_cran|default("TRUE") }}
-          # Note that by default, ci/scripts/r_test.sh sets NOT_CRAN=true
-          # if ARROW_R_DEV=TRUE. Pass `-e NOT_CRAN=false` to turn that off.
-          docker-compose run {{ flags|default("") }} r
-        displayName: Docker run
-        env:
-        {{ macros.azure_set_sccache_envvars()|indent(8) }}
+  - script: |
+      set -ex
+      cd arrow
+      export R_ORG={{ r_org }}
+      export R_IMAGE={{ r_image }}
+      export R_TAG={{ r_tag }}
+      export ARROW_R_DEV={{ not_cran|default("TRUE") }}
+      # Note that by default, ci/scripts/r_test.sh sets NOT_CRAN=true
+      # if ARROW_R_DEV=TRUE. Pass `-e NOT_CRAN=false` to turn that off.
+      docker-compose run {{ flags|default("") }} r
+    displayName: Docker run
+    env:
+    {{ macros.azure_set_sccache_envvars()|indent(4) }}
 
-      - script: |
-          set -ex
-          cat arrow/r/check/arrow.Rcheck/00install.out
-        displayName: Dump install logs
-        condition: succeededOrFailed()
-      - script: |
-          set -ex
-          cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
-        displayName: Dump test logs
-        condition: succeededOrFailed()
+  - script: |
+      set -ex
+      cat arrow/r/check/arrow.Rcheck/00install.out
+    displayName: Dump install logs
+    condition: succeededOrFailed()
+  - script: |
+      set -ex
+      cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+    displayName: Dump test logs
+    condition: succeededOrFailed()

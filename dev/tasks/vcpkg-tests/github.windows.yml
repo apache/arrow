@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: arrow/ci/scripts/download_tz_database.sh
       - name: Remove and Reinstall vcpkg
-        # When running vcpkg in Github Actions on Windows, remove the
+        # When running vcpkg in GitHub Actions on Windows, remove the
         # preinstalled vcpkg and install the newest version from source.
         # Versions of vcpkg rapidly stop working until updated, and
         # the safest and most reliable way to update vcpkg is simply

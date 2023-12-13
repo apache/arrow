@@ -421,7 +421,7 @@ const (
 	SqlInfo_SQL_MAX_CHAR_LITERAL_LENGTH SqlInfo = 542
 	// Retrieves a int64 value representing the maximum number of characters allowed for a column name.
 	SqlInfo_SQL_MAX_COLUMN_NAME_LENGTH SqlInfo = 543
-	// Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+	// Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
 	SqlInfo_SQL_MAX_COLUMNS_IN_GROUP_BY SqlInfo = 544
 	// Retrieves a int64 value representing the maximum number of columns allowed in an index.
 	SqlInfo_SQL_MAX_COLUMNS_IN_INDEX SqlInfo = 545
@@ -1704,7 +1704,7 @@ func (SqlSupportsConvert) EnumDescriptor() ([]byte, []int) {
 
 //*
 // The JDBC/ODBC-defined type of any object.
-// All the values here are the sames as in the JDBC and ODBC specs.
+// All the values here are the same as in the JDBC and ODBC specs.
 type XdbcDataType int32
 
 const (
@@ -1965,7 +1965,7 @@ const (
 	// Indicates that the fields allow the use of null values.
 	Nullable_NULLABILITY_NULLABLE Nullable = 1
 	//*
-	// Indicates that nullability of the fields can not be determined.
+	// Indicates that nullability of the fields cannot be determined.
 	Nullable_NULLABILITY_UNKNOWN Nullable = 2
 )
 
@@ -2014,7 +2014,7 @@ type Searchable int32
 
 const (
 	//*
-	// Indicates that column can not be used in a WHERE clause.
+	// Indicates that column cannot be used in a WHERE clause.
 	Searchable_SEARCHABLE_NONE Searchable = 0
 	//*
 	// Indicates that the column can be used in a WHERE clause if it is using a
@@ -2633,7 +2633,7 @@ func (x *CommandGetDbSchemas) GetDbSchemaFilterPattern() string {
 //  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 //  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 //  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+//  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 //  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 //  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 // The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
@@ -3881,7 +3881,7 @@ func (x *ActionEndSavepointRequest) GetAction() ActionEndSavepointRequest_EndSav
 //    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 //    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 //    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 //    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 //    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 //  - GetFlightInfo: execute the query.
@@ -3954,7 +3954,7 @@ func (x *CommandStatementQuery) GetTransactionId() []byte {
 //    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 //    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 //    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 //    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 //    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 //  - GetFlightInfo: execute the query.
@@ -4079,7 +4079,7 @@ func (x *TicketStatementQuery) GetStatementHandle() []byte {
 //    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
 //    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
 //    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
 //    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
 //    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 //  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
@@ -4134,7 +4134,7 @@ func (x *CommandPreparedStatementQuery) GetPreparedStatementHandle() []byte {
 
 //
 // Represents a SQL update query. Used in the command member of FlightDescriptor
-// for the the RPC call DoPut to cause the server to execute the included SQL update.
+// for the RPC call DoPut to cause the server to execute the included SQL update.
 type CommandStatementUpdate struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4194,7 +4194,7 @@ func (x *CommandStatementUpdate) GetTransactionId() []byte {
 
 //
 // Represents a SQL update query. Used in the command member of FlightDescriptor
-// for the the RPC call DoPut to cause the server to execute the included
+// for the RPC call DoPut to cause the server to execute the included
 // prepared statement handle as an update.
 type CommandPreparedStatementUpdate struct {
 	state         protoimpl.MessageState

@@ -163,6 +163,107 @@ class DiffTest : public ::testing::Test {
     AssertRunLengthIs("[2, 0, 0]");
   }
 
+  std::shared_ptr<RunEndEncodedArray> RunEndEncodedArrayFromJSON(
+      int64_t logical_length, const std::shared_ptr<DataType>& ree_type,
+      std::string_view run_ends_json, std::string_view values_json,
+      int64_t logical_offset = 0) {
+    auto& ree_type_ref = checked_cast<const RunEndEncodedType&>(*ree_type);
+    auto run_ends = ArrayFromJSON(ree_type_ref.run_end_type(), run_ends_json);
+    auto values = ArrayFromJSON(ree_type_ref.value_type(), values_json);
+    return RunEndEncodedArray::Make(logical_length, std::move(run_ends),
+                                    std::move(values), logical_offset)
+        .ValueOrDie();
+  }
+
+  template <typename RunEndType>
+  void TestBasicsWithREEs() {
+    auto run_end_type = std::make_shared<RunEndType>();
+    auto value_type = utf8();
+    auto ree_type = run_end_encoded(run_end_type, value_type);
+
+    // empty REEs
+    base_ = RunEndEncodedArrayFromJSON(0, ree_type, "[]", "[]");
+    target_ = RunEndEncodedArrayFromJSON(0, ree_type, "[]", "[]");
+    DoDiff();
+    AssertInsertIs("[false]");
+    AssertRunLengthIs("[0]");
+
+    // null REE arrays of different lengths
+    base_ = RunEndEncodedArrayFromJSON(2, ree_type, "[2]", "[null]");
+    target_ = RunEndEncodedArrayFromJSON(4, ree_type, "[4]", "[null]");
+    DoDiff();
+    AssertInsertIs("[false, true, true]");
+    AssertRunLengthIs("[2, 0, 0]");
+
+    // identical REE arrays w/ offsets
+    base_ =
+        RunEndEncodedArrayFromJSON(110, ree_type, R"([20, 120])", R"(["a", "b"])", 10);
+    target_ =
+        RunEndEncodedArrayFromJSON(110, ree_type, R"([20, 120])", R"(["a", "b"])", 10);
+    DoDiff();
+    AssertInsertIs("[false]");
+    AssertRunLengthIs("[110]");
+
+    // equivalent REE arrays
+    base_ = RunEndEncodedArrayFromJSON(120, ree_type, R"([10, 20, 120])",
+                                       R"(["a", "a", "b"])");
+    target_ = RunEndEncodedArrayFromJSON(120, ree_type, R"([20, 30, 120])",
+                                         R"(["a", "b", "b"])");
+    DoDiff();
+    AssertInsertIs("[false]");
+    AssertRunLengthIs("[120]");
+
+    // slice so last run-end goes beyond length
+    base_ = base_->Slice(5, 105);
+    target_ = target_->Slice(5, 105);
+    DoDiff();
+    AssertInsertIs("[false]");
+    AssertRunLengthIs("[105]");
+
+    // insert one
+    base_ = RunEndEncodedArrayFromJSON(12, ree_type, R"([2, 12])", R"(["a", "b"])");
+    target_ = RunEndEncodedArrayFromJSON(13, ree_type, R"([3, 13])", R"(["a", "b"])");
+    DoDiff();
+    AssertInsertIs("[false, true]");
+    AssertRunLengthIs("[2, 10]");
+
+    // delete one
+    base_ =
+        RunEndEncodedArrayFromJSON(13, ree_type, R"([2, 5, 13])", R"(["a", "b", "c"])");
+    target_ =
+        RunEndEncodedArrayFromJSON(12, ree_type, R"([2, 4, 12])", R"(["a", "b", "c"])");
+    DoDiff();
+    AssertInsertIs("[false, false]");
+    AssertRunLengthIs("[4, 8]");
+
+    // null out one
+    base_ =
+        RunEndEncodedArrayFromJSON(12, ree_type, R"([2, 5, 12])", R"(["a", "b", "c"])");
+    target_ = RunEndEncodedArrayFromJSON(12, ree_type, R"([2, 4, 5, 12])",
+                                         R"(["a", "b", null, "c"])");
+    DoDiff();
+    AssertInsertIs("[false, false, true]");
+    AssertRunLengthIs("[4, 0, 7]");
+
+    // append some
+    base_ = RunEndEncodedArrayFromJSON(12, ree_type, R"([2, 4, 8, 12])",
+                                       R"(["a", "b", "c", "d"])");
+    target_ = RunEndEncodedArrayFromJSON(15, ree_type, R"([2, 4, 8, 13, 15])",
+                                         R"(["a", "b", "c", "d", "e"])");
+    DoDiff();
+    AssertInsertIs("[false, true, true, true]");
+    AssertRunLengthIs("[12, 0, 0, 0]");
+
+    // prepend some
+    base_ = RunEndEncodedArrayFromJSON(12, ree_type, R"([2, 4, 8, 12])",
+                                       R"(["c", "d", "e", "f"])");
+    target_ = RunEndEncodedArrayFromJSON(15, ree_type, R"([1, 3, 5, 7, 11, 15])",
+                                         R"(["a", "b", "c", "d", "e", "f"])");
+    DoDiff();
+    AssertInsertIs("[false, true, true, true]");
+    AssertRunLengthIs("[0, 0, 0, 12]");
+  }
+
   random::RandomArrayGenerator rng_;
   std::shared_ptr<StructArray> edits_;
   std::shared_ptr<Array> base_, target_;
@@ -415,6 +516,12 @@ TEST_F(DiffTest, BasicsWithSparseUnions) { TestBasicsWithUnions(UnionMode::SPARS
 
 TEST_F(DiffTest, BasicsWithDenseUnions) { TestBasicsWithUnions(UnionMode::DENSE); }
 
+TEST_F(DiffTest, BasicsWithREEs) {
+  TestBasicsWithREEs<Int16Type>();
+  TestBasicsWithREEs<Int32Type>();
+  TestBasicsWithREEs<Int64Type>();
+}
+
 TEST_F(DiffTest, UnifiedDiffFormatter) {
   // no changes
   base_ = ArrayFromJSON(utf8(), R"(["give", "me", "a", "break"])");
@@ -596,6 +703,19 @@ TEST_F(DiffTest, UnifiedDiffFormatter) {
 @@ -5, +8 @@
 +79
 +11
+)");
+  }
+
+  for (const auto& type : {
+           decimal128(10, 4),
+           decimal256(10, 4),
+       }) {
+    base_ = ArrayFromJSON(type, R"(["123.4567", "-78.9000"])");
+    target_ = ArrayFromJSON(type, R"(["123.4567", "-123.4567"])");
+    AssertDiffAndFormat(R"(
+@@ -1, +1 @@
+--78.9000
++-123.4567
 )");
   }
 }

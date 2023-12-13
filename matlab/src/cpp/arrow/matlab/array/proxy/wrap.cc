@@ -21,6 +21,7 @@
 #include "arrow/matlab/array/proxy/boolean_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/array/proxy/string_array.h"
+#include "arrow/matlab/array/proxy/list_array.h"
 #include "arrow/matlab/array/proxy/struct_array.h"
 
 namespace arrow::matlab::array::proxy {
@@ -62,6 +63,8 @@ namespace arrow::matlab::array::proxy {
                 return std::make_shared<proxy::NumericArray<arrow::Date64Type>>(std::static_pointer_cast<arrow::Date64Array>(array));
             case ID::STRING:
                 return std::make_shared<proxy::StringArray>(std::static_pointer_cast<arrow::StringArray>(array));
+            case ID::LIST:
+                return std::make_shared<proxy::ListArray>(std::static_pointer_cast<arrow::ListArray>(array));
             case ID::STRUCT:
                 return std::make_shared<proxy::StructArray>(std::static_pointer_cast<arrow::StructArray>(array));
             default:

@@ -1385,6 +1385,10 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         @staticmethod
         CResult[shared_ptr[COutputStream]] Open(const c_string& path)
 
+        @staticmethod
+        CResult[shared_ptr[COutputStream]] OpenWithAppend" Open"(
+            const c_string& path, c_bool append)
+
         int file_descriptor()
 
     cdef cppclass ReadableFile(CRandomAccessFile):
@@ -2743,13 +2747,13 @@ cdef extern from "arrow/array/concatenate.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/c/abi.h":
     cdef struct ArrowSchema:
-        pass
+        void (*release)(ArrowSchema*) noexcept nogil
 
     cdef struct ArrowArray:
-        pass
+        void (*release)(ArrowArray*) noexcept nogil
 
     cdef struct ArrowArrayStream:
-        pass
+        void (*release)(ArrowArrayStream*) noexcept nogil
 
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)

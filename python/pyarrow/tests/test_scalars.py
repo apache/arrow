@@ -633,7 +633,7 @@ def test_struct():
     assert s['y'].as_py() == 3.5
 
     with pytest.raises(KeyError):
-        s['non-existent']
+        s['nonexistent']
 
     s = pa.scalar(None, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']

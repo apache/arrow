@@ -562,7 +562,7 @@ class TestCookieParsing : public ::testing::Test {
     EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
   }
 
-  void VerifyCookieDateConverson(std::string date, const std::string& converted_date) {
+  void VerifyCookieDateConversion(std::string date, const std::string& converted_date) {
     internal::Cookie::ConvertCookieDate(&date);
     EXPECT_EQ(converted_date, date);
   }
@@ -646,21 +646,21 @@ TEST_F(TestCookieParsing, ToString) {
 }
 
 TEST_F(TestCookieParsing, DateConversion) {
-  VerifyCookieDateConverson("Mon, 01 jan 2038 22:15:36 GMT;", "01 01 2038 22:15:36");
-  VerifyCookieDateConverson("TUE, 10 Feb 2038 22:15:36 GMT", "10 02 2038 22:15:36");
-  VerifyCookieDateConverson("WED, 20 MAr 2038 22:15:36 GMT;", "20 03 2038 22:15:36");
-  VerifyCookieDateConverson("thu, 15 APR 2038 22:15:36 GMT", "15 04 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 30 mAY 2038 22:15:36 GMT;", "30 05 2038 22:15:36");
-  VerifyCookieDateConverson("Sat, 03 juN 2038 22:15:36 GMT", "03 06 2038 22:15:36");
-  VerifyCookieDateConverson("Sun, 01 JuL 2038 22:15:36 GMT;", "01 07 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 06 aUg 2038 22:15:36 GMT", "06 08 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 SEP 2038 22:15:36 GMT;", "01 09 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 OCT 2038 22:15:36 GMT", "01 10 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 Nov 2038 22:15:36 GMT;", "01 11 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 deC 2038 22:15:36 GMT", "01 12 2038 22:15:36");
-  VerifyCookieDateConverson("", "");
-  VerifyCookieDateConverson("Fri, 01 INVALID 2038 22:15:36 GMT;",
-                            "01 INVALID 2038 22:15:36");
+  VerifyCookieDateConversion("Mon, 01 jan 2038 22:15:36 GMT;", "01 01 2038 22:15:36");
+  VerifyCookieDateConversion("TUE, 10 Feb 2038 22:15:36 GMT", "10 02 2038 22:15:36");
+  VerifyCookieDateConversion("WED, 20 MAr 2038 22:15:36 GMT;", "20 03 2038 22:15:36");
+  VerifyCookieDateConversion("thu, 15 APR 2038 22:15:36 GMT", "15 04 2038 22:15:36");
+  VerifyCookieDateConversion("Fri, 30 mAY 2038 22:15:36 GMT;", "30 05 2038 22:15:36");
+  VerifyCookieDateConversion("Sat, 03 juN 2038 22:15:36 GMT", "03 06 2038 22:15:36");
+  VerifyCookieDateConversion("Sun, 01 JuL 2038 22:15:36 GMT;", "01 07 2038 22:15:36");
+  VerifyCookieDateConversion("Fri, 06 aUg 2038 22:15:36 GMT", "06 08 2038 22:15:36");
+  VerifyCookieDateConversion("Fri, 01 SEP 2038 22:15:36 GMT;", "01 09 2038 22:15:36");
+  VerifyCookieDateConversion("Fri, 01 OCT 2038 22:15:36 GMT", "01 10 2038 22:15:36");
+  VerifyCookieDateConversion("Fri, 01 Nov 2038 22:15:36 GMT;", "01 11 2038 22:15:36");
+  VerifyCookieDateConversion("Fri, 01 deC 2038 22:15:36 GMT", "01 12 2038 22:15:36");
+  VerifyCookieDateConversion("", "");
+  VerifyCookieDateConversion("Fri, 01 INVALID 2038 22:15:36 GMT;",
+                             "01 INVALID 2038 22:15:36");
 }
 
 TEST_F(TestCookieParsing, ParseCookieAttribute) {

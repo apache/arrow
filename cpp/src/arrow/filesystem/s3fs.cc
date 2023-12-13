@@ -951,7 +951,8 @@ class ClientBuilder {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
 
-    const bool use_virtual_addressing = options_.endpoint_override.empty();
+    const bool use_virtual_addressing =
+        options_.endpoint_override.empty() || options_.force_virtual_addressing;
 
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
@@ -1042,7 +1043,7 @@ class RegionResolver {
     lock.unlock();
     ARROW_ASSIGN_OR_RAISE(auto region, ResolveRegionUncached(bucket));
     lock.lock();
-    // Note we don't cache a non-existent bucket, as the bucket could be created later
+    // Note we don't cache a nonexistent bucket, as the bucket could be created later
     cache_[bucket] = region;
     return region;
   }
@@ -1546,7 +1547,7 @@ class ObjectOutputStream final : public io::OutputStream {
       nbytes -= offset;
     };
 
-    // Handle case where we have some bytes bufferred from prior calls.
+    // Handle case where we have some bytes buffered from prior calls.
     if (current_part_size_ > 0) {
       // Try to fill current buffer
       const int64_t to_copy = std::min(nbytes, kPartUploadSize - current_part_size_);
@@ -2408,7 +2409,16 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
                   std::vector<std::string> file_paths;
                   for (const auto& file_info : file_infos) {
                     DCHECK_GT(file_info.path().size(), bucket.size());
-                    file_paths.push_back(file_info.path().substr(bucket.size() + 1));
+                    auto file_path = file_info.path().substr(bucket.size() + 1);
+                    if (file_info.IsDirectory()) {
+                      // The selector returns FileInfo objects for directories with a
+                      // a path that never ends in a trailing slash, but for AWS the file
+                      // needs to have a trailing slash to recognize it as directory
+                      // (https://github.com/apache/arrow/issues/38618)
+                      DCHECK_OK(internal::AssertNoTrailingSlash(file_path));
+                      file_path = file_path + kSep;
+                    }
+                    file_paths.push_back(std::move(file_path));
                   }
                   scheduler->AddSimpleTask(
                       [=, file_paths = std::move(file_paths)] {
@@ -2987,7 +2997,7 @@ Status InitializeS3(const S3GlobalOptions& options) {
 }
 
 Status EnsureS3Initialized() {
-  return EnsureAwsInstanceInitialized({S3LogLevel::Fatal}).status();
+  return EnsureAwsInstanceInitialized(S3GlobalOptions::Defaults()).status();
 }
 
 Status FinalizeS3() {
@@ -3000,6 +3010,36 @@ Status EnsureS3Finalized() { return FinalizeS3(); }
 bool IsS3Initialized() { return GetAwsInstance()->IsInitialized(); }
 
 bool IsS3Finalized() { return GetAwsInstance()->IsFinalized(); }
+
+S3GlobalOptions S3GlobalOptions::Defaults() {
+  auto log_level = S3LogLevel::Fatal;
+
+  auto result = arrow::internal::GetEnvVar("ARROW_S3_LOG_LEVEL");
+
+  if (result.ok()) {
+    // Extract, trim, and downcase the value of the environment variable
+    auto value =
+        arrow::internal::AsciiToLower(arrow::internal::TrimString(result.ValueUnsafe()));
+
+    if (value == "fatal") {
+      log_level = S3LogLevel::Fatal;
+    } else if (value == "error") {
+      log_level = S3LogLevel::Error;
+    } else if (value == "warn") {
+      log_level = S3LogLevel::Warn;
+    } else if (value == "info") {
+      log_level = S3LogLevel::Info;
+    } else if (value == "debug") {
+      log_level = S3LogLevel::Debug;
+    } else if (value == "trace") {
+      log_level = S3LogLevel::Trace;
+    } else if (value == "off") {
+      log_level = S3LogLevel::Off;
+    }
+  }
+
+  return S3GlobalOptions{log_level};
+}
 
 // -----------------------------------------------------------------------
 // Top-level utility functions

@@ -175,6 +175,9 @@ class PARQUET_EXPORT ColumnWriter {
   /// total_bytes_written().
   virtual int64_t total_compressed_bytes_written() const = 0;
 
+  /// \brief Estimated size of the values that are not written to a page yet.
+  virtual int64_t estimated_buffered_value_bytes() const = 0;
+
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;
 
@@ -239,9 +242,6 @@ class TypedColumnWriter : public ColumnWriter {
   virtual void WriteBatchSpaced(int64_t num_values, const int16_t* def_levels,
                                 const int16_t* rep_levels, const uint8_t* valid_bits,
                                 int64_t valid_bits_offset, const T* values) = 0;
-
-  // Estimated size of the values that are not written to a page yet
-  virtual int64_t EstimatedBufferedValueBytes() const = 0;
 };
 
 using BoolWriter = TypedColumnWriter<BooleanType>;

@@ -100,7 +100,7 @@ struct PARQUET_EXPORT LevelInfo {
     }
   }
 
-  /// Incremetns level for a optional node.
+  /// Increments level for a optional node.
   void IncrementOptional() { def_level++; }
 
   /// Increments levels for the repeated node.  Returns
@@ -112,13 +112,31 @@ struct PARQUET_EXPORT LevelInfo {
     // to distinguish between an empty list and a list with an item in it.
     ++rep_level;
     ++def_level;
-    // For levels >= repeated_ancenstor_def_level it indicates the list was
+    // For levels >= repeated_ancestor_def_level it indicates the list was
     // non-null and had at least one element.  This is important
     // for later decoding because we need to add a slot for these
     // values.  for levels < current_def_level no slots are added
     // to arrays.
     repeated_ancestor_def_level = def_level;
     return last_repeated_ancestor;
+  }
+
+  // Calculates and returns LevelInfo for a column descriptor.
+  static LevelInfo ComputeLevelInfo(const ColumnDescriptor* descr) {
+    LevelInfo level_info;
+    level_info.def_level = descr->max_definition_level();
+    level_info.rep_level = descr->max_repetition_level();
+
+    int16_t min_spaced_def_level = descr->max_definition_level();
+    const ::parquet::schema::Node* node = descr->schema_node().get();
+    while (node && !node->is_repeated()) {
+      if (node->is_optional()) {
+        min_spaced_def_level--;
+      }
+      node = node->parent();
+    }
+    level_info.repeated_ancestor_def_level = min_spaced_def_level;
+    return level_info;
   }
 
   friend std::ostream& operator<<(std::ostream& os, const LevelInfo& levels) {

@@ -45,11 +45,11 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/endian"
-	"github.com/apache/arrow/go/v14/arrow/internal"
-	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
@@ -274,7 +274,7 @@ func (exp *schemaExporter) export(field arrow.Field) {
 		exp.dict = new(schemaExporter)
 		exp.dict.export(arrow.Field{Type: dt.ValueType})
 	case arrow.NestedType:
-		exp.children = make([]schemaExporter, len(dt.Fields()))
+		exp.children = make([]schemaExporter, dt.NumFields())
 		for i, f := range dt.Fields() {
 			exp.children[i].export(f)
 		}

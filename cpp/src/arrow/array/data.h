@@ -28,6 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -37,7 +38,7 @@ struct ArrayData;
 
 namespace internal {
 // ----------------------------------------------------------------------
-// Null handling for types without a validity bitmap
+// Null handling for types without a validity bitmap and the dictionary type
 
 ARROW_EXPORT bool IsNullSparseUnion(const ArrayData& data, int64_t i);
 ARROW_EXPORT bool IsNullDenseUnion(const ArrayData& data, int64_t i);
@@ -45,6 +46,7 @@ ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
 
 ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
+ARROW_EXPORT bool DictionaryMayHaveLogicalNulls(const ArrayData& data);
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
@@ -279,7 +281,7 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls
+  /// nulls, or if the dictionary of dictionay array may have nulls.
   ///
   /// This is not a drop-in replacement for MayHaveNulls, as historically
   /// MayHaveNulls() has been used to check for the presence of a validity
@@ -323,6 +325,9 @@ struct ARROW_EXPORT ArrayData {
     }
     if (t == Type::RUN_END_ENCODED) {
       return internal::RunEndEncodedMayHaveLogicalNulls(*this);
+    }
+    if (t == Type::DICTIONARY) {
+      return internal::DictionaryMayHaveLogicalNulls(*this);
     }
     return null_count.load() != 0;
   }
@@ -472,10 +477,12 @@ struct ARROW_EXPORT ArraySpan {
   void SetSlice(int64_t offset, int64_t length) {
     this->offset = offset;
     this->length = length;
-    if (this->type->id() != Type::NA) {
+    if (this->type->id() == Type::NA) {
+      this->null_count = this->length;
+    } else if (this->MayHaveNulls()) {
       this->null_count = kUnknownNullCount;
     } else {
-      this->null_count = this->length;
+      this->null_count = 0;
     }
   }
 
@@ -502,7 +509,7 @@ struct ARROW_EXPORT ArraySpan {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls
+  /// nulls, or if the dictionary of dictionay array may have nulls.
   ///
   /// \see ArrayData::MayHaveLogicalNulls
   bool MayHaveLogicalNulls() const {
@@ -515,6 +522,9 @@ struct ARROW_EXPORT ArraySpan {
     }
     if (t == Type::RUN_END_ENCODED) {
       return RunEndEncodedMayHaveLogicalNulls();
+    }
+    if (t == Type::DICTIONARY) {
+      return DictionaryMayHaveLogicalNulls();
     }
     return null_count != 0;
   }
@@ -529,6 +539,16 @@ struct ARROW_EXPORT ArraySpan {
   ///
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
+
+  /// Some DataTypes (StringView, BinaryView) may have an arbitrary number of variadic
+  /// buffers. Since ArraySpan only has 3 buffers, we pack the variadic buffers into
+  /// buffers[2]; IE buffers[2].data points to the first shared_ptr<Buffer> of the
+  /// variadic set and buffers[2].size is the number of variadic buffers times
+  /// sizeof(shared_ptr<Buffer>).
+  ///
+  /// \see HasVariadicBuffers
+  util::span<const std::shared_ptr<Buffer>> GetVariadicBuffers() const;
+  bool HasVariadicBuffers() const;
 
  private:
   ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& span,
@@ -547,6 +567,7 @@ struct ARROW_EXPORT ArraySpan {
 
   bool UnionMayHaveLogicalNulls() const;
   bool RunEndEncodedMayHaveLogicalNulls() const;
+  bool DictionaryMayHaveLogicalNulls() const;
 };
 
 namespace internal {

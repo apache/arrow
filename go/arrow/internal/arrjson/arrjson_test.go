@@ -22,9 +22,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,6 +48,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["dictionary"] = makeDictionaryWantJSONs()
 	wantJSONs["union"] = makeUnionWantJSONs()
 	wantJSONs["run_end_encoded"] = makeRunEndEncodedWantJSONs()
+	wantJSONs["view_types"] = makeViewTypesWantJSONs()
 	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
@@ -6121,6 +6122,264 @@ func makeRunEndEncodedWantJSONs() string {
               ]
             }
           ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeViewTypesWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "binary_view",
+        "type": {
+          "name": "binaryview"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "string_view",
+        "type": {
+          "name": "utf8view"
+        },
+        "nullable": true,
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "binary_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "SIZE": 3,
+              "INLINED": "31C3A9"
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "34"
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "35"
+            }
+          ],
+          "VARIADIC_BUFFERS": [""]
+        },
+        {
+          "name": "string_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "SIZE": 3,
+              "INLINED": "1é" 
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "4"
+            },
+            {
+              "SIZE": 1,
+              "INLINED": "5"
+            }
+          ],
+          "VARIADIC_BUFFERS": [""]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "binary_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "SIZE": 3,
+              "INLINED": "31C3A9"
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "34343434"
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "35353535"
+            }
+          ],
+          "VARIADIC_BUFFERS": [""]
+        },
+        {
+          "name": "string_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "SIZE": 3,
+              "INLINED": "1é"              
+            },
+            {
+              "SIZE": 14,
+              "PREFIX": "32323232",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 0
+            },
+            {
+              "SIZE": 14,
+              "PREFIX": "33333333",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 14
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "4444"
+            },
+            {
+              "SIZE": 4,
+              "INLINED": "5555"
+            }
+          ],
+          "VARIADIC_BUFFERS": [
+            "32323232323232323232323232323333333333333333333333333333"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "binary_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "SIZE": 6,
+              "INLINED": "31C3A931C3A9"
+            },
+            {
+              "SIZE": 14,
+              "PREFIX": "32323232",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 0
+            },
+            {
+              "SIZE": 14,
+              "PREFIX": "33333333",
+              "BUFFER_INDEX": 0,
+              "OFFSET": 14
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "3434"
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "3535"
+            }
+          ],
+          "VARIADIC_BUFFERS": [
+            "32323232323232323232323232323333333333333333333333333333"
+          ]
+        },
+        {
+          "name": "string_view",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            {
+              "SIZE": 6,
+              "INLINED": "1é1é"
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 0,
+              "INLINED": ""
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "44"
+            },
+            {
+              "SIZE": 2,
+              "INLINED": "55"
+            }
+          ],
+          "VARIADIC_BUFFERS": [""]
         }
       ]
     }

@@ -71,18 +71,18 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -149,13 +149,6 @@ jobs:
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
-          rm -f /usr/local/bin/2to3* || :
-          rm -f /usr/local/bin/idle3* || :
-          rm -f /usr/local/bin/pydoc3* || :
-          rm -f /usr/local/bin/python3* || :
-          rm -f /usr/local/bin/python3-config || :
-          brew update --preinstall || :
-          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
       - name: Install Ruby Dependencies
@@ -203,7 +196,9 @@ jobs:
         mingw-n-bits:
           - 64
         ruby-version:
-          - ruby
+          # TODO: Use the latest Ruby again when we fix GH-39130.
+          # - ruby
+          - "3.1"
     env:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
@@ -253,13 +248,6 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
-      - name: Upgrade MSYS2
-        run: |
-          ridk exec bash ci\scripts\msys2_system_upgrade.sh
-          taskkill /F /FI "MODULES eq msys-2.0.dll"
-      - name: Clean MSYS2
-        run: |
-          ridk exec bash ci\scripts\msys2_system_clean.sh
       - name: Setup MSYS2
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby

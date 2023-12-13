@@ -1014,11 +1014,8 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         Returns
         -------
-        data : FlightStreamChunk
+        chunk : FlightStreamChunk
             The next FlightStreamChunk in the stream.
-        app_metadata : Buffer or None
-            Application-specific metadata for the batch as defined by
-            Flight.
 
         Raises
         ------
@@ -2667,7 +2664,7 @@ cdef class TracingServerMiddlewareFactory(ServerMiddlewareFactory):
 cdef class ServerMiddleware(_Weakrefable):
     """Server-side middleware for a call, instantiated per RPC.
 
-    Methods here should be fast and must be infalliable: they should
+    Methods here should be fast and must be infallible: they should
     not raise exceptions or stall indefinitely.
 
     """

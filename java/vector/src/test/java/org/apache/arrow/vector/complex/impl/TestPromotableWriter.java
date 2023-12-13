@@ -28,6 +28,10 @@ import java.nio.ByteOrder;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
+import org.apache.arrow.vector.LargeVarBinaryVector;
+import org.apache.arrow.vector.LargeVarCharVector;
+import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -43,6 +47,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -390,6 +395,198 @@ public class TestPromotableWriter {
 
       lv.close();
       buf.close();
+    }
+  }
+
+  @Test
+  public void testPromoteLargeVarCharHelpersOnStruct() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.largeVarChar("c").writeLargeVarChar(new Text("foo"));
+      writer.setPosition(1);
+      writer.largeVarChar("c").writeLargeVarChar("foo2");
+      writer.end();
+
+      final LargeVarCharVector uv = v.getChild("c", LargeVarCharVector.class);
+      assertEquals("foo", uv.getObject(0).toString());
+      assertEquals("foo2", uv.getObject(1).toString());
+    }
+  }
+
+  @Test
+  public void testPromoteVarCharHelpersOnStruct() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.varChar("c").writeVarChar(new Text("foo"));
+      writer.setPosition(1);
+      writer.varChar("c").writeVarChar("foo2");
+      writer.end();
+
+      final VarCharVector uv = v.getChild("c", VarCharVector.class);
+      assertEquals("foo", uv.getObject(0).toString());
+      assertEquals("foo2", uv.getObject(1).toString());
+    }
+  }
+
+  @Test
+  public void testPromoteVarCharHelpersDirect() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.writeVarChar(new Text("foo"));
+      writer.setPosition(1);
+      writer.writeVarChar("foo2");
+      writer.end();
+
+      // The "test" vector in the parent container should have been replaced with a UnionVector.
+      UnionVector promotedVector = container.getChild("test", UnionVector.class);
+      VarCharVector vector = promotedVector.getVarCharVector();
+      assertEquals("foo", vector.getObject(0).toString());
+      assertEquals("foo2", vector.getObject(1).toString());
+    }
+  }
+
+  @Test
+  public void testPromoteLargeVarCharHelpersDirect() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.writeLargeVarChar(new Text("foo"));
+      writer.setPosition(1);
+      writer.writeLargeVarChar("foo2");
+      writer.end();
+
+      // The "test" vector in the parent container should have been replaced with a UnionVector.
+      UnionVector promotedVector = container.getChild("test", UnionVector.class);
+      LargeVarCharVector vector = promotedVector.getLargeVarCharVector();
+      assertEquals("foo", vector.getObject(0).toString());
+      assertEquals("foo2", vector.getObject(1).toString());
+    }
+  }
+
+  @Test
+  public void testPromoteVarBinaryHelpersOnStruct() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.varBinary("c").writeVarBinary("row1".getBytes());
+      writer.setPosition(1);
+      writer.varBinary("c").writeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.setPosition(2);
+      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.setPosition(3);
+      writer.varBinary("c").writeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.end();
+
+      final VarBinaryVector uv = v.getChild("c", VarBinaryVector.class);
+      assertEquals("row1", new String(uv.get(0)));
+      assertEquals("row2", new String(uv.get(1)));
+      assertEquals("row3", new String(uv.get(2)));
+      assertEquals("row4", new String(uv.get(3)));
+    }
+  }
+
+  @Test
+  public void testPromoteVarBinaryHelpersDirect() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.writeVarBinary("row1".getBytes());
+      writer.setPosition(1);
+      writer.writeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.setPosition(2);
+      writer.writeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.setPosition(3);
+      writer.writeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.end();
+
+      // The "test" vector in the parent container should have been replaced with a UnionVector.
+      UnionVector promotedVector = container.getChild("test", UnionVector.class);
+      VarBinaryVector uv = promotedVector.getVarBinaryVector();
+      assertEquals("row1", new String(uv.get(0)));
+      assertEquals("row2", new String(uv.get(1)));
+      assertEquals("row3", new String(uv.get(2)));
+      assertEquals("row4", new String(uv.get(3)));
+    }
+  }
+
+  @Test
+  public void testPromoteLargeVarBinaryHelpersOnStruct() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.largeVarBinary("c").writeLargeVarBinary("row1".getBytes());
+      writer.setPosition(1);
+      writer.largeVarBinary("c").writeLargeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.setPosition(2);
+      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.setPosition(3);
+      writer.largeVarBinary("c").writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.end();
+
+      final LargeVarBinaryVector uv = v.getChild("c", LargeVarBinaryVector.class);
+      assertEquals("row1", new String(uv.get(0)));
+      assertEquals("row2", new String(uv.get(1)));
+      assertEquals("row3", new String(uv.get(2)));
+      assertEquals("row4", new String(uv.get(3)));
+    }
+  }
+
+  @Test
+  public void testPromoteLargeVarBinaryHelpersDirect() throws Exception {
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+      container.allocateNew();
+
+      writer.start();
+      writer.setPosition(0);
+      writer.writeLargeVarBinary("row1".getBytes());
+      writer.setPosition(1);
+      writer.writeLargeVarBinary("row2".getBytes(), 0, "row2".getBytes().length);
+      writer.setPosition(2);
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row3".getBytes()));
+      writer.setPosition(3);
+      writer.writeLargeVarBinary(ByteBuffer.wrap("row4".getBytes()), 0, "row4".getBytes().length);
+      writer.end();
+
+      // The "test" vector in the parent container should have been replaced with a UnionVector.
+      UnionVector promotedVector = container.getChild("test", UnionVector.class);
+      LargeVarBinaryVector uv = promotedVector.getLargeVarBinaryVector();
+      assertEquals("row1", new String(uv.get(0)));
+      assertEquals("row2", new String(uv.get(1)));
+      assertEquals("row3", new String(uv.get(2)));
+      assertEquals("row4", new String(uv.get(3)));
     }
   }
 }
