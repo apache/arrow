@@ -668,9 +668,9 @@ def test_cache_options():
     opts1 = pa.CacheOptions()
     opts2 = pa.CacheOptions(hole_size_limit=1024)
     opts3 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
-    opts4 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True)
+    opts4 = pa.CacheOptions(hole_size_limit=4096, range_size_limit=8192, prefetch_limit=5)
     opts5 = pa.CacheOptions(hole_size_limit=4096,
-                            range_size_limit=8192, lazy=True, prefetch_limit=5)
+                            range_size_limit=8192, lazy=False)
     opts6 = pa.CacheOptions.from_network_metrics(time_to_first_byte_millis=100,
                                                  transfer_bandwidth_mib_per_sec=200,
                                                  ideal_bandwidth_utilization_frac=0.9,
@@ -678,28 +678,28 @@ def test_cache_options():
 
     assert opts1.hole_size_limit == 8192
     assert opts1.range_size_limit == 32 * 1024 * 1024
-    assert opts1.lazy is False
-    assert opts4.prefetch_limit == 0
+    assert opts1.lazy is True
+    assert opts1.prefetch_limit == 0
 
     assert opts2.hole_size_limit == 1024
     assert opts2.range_size_limit == 32 * 1024 * 1024
-    assert opts2.lazy is False
-    assert opts4.prefetch_limit == 0
+    assert opts2.lazy is True
+    assert opts2.prefetch_limit == 0
 
     assert opts3.hole_size_limit == 4096
     assert opts3.range_size_limit == 8192
-    assert opts3.lazy is False
-    assert opts4.prefetch_limit == 0
+    assert opts3.lazy is True
+    assert opts3.prefetch_limit == 0
 
     assert opts4.hole_size_limit == 4096
     assert opts4.range_size_limit == 8192
     assert opts4.lazy is True
-    assert opts4.prefetch_limit == 0
+    assert opts4.prefetch_limit == 5
 
     assert opts5.hole_size_limit == 4096
     assert opts5.range_size_limit == 8192
-    assert opts5.lazy is True
-    assert opts5.prefetch_limit == 5
+    assert opts5.lazy is False
+    assert opts5.prefetch_limit == 0
 
     assert opts6.lazy is False
 

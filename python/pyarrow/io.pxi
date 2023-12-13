@@ -2133,7 +2133,7 @@ cdef class CacheOptions(_Weakrefable):
         The maximum size in bytes of a combined range; if combining two 
         consecutive ranges would produce a range of a size greater than this, 
         they are not combined
-    lazy : bool, default False
+    lazy : bool, default True
         lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
         lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader 
         needs them. 
@@ -2146,7 +2146,7 @@ cdef class CacheOptions(_Weakrefable):
     """
 
     def __init__(self, *, hole_size_limit=None, range_size_limit=None, lazy=None, prefetch_limit=None):
-        self.wrapped = CCacheOptions.Defaults()
+        self.wrapped = CCacheOptions.LazyDefaults()
         if hole_size_limit is not None:
             self.hole_size_limit = hole_size_limit
         if range_size_limit is not None:

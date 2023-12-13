@@ -1361,7 +1361,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                                              int64_t max_ideal_request_size_mib)
 
         @staticmethod
-        CCacheOptions Defaults()
+        CCacheOptions LazyDefaults()
 
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
