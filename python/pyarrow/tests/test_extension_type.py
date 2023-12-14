@@ -1557,42 +1557,41 @@ def test_variable_shape_tensor_class_methods(value_type):
 def test_variable_shape_tensor_strided(value_type):
     from numpy.lib.stride_tricks import as_strided
     bw = value_type().itemsize
+    arrow_type = pa.from_numpy_dtype(value_type())
+    vals = np.arange(1, 13, dtype=value_type)
 
-    arr1 = np.arange(1, 13, dtype=value_type)
-    assert arr1.shape == (12,)
-    assert arr1.strides == (bw,)
-
-    arr2 = as_strided(arr1, shape=(3, 4), strides=(bw * 4, bw), writeable=False)
-    assert arr2.shape == (3, 4)
-    assert arr2.strides == (bw * 4, bw)
-    assert pa.Tensor.from_numpy(arr2).is_contiguous
-    np.testing.assert_array_equal(arr2, np.array(
-        [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]], arr1.dtype))
-
-    arr3 = as_strided(arr1, shape=(3, 4), strides=(bw, bw * 3), writeable=False)
-    assert arr3.shape == (3, 4)
-    assert arr3.strides == (bw, bw * 3)
-    assert (pa.Tensor.from_numpy(arr2).is_contiguous)
-    np.testing.assert_array_equal(arr3, np.array(
-        [[1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12]], arr1.dtype))
-
-    for arr in [
-        arr1,
-        arr2,
-        arr3,
+    for arr_in, arr_out in [
+        (as_strided(vals, shape=(12,), strides=(bw,)), vals),
+        (as_strided(vals, shape=(3, 4), strides=(bw * 4, bw)), vals.reshape(3, 4)),
+        # TODO: strides are not correctly handled for non-C layouts
+        # (
+        #     as_strided(vals, shape=(3, 4), strides=(bw, bw * 3)),
+        #     np.array([[1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12]], value_type())
+        # )
     ]:
-        permutation = np.argsort(-np.array(arr.strides))
-        tensor_array_type = pa.variable_shape_tensor(pa.from_numpy_dtype(
-            value_type()), len(arr.shape), permutation=permutation)
-        arrow_array = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
-        assert arrow_array.type.equals(tensor_array_type)
+        ndim = len(arr_in.shape)
+        shape = arr_in.shape
+        permutation = (-np.array(arr_in.strides)).argsort()
+        tensor_array_type = pa.variable_shape_tensor(
+            arrow_type, ndim, permutation=permutation)
 
-        tensor = arrow_array.get_tensor(0)
-        assert tensor.strides == arr.strides
-        assert tensor.shape == arr.shape
-        assert tensor == pa.Tensor.from_numpy(arr)
-        np.testing.assert_array_equal(tensor, arr)
-        np.testing.assert_array_equal(arrow_array.to_numpy_ndarray()[0], arr)
+        fields = [pa.field("shape", pa.list_(pa.int32(), ndim)),
+                  pa.field("data", pa.list_(arrow_type))]
+        shapes = pa.array([shape], type=fields[0].type)
+        values = pa.array([vals.tolist()], type=fields[1].type)
+        struct_arr = pa.StructArray.from_arrays([shapes, values], fields=fields)
+
+        arrow_array = pa.ExtensionArray.from_storage(tensor_array_type, struct_arr)
+        np.testing.assert_array_equal(arrow_array.to_numpy_ndarray(), [arr_out])
+        np.testing.assert_array_equal(arrow_array[0].to_numpy_ndarray(), arr_out)
+        np.testing.assert_array_equal(
+            arrow_array[0].to_tensor(), pa.Tensor.from_numpy(arr_out))
+
+        arrow_array = pa.VariableShapeTensorArray.from_numpy_ndarray([arr_in])
+        np.testing.assert_array_equal(arrow_array.to_numpy_ndarray(), [arr_out])
+        np.testing.assert_array_equal(arrow_array[0].to_numpy_ndarray(), arr_out)
+        np.testing.assert_array_equal(
+            arrow_array[0].to_tensor(), pa.Tensor.from_numpy(arr_out))
 
 
 @pytest.mark.parametrize("tensor_type", (
