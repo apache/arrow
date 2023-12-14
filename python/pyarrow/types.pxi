@@ -1748,7 +1748,7 @@ cdef class VariableShapeTensorType(BaseExtensionType):
 
     >>> import pyarrow as pa
     >>> pa.variable_shape_tensor(pa.int32(), 2)
-    VariableShapeTensorType(extension<arrow.variable_shape_tensor>)
+    VariableShapeTensorType(extension<arrow.variable_shape_tensor[value_type=int32, ndim=2]>)
 
     Create an instance of variable shape tensor extension type with
     permutation:
@@ -5338,7 +5338,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
     >>> import pyarrow as pa
     >>> tensor_type = pa.variable_shape_tensor(pa.int32(), 2)
     >>> tensor_type
-    VariableShapeTensorType(extension<arrow.variable_shape_tensor>)
+    VariableShapeTensorType(extension<arrow.variable_shape_tensor[value_type=int32, ndim=2]>)
 
     Inspect the data type:
 
