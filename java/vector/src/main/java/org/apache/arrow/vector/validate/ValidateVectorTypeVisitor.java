@@ -280,7 +280,7 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
       validateOrThrow(arrowType.getByteWidth() > 0, "The byte width of a FixedSizeBinaryVector %s is not positive.",
           arrowType.getByteWidth());
       validateOrThrow(arrowType.getByteWidth() == vector.getTypeWidth(),
-          "Type width mismatch for FixedSizeBinaryVector. Vector type width %s, arrow type type width %s.",
+          "Type width mismatch for FixedSizeBinaryVector. Vector type width %s, arrow type width %s.",
           vector.getTypeWidth(), arrowType.getByteWidth());
     } else {
       throw new IllegalArgumentException("Unknown type for fixed width vector " + vector.getClass());
