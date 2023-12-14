@@ -20,16 +20,6 @@
 #include "arrow/extension_type.h"
 
 namespace arrow {
-namespace internal {
-
-ARROW_EXPORT
-Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                      const std::vector<int64_t>& shape,
-                      const std::vector<int64_t>& permutation,
-                      std::vector<int64_t>* strides);
-
-}  // namespace internal
-
 namespace extension {
 
 class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
