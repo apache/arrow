@@ -27,7 +27,9 @@
 #include "arrow/tensor.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/print.h"
 #include "arrow/util/sort.h"
+#include "arrow/util/string.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -62,6 +64,32 @@ bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const 
   return (storage_type()->Equals(other_ext.storage_type())) &&
          (dim_names_ == other_ext.dim_names()) &&
          (uniform_shape_ == other_ext.uniform_shape()) && permutation_equivalent;
+}
+
+std::string VariableShapeTensorType::ToString() const {
+  std::stringstream ss;
+  ss << "extension<" << this->extension_name()
+     << "[value_type=" << value_type_->ToString() << ", ndim=" << ndim_;
+
+  if (!permutation_.empty()) {
+    ss << ", permutation=" << ::arrow::internal::PrintVector{permutation_, ","};
+  }
+  if (!dim_names_.empty()) {
+    ss << ", dim_names=[" << internal::JoinStrings(dim_names_, ",") << "]";
+  }
+  if (!uniform_shape_.empty()) {
+    std::vector<std::string> uniform_shape;
+    for (const auto& v : uniform_shape_) {
+      if (v.has_value()) {
+        uniform_shape.emplace_back(std::to_string(v.value()));
+      } else {
+        uniform_shape.emplace_back("null");
+      }
+    }
+    ss << ", uniform_shape=[" << internal::JoinStrings(uniform_shape, ",") << "]";
+  }
+  ss << "]>";
+  return ss.str();
 }
 
 std::string VariableShapeTensorType::Serialize() const {
