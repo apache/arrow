@@ -1417,19 +1417,40 @@ func (b *baseListViewBuilder) UnmarshalJSON(data []byte) error {
 //	input.DataType() is ListViewType if Offset=int32 or LargeListViewType if Offset=int64
 //	input.Len() > 0
 func minListViewOffset[Offset int32 | int64](input arrow.ArrayData) Offset {
-	inputOffset := input.Offset()
-	offsets := arrow.GetData[Offset](input.Buffers()[1].Bytes())[inputOffset:]
+	var bitmap []byte
+	if input.Buffers()[0] != nil {
+		bitmap = input.Buffers()[0].Bytes()
+	}
+	offsets := arrow.GetData[Offset](input.Buffers()[1].Bytes())[input.Offset():]
+	sizes := arrow.GetData[Offset](input.Buffers()[2].Bytes())[input.Offset():]
 
+	isNull := func(i int) bool {
+		return bitmap != nil && bitutil.BitIsNotSet(bitmap, input.Offset()+i)
+	}
+
+	// It's very likely that the first non-null non-empty list-view starts at
+	// offset 0 of the child array.
 	i := 0
-	minOffset := offsets[i] // safe because input.Len() > 0
+	for i < input.Len() && (isNull(i) || sizes[i] == 0) {
+		i += 1
+	}
+	if i >= input.Len() {
+		return 0
+	}
+	minOffset := offsets[i]
+	if minOffset == 0 {
+		// early exit: offset 0 found already
+		return 0
+	}
 
-	for i += 1; i < input.Len(); i += 1 {
-		if minOffset == 0 {
-			// Fast path: the minimum offset is frequently 0 (the start of the child array),
-			// and frequently a view which has this offset will be near the start of the array.
-			return 0
+	// Slow path: scan the buffers entirely.
+	i += 1
+	for ; i < input.Len(); i += 1 {
+		if isNull(i) {
+			continue
 		}
-		if offset := offsets[i]; offset < minOffset {
+		offset := offsets[i]
+		if offset < minOffset && sizes[i] > 0 {
 			minOffset = offset
 		}
 	}
@@ -1441,25 +1462,52 @@ func minListViewOffset[Offset int32 | int64](input arrow.ArrayData) Offset {
 // Pre-conditions:
 //
 //	input.DataType() is ListViewType if Offset=int32 or LargeListViewType if Offset=int64
-//	input.Len() > 0
+//	input.Len() > 0 && input.NullN() != input.Len()
 func maxListViewEnd[Offset int32 | int64](input arrow.ArrayData) Offset {
 	inputOffset := input.Offset()
+	var bitmap []byte
+	if input.Buffers()[0] != nil {
+		bitmap = input.Buffers()[0].Bytes()
+	}
 	offsets := arrow.GetData[Offset](input.Buffers()[1].Bytes())[inputOffset:]
 	sizes := arrow.GetData[Offset](input.Buffers()[2].Bytes())[inputOffset:]
 
-	maxLegalOffset := Offset(input.Children()[0].Len())
+	isNull := func(i int) bool {
+		return bitmap != nil && bitutil.BitIsNotSet(bitmap, inputOffset+i)
+	}
 
-	i := input.Len() - 1
-	maxEnd := offsets[i] + sizes[i] // safe because input.Len() > 0
-
-	for i -= 1; i >= 0; i -= 1 {
-		if maxEnd == maxLegalOffset {
-			// Fast path: the maximum offset+size is frequently exactly the end of the child array,
-			// and frequently a view which has this offset+size will be near the end of the array.
-			return maxEnd
+	i := input.Len() - 1 // safe because input.Len() > 0
+	for i != 0 && (isNull(i) || sizes[i] == 0) {
+		i -= 1
+	}
+	offset := offsets[i]
+	size := sizes[i]
+	if i == 0 {
+		if isNull(i) || sizes[i] == 0 {
+			return 0
+		} else {
+			return offset + size
 		}
-		if end := offsets[i] + sizes[i]; end > maxEnd {
-			maxEnd = end
+	}
+
+	values := input.Children()[0]
+	maxEnd := offsets[i] + sizes[i]
+	if maxEnd == Offset(values.Len()) {
+		// Early-exit: maximum possible view-end found already.
+		return maxEnd
+	}
+
+	// Slow path: scan the buffers entirely.
+	for ; i >= 0; i -= 1 {
+		offset := offsets[i]
+		size := sizes[i]
+		if size > 0 && !isNull(i) {
+			if offset+size > maxEnd {
+				maxEnd = offset + size
+				if maxEnd == Offset(values.Len()) {
+					return maxEnd
+				}
+			}
 		}
 	}
 	return maxEnd
