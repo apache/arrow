@@ -44,7 +44,7 @@ using VariableShapeTensorType = extension::VariableShapeTensorType;
 using extension::variable_shape_tensor;
 using extension::VariableShapeTensorArray;
 
-class TestExtensionType : public ::testing::Test {
+class TestFixedShapeTensorType : public ::testing::Test {
  public:
   void SetUp() override {
     shape_ = {3, 3, 4};
@@ -79,13 +79,27 @@ class TestExtensionType : public ::testing::Test {
   std::string serialized_;
 };
 
-TEST_F(TestExtensionType, CheckDummyRegistration) {
+auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
+                         std::shared_ptr<RecordBatch>* out) {
+  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
+                                        out_stream.get()));
+
+  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
+
+  io::BufferReader reader(complete_ipc_stream);
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+  ASSERT_OK(batch_reader->ReadNext(out));
+};
+
+TEST_F(TestFixedShapeTensorType, CheckDummyRegistration) {
   // We need a registered dummy type at runtime to allow for IPC deserialization
   auto registered_type = GetExtensionType("arrow.fixed_shape_tensor");
   ASSERT_TRUE(registered_type->type_id == Type::EXTENSION);
 }
 
-TEST_F(TestExtensionType, CreateExtensionType) {
+TEST_F(TestFixedShapeTensorType, CreateExtensionType) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   // Test ExtensionType methods
@@ -115,7 +129,7 @@ TEST_F(TestExtensionType, CreateExtensionType) {
       FixedShapeTensorType::Make(value_type_, cell_shape_, {}, {"x"}));
 }
 
-TEST_F(TestExtensionType, EqualsCases) {
+TEST_F(TestFixedShapeTensorType, EqualsCases) {
   auto ext_type_permutation_1 = fixed_shape_tensor(int64(), {3, 4}, {0, 1}, {"x", "y"});
   auto ext_type_permutation_2 = fixed_shape_tensor(int64(), {3, 4}, {1, 0}, {"x", "y"});
   auto ext_type_no_permutation = fixed_shape_tensor(int64(), {3, 4}, {}, {"x", "y"});
@@ -137,7 +151,7 @@ TEST_F(TestExtensionType, EqualsCases) {
   ASSERT_FALSE(ext_type_permutation_2->Equals(ext_type_permutation_1));
 }
 
-TEST_F(TestExtensionType, CreateFromArray) {
+TEST_F(TestFixedShapeTensorType, CreateFromArray) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
@@ -189,7 +203,7 @@ void CheckDeserializationRaises(const std::shared_ptr<DataType>& extension_type,
                                   ext_type->Deserialize(storage_type, serialized));
 }
 
-TEST_F(TestExtensionType, MetadataSerializationRoundtrip) {
+TEST_F(TestFixedShapeTensorType, MetadataSerializationRoundtrip) {
   using T = FixedShapeTensorType;
   CheckSerializationRoundtrip<T>(ext_type_);
   CheckSerializationRoundtrip<T>(fixed_shape_tensor(value_type_, {}, {}, {}));
@@ -215,7 +229,7 @@ TEST_F(TestExtensionType, MetadataSerializationRoundtrip) {
                              "Invalid dim_names");
 }
 
-TEST_F(TestExtensionType, RoundtripBatch) {
+TEST_F(TestFixedShapeTensorType, RoundtripBatch) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   std::vector<std::shared_ptr<Buffer>> buffers = {nullptr, Buffer::Wrap(values_)};
@@ -243,7 +257,7 @@ TEST_F(TestExtensionType, RoundtripBatch) {
   CompareBatch(*batch, *read_batch2, /*compare_metadata=*/true);
 }
 
-TEST_F(TestExtensionType, CreateFromTensor) {
+TEST_F(TestFixedShapeTensorType, CreateFromTensor) {
   std::vector<int64_t> column_major_strides = {8, 24, 72};
   std::vector<int64_t> neither_major_strides = {96, 8, 32};
 
@@ -317,7 +331,7 @@ void CheckFromTensorType(const std::shared_ptr<Tensor>& tensor,
   ASSERT_TRUE(generated_ext_type->Equals(ext_type));
 }
 
-TEST_F(TestExtensionType, TestFromTensorType) {
+TEST_F(TestFixedShapeTensorType, TestFromTensorType) {
   auto values = Buffer::Wrap(values_);
   auto shapes =
       std::vector<std::vector<int64_t>>{{3, 3, 4}, {3, 3, 4}, {3, 4, 3}, {3, 4, 3}};
@@ -356,7 +370,7 @@ void CheckTensorRoundtrip(const std::shared_ptr<Tensor>& tensor) {
   ASSERT_TRUE(tensor->Equals(*tensor_from_array));
 }
 
-TEST_F(TestExtensionType, RoundtripTensor) {
+TEST_F(TestFixedShapeTensorType, RoundtripTensor) {
   auto values = Buffer::Wrap(values_);
 
   auto shapes = std::vector<std::vector<int64_t>>{
@@ -377,7 +391,7 @@ TEST_F(TestExtensionType, RoundtripTensor) {
   }
 }
 
-TEST_F(TestExtensionType, SliceTensor) {
+TEST_F(TestFixedShapeTensorType, SliceTensor) {
   ASSERT_OK_AND_ASSIGN(auto tensor,
                        Tensor::Make(value_type_, Buffer::Wrap(values_), shape_));
   ASSERT_OK_AND_ASSIGN(
@@ -404,7 +418,7 @@ TEST_F(TestExtensionType, SliceTensor) {
   ASSERT_EQ(sliced->length(), partial->length());
 }
 
-TEST_F(TestExtensionType, RoundtripBatchFromTensor) {
+TEST_F(TestFixedShapeTensorType, RoundtripBatchFromTensor) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
   ASSERT_OK_AND_ASSIGN(auto tensor, Tensor::Make(value_type_, Buffer::Wrap(values_),
                                                  shape_, {}, {"n", "x", "y"}));
@@ -421,7 +435,7 @@ TEST_F(TestExtensionType, RoundtripBatchFromTensor) {
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 }
 
-TEST_F(TestExtensionType, ComputeStrides) {
+TEST_F(TestFixedShapeTensorType, ComputeStrides) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   auto ext_type_1 = internal::checked_pointer_cast<FixedShapeTensorType>(
@@ -455,7 +469,7 @@ TEST_F(TestExtensionType, ComputeStrides) {
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
 }
 
-TEST_F(TestExtensionType, ToString) {
+TEST_F(TestFixedShapeTensorType, FixedShapeTensoToString) {
   auto exact_ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(ext_type_);
 
   auto ext_type_1 = internal::checked_pointer_cast<FixedShapeTensorType>(
@@ -721,6 +735,45 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_EQ(tensor->is_contiguous(), t->is_contiguous());
   ASSERT_EQ(tensor->is_column_major(), t->is_column_major());
   ASSERT_TRUE(tensor->Equals(*t));
+}
+
+TEST_F(TestVariableShapeTensorType, ToString) {
+  auto exact_ext_type =
+      internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);
+
+  auto uniform_shape = std::vector<std::optional<int64_t>>{
+      std::nullopt, std::optional<int64_t>(1), std::nullopt};
+  auto ext_type_1 = internal::checked_pointer_cast<VariableShapeTensorType>(
+      variable_shape_tensor(int16(), 3));
+  auto ext_type_2 = internal::checked_pointer_cast<VariableShapeTensorType>(
+      variable_shape_tensor(int32(), 3, {1, 0, 2}));
+  auto ext_type_3 = internal::checked_pointer_cast<VariableShapeTensorType>(
+      variable_shape_tensor(int64(), 3, {}, {"C", "H", "W"}));
+  auto ext_type_4 = internal::checked_pointer_cast<VariableShapeTensorType>(
+      variable_shape_tensor(int64(), 3, {}, {}, uniform_shape));
+
+  std::string result_1 = ext_type_1->ToString();
+  std::string expected_1 =
+      "extension<arrow.variable_shape_tensor[value_type=int16, ndim=3]>";
+  ASSERT_EQ(expected_1, result_1);
+
+  std::string result_2 = ext_type_2->ToString();
+  std::string expected_2 =
+      "extension<arrow.variable_shape_tensor[value_type=int32, ndim=3, "
+      "permutation=[1,0,2]]>";
+  ASSERT_EQ(expected_2, result_2);
+
+  std::string result_3 = ext_type_3->ToString();
+  std::string expected_3 =
+      "extension<arrow.variable_shape_tensor[value_type=int64, ndim=3, "
+      "dim_names=[C,H,W]]>";
+  ASSERT_EQ(expected_3, result_3);
+
+  std::string result_4 = ext_type_4->ToString();
+  std::string expected_4 =
+      "extension<arrow.variable_shape_tensor[value_type=int64, ndim=3, "
+      "uniform_shape=[null,1,null]]>";
+  ASSERT_EQ(expected_4, result_4);
 }
 
 }  // namespace arrow
