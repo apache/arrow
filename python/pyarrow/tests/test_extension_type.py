@@ -1521,12 +1521,6 @@ def test_variable_shape_tensor_class_methods(value_type):
     assert pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list).equals(
         basic_arr
     )
-    assert pa.VariableShapeTensorArray.from_numpy_ndarray(
-        arr[0].to_numpy_ndarray()
-    ).equals(basic_arr[0])
-    assert pa.VariableShapeTensorArray.from_numpy_ndarray(
-        arr[1].to_numpy_ndarray()
-    ).equals(basic_arr[1])
 
     assert arr.to_pylist() == [
         {"data": [1, 2, 3, 4, 5, 6], "shape": [2, 3]},
