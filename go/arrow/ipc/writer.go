@@ -748,29 +748,17 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 	case *arrow.ListViewType, *arrow.LargeListViewType:
 		data := arr.Data()
 		arr := arr.(array.VarLenListLike)
-		offsetTraits := arr.DataType().(arrow.OffsetsDataType).OffsetTypeTraits()
-		rngOff, rngLen := array.RangeOfValuesUsed(arr)
-		voffsets := w.getValueOffsetsAtBaseValue(arr, rngOff)
-		p.body = append(p.body, voffsets)
-
+		voffsets := arr.Data().Buffers()[1]
+		voffsets.Retain()
 		vsizes := data.Buffers()[2]
-		if vsizes != nil {
-			if data.Offset() != 0 || vsizes.Len() > offsetTraits.BytesRequired(arr.Len()) {
-				beg := offsetTraits.BytesRequired(data.Offset())
-				end := beg + offsetTraits.BytesRequired(data.Len())
-				vsizes = memory.NewBufferBytes(vsizes.Bytes()[beg:end])
-			} else {
-				vsizes.Retain()
-			}
-		}
+		vsizes.Retain()
+		p.body = append(p.body, voffsets)
 		p.body = append(p.body, vsizes)
 
 		w.depth--
 		var (
-			values        = arr.ListValues()
-			mustRelease   = false
-			values_offset = int64(rngOff)
-			values_end    = int64(rngOff + rngLen)
+			values      = arr.ListValues()
+			mustRelease = false
 		)
 		defer func() {
 			if mustRelease {
@@ -778,11 +766,6 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			}
 		}()
 
-		if arr.Len() > 0 && values_end < int64(values.Len()) {
-			// must also slice the values
-			values = array.NewSlice(values, values_offset, values_end)
-			mustRelease = true
-		}
 		err := w.visit(p, values)
 
 		if err != nil {
