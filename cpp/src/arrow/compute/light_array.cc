@@ -395,8 +395,12 @@ int ExecBatchBuilder::NumRowsToSkip(const std::shared_ptr<ArrayData>& column,
       --num_rows_left;
       int row_id_removed = row_ids[num_rows_left];
       const uint32_t* offsets =
-          reinterpret_cast<const uint32_t*>(column->buffers[1]->data());
+          reinterpret_cast<const uint32_t*>(column->buffers[1]->data()) + column->offset;
       num_bytes_skipped += offsets[row_id_removed + 1] - offsets[row_id_removed];
+      // Skip consecutive rows with the same id
+      while (num_rows_left > 0 && row_id_removed == row_ids[num_rows_left - 1]) {
+        --num_rows_left;
+      }
     }
   }
 
