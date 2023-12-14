@@ -22,11 +22,13 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -74,8 +76,15 @@ public class ArrowFileWriter extends ArrowWriter {
   }
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
-      Map<String, String> metaData, IpcOption option, CompressionCodec codec) {
-    super(root, provider, out, option, codec);
+                         Map<String, String> metaData, IpcOption option, CompressionCodec.Factory compressionFactory,
+                         CompressionUtil.CodecType codecType) {
+    this(root, provider, out, metaData, option, compressionFactory, codecType, Optional.empty());
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+                         Map<String, String> metaData, IpcOption option, CompressionCodec.Factory compressionFactory,
+                         CompressionUtil.CodecType codecType, Optional<Integer> compressionLevel) {
+    super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
     this.metaData = metaData;
   }
 

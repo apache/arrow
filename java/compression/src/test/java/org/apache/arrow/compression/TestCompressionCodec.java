@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
@@ -240,13 +241,13 @@ class TestCompressionCodec {
 
   @ParameterizedTest
   @MethodSource("codecTypes")
-  void testReadWriteStream(CompressionUtil.CodecType codecType) throws Exception {
-    withRoot(codecType, (factory, root) -> {
+  void testReadWriteStream(CompressionUtil.CodecType codec) throws Exception {
+    withRoot(codec, (factory, root) -> {
       ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
-      CompressionCodec codec = factory.createCodec(codecType, /*compressionLevel=*/7);
       try (final ArrowStreamWriter writer = new ArrowStreamWriter(
           root, new DictionaryProvider.MapDictionaryProvider(),
-          Channels.newChannel(compressedStream), IpcOption.DEFAULT, codec)) {
+          Channels.newChannel(compressedStream),
+          IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -267,14 +268,13 @@ class TestCompressionCodec {
 
   @ParameterizedTest
   @MethodSource("codecTypes")
-  void testReadWriteFile(CompressionUtil.CodecType codecType) throws Exception {
-    withRoot(codecType, (factory, root) -> {
+  void testReadWriteFile(CompressionUtil.CodecType codec) throws Exception {
+    withRoot(codec, (factory, root) -> {
       ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
-      CompressionCodec codec = factory.createCodec(codecType, /*compressionLevel=*/7);
       try (final ArrowFileWriter writer = new ArrowFileWriter(
           root, new DictionaryProvider.MapDictionaryProvider(),
           Channels.newChannel(compressedStream),
-          new HashMap<>(), IpcOption.DEFAULT, codec)) {
+          new HashMap<>(), IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
         writer.start();
         writer.writeBatch();
         writer.end();

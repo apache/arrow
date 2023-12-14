@@ -23,6 +23,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.arrow.util.AutoCloseables;
@@ -30,6 +31,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
@@ -80,13 +82,33 @@ public class ArrowStreamWriter extends ArrowWriter {
    * @param root Existing VectorSchemaRoot with vectors to be written.
    * @param provider DictionaryProvider for any vectors that are dictionary encoded.
    *                 (Optional, can be null)
-   * @param out WritableByteChannel for writing.
    * @param option IPC write options
-   * @param codec Compression codec
+   * @param compressionFactory Compression codec factory
+   * @param codecType Codec type
+   * @param out WritableByteChannel for writing.
    */
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
-      IpcOption option, CompressionCodec codec) {
-    super(root, provider, out, option, codec);
+                           IpcOption option, CompressionCodec.Factory compressionFactory,
+                           CompressionUtil.CodecType codecType) {
+    this(root, provider, out, option, compressionFactory, codecType, Optional.empty());
+  }
+
+  /**
+   * Construct an ArrowStreamWriter with compression enabled.
+   *
+   * @param root Existing VectorSchemaRoot with vectors to be written.
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
+   *                 (Optional, can be null)
+   * @param option IPC write options
+   * @param compressionFactory Compression codec factory
+   * @param codecType Codec type
+   * @param compressionLevel Compression level
+   * @param out WritableByteChannel for writing.
+   */
+  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+                           IpcOption option, CompressionCodec.Factory compressionFactory,
+                           CompressionUtil.CodecType codecType, Optional<Integer> compressionLevel) {
+    super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
   }
 
   /**
