@@ -433,11 +433,15 @@ test_that("str_replace and str_replace_all", {
       collect(),
     df
   )
-  # TODO str_replace_all should throw error now but doesn't, throws a message
-  # about pulling data into R instead?
   expect_error(
     arrow_table(df) %>%
       transmute(x = call_binding("str_replace_all", x, c("F"="_", "b"=""))) %>%
+      collect(),
+    regexp = "`pattern` and `replacement` must be a length 1 character vector",
+  )
+  expect_error(
+    arrow_table(df) %>%
+      transmute(x = call_binding("str_replace_all", x, c("F", "b"), c("_", ""))) %>%
       collect(),
     regexp = "`pattern` and `replacement` must be a length 1 character vector",
   )
