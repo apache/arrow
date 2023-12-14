@@ -757,9 +757,9 @@ class AzureFileSystem::Impl {
   io::IOContext io_context_;
   AzureOptions options_;
 
-  internal::HierarchicalNamespaceDetector hns_detector_;
   std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
   std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
+  internal::HierarchicalNamespaceDetector hns_detector_;
 
   Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(std::move(io_context)), options_(std::move(options)) {}
