@@ -335,10 +335,6 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
 
-  const auto storage_array =
-      internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
-  ARROW_ASSIGN_OR_RAISE(const auto flattened_storage_array, storage_array->Flatten());
-
   const auto ext_type =
       internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
   const auto value_type = ext_type->value_type();
@@ -374,6 +370,9 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   ARROW_RETURN_NOT_OK(
       ComputeStrides(*fw_value_type.get(), shape, permutation, &tensor_strides));
 
+  ARROW_ASSIGN_OR_RAISE(
+      const auto flattened_storage_array,
+      internal::checked_pointer_cast<FixedSizeListArray>(this->storage())->Flatten());
   ARROW_ASSIGN_OR_RAISE(
       const auto buffer,
       SliceBufferSafe(flattened_storage_array->data()->buffers[1],

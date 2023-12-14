@@ -3654,8 +3654,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         arrow_type = from_numpy_dtype(obj.dtype)
         shape = np.take(obj.shape, permutation)
-        values = np.lib.stride_tricks.as_strided(
-            obj, shape=(obj.size,), strides=(obj.dtype.itemsize,))
+        values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
             fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
