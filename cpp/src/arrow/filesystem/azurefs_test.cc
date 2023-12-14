@@ -85,8 +85,6 @@ class BaseAzureEnv : public ::testing::Environment {
       : account_name_(std::move(account_name)), account_key_(std::move(account_key)) {}
 
  public:
-  ~BaseAzureEnv() override = default;
-
   const std::string& account_name() const { return account_name_; }
   const std::string& account_key() const { return account_key_; }
 
@@ -151,8 +149,6 @@ class AzureEnvImpl : public BaseAzureEnv {
   }
 
  public:
-  ~AzureEnvImpl() override = default;
-
   static Result<BaseAzureEnv*> GetInstance() {
     // Ensure MakeAndAddToGlobalTestEnvironment() is called only once by storing the
     // Result<BaseAzureEnv*> in a static variable.
@@ -249,8 +245,6 @@ class AzureFlatNSEnv : public AzureEnvImpl<AzureFlatNSEnv> {
  public:
   static const AzureBackend kBackend = AzureBackend::kAzure;
 
-  ~AzureFlatNSEnv() override = default;
-
   static Result<std::unique_ptr<AzureFlatNSEnv>> Make() {
     return MakeFromEnvVars("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME",
                            "AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
@@ -263,8 +257,6 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 
  public:
   static const AzureBackend kBackend = AzureBackend::kAzure;
-
-  ~AzureHierarchicalNSEnv() override = default;
 
   static Result<std::unique_ptr<AzureHierarchicalNSEnv>> Make() {
     return MakeFromEnvVars("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME",
