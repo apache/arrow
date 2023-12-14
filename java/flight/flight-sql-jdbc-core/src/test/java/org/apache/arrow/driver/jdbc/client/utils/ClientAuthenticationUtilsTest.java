@@ -177,7 +177,7 @@ public class ClientAuthenticationUtilsTest {
           .thenReturn(keyStoreMock);
       clientAuthenticationUtilsMockedStatic
           .when(ClientAuthenticationUtils::getKeystoreInputStream)
-          thenCallRealMethod();
+          .thenCallRealMethod();
       keyStoreMockedStatic.when(KeyStore::getDefaultType).thenCallRealMethod();
 
       InputStream inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
