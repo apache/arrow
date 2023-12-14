@@ -561,6 +561,18 @@ cdef class RecordBatchReader(_Weakrefable):
         SharedPtrNoGIL[CRecordBatchReader] reader
 
 
+cdef class CacheOptions(_Weakrefable):
+    cdef:
+        CCacheOptions wrapped
+
+    cdef void init(self, CCacheOptions options)
+
+    cdef inline CCacheOptions unwrap(self)
+
+    @staticmethod
+    cdef wrap(const CCacheOptions options)
+
+
 cdef class Codec(_Weakrefable):
     cdef:
         shared_ptr[CCodec] wrapped

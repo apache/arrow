@@ -1347,6 +1347,22 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Write(const uint8_t* data, int64_t nbytes)
         CStatus Flush()
 
+    cdef cppclass CCacheOptions "arrow::io::CacheOptions":
+        int64_t hole_size_limit
+        int64_t range_size_limit
+        c_bool lazy
+        int64_t prefetch_limit
+        c_bool Equals "operator==" (CCacheOptions other)
+
+        @staticmethod
+        CCacheOptions MakeFromNetworkMetrics(int64_t time_to_first_byte_millis,
+                                             int64_t transfer_bandwidth_mib_per_sec,
+                                             double ideal_bandwidth_utilization_frac,
+                                             int64_t max_ideal_request_size_mib)
+
+        @staticmethod
+        CCacheOptions LazyDefaults()
+
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
         pass
