@@ -125,8 +125,17 @@ struct ARROW_EXPORT AzureOptions {
 /// [3]:
 /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-known-issues
 class ARROW_EXPORT AzureFileSystem : public FileSystem {
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+
+  explicit AzureFileSystem(std::unique_ptr<Impl>&& impl);
+
  public:
   ~AzureFileSystem() override = default;
+
+  static Result<std::shared_ptr<AzureFileSystem>> Make(
+      const AzureOptions& options, const io::IOContext& = io::default_io_context());
 
   std::string type_name() const override { return "abfs"; }
 
@@ -171,15 +180,6 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
-
-  static Result<std::shared_ptr<AzureFileSystem>> Make(
-      const AzureOptions& options, const io::IOContext& = io::default_io_context());
-
- private:
-  AzureFileSystem(const AzureOptions& options, const io::IOContext& io_context);
-
-  class Impl;
-  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace arrow::fs

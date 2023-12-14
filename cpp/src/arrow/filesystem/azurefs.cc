@@ -753,23 +753,31 @@ class ObjectAppendStream final : public io::OutputStream {
 // AzureFilesystem Implementation
 
 class AzureFileSystem::Impl {
- public:
+ private:
   io::IOContext io_context_;
-  std::unique_ptr<Storage::Files::DataLake::DataLakeServiceClient>
-      datalake_service_client_;
-  std::unique_ptr<Storage::Blobs::BlobServiceClient> blob_service_client_;
   AzureOptions options_;
+
   internal::HierarchicalNamespaceDetector hns_detector_;
+  std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
+  std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
 
   Impl(AzureOptions options, io::IOContext io_context)
-      : io_context_(io_context), options_(std::move(options)) {}
+      : io_context_(std::move(io_context)), options_(std::move(options)) {}
 
-  Status Init() {
-    ARROW_ASSIGN_OR_RAISE(blob_service_client_, options_.MakeBlobServiceClient());
-    ARROW_ASSIGN_OR_RAISE(datalake_service_client_, options_.MakeDataLakeServiceClient());
-    return hns_detector_.Init(datalake_service_client_.get());
+ public:
+  static Result<std::unique_ptr<AzureFileSystem::Impl>> Make(AzureOptions options,
+                                                             io::IOContext io_context) {
+    auto self = std::unique_ptr<AzureFileSystem::Impl>(
+        new AzureFileSystem::Impl(std::move(options), std::move(io_context)));
+    ARROW_ASSIGN_OR_RAISE(self->blob_service_client_,
+                          self->options_.MakeBlobServiceClient());
+    ARROW_ASSIGN_OR_RAISE(self->datalake_service_client_,
+                          self->options_.MakeDataLakeServiceClient());
+    RETURN_NOT_OK(self->hns_detector_.Init(self->datalake_service_client_.get()));
+    return self;
   }
 
+  io::IOContext& io_context() { return io_context_; }
   const AzureOptions& options() const { return options_; }
 
  public:
@@ -1418,6 +1426,17 @@ class AzureFileSystem::Impl {
   }
 };
 
+AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
+    : FileSystem(impl->io_context()), impl_(std::move(impl)) {
+  default_async_is_sync_ = false;
+}
+
+Result<std::shared_ptr<AzureFileSystem>> AzureFileSystem::Make(
+    const AzureOptions& options, const io::IOContext& io_context) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, AzureFileSystem::Impl::Make(options, io_context));
+  return std::shared_ptr<AzureFileSystem>(new AzureFileSystem(std::move(impl)));
+}
+
 const AzureOptions& AzureFileSystem::options() const { return impl_->options(); }
 
 bool AzureFileSystem::Equals(const FileSystem& other) const {
@@ -1514,19 +1533,6 @@ Result<std::shared_ptr<io::OutputStream>> AzureFileSystem::OpenAppendStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
   return impl_->OpenAppendStream(location, metadata, false, this);
-}
-
-Result<std::shared_ptr<AzureFileSystem>> AzureFileSystem::Make(
-    const AzureOptions& options, const io::IOContext& io_context) {
-  std::shared_ptr<AzureFileSystem> ptr(new AzureFileSystem(options, io_context));
-  RETURN_NOT_OK(ptr->impl_->Init());
-  return ptr;
-}
-
-AzureFileSystem::AzureFileSystem(const AzureOptions& options,
-                                 const io::IOContext& io_context)
-    : FileSystem(io_context), impl_(std::make_unique<Impl>(options, io_context)) {
-  default_async_is_sync_ = false;
 }
 
 }  // namespace arrow::fs
