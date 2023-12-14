@@ -25,89 +25,117 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
 
-namespace Azure {
-namespace Core {
-namespace Credentials {
-
+namespace Azure::Core::Credentials {
 class TokenCredential;
+}
 
-}  // namespace Credentials
-}  // namespace Core
-namespace Storage {
-
+namespace Azure::Storage {
 class StorageSharedKeyCredential;
+}
 
-}  // namespace Storage
-}  // namespace Azure
+namespace Azure::Storage::Blobs {
+class BlobServiceClient;
+}
 
-namespace arrow {
-namespace fs {
+namespace Azure::Storage::Files::DataLake {
+class DataLakeServiceClient;
+}
 
-enum class AzureCredentialsKind : int8_t {
-  /// Anonymous access (no credentials used), public
-  Anonymous,
-  /// Use explicitly-provided access key pair
-  StorageCredentials,
-  /// Use ServicePrincipleCredentials
-  ServicePrincipleCredentials,
-  /// Use Sas Token to authenticate
-  Sas,
-  /// Use Connection String
-  ConnectionString
-};
+namespace arrow::fs {
 
-enum class AzureBackend : bool {
-  /// Official Azure Remote Backend
-  Azure,
-  /// Local Simulated Storage
-  Azurite
+enum class AzureBackend {
+  /// \brief Official Azure Remote Backend
+  kAzure,
+  /// \brief Local Simulated Storage
+  kAzurite
 };
 
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
-  std::string account_dfs_url;
-  std::string account_blob_url;
-  AzureBackend backend = AzureBackend::Azure;
-  AzureCredentialsKind credentials_kind = AzureCredentialsKind::Anonymous;
+  /// \brief The backend to connect to: Azure or Azurite (for testing).
+  AzureBackend backend = AzureBackend::kAzure;
 
-  std::string sas_token;
-  std::string connection_string;
-  std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
-      storage_credentials_provider;
-  std::shared_ptr<Azure::Core::Credentials::TokenCredential>
-      service_principle_credentials_provider;
+  // TODO(GH-38598): Add support for more auth methods.
+  // std::string connection_string;
+  // std::string sas_token;
 
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
-  AzureOptions();
+ private:
+  std::string account_blob_url_;
+  std::string account_dfs_url_;
 
-  Status ConfigureAccountKeyCredentials(const std::string& account_name,
-                                        const std::string& account_key);
+  enum class CredentialKind {
+    kAnonymous,
+    kStorageSharedKeyCredential,
+  } credential_kind_ = CredentialKind::kAnonymous;
+
+  std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
+      storage_shared_key_credential_;
+
+ public:
+  AzureOptions();
+  ~AzureOptions();
+
+  Status ConfigureAccountKeyCredential(const std::string& account_name,
+                                       const std::string& account_key);
 
   bool Equals(const AzureOptions& other) const;
+
+  const std::string& AccountBlobUrl() const { return account_blob_url_; }
+  const std::string& AccountDfsUrl() const { return account_dfs_url_; }
+
+  Result<std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient>>
+  MakeBlobServiceClient() const;
+
+  Result<std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>>
+  MakeDataLakeServiceClient() const;
 };
 
-/// \brief Azure-backed FileSystem implementation for ABFS and ADLS.
+/// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and
+/// Azure Data Lake Storage Gen2 (ADLS Gen2) [2].
 ///
-/// ABFS (Azure Blob Storage - https://azure.microsoft.com/en-us/products/storage/blobs/)
-/// object-based cloud storage system.
+/// ADLS Gen2 isn't a dedicated service or account type. It's a set of capabilities that
+/// support high throughput analytic workloads, built on Azure Blob Storage. All the data
+/// ingested via the ADLS Gen2 APIs is persisted as blobs in the storage account.
+/// ADLS Gen2 provides filesystem semantics, file-level security, and Hadoop
+/// compatibility. ADLS Gen1 exists as a separate object that will retired on 2024-02-29
+/// and new ADLS accounts use Gen2 instead.
 ///
-/// ADLS (Azure Data Lake Storage -
-/// https://azure.microsoft.com/en-us/products/storage/data-lake-storage/)
-/// is a scalable data storage system designed for big-data applications.
-/// ADLS provides filesystem semantics, file-level security, and Hadoop
-/// compatibility. Gen1 exists as a separate object that will retired
-/// on Feb 29, 2024. New ADLS accounts will use Gen2 instead, which is
-/// implemented on top of ABFS.
+/// ADLS Gen2 and Blob APIs can operate on the same data, but there are
+/// some limitations [3]. The ones that are relevant to this
+/// implementation are listed here:
 ///
-/// TODO: GH-18014 Complete the internal implementation
-/// and review the documentation
+/// - You can't use Blob APIs, and ADLS APIs to write to the same instance of a file. If
+///   you write to a file by using ADLS APIs then that file's blocks won't be visible
+///   to calls to the GetBlockList Blob API. The only exception is when you're
+///   overwriting.
+/// - When you use the ListBlobs operation without specifying a delimiter, the results
+///   include both directories and blobs. If you choose to use a delimiter, use only a
+///   forward slash (/) -- the only supported delimiter.
+/// - If you use the DeleteBlob API to delete a directory, that directory is deleted only
+///   if it's empty. This means that you can't use the Blob API delete directories
+///   recursively.
+///
+/// [1]: https://azure.microsoft.com/en-us/products/storage/blobs
+/// [2]: https://azure.microsoft.com/en-us/products/storage/data-lake-storage
+/// [3]:
+/// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-known-issues
 class ARROW_EXPORT AzureFileSystem : public FileSystem {
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+
+  explicit AzureFileSystem(std::unique_ptr<Impl>&& impl);
+
  public:
   ~AzureFileSystem() override = default;
+
+  static Result<std::shared_ptr<AzureFileSystem>> Make(
+      const AzureOptions& options, const io::IOContext& = io::default_io_context());
 
   std::string type_name() const override { return "abfs"; }
 
@@ -152,16 +180,6 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
-
-  static Result<std::shared_ptr<AzureFileSystem>> Make(
-      const AzureOptions& options, const io::IOContext& = io::default_io_context());
-
- private:
-  AzureFileSystem(const AzureOptions& options, const io::IOContext& io_context);
-
-  class Impl;
-  std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

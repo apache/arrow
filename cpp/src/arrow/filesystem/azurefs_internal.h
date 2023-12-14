@@ -25,9 +25,6 @@
 
 namespace arrow::fs::internal {
 
-Status ExceptionToStatus(const std::string& prefix,
-                         const Azure::Storage::StorageException& exception);
-
 class HierarchicalNamespaceDetector {
  public:
   Status Init(
