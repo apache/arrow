@@ -54,9 +54,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class TestArrowReaderWriterWithCompression {
 
@@ -64,9 +64,11 @@ public class TestArrowReaderWriterWithCompression {
   private ByteArrayOutputStream out;
   private VectorSchemaRoot root;
 
-  @Before
+  @BeforeEach
   public void setup() {
-    allocator = new RootAllocator(Integer.MAX_VALUE);
+    if (allocator == null) {
+      allocator = new RootAllocator(Integer.MAX_VALUE);
+    }
     out = new ByteArrayOutputStream();
     root = null;
   }
