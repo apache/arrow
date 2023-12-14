@@ -67,6 +67,8 @@ public abstract class ArrowWriter implements AutoCloseable {
   private boolean started = false;
   private boolean ended = false;
 
+  private final CompressionCodec codec;
+
   protected IpcOption option;
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
@@ -99,8 +101,9 @@ public abstract class ArrowWriter implements AutoCloseable {
     this.compressionFactory = compressionFactory;
     this.codecType = codecType;
     this.compressionLevel = compressionLevel;
-    this.unloader = new VectorUnloader(root, /*includeNullCount*/ true,
-        getCodec(), /*alignBuffers*/ true);
+    this.codec = getCodec();
+    this.unloader = new VectorUnloader(root, /*includeNullCount*/ true, codec,
+        /*alignBuffers*/ true);
 
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
 
@@ -136,7 +139,7 @@ public abstract class ArrowWriter implements AutoCloseable {
         Collections.singletonList(vector.getField()),
         Collections.singletonList(vector),
         count);
-    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true, getCodec(),
+    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true, this.codec,
         /*alignBuffers*/ true);
     ArrowRecordBatch batch = unloader.getRecordBatch();
     ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
