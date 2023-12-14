@@ -352,8 +352,8 @@ register_bindings_string_regex <- function() {
   # Encapsulate some common logic for sub/gsub/str_replace/str_replace_all
   arrow_r_string_replace_function <- function(max_replacements) {
     function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
-      if(length(pattern) !=1 || length(replacement) != 1){
-        stop("`pattern` and `replacement` must be a length 1 character vector")
+      if(length(pattern) !=1){
+        stop("`pattern` must be a length 1 character vector")
       }
       Expression$create(
         ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
