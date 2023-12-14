@@ -762,14 +762,14 @@ func (imp *cimporter) importListViewLike() (err error) {
 		defer nulls.Release()
 	}
 
-	if offsets, err = imp.importOffsetsBuffer(1, offsetSize); err != nil {
+	if offsets, err = imp.importFixedSizeBuffer(1, offsetSize); err != nil {
 		return
 	}
 	if offsets != nil {
 		defer offsets.Release()
 	}
 
-	if sizes, err = imp.importOffsetsBuffer(2, offsetSize); err != nil {
+	if sizes, err = imp.importFixedSizeBuffer(2, offsetSize); err != nil {
 		return
 	}
 	if sizes != nil {
