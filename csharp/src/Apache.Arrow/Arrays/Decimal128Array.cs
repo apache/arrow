@@ -14,18 +14,16 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
-#if !NETSTANDARD1_3
 using System.Data.SqlTypes;
-#endif
 using System.Diagnostics;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal128Array : FixedSizeBinaryArray
+    public class Decimal128Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>
     {
         public class Builder : BuilderBase<Decimal128Array, Builder>
         {
@@ -95,7 +93,6 @@ namespace Apache.Arrow
                 return Instance;
             }
 
-#if !NETSTANDARD1_3
             public Builder Append(SqlDecimal value)
             {
                 Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
@@ -118,7 +115,6 @@ namespace Apache.Arrow
 
                 return Instance;
             }
-#endif
 
             public Builder Set(int index, decimal value)
             {
@@ -184,7 +180,6 @@ namespace Apache.Arrow
             return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
         }
 
-#if !NETSTANDARD1_3
         public SqlDecimal? GetSqlDecimal(int index)
         {
             if (IsNull(index))
@@ -194,6 +189,18 @@ namespace Apache.Arrow
 
             return DecimalUtility.GetSqlDecimal128(ValueBuffer, index, Precision, Scale);
         }
-#endif
+
+        int IReadOnlyCollection<SqlDecimal?>.Count => Length;
+        SqlDecimal? IReadOnlyList<SqlDecimal?>.this[int index] => GetSqlDecimal(index);
+
+        IEnumerator<SqlDecimal?> IEnumerable<SqlDecimal?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetSqlDecimal(index);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<SqlDecimal>)this).GetEnumerator();
     }
 }
