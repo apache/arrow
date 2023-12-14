@@ -44,7 +44,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlSession {
   std::optional<SessionOptionValue> GetSessionOption(const std::string& name);
   /// \brief Set session option by name to given value
   void SetSessionOption(const std::string& name, const SessionOptionValue value);
-  /// \brief Idempotently remove key from this call's Session, if Session & name exist
+  /// \brief Idempotently remove name from this session
   void EraseSessionOption(const std::string& name);
 };
 
