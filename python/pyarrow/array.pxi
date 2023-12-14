@@ -4383,17 +4383,6 @@ cdef class VariableShapeTensorArray(ExtensionArray):
       ]
     """
 
-    def to_numpy_ndarray(self):
-        """
-        Convert variable shape tensor extension array to list of numpy arrays.
-        If permutation is non-trivial a strided numpy arrays are produced.
-        """
-        tensors = []
-        for scalar in self:
-            tensors.append(scalar.to_tensor().to_numpy())
-
-        return tensors
-
     @staticmethod
     def from_numpy_ndarray(obj):
         """
@@ -4412,7 +4401,10 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         ...         np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32),
         ...         np.array([[7, 8]], dtype=np.float32),
         ...     ]
-        >>> pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list)
+        >>> arr = pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list)
+        >>> arr.type
+        VariableShapeTensorType(extension<arrow.variable_shape_tensor[value_type=float32, ndim=2]>)
+        >>> arr
         <pyarrow.lib.VariableShapeTensorArray object at ...>
         -- is_valid: all not null
         -- child 0 type: fixed_size_list<item: int32>[2]

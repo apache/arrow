@@ -5320,7 +5320,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
     >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
     >>> pa.table([tensor], names=["tensor_array"])
     pyarrow.Table
-    tensor_array: extension<arrow.variable_shape_tensor>
+    tensor_array: extension<arrow.variable_shape_tensor[value_type=int32, ndim=2]>
     ----
     tensor_array: [  -- is_valid: all not null
       -- child 0 type: fixed_size_list<item: int32>[2]
