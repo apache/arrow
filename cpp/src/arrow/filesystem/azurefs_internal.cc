@@ -23,10 +23,16 @@
 
 namespace arrow::fs::internal {
 
+namespace {
+
+// TODO(GH-38772): Remote azurefs_internal.h/.cc by moving the detector to
+// azurefs.cc (which contains a private copy of this helper function already).
 Status ExceptionToStatus(const std::string& prefix,
                          const Azure::Storage::StorageException& exception) {
   return Status::IOError(prefix, " Azure Error: ", exception.what());
 }
+
+}  // namespace
 
 Status HierarchicalNamespaceDetector::Init(
     Azure::Storage::Files::DataLake::DataLakeServiceClient* datalake_service_client) {

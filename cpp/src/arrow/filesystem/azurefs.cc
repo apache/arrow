@@ -177,6 +177,11 @@ struct AzureLocation {
   }
 };
 
+Status ExceptionToStatus(const std::string& prefix,
+                         const Azure::Storage::StorageException& exception) {
+  return Status::IOError(prefix, " Azure Error: ", exception.what());
+}
+
 Status PathNotFound(const AzureLocation& location) {
   return ::arrow::fs::internal::PathNotFound(location.all);
 }
@@ -395,7 +400,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         return PathNotFound(location_);
       }
-      return internal::ExceptionToStatus(
+      return ExceptionToStatus(
           "GetProperties failed for '" + blob_client_->GetUrl() +
               "' with an unexpected Azure error. Cannot initialise an ObjectInputFile "
               "without knowing the file size.",
@@ -476,12 +481,12 @@ class ObjectInputFile final : public io::RandomAccessFile {
           ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
           .Value.ContentRange.Length.Value();
     } catch (const Storage::StorageException& exception) {
-      return internal::ExceptionToStatus("DownloadTo from '" + blob_client_->GetUrl() +
-                                             "' at position " + std::to_string(position) +
-                                             " for " + std::to_string(nbytes) +
-                                             " bytes failed with an Azure error. ReadAt "
-                                             "failed to read the required byte range.",
-                                         exception);
+      return ExceptionToStatus("DownloadTo from '" + blob_client_->GetUrl() +
+                                   "' at position " + std::to_string(position) + " for " +
+                                   std::to_string(nbytes) +
+                                   " bytes failed with an Azure error. ReadAt "
+                                   "failed to read the required byte range.",
+                               exception);
     }
   }
 
@@ -530,7 +535,7 @@ Status CreateEmptyBlockBlob(std::shared_ptr<Blobs::BlockBlobClient> block_blob_c
   try {
     block_blob_client->UploadFrom(nullptr, 0);
   } catch (const Storage::StorageException& exception) {
-    return internal::ExceptionToStatus(
+    return ExceptionToStatus(
         "UploadFrom failed for '" + block_blob_client->GetUrl() +
             "' with an unexpected Azure error. There is no existing blob at this "
             "location or the existing blob must be replaced so ObjectAppendStream must "
@@ -545,7 +550,7 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
   try {
     return block_blob_client->GetBlockList().Value;
   } catch (Storage::StorageException& exception) {
-    return internal::ExceptionToStatus(
+    return ExceptionToStatus(
         "GetBlockList failed for '" + block_blob_client->GetUrl() +
             "' with an unexpected Azure error. Cannot write to a file without first "
             "fetching the existing block list.",
@@ -574,7 +579,7 @@ Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_bl
     // https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list?tabs=microsoft-entra-id#request-body
     block_blob_client->CommitBlockList(block_ids, options);
   } catch (const Storage::StorageException& exception) {
-    return internal::ExceptionToStatus(
+    return ExceptionToStatus(
         "CommitBlockList failed for '" + block_blob_client->GetUrl() +
             "' with an unexpected Azure error. Committing is required to flush an "
             "output/append stream.",
@@ -619,7 +624,7 @@ class ObjectAppendStream final : public io::OutputStream {
         if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
           RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client_));
         } else {
-          return internal::ExceptionToStatus(
+          return ExceptionToStatus(
               "GetProperties failed for '" + block_blob_client_->GetUrl() +
                   "' with an unexpected Azure error. Cannot initialise an "
                   "ObjectAppendStream without knowing whether a file already exists at "
@@ -718,7 +723,7 @@ class ObjectAppendStream final : public io::OutputStream {
     try {
       block_blob_client_->StageBlock(new_block_id, block_content);
     } catch (const Storage::StorageException& exception) {
-      return internal::ExceptionToStatus(
+      return ExceptionToStatus(
           "StageBlock failed for '" + block_blob_client_->GetUrl() + "' new_block_id: '" +
               new_block_id +
               "' with an unexpected Azure error. Staging new blocks is fundamental to "
@@ -795,7 +800,7 @@ class AzureFileSystem::Impl {
           info.set_type(FileType::NotFound);
           return info;
         }
-        return internal::ExceptionToStatus(
+        return ExceptionToStatus(
             "GetProperties for '" + container_client.GetUrl() +
                 "' failed with an unexpected Azure error. GetFileInfo is unable to "
                 "determine whether the container exists.",
@@ -854,14 +859,14 @@ class AzureFileSystem::Impl {
           info.set_type(file_type);
           return info;
         } catch (const Storage::StorageException& exception) {
-          return internal::ExceptionToStatus(
+          return ExceptionToStatus(
               "ListBlobs for '" + *list_blob_options.Prefix +
                   "' failed with an unexpected Azure error. GetFileInfo is unable to "
                   "determine whether the path should be considered an implied directory.",
               exception);
         }
       }
-      return internal::ExceptionToStatus(
+      return ExceptionToStatus(
           "GetProperties for '" + file_client.GetUrl() +
               "' failed with an unexpected "
               "Azure error. GetFileInfo is unable to determine whether the path exists.",
@@ -883,7 +888,7 @@ class AzureFileSystem::Impl {
         }
       }
     } catch (const Storage::StorageException& exception) {
-      return internal::ExceptionToStatus("Failed to list account containers.", exception);
+      return ExceptionToStatus("Failed to list account containers.", exception);
     }
     return Status::OK();
   }
@@ -1015,10 +1020,9 @@ class AzureFileSystem::Impl {
       if (IsContainerNotFound(exception)) {
         found = false;
       } else {
-        return internal::ExceptionToStatus(
-            "Failed to list blobs in a directory: " + select.base_dir + ": " +
-                container_client.GetUrl(),
-            exception);
+        return ExceptionToStatus("Failed to list blobs in a directory: " +
+                                     select.base_dir + ": " + container_client.GetUrl(),
+                                 exception);
       }
     }
 
@@ -1120,10 +1124,9 @@ class AzureFileSystem::Impl {
               "Failed to create a container: " + location.container);
         }
       } catch (const Storage::StorageException& exception) {
-        return internal::ExceptionToStatus(
-            "Failed to create a container: " + location.container + ": " +
-                container_client.GetUrl(),
-            exception);
+        return ExceptionToStatus("Failed to create a container: " + location.container +
+                                     ": " + container_client.GetUrl(),
+                                 exception);
       }
     }
 
@@ -1148,10 +1151,9 @@ class AzureFileSystem::Impl {
                                        "Failed to create a directory: " + location.path);
       }
     } catch (const Storage::StorageException& exception) {
-      return internal::ExceptionToStatus(
-          "Failed to create a directory: " + location.path + ": " +
-              directory_client.GetUrl(),
-          exception);
+      return ExceptionToStatus("Failed to create a directory: " + location.path + ": " +
+                                   directory_client.GetUrl(),
+                               exception);
     }
   }
 
@@ -1165,10 +1167,9 @@ class AzureFileSystem::Impl {
     try {
       container_client.CreateIfNotExists();
     } catch (const Storage::StorageException& exception) {
-      return internal::ExceptionToStatus(
-          "Failed to create a container: " + location.container + " (" +
-              container_client.GetUrl() + ")",
-          exception);
+      return ExceptionToStatus("Failed to create a container: " + location.container +
+                                   " (" + container_client.GetUrl() + ")",
+                               exception);
     }
 
     ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
@@ -1187,10 +1188,9 @@ class AzureFileSystem::Impl {
       try {
         directory_client.CreateIfNotExists();
       } catch (const Storage::StorageException& exception) {
-        return internal::ExceptionToStatus(
-            "Failed to create a directory: " + location.path + " (" +
-                directory_client.GetUrl() + ")",
-            exception);
+        return ExceptionToStatus("Failed to create a directory: " + location.path + " (" +
+                                     directory_client.GetUrl() + ")",
+                                 exception);
       }
     }
 
@@ -1253,10 +1253,9 @@ class AzureFileSystem::Impl {
         try {
           container_client.SubmitBatch(batch);
         } catch (const Storage::StorageException& exception) {
-          return internal::ExceptionToStatus(
-              "Failed to delete blobs in a directory: " + location.path + ": " +
-                  container_client.GetUrl(),
-              exception);
+          return ExceptionToStatus("Failed to delete blobs in a directory: " +
+                                       location.path + ": " + container_client.GetUrl(),
+                                   exception);
         }
         std::vector<std::string> failed_blob_names;
         for (size_t i = 0; i < deferred_responses.size(); ++i) {
@@ -1285,10 +1284,9 @@ class AzureFileSystem::Impl {
         }
       }
     } catch (const Storage::StorageException& exception) {
-      return internal::ExceptionToStatus(
-          "Failed to list blobs in a directory: " + location.path + ": " +
-              container_client.GetUrl(),
-          exception);
+      return ExceptionToStatus("Failed to list blobs in a directory: " + location.path +
+                                   ": " + container_client.GetUrl(),
+                               exception);
     }
     return Status::OK();
   }
@@ -1312,10 +1310,9 @@ class AzureFileSystem::Impl {
               "Failed to delete a container: " + location.container);
         }
       } catch (const Storage::StorageException& exception) {
-        return internal::ExceptionToStatus(
-            "Failed to delete a container: " + location.container + ": " +
-                container_client.GetUrl(),
-            exception);
+        return ExceptionToStatus("Failed to delete a container: " + location.container +
+                                     ": " + container_client.GetUrl(),
+                                 exception);
       }
     }
 
@@ -1335,10 +1332,9 @@ class AzureFileSystem::Impl {
               "Failed to delete a directory: " + location.path);
         }
       } catch (const Storage::StorageException& exception) {
-        return internal::ExceptionToStatus(
-            "Failed to delete a directory: " + location.path + ": " +
-                directory_client.GetUrl(),
-            exception);
+        return ExceptionToStatus("Failed to delete a directory: " + location.path + ": " +
+                                     directory_client.GetUrl(),
+                                 exception);
       }
     } else {
       return DeleteDirContentsWithoutHierarchicalNamespace(location,
@@ -1367,7 +1363,7 @@ class AzureFileSystem::Impl {
               try {
                 sub_directory_client.DeleteRecursive();
               } catch (const Storage::StorageException& exception) {
-                return internal::ExceptionToStatus(
+                return ExceptionToStatus(
                     "Failed to delete a sub directory: " + location.container +
                         internal::kSep + path.Name + ": " + sub_directory_client.GetUrl(),
                     exception);
@@ -1377,7 +1373,7 @@ class AzureFileSystem::Impl {
               try {
                 sub_file_client.Delete();
               } catch (const Storage::StorageException& exception) {
-                return internal::ExceptionToStatus(
+                return ExceptionToStatus(
                     "Failed to delete a sub file: " + location.container +
                         internal::kSep + path.Name + ": " + sub_file_client.GetUrl(),
                     exception);
@@ -1389,10 +1385,9 @@ class AzureFileSystem::Impl {
         if (missing_dir_ok && exception.StatusCode == Http::HttpStatusCode::NotFound) {
           return Status::OK();
         } else {
-          return internal::ExceptionToStatus(
-              "Failed to delete directory contents: " + location.path + ": " +
-                  directory_client.GetUrl(),
-              exception);
+          return ExceptionToStatus("Failed to delete directory contents: " +
+                                       location.path + ": " + directory_client.GetUrl(),
+                                   exception);
         }
       }
       return Status::OK();
@@ -1415,7 +1410,7 @@ class AzureFileSystem::Impl {
     try {
       dest_blob_client.CopyFromUri(src_url);
     } catch (const Storage::StorageException& exception) {
-      return internal::ExceptionToStatus(
+      return ExceptionToStatus(
           "Failed to copy a blob. (" + src_url + " -> " + dest_blob_client.GetUrl() + ")",
           exception);
     }
