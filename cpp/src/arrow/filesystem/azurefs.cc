@@ -38,6 +38,7 @@ namespace arrow::fs {
 namespace Blobs = Azure::Storage::Blobs;
 namespace Core = Azure::Core;
 namespace DataLake = Azure::Storage::Files::DataLake;
+namespace Http = Azure::Core::Http;
 namespace Storage = Azure::Storage;
 
 // -----------------------------------------------------------------------
@@ -194,7 +195,7 @@ Status ValidateFileLocation(const AzureLocation& location) {
   return internal::AssertNoTrailingSlash(location.path);
 }
 
-std::string_view BodyTextView(const Core::Http::RawResponse& raw_response) {
+std::string_view BodyTextView(const Http::RawResponse& raw_response) {
   const auto& body = raw_response.GetBody();
 #ifndef NDEBUG
   auto& headers = raw_response.GetHeaders();
@@ -207,7 +208,7 @@ std::string_view BodyTextView(const Core::Http::RawResponse& raw_response) {
 }
 
 Status StatusFromErrorResponse(const std::string& url,
-                               const Core::Http::RawResponse& raw_response,
+                               const Http::RawResponse& raw_response,
                                const std::string& context) {
   // There isn't an Azure specification that response body on error
   // doesn't contain any binary data but we assume it. We hope that
@@ -220,7 +221,7 @@ Status StatusFromErrorResponse(const std::string& url,
 
 bool IsContainerNotFound(const Storage::StorageException& exception) {
   if (exception.ErrorCode == "ContainerNotFound") {
-    DCHECK_EQ(exception.StatusCode, Core::Http::HttpStatusCode::NotFound);
+    DCHECK_EQ(exception.StatusCode, Http::HttpStatusCode::NotFound);
     return true;
   }
   return false;
@@ -391,7 +392,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       metadata_ = PropertiesToMetadata(properties.Value);
       return Status::OK();
     } catch (const Storage::StorageException& exception) {
-      if (exception.StatusCode == Core::Http::HttpStatusCode::NotFound) {
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         return PathNotFound(location_);
       }
       return internal::ExceptionToStatus(
@@ -467,7 +468,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
 
     // Read the desired range of bytes
-    Core::Http::HttpRange range{position, nbytes};
+    Http::HttpRange range{position, nbytes};
     Storage::Blobs::DownloadBlobToOptions download_options;
     download_options.Range = range;
     try {
@@ -615,7 +616,7 @@ class ObjectAppendStream final : public io::OutputStream {
         content_length_ = properties.Value.BlobSize;
         pos_ = content_length_;
       } catch (const Storage::StorageException& exception) {
-        if (exception.StatusCode == Core::Http::HttpStatusCode::NotFound) {
+        if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
           RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client_));
         } else {
           return internal::ExceptionToStatus(
@@ -825,7 +826,7 @@ class AzureFileSystem::Impl {
           std::chrono::system_clock::time_point{properties.Value.LastModified});
       return info;
     } catch (const Storage::StorageException& exception) {
-      if (exception.StatusCode == Core::Http::HttpStatusCode::NotFound) {
+      if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
                               hns_detector_.Enabled(location.container));
         if (hierarchical_namespace_enabled) {
@@ -1385,8 +1386,7 @@ class AzureFileSystem::Impl {
           }
         }
       } catch (const Storage::StorageException& exception) {
-        if (missing_dir_ok &&
-            exception.StatusCode == Core::Http::HttpStatusCode::NotFound) {
+        if (missing_dir_ok && exception.StatusCode == Http::HttpStatusCode::NotFound) {
           return Status::OK();
         } else {
           return internal::ExceptionToStatus(
