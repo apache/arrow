@@ -1805,10 +1805,14 @@ cdef class VariableShapeTensorType(BaseExtensionType):
     def __arrow_ext_class__(self):
         return VariableShapeTensorArray
 
-    def __reduce__(self):
-        return variable_shape_tensor, (self.value_type, self.ndim,
-                                       self.dim_names, self.permutation,
-                                       self.uniform_shape)
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        assert storage_type == cls.storage_type
+        return cls()
 
     def __arrow_ext_scalar_class__(self):
         return VariableShapeTensorScalar
@@ -5288,7 +5292,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         N is the number of dimensions. The permutation indicates which dimension
         of the logical layout corresponds to which dimension of the physical tensor.
         For more information on this parameter see
-        :ref:`fixed_shape_tensor_extension`.
+        :ref:`variable_shape_tensor_extension`.
     uniform_shape : tuple or list of integers, default None
         Shape of dimensions that are guaranteed to stay constant over all tensors
         in the array if all their non-uniform sizes were replaced by None.
