@@ -4458,20 +4458,16 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         if not all([np.array_equal(p, permutation) for p in permutations]):
             raise ValueError('All numpy arrays must have matching permutation.')
 
-        values = [np.lib.stride_tricks.as_strided(
-            o, shape=(o.size,), strides=(numpy_type.itemsize,)) for o in obj]
-        shapes = [np.take(o.shape, permutation) for o in obj]
+        values = array([np.ravel(o, order="K") for o in obj], list_(arrow_type))
+        shapes = array([np.take(o.shape, permutation)
+                       for o in obj], list_(int32(), list_size=ndim))
+        struct_arr=StructArray.from_arrays([shapes, values], names=["shape", "data"])
 
-        struct_arr = StructArray.from_arrays([
-            array(shapes, list_(int32(), list_size=ndim)),
-            array(values, list_(arrow_type))
-        ], names=["shape", "data"])
-
-        typ = variable_shape_tensor(arrow_type, ndim, permutation=permutation)
+        typ=variable_shape_tensor(arrow_type, ndim, permutation=permutation)
         return ExtensionArray.from_storage(typ, struct_arr)
 
 
-cdef dict _array_classes = {
+cdef dict _array_classes={
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,
     _Type_UINT8: UInt8Array,
@@ -4522,14 +4518,14 @@ cdef inline shared_ptr[CBuffer] c_mask_inverted_from_obj(object mask, MemoryPool
     """
     cdef shared_ptr[CBuffer] c_mask
     if mask is None:
-        c_mask = shared_ptr[CBuffer]()
+        c_mask=shared_ptr[CBuffer]()
     elif isinstance(mask, Array):
         if mask.type.id != Type_BOOL:
             raise TypeError('Mask must be a pyarrow.Array of type boolean')
         if mask.null_count != 0:
             raise ValueError('Mask must not contain nulls')
-        inverted_mask = _pc().invert(mask, memory_pool=pool)
-        c_mask = pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
+        inverted_mask=_pc().invert(mask, memory_pool=pool)
+        c_mask=pyarrow_unwrap_buffer(inverted_mask.buffers()[1])
     else:
         raise TypeError('Mask must be a pyarrow.Array of type boolean')
     return c_mask
@@ -4537,12 +4533,12 @@ cdef inline shared_ptr[CBuffer] c_mask_inverted_from_obj(object mask, MemoryPool
 
 cdef object get_array_class_from_type(
         const shared_ptr[CDataType]& sp_data_type):
-    cdef CDataType* data_type = sp_data_type.get()
+    cdef CDataType* data_type=sp_data_type.get()
     if data_type == NULL:
         raise ValueError('Array data type was NULL')
 
     if data_type.id() == _Type_EXTENSION:
-        py_ext_data_type = pyarrow_wrap_data_type(sp_data_type)
+        py_ext_data_type=pyarrow_wrap_data_type(sp_data_type)
         return py_ext_data_type.__arrow_ext_class__()
     else:
         return _array_classes[data_type.id()]
@@ -4550,14 +4546,14 @@ cdef object get_array_class_from_type(
 
 cdef object get_values(object obj, bint* is_series):
     if pandas_api.is_series(obj) or pandas_api.is_index(obj):
-        result = pandas_api.get_values(obj)
-        is_series[0] = True
+        result=pandas_api.get_values(obj)
+        is_series[0]=True
     elif isinstance(obj, np.ndarray):
-        result = obj
-        is_series[0] = False
+        result=obj
+        is_series[0]=False
     else:
-        result = pandas_api.series(obj, copy=False).values
-        is_series[0] = False
+        result=pandas_api.series(obj, copy=False).values
+        is_series[0]=False
 
     return result
 
@@ -4600,7 +4596,7 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
     cdef:
         vector[shared_ptr[CArray]] c_arrays
         shared_ptr[CArray] c_concatenated
-        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        CMemoryPool* pool=maybe_unbox_memory_pool(memory_pool)
 
     for array in arrays:
         if not isinstance(array, Array):
@@ -4609,7 +4605,7 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
         c_arrays.push_back(pyarrow_unwrap_array(array))
 
     with nogil:
-        c_concatenated = GetResultValue(Concatenate(c_arrays, pool))
+        c_concatenated=GetResultValue(Concatenate(c_arrays, pool))
 
     return pyarrow_wrap_array(c_concatenated)
 
@@ -4619,9 +4615,9 @@ def _empty_array(DataType type):
     Create empty array of the given type.
     """
     if type.id == Type_DICTIONARY:
-        arr = DictionaryArray.from_arrays(
+        arr=DictionaryArray.from_arrays(
             _empty_array(type.index_type), _empty_array(type.value_type),
             ordered=type.ordered)
     else:
-        arr = array([], type=type)
+        arr=array([], type=type)
     return arr
