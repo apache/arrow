@@ -506,7 +506,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
         targetChildVector = targetDenseUnionVector.addVector(
             (byte) i, deltaChildVector.getField().createVector(targetDenseUnionVector.getAllocator()));
 
-        // now we have both child vecors not null, we can append them.
+        // now we have both child vectors not null, we can append them.
         VectorAppender childAppender = new VectorAppender(targetChildVector);
         deltaChildVector.accept(childAppender, null);
       } else if (targetChildVector != null && deltaChildVector == null) {

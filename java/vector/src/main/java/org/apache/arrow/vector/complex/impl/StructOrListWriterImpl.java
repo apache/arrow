@@ -87,8 +87,19 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    * Creates a new writer for a list of structs.
    *
    * @param name Unused.
+   *
+   * @deprecated use {@link #listOfStruct()} instead.
    */
   public StructOrListWriter listoftstruct(final String name) {
+    return listOfStruct(name);
+  }
+
+  /**
+   * Creates a new writer for a list of structs.
+   *
+   * @param name Unused.
+   */
+  public StructOrListWriter listOfStruct(final String name) {
     assert list != null;
     return new StructOrListWriterImpl(list.struct());
   }

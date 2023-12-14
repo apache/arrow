@@ -317,7 +317,7 @@ class TestCompressionCodec {
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
       final VarCharVector strings = (VarCharVector) root.getVector(1);
-      // Doesn't get compresed
+      // Doesn't get compressed
       ints.setSafe(0, 0x4a3e);
       ints.setSafe(1, 0x8aba);
       ints.setSafe(2, 0x4362);

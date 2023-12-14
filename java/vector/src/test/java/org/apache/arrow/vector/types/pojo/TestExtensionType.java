@@ -177,7 +177,7 @@ public class TestExtensionType {
             vector.allocateNewSafe();
           }
         });
-    assertTrue(e.getMessage().contains("underlyingVector can not be null."));
+    assertTrue(e.getMessage().contains("underlyingVector cannot be null."));
   }
 
   /**

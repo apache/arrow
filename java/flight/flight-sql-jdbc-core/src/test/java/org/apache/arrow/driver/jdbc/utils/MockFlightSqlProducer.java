@@ -195,7 +195,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
                       final BiConsumer<FlightStream, StreamListener<PutResult>> resultsProvider) {
     Preconditions.checkState(
         updateResultProviders.putIfAbsent(sqlCommand, resultsProvider) == null,
-        format("Attempted to overwrite pre-existing query: <%s>.", sqlCommand));
+        format("Attempted to overwrite preexisting query: <%s>.", sqlCommand));
   }
 
   /** Registers parameters expected to be provided with a prepared statement. */

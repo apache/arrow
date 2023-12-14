@@ -100,7 +100,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * @param fieldType The type of this list.
    * @param callBack A schema change callback.
    * @param conflictPolicy policy to determine how duplicate names are handled.
-   * @param allowConflictPolicyChanges wether duplicate names are allowed at all.
+   * @param allowConflictPolicyChanges whether duplicate names are allowed at all.
    */
   public StructVector(String name,
                       BufferAllocator allocator,
@@ -139,7 +139,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
    * @param allocator The allocator to use to allocating/reallocating buffers.
    * @param callBack A schema change callback.
    * @param conflictPolicy policy to determine how duplicate names are handled.
-   * @param allowConflictPolicyChanges wether duplicate names are allowed at all.
+   * @param allowConflictPolicyChanges whether duplicate names are allowed at all.
    */
   public StructVector(Field field,
                       BufferAllocator allocator,

@@ -129,7 +129,7 @@ public class JdbcFieldInfo {
 
   /**
    * Builds a <code>JdbcFieldInfo</code> from the corresponding row from a {@link java.sql.DatabaseMetaData#getColumns}
-   * ResulSet.
+   * ResultSet.
    *
    * @param rs The {@link java.sql.ResultSet} to get the field information from.
    * @throws SQLException If the column information cannot be retrieved.

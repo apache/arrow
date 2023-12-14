@@ -1048,8 +1048,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           SqlTypes.getSqlTypeNameFromArrowType(fieldType).getBytes(CHARSET);
       typeNameVector.setSafe(insertIndex, typeName);
 
-      // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
-      // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+      // We aren't setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
+      // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
       if (fieldType instanceof ArrowType.Decimal) {
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
       } else if (fieldType instanceof ArrowType.Int) {
@@ -1101,7 +1101,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   static Integer getDecimalDigits(final ArrowType fieldType) {
-    // We're not setting  DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+    // We aren't setting DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
     if (fieldType instanceof ArrowType.Decimal) {
       final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
       return thisDecimal.getScale();
@@ -1141,8 +1141,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   static Integer getColumnSize(final ArrowType fieldType) {
-    // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
-    // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+    // We aren't setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
+    // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
     if (fieldType instanceof ArrowType.Decimal) {
       final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
       return thisDecimal.getPrecision();

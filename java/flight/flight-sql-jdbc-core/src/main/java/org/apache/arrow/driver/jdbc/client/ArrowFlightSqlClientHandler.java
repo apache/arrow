@@ -469,8 +469,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     @VisibleForTesting
     boolean retainAuth = true;
 
-    // These two middlewares are for internal use within build() and should not be exposed by builder APIs.
-    // Note that these middlewares may not necessarily be registered.
+    // These two middleware are for internal use within build() and should not be exposed by builder APIs.
+    // Note that these middleware may not necessarily be registered.
     @VisibleForTesting
     ClientIncomingAuthHeaderMiddleware.Factory authFactory
         = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
@@ -742,7 +742,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @throws SQLException on error.
      */
     public ArrowFlightSqlClientHandler build() throws SQLException {
-      // Copy middlewares so that the build method doesn't change the state of the builder fields itself.
+      // Copy middleware so that the build method doesn't change the state of the builder fields itself.
       Set<FlightClientMiddleware.Factory> buildTimeMiddlewareFactories = new HashSet<>(this.middlewareFactories);
       FlightClient client = null;
       boolean isUsingUserPasswordAuth = username != null && token == null;

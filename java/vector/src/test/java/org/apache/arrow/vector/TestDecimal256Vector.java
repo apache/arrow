@@ -104,7 +104,7 @@ public class TestDecimal256Vector {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(12345), 2);
         UnsupportedOperationException ue =
             assertThrows(UnsupportedOperationException.class, () -> decimalVector.setSafe(0, decimal));
-        assertEquals("BigDecimal precision can not be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
+        assertEquals("BigDecimal precision cannot be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
       }
     }
   }
