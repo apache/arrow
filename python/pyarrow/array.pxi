@@ -4403,7 +4403,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         ...     ]
         >>> arr = pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list)
         >>> arr.type
-        VariableShapeTensorType(extension<arrow.variable_shape_tensor[value_type=float32, ndim=2]>)
+        VariableShapeTensorType(extension<arrow.variable_shape_tensor[value_type=float, ndim=2, permutation=[0,1]]>)
         >>> arr
         <pyarrow.lib.VariableShapeTensorArray object at ...>
         -- is_valid: all not null
