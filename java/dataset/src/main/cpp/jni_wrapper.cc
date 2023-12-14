@@ -551,7 +551,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createRange
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
   if (filter != nullptr) {
-    // TODO: PR 32625 OR PR 14287.
+    // TODO: issue 32625 https://github.com/apache/arrow/issues/32625
   }
   JniAssertOkOrThrow(scanner_builder->StartOffset(start_offset));
   JniAssertOkOrThrow(scanner_builder->Length(length));
