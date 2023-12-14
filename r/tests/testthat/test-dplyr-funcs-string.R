@@ -437,16 +437,9 @@ test_that("str_replace and str_replace_all", {
   # about pulling data into R instead?
   expect_error(
     arrow_table(df) %>%
-      transmute(x = str_replace_all(x, c("F"="_", "b"=""))) %>%
+      transmute(x = call_binding("str_replace_all", x, c("F"="_", "b"=""))) %>%
       collect(),
-    regexp = "`pattern` must be a length 1 character vector",
-  )
-  # TODO: This test fails as expected (probably remove)
-  compare_dplyr_binding(
-    .input %>%
-      transmute(x = str_replace_all(x, c("F"="f", "b"="B"))) %>%
-      collect(),
-    df
+    regexp = "`pattern` and `replacement` must be a length 1 character vector",
   )
   compare_dplyr_binding(
     .input %>%
