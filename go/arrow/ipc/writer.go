@@ -749,22 +749,20 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		data := arr.Data()
 		arr := arr.(array.VarLenListLike)
 		voffsets := arr.Data().Buffers()[1]
-		voffsets.Retain()
+		if voffsets != nil {
+			voffsets.Retain()
+		}
 		vsizes := data.Buffers()[2]
-		vsizes.Retain()
+		if vsizes != nil {
+			vsizes.Retain()
+		}
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, vsizes)
 
 		w.depth--
 		var (
-			values      = arr.ListValues()
-			mustRelease = false
+			values = arr.ListValues()
 		)
-		defer func() {
-			if mustRelease {
-				values.Release()
-			}
-		}()
 
 		err := w.visit(p, values)
 
