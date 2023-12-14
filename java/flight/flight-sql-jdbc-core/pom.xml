@@ -23,7 +23,7 @@
 
     <artifactId>flight-sql-jdbc-core</artifactId>
     <name>Arrow Flight SQL JDBC Driver Core</name>
-    <description>(Contrib/Experimental) Core implementation of JDBC driver based on Arrow Flight SQL.</description>
+    <description>Core implementation of JDBC driver based on Arrow Flight SQL.</description>
     <packaging>jar</packaging>
     <url>https://arrow.apache.org</url>
 
