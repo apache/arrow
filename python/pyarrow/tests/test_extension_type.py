@@ -1515,15 +1515,18 @@ def test_variable_shape_tensor_class_methods(value_type):
         np.array([[1, 2, 3], [4, 5, 6]], dtype=value_type),
         np.array([[7], [8]], dtype=value_type),
     ]
-    list(np.testing.assert_array_equal(x, y) for x, y in
-         zip(arr.to_numpy_ndarray(), ndarray_list))
+    list(np.testing.assert_array_equal(x.to_numpy_ndarray(), y) for x, y in
+         zip(arr, ndarray_list))
 
     assert pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list).equals(
         basic_arr
     )
     assert pa.VariableShapeTensorArray.from_numpy_ndarray(
-        arr.to_numpy_ndarray()
-    ).equals(basic_arr)
+        arr[0].to_numpy_ndarray()
+    ).equals(basic_arr[0])
+    assert pa.VariableShapeTensorArray.from_numpy_ndarray(
+        arr[1].to_numpy_ndarray()
+    ).equals(basic_arr[1])
 
     assert arr.to_pylist() == [
         {"data": [1, 2, 3, 4, 5, 6], "shape": [2, 3]},
@@ -1582,13 +1585,11 @@ def test_variable_shape_tensor_strided(value_type):
         struct_arr = pa.StructArray.from_arrays([shapes, values], fields=fields)
 
         arrow_array = pa.ExtensionArray.from_storage(tensor_array_type, struct_arr)
-        np.testing.assert_array_equal(arrow_array.to_numpy_ndarray(), [arr_out])
         np.testing.assert_array_equal(arrow_array[0].to_numpy_ndarray(), arr_out)
         np.testing.assert_array_equal(
             arrow_array[0].to_tensor(), pa.Tensor.from_numpy(arr_out))
 
         arrow_array = pa.VariableShapeTensorArray.from_numpy_ndarray([arr_in])
-        np.testing.assert_array_equal(arrow_array.to_numpy_ndarray(), [arr_out])
         np.testing.assert_array_equal(arrow_array[0].to_numpy_ndarray(), arr_out)
         np.testing.assert_array_equal(
             arrow_array[0].to_tensor(), pa.Tensor.from_numpy(arr_out))
