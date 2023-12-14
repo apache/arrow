@@ -26,6 +26,7 @@
 namespace arrow {
 namespace internal {
 
+ARROW_EXPORT
 inline Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
                              const std::vector<int64_t>& shape,
                              const std::vector<int64_t>& permutation,
