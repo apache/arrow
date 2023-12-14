@@ -25,7 +25,7 @@ namespace arrow::fs::internal {
 
 namespace {
 
-// TODO(GH-38772): Remote azurefs_internal.h/.cc by moving the detector to
+// TODO(GH-38772): Remove azurefs_internal.h/.cc by moving the detector to
 // azurefs.cc (which contains a private copy of this helper function already).
 Status ExceptionToStatus(const std::string& prefix,
                          const Azure::Storage::StorageException& exception) {
