@@ -863,63 +863,6 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 	return voffsets
 }
 
-// Truncates the offsets if needed and shifts the values if minOffset > 0.
-// The offsets returned are corrected assuming the child values are truncated
-// and now start at minOffset.
-//
-// This function only works on offset buffers of ListViews and LargeListViews.
-// TODO(felipecrv): Unify this with getZeroBasedValueOffsets.
-func (w *recordEncoder) getValueOffsetsAtBaseValue(arr arrow.Array, minOffset int) *memory.Buffer {
-	data := arr.Data()
-	voffsets := data.Buffers()[1]
-	offsetTraits := arr.DataType().(arrow.OffsetsDataType).OffsetTypeTraits()
-	offsetBytesNeeded := offsetTraits.BytesRequired(data.Len())
-
-	if voffsets == nil || voffsets.Len() == 0 {
-		return nil
-	}
-
-	needsTruncate := data.Offset() != 0 || offsetBytesNeeded < voffsets.Len()
-	needsShift := minOffset > 0
-
-	if needsTruncate || needsShift {
-		shiftedOffsets := memory.NewResizableBuffer(w.mem)
-		shiftedOffsets.Resize(offsetBytesNeeded)
-
-		switch arr.DataType().Layout().Buffers[1].ByteWidth {
-		case 8:
-			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
-			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()]
-
-			if minOffset > 0 {
-				for i, o := range offsets {
-					dest[i] = o - int64(minOffset)
-				}
-			} else {
-				copy(dest, offsets)
-			}
-		default:
-			debug.Assert(arr.DataType().Layout().Buffers[1].ByteWidth == 4, "invalid offset bytewidth")
-			dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
-			offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()]
-
-			if minOffset > 0 {
-				for i, o := range offsets {
-					dest[i] = o - int32(minOffset)
-				}
-			} else {
-				copy(dest, offsets)
-			}
-		}
-
-		voffsets = shiftedOffsets
-	} else {
-		voffsets.Retain()
-	}
-
-	return voffsets
-}
-
 func (w *recordEncoder) rebaseDenseUnionValueOffsets(arr *array.DenseUnion, offsets, lengths []int32) *memory.Buffer {
 	// this case sucks. Because the offsets are different for each
 	// child array, when we have a sliced array, we need to re-base
