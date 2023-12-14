@@ -24,12 +24,11 @@
 package flight
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -39,6 +38,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+//
 // The result of a cancel operation.
 //
 // This is used by CancelFlightInfoResult.status.
@@ -103,6 +103,7 @@ func (CancelStatus) EnumDescriptor() ([]byte, []int) {
 	return file_Flight_proto_rawDescGZIP(), []int{0}
 }
 
+//
 // Describes what type of descriptor is defined.
 type FlightDescriptor_DescriptorType int32
 
@@ -160,6 +161,7 @@ func (FlightDescriptor_DescriptorType) EnumDescriptor() ([]byte, []int) {
 	return file_Flight_proto_rawDescGZIP(), []int{12, 0}
 }
 
+//
 // The request that a client provides to a server on handshake.
 type HandshakeRequest struct {
 	state         protoimpl.MessageState
@@ -279,6 +281,7 @@ func (x *HandshakeResponse) GetPayload() []byte {
 	return nil
 }
 
+//
 // A message for doing simple auth.
 type BasicAuth struct {
 	state         protoimpl.MessageState
@@ -373,6 +376,7 @@ func (*Empty) Descriptor() ([]byte, []int) {
 	return file_Flight_proto_rawDescGZIP(), []int{3}
 }
 
+//
 // Describes an available action, including both the name used for execution
 // along with a short description of the purpose of the action.
 type ActionType struct {
@@ -430,6 +434,7 @@ func (x *ActionType) GetDescription() string {
 	return ""
 }
 
+//
 // A service specific expression that can be used to return a limited set
 // of available Arrow Flight streams.
 type Criteria struct {
@@ -479,6 +484,7 @@ func (x *Criteria) GetExpression() []byte {
 	return nil
 }
 
+//
 // An opaque action specific for the service.
 type Action struct {
 	state         protoimpl.MessageState
@@ -535,6 +541,7 @@ func (x *Action) GetBody() []byte {
 	return nil
 }
 
+//
 // The request of the CancelFlightInfo action.
 //
 // The request should be stored in Action.body.
@@ -585,6 +592,7 @@ func (x *CancelFlightInfoRequest) GetInfo() *FlightInfo {
 	return nil
 }
 
+//
 // The request of the RenewFlightEndpoint action.
 //
 // The request should be stored in Action.body.
@@ -635,6 +643,7 @@ func (x *RenewFlightEndpointRequest) GetEndpoint() *FlightEndpoint {
 	return nil
 }
 
+//
 // An opaque result returned after executing an action.
 type Result struct {
 	state         protoimpl.MessageState
@@ -683,6 +692,7 @@ func (x *Result) GetBody() []byte {
 	return nil
 }
 
+//
 // The result of the CancelFlightInfo action.
 //
 // The result should be stored in Result.body.
@@ -733,6 +743,7 @@ func (x *CancelFlightInfoResult) GetStatus() CancelStatus {
 	return CancelStatus_CANCEL_STATUS_UNSPECIFIED
 }
 
+//
 // Wrap the result of a getSchema call
 type SchemaResult struct {
 	state         protoimpl.MessageState
@@ -785,6 +796,7 @@ func (x *SchemaResult) GetSchema() []byte {
 	return nil
 }
 
+//
 // The name or tag for a Flight. May be used as a way to retrieve or generate
 // a flight or be used to expose a set of previously defined flights.
 type FlightDescriptor struct {
@@ -856,6 +868,7 @@ func (x *FlightDescriptor) GetPath() []string {
 	return nil
 }
 
+//
 // The access coordinates for retrieval of a dataset. With a FlightInfo, a
 // consumer is able to determine how to retrieve a dataset.
 type FlightInfo struct {
@@ -987,6 +1000,7 @@ func (x *FlightInfo) GetAppMetadata() []byte {
 	return nil
 }
 
+//
 // The information to process a long-running query.
 type PollInfo struct {
 	state         protoimpl.MessageState
@@ -1086,6 +1100,7 @@ func (x *PollInfo) GetExpirationTime() *timestamppb.Timestamp {
 	return nil
 }
 
+//
 // A particular stream or split associated with a flight.
 type FlightEndpoint struct {
 	state         protoimpl.MessageState
@@ -1181,6 +1196,7 @@ func (x *FlightEndpoint) GetAppMetadata() []byte {
 	return nil
 }
 
+//
 // A location where a Flight service will accept retrieval of a particular
 // stream given a ticket.
 type Location struct {
@@ -1230,6 +1246,7 @@ func (x *Location) GetUri() string {
 	return ""
 }
 
+//
 // An opaque identifier that the service can use to retrieve a particular
 // portion of a stream.
 //
@@ -1282,6 +1299,7 @@ func (x *Ticket) GetTicket() []byte {
 	return nil
 }
 
+//
 // A batch of Arrow data as part of a stream of batches.
 type FlightData struct {
 	state         protoimpl.MessageState
@@ -1366,7 +1384,7 @@ func (x *FlightData) GetDataBody() []byte {
 	return nil
 }
 
-// *
+//*
 // The response message associated with the submission of a DoPut.
 type PutResult struct {
 	state         protoimpl.MessageState

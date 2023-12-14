@@ -24,12 +24,11 @@
 package flight
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -1703,7 +1702,7 @@ func (SqlSupportsConvert) EnumDescriptor() ([]byte, []int) {
 	return file_FlightSql_proto_rawDescGZIP(), []int{16}
 }
 
-// *
+//*
 // The JDBC/ODBC-defined type of any object.
 // All the values here are the same as in the JDBC and ODBC specs.
 type XdbcDataType int32
@@ -1818,7 +1817,7 @@ func (XdbcDataType) EnumDescriptor() ([]byte, []int) {
 	return file_FlightSql_proto_rawDescGZIP(), []int{17}
 }
 
-// *
+//*
 // Detailed subtype information for XDBC_TYPE_DATETIME and XDBC_TYPE_INTERVAL.
 type XdbcDatetimeSubcode int32
 
@@ -2294,23 +2293,22 @@ func (ActionCancelQueryResult_CancelResult) EnumDescriptor() ([]byte, []int) {
 	return file_FlightSql_proto_rawDescGZIP(), []int{29, 0}
 }
 
+//
 // Represents a metadata request. Used in the command member of FlightDescriptor
 // for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	info_name: uint32 not null,
-//	value: dense_union<
-//	            string_value: utf8,
-//	            bool_value: bool,
-//	            bigint_value: int64,
-//	            int32_bitmask: int32,
-//	            string_list: list<string_data: utf8>
-//	            int32_to_int32_list_map: map<key: int32, value: list<$data$: int32>>
-//
+//  info_name: uint32 not null,
+//  value: dense_union<
+//              string_value: utf8,
+//              bool_value: bool,
+//              bigint_value: int64,
+//              int32_bitmask: int32,
+//              string_list: list<string_data: utf8>
+//              int32_to_int32_list_map: map<key: int32, value: list<$data$: int32>>
 // >
 // where there is one row per requested piece of metadata information.
 type CommandGetSqlInfo struct {
@@ -2378,62 +2376,61 @@ func (x *CommandGetSqlInfo) GetInfo() []uint32 {
 	return nil
 }
 
+//
 // Represents a request to retrieve information about data type supported on a Flight SQL enabled backend.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned schema will be:
 // <
-//
-//	type_name: utf8 not null (The name of the data type, for example: VARCHAR, INTEGER, etc),
-//	data_type: int32 not null (The SQL data type),
-//	column_size: int32 (The maximum size supported by that column.
-//	                    In case of exact numeric types, this represents the maximum precision.
-//	                    In case of string types, this represents the character length.
-//	                    In case of datetime data types, this represents the length in characters of the string representation.
-//	                    NULL is returned for data types where column size is not applicable.),
-//	literal_prefix: utf8 (Character or characters used to prefix a literal, NULL is returned for
-//	                      data types where a literal prefix is not applicable.),
-//	literal_suffix: utf8 (Character or characters used to terminate a literal,
-//	                      NULL is returned for data types where a literal suffix is not applicable.),
-//	create_params: list<utf8 not null>
-//	                     (A list of keywords corresponding to which parameters can be used when creating
-//	                      a column for that specific type.
-//	                      NULL is returned if there are no parameters for the data type definition.),
-//	nullable: int32 not null (Shows if the data type accepts a NULL value. The possible values can be seen in the
-//	                          Nullable enum.),
-//	case_sensitive: bool not null (Shows if a character data type is case-sensitive in collations and comparisons),
-//	searchable: int32 not null (Shows how the data type is used in a WHERE clause. The possible values can be seen in the
-//	                            Searchable enum.),
-//	unsigned_attribute: bool (Shows if the data type is unsigned. NULL is returned if the attribute is
-//	                          not applicable to the data type or the data type is not numeric.),
-//	fixed_prec_scale: bool not null (Shows if the data type has predefined fixed precision and scale.),
-//	auto_increment: bool (Shows if the data type is auto incremental. NULL is returned if the attribute
-//	                      is not applicable to the data type or the data type is not numeric.),
-//	local_type_name: utf8 (Localized version of the data source-dependent name of the data type. NULL
-//	                       is returned if a localized name is not supported by the data source),
-//	minimum_scale: int32 (The minimum scale of the data type on the data source.
-//	                      If a data type has a fixed scale, the MINIMUM_SCALE and MAXIMUM_SCALE
-//	                      columns both contain this value. NULL is returned if scale is not applicable.),
-//	maximum_scale: int32 (The maximum scale of the data type on the data source.
-//	                      NULL is returned if scale is not applicable.),
-//	sql_data_type: int32 not null (The value of the SQL DATA TYPE which has the same values
-//	                               as data_type value. Except for interval and datetime, which
-//	                               uses generic values. More info about those types can be
-//	                               obtained through datetime_subcode. The possible values can be seen
-//	                               in the XdbcDataType enum.),
-//	datetime_subcode: int32 (Only used when the SQL DATA TYPE is interval or datetime. It contains
-//	                         its sub types. For type different from interval and datetime, this value
-//	                         is NULL. The possible values can be seen in the XdbcDatetimeSubcode enum.),
-//	num_prec_radix: int32 (If the data type is an approximate numeric type, this column contains
-//	                       the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
-//	                       exact numeric types, this column contains the value 10 to indicate that
-//	                       column size specifies a number of decimal digits. Otherwise, this column is NULL.),
-//	interval_precision: int32 (If the data type is an interval data type, then this column contains the value
-//	                           of the interval leading precision. Otherwise, this column is NULL. This fields
-//	                           is only relevant to be used by ODBC).
-//
+//   type_name: utf8 not null (The name of the data type, for example: VARCHAR, INTEGER, etc),
+//   data_type: int32 not null (The SQL data type),
+//   column_size: int32 (The maximum size supported by that column.
+//                       In case of exact numeric types, this represents the maximum precision.
+//                       In case of string types, this represents the character length.
+//                       In case of datetime data types, this represents the length in characters of the string representation.
+//                       NULL is returned for data types where column size is not applicable.),
+//   literal_prefix: utf8 (Character or characters used to prefix a literal, NULL is returned for
+//                         data types where a literal prefix is not applicable.),
+//   literal_suffix: utf8 (Character or characters used to terminate a literal,
+//                         NULL is returned for data types where a literal suffix is not applicable.),
+//   create_params: list<utf8 not null>
+//                        (A list of keywords corresponding to which parameters can be used when creating
+//                         a column for that specific type.
+//                         NULL is returned if there are no parameters for the data type definition.),
+//   nullable: int32 not null (Shows if the data type accepts a NULL value. The possible values can be seen in the
+//                             Nullable enum.),
+//   case_sensitive: bool not null (Shows if a character data type is case-sensitive in collations and comparisons),
+//   searchable: int32 not null (Shows how the data type is used in a WHERE clause. The possible values can be seen in the
+//                               Searchable enum.),
+//   unsigned_attribute: bool (Shows if the data type is unsigned. NULL is returned if the attribute is
+//                             not applicable to the data type or the data type is not numeric.),
+//   fixed_prec_scale: bool not null (Shows if the data type has predefined fixed precision and scale.),
+//   auto_increment: bool (Shows if the data type is auto incremental. NULL is returned if the attribute
+//                         is not applicable to the data type or the data type is not numeric.),
+//   local_type_name: utf8 (Localized version of the data source-dependent name of the data type. NULL
+//                          is returned if a localized name is not supported by the data source),
+//   minimum_scale: int32 (The minimum scale of the data type on the data source.
+//                         If a data type has a fixed scale, the MINIMUM_SCALE and MAXIMUM_SCALE
+//                         columns both contain this value. NULL is returned if scale is not applicable.),
+//   maximum_scale: int32 (The maximum scale of the data type on the data source.
+//                         NULL is returned if scale is not applicable.),
+//   sql_data_type: int32 not null (The value of the SQL DATA TYPE which has the same values
+//                                  as data_type value. Except for interval and datetime, which
+//                                  uses generic values. More info about those types can be
+//                                  obtained through datetime_subcode. The possible values can be seen
+//                                  in the XdbcDataType enum.),
+//   datetime_subcode: int32 (Only used when the SQL DATA TYPE is interval or datetime. It contains
+//                            its sub types. For type different from interval and datetime, this value
+//                            is NULL. The possible values can be seen in the XdbcDatetimeSubcode enum.),
+//   num_prec_radix: int32 (If the data type is an approximate numeric type, this column contains
+//                          the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
+//                          exact numeric types, this column contains the value 10 to indicate that
+//                          column size specifies a number of decimal digits. Otherwise, this column is NULL.),
+//   interval_precision: int32 (If the data type is an interval data type, then this column contains the value
+//                              of the interval leading precision. Otherwise, this column is NULL. This fields
+//                              is only relevant to be used by ODBC).
 // >
 // The returned data should be ordered by data_type and then by type_name.
 type CommandGetXdbcTypeInfo struct {
@@ -2485,17 +2482,16 @@ func (x *CommandGetXdbcTypeInfo) GetDataType() int32 {
 	return 0
 }
 
+//
 // Represents a request to retrieve the list of catalogs on a Flight SQL enabled backend.
 // The definition of a catalog depends on vendor/implementation. It is usually the database itself
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	catalog_name: utf8 not null
-//
+//  catalog_name: utf8 not null
 // >
 // The returned data should be ordered by catalog_name.
 type CommandGetCatalogs struct {
@@ -2536,18 +2532,17 @@ func (*CommandGetCatalogs) Descriptor() ([]byte, []int) {
 	return file_FlightSql_proto_rawDescGZIP(), []int{2}
 }
 
+//
 // Represents a request to retrieve the list of database schemas on a Flight SQL enabled backend.
 // The definition of a database schema depends on vendor/implementation. It is usually a collection of tables.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	catalog_name: utf8,
-//	db_schema_name: utf8 not null
-//
+//  catalog_name: utf8,
+//  db_schema_name: utf8 not null
 // >
 // The returned data should be ordered by catalog_name, then db_schema_name.
 type CommandGetDbSchemas struct {
@@ -2615,34 +2610,32 @@ func (x *CommandGetDbSchemas) GetDbSchemaFilterPattern() string {
 	return ""
 }
 
+//
 // Represents a request to retrieve the list of tables, and optionally their schemas, on a Flight SQL enabled backend.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	catalog_name: utf8,
-//	db_schema_name: utf8,
-//	table_name: utf8 not null,
-//	table_type: utf8 not null,
-//	[optional] table_schema: bytes not null (schema of the table as described in Schema.fbs::Schema,
-//	                                         it is serialized as an IPC message.)
-//
+//  catalog_name: utf8,
+//  db_schema_name: utf8,
+//  table_name: utf8 not null,
+//  table_type: utf8 not null,
+//  [optional] table_schema: bytes not null (schema of the table as described in Schema.fbs::Schema,
+//                                           it is serialized as an IPC message.)
 // >
 // Fields on table_schema may contain the following metadata:
-//   - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
-//   - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
-//   - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
-//   - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
-//   - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
-//   - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
-//   - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
-//
+//  - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+//  - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+//  - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+//  - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
+//  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+//  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+//  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+//  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
+//  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+//  - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
 // The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
 type CommandGetTables struct {
 	state         protoimpl.MessageState
@@ -2744,18 +2737,17 @@ func (x *CommandGetTables) GetIncludeSchema() bool {
 	return false
 }
 
+//
 // Represents a request to retrieve the list of table types on a Flight SQL enabled backend.
 // The table types depend on vendor/implementation. It is usually used to separate tables from views or system tables.
 // TABLE, VIEW, and SYSTEM TABLE are commonly supported.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	table_type: utf8 not null
-//
+//  table_type: utf8 not null
 // >
 // The returned data should be ordered by table_type.
 type CommandGetTableTypes struct {
@@ -2796,21 +2788,20 @@ func (*CommandGetTableTypes) Descriptor() ([]byte, []int) {
 	return file_FlightSql_proto_rawDescGZIP(), []int{5}
 }
 
+//
 // Represents a request to retrieve the primary keys of a table on a Flight SQL enabled backend.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	catalog_name: utf8,
-//	db_schema_name: utf8,
-//	table_name: utf8 not null,
-//	column_name: utf8 not null,
-//	key_name: utf8,
-//	key_sequence: int32 not null
-//
+//  catalog_name: utf8,
+//  db_schema_name: utf8,
+//  table_name: utf8 not null,
+//  column_name: utf8 not null,
+//  key_name: utf8,
+//  key_sequence: int32 not null
 // >
 // The returned data should be ordered by catalog_name, db_schema_name, table_name, key_name, then key_sequence.
 type CommandGetPrimaryKeys struct {
@@ -2885,29 +2876,28 @@ func (x *CommandGetPrimaryKeys) GetTable() string {
 	return ""
 }
 
+//
 // Represents a request to retrieve a description of the foreign key columns that reference the given table's
 // primary key columns (the foreign keys exported by a table) of a table on a Flight SQL enabled backend.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	pk_catalog_name: utf8,
-//	pk_db_schema_name: utf8,
-//	pk_table_name: utf8 not null,
-//	pk_column_name: utf8 not null,
-//	fk_catalog_name: utf8,
-//	fk_db_schema_name: utf8,
-//	fk_table_name: utf8 not null,
-//	fk_column_name: utf8 not null,
-//	key_sequence: int32 not null,
-//	fk_key_name: utf8,
-//	pk_key_name: utf8,
-//	update_rule: uint8 not null,
-//	delete_rule: uint8 not null
-//
+//  pk_catalog_name: utf8,
+//  pk_db_schema_name: utf8,
+//  pk_table_name: utf8 not null,
+//  pk_column_name: utf8 not null,
+//  fk_catalog_name: utf8,
+//  fk_db_schema_name: utf8,
+//  fk_table_name: utf8 not null,
+//  fk_column_name: utf8 not null,
+//  key_sequence: int32 not null,
+//  fk_key_name: utf8,
+//  pk_key_name: utf8,
+//  update_rule: uint8 not null,
+//  delete_rule: uint8 not null
 // >
 // The returned data should be ordered by fk_catalog_name, fk_db_schema_name, fk_table_name, fk_key_name, then key_sequence.
 // update_rule and delete_rule returns a byte that is equivalent to actions declared on UpdateDeleteRules enum.
@@ -2983,36 +2973,35 @@ func (x *CommandGetExportedKeys) GetTable() string {
 	return ""
 }
 
+//
 // Represents a request to retrieve the foreign keys of a table on a Flight SQL enabled backend.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	pk_catalog_name: utf8,
-//	pk_db_schema_name: utf8,
-//	pk_table_name: utf8 not null,
-//	pk_column_name: utf8 not null,
-//	fk_catalog_name: utf8,
-//	fk_db_schema_name: utf8,
-//	fk_table_name: utf8 not null,
-//	fk_column_name: utf8 not null,
-//	key_sequence: int32 not null,
-//	fk_key_name: utf8,
-//	pk_key_name: utf8,
-//	update_rule: uint8 not null,
-//	delete_rule: uint8 not null
-//
+//  pk_catalog_name: utf8,
+//  pk_db_schema_name: utf8,
+//  pk_table_name: utf8 not null,
+//  pk_column_name: utf8 not null,
+//  fk_catalog_name: utf8,
+//  fk_db_schema_name: utf8,
+//  fk_table_name: utf8 not null,
+//  fk_column_name: utf8 not null,
+//  key_sequence: int32 not null,
+//  fk_key_name: utf8,
+//  pk_key_name: utf8,
+//  update_rule: uint8 not null,
+//  delete_rule: uint8 not null
 // >
 // The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
 // update_rule and delete_rule returns a byte that is equivalent to actions:
-//   - 0 = CASCADE
-//   - 1 = RESTRICT
-//   - 2 = SET NULL
-//   - 3 = NO ACTION
-//   - 4 = SET DEFAULT
+//    - 0 = CASCADE
+//    - 1 = RESTRICT
+//    - 2 = SET NULL
+//    - 3 = NO ACTION
+//    - 4 = SET DEFAULT
 type CommandGetImportedKeys struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3085,38 +3074,37 @@ func (x *CommandGetImportedKeys) GetTable() string {
 	return ""
 }
 
+//
 // Represents a request to retrieve a description of the foreign key columns in the given foreign key table that
 // reference the primary key or the columns representing a unique constraint of the parent table (could be the same
 // or a different table) on a Flight SQL enabled backend.
 // Used in the command member of FlightDescriptor for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//   - GetFlightInfo: execute the catalog metadata request.
+//  - GetSchema: return the Arrow schema of the query.
+//  - GetFlightInfo: execute the catalog metadata request.
 //
 // The returned Arrow schema will be:
 // <
-//
-//	pk_catalog_name: utf8,
-//	pk_db_schema_name: utf8,
-//	pk_table_name: utf8 not null,
-//	pk_column_name: utf8 not null,
-//	fk_catalog_name: utf8,
-//	fk_db_schema_name: utf8,
-//	fk_table_name: utf8 not null,
-//	fk_column_name: utf8 not null,
-//	key_sequence: int32 not null,
-//	fk_key_name: utf8,
-//	pk_key_name: utf8,
-//	update_rule: uint8 not null,
-//	delete_rule: uint8 not null
-//
+//  pk_catalog_name: utf8,
+//  pk_db_schema_name: utf8,
+//  pk_table_name: utf8 not null,
+//  pk_column_name: utf8 not null,
+//  fk_catalog_name: utf8,
+//  fk_db_schema_name: utf8,
+//  fk_table_name: utf8 not null,
+//  fk_column_name: utf8 not null,
+//  key_sequence: int32 not null,
+//  fk_key_name: utf8,
+//  pk_key_name: utf8,
+//  update_rule: uint8 not null,
+//  delete_rule: uint8 not null
 // >
 // The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
 // update_rule and delete_rule returns a byte that is equivalent to actions:
-//   - 0 = CASCADE
-//   - 1 = RESTRICT
-//   - 2 = SET NULL
-//   - 3 = NO ACTION
-//   - 4 = SET DEFAULT
+//    - 0 = CASCADE
+//    - 1 = RESTRICT
+//    - 2 = SET NULL
+//    - 3 = NO ACTION
+//    - 4 = SET DEFAULT
 type CommandGetCrossReference struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3224,6 +3212,7 @@ func (x *CommandGetCrossReference) GetFkTable() string {
 	return ""
 }
 
+//
 // Request message for the "CreatePreparedStatement" action on a Flight SQL enabled backend.
 type ActionCreatePreparedStatementRequest struct {
 	state         protoimpl.MessageState
@@ -3283,6 +3272,7 @@ func (x *ActionCreatePreparedStatementRequest) GetTransactionId() []byte {
 	return nil
 }
 
+//
 // An embedded message describing a Substrait plan to execute.
 type SubstraitPlan struct {
 	state         protoimpl.MessageState
@@ -3346,6 +3336,7 @@ func (x *SubstraitPlan) GetVersion() string {
 	return ""
 }
 
+//
 // Request message for the "CreatePreparedSubstraitPlan" action on a Flight SQL enabled backend.
 type ActionCreatePreparedSubstraitPlanRequest struct {
 	state         protoimpl.MessageState
@@ -3405,6 +3396,7 @@ func (x *ActionCreatePreparedSubstraitPlanRequest) GetTransactionId() []byte {
 	return nil
 }
 
+//
 // Wrap the result of a "CreatePreparedStatement" or "CreatePreparedSubstraitPlan" action.
 //
 // The resultant PreparedStatement can be closed either:
@@ -3480,6 +3472,7 @@ func (x *ActionCreatePreparedStatementResult) GetParameterSchema() []byte {
 	return nil
 }
 
+//
 // Request message for the "ClosePreparedStatement" action on a Flight SQL enabled backend.
 // Closes server resources associated with the prepared statement handle.
 type ActionClosePreparedStatementRequest struct {
@@ -3530,6 +3523,7 @@ func (x *ActionClosePreparedStatementRequest) GetPreparedStatementHandle() []byt
 	return nil
 }
 
+//
 // Request message for the "BeginTransaction" action.
 // Begins a transaction.
 type ActionBeginTransactionRequest struct {
@@ -3570,6 +3564,7 @@ func (*ActionBeginTransactionRequest) Descriptor() ([]byte, []int) {
 	return file_FlightSql_proto_rawDescGZIP(), []int{15}
 }
 
+//
 // Request message for the "BeginSavepoint" action.
 // Creates a savepoint within a transaction.
 //
@@ -3632,6 +3627,7 @@ func (x *ActionBeginSavepointRequest) GetName() string {
 	return ""
 }
 
+//
 // The result of a "BeginTransaction" action.
 //
 // The transaction can be manipulated with the "EndTransaction" action, or
@@ -3687,6 +3683,7 @@ func (x *ActionBeginTransactionResult) GetTransactionId() []byte {
 	return nil
 }
 
+//
 // The result of a "BeginSavepoint" action.
 //
 // The transaction can be manipulated with the "EndSavepoint" action.
@@ -3742,6 +3739,7 @@ func (x *ActionBeginSavepointResult) GetSavepointId() []byte {
 	return nil
 }
 
+//
 // Request message for the "EndTransaction" action.
 //
 // Commit (COMMIT) or rollback (ROLLBACK) the transaction.
@@ -3805,6 +3803,7 @@ func (x *ActionEndTransactionRequest) GetAction() ActionEndTransactionRequest_En
 	return ActionEndTransactionRequest_END_TRANSACTION_UNSPECIFIED
 }
 
+//
 // Request message for the "EndSavepoint" action.
 //
 // Release (RELEASE) the savepoint or rollback (ROLLBACK) to the
@@ -3870,21 +3869,22 @@ func (x *ActionEndSavepointRequest) GetAction() ActionEndSavepointRequest_EndSav
 	return ActionEndSavepointRequest_END_SAVEPOINT_UNSPECIFIED
 }
 
+//
 // Represents a SQL query. Used in the command member of FlightDescriptor
 // for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//     Fields on this schema may contain the following metadata:
-//   - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
-//   - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
-//   - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
-//   - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
-//   - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
-//   - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
-//   - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
-//   - GetFlightInfo: execute the query.
+//  - GetSchema: return the Arrow schema of the query.
+//    Fields on this schema may contain the following metadata:
+//    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+//    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+//    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+//    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
+//    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+//    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+//    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+//  - GetFlightInfo: execute the query.
 type CommandStatementQuery struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3942,22 +3942,23 @@ func (x *CommandStatementQuery) GetTransactionId() []byte {
 	return nil
 }
 
+//
 // Represents a Substrait plan. Used in the command member of FlightDescriptor
 // for the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//     Fields on this schema may contain the following metadata:
-//   - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
-//   - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
-//   - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
-//   - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
-//   - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
-//   - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
-//   - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
-//   - GetFlightInfo: execute the query.
-//   - DoPut: execute the query.
+//  - GetSchema: return the Arrow schema of the query.
+//    Fields on this schema may contain the following metadata:
+//    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+//    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+//    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+//    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
+//    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+//    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+//    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+//  - GetFlightInfo: execute the query.
+//  - DoPut: execute the query.
 type CommandStatementSubstraitPlan struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4015,7 +4016,7 @@ func (x *CommandStatementSubstraitPlan) GetTransactionId() []byte {
 	return nil
 }
 
-// *
+//*
 // Represents a ticket resulting from GetFlightInfo with a CommandStatementQuery.
 // This should be used only once and treated as an opaque value, that is, clients should not attempt to parse this.
 type TicketStatementQuery struct {
@@ -4066,22 +4067,23 @@ func (x *TicketStatementQuery) GetStatementHandle() []byte {
 	return nil
 }
 
+//
 // Represents an instance of executing a prepared statement. Used in the command member of FlightDescriptor for
 // the following RPC calls:
-//   - GetSchema: return the Arrow schema of the query.
-//     Fields on this schema may contain the following metadata:
-//   - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
-//   - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
-//   - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
-//   - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
-//   - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
-//   - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
-//   - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
-//   - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
-//   - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
-//   - GetFlightInfo: execute the prepared statement instance.
+//  - GetSchema: return the Arrow schema of the query.
+//    Fields on this schema may contain the following metadata:
+//    - ARROW:FLIGHT:SQL:CATALOG_NAME      - Table's catalog name
+//    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
+//    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
+//    - ARROW:FLIGHT:SQL:TYPE_NAME         - The data source-specific name for the data type of the column.
+//    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
+//    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
+//    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case-sensitive, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
+//    - ARROW:FLIGHT:SQL:IS_SEARCHABLE     - "1" indicates if the column is searchable via WHERE clause, "0" otherwise.
+//  - DoPut: bind parameter values. All of the bound parameter sets will be executed as a single atomic execution.
+//  - GetFlightInfo: execute the prepared statement instance.
 type CommandPreparedStatementQuery struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4130,6 +4132,7 @@ func (x *CommandPreparedStatementQuery) GetPreparedStatementHandle() []byte {
 	return nil
 }
 
+//
 // Represents a SQL update query. Used in the command member of FlightDescriptor
 // for the RPC call DoPut to cause the server to execute the included SQL update.
 type CommandStatementUpdate struct {
@@ -4189,6 +4192,7 @@ func (x *CommandStatementUpdate) GetTransactionId() []byte {
 	return nil
 }
 
+//
 // Represents a SQL update query. Used in the command member of FlightDescriptor
 // for the RPC call DoPut to cause the server to execute the included
 // prepared statement handle as an update.
@@ -4240,6 +4244,7 @@ func (x *CommandPreparedStatementUpdate) GetPreparedStatementHandle() []byte {
 	return nil
 }
 
+//
 // Returned from the RPC call DoPut when a CommandStatementUpdate
 // CommandPreparedStatementUpdate was in the request, containing
 // results from the update.
@@ -4292,6 +4297,7 @@ func (x *DoPutUpdateResult) GetRecordCount() int64 {
 	return 0
 }
 
+//
 // Request message for the "CancelQuery" action.
 //
 // Explicitly cancel a running query.
@@ -4360,6 +4366,7 @@ func (x *ActionCancelQueryRequest) GetInfo() []byte {
 	return nil
 }
 
+//
 // The result of cancelling a query.
 //
 // The result should be wrapped in a google.protobuf.Any message.

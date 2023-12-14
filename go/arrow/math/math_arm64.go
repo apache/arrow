@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !noasm
 // +build !noasm
 
 package math
@@ -26,8 +25,8 @@ import (
 func init() {
 	if cpu.ARM64.HasASIMD {
 		initNEON()
-	} else {
-		initGo()
+    } else {
+	    initGo()
 	}
 }
 
