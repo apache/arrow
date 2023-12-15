@@ -1415,7 +1415,7 @@ func (b *baseListViewBuilder) UnmarshalJSON(data []byte) error {
 // Pre-conditions:
 //
 //	input.DataType() is ListViewType if Offset=int32 or LargeListViewType if Offset=int64
-//	input.Len() > 0
+//	input.Len() > 0 && input.NullN() != input.Len()
 func minListViewOffset[Offset int32 | int64](input arrow.ArrayData) Offset {
 	var bitmap []byte
 	if input.Buffers()[0] != nil {
