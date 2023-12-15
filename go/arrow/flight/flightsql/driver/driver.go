@@ -487,9 +487,10 @@ func readEndpoint(ctx context.Context, client *flightsql.Client, endpoint *fligh
 	schema := reader.Schema()
 	var records []arrow.Record
 	for reader.Next() {
-		record := reader.Record()
-		record.Retain()
-		records = append(records, record)
+		if record := reader.Record(); record.NumRows() > 0 {
+			record.Retain()
+			records = append(records, record)
+		}
 	}
 
 	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {

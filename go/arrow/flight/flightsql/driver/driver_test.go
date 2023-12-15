@@ -273,6 +273,50 @@ func (s *SqlTestSuite) TestQuery() {
 	wg.Wait()
 }
 
+func (s *SqlTestSuite) TestQueryWithEmptyResultset() {
+	t := s.T()
+
+	// Create and start the server
+	server, addr, err := s.createServer()
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(s.T(), s.startServer(server))
+	}()
+	defer s.stopServer(server)
+	time.Sleep(100 * time.Millisecond)
+
+	// Configure client
+	cfg := s.Config
+	cfg.Address = addr
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Create the table
+	_, err = db.Exec(fmt.Sprintf(s.Statements["create table"], s.TableName))
+	require.NoError(t, err)
+
+	rows, err := db.Query(fmt.Sprintf(s.Statements["query"], s.TableName))
+	require.NoError(t, err)
+	require.False(t, rows.Next())
+
+	row := db.QueryRow(fmt.Sprintf(s.Statements["query"], s.TableName))
+	require.NotNil(t, row)
+	require.NoError(t, row.Err())
+
+	target := make(map[string]any)
+	err = row.Scan(&target)
+	require.ErrorIs(t, err, sql.ErrNoRows)
+
+	// Tear-down server
+	s.stopServer(server)
+	wg.Wait()
+}
+
 func (s *SqlTestSuite) TestPreparedQuery() {
 	t := s.T()
 
