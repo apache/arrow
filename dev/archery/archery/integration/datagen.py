@@ -949,17 +949,15 @@ class ListViewField(Field):
 
     def generate_column(self, size, name=None):
         MAX_LIST_SIZE = 4
+        VALUES_SIZE = size * MAX_LIST_SIZE
 
         is_valid = self._make_is_valid(size)
-        offsets = []
-        sizes = np.random.randint(0, MAX_LIST_SIZE + 1, size=size)
-        offset = 0
-        for s in sizes:
-            offsets.append(offset)
-            offset += int(s)
 
-        # The offset now is the total number of elements in the child array
-        values = self.value_field.generate_column(offset)
+        MAX_OFFSET = VALUES_SIZE - MAX_LIST_SIZE
+        offsets = np.random.randint(0, MAX_OFFSET + 1, size=size)
+        sizes = np.random.randint(0, MAX_LIST_SIZE + 1, size=size)
+
+        values = self.value_field.generate_column(VALUES_SIZE)
 
         if name is None:
             name = self.name
