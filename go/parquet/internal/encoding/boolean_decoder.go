@@ -55,7 +55,7 @@ func (dec *PlainBooleanDecoder) SetData(nvals int, data []byte) error {
 //
 // Returns the number of values decoded
 func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
-	max := shared_utils.MinInt(len(out), dec.nvals)
+	max := shared_utils.Min(len(out), dec.nvals)
 
 	// attempts to read all remaining bool values from the current data byte
 	unalignedExtract := func(i int) int {
@@ -148,7 +148,7 @@ func (dec *RleBooleanDecoder) SetData(nvals int, data []byte) error {
 }
 
 func (dec *RleBooleanDecoder) Decode(out []bool) (int, error) {
-	max := shared_utils.MinInt(len(out), dec.nvals)
+	max := shared_utils.Min(len(out), dec.nvals)
 
 	var (
 		buf [1024]uint64
@@ -156,7 +156,7 @@ func (dec *RleBooleanDecoder) Decode(out []bool) (int, error) {
 	)
 
 	for n > 0 {
-		batch := shared_utils.MinInt(len(buf), n)
+		batch := shared_utils.Min(len(buf), n)
 		decoded := dec.rleDec.GetBatch(buf[:batch])
 		if decoded != batch {
 			return max - n, io.ErrUnexpectedEOF

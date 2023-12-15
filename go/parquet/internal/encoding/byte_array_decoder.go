@@ -49,7 +49,7 @@ func (PlainByteArrayDecoder) Type() parquet.Type {
 //
 // Returns the number of values that were decoded.
 func (pbad *PlainByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
-	max := utils.MinInt(len(out), pbad.nvals)
+	max := utils.Min(len(out), pbad.nvals)
 
 	for i := 0; i < max; i++ {
 		// there should always be at least four bytes which is the length of the

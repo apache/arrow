@@ -34,6 +34,7 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 type swriter struct {
@@ -746,16 +747,11 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		w.depth++
 
 	case *arrow.ListViewType, *arrow.LargeListViewType:
-		data := arr.Data()
 		arr := arr.(array.VarLenListLike)
-		voffsets := arr.Data().Buffers()[1]
-		if voffsets != nil {
-			voffsets.Retain()
-		}
-		vsizes := data.Buffers()[2]
-		if vsizes != nil {
-			vsizes.Retain()
-		}
+
+		voffsets, minOffset, maxEnd := w.getZeroBasedListViewOffsets(arr)
+		vsizes := w.getListViewSizes(arr)
+
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, vsizes)
 
@@ -764,6 +760,10 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			values = arr.ListValues()
 		)
 
+		if minOffset != 0 || maxEnd < int64(values.Len()) {
+			values = array.NewSlice(values, minOffset, maxEnd)
+			defer values.Release()
+		}
 		err := w.visit(p, values)
 
 		if err != nil {
@@ -861,6 +861,94 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 	}
 
 	return voffsets
+}
+
+func getZeroBasedListViewOffsets[OffsetT int32 | int64](mem memory.Allocator, arr array.VarLenListLike) (valueOffsets *memory.Buffer, minOffset, maxEnd OffsetT) {
+	requiredBytes := int(unsafe.Sizeof(minOffset)) * arr.Len()
+	if arr.Data().Offset() == 0 {
+		// slice offsets to used extent, in case we have truncated slice
+		minOffset, maxEnd = 0, OffsetT(arr.ListValues().Len())
+		valueOffsets = arr.Data().Buffers()[1]
+		if valueOffsets.Len() > requiredBytes {
+			valueOffsets = memory.SliceBuffer(valueOffsets, 0, requiredBytes)
+		} else {
+			valueOffsets.Retain()
+		}
+		return
+	}
+
+	// non-zero offset, it's likely that the smallest offset is not zero
+	// we must a) create a new offsets array with shifted offsets and
+	// b) slice the values array accordingly
+
+	valueOffsets = memory.NewResizableBuffer(mem)
+	valueOffsets.Resize(requiredBytes)
+	if arr.Len() > 0 {
+		// max value of int32/int64 based on type
+		minOffset = (^OffsetT(0)) << ((8 * unsafe.Sizeof(minOffset)) - 1)
+		for i := 0; i < arr.Len(); i++ {
+			start, end := arr.ValueOffsets(i)
+			minOffset = utils.Min(minOffset, OffsetT(start))
+			maxEnd = utils.Max(maxEnd, OffsetT(end))
+		}
+	}
+
+	offsets := arrow.GetData[OffsetT](arr.Data().Buffers()[1].Bytes())[arr.Data().Offset():]
+	destOffset := arrow.GetData[OffsetT](valueOffsets.Bytes())
+	for i := 0; i < arr.Len(); i++ {
+		destOffset[i] = offsets[i] - minOffset
+	}
+	return
+}
+
+func getListViewSizes[OffsetT int32 | int64](arr array.VarLenListLike) *memory.Buffer {
+	var z OffsetT
+	requiredBytes := int(unsafe.Sizeof(z)) * arr.Len()
+	sizes := arr.Data().Buffers()[2]
+
+	if arr.Data().Offset() != 0 || sizes.Len() > requiredBytes {
+		// slice offsets to used extent, in case we have truncated slice
+		offsetBytes := arr.Data().Offset() * int(unsafe.Sizeof(z))
+		sizes = memory.SliceBuffer(sizes, offsetBytes, requiredBytes)
+	} else {
+		sizes.Retain()
+	}
+	return sizes
+}
+
+func (w *recordEncoder) getZeroBasedListViewOffsets(arr array.VarLenListLike) (*memory.Buffer, int64, int64) {
+	if arr.Len() == 0 {
+		return nil, 0, 0
+	}
+
+	var (
+		outOffsets     *memory.Buffer
+		minOff, maxEnd int64
+	)
+
+	switch v := arr.(type) {
+	case *array.ListView:
+		voffsets, outOff, outEnd := getZeroBasedListViewOffsets[int32](w.mem, v)
+		outOffsets = voffsets
+		minOff, maxEnd = int64(outOff), int64(outEnd)
+	case *array.LargeListView:
+		outOffsets, minOff, maxEnd = getZeroBasedListViewOffsets[int64](w.mem, v)
+	}
+	return outOffsets, minOff, maxEnd
+}
+
+func (w *recordEncoder) getListViewSizes(arr array.VarLenListLike) *memory.Buffer {
+	if arr.Len() == 0 {
+		return nil
+	}
+
+	switch v := arr.(type) {
+	case *array.ListView:
+		return getListViewSizes[int32](v)
+	case *array.LargeListView:
+		return getListViewSizes[int64](v)
+	}
+	return nil
 }
 
 func (w *recordEncoder) rebaseDenseUnionValueOffsets(arr *array.DenseUnion, offsets, lengths []int32) *memory.Buffer {
