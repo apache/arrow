@@ -78,6 +78,7 @@
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #endif
+#include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
@@ -163,21 +164,37 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
   lljit.getMainJITDylib().addGenerator(
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
-// the `atexit` symbol cannot be found for ASAN
-#if defined(__SANITIZE_ADDRESS__) || \
-    (defined(__has_feature) && (__has_feature(address_sanitizer)))
-  if (!lljit.lookup("atexit")) {
-    AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
-  }
-#endif
 }
 
-static Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
+// JITLink is available in LLVM 9+
+// but the `InProcessMemoryManager::Create` API was added since LLVM 14
+#if LLVM_VERSION_MAJOR >= 14
+#define USE_JIT_LINK 1
+#endif
+
+Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemmoryManager() {
+  auto maybe_mem_manager = llvm::jitlink::InProcessMemoryManager::Create();
+  ARROW_ASSIGN_OR_RAISE(
+      auto memory_manager,
+      AsArrowResult(maybe_mem_manager, "Could not create memory manager: "));
+  return memory_manager;
+}
+
+Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
     llvm::orc::JITTargetMachineBuilder jtmb,
     std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
   auto jit_builder = llvm::orc::LLJITBuilder();
 
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
+
+#if USE_JIT_LINK
+  ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
+  jit_builder.setObjectLinkingLayerCreator(
+      [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
+        return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
+      });
+#endif
+
   if (object_cache.has_value()) {
     jit_builder.setCompileFunctionCreator(
         [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
