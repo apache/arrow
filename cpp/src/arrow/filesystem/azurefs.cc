@@ -16,7 +16,6 @@
 // under the License.
 
 #include "arrow/filesystem/azurefs.h"
-#include "arrow/filesystem/azurefs_internal.h"
 
 #include <azure/identity.hpp>
 #include <azure/storage/blobs.hpp>
@@ -41,6 +40,8 @@ namespace Core = Azure::Core;
 namespace DataLake = Azure::Storage::Files::DataLake;
 namespace Http = Azure::Core::Http;
 namespace Storage = Azure::Storage;
+
+using internal::HNSSupport;
 
 // -----------------------------------------------------------------------
 // AzureOptions Implementation
@@ -263,9 +264,11 @@ Status StatusFromErrorResponse(const std::string& url,
                          "): ", body_text);
 }
 
-bool IsContainerNotFound(const Storage::StorageException& exception) {
-  if (exception.ErrorCode == "ContainerNotFound") {
-    DCHECK_EQ(exception.StatusCode, Http::HttpStatusCode::NotFound);
+bool IsContainerNotFound(const Storage::StorageException& e) {
+  if (e.ErrorCode == "ContainerNotFound" ||
+      e.ReasonPhrase == "The specified container does not exist." ||
+      e.ReasonPhrase == "The specified filesystem does not exist.") {
+    DCHECK_EQ(e.StatusCode, Http::HttpStatusCode::NotFound);
     return true;
   }
   return false;
@@ -786,7 +789,68 @@ class ObjectAppendStream final : public io::OutputStream {
   Storage::Metadata metadata_;
 };
 
+bool IsDfsEmulator(const AzureOptions& options) {
+  return options.dfs_storage_authority != ".dfs.core.windows.net";
+}
+
 }  // namespace
+
+// -----------------------------------------------------------------------
+// internal implementation
+
+namespace internal {
+
+Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
+    DataLake::DataLakeFileSystemClient& adlfs_client, const AzureOptions& options) {
+  try {
+    auto directory_client = adlfs_client.GetDirectoryClient("");
+    // GetAccessControlList will fail on storage accounts
+    // without hierarchical namespace enabled.
+    directory_client.GetAccessControlList();
+    return HNSSupport::kEnabled;
+  } catch (std::out_of_range& exception) {
+    // Azurite issue detected.
+    DCHECK(IsDfsEmulator(options));
+    return HNSSupport::kDisabled;
+  } catch (const Storage::StorageException& exception) {
+    // Flat namespace storage accounts with "soft delete" enabled return
+    //
+    //   "Conflict - This endpoint does not support BlobStorageEvents
+    //   or SoftDelete. [...]" [1],
+    //
+    // otherwise it returns:
+    //
+    //   "BadRequest - This operation is only supported on a hierarchical namespace
+    //   account."
+    //
+    // [1]:
+    // https://learn.microsoft.com/en-us/answers/questions/1069779/this-endpoint-does-not-support-blobstorageevents-o
+    switch (exception.StatusCode) {
+      case Http::HttpStatusCode::BadRequest:
+      case Http::HttpStatusCode::Conflict:
+        return HNSSupport::kDisabled;
+      case Http::HttpStatusCode::NotFound:
+        if (IsDfsEmulator(options)) {
+          return HNSSupport::kDisabled;
+        }
+        // Did we get an error because of the container not existing?
+        if (IsContainerNotFound(exception)) {
+          return HNSSupport::kContainerNotFound;
+        }
+        [[fallthrough]];
+      default:
+        if (exception.ErrorCode == "HierarchicalNamespaceNotEnabled") {
+          return HNSSupport::kDisabled;
+        }
+        return ExceptionToStatus("Check for hierarchical namespace support on '" +
+                                     adlfs_client.GetUrl() +
+                                     "' failed with an unexpected error.",
+                                 exception);
+    }
+  }
+}
+
+}  // namespace internal
 
 // -----------------------------------------------------------------------
 // AzureFilesystem Implementation
@@ -798,7 +862,7 @@ class AzureFileSystem::Impl {
 
   std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
   std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
-  internal::HierarchicalNamespaceDetector hns_detector_;
+  HNSSupport cached_hns_support_ = HNSSupport::kUnknown;
 
   Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(std::move(io_context)), options_(std::move(options)) {}
@@ -812,12 +876,35 @@ class AzureFileSystem::Impl {
                           self->options_.MakeBlobServiceClient());
     ARROW_ASSIGN_OR_RAISE(self->datalake_service_client_,
                           self->options_.MakeDataLakeServiceClient());
-    RETURN_NOT_OK(self->hns_detector_.Init(self->datalake_service_client_.get()));
     return self;
   }
 
   io::IOContext& io_context() { return io_context_; }
   const AzureOptions& options() const { return options_; }
+
+ private:
+  /// \brief Memoized version of CheckIfHierarchicalNamespaceIsEnabled.
+  ///
+  /// \return kEnabled/kDisabled/kContainerNotFound (kUnknown is never returned).
+  Result<HNSSupport> HierarchicalNamespaceSupport(
+      DataLake::DataLakeFileSystemClient& adlfs_client) {
+    switch (cached_hns_support_) {
+      case HNSSupport::kEnabled:
+      case HNSSupport::kDisabled:
+        return cached_hns_support_;
+      case HNSSupport::kUnknown:
+      case HNSSupport::kContainerNotFound:
+        // Try the check again because the support is still unknown or the container
+        // that didn't exist before may exist now.
+        break;
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        cached_hns_support_,
+        internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
+    DCHECK_NE(cached_hns_support_, HNSSupport::kUnknown);
+    // Caller should handle kContainerNotFound case appropriately.
+    return cached_hns_support_;
+  }
 
  public:
   Result<FileInfo> GetFileInfo(const AzureLocation& location) {
@@ -879,11 +966,14 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Storage::StorageException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
-        ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                              hns_detector_.Enabled(location.container));
-        if (hierarchical_namespace_enabled) {
-          // If the hierarchical namespace is enabled, then the storage account will have
-          // explicit directories. Neither a file nor a directory was found.
+        auto adlfs_client =
+            datalake_service_client_->GetFileSystemClient(location.container);
+        ARROW_ASSIGN_OR_RAISE(auto hns_support,
+                              HierarchicalNamespaceSupport(adlfs_client));
+        if (hns_support == HNSSupport::kContainerNotFound ||
+            hns_support == HNSSupport::kEnabled) {
+          // If the hierarchical namespace is enabled, then the storage account will
+          // have explicit directories. Neither a file nor a directory was found.
           info.set_type(FileType::NotFound);
           return info;
         }
@@ -1177,18 +1267,19 @@ class AzureFileSystem::Impl {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hns_detector_.Enabled(location.container));
-    if (!hierarchical_namespace_enabled) {
+    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      return PathNotFound(location);
+    }
+    if (hns_support == HNSSupport::kDisabled && !IsDfsEmulator(options_)) {
       // Without hierarchical namespace enabled Azure blob storage has no directories.
       // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
       // in the name implies directories.
       return Status::OK();
     }
 
-    auto directory_client =
-        datalake_service_client_->GetFileSystemClient(location.container)
-            .GetDirectoryClient(location.path);
+    auto directory_client = adlfs_client.GetDirectoryClient(location.path);
     try {
       auto response = directory_client.Create();
       if (response.Value.Created) {
@@ -1219,19 +1310,19 @@ class AzureFileSystem::Impl {
                                exception);
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hns_detector_.Enabled(location.container));
-    if (!hierarchical_namespace_enabled) {
+    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kDisabled) {
       // Without hierarchical namespace enabled Azure blob storage has no directories.
       // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
       // in the name implies directories.
       return Status::OK();
     }
+    // Don't handle HNSSupport::kContainerNotFound, just assume it still exists (because
+    // it was created above) and try to create the directory.
 
     if (!location.path.empty()) {
-      auto directory_client =
-          datalake_service_client_->GetFileSystemClient(location.container)
-              .GetDirectoryClient(location.path);
+      auto directory_client = adlfs_client.GetDirectoryClient(location.path);
       try {
         directory_client.CreateIfNotExists();
       } catch (const Storage::StorageException& exception) {
@@ -1344,6 +1435,12 @@ class AzureFileSystem::Impl {
       return Status::Invalid("Cannot delete an empty container");
     }
 
+    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      return PathNotFound(location);
+    }
+
     if (location.path.empty()) {
       auto container_client =
           blob_service_client_->GetBlobContainerClient(location.container);
@@ -1363,12 +1460,8 @@ class AzureFileSystem::Impl {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hns_detector_.Enabled(location.container));
-    if (hierarchical_namespace_enabled) {
-      auto directory_client =
-          datalake_service_client_->GetFileSystemClient(location.container)
-              .GetDirectoryClient(location.path);
+    if (hns_support == HNSSupport::kEnabled) {
+      auto directory_client = adlfs_client.GetDirectoryClient(location.path);
       try {
         auto response = directory_client.DeleteRecursive();
         if (response.Value.Deleted) {
@@ -1394,19 +1487,20 @@ class AzureFileSystem::Impl {
       return internal::InvalidDeleteDirContents(location.all);
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto hierarchical_namespace_enabled,
-                          hns_detector_.Enabled(location.container));
-    if (hierarchical_namespace_enabled) {
-      auto file_system_client =
-          datalake_service_client_->GetFileSystemClient(location.container);
-      auto directory_client = file_system_client.GetDirectoryClient(location.path);
+    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      return missing_dir_ok ? Status::OK() : PathNotFound(location);
+    }
+
+    if (hns_support == HNSSupport::kEnabled) {
+      auto directory_client = adlfs_client.GetDirectoryClient(location.path);
       try {
         auto list_response = directory_client.ListPaths(false);
         for (; list_response.HasPage(); list_response.MoveToNextPage()) {
           for (const auto& path : list_response.Paths) {
             if (path.IsDirectory) {
-              auto sub_directory_client =
-                  file_system_client.GetDirectoryClient(path.Name);
+              auto sub_directory_client = adlfs_client.GetDirectoryClient(path.Name);
               try {
                 sub_directory_client.DeleteRecursive();
               } catch (const Storage::StorageException& exception) {
@@ -1416,7 +1510,7 @@ class AzureFileSystem::Impl {
                     exception);
               }
             } else {
-              auto sub_file_client = file_system_client.GetFileClient(path.Name);
+              auto sub_file_client = adlfs_client.GetFileClient(path.Name);
               try {
                 sub_file_client.Delete();
               } catch (const Storage::StorageException& exception) {
