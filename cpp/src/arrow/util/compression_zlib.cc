@@ -56,7 +56,7 @@ class GZipDecompressor : public Decompressor {
 
 class GZipCompressor : public Compressor {
  public:
-  explicit GZipCompressor(int compression_level) {
+  explicit GZipCompressor(int32_t compression_level) {
     cjformat_ = cramjam::StreamingGzip;
     compression_level_ = compression_level;
   }
@@ -67,7 +67,7 @@ class GZipCompressor : public Compressor {
 
 class GZipCodec : public Codec {
  public:
-  explicit GZipCodec(int compression_level, GZipFormat format, int window_bits) {
+  explicit GZipCodec(int32_t compression_level, GZipFormat format, int window_bits) {
     cjformat_ = cramjam::Gzip;
     compression_level_ = compression_level == kUseDefaultCompressionLevel
                              ? kGZipDefaultCompressionLevel

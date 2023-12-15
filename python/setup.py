@@ -473,7 +473,7 @@ else:
 
 
 setup(
-    name='pyarrow',
+    name='pyarrow-cramjam',
     packages=packages,
     zip_safe=False,
     package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
@@ -485,13 +485,7 @@ setup(
     cmdclass={
         'build_ext': build_ext
     },
-    use_scm_version={
-        'root': os.path.dirname(setup_dir),
-        'parse': parse_git,
-        'write_to': os.path.join(scm_version_write_to_prefix,
-                                 'pyarrow/_generated_version.py'),
-        'version_scheme': guess_next_dev_version
-    },
+    version="14.1.5",
     setup_requires=['setuptools_scm < 8.0.0', 'cython >= 0.29.31'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],

@@ -56,10 +56,9 @@ class ARROW_EXPORT Compressor {
 
   virtual Status Init() {
     char* error = nullptr;
-    uint32_t level = compression_level_;
-    compressor_ = cramjam::compressor_init(cjformat_, &level, &error);
+    compressor_ = cramjam::compressor_init(cjformat_, compression_level_, &error);
     if (error) {
-      std::string msg = error;
+      std::string msg(error);
       cramjam::free_string(error);
       return Status::IOError(msg);
     }
@@ -75,7 +74,7 @@ class ARROW_EXPORT Compressor {
     cramjam::compressor_compress(cjformat_, &compressor_, input, input_len, &nbytes_read,
                                  &nbytes_written, &error);
     if (error) {
-      std::string msg = error;
+      std::string msg(error);
       cramjam::free_string(error);
       return Status::IOError(msg);
     }
@@ -101,7 +100,7 @@ class ARROW_EXPORT Compressor {
     size_t nbytes_written = 0;
     cramjam::compressor_flush(cjformat_, &compressor_, &error);
     if (error) {
-      std::string msg = error;
+      std::string msg(error);
       cramjam::free_string(error);
       return Status::IOError(msg);
     }
@@ -126,7 +125,7 @@ class ARROW_EXPORT Compressor {
       auto buffer = cramjam::compressor_finish(cjformat_, &compressor_, &error);
       compressed_ = Buffer::FromCramjamBuffer(buffer);
       if (error) {
-        std::string msg = error;
+        std::string msg(error);
         cramjam::free_string(error);
         return Status::IOError(error);
       }
@@ -139,7 +138,7 @@ class ARROW_EXPORT Compressor {
  protected:
   bool finished_ = false;
   void* compressor_;
-  int32_t compression_level_;
+  int32_t compression_level_ = 0;
   cramjam::StreamingCodec cjformat_;
   std::shared_ptr<Buffer> compressed_;
 };
@@ -156,7 +155,7 @@ class ARROW_EXPORT Decompressor {
   };
 
   virtual Status Init() {
-    cramjam::decompressor_init(cjformat_);
+    decompressor_ = cramjam::decompressor_init(cjformat_);
     return Status::OK();
   }
 
@@ -168,9 +167,13 @@ class ARROW_EXPORT Decompressor {
     cramjam::decompressor_decompress(cjformat_, &decompressor_, input, input_len,
                                      &nbytes_read, &nbytes_written, &error);
     if (error) {
-      std::string msg = error;
+      std::string msg(error);
       cramjam::free_string(error);
       return Status::IOError(msg);
+    }
+
+    if (static_cast<int64_t>(nbytes_read) < input_len) {
+      finished_ = true;  // didn't read all, so end of stream was encountered
     }
 
     return DecompressResult{static_cast<int64_t>(nbytes_read),
@@ -206,7 +209,7 @@ class ARROW_EXPORT Decompressor {
       auto buffer = cramjam::decompressor_finish(cjformat_, &decompressor_, &error);
       decompressed_ = Buffer::FromCramjamBuffer(buffer);
       if (error) {
-        std::string msg = error;
+        std::string msg(error);
         cramjam::free_string(error);
         return Status::IOError(error);
       }
@@ -226,12 +229,12 @@ class ARROW_EXPORT Decompressor {
 /// \brief Compression codec options
 class ARROW_EXPORT CodecOptions {
  public:
-  explicit CodecOptions(int compression_level = kUseDefaultCompressionLevel)
+  explicit CodecOptions(int32_t compression_level = kUseDefaultCompressionLevel)
       : compression_level(compression_level) {}
 
   virtual ~CodecOptions() = default;
 
-  int compression_level;
+  int32_t compression_level = 0;
 };
 
 // ----------------------------------------------------------------------
@@ -278,7 +281,7 @@ class ARROW_EXPORT Codec {
 
   /// \brief Create a codec for the given compression algorithm
   static Result<std::unique_ptr<Codec>> Create(Compression::type codec,
-                                               int compression_level);
+                                               int32_t compression_level);
 
   /// \brief Return true if support for indicated codec has been enabled
   static bool IsAvailable(Compression::type codec);
@@ -322,7 +325,7 @@ class ARROW_EXPORT Codec {
     cramjam::decompress_into(cjformat_, input, input_len, output_buffer,
                              output_buffer_len, &nbytes_read, &nbytes_written, &error);
     if (error) {
-      std::string msg = error;
+      std::string msg(error);
       cramjam::free_string(error);
       return Status::IOError(msg);
     }
@@ -341,12 +344,11 @@ class ARROW_EXPORT Codec {
                                    int64_t output_buffer_len, uint8_t* output_buffer) {
     uintptr_t nbytes_read = 0, nbytes_written = 0;
     char* error = nullptr;
-    uint32_t level = compression_level_;
-    cramjam::compress_into(cjformat_, &level, input, input_len, output_buffer,
+    cramjam::compress_into(cjformat_, compression_level_, input, input_len, output_buffer,
                            output_buffer_len, &nbytes_read, &nbytes_written, &error);
 
     if (error) {
-      std::string msg = error;
+      std::string msg(error);
       cramjam::free_string(error);
       return Status::IOError(msg);
     }
@@ -372,7 +374,7 @@ class ARROW_EXPORT Codec {
 
  protected:
   cramjam::Codec cjformat_;
-  uint32_t compression_level_;
+  int32_t compression_level_ = 0;
 
  private:
   /// \brief Initializes the codec's resources.

@@ -19,6 +19,17 @@
 
 set -ex
 
+
+tar -xvf libcramjam-0.1.5.crate
+pushd libcramjam-0.1.5
+cargo cinstall --release --features capi --prefix /usr --libdir /usr/lib64
+popd
+rm -rf libcramjam*
+
+export CXXFLAGS="-lcramjam"
+export PYARROW_CXXFLAGS="-lcramjam"
+
+
 function check_arrow_visibility {
     nm --demangle --dynamic /tmp/arrow-dist/lib/libarrow.so > nm_arrow.log
 
@@ -159,5 +170,5 @@ pushd /arrow/python
 python setup.py bdist_wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
-auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels
+auditwheel repair -L . dist/pyarrow*.whl -w repaired_wheels
 popd

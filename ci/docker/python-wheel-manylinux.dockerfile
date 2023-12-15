@@ -88,7 +88,7 @@ RUN vcpkg install \
         --x-feature=s3
 
 # Configure Python for applications running in the bash shell of this Dockerfile
-ARG python=3.8
+ARG python=3.9
 ENV PYTHON_VERSION=${python}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
@@ -98,3 +98,9 @@ ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
 COPY python/requirements-wheel-build.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-build.txt
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN cargo install cargo-c --features=vendored-openssl
+
+COPY ./libcramjam-0.1.5.crate .
+

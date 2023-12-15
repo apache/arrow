@@ -25,6 +25,8 @@
 **
 
 # include explicitly
+!libcramjam*
+!cramjam.h
 !ci/**
 !c_glib/Gemfile
 !dev/archery/setup.py

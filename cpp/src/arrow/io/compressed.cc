@@ -27,6 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/memory_pool.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
@@ -45,24 +46,29 @@ namespace io {
 class CompressedOutputStream::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), is_open_(false) {}
+      : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0), total_pos_(0) {}
 
   Status Init(Codec* codec) {
     ARROW_ASSIGN_OR_RAISE(compressor_, codec->MakeCompressor());
+    compressed_pos_ = 0;
     is_open_ = true;
     return Status::OK();
   }
 
   Result<int64_t> Tell() const {
     std::lock_guard<std::mutex> guard(lock_);
-    auto pos = compressor_->Inner()->size();
-    return pos;
+    return total_pos_;
   }
 
   std::shared_ptr<OutputStream> raw() const { return raw_; }
 
   Status FlushCompressed() {
-    RETURN_NOT_OK(raw_->Write(compressed_->data(), compressed_->size()));
+    compressed_ = compressor_->Inner();
+    if (compressed_pos_ < compressed_->size()) {
+      RETURN_NOT_OK(raw_->Write(compressed_->data() + compressed_pos_,
+                                compressed_->size() - compressed_pos_));
+      compressed_pos_ = compressed_->size();
+    }
     return Status::OK();
   }
 
@@ -70,19 +76,29 @@ class CompressedOutputStream::Impl {
     std::lock_guard<std::mutex> guard(lock_);
 
     auto input = reinterpret_cast<const uint8_t*>(data);
-    ARROW_RETURN_NOT_OK(compressor_->Compress(nbytes, input));
+    ARROW_ASSIGN_OR_RAISE(auto result, compressor_->Compress(nbytes, input));
+    total_pos_ += result.bytes_read;
+
+    RETURN_NOT_OK(FlushCompressed());
+
     return Status::OK();
   }
 
   Status Flush() {
     std::lock_guard<std::mutex> guard(lock_);
-    RETURN_NOT_OK(compressor_->Flush());
+    ARROW_RETURN_NOT_OK(compressor_->Flush());
+    // Flush compressed output
+    RETURN_NOT_OK(FlushCompressed());
     return Status::OK();
   }
 
   Status FinalizeCompression() {
+    // Try to end compressor
     ARROW_ASSIGN_OR_RAISE(compressed_, compressor_->Finish());
+
+    // Flush compressed output
     RETURN_NOT_OK(FlushCompressed());
+
     return Status::OK();
   }
 
@@ -123,6 +139,9 @@ class CompressedOutputStream::Impl {
   bool is_open_;
   std::shared_ptr<Compressor> compressor_;
   std::shared_ptr<Buffer> compressed_;
+  int64_t compressed_pos_;
+  // Total number of bytes compressed
+  int64_t total_pos_;
 
   mutable std::mutex lock_;
 };
@@ -157,6 +176,7 @@ std::shared_ptr<OutputStream> CompressedOutputStream::raw() const { return impl_
 // ----------------------------------------------------------------------
 // CompressedInputStream implementation
 
+// TODO(milesgranger): I think this whole thing could be more simple.
 class CompressedInputStream::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<InputStream>& raw)
@@ -209,8 +229,21 @@ class CompressedInputStream::Impl {
   // Decompress some data from the compressed_ buffer.
   // Call this function only if the decompressed_ buffer is empty.
   Status DecompressData() {
-    RETURN_NOT_OK(decompressor_->Decompress(compressed_->size(), compressed_->data()));
-    ARROW_ASSIGN_OR_RAISE(decompressed_, decompressor_->Finish());
+    DCHECK_NE(compressed_->data(), nullptr);
+
+    auto input_len = compressed_->size() - compressed_pos_;
+    if (input_len == 0) {
+      ARROW_ASSIGN_OR_RAISE(decompressed_, decompressor_->Finish());
+      return Status::OK();
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        auto result,
+        decompressor_->Decompress(input_len, compressed_->data() + compressed_pos_));
+    if (result.bytes_read > 0) {
+      fresh_decompressor_ = false;
+    }
+    compressed_pos_ = result.bytes_read;
+    decompressed_ = decompressor_->Inner();
     return Status::OK();
   }
 
@@ -224,7 +257,6 @@ class CompressedInputStream::Impl {
       decompressed_pos_ += read_bytes;
 
       if (decompressed_pos_ == decompressed_->size()) {
-        // Decompressed data is exhausted, release buffer
         decompressed_.reset();
       }
     }
@@ -235,7 +267,7 @@ class CompressedInputStream::Impl {
   // Try to feed more data into the decompressed_ buffer.
   Status RefillDecompressed(bool* has_data) {
     // First try to read data from the decompressor
-    if (compressed_) {
+    if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
         RETURN_NOT_OK(decompressor_->Reset());
@@ -243,7 +275,11 @@ class CompressedInputStream::Impl {
       }
       RETURN_NOT_OK(DecompressData());
     }
-    if (!decompressed_ || decompressed_->size() == 0) {
+
+    // TODO(milesgranger): I think comparing if decompressed size == decompressed position
+    // isn't quite right.
+    if (!decompressed_ || decompressed_->size() == 0 ||
+        decompressed_->size() == decompressed_pos_) {
       // Got nothing, need to read more compressed data
       RETURN_NOT_OK(EnsureCompressedData());
       if (compressed_pos_ == compressed_->size()) {
