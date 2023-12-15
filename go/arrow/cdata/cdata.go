@@ -686,14 +686,7 @@ func (imp *cimporter) importBinaryViewLike() (err error) {
 	}
 
 	buffers := make([]*memory.Buffer, len(imp.cbuffers)-1)
-	// XXX couldn't figure out how to extract file_reader.go::releaseBuffers as a utility
-	defer func() {
-		for _, buf := range buffers {
-			if buf != nil {
-				buf.Release()
-			}
-		}
-	}()
+	defer memory.ReleaseBuffers(buffers)
 
 	if buffers[0], err = imp.importNullBitmap(0); err != nil {
 		return

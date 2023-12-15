@@ -78,35 +78,47 @@ type TemporalType interface {
 		MonthInterval | MonthDayNanoInterval
 }
 
-func sliceAs[Out, T interface{}](b []T) []Out {
-  len_bytes := len(b) * int(unsafe.Sizeof(b[0]))
-  cap_bytes := cap(b) * int(unsafe.Sizeof(b[0]))
+func reinterpretSlice[Out, T any](b []T) []Out {
+  lenBytes := len(b) * int(unsafe.Sizeof(b[0]))
+  capBytes := cap(b) * int(unsafe.Sizeof(b[0]))
 
   var z Out
-  len_out := len_bytes / int(unsafe.Sizeof(z))
-  cap_out := cap_bytes / int(unsafe.Sizeof(z))
+  lenOut := lenBytes / int(unsafe.Sizeof(z))
+  capOut := capBytes / int(unsafe.Sizeof(z))
 
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-  return unsafe.Slice((*Out)(unsafe.Pointer(h.Data)), cap_out)[:len_out]
+  return unsafe.Slice((*Out)(unsafe.Pointer(h.Data)), capOut)[:lenOut]
 }
 
+// GetValues reinterprets the data.Buffers()[i] to a slice of T with len=data.Len().
+//
+// If the buffer is nil, nil will be returned.
+//
+// NOTE: the buffer's length must be a multiple of Sizeof(T).
 func GetValues[T FixedWidthType](data ArrayData, i int) []T {
 	if data.Buffers()[i] == nil || data.Buffers()[i].Len() == 0 {
 		return nil
 	}
-	return sliceAs[T](data.Buffers()[i].Bytes())[data.Offset():data.Offset()+data.Len()]
+	return reinterpretSlice[T](data.Buffers()[i].Bytes())[data.Offset():data.Offset()+data.Len()]
 }
 
+// GetOffsets reinterprets the data.Buffers()[i] to a slice of T with len=data.Len()+1.
+//
+// NOTE: the buffer's length must be a multiple of Sizeof(T).
 func GetOffsets[T int32 | int64](data ArrayData, i int) []T {
-	return sliceAs[T](data.Buffers()[i].Bytes())[data.Offset():data.Offset()+data.Len()+1]
+	return reinterpretSlice[T](data.Buffers()[i].Bytes())[data.Offset():data.Offset()+data.Len()+1]
 }
 
+// GetBytes reinterprets a slice of T to a slice of bytes.
 func GetBytes[T FixedWidthType | ViewHeader](in []T) []byte {
-	return sliceAs[byte](in)
+	return reinterpretSlice[byte](in)
 }
 
+// GetData reinterprets a slice of bytes to a slice of T.
+//
+// NOTE: the buffer's length must be a multiple of Sizeof(T).
 func GetData[T FixedWidthType | ViewHeader](in []byte) []T {
-	return sliceAs[T](in)
+	return reinterpretSlice[T](in)
 }
 
 var typMap = map[reflect.Type]DataType{

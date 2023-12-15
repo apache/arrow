@@ -51,9 +51,7 @@ func HasValidityBitmap(id arrow.Type, version flatbuf.MetadataVersion) bool {
 // StringView and BinaryView.
 func HasBufferSizesBuffer(id arrow.Type) bool {
 	switch id {
-	case arrow.STRING_VIEW:
-		return true
-	case arrow.BINARY_VIEW:
+	case arrow.STRING_VIEW, arrow.BINARY_VIEW:
 		return true
 	default:
 		return false
