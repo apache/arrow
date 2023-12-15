@@ -79,15 +79,18 @@ type TemporalType interface {
 }
 
 func reinterpretSlice[Out, T any](b []T) []Out {
-  lenBytes := len(b) * int(unsafe.Sizeof(b[0]))
-  capBytes := cap(b) * int(unsafe.Sizeof(b[0]))
+	if cap(b) == 0 {
+		return nil
+	}
+	out := (*Out)(unsafe.Pointer(&b[:1][0]))
 
-  var z Out
-  lenOut := lenBytes / int(unsafe.Sizeof(z))
-  capOut := capBytes / int(unsafe.Sizeof(z))
+	lenBytes := len(b) * int(unsafe.Sizeof(b[0]))
+	capBytes := cap(b) * int(unsafe.Sizeof(b[0]))
 
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-  return unsafe.Slice((*Out)(unsafe.Pointer(h.Data)), capOut)[:lenOut]
+	lenOut := lenBytes / int(unsafe.Sizeof(*out))
+	capOut := capBytes / int(unsafe.Sizeof(*out))
+
+	return unsafe.Slice(out, capOut)[:lenOut]
 }
 
 // GetValues reinterprets the data.Buffers()[i] to a slice of T with len=data.Len().
@@ -99,14 +102,14 @@ func GetValues[T FixedWidthType](data ArrayData, i int) []T {
 	if data.Buffers()[i] == nil || data.Buffers()[i].Len() == 0 {
 		return nil
 	}
-	return reinterpretSlice[T](data.Buffers()[i].Bytes())[data.Offset():data.Offset()+data.Len()]
+	return reinterpretSlice[T](data.Buffers()[i].Bytes())[data.Offset() : data.Offset()+data.Len()]
 }
 
 // GetOffsets reinterprets the data.Buffers()[i] to a slice of T with len=data.Len()+1.
 //
 // NOTE: the buffer's length must be a multiple of Sizeof(T).
 func GetOffsets[T int32 | int64](data ArrayData, i int) []T {
-	return reinterpretSlice[T](data.Buffers()[i].Bytes())[data.Offset():data.Offset()+data.Len()+1]
+	return reinterpretSlice[T](data.Buffers()[i].Bytes())[data.Offset() : data.Offset()+data.Len()+1]
 }
 
 // GetBytes reinterprets a slice of T to a slice of bytes.
