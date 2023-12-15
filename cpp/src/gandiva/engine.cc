@@ -31,6 +31,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include <arrow/util/io_util.h>
 #include "arrow/util/logging.h"
 
 #if defined(_MSC_VER)
@@ -78,7 +79,6 @@
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #endif
-#include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
@@ -87,6 +87,13 @@
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Utils.h>
 #include <llvm/Transforms/Vectorize.h>
+
+// JITLink is available in LLVM 9+
+// but the `InProcessMemoryManager::Create` API was added since LLVM 14
+#if LLVM_VERSION_MAJOR >= 14 && !defined(_WIN32) && !defined(_WIN64)
+#define JIT_LINK_SUPPORTED 1
+#include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
+#endif
 
 #if defined(_MSC_VER)
 #pragma warning(pop)
@@ -164,14 +171,16 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
   lljit.getMainJITDylib().addGenerator(
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
+  // the `atexit` symbol cannot be found for ASAN
+#if defined(__SANITIZE_ADDRESS__) || \
+    (defined(__has_feature) && (__has_feature(address_sanitizer)))
+  if (!lljit.lookup("atexit")) {
+    AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
+  }
+#endif
 }
 
-// JITLink is available in LLVM 9+
-// but the `InProcessMemoryManager::Create` API was added since LLVM 14
-#if LLVM_VERSION_MAJOR >= 14
-#define USE_JIT_LINK 1
-#endif
-
+#if JIT_LINK_SUPPORTED
 Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemmoryManager() {
   auto maybe_mem_manager = llvm::jitlink::InProcessMemoryManager::Create();
   ARROW_ASSIGN_OR_RAISE(
@@ -180,21 +189,29 @@ Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemmoryMana
   return memory_manager;
 }
 
+Status UseJitLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
+  static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
+  if (maybe_use_jit_link.ok()) {
+    ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
+    jit_builder.setObjectLinkingLayerCreator(
+        [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
+          return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
+        });
+  }
+  return Status::OK();
+}
+#endif
+
 Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
     llvm::orc::JITTargetMachineBuilder jtmb,
     std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
   auto jit_builder = llvm::orc::LLJITBuilder();
 
-  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
-
-#if USE_JIT_LINK
-  ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
-  jit_builder.setObjectLinkingLayerCreator(
-      [&](llvm::orc::ExecutionSession& ES, const llvm::Triple& TT) {
-        return std::make_unique<llvm::orc::ObjectLinkingLayer>(ES, *memory_manager);
-      });
+#if JIT_LINK_SUPPORTED
+  ARROW_RETURN_NOT_OK(UseJitLinkIfEnabled(jit_builder));
 #endif
 
+  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
   if (object_cache.has_value()) {
     jit_builder.setCompileFunctionCreator(
         [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
