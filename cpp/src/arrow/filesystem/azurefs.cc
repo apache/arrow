@@ -1245,9 +1245,9 @@ class AzureFileSystem::Impl {
       return Status::Invalid("Cannot create an empty container");
     }
 
+    auto container_client =
+        blob_service_client_->GetBlobContainerClient(location.container);
     if (location.path.empty()) {
-      auto container_client =
-          blob_service_client_->GetBlobContainerClient(location.container);
       try {
         auto response = container_client.Create();
         if (response.Value.Created) {
@@ -1269,7 +1269,13 @@ class AzureFileSystem::Impl {
     if (hns_support == HNSSupport::kContainerNotFound) {
       return PathNotFound(location);
     }
-    if (hns_support == HNSSupport::kDisabled && !IsDfsEmulator(options_)) {
+    if (hns_support == HNSSupport::kDisabled) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto container_info,
+          GetContainerPropsAsFileInfo(location.container, container_client));
+      if (container_info.type() == FileType::NotFound) {
+        return PathNotFound(location);
+      }
       // Without hierarchical namespace enabled Azure blob storage has no directories.
       // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
       // in the name implies directories.
