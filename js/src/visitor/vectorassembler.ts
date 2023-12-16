@@ -205,23 +205,30 @@ function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Ti
 function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, data: Data<T>) {
     const { length, values, valueOffsets } = data;
     const { [0]: begin, [length]: end } = valueOffsets;
-    const byteLength = Math.min(end - begin, values.byteLength - begin);
-    // Push in the order FlatList types read their buffers
-    addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets)); // valueOffsets buffer first
-    addBuffer.call(this, values.subarray(begin, begin + byteLength)); // sliced values buffer second
-    return this;
+    return _assembleFlatListVector.call(this, length, begin, end, values, valueOffsets);
 }
 
 /** @ignore */
-function assembleLargeFlatListVector<T extends LargeUtf8>(this: VectorAssembler, data: Data<T>) {
+function assembleLargeFlatListVector<T extends Utf8 | Binary | LargeUtf8>(this: VectorAssembler, data: Data<T>) {
     const { length, values, valueOffsets } = data;
-    const { [0]: begin, [length]: end } = valueOffsets;
-    // TODO: we can probably merge this method with assembleFlatListVector if byteLength is a bigint when values array can be indexed by bigints
-    const byteLength = bigIntMin(end - begin, BigInt(values.byteLength) - begin);
+    const begin = bigIntToNumber(valueOffsets[0]);
+    const end = bigIntToNumber(valueOffsets[length]);
+    return _assembleFlatListVector.call(this, length, begin, end, values, valueOffsets);
+}
+
+/** @ignore */
+function _assembleFlatListVector<T extends Utf8 | Binary | LargeUtf8>(
+    this: VectorAssembler,
+    length: number,
+    begin: number,
+    end: number,
+    values: T['TArray'],
+    valueOffsets: T['TOffsetArray']
+) {
+    const byteLength = Math.min(end - begin, values.byteLength - begin);
     // Push in the order FlatList types read their buffers
-    addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets)); // valueOffsets buffer first
-    // TODO: remove bigIntToNumber when the values array can be indexed by bigints
-    addBuffer.call(this, values.subarray(bigIntToNumber(begin), bigIntToNumber(begin + byteLength))); // sliced values buffer second
+    addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets as any)); // valueOffsets buffer first
+    addBuffer.call(this, values.subarray(begin, begin + byteLength)); // sliced values buffer second
     return this;
 }
 

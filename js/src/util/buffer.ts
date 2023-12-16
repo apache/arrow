@@ -209,11 +209,11 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
 
 /** @ignore */
 export function rebaseValueOffsets(offset: number, length: number, valueOffsets: Int32Array): Int32Array;
-export function rebaseValueOffsets(offset: bigint, length: number, valueOffsets: BigInt64Array): BigInt64Array;
-export function rebaseValueOffsets(offset: number | bigint, length: number, valueOffsets: any) {
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: BigInt64Array): BigInt64Array;
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: any) {
     // If we have a non-zero offset, create a new offsets array with the values
     // shifted by the start offset, such that the new start offset is 0
-    if (offset != 0) {
+    if (offset !== 0) {
         valueOffsets = valueOffsets.slice(0, length);
         for (let i = -1, n = valueOffsets.length; ++i < n;) {
             valueOffsets[i] += offset;
