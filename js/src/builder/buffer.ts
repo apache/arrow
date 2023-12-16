@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { SAFE_ARRAY_SIZE, memcpy } from '../util/buffer.js';
+import { memcpy } from '../util/buffer.js';
 import { TypedArray, BigIntArray, ArrayCtor } from '../interfaces.js';
 import { DataType } from '../type.js';
 
@@ -24,6 +24,7 @@ function roundLengthUpToNearest64Bytes(len: number, BPE: number) {
     const bytesMinus1 = Math.ceil(len) * BPE - 1;
     return ((bytesMinus1 - bytesMinus1 % 64 + 64) || 64) / BPE;
 }
+
 /** @ignore */
 function resizeArray<T extends TypedArray | BigIntArray>(arr: T, len = 0): T {
     // TODO: remove when https://github.com/microsoft/TypeScript/issues/54636 is fixed
@@ -39,6 +40,9 @@ function resizeArray<T extends TypedArray | BigIntArray>(arr: T, len = 0): T {
         arr.subarray(0, len) as T :
         memcpy(new (arr.constructor as any)(len), arr, 0);
 }
+
+/** @ignore */
+export const SAFE_ARRAY_SIZE = 2 ** 32 - 1;
 
 /** @ignore */
 export class BufferBuilder<T extends TypedArray | BigIntArray> {
