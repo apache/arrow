@@ -2582,10 +2582,10 @@ struct SliceBytesTransform : StringSliceTransformBase {
     auto input_width = static_cast<int64_t>(input_width_32);
 
     if (start < 0) {
-      start = std::max(0L, start + input_width);
+      start = std::max(static_cast<int64_t>(0), start + input_width);
     }
     if (stop < 0) {
-      stop = std::max(0L, stop + input_width);
+      stop = std::max(static_cast<int64_t>(0), stop + input_width);
     }
     start = std::min(start, input_width);
     stop = std::min(stop, input_width);
@@ -2593,8 +2593,8 @@ struct SliceBytesTransform : StringSliceTransformBase {
     if ((start >= stop and step > 0) || (start <= stop and step < 0) || start == stop) {
       return 0;
     }
-    return static_cast<int32_t>(
-        std::max(0L, (stop - start + (step - (step > 0 ? 1 : -1))) / step));
+    return static_cast<int32_t>(std::max(
+        static_cast<int64_t>(0), (stop - start + (step - (step > 0 ? 1 : -1))) / step));
   }
 };
 
