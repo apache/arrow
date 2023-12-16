@@ -712,6 +712,95 @@ TEST_F(TestFixedSizeBinaryKernels, BinaryLength) {
              "[6, null, 6]");
 }
 
+TEST_F(TestFixedSizeBinaryKernels, SliceBytesBasic) {
+  SliceOptions options{2, 4};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["ca", "fd"])", &options);
+
+  SliceOptions options_edgecase_1{-3, 1};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(0),
+             R"(["", ""])", &options_edgecase_1);
+
+  SliceOptions options_edgecase_2{-10, -3};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
+             R"(["abc", "def"])", &options_edgecase_2);
+
+  auto input = ArrayFromJSON(this->type(), R"(["foobaz"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Function 'binary_slice' cannot be called without options"),
+      CallFunction("binary_slice", {input}));
+
+  SliceOptions options_invalid{2, 4, 0};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Slice step cannot be zero"),
+      CallFunction("binary_slice", {input}, &options_invalid));
+}
+
+TEST_F(TestFixedSizeBinaryKernels, SliceBytesPosPos) {
+  SliceOptions options_step{1, 5, 2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["ba", "ed"])", &options_step);
+
+  SliceOptions options_step_neg{5, 0, -2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
+             R"(["cab", "fde"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, SliceBytesPosNeg) {
+  SliceOptions options{2, -1};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
+             R"(["cab", "fde"])", &options);
+
+  SliceOptions options_step{1, -1, 2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["ba", "ed"])", &options_step);
+
+  SliceOptions options_step_neg{5, -4, -2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["ca", "fd"])", &options_step_neg);
+
+  options_step_neg.stop = -6;
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
+             R"(["cab", "fde"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, SliceBytesNegNeg) {
+  SliceOptions options{-2, -1};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(1),
+             R"(["b", "e"])", &options);
+
+  SliceOptions options_step{-4, -1, 2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["cb", "fe"])", &options_step);
+
+  SliceOptions options_step_neg{-1, -3, -2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(1),
+             R"(["c", "f"])", &options_step_neg);
+
+  options_step_neg.stop = -4;
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["ca", "fd"])", &options_step_neg);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, SliceBytesNegPos) {
+  SliceOptions options{-2, 4};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(0),
+             R"(["", ""])", &options);
+
+  SliceOptions options_step{-4, 5, 2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["cb", "fe"])", &options_step);
+
+  SliceOptions options_step_neg{-1, 1, -2};
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
+             R"(["ca", "fd"])", &options_step_neg);
+
+  options_step_neg.stop = 0;
+  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
+             R"(["cab", "fde"])", &options_step_neg);
+}
+
 TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   CheckUnary("binary_replace_slice", "[]", fixed_size_binary(7), "[]", &options);

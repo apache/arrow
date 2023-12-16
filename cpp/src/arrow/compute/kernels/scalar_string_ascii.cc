@@ -2436,6 +2436,7 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 
 namespace {
 struct SliceBytesTransform : StringSliceTransformBase {
+  using StringSliceTransformBase::StringSliceTransformBase;
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_bytes) override {
     const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
@@ -2568,6 +2569,27 @@ struct SliceBytesTransform : StringSliceTransformBase {
 
     return dest - output;
   }
+
+  static int32_t FixedOutputSize(SliceOptions options, int32_t input_width_32) {
+    auto step = options.step;
+    auto start = options.start;
+    auto stop = options.stop;
+    auto input_width = static_cast<int64_t>(input_width_32);
+
+    if (start < 0) {
+      start = std::max(0L, start + input_width);
+    }
+    if (stop < 0) {
+      stop = std::max(0L, stop + input_width);
+    }
+    start = std::min(start, input_width);
+    stop = std::min(stop, input_width);
+
+    if ((start >= stop and step > 0) || (start <= stop and step < 0) || start == stop) {
+      return 0;
+    }
+    return std::max(0L, (stop - start + (step - (step > 0 ? 1 : -1))) / step);
+  }
 };
 
 template <typename Type>
@@ -2594,6 +2616,12 @@ void AddAsciiStringSlice(FunctionRegistry* registry) {
     DCHECK_OK(
         func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
   }
+  using TransformExec = FixedSizeBinaryTransformExecWithState<SliceBytesTransform>;
+  ScalarKernel fsb_kernel({InputType(Type::FIXED_SIZE_BINARY)},
+                          OutputType(TransformExec::OutputType), TransformExec::Exec,
+                          StringSliceTransformBase::State::Init);
+  fsb_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(fsb_kernel)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
