@@ -874,6 +874,22 @@ Result<FileInfo> GetContainerPropsAsFileInfo(const std::string& container_name,
   }
 }
 
+FileInfo DirectoryFileInfoFromPath(std::string_view path) {
+  return FileInfo{std::string{internal::RemoveTrailingSlash(path)}, FileType::Directory};
+}
+
+FileInfo FileInfoFromBlob(std::string_view container,
+                          const Blobs::Models::BlobItem& blob) {
+  auto path = internal::ConcatAbstractPath(container, blob.Name);
+  if (internal::HasTrailingSlash(blob.Name)) {
+    return DirectoryFileInfoFromPath(path);
+  }
+  FileInfo info{std::move(path), FileType::File};
+  info.set_size(blob.BlobSize);
+  info.set_mtime(std::chrono::system_clock::time_point{blob.Details.LastModified});
+  return info;
+}
+
 }  // namespace
 
 class AzureFileSystem::Impl {
@@ -1025,23 +1041,6 @@ class AzureFileSystem::Impl {
       return ExceptionToStatus("Failed to list account containers.", exception);
     }
     return Status::OK();
-  }
-
-  static FileInfo FileInfoFromBlob(std::string_view container,
-                                   const Blobs::Models::BlobItem& blob) {
-    auto path = internal::ConcatAbstractPath(container, blob.Name);
-    if (internal::HasTrailingSlash(blob.Name)) {
-      return DirectoryFileInfoFromPath(path);
-    }
-    FileInfo info{std::move(path), FileType::File};
-    info.set_size(blob.BlobSize);
-    info.set_mtime(std::chrono::system_clock::time_point{blob.Details.LastModified});
-    return info;
-  }
-
-  static FileInfo DirectoryFileInfoFromPath(std::string_view path) {
-    return FileInfo{std::string{internal::RemoveTrailingSlash(path)},
-                    FileType::Directory};
   }
 
   static std::string_view BasenameView(std::string_view s) {
