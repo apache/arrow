@@ -24,6 +24,9 @@ import { ByteBuffer } from 'flatbuffers';
 const SharedArrayBuf = (typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer);
 
 /** @ignore */
+export const SAFE_ARRAY_SIZE = 2 ** 32 - 1;
+
+/** @ignore */
 function collapseContiguousByteRanges(chunks: Uint8Array[]) {
     const result = chunks[0] ? [chunks[0]] : [];
     let xOffset: number, yOffset: number, xLen: number, yLen: number;
