@@ -29,7 +29,7 @@ import {
     Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, LargeUtf8,
 } from '../type.js';
-import { bigIntMin, bigIntToNumber } from '../util/bigint.js';
+import { bigIntToNumber } from '../util/bigint.js';
 
 /** @ignore */
 export interface VectorAssembler extends Visitor {

@@ -24,10 +24,3 @@ export function bigIntToNumber(number: bigint | number): number {
     }
     return Number(number);
 }
-
-export function bigIntMin<T>(a: T, b: T) {
-    if (a < b) {
-        return a;
-    }
-    return b;
-}

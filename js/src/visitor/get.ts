@@ -21,6 +21,7 @@ import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
 import { MapRow } from '../row/map.js';
 import { StructRow, StructRowProxy } from '../row/struct.js';
+import { bigIntToNumber } from '../util/bigint.js';
 import { decodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { uint16ToFloat64 } from '../util/math.js';
@@ -115,13 +116,22 @@ function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
 /** @ignore */
 const getNull = <T extends Null>(_data: Data<T>, _index: number): T['TValue'] => null;
 /** @ignore */
-const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array | BigInt64Array, index: number) => {
+const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number) => {
     if (index + 1 >= valueOffsets.length) {
         return null as any;
     }
     const x = valueOffsets[index];
     const y = valueOffsets[index + 1];
-    return values.subarray(Number(x), Number(y));
+    return values.subarray(x, y);
+};
+/** @ignore */
+const getLargeVariableWidthBytes = (values: Uint8Array, valueOffsets: BigInt64Array, index: number) => {
+    if (index + 1 >= valueOffsets.length) {
+        return null as any;
+    }
+    const x = bigIntToNumber(valueOffsets[index]);
+    const y = bigIntToNumber(valueOffsets[index + 1]);
+    return values.subarray(x, y);
 };
 
 /** @ignore */
@@ -158,7 +168,7 @@ const getUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: numbe
 };
 /** @ignore */
 const getLargeUtf8 = <T extends LargeUtf8>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => {
-    const bytes = getVariableWidthBytes(values, valueOffsets, index);
+    const bytes = getLargeVariableWidthBytes(values, valueOffsets, index);
     return bytes !== null ? decodeUtf8(bytes) : null as any;
 };
 

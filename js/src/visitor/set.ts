@@ -19,6 +19,7 @@ import { Data } from '../data.js';
 import { Field } from '../schema.js';
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
+import { bigIntToNumber } from '../util/bigint.js';
 import { encodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { float64ToUint16 } from '../util/math.js';
@@ -124,11 +125,20 @@ export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epo
 };
 
 /** @ignore */
-export const setVariableWidthBytes = <T extends Int32Array | BigInt64Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
+export const setVariableWidthBytes = <T extends Int32Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
     if (index + 1 < valueOffsets.length) {
-        const x = valueOffsets[index] as T extends Int32Array ? number : bigint;
-        const y = valueOffsets[index + 1] as T extends Int32Array ? number : bigint;
-        values.set(value.subarray(0, Number(y - x)), Number(x));
+        const x = valueOffsets[index];
+        const y = valueOffsets[index + 1];
+        values.set(value.subarray(0, y - x), x);
+    }
+};
+
+/** @ignore */
+export const setLargeVariableWidthBytes = <T extends BigInt64Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
+    if (index + 1 < valueOffsets.length) {
+        const x = bigIntToNumber(valueOffsets[index]);
+        const y = bigIntToNumber(valueOffsets[index + 1]);
+        values.set(value.subarray(0, y - x), x);
     }
 };
 
@@ -166,8 +176,12 @@ export const setFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }
 /** @ignore */
 const setBinary = <T extends Binary>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, value);
 /** @ignore */
-const setUtf8 = <T extends Utf8 | LargeUtf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => {
+const setUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => {
     setVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
+};
+/** @ignore */
+const setLargeUtf8 = <T extends LargeUtf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => {
+    setLargeVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
 };
 
 /* istanbul ignore next */
@@ -367,7 +381,7 @@ SetVisitor.prototype.visitFloat16 = wrapSet(setFloat16);
 SetVisitor.prototype.visitFloat32 = wrapSet(setFloat);
 SetVisitor.prototype.visitFloat64 = wrapSet(setFloat);
 SetVisitor.prototype.visitUtf8 = wrapSet(setUtf8);
-SetVisitor.prototype.visitLargeUtf8 = wrapSet(setUtf8);
+SetVisitor.prototype.visitLargeUtf8 = wrapSet(setLargeUtf8);
 SetVisitor.prototype.visitBinary = wrapSet(setBinary);
 SetVisitor.prototype.visitFixedSizeBinary = wrapSet(setFixedSizeBinary);
 SetVisitor.prototype.visitDate = wrapSet(setDate);
