@@ -25,6 +25,7 @@ import { validateVector } from './utils.js';
 import * as generate from '../../generate-test-data.js';
 
 import { Type, DataType, util, Builder, makeBuilder, builderThroughIterable } from 'apache-arrow';
+import { resizeArray } from '../../../src/builder/buffer.js';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
@@ -71,6 +72,23 @@ describe('Generated Test Data', () => {
     describe('DurationNanosecondBuilder', () => { validateBuilder(generate.durationNanosecond); });
     describe('FixedSizeListBuilder', () => { validateBuilder(generate.fixedSizeList); });
     describe('MapBuilder', () => { validateBuilder(generate.map); });
+});
+
+describe('Buffer Utils', () => {
+    test('resize typed arrays', () => {
+        const array = new Uint8Array(10);
+
+        expect(resizeArray(array, 5)).toHaveLength(5);
+        expect(resizeArray(array, 15)).toHaveLength(15);
+    });
+
+    test('resize resizable typed arrays', () => {
+        // TODO: remove as any when https://github.com/microsoft/TypeScript/issues/54636 is fixed
+        const array = new Uint8Array(new (ArrayBuffer as any)(10, { maxByteLength: 100 }));
+
+        expect(resizeArray(array, 5)).toHaveLength(5);
+        expect(resizeArray(array, 15)).toHaveLength(15);
+    });
 });
 
 function validateBuilder(generate: (length?: number, nullCount?: number, ...args: any[]) => generate.GeneratedVector) {

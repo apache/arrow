@@ -25,13 +25,13 @@ function roundLengthUpToNearest64Bytes(len: number, BPE: number) {
     return ((bytesMinus1 - bytesMinus1 % 64 + 64) || 64) / BPE;
 }
 /** @ignore */
-function resizeArray<T extends TypedArray | BigIntArray>(arr: T, len = 0): T {
+export function resizeArray<T extends TypedArray | BigIntArray>(arr: T, len = 0): T {
     // TODO: remove when https://github.com/microsoft/TypeScript/issues/54636 is fixed
     const buffer = arr.buffer as ArrayBufferLike & { resizable: boolean; resize: (byteLength: number) => void; maxByteLength: number };
     const byteLength = len * arr.BYTES_PER_ELEMENT;
     if (buffer.resizable && byteLength <= buffer.maxByteLength) {
         buffer.resize(byteLength);
-        return new (arr.constructor as any)(buffer) as T;
+        return arr;
     }
 
     // Fallback for non-resizable buffers
