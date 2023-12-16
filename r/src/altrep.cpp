@@ -466,10 +466,10 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       std::unique_ptr<arrow::DictionaryUnifier> unifier_ =
           ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
 
-      size_t n_arrays = chunked_array->num_chunks();
+      int n_arrays = chunked_array->num_chunks();
       BufferVector arrays_transpose(n_arrays);
 
-      for (size_t i = 0; i < n_arrays; i++) {
+      for (int i = 0; i < n_arrays; i++) {
         const auto& dict_i =
             *internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i))
                  .dictionary();
@@ -613,11 +613,14 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
           case Type::INT32:
             return indices->data()->GetValues<int32_t>(1)[j] + 1;
           case Type::UINT32:
-            return indices->data()->GetValues<uint32_t>(1)[j] + 1;
+            // TODO: check index?
+            return static_cast<int>(indices->data()->GetValues<uint32_t>(1)[j] + 1);
           case Type::INT64:
-            return indices->data()->GetValues<int64_t>(1)[j] + 1;
+            // TODO: check index?
+            return static_cast<int>(indices->data()->GetValues<int64_t>(1)[j] + 1);
           case Type::UINT64:
-            return indices->data()->GetValues<uint64_t>(1)[j] + 1;
+            // TODO: check index?
+            return static_cast<int>(indices->data()->GetValues<uint64_t>(1)[j] + 1);
           default:
             break;
         }

@@ -110,7 +110,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
-int Array__offset(const std::shared_ptr<arrow::Array>& x);
+r_vec_size Array__offset(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__offset(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
@@ -118,7 +118,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
-int Array__null_count(const std::shared_ptr<arrow::Array>& x);
+r_vec_size Array__null_count(const std::shared_ptr<arrow::Array>& x);
 extern "C" SEXP _arrow_Array__null_count(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
@@ -315,7 +315,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // array.cpp
-r_vec_size FixedSizeListArray__value_length(const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i);
+int FixedSizeListArray__value_length(const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i);
 extern "C" SEXP _arrow_FixedSizeListArray__value_length(SEXP array_sexp, SEXP i_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeListArray>&>::type array(array_sexp);
@@ -467,7 +467,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // arraydata.cpp
-int ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
+r_vec_size ArrayData__get_length(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__get_length(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
@@ -475,7 +475,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // arraydata.cpp
-int ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
+r_vec_size ArrayData__get_null_count(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__get_null_count(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);
@@ -483,7 +483,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // arraydata.cpp
-int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
+r_vec_size ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x);
 extern "C" SEXP _arrow_ArrayData__get_offset(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type x(x_sexp);

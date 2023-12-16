@@ -92,7 +92,7 @@ std::shared_ptr<arrow::Array> Array__Slice2(const std::shared_ptr<arrow::Array>&
   return array->Slice(offset, length);
 }
 
-void arrow::r::validate_index(int i, int len) {
+void arrow::r::validate_index(int64_t i, int64_t len) {
   if (i == NA_INTEGER) {
     cpp11::stop("'i' cannot be NA");
   }
@@ -119,10 +119,10 @@ r_vec_size Array__length(const std::shared_ptr<arrow::Array>& x) {
 }
 
 // [[arrow::export]]
-int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); }
+r_vec_size Array__offset(const std::shared_ptr<arrow::Array>& x) { return r_vec_size(x->offset()); }
 
 // [[arrow::export]]
-int Array__null_count(const std::shared_ptr<arrow::Array>& x) { return x->null_count(); }
+r_vec_size Array__null_count(const std::shared_ptr<arrow::Array>& x) { return r_vec_size(x->null_count()); }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Array__type(const std::shared_ptr<arrow::Array>& x) {
@@ -263,9 +263,9 @@ r_vec_size LargeListArray__value_length(
 }
 
 // [[arrow::export]]
-r_vec_size FixedSizeListArray__value_length(
+int FixedSizeListArray__value_length(
     const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
-  return r_vec_size(array->value_length(i));
+  return array->value_length(i);
 }
 
 // [[arrow::export]]

@@ -435,6 +435,7 @@ cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
 
 struct r_vec_size {
   explicit r_vec_size(R_xlen_t x) : value(x) {}
+  explicit r_vec_size(int64_t x): value(static_cast<R_xlen_t>(x)) {}
 
   R_xlen_t value;
 };
@@ -465,7 +466,7 @@ inline SEXP as_sexp(r_vec_size size) {
   if (x > std::numeric_limits<int>::max()) {
     return Rf_ScalarReal(x);
   } else {
-    return Rf_ScalarInteger(x);
+    return Rf_ScalarInteger(static_cast<int>(x));
   }
 }
 
