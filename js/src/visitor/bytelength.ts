@@ -26,7 +26,7 @@ import { Type, TimeUnit, UnionMode } from '../enum.js';
 import {
     DataType, Dictionary,
     Float, Int, Date_, Interval, Time, Timestamp, Duration,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary,
+    Bool, Null, Utf8, LargeUtf8, Binary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union, DenseUnion, SparseUnion,
 } from '../type.js';
 
@@ -40,6 +40,7 @@ export interface GetByteLengthVisitor extends Visitor {
     getVisitFn<T extends Type>(node: T): (data: Data<TypeToDataType<T>>, index: number) => number;
     visitBinary<T extends Binary>(data: Data<T>, index: number): number;
     visitUtf8<T extends Utf8>(data: Data<T>, index: number): number;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number): number;
     visitList<T extends List>(data: Data<T>, index: number): number;
     visitDenseUnion<T extends DenseUnion>(data: Data<T>, index: number): number;
     visitSparseUnion<T extends SparseUnion>(data: Data<T>, index: number): number;

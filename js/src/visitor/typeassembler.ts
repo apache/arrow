@@ -27,6 +27,7 @@ import { FloatingPoint } from '../fb/floating-point.js';
 import { Binary } from '../fb/binary.js';
 import { Bool } from '../fb/bool.js';
 import { Utf8 } from '../fb/utf8.js';
+import { LargeUtf8 } from '../fb/large-utf8.js';
 import { Decimal } from '../fb/decimal.js';
 import { Date } from '../fb/date.js';
 import { Time } from '../fb/time.js';
@@ -77,6 +78,10 @@ export class TypeAssembler extends Visitor {
     public visitUtf8<T extends type.Utf8>(_node: T, b: Builder) {
         Utf8.startUtf8(b);
         return Utf8.endUtf8(b);
+    }
+    public visitLargeUtf8<T extends type.LargeUtf8>(_node: T, b: Builder) {
+        LargeUtf8.startLargeUtf8(b);
+        return LargeUtf8.endLargeUtf8(b);
     }
     public visitDecimal<T extends type.Decimal>(node: T, b: Builder) {
         Decimal.startDecimal(b);

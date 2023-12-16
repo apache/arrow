@@ -36,6 +36,7 @@ export abstract class Visitor {
     public visitInt(_node: any, ..._args: any[]): any { return null; }
     public visitFloat(_node: any, ..._args: any[]): any { return null; }
     public visitUtf8(_node: any, ..._args: any[]): any { return null; }
+    public visitLargeUtf8(_node: any, ..._args: any[]): any { return null; }
     public visitBinary(_node: any, ..._args: any[]): any { return null; }
     public visitFixedSizeBinary(_node: any, ..._args: any[]): any { return null; }
     public visitDate(_node: any, ..._args: any[]): any { return null; }
@@ -89,6 +90,7 @@ function getVisitFnByTypeId(visitor: Visitor, dtype: Type, throwIfNotFound = tru
         case Type.Float32: fn = visitor.visitFloat32 || visitor.visitFloat; break;
         case Type.Float64: fn = visitor.visitFloat64 || visitor.visitFloat; break;
         case Type.Utf8: fn = visitor.visitUtf8; break;
+        case Type.LargeUtf8: fn = visitor.visitLargeUtf8; break;
         case Type.Binary: fn = visitor.visitBinary; break;
         case Type.FixedSizeBinary: fn = visitor.visitFixedSizeBinary; break;
         case Type.Date: fn = visitor.visitDate; break;
@@ -152,6 +154,7 @@ function inferDType<T extends DataType>(type: T): Type {
             return Type.Float;
         case Type.Binary: return Type.Binary;
         case Type.Utf8: return Type.Utf8;
+        case Type.LargeUtf8: return Type.LargeUtf8;
         case Type.Bool: return Type.Bool;
         case Type.Decimal: return Type.Decimal;
         case Type.Time:
@@ -229,6 +232,7 @@ export interface Visitor {
     visitFloat32?(node: any, ...args: any[]): any;
     visitFloat64?(node: any, ...args: any[]): any;
     visitUtf8(node: any, ...args: any[]): any;
+    visitLargeUtf8(node: any, ...args: any[]): any;
     visitBinary(node: any, ...args: any[]): any;
     visitFixedSizeBinary(node: any, ...args: any[]): any;
     visitDate(node: any, ...args: any[]): any;
