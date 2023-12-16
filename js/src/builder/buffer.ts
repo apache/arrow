@@ -34,12 +34,10 @@ function resizeArray<T extends TypedArray | BigIntArray>(arr: T, len = 0): T {
         return new (arr.constructor as any)(buffer) as T;
     }
 
-    // Fallback for non-resiable buffers
-
-    if (arr.length >= len) {
-        return arr.subarray(0, len) as T;
-    }
-    return memcpy(new (arr.constructor as any)(len), arr, 0);
+    // Fallback for non-resizable buffers
+    return arr.length >= len ?
+        arr.subarray(0, len) as T :
+        memcpy(new (arr.constructor as any)(len), arr, 0);
 }
 
 /** @ignore */
