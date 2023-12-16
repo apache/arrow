@@ -59,7 +59,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   GetCache();
 
   /// \brief Set LLVM ObjectCache.
-  void SetLLVMObjectCache(GandivaObjectCache& object_cache);
+  Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
 
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
@@ -83,7 +83,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   SelectionVector::Mode selection_vector_mode() { return selection_vector_mode_; }
   LLVMTypes* types() { return engine_->types(); }
   llvm::Module* module() { return engine_->module(); }
-  std::string DumpIR() { return engine_->DumpIR(); }
+  const std::string& ir() { return engine_->ir(); }
 
  private:
   explicit LLVMGenerator(bool cached,

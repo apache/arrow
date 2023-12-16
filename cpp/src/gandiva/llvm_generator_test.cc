@@ -107,11 +107,11 @@ TEST_F(TestLLVMGenerator, TestAdd) {
                                         SelectionVector::MODE_NONE));
 
   ASSERT_OK(generator->engine_->FinalizeModule());
-  auto ir = generator->engine_->DumpIR();
+  auto const& ir = generator->engine_->ir();
   EXPECT_THAT(ir, testing::HasSubstr("vector.body"));
 
-  EXPECT_OK_AND_ASSIGN(auto fn_ptr, generator->engine_->CompiledFunction(fn_name));
-  EXPECT_NE(fn_ptr, nullptr);
+  ASSERT_OK_AND_ASSIGN(auto fn_ptr, generator->engine_->CompiledFunction(fn_name));
+  ASSERT_TRUE(fn_ptr);
 
   auto eval_func = reinterpret_cast<EvalFunc>(fn_ptr);
   constexpr size_t kNumRecords = 4;

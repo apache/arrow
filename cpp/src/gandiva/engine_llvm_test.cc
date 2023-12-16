@@ -113,7 +113,7 @@ TEST_F(TestEngine, TestAddUnoptimised) {
 
   std::string fn_name = BuildVecAdd(engine.get());
   ASSERT_OK(engine->FinalizeModule());
-  EXPECT_OK_AND_ASSIGN(auto fn_ptr, engine->CompiledFunction(fn_name));
+  ASSERT_OK_AND_ASSIGN(auto fn_ptr, engine->CompiledFunction(fn_name));
   auto add_func = reinterpret_cast<add_vector_func_t>(fn_ptr);
 
   int64_t my_array[] = {1, 3, -5, 8, 10};

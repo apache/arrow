@@ -75,7 +75,7 @@ class GANDIVA_EXPORT Engine {
   Status FinalizeModule();
 
   /// Set LLVM ObjectCache.
-  void SetLLVMObjectCache(GandivaObjectCache& object_cache);
+  Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
 
   /// Get the compiled function corresponding to the irfunction.
   Result<void*> CompiledFunction(const std::string& function);
@@ -85,7 +85,7 @@ class GANDIVA_EXPORT Engine {
                                const std::vector<llvm::Type*>& args, void* func);
 
   /// Return the generated IR for the module.
-  std::string DumpIR();
+  const std::string& ir();
 
   /// Load the function IRs that can be accessed in the module.
   Status LoadFunctionIRs();

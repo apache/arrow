@@ -95,7 +95,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   }
 
   // Set the object cache for LLVM
-  llvm_gen->SetLLVMObjectCache(obj_cache);
+  ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(obj_cache));
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 
@@ -281,7 +281,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   return Status::OK();
 }
 
-std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
+const std::string& Projector::DumpIR() { return llvm_generator_->ir(); }
 
 void Projector::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 

@@ -91,7 +91,7 @@
 // JITLink is available in LLVM 9+
 // but the `InProcessMemoryManager::Create` API was added since LLVM 14
 #if LLVM_VERSION_MAJOR >= 14 && !defined(_WIN32) && !defined(_WIN64)
-#define JIT_LINK_SUPPORTED 1
+#define JIT_LINK_SUPPORTED
 #include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
 #endif
 
@@ -124,7 +124,7 @@ arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
   return std::move(expected.get());
 }
 
-Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
+Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     const Configuration& conf) {
   llvm::orc::JITTargetMachineBuilder jtmb(
       (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
@@ -138,7 +138,7 @@ Result<llvm::orc::JITTargetMachineBuilder> GetTargetMachineBuilder(
   return jtmb;
 }
 
-std::string GetModuleIR(const llvm::Module& module) {
+std::string DumpModuleIR(const llvm::Module& module) {
   std::string ir;
   llvm::raw_string_ostream stream(ir);
   module.print(stream, nullptr);
@@ -172,24 +172,20 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
   // the `atexit` symbol cannot be found for ASAN
-#if defined(__SANITIZE_ADDRESS__) || \
-    (defined(__has_feature) && (__has_feature(address_sanitizer)))
+#ifdef ADDRESS_SANITIZER
   if (!lljit.lookup("atexit")) {
     AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
   }
 #endif
 }
 
-#if JIT_LINK_SUPPORTED
+#ifdef JIT_LINK_SUPPORTED
 Result<std::unique_ptr<llvm::jitlink::InProcessMemoryManager>> CreateMemmoryManager() {
   auto maybe_mem_manager = llvm::jitlink::InProcessMemoryManager::Create();
-  ARROW_ASSIGN_OR_RAISE(
-      auto memory_manager,
-      AsArrowResult(maybe_mem_manager, "Could not create memory manager: "));
-  return memory_manager;
+  return AsArrowResult(maybe_mem_manager, "Could not create memory manager: ");
 }
 
-Status UseJitLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
+Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
   static auto maybe_use_jit_link = ::arrow::internal::GetEnvVar("GANDIVA_USE_JIT_LINK");
   if (maybe_use_jit_link.ok()) {
     ARROW_ASSIGN_OR_RAISE(static auto memory_manager, CreateMemmoryManager());
@@ -205,10 +201,10 @@ Status UseJitLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
 Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
     llvm::orc::JITTargetMachineBuilder jtmb,
     std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
-  auto jit_builder = llvm::orc::LLJITBuilder();
+  llvm::orc::LLJITBuilder jit_builder;
 
-#if JIT_LINK_SUPPORTED
-  ARROW_RETURN_NOT_OK(UseJitLinkIfEnabled(jit_builder));
+#ifdef JIT_LINK_SUPPORTED
+  ARROW_RETURN_NOT_OK(UseJITLinkIfEnabled(jit_builder));
 #endif
 
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
@@ -220,7 +216,8 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
           if (!target_machine) {
             return target_machine.takeError();
           }
-          // after compilation, the object code will be stored into the given object cache
+          // after compilation, the object code will be stored into the given object
+          // cache
           return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
               std::move(*target_machine), &object_cache.value().get());
         });
@@ -233,12 +230,16 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
   return jit;
 }
 
-void Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+Status Engine::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   auto cached_buffer = object_cache.getObject(nullptr);
   if (cached_buffer) {
     auto error = lljit_->addObjectFile(std::move(cached_buffer));
-    DCHECK(!error) << "Failed to load object cache: " << llvm::toString(std::move(error));
+    if (error) {
+      return Status::CodeGenError("Failed to add cached object file to LLJIT: ",
+                                  llvm::toString(std::move(error)));
+    }
   }
+  return Status::OK();
 }
 
 void Engine::InitOnce() {
@@ -279,7 +280,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
       target_machine_(std::move(target_machine)),
       conf_(conf) {
   // LLVM 10 doesn't like the expr function name to be the same as the module name
-  auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<int64_t>(this));
+  auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<uintptr_t>(this));
   module_ = std::make_unique<llvm::Module>(module_id, *context_);
 }
 
@@ -309,7 +310,7 @@ Result<std::unique_ptr<Engine>> Engine::Make(
     std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
-  ARROW_ASSIGN_OR_RAISE(auto jtmb, GetTargetMachineBuilder(*conf));
+  ARROW_ASSIGN_OR_RAISE(auto jtmb, MakeTargetMachineBuilder(*conf));
   ARROW_ASSIGN_OR_RAISE(auto jit, BuildJIT(jtmb, object_cache));
   auto maybe_tm = jtmb.createTargetMachine();
   ARROW_ASSIGN_OR_RAISE(auto target_machine,
@@ -502,10 +503,10 @@ Status Engine::FinalizeModule() {
                     Status::CodeGenError("Module verification failed after optimizer"));
 
     // print the module IR and save it for later use if IR dumping is needed
-    // since the module will be moved to construct LLJIT instance, and it is not available
-    // after LLJIT instance is constructed
-    if (conf_->needs_ir_dumping()) {
-      module_ir_ = GetModuleIR(*module_);
+    // since the module will be moved to construct LLJIT instance, and it is not
+    // available after LLJIT instance is constructed
+    if (conf_->dump_ir()) {
+      module_ir_ = DumpModuleIR(*module_);
     }
 
     llvm::orc::ThreadSafeModule tsm(std::move(module_), std::move(context_));
@@ -528,7 +529,8 @@ Result<void*> Engine::CompiledFunction(const std::string& function) {
     return Status::CodeGenError("Failed to look up function: " + function +
                                 " error: " + llvm::toString(sym.takeError()));
   }
-  // Since LLVM 15, `LLJIT::lookup` returns ExecutorAddrs rather than JITEvaluatedSymbols
+  // Since LLVM 15, `LLJIT::lookup` returns ExecutorAddrs rather than
+  // JITEvaluatedSymbols
 #if LLVM_VERSION_MAJOR >= 15
   auto fn_addr = sym->getValue();
 #else
@@ -554,9 +556,8 @@ arrow::Status Engine::AddGlobalMappings() {
   return c_funcs.AddMappings(this);
 }
 
-std::string Engine::DumpIR() {
-  DCHECK(!module_ir_.empty())
-      << "needs_ir_dumping in Configuration must be set for dumping IR";
+const std::string& Engine::ir() {
+  DCHECK(!module_ir_.empty()) << "dump_ir in Configuration must be set for dumping IR";
   return module_ir_;
 }
 
