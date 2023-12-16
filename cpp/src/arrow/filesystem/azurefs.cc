@@ -1241,7 +1241,7 @@ class AzureFileSystem::Impl {
 
   Status CreateDir(const AzureLocation& location) {
     if (location.container.empty()) {
-      return Status::Invalid("Cannot create an empty container");
+      return Status::Invalid("CreateDir requires a non-empty path.");
     }
 
     auto container_client =
@@ -1249,13 +1249,9 @@ class AzureFileSystem::Impl {
     if (location.path.empty()) {
       try {
         auto response = container_client.Create();
-        if (response.Value.Created) {
-          return Status::OK();
-        } else {
-          return StatusFromErrorResponse(
-              container_client.GetUrl(), *response.RawResponse,
-              "Failed to create a container: " + location.container);
-        }
+        return response.Value.Created
+                   ? Status::OK()
+                   : Status::AlreadyExists("Directory already exists: " + location.all);
       } catch (const Storage::StorageException& exception) {
         return ExceptionToStatus("Failed to create a container: " + location.container +
                                      ": " + container_client.GetUrl(),
@@ -1299,7 +1295,7 @@ class AzureFileSystem::Impl {
 
   Status CreateDirRecursive(const AzureLocation& location) {
     if (location.container.empty()) {
-      return Status::Invalid("Cannot create an empty container");
+      return Status::Invalid("CreateDir requires a non-empty path.");
     }
 
     auto container_client =
@@ -1434,7 +1430,7 @@ class AzureFileSystem::Impl {
  public:
   Status DeleteDir(const AzureLocation& location) {
     if (location.container.empty()) {
-      return Status::Invalid("Cannot delete an empty container");
+      return Status::Invalid("DeleteDir requires a non-empty path.");
     }
 
     auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
