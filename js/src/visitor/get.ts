@@ -21,6 +21,7 @@ import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
 import { MapRow } from '../row/map.js';
 import { StructRow, StructRowProxy } from '../row/struct.js';
+import { bigIntToNumber } from '../util/bigint.js';
 import { decodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { uint16ToFloat64 } from '../util/math.js';
@@ -35,7 +36,7 @@ import {
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
-    Union, DenseUnion, SparseUnion,
+    Union, DenseUnion, SparseUnion, LargeUtf8,
 } from '../type.js';
 
 /** @ignore */
@@ -60,6 +61,7 @@ export interface GetVisitor extends Visitor {
     visitFloat32<T extends Float32>(data: Data<T>, index: number): T['TValue'] | null;
     visitFloat64<T extends Float64>(data: Data<T>, index: number): T['TValue'] | null;
     visitUtf8<T extends Utf8>(data: Data<T>, index: number): T['TValue'] | null;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number): T['TValue'] | null;
     visitBinary<T extends Binary>(data: Data<T>, index: number): T['TValue'] | null;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, index: number): T['TValue'] | null;
     visitDate<T extends Date_>(data: Data<T>, index: number): T['TValue'] | null;
@@ -122,6 +124,15 @@ const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, ind
     const y = valueOffsets[index + 1];
     return values.subarray(x, y);
 };
+/** @ignore */
+const getLargeVariableWidthBytes = (values: Uint8Array, valueOffsets: BigInt64Array, index: number) => {
+    if (index + 1 >= valueOffsets.length) {
+        return null as any;
+    }
+    const x = bigIntToNumber(valueOffsets[index]);
+    const y = bigIntToNumber(valueOffsets[index + 1]);
+    return values.subarray(x, y);
+};
 
 /** @ignore */
 const getBool = <T extends Bool>({ offset, values }: Data<T>, index: number): T['TValue'] => {
@@ -153,6 +164,11 @@ const getBinary = <T extends Binary>({ values, valueOffsets }: Data<T>, index: n
 /** @ignore */
 const getUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => {
     const bytes = getVariableWidthBytes(values, valueOffsets, index);
+    return bytes !== null ? decodeUtf8(bytes) : null as any;
+};
+/** @ignore */
+const getLargeUtf8 = <T extends LargeUtf8>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => {
+    const bytes = getLargeVariableWidthBytes(values, valueOffsets, index);
     return bytes !== null ? decodeUtf8(bytes) : null as any;
 };
 
@@ -328,6 +344,7 @@ GetVisitor.prototype.visitFloat16 = wrapGet(getFloat16);
 GetVisitor.prototype.visitFloat32 = wrapGet(getNumeric);
 GetVisitor.prototype.visitFloat64 = wrapGet(getNumeric);
 GetVisitor.prototype.visitUtf8 = wrapGet(getUtf8);
+GetVisitor.prototype.visitLargeUtf8 = wrapGet(getLargeUtf8);
 GetVisitor.prototype.visitBinary = wrapGet(getBinary);
 GetVisitor.prototype.visitFixedSizeBinary = wrapGet(getFixedSizeBinary);
 GetVisitor.prototype.visitDate = wrapGet(getDate);

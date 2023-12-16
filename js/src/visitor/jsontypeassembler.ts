@@ -48,6 +48,9 @@ export class JSONTypeAssembler extends Visitor {
     public visitUtf8<T extends type.Utf8>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }
+    public visitLargeUtf8<T extends type.LargeUtf8>({ typeId }: T) {
+        return { 'name': ArrowType[typeId].toLowerCase() };
+    }
     public visitDecimal<T extends type.Decimal>({ typeId, scale, precision, bitWidth }: T) {
         return { 'name': ArrowType[typeId].toLowerCase(), 'scale': scale, 'precision': precision, 'bitWidth': bitWidth };
     }
@@ -64,7 +67,7 @@ export class JSONTypeAssembler extends Visitor {
         return { 'name': ArrowType[typeId].toLowerCase(), 'unit': IntervalUnit[unit] };
     }
     public visitDuration<T extends type.Duration>({ typeId, unit }: T) {
-        return { 'name': ArrowType[typeId].toLocaleLowerCase(), 'unit': TimeUnit[unit]};
+        return { 'name': ArrowType[typeId].toLocaleLowerCase(), 'unit': TimeUnit[unit] };
     }
     public visitList<T extends type.List>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };

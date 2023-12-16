@@ -71,6 +71,9 @@ export class VectorLoader extends Visitor {
     public visitUtf8<T extends type.Utf8>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
     }
+    public visitLargeUtf8<T extends type.LargeUtf8>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
+    }
     public visitBinary<T extends type.Binary>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
     }
@@ -151,7 +154,7 @@ export class JSONVectorLoader extends VectorLoader {
         return nullCount <= 0 ? new Uint8Array(0) : packBools(this.sources[offset]);
     }
     protected readOffsets<T extends DataType>(_type: T, { offset } = this.nextBufferRange()) {
-        return toArrayBufferView(Uint8Array, toArrayBufferView(Int32Array, this.sources[offset]));
+        return toArrayBufferView(Uint8Array, toArrayBufferView(_type.OffsetArrayType, this.sources[offset]));
     }
     protected readTypeIds<T extends DataType>(type: T, { offset } = this.nextBufferRange()) {
         return toArrayBufferView(Uint8Array, toArrayBufferView(type.ArrayType, this.sources[offset]));
@@ -170,7 +173,7 @@ export class JSONVectorLoader extends VectorLoader {
             return binaryDataFromJSON(sources[offset] as string[]);
         } else if (DataType.isBool(type)) {
             return packBools(sources[offset] as number[]);
-        } else if (DataType.isUtf8(type)) {
+        } else if (DataType.isUtf8(type) || DataType.isLargeUtf8(type)) {
             return encodeUtf8((sources[offset] as string[]).join(''));
         }
         return toArrayBufferView(Uint8Array, toArrayBufferView(type.ArrayType, sources[offset].map((x) => +x)));

@@ -18,7 +18,7 @@
 import {
     Field, Visitor,
     DataType, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -36,6 +36,7 @@ class BasicVisitor extends Visitor {
     public visitInt<T extends Int>(type: T) { return (this.type = type); }
     public visitFloat<T extends Float>(type: T) { return (this.type = type); }
     public visitUtf8<T extends Utf8>(type: T) { return (this.type = type); }
+    public visitLargeUtf8<T extends LargeUtf8>(type: T) { return (this.type = type); }
     public visitBinary<T extends Binary>(type: T) { return (this.type = type); }
     public visitFixedSizeBinary<T extends FixedSizeBinary>(type: T) { return (this.type = type); }
     public visitDate<T extends Date_>(type: T) { return (this.type = type); }
@@ -68,6 +69,7 @@ class FeatureVisitor extends Visitor {
     public visitFloat32<T extends Float32>(type: T) { return (this.type = type); }
     public visitFloat64<T extends Float64>(type: T) { return (this.type = type); }
     public visitUtf8<T extends Utf8>(type: T) { return (this.type = type); }
+    public visitLargeUtf8<T extends LargeUtf8>(type: T) { return (this.type = type); }
     public visitBinary<T extends Binary>(type: T) { return (this.type = type); }
     public visitFixedSizeBinary<T extends FixedSizeBinary>(type: T) { return (this.type = type); }
     public visitDateDay<T extends DateDay>(type: T) { return (this.type = type); }
@@ -104,6 +106,7 @@ describe('Visitor', () => {
         test(`visits Int types`, () => validateBasicVisitor(new Int(true, 32)));
         test(`visits Float types`, () => validateBasicVisitor(new Float(0)));
         test(`visits Utf8 types`, () => validateBasicVisitor(new Utf8()));
+        test(`visits LargeUtf8 types`, () => validateBasicVisitor(new LargeUtf8()));
         test(`visits Binary types`, () => validateBasicVisitor(new Binary()));
         test(`visits FixedSizeBinary types`, () => validateBasicVisitor(new FixedSizeBinary(128)));
         test(`visits Date types`, () => validateBasicVisitor(new Date_(0)));
@@ -144,6 +147,7 @@ describe('Visitor', () => {
         test(`visits Float32 types`, () => validateFeatureVisitor(new Float32()));
         test(`visits Float64 types`, () => validateFeatureVisitor(new Float64()));
         test(`visits Utf8 types`, () => validateFeatureVisitor(new Utf8()));
+        test(`visits LargeUtf8 types`, () => validateFeatureVisitor(new LargeUtf8()));
         test(`visits Binary types`, () => validateFeatureVisitor(new Binary()));
         test(`visits FixedSizeBinary types`, () => validateFeatureVisitor(new FixedSizeBinary(128)));
         test(`visits DateDay types`, () => validateFeatureVisitor(new DateDay()));

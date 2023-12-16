@@ -22,10 +22,10 @@ import { Builder, BuilderOptions, VariableWidthBuilder } from '../builder.js';
 
 /** @ignore */
 export class ListBuilder<T extends DataType = any, TNull = any> extends VariableWidthBuilder<List<T>, TNull> {
-    protected _offsets: OffsetsBufferBuilder;
+    protected _offsets: OffsetsBufferBuilder<List<T>>;
     constructor(opts: BuilderOptions<List<T>, TNull>) {
         super(opts);
-        this._offsets = new OffsetsBufferBuilder();
+        this._offsets = new OffsetsBufferBuilder(opts.type);
     }
     public addChild(child: Builder<T>, name = '0') {
         if (this.numChildren > 0) {
