@@ -132,7 +132,8 @@ struct FixedSizeBinaryTransformExecWithState
     DCHECK_EQ(1, types.size());
     const auto& options = State::Get(ctx);
     const int32_t input_width = types[0].type->byte_width();
-    const int32_t output_width = StringTransform::FixedOutputSize(options, input_width);
+    ARROW_ASSIGN_OR_RAISE(const int32_t output_width,
+                          StringTransform::FixedOutputSize(options, input_width));
     return fixed_size_binary(output_width);
   }
 };
@@ -2377,7 +2378,8 @@ struct BinaryReplaceSliceTransform : ReplaceStringSliceTransformBase {
     return output - output_start;
   }
 
-  static int32_t FixedOutputSize(const ReplaceSliceOptions& opts, int32_t input_width) {
+  static Result<int32_t> FixedOutputSize(const ReplaceSliceOptions& opts,
+                                         int32_t input_width) {
     int32_t before_slice = 0;
     int32_t after_slice = 0;
     const int32_t start = static_cast<int32_t>(opts.start);
@@ -2570,8 +2572,11 @@ struct SliceBytesTransform : StringSliceTransformBase {
     return dest - output;
   }
 
-  static int32_t FixedOutputSize(SliceOptions options, int32_t input_width_32) {
+  static Result<int32_t> FixedOutputSize(SliceOptions options, int32_t input_width_32) {
     auto step = options.step;
+    if (step == 0) {
+      return Status::Invalid("Slice step cannot be zero");
+    }
     auto start = options.start;
     auto stop = options.stop;
     auto input_width = static_cast<int64_t>(input_width_32);
