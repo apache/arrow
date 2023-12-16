@@ -275,7 +275,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array = altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
@@ -768,7 +768,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       bool no_nul = std::find(view_.begin(), view_.end(), '\0') == view_.end();
 
       if (no_nul) {
-        return Rf_mkCharLenCE(view_.data(), view_.size(), CE_UTF8);
+        return Rf_mkCharLenCE(view_.data(), static_cast<int>(view_.size()), CE_UTF8);
       } else if (strip_out_nuls_) {
         return ConvertStripNul();
       } else {
@@ -805,7 +805,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       }
 
       nul_was_stripped_ = true;
-      return Rf_mkCharLenCE(stripped_string_.data(), stripped_len, CE_UTF8);
+      return Rf_mkCharLenCE(stripped_string_.data(), static_cast<int>(stripped_len), CE_UTF8);
     }
 
     bool nul_was_stripped() const { return nul_was_stripped_; }
@@ -850,7 +850,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array = altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     SEXP s = NA_STRING;

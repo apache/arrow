@@ -765,7 +765,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // chunkedarray.cpp
-r_vec_size ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 extern "C" SEXP _arrow_ChunkedArray__num_chunks(SEXP chunked_array_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
