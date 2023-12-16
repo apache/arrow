@@ -2593,7 +2593,8 @@ struct SliceBytesTransform : StringSliceTransformBase {
     if ((start >= stop and step > 0) || (start <= stop and step < 0) || start == stop) {
       return 0;
     }
-    return std::max(0L, (stop - start + (step - (step > 0 ? 1 : -1))) / step);
+    return static_cast<int32_t>(
+        std::max(0L, (stop - start + (step - (step > 0 ? 1 : -1))) / step));
   }
 };
 
