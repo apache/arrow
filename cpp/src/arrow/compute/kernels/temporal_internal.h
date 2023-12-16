@@ -160,6 +160,7 @@ struct WithDates {};
 struct WithTimes {};
 struct WithTimestamps {};
 struct WithStringTypes {};
+struct WithDurations {};
 
 // This helper allows generating temporal kernels for selected type categories
 // without any spurious code generation for other categories (e.g. avoid
@@ -203,6 +204,19 @@ void AddTemporalKernels(Factory* fac, WithStringTypes, WithOthers... others) {
   AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
 }
 
+template <typename Factory, typename... WithOthers>
+void AddTemporalKernels(Factory* fac, WithDurations, WithOthers... others) {
+  fac->template AddKernel<std::chrono::seconds, DurationType>(
+      match::DurationTypeUnit(TimeUnit::SECOND));
+  fac->template AddKernel<std::chrono::milliseconds, DurationType>(
+      match::DurationTypeUnit(TimeUnit::MILLI));
+  fac->template AddKernel<std::chrono::microseconds, DurationType>(
+      match::DurationTypeUnit(TimeUnit::MICRO));
+  fac->template AddKernel<std::chrono::nanoseconds, DurationType>(
+      match::DurationTypeUnit(TimeUnit::NANO));
+  AddTemporalKernels(fac, std::forward<WithOthers>(others)...);
+}
+
 //
 // Executor class for temporal component extractors, i.e. scalar kernels
 // with the signature Timestamp -> <non-temporal scalar type `OutType`>
@@ -241,6 +255,18 @@ struct TemporalComponentExtractBase<Op, days, Date32Type, OutType> {
     using ExecTemplate = Op<days, NonZonedLocalizer>;
     auto op = ExecTemplate(options, NonZonedLocalizer());
     applicator::ScalarUnaryNotNullStateful<OutType, Date32Type, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, days, DurationType, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecSpan& batch, ExecResult* out) {
+    using ExecTemplate = Op<days, NonZonedLocalizer>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, DurationType, ExecTemplate> kernel{op};
     return kernel.Exec(ctx, batch, out);
   }
 };

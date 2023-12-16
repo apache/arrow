@@ -1860,7 +1860,7 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
 
   auto day =
       UnaryTemporalFactory<Day, TemporalComponentExtract,
-                           Int64Type>::Make<WithDates, WithTimestamps>("day", int64(),
+                           Int64Type>::Make<WithDates, WithTimestamps, WithDurations>("day", int64(),
                                                                        day_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
@@ -1930,46 +1930,46 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   // Date / time extractors
   auto hour =
       UnaryTemporalFactory<Hour, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps>("hour", int64(),
+                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("hour", int64(),
                                                                        hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
   auto minute =
       UnaryTemporalFactory<Minute, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps>("minute", int64(),
+                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("minute", int64(),
                                                                        minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
   auto second =
       UnaryTemporalFactory<Second, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps>("second", int64(),
+                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("second", int64(),
                                                                        second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond =
       UnaryTemporalFactory<Millisecond, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps>("millisecond",
+                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("millisecond",
                                                                        int64(),
                                                                        millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
   auto microsecond =
       UnaryTemporalFactory<Microsecond, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps>("microsecond",
+                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("microsecond",
                                                                        int64(),
                                                                        microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
   auto nanosecond =
       UnaryTemporalFactory<Nanosecond, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps>("nanosecond",
+                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("nanosecond",
                                                                        int64(),
                                                                        nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond =
       UnaryTemporalFactory<Subsecond, TemporalComponentExtract,
-                           DoubleType>::Make<WithTimes, WithTimestamps>("subsecond",
+                           DoubleType>::Make<WithTimes, WithTimestamps, WithDurations>("subsecond",
                                                                         float64(),
                                                                         subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
