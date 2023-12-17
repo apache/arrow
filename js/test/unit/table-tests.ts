@@ -24,7 +24,7 @@ import {
     Schema, Field, Table, RecordBatch,
     Vector, builderThroughIterable,
     Float32, Int32, Dictionary, Utf8, Int8,
-    tableFromIPC, tableToIPC
+    tableFromIPC, tableToIPC, vectorFromArray
 } from 'apache-arrow';
 
 const deepCopy = (t: Table) => tableFromIPC(tableToIPC(t));
@@ -104,7 +104,7 @@ describe(`Table`, () => {
     });
 
     describe(`constructor`, () => {
-        test(`creates an empty Table with Columns`, () => {
+        test(`creates an empty Table with Vectors`, () => {
             let i32 = new Vector([makeData({ type: new Int32 })]);
             let f32 = new Vector([makeData({ type: new Float32 })]);
             const table = new Table({ i32, f32 });
@@ -117,8 +117,24 @@ describe(`Table`, () => {
             expect(f32.toArray()).toBeInstanceOf(Float32Array);
         });
 
-        test(`creates a new Table from a Column`, () => {
+        test(`creates a Table with Vectors with Nulls`, () => {
+            const i32s = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, null];
+            const i32 = vectorFromArray(i32s);
+            expect(i32).toHaveLength(i32s.length);
+            expect(i32.nullCount).toBe(1);
 
+            const table = new Table({ i32 });
+            const i32Field = table.schema.fields[0];
+
+            expect(i32Field.name).toBe('i32');
+            expect(i32).toHaveLength(i32s.length);
+            expect(i32Field.nullable).toBe(true);
+            expect(i32.nullCount).toBe(1);
+
+            expect(i32).toEqualVector(vectorFromArray(i32s));
+        });
+
+        test(`creates a new Table from a Typed Array`, () => {
             const i32s = new Int32Array(arange(new Array<number>(10)));
             const i32 = makeVector([i32s]);
             expect(i32).toHaveLength(i32s.length);
@@ -135,8 +151,7 @@ describe(`Table`, () => {
             expect(i32).toEqualVector(makeVector(i32s));
         });
 
-        test(`creates a new Table from Columns`, () => {
-
+        test(`creates a new Table from Typed Arrays`, () => {
             const i32s = new Int32Array(arange(new Array<number>(10)));
             const f32s = new Float32Array(arange(new Array<number>(10)));
 
@@ -164,8 +179,7 @@ describe(`Table`, () => {
             expect(f32).toEqualVector(makeVector(f32s));
         });
 
-        test(`creates a new Table from Columns with different lengths`, () => {
-
+        test(`creates a new Table from Typed Arrays with different lengths`, () => {
             const i32s = new Int32Array(arange(new Array<number>(20)));
             const f32s = new Float32Array(arange(new Array<number>(8)));
 
@@ -209,8 +223,7 @@ describe(`Table`, () => {
             expect(f32Vector).toEqualVector(new Vector([f32Expected]));
         });
 
-        test(`creates a new Table from Columns with different lengths and number of inner chunks`, () => {
-
+        test(`creates a new Table from Typed Arrays with different lengths and number of inner chunks`, () => {
             const i32s = new Int32Array(arange(new Array<number>(20)));
             const f32s = new Float32Array(arange(new Array<number>(16)));
 
