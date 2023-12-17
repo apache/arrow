@@ -40,10 +40,20 @@ internal struct RecordBatch : IFlatbufferObject
   public BodyCompression? Compression { get { int o = __p.__offset(10); return o != 0 ? (BodyCompression?)(new BodyCompression()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
   /// Some types such as Utf8View are represented using a variable number of buffers.
   /// For each such Field in the pre-ordered flattened logical schema, there will be
-  /// an entry in variadicCounts to indicate the number of extra buffers which belong
-  /// to that Field.
-  public long VariadicCounts(int j) { int o = __p.__offset(12); return o != 0 ? __p.bb.GetLong(__p.__vector(o) + j * 8) : (long)0; }
-  public int VariadicCountsLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
+  /// an entry in variadicBufferCounts to indicate the number of number of variadic
+  /// buffers which belong to that Field in the current RecordBatch.
+  ///
+  /// For example, the schema
+  ///     col1: Struct<alpha: Int32, beta: BinaryView, gamma: Float64>
+  ///     col2: Utf8View
+  /// contains two Fields with variadic buffers so variadicBufferCounts will have
+  /// two entries, the first counting the variadic buffers of `col1.beta` and the
+  /// second counting `col2`'s.
+  ///
+  /// This field may be omitted if and only if the schema contains no Fields with
+  /// a variable number of buffers, such as BinaryView and Utf8View.
+  public long VariadicBufferCounts(int j) { int o = __p.__offset(12); return o != 0 ? __p.bb.GetLong(__p.__vector(o) + j * 8) : (long)0; }
+  public int VariadicBufferCountsLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
 #if ENABLE_SPAN_T
   public Span<long> GetVariadicCountsBytes() { return __p.__vector_as_span<long>(12, 8); }
 #else

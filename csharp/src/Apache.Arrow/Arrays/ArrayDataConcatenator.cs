@@ -46,8 +46,11 @@ namespace Apache.Arrow
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<FixedWidthType>,
             IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
@@ -91,9 +94,15 @@ namespace Apache.Arrow
 
             public void Visit(BinaryType type) => ConcatenateVariableBinaryArrayData(type);
 
+            public void Visit(BinaryViewType type) => throw new NotImplementedException("TODO");
+
             public void Visit(StringType type) => ConcatenateVariableBinaryArrayData(type);
 
+            public void Visit(StringViewType type) => throw new NotImplementedException("TODO");
+
             public void Visit(ListType type) => ConcatenateLists(type);
+
+            public void Visit(ListViewType type) => throw new NotImplementedException("TODO");
 
             public void Visit(FixedSizeListType type)
             {

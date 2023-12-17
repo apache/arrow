@@ -130,13 +130,17 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
+            IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<IntervalType>,
@@ -277,6 +281,8 @@ namespace Apache.Arrow.Tests
                 Array = builder.Build();
             }
 
+            public void Visit(StringViewType type) => throw new NotImplementedException("TODO");
+
             public void Visit(ListType type)
             {
                 var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
@@ -293,6 +299,8 @@ namespace Apache.Arrow.Tests
 
                 Array = builder.Build();
             }
+
+            public void Visit(ListViewType type) => throw new NotImplementedException("TODO");
 
             public void Visit(FixedSizeListType type)
             {
@@ -410,6 +418,10 @@ namespace Apache.Arrow.Tests
 
                 Array = new DictionaryArray(type, indicesBuilder.Build(), valueBuilder.Build());
             }
+
+            public void Visit(BinaryType type) => throw new NotImplementedException("TODO");
+
+            public void Visit(BinaryViewType type) => throw new NotImplementedException("TODO");
 
             public void Visit(FixedSizeBinaryType type)
             {

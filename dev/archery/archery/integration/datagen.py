@@ -1846,7 +1846,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_binary_view_case()
-        .skip_tester('C#')
         .skip_tester('Go')
         .skip_tester('Java')
         .skip_tester('JS')

@@ -90,10 +90,13 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<DayTimeIntervalArray>,
             IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<ListViewArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
+            IArrowArrayVisitor<StringViewArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<BinaryViewArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<UnionArray>,
             IArrowArrayVisitor<Decimal128Array>,
@@ -136,12 +139,15 @@ namespace Apache.Arrow.Tests
             public void Visit(DayTimeIntervalArray array) => CompareArrays(array);
             public void Visit(MonthDayNanosecondIntervalArray array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
+            public void Visit(ListViewArray array) => throw new NotImplementedException("TODO");
             public void Visit(FixedSizeListArray array) => CompareArrays(array);
             public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
             public void Visit(Decimal128Array array) => CompareArrays(array);
             public void Visit(Decimal256Array array) => CompareArrays(array);
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
+            public void Visit(StringViewArray array) => throw new NotImplementedException("TODO");
             public void Visit(BinaryArray array) => CompareBinaryArrays<BinaryArray>(array);
+            public void Visit(BinaryViewArray array) => throw new NotImplementedException("TODO");
 
             public void Visit(StructArray array)
             {

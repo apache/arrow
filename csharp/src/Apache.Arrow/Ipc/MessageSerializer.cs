@@ -184,17 +184,27 @@ namespace Apache.Arrow.Ipc
                     return Types.IntervalType.FromIntervalUnit(intervalMetadata.Unit.ToArrow());
                 case Flatbuf.Type.Utf8:
                     return Types.StringType.Default;
+                case Flatbuf.Type.Utf8View:
+                    return Types.StringViewType.Default;
                 case Flatbuf.Type.FixedSizeBinary:
                     Flatbuf.FixedSizeBinary fixedSizeBinaryMetadata = field.Type<Flatbuf.FixedSizeBinary>().Value;
                     return new Types.FixedSizeBinaryType(fixedSizeBinaryMetadata.ByteWidth);
                 case Flatbuf.Type.Binary:
                     return Types.BinaryType.Default;
+                case Flatbuf.Type.BinaryView:
+                    return Types.BinaryViewType.Default;
                 case Flatbuf.Type.List:
                     if (childFields == null || childFields.Length != 1)
                     {
                         throw new InvalidDataException($"List type must have exactly one child.");
                     }
                     return new Types.ListType(childFields[0]);
+                case Flatbuf.Type.ListView:
+                    if (childFields == null || childFields.Length != 1)
+                    {
+                        throw new InvalidDataException($"List view type must have exactly one child.");
+                    }
+                    return new Types.ListViewType(childFields[0]);
                 case Flatbuf.Type.FixedSizeList:
                     if (childFields == null || childFields.Length != 1)
                     {
@@ -216,10 +226,6 @@ namespace Apache.Arrow.Ipc
                     }
                     Flatbuf.Map meta = field.Type<Flatbuf.Map>().Value;
                     return new Types.MapType(childFields[0], meta.KeysSorted);
-                case Flatbuf.Type.Utf8View:
-                    return new Types.Utf8ViewType();
-                case Flatbuf.Type.BinaryView:
-                    return new Types.BinaryViewType();
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

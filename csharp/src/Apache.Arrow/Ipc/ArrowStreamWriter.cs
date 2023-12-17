@@ -54,9 +54,12 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<DayTimeIntervalArray>,
             IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<ListViewArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
+            IArrowArrayVisitor<StringViewArray>,
             IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<BinaryViewArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<UnionArray>,
@@ -78,6 +81,7 @@ namespace Apache.Arrow.Ipc
             }
 
             private readonly List<Buffer> _buffers;
+            private readonly List<int> _variadicBufferCounts;
 
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
@@ -121,6 +125,8 @@ namespace Apache.Arrow.Ipc
                 array.Values.Accept(this);
             }
 
+            public void Visit(ListViewArray array) => throw new NotImplementedException("TODO");
+
             public void Visit(FixedSizeListArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
@@ -130,11 +136,24 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(StringArray array) => Visit(array as BinaryArray);
 
+            public void Visit(StringViewArray array) => Visit(array as BinaryViewArray);
+
             public void Visit(BinaryArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
+            }
+
+            public void Visit(BinaryViewArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.ViewsBuffer));
+                for (int i = 0; i < array.BufferCount; i++)
+                {
+                    _buffers.Add(CreateBuffer(array.DataBuffer(i)));
+                }
+                _variadicBufferCounts.Add(array.BufferCount);
             }
 
             public void Visit(FixedSizeBinaryArray array)

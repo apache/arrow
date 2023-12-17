@@ -157,10 +157,15 @@ namespace Apache.Arrow.C
                     case ArrowTypeId.Binary:
                         buffers = ImportByteArrayBuffers(cArray);
                         break;
+                    case ArrowTypeId.StringView:
+                    case ArrowTypeId.BinaryView:
+                        throw new NotImplementedException("TODO");
                     case ArrowTypeId.List:
                         children = ProcessListChildren(cArray, ((ListType)type).ValueDataType);
                         buffers = ImportListBuffers(cArray);
                         break;
+                    case ArrowTypeId.ListView:
+                        throw new NotImplementedException("TODO");
                     case ArrowTypeId.FixedSizeList:
                         children = ProcessListChildren(cArray, ((FixedSizeListType)type).ValueDataType);
                         buffers = ImportFixedSizeListBuffers(cArray);

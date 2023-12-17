@@ -122,7 +122,9 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
@@ -131,6 +133,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
@@ -368,6 +371,8 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = resultBuilder.Build();
             }
 
+            public void Visit(BinaryViewType type) => throw new NotImplementedException("TODO");
+
             public void Visit(StringType type)
             {
                 StringArray.Builder resultBuilder = new StringArray.Builder().Reserve(_baseDataTotalElementCount);
@@ -387,6 +392,8 @@ namespace Apache.Arrow.Tests
 
                 ExpectedArray = resultBuilder.Build();
             }
+
+            public void Visit(StringViewType type) => throw new NotImplementedException("TODO");
 
             public void Visit(ListType type)
             {
@@ -422,6 +429,8 @@ namespace Apache.Arrow.Tests
 
                 ExpectedArray = resultBuilder.Build();
             }
+
+            public void Visit(ListViewType type) => throw new NotImplementedException("TODO");
 
             public void Visit(FixedSizeListType type)
             {

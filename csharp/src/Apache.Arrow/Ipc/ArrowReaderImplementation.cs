@@ -308,34 +308,24 @@ namespace Apache.Arrow.Ipc
             ByteBuffer bodyData,
             IBufferCreator bufferCreator)
         {
-
-            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
+            List<ArrowBuffer> buffers = new List<ArrowBuffer>(3);
+            do
             {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-            ArrowBuffer offsetArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
-            {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-            ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            recordBatchEnumerator.MoveNextBuffer();
+                buffers.Add(BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator));
+            } while (recordBatchEnumerator.MoveNextBuffer());
 
             int fieldLength = (int)fieldNode.Length;
-            int fieldNullCount = (int)fieldNode.NullCount;
-
             if (fieldLength < 0)
             {
                 throw new InvalidDataException("Field length must be >= 0"); // TODO: Localize exception message
             }
 
+            int fieldNullCount = (int)fieldNode.NullCount;
             if (fieldNullCount < 0)
             {
                 throw new InvalidDataException("Null count length must be >= 0"); //TODO: Localize exception message
             }
 
-            ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
             ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator);
 
             IArrowArray dictionary = null;
@@ -345,7 +335,7 @@ namespace Apache.Arrow.Ipc
                 dictionary = DictionaryMemo.GetDictionary(id);
             }
 
-            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, arrowBuff, children, dictionary?.Data);
+            return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, buffers.ToArray(), children, dictionary?.Data);
         }
 
         private ArrayData[] GetChildren(

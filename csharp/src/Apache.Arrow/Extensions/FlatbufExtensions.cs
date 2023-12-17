@@ -33,9 +33,14 @@ namespace Apache.Arrow
 
         public static bool IsFixedPrimitive(this Types.ArrowTypeId t)
         {
-            if (t == Types.ArrowTypeId.String || t == Types.ArrowTypeId.Binary)
-                return false;
-            return true;
+            return t switch
+            {
+                Types.ArrowTypeId.String => false,
+                Types.ArrowTypeId.StringView => false,
+                Types.ArrowTypeId.Binary => false,
+                Types.ArrowTypeId.BinaryView => false,
+                _ => true,
+            };
         }
 
         public static Types.IntervalUnit ToArrow(this Flatbuf.IntervalUnit unit)
