@@ -25,7 +25,6 @@ import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
-import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 /** @ignore */
 export interface RecordBatch<T extends TypeMap = any> {
@@ -148,14 +147,6 @@ export class RecordBatch<T extends TypeMap = any> {
      */
     public indexOf(element: Struct<T>['TValue'], offset?: number): number {
         return indexOfVisitor.visit(this.data, element, offset);
-    }
-
-    /**
-     * Get the size (in bytes) of a row by index.
-     * @param index The row index for which to compute the byteLength.
-     */
-    public getByteLength(index: number): number {
-        return byteLengthVisitor.visit(this.data, index);
     }
 
     /**
