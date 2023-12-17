@@ -43,9 +43,6 @@
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock-more-matchers.h>
 #include <gtest/gtest.h>
-#include <azure/identity/client_secret_credential.hpp>
-#include <azure/identity/default_azure_credential.hpp>
-#include <azure/identity/managed_identity_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
 #include <azure/storage/files/datalake.hpp>
@@ -265,17 +262,6 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 
   bool WithHierarchicalNamespace() const final { return true; }
 };
-
-// Placeholder tests
-// TODO: GH-18014 Remove once a proper test is added
-TEST(AzureFileSystem, InitializeCredentials) {
-  auto default_credential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
-  auto managed_identity_credential =
-      std::make_shared<Azure::Identity::ManagedIdentityCredential>();
-  auto service_principal_credential =
-      std::make_shared<Azure::Identity::ClientSecretCredential>("tenant_id", "client_id",
-                                                                "client_secret");
-}
 
 TEST(AzureFileSystem, OptionsCompare) {
   AzureOptions options;
@@ -807,6 +793,15 @@ TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsFailureNonexistent) {
 }
 
 // Tests using Azurite (the local Azure emulator)
+
+TEST_F(TestAzuriteFileSystem, InitialiseFilesystemWithDefaultCredential) {
+  auto data = SetUpPreexistingData();
+  AzureOptions options;
+  EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  options.backend = env->backend();
+  ARROW_EXPECT_OK(options.ConfigureDefaultCredential(env->account_name()));
+  EXPECT_OK_AND_ASSIGN(auto default_credential_fs, AzureFileSystem::Make(options));
+}
 
 TEST_F(TestAzuriteFileSystem, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
