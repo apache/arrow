@@ -263,6 +263,14 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
   bool WithHierarchicalNamespace() const final { return true; }
 };
 
+TEST(AzureFileSystem, InitialiseFilesystemWithDefaultCredential) {
+  AzureOptions options;
+  options.backend = AzureBackend::kAzurite;  // Irrelevant for this test because it
+                                             // doesn't connect to the server.
+  ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
+  EXPECT_OK_AND_ASSIGN(auto default_credential_fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, OptionsCompare) {
   AzureOptions options;
   EXPECT_TRUE(options.Equals(options));
@@ -793,15 +801,6 @@ TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsFailureNonexistent) {
 }
 
 // Tests using Azurite (the local Azure emulator)
-
-TEST_F(TestAzuriteFileSystem, InitialiseFilesystemWithDefaultCredential) {
-  auto data = SetUpPreexistingData();
-  AzureOptions options;
-  EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
-  options.backend = env->backend();
-  ARROW_EXPECT_OK(options.ConfigureDefaultCredential(env->account_name()));
-  EXPECT_OK_AND_ASSIGN(auto default_credential_fs, AzureFileSystem::Make(options));
-}
 
 TEST_F(TestAzuriteFileSystem, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
