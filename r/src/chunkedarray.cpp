@@ -34,8 +34,7 @@ r_vec_size ChunkedArray__null_count(
 }
 
 // [[arrow::export]]
-int ChunkedArray__num_chunks(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->num_chunks();
 }
 

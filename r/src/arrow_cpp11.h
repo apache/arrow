@@ -435,7 +435,7 @@ cpp11::writable::list to_r_list(const std::vector<std::shared_ptr<T>>& x) {
 
 struct r_vec_size {
   explicit r_vec_size(R_xlen_t x) : value(x) {}
-  explicit r_vec_size(int64_t x): value(static_cast<R_xlen_t>(x)) {}
+  explicit r_vec_size(int64_t x) : value(static_cast<R_xlen_t>(x)) {}
 
   R_xlen_t value;
 };

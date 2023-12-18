@@ -275,7 +275,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
@@ -569,7 +570,8 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
 
-    const auto& array = altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
@@ -670,7 +672,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
         // using the transpose data for this chunk
         const auto* transpose_data =
             reinterpret_cast<const int32_t*>(GetArrayTransposed(alt, j)->data());
-        auto transpose = [transpose_data](int x) { return transpose_data[x]; };
+        auto transpose = [transpose_data](int64_t x) { return transpose_data[x]; };
 
         GetRegionDispatch(array, indices, transpose, out);
 
@@ -680,7 +682,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     } else {
       // simpler case, identity transpose
-      auto transpose = [](int x) { return x; };
+      auto transpose = [](int64_t x) { return static_cast<int>(x); };
 
       int* out = buf;
       for (const auto& array : slice->chunks()) {
@@ -721,7 +723,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     VisitArraySpanInline<Type>(
         *array->data(),
-        /*valid_func=*/[&](index_type index) { *out++ = transpose(index) + 1; },
+        /*valid_func=*/[&](index_type index) { *out++ = static_cast<int>(transpose(index) + 1); },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });
   }
 
@@ -805,7 +807,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       }
 
       nul_was_stripped_ = true;
-      return Rf_mkCharLenCE(stripped_string_.data(), static_cast<int>(stripped_len), CE_UTF8);
+      return Rf_mkCharLenCE(stripped_string_.data(), static_cast<int>(stripped_len),
+                            CE_UTF8);
     }
 
     bool nul_was_stripped() const { return nul_was_stripped_; }
@@ -850,7 +853,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     SEXP s = NA_STRING;
