@@ -80,6 +80,7 @@ struct ARROW_EXPORT AzureOptions {
   std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
   void SetUrlsForAccountName(const std::string& account_name);
+
  public:
   AzureOptions();
   ~AzureOptions();
