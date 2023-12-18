@@ -489,7 +489,8 @@ def test_timestamp():
 
 def test_timestamp_print():
     for unit in ('s', 'ms', 'us', 'ns'):
-        for tz in ('UTC', 'Europe/Paris', 'Pacific/Marquesas', 'Mars/Mariner_Valley', '-00:42', '+42:00'):
+        for tz in ('UTC', 'Europe/Paris', 'Pacific/Marquesas',
+                   'Mars/Mariner_Valley', '-00:42', '+42:00'):
             ty = pa.timestamp(unit, tz=tz)
             arr = pa.array([0], ty)
             assert "Z" in str(arr)
