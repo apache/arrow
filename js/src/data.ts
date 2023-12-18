@@ -17,7 +17,7 @@
 
 import { Vector } from './vector.js';
 import { BufferType, Type, UnionMode } from './enum.js';
-import { DataType, LargeUtf8, strideForType } from './type.js';
+import { DataType, strideForType } from './type.js';
 import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
 // When slicing, we do not know the null count of the sliced range without
@@ -253,7 +253,7 @@ export class Data<T extends DataType = DataType> {
 
 import {
     Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float,
     Int,
     Date_,
@@ -321,6 +321,14 @@ class MakeDataVisitor extends Visitor {
         const data = toUint8Array(props['data']);
         const nullBitmap = toUint8Array(props['nullBitmap']);
         const valueOffsets = toInt32Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
+    }
+    public visitLargeBinary<T extends LargeBinary>(props: LargeBinaryDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const data = toUint8Array(props['data']);
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toBigInt64Array(props['valueOffsets']);
         const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
         return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
     }
@@ -444,6 +452,7 @@ interface IntervalDataProps<T extends Interval> extends DataProps_<T> { data?: D
 interface DurationDataProps<T extends Duration> extends DataProps_<T> { data?: DataBuffer<T> }
 interface FixedSizeBinaryDataProps<T extends FixedSizeBinary> extends DataProps_<T> { data?: DataBuffer<T> }
 interface BinaryDataProps<T extends Binary> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
+interface LargeBinaryDataProps<T extends LargeBinary> extends DataProps_<T> { valueOffsets: LargeValueOffsetsBuffer | ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface Utf8DataProps<T extends Utf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface LargeUtf8DataProps<T extends LargeUtf8> extends DataProps_<T> { valueOffsets: LargeValueOffsetsBuffer | ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface ListDataProps<T extends List> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; child: Data<T['valueType']> }
@@ -468,6 +477,7 @@ export type DataProps<T extends DataType> = (
     T extends Duration /*        */ ? DurationDataProps<T> :
     T extends FixedSizeBinary /* */ ? FixedSizeBinaryDataProps<T> :
     T extends Binary /*          */ ? BinaryDataProps<T> :
+    T extends LargeBinary /*     */ ? LargeBinaryDataProps<T> :
     T extends Utf8 /*            */ ? Utf8DataProps<T> :
     T extends LargeUtf8 /*       */ ? LargeUtf8DataProps<T> :
     T extends List /*            */ ? ListDataProps<T> :
@@ -495,6 +505,7 @@ export function makeData<T extends Interval>(props: IntervalDataProps<T>): Data<
 export function makeData<T extends Duration>(props: DurationDataProps<T>): Data<T>;
 export function makeData<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>): Data<T>;
 export function makeData<T extends Binary>(props: BinaryDataProps<T>): Data<T>;
+export function makeData<T extends LargeBinary>(props: LargeBinaryDataProps<T>): Data<T>;
 export function makeData<T extends Utf8>(props: Utf8DataProps<T>): Data<T>;
 export function makeData<T extends LargeUtf8>(props: LargeUtf8DataProps<T>): Data<T>;
 export function makeData<T extends List>(props: ListDataProps<T>): Data<T>;
