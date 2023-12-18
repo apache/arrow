@@ -542,6 +542,13 @@ def test_filesystem_equals():
     assert SubTreeFileSystem('/base', fs0) != SubTreeFileSystem('/other', fs0)
 
 
+def test_filesystem_equals_none(fs):
+    with pytest.raises(TypeError, match="got NoneType"):
+        fs.equals(None)
+
+    assert fs != None
+
+
 def test_subtree_filesystem():
     localfs = LocalFileSystem()
 
