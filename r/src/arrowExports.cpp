@@ -869,11 +869,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // compression.cpp
-std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec, R_xlen_t compression_level);
+std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec, int compression_level);
 extern "C" SEXP _arrow_util___Codec__Create(SEXP codec_sexp, SEXP compression_level_sexp){
 BEGIN_CPP11
 	arrow::r::Input<arrow::Compression::type>::type codec(codec_sexp);
-	arrow::r::Input<R_xlen_t>::type compression_level(compression_level_sexp);
+	arrow::r::Input<int>::type compression_level(compression_level_sexp);
 	return cpp11::as_sexp(util___Codec__Create(codec, compression_level));
 END_CPP11
 }
@@ -2024,14 +2024,14 @@ extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_option
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::ParquetFragmentScanOptions> dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size, bool pre_buffer, int64_t thrift_string_size_limit, int64_t thrift_container_size_limit);
+std::shared_ptr<ds::ParquetFragmentScanOptions> dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size, bool pre_buffer, int32_t thrift_string_size_limit, int32_t thrift_container_size_limit);
 extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp, SEXP thrift_string_size_limit_sexp, SEXP thrift_container_size_limit_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
 	arrow::r::Input<int64_t>::type buffer_size(buffer_size_sexp);
 	arrow::r::Input<bool>::type pre_buffer(pre_buffer_sexp);
-	arrow::r::Input<int64_t>::type thrift_string_size_limit(thrift_string_size_limit_sexp);
-	arrow::r::Input<int64_t>::type thrift_container_size_limit(thrift_container_size_limit_sexp);
+	arrow::r::Input<int32_t>::type thrift_string_size_limit(thrift_string_size_limit_sexp);
+	arrow::r::Input<int32_t>::type thrift_container_size_limit(thrift_container_size_limit_sexp);
 	return cpp11::as_sexp(dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit));
 END_CPP11
 }
@@ -2567,10 +2567,10 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
-std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width);
+std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(int32_t byte_width);
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 BEGIN_CPP11
-	arrow::r::Input<R_xlen_t>::type byte_width(byte_width_sexp);
+	arrow::r::Input<int32_t>::type byte_width(byte_width_sexp);
 	return cpp11::as_sexp(FixedSizeBinary__initialize(byte_width));
 END_CPP11
 }
