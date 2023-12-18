@@ -258,7 +258,7 @@ jobs:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows
