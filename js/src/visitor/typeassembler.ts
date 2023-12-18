@@ -25,6 +25,7 @@ import { Null } from '../fb/null.js';
 import { Int } from '../fb/int.js';
 import { FloatingPoint } from '../fb/floating-point.js';
 import { Binary } from '../fb/binary.js';
+import { LargeBinary } from '../fb/large-binary.js';
 import { Bool } from '../fb/bool.js';
 import { Utf8 } from '../fb/utf8.js';
 import { LargeUtf8 } from '../fb/large-utf8.js';
@@ -70,6 +71,10 @@ export class TypeAssembler extends Visitor {
     public visitBinary<T extends type.Binary>(_node: T, b: Builder) {
         Binary.startBinary(b);
         return Binary.endBinary(b);
+    }
+    public visitLargeBinary<T extends type.LargeBinary>(_node: T, b: Builder) {
+        LargeBinary.startLargeBinary(b);
+        return LargeBinary.endLargeBinary(b);
     }
     public visitBool<T extends type.Bool>(_node: T, b: Builder) {
         Bool.startBool(b);

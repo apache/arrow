@@ -48,7 +48,7 @@ export {
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
     Float, Float16, Float32, Float64,
     Utf8, LargeUtf8,
-    Binary,
+    Binary, LargeBinary,
     FixedSizeBinary,
     Date_, DateDay, DateMillisecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
@@ -78,7 +78,7 @@ export {
 } from './Arrow.js';
 
 export {
-    BinaryBuilder,
+    BinaryBuilder, LargeBinaryBuilder,
     BoolBuilder,
     DateBuilder, DateDayBuilder, DateMillisecondBuilder,
     DecimalBuilder,

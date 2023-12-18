@@ -42,6 +42,9 @@ export class JSONTypeAssembler extends Visitor {
     public visitBinary<T extends type.Binary>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }
+    public visitLargeBinary<T extends type.LargeBinary>({ typeId }: T) {
+        return { 'name': ArrowType[typeId].toLowerCase() };
+    }
     public visitBool<T extends type.Bool>({ typeId }: T) {
         return { 'name': ArrowType[typeId].toLowerCase() };
     }

@@ -46,6 +46,7 @@ describe('Generated Test Data', () => {
     describe('Utf8Builder', () => { validateBuilder(generate.utf8); });
     describe('LargeUtf8Builder', () => { validateBuilder(generate.largeUtf8); });
     describe('BinaryBuilder', () => { validateBuilder(generate.binary); });
+    describe('LargeBinaryBuilder', () => { validateBuilder(generate.largeBinary); });
     describe('FixedSizeBinaryBuilder', () => { validateBuilder(generate.fixedSizeBinary); });
     describe('DateDayBuilder', () => { validateBuilder(generate.dateDay); });
     describe('DateMillisecondBuilder', () => { validateBuilder(generate.dateMillisecond); });

@@ -22,6 +22,7 @@ import { DataType } from '../type.js';
 import { Visitor } from '../visitor.js';
 import { BuilderCtor } from '../interfaces.js';
 import { BinaryBuilder } from '../builder/binary.js';
+import { LargeBinaryBuilder } from '../builder/largebinary.js';
 import { BoolBuilder } from '../builder/bool.js';
 import { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from '../builder/date.js';
 import { DecimalBuilder } from '../builder/decimal.js';
@@ -70,6 +71,7 @@ export class GetBuilderCtor extends Visitor {
     public visitUtf8() { return Utf8Builder; }
     public visitLargeUtf8() { return LargeUtf8Builder; }
     public visitBinary() { return BinaryBuilder; }
+    public visitLargeBinary() { return LargeBinaryBuilder; }
     public visitFixedSizeBinary() { return FixedSizeBinaryBuilder; }
     public visitDate() { return DateBuilder; }
     public visitDateDay() { return DateDayBuilder; }

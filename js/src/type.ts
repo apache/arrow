@@ -58,6 +58,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     /** @nocollapse */ static isInt(x: any): x is Int_ { return x?.typeId === Type.Int; }
     /** @nocollapse */ static isFloat(x: any): x is Float { return x?.typeId === Type.Float; }
     /** @nocollapse */ static isBinary(x: any): x is Binary { return x?.typeId === Type.Binary; }
+    /** @nocollapse */ static isLargeBinary(x: any): x is LargeBinary { return x?.typeId === Type.LargeBinary; }
     /** @nocollapse */ static isUtf8(x: any): x is Utf8 { return x?.typeId === Type.Utf8; }
     /** @nocollapse */ static isLargeUtf8(x: any): x is LargeUtf8 { return x?.typeId === Type.LargeUtf8; }
     /** @nocollapse */ static isBool(x: any): x is Bool { return x?.typeId === Type.Bool; }
@@ -248,6 +249,22 @@ export class Binary extends DataType<Type.Binary> {
         (<any>proto).ArrayType = Uint8Array;
         return proto[Symbol.toStringTag] = 'Binary';
     })(Binary.prototype);
+}
+
+/** @ignore */
+export interface LargeBinary extends DataType<Type.LargeBinary> { TArray: Uint8Array; TOffsetArray: BigInt64Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: BigIntArrayConstructor<BigInt64Array> }
+/** @ignore */
+export class LargeBinary extends DataType<Type.LargeBinary> {
+    constructor() {
+        super();
+    }
+    public get typeId() { return Type.LargeBinary as Type.LargeBinary; }
+    public toString() { return `LargeBinary`; }
+    protected static [Symbol.toStringTag] = ((proto: LargeBinary) => {
+        (<any>proto).ArrayType = Uint8Array;
+        (<any>proto).OffsetArrayType = BigInt64Array;
+        return proto[Symbol.toStringTag] = 'LargeBinary';
+    })(LargeBinary.prototype);
 }
 
 /** @ignore */
@@ -601,7 +618,6 @@ export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
     protected static [Symbol.toStringTag] = ((proto: FixedSizeBinary) => {
         (<any>proto).byteWidth = null;
         (<any>proto).ArrayType = Uint8Array;
-        (<any>proto).OffsetArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'FixedSizeBinary';
     })(FixedSizeBinary.prototype);
 }

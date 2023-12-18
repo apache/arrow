@@ -35,6 +35,7 @@ import type { DurationBuilder, DurationSecondBuilder, DurationMillisecondBuilder
 import type { Utf8Builder } from './builder/utf8.js';
 import type { LargeUtf8Builder } from './builder/largeutf8.js';
 import type { BinaryBuilder } from './builder/binary.js';
+import type { LargeBinaryBuilder } from './builder/largebinary.js';
 import type { ListBuilder } from './builder/list.js';
 import type { FixedSizeListBuilder } from './builder/fixedsizelist.js';
 import type { MapBuilder } from './builder/map.js';
@@ -210,6 +211,7 @@ export type TypeToDataType<T extends Type> = {
     [Type.Utf8]: type.Utf8;
     [Type.LargeUtf8]: type.LargeUtf8;
     [Type.Binary]: type.Binary;
+    [Type.LargeBinary]: type.LargeBinary;
     [Type.FixedSizeBinary]: type.FixedSizeBinary;
     [Type.Date]: type.Date_;
     [Type.DateDay]: type.DateDay;
@@ -264,6 +266,7 @@ type TypeToBuilder<T extends Type = any, TNull = any> = {
     [Type.Utf8]: Utf8Builder<TNull>;
     [Type.LargeUtf8]: LargeUtf8Builder<TNull>;
     [Type.Binary]: BinaryBuilder<TNull>;
+    [Type.LargeBinary]: LargeBinaryBuilder<TNull>;
     [Type.FixedSizeBinary]: FixedSizeBinaryBuilder<TNull>;
     [Type.Date]: DateBuilder<any, TNull>;
     [Type.DateDay]: DateDayBuilder<TNull>;
@@ -318,6 +321,7 @@ type DataTypeToBuilder<T extends DataType = any, TNull = any> = {
     [Type.Utf8]: T extends type.Utf8 ? Utf8Builder<TNull> : never;
     [Type.LargeUtf8]: T extends type.LargeUtf8 ? LargeUtf8Builder<TNull> : never;
     [Type.Binary]: T extends type.Binary ? BinaryBuilder<TNull> : never;
+    [Type.LargeBinary]: T extends type.LargeBinary ? LargeBinaryBuilder<TNull> : never;
     [Type.FixedSizeBinary]: T extends type.FixedSizeBinary ? FixedSizeBinaryBuilder<TNull> : never;
     [Type.Date]: T extends type.Date_ ? DateBuilder<T, TNull> : never;
     [Type.DateDay]: T extends type.DateDay ? DateDayBuilder<TNull> : never;

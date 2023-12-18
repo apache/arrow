@@ -173,7 +173,8 @@ export enum Type {
     FixedSizeBinary = 15, /** Fixed-size binary. Each value occupies the same number of bytes */
     FixedSizeList = 16, /** Fixed-size list. Each value occupies the same number of bytes */
     Map = 17, /** Map of named logical types */
-    Duration = 18, /** Measure of elapsed time in either seconds, milliseconds, microseconds or nanoseconds. */
+    Duration = 18, /** Measure of elapsed time in either seconds, milliseconds, microseconds or nanoseconds */
+    LargeBinary = 19, /** Large variable-length bytes (no guarantee of UTF8-ness) */
     LargeUtf8 = 20, /** Large variable-length string as List<Char> */
 
     Dictionary = -1, /** Dictionary aka Category type */
