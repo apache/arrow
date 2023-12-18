@@ -118,6 +118,30 @@ class ScalarTemporalTest : public ::testing::Test {
           "2010-01-04T07:35:36", "2006-01-01T08:40:39",
           "2005-12-31T09:45:45", "2008-12-27T23:59:59",
           "2008-02-28", "2012-03-01", null])";
+  const char* durations_s =
+      R"([0,
+          1, -1, 61, -61,
+          86400, -86400, 86401, -86401,
+          2764800, -2764800, 2764801, -2764801,
+          null])";
+  const char* durations_ms =
+      R"([0,
+          1777, -777, 61777, -60777,
+          86400777, -86400000, 86401777, -86400777,
+          2764800777, -2764800000, 2764801777, -2764800777,
+          null])";
+  const char* durations_us =
+      R"([0,
+          1777888, -776888, 61777888, -60776888,
+          86400777888, -86400000000, 86401777888, -86400776888,
+          2764800777888, -2764800000000, 2764801777888, -2764800776888,
+          null])";
+  const char* durations_ns =
+      R"([0,
+          1777888999, -776887999, 61777888999, -60776887999,
+          86400777888999, -86400000000000, 86401777888999, -86400776887999,
+          2764800777888999, -2764800000000000, 2764801777888999, -2764800776887999,
+          null])";
   std::shared_ptr<arrow::DataType> iso_calendar_type =
       struct_({field("iso_year", int64()), field("iso_week", int64()),
                field("iso_day_of_week", int64())});
@@ -369,6 +393,60 @@ class ScalarTemporalTest : public ::testing::Test {
       "[-19980000, 0, 9082000000000, -5618000000000, 64800004000000, -420002000000, "
       "-10800000000000, 1200000300000, -300000, -18000000000000, 57624000000000, "
       "-33000000000, 0, 0, 0, 0, null]";
+  std::string duration_zeros =
+      R"([0,
+          0, 0, 0, 0,
+          0, 0, 0, 0,
+          0, 0, 0, 0,
+          null])";
+  std::string days_of_duration =
+      R"([0,
+          0, -1, 0, -1,
+          1, -1, 1, -2,
+          32, -32, 32, -33,
+          null])";
+  std::string seconds_of_duration =
+      R"([0,
+          1, 86399, 61, 86339,
+          0, 0, 1, 86399,
+          0, 0, 1, 86399,
+          null])";
+  std::string milliseconds_of_duration =
+      R"([0,
+          777, 223, 777, 223,
+          777, 0, 777, 223,
+          777, 0, 777, 223,
+          null])";
+  std::string microseconds_of_duration =
+      R"([0,
+          888, 112, 888, 112,
+          888, 0, 888, 112,
+          888, 0, 888, 112,
+          null])";
+  std::string nanoseconds_of_duration =
+      R"([0,
+          999, 1, 999, 1,
+          999, 0, 999, 1,
+          999, 0, 999, 1,
+          null])";
+  std::string subseconds_ms_of_duration =
+      R"([0,
+          0.777, 0.223, 0.777, 0.223,
+          0.777, 0, 0.777, 0.223,
+          0.777, 0, 0.777, 0.223,
+          null])";
+  std::string subseconds_us_of_duration =
+      R"([0,
+          0.777888, 0.223112, 0.777888, 0.223112,
+          0.777888, 0, 0.777888, 0.223112,
+          0.777888, 0, 0.777888, 0.223112,
+          null])";
+  std::string subseconds_ns_of_duration =
+      R"([0,
+          0.777888999, 0.223112001, 0.777888999, 0.223112001,
+          0.777888999, 0, 0.777888999, 0.223112001,
+          0.777888999, 0, 0.777888999, 0.223112001,
+          null])";
 
   RoundTemporalOptions round_to_1_nanoseconds =
       RoundTemporalOptions(1, CalendarUnit::NANOSECOND);
@@ -535,77 +613,129 @@ class ScalarTemporalTestMultipleSinceGreaterUnit : public ScalarTemporalTest {
 };
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
-//   std::vector<std::shared_ptr<DataType>> units = {date32(), date64(),
-//                                                   timestamp(TimeUnit::NANO)};
-//   std::vector<const char*> samples = {date32s, date64s, times};
-//   DCHECK_EQ(units.size(), samples.size());
-//   for (size_t i = 0; i < samples.size(); ++i) {
-//     auto unit = units[i];
-//     auto sample = samples[i];
-//     CheckScalarUnary("year", unit, sample, int64(), year);
-//     CheckScalarUnary("is_leap_year", unit, sample, boolean(), is_leap_year);
-//     CheckScalarUnary("month", unit, sample, int64(), month);
-//     CheckScalarUnary("day", unit, sample, int64(), day);
-//     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, sample), year_month_day);
-//     CheckScalarUnary("day_of_week", unit, sample, int64(), day_of_week);
-//     CheckScalarUnary("day_of_year", unit, sample, int64(), day_of_year);
-//     CheckScalarUnary("us_year", unit, sample, int64(), us_year);
-//     CheckScalarUnary("iso_year", unit, sample, int64(), iso_year);
-//     CheckScalarUnary("iso_week", unit, sample, int64(), iso_week);
-//     CheckScalarUnary("us_week", unit, sample, int64(), us_week);
-//     CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, sample), iso_calendar);
-//     CheckScalarUnary("quarter", unit, sample, int64(), quarter);
-//     if (unit->id() == Type::TIMESTAMP) {
-//       CheckScalarUnary("hour", unit, sample, int64(), hour);
-//       CheckScalarUnary("minute", unit, sample, int64(), minute);
-//       CheckScalarUnary("second", unit, sample, int64(), second);
-//       CheckScalarUnary("millisecond", unit, sample, int64(), millisecond);
-//       CheckScalarUnary("microsecond", unit, sample, int64(), microsecond);
-//       CheckScalarUnary("nanosecond", unit, sample, int64(), nanosecond);
-//       CheckScalarUnary("subsecond", unit, sample, float64(), subsecond);
-//     }
-//   }
+  std::vector<std::shared_ptr<DataType>> units = {date32(), date64(),
+                                                  timestamp(TimeUnit::NANO)};
+  std::vector<const char*> samples = {date32s, date64s, times};
+  DCHECK_EQ(units.size(), samples.size());
+  for (size_t i = 0; i < samples.size(); ++i) {
+    auto unit = units[i];
+    auto sample = samples[i];
+    CheckScalarUnary("year", unit, sample, int64(), year);
+    CheckScalarUnary("is_leap_year", unit, sample, boolean(), is_leap_year);
+    CheckScalarUnary("month", unit, sample, int64(), month);
+    CheckScalarUnary("day", unit, sample, int64(), day);
+    CheckScalarUnary("year_month_day", ArrayFromJSON(unit, sample), year_month_day);
+    CheckScalarUnary("day_of_week", unit, sample, int64(), day_of_week);
+    CheckScalarUnary("day_of_year", unit, sample, int64(), day_of_year);
+    CheckScalarUnary("us_year", unit, sample, int64(), us_year);
+    CheckScalarUnary("iso_year", unit, sample, int64(), iso_year);
+    CheckScalarUnary("iso_week", unit, sample, int64(), iso_week);
+    CheckScalarUnary("us_week", unit, sample, int64(), us_week);
+    CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, sample), iso_calendar);
+    CheckScalarUnary("quarter", unit, sample, int64(), quarter);
+    if (unit->id() == Type::TIMESTAMP) {
+      CheckScalarUnary("hour", unit, sample, int64(), hour);
+      CheckScalarUnary("minute", unit, sample, int64(), minute);
+      CheckScalarUnary("second", unit, sample, int64(), second);
+      CheckScalarUnary("millisecond", unit, sample, int64(), millisecond);
+      CheckScalarUnary("microsecond", unit, sample, int64(), microsecond);
+      CheckScalarUnary("nanosecond", unit, sample, int64(), nanosecond);
+      CheckScalarUnary("subsecond", unit, sample, float64(), subsecond);
+    }
+  }
 
-//   CheckScalarUnary("hour", time32(TimeUnit::SECOND), times_s, int64(), hour);
-//   CheckScalarUnary("minute", time32(TimeUnit::SECOND), times_s, int64(), minute);
-//   CheckScalarUnary("second", time32(TimeUnit::SECOND), times_s, int64(), second);
-//   CheckScalarUnary("millisecond", time32(TimeUnit::SECOND), times_s, int64(), zeros);
-//   CheckScalarUnary("microsecond", time32(TimeUnit::SECOND), times_s, int64(), zeros);
-//   CheckScalarUnary("nanosecond", time32(TimeUnit::SECOND), times_s, int64(), zeros);
-//   CheckScalarUnary("subsecond", time32(TimeUnit::SECOND), times_s, float64(), zeros);
+  CheckScalarUnary("hour", time32(TimeUnit::SECOND), times_s, int64(), hour);
+  CheckScalarUnary("minute", time32(TimeUnit::SECOND), times_s, int64(), minute);
+  CheckScalarUnary("second", time32(TimeUnit::SECOND), times_s, int64(), second);
+  CheckScalarUnary("millisecond", time32(TimeUnit::SECOND), times_s, int64(), zeros);
+  CheckScalarUnary("microsecond", time32(TimeUnit::SECOND), times_s, int64(), zeros);
+  CheckScalarUnary("nanosecond", time32(TimeUnit::SECOND), times_s, int64(), zeros);
+  CheckScalarUnary("subsecond", time32(TimeUnit::SECOND), times_s, float64(), zeros);
 
-//   CheckScalarUnary("hour", time32(TimeUnit::MILLI), times_ms, int64(), hour);
-//   CheckScalarUnary("minute", time32(TimeUnit::MILLI), times_ms, int64(), minute);
-//   CheckScalarUnary("second", time32(TimeUnit::MILLI), times_ms, int64(), second);
-//   CheckScalarUnary("millisecond", time32(TimeUnit::MILLI), times_ms, int64(),
-//                    millisecond);
-//   CheckScalarUnary("microsecond", time32(TimeUnit::MILLI), times_ms, int64(), zeros);
-//   CheckScalarUnary("nanosecond", time32(TimeUnit::MILLI), times_ms, int64(), zeros);
-//   CheckScalarUnary("subsecond", time32(TimeUnit::MILLI), times_ms, float64(),
-//                    subsecond_ms);
+  CheckScalarUnary("hour", time32(TimeUnit::MILLI), times_ms, int64(), hour);
+  CheckScalarUnary("minute", time32(TimeUnit::MILLI), times_ms, int64(), minute);
+  CheckScalarUnary("second", time32(TimeUnit::MILLI), times_ms, int64(), second);
+  CheckScalarUnary("millisecond", time32(TimeUnit::MILLI), times_ms, int64(),
+                   millisecond);
+  CheckScalarUnary("microsecond", time32(TimeUnit::MILLI), times_ms, int64(), zeros);
+  CheckScalarUnary("nanosecond", time32(TimeUnit::MILLI), times_ms, int64(), zeros);
+  CheckScalarUnary("subsecond", time32(TimeUnit::MILLI), times_ms, float64(),
+                   subsecond_ms);
 
-//   CheckScalarUnary("hour", time64(TimeUnit::MICRO), times_us, int64(), hour);
-//   CheckScalarUnary("minute", time64(TimeUnit::MICRO), times_us, int64(), minute);
-//   CheckScalarUnary("second", time64(TimeUnit::MICRO), times_us, int64(), second);
-//   CheckScalarUnary("millisecond", time64(TimeUnit::MICRO), times_us, int64(),
-//                    millisecond);
-//   CheckScalarUnary("microsecond", time64(TimeUnit::MICRO), times_us, int64(),
-//                    microsecond);
-//   CheckScalarUnary("nanosecond", time64(TimeUnit::MICRO), times_us, int64(), zeros);
-//   CheckScalarUnary("subsecond", time64(TimeUnit::MICRO), times_us, float64(),
-//                    subsecond_us);
+  CheckScalarUnary("hour", time64(TimeUnit::MICRO), times_us, int64(), hour);
+  CheckScalarUnary("minute", time64(TimeUnit::MICRO), times_us, int64(), minute);
+  CheckScalarUnary("second", time64(TimeUnit::MICRO), times_us, int64(), second);
+  CheckScalarUnary("millisecond", time64(TimeUnit::MICRO), times_us, int64(),
+                   millisecond);
+  CheckScalarUnary("microsecond", time64(TimeUnit::MICRO), times_us, int64(),
+                   microsecond);
+  CheckScalarUnary("nanosecond", time64(TimeUnit::MICRO), times_us, int64(), zeros);
+  CheckScalarUnary("subsecond", time64(TimeUnit::MICRO), times_us, float64(),
+                   subsecond_us);
 
-//   CheckScalarUnary("hour", time64(TimeUnit::NANO), times_ns, int64(), hour);
-//   CheckScalarUnary("minute", time64(TimeUnit::NANO), times_ns, int64(), minute);
-//   CheckScalarUnary("second", time64(TimeUnit::NANO), times_ns, int64(), second);
-//   CheckScalarUnary("millisecond", time64(TimeUnit::NANO), times_ns, int64(), millisecond);
-//   CheckScalarUnary("microsecond", time64(TimeUnit::NANO), times_ns, int64(), microsecond);
-//   CheckScalarUnary("nanosecond", time64(TimeUnit::NANO), times_ns, int64(), nanosecond);
-//   CheckScalarUnary("subsecond", time64(TimeUnit::NANO), times_ns, float64(), subsecond);
+  CheckScalarUnary("hour", time64(TimeUnit::NANO), times_ns, int64(), hour);
+  CheckScalarUnary("minute", time64(TimeUnit::NANO), times_ns, int64(), minute);
+  CheckScalarUnary("second", time64(TimeUnit::NANO), times_ns, int64(), second);
+  CheckScalarUnary("millisecond", time64(TimeUnit::NANO), times_ns, int64(), millisecond);
+  CheckScalarUnary("microsecond", time64(TimeUnit::NANO), times_ns, int64(), microsecond);
+  CheckScalarUnary("nanosecond", time64(TimeUnit::NANO), times_ns, int64(), nanosecond);
+  CheckScalarUnary("subsecond", time64(TimeUnit::NANO), times_ns, float64(), subsecond);
+}
 
-  CheckScalarUnary("day", duration(TimeUnit::SECOND), times_s, int64(), day);
+TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionDuration) {
+  CheckScalarUnary("day", duration(TimeUnit::SECOND), durations_s, int64(),
+                   days_of_duration);
+  CheckScalarUnary("day", duration(TimeUnit::MILLI), durations_ms, int64(),
+                   days_of_duration);
+  CheckScalarUnary("day", duration(TimeUnit::MICRO), durations_us, int64(),
+                   days_of_duration);
+  CheckScalarUnary("day", duration(TimeUnit::NANO), durations_ns, int64(),
+                   days_of_duration);
 
-  CheckScalarUnary("day", duration(TimeUnit::MILLI), times_ms, int64(), day);
+  CheckScalarUnary("second", duration(TimeUnit::SECOND), durations_s, int64(),
+                   seconds_of_duration);
+  CheckScalarUnary("second", duration(TimeUnit::MILLI), durations_ms, int64(),
+                   seconds_of_duration);
+  CheckScalarUnary("second", duration(TimeUnit::MICRO), durations_us, int64(),
+                   seconds_of_duration);
+  CheckScalarUnary("second", duration(TimeUnit::NANO), durations_ns, int64(),
+                   seconds_of_duration);
+
+  CheckScalarUnary("millisecond", duration(TimeUnit::SECOND), durations_s, int64(),
+                   duration_zeros);
+  CheckScalarUnary("millisecond", duration(TimeUnit::MILLI), durations_ms, int64(),
+                   milliseconds_of_duration);
+  CheckScalarUnary("millisecond", duration(TimeUnit::MICRO), durations_us, int64(),
+                   milliseconds_of_duration);
+  CheckScalarUnary("millisecond", duration(TimeUnit::NANO), durations_ns, int64(),
+                   milliseconds_of_duration);
+
+  CheckScalarUnary("microsecond", duration(TimeUnit::SECOND), durations_s, int64(),
+                   duration_zeros);
+  CheckScalarUnary("microsecond", duration(TimeUnit::MILLI), durations_ms, int64(),
+                   duration_zeros);
+  CheckScalarUnary("microsecond", duration(TimeUnit::MICRO), durations_us, int64(),
+                   microseconds_of_duration);
+  CheckScalarUnary("microsecond", duration(TimeUnit::NANO), durations_ns, int64(),
+                   microseconds_of_duration);
+
+  CheckScalarUnary("nanosecond", duration(TimeUnit::SECOND), durations_s, int64(),
+                   duration_zeros);
+  CheckScalarUnary("nanosecond", duration(TimeUnit::MILLI), durations_ms, int64(),
+                   duration_zeros);
+  CheckScalarUnary("nanosecond", duration(TimeUnit::MICRO), durations_us, int64(),
+                   duration_zeros);
+  CheckScalarUnary("nanosecond", duration(TimeUnit::NANO), durations_ns, int64(),
+                   nanoseconds_of_duration);
+
+  CheckScalarUnary("subsecond", duration(TimeUnit::SECOND), durations_s, float64(),
+                   duration_zeros);
+  CheckScalarUnary("subsecond", duration(TimeUnit::MILLI), durations_ms, float64(),
+                   subseconds_ms_of_duration);
+  CheckScalarUnary("subsecond", duration(TimeUnit::MICRO), durations_us, float64(),
+                   subseconds_us_of_duration);
+  CheckScalarUnary("subsecond", duration(TimeUnit::NANO), durations_ns, float64(),
+                   subseconds_ns_of_duration);
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {

@@ -260,18 +260,6 @@ struct TemporalComponentExtractBase<Op, days, Date32Type, OutType> {
 };
 
 template <template <typename...> class Op, typename OutType>
-struct TemporalComponentExtractBase<Op, days, DurationType, OutType> {
-  template <typename OptionsType>
-  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
-                                const ExecSpan& batch, ExecResult* out) {
-    using ExecTemplate = Op<days, NonZonedLocalizer>;
-    auto op = ExecTemplate(options, NonZonedLocalizer());
-    applicator::ScalarUnaryNotNullStateful<OutType, DurationType, ExecTemplate> kernel{op};
-    return kernel.Exec(ctx, batch, out);
-  }
-};
-
-template <template <typename...> class Op, typename OutType>
 struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Date64Type, OutType> {
   template <typename OptionsType>
   static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
@@ -296,6 +284,18 @@ struct TemporalComponentExtractBase<Op, std::chrono::seconds, Time32Type, OutTyp
 };
 
 template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::seconds, DurationType, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecSpan& batch, ExecResult* out) {
+    using ExecTemplate = Op<std::chrono::seconds, NonZonedLocalizer, DurationType>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, DurationType, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
 struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Time32Type, OutType> {
   template <typename OptionsType>
   static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
@@ -303,6 +303,18 @@ struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, Time32Type, O
     using ExecTemplate = Op<std::chrono::milliseconds, NonZonedLocalizer>;
     auto op = ExecTemplate(options, NonZonedLocalizer());
     applicator::ScalarUnaryNotNullStateful<OutType, Time32Type, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::milliseconds, DurationType, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecSpan& batch, ExecResult* out) {
+    using ExecTemplate = Op<std::chrono::milliseconds, NonZonedLocalizer, DurationType>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, DurationType, ExecTemplate> kernel{op};
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -320,6 +332,18 @@ struct TemporalComponentExtractBase<Op, std::chrono::microseconds, Time64Type, O
 };
 
 template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::microseconds, DurationType, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecSpan& batch, ExecResult* out) {
+    using ExecTemplate = Op<std::chrono::microseconds, NonZonedLocalizer, DurationType>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, DurationType, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
 struct TemporalComponentExtractBase<Op, std::chrono::nanoseconds, Time64Type, OutType> {
   template <typename OptionsType>
   static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
@@ -327,6 +351,18 @@ struct TemporalComponentExtractBase<Op, std::chrono::nanoseconds, Time64Type, Ou
     using ExecTemplate = Op<std::chrono::nanoseconds, NonZonedLocalizer>;
     auto op = ExecTemplate(options, NonZonedLocalizer());
     applicator::ScalarUnaryNotNullStateful<OutType, Date64Type, ExecTemplate> kernel{op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename OutType>
+struct TemporalComponentExtractBase<Op, std::chrono::nanoseconds, DurationType, OutType> {
+  template <typename OptionsType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecSpan& batch, ExecResult* out) {
+    using ExecTemplate = Op<std::chrono::nanoseconds, NonZonedLocalizer, DurationType>;
+    auto op = ExecTemplate(options, NonZonedLocalizer());
+    applicator::ScalarUnaryNotNullStateful<OutType, DurationType, ExecTemplate> kernel{op};
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -343,6 +379,18 @@ struct TemporalComponentExtract
     return Base::ExecWithOptions(ctx, options, batch, out, args...);
   }
 };
+
+// template <template <typename...> class Op, typename Duration, typename OutType, typename... Args>
+// struct TemporalComponentExtract<Op, Duration, DurationType, OutType, Args...>
+//     : public TemporalComponentExtractBase<Op, Duration, DurationType, OutType, Args...> {
+//   using Base = TemporalComponentExtractBase<Op, Duration, DurationType, OutType, Args...>;
+
+//   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
+//                      Args... args) {
+//     const FunctionOptions* options = nullptr;
+//     return Base::ExecWithOptions(ctx, options, batch, out, args...);
+//   }
+// };
 
 }  // namespace internal
 }  // namespace compute

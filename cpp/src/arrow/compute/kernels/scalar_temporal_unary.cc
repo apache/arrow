@@ -240,7 +240,7 @@ struct Month {
 // ----------------------------------------------------------------------
 // Extract day from temporal types
 
-template <typename Duration, typename Localizer>
+template <typename Duration, typename Localizer, typename = void*>
 struct Day {
   explicit Day(const FunctionOptions* options, Localizer&& localizer)
       : localizer_(std::move(localizer)) {}
@@ -253,6 +253,17 @@ struct Day {
   }
 
   Localizer localizer_;
+};
+
+template <typename Duration, typename Localizer>
+struct Day<Duration, Localizer, DurationType> {
+  explicit Day(const FunctionOptions* options, Localizer&& localizer) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    Duration t = Duration{arg};
+    return static_cast<T>(floor<days>(t).count());
+  }
 };
 
 // ----------------------------------------------------------------------
@@ -585,7 +596,7 @@ struct Minute {
 // ----------------------------------------------------------------------
 // Extract second from timestamp
 
-template <typename Duration, typename Localizer>
+template <typename Duration, typename Localizer, typename = void*>
 struct Second {
   explicit Second(const FunctionOptions* options, Localizer&& localizer) {}
 
@@ -596,10 +607,23 @@ struct Second {
   }
 };
 
+template <typename Duration, typename Localizer>
+struct Second<Duration, Localizer, DurationType> {
+  static constexpr int64_t kSecondsInDay = 86400;
+
+  explicit Second(const FunctionOptions* options, Localizer&& localizer) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    Duration t = Duration{arg};
+    return static_cast<T>((t - floor<days>(t)) / std::chrono::seconds(1));
+  }
+};
+
 // ----------------------------------------------------------------------
 // Extract subsecond from timestamp
 
-template <typename Duration, typename Localizer>
+template <typename Duration, typename Localizer, typename = void*>
 struct Subsecond {
   explicit Subsecond(const FunctionOptions* options, Localizer&& localizer) {}
 
@@ -614,7 +638,7 @@ struct Subsecond {
 // ----------------------------------------------------------------------
 // Extract milliseconds from timestamp
 
-template <typename Duration, typename Localizer>
+template <typename Duration, typename Localizer, typename = void*>
 struct Millisecond {
   explicit Millisecond(const FunctionOptions* options, Localizer&& localizer) {}
 
@@ -629,7 +653,7 @@ struct Millisecond {
 // ----------------------------------------------------------------------
 // Extract microseconds from timestamp
 
-template <typename Duration, typename Localizer>
+template <typename Duration, typename Localizer, typename = void*>
 struct Microsecond {
   explicit Microsecond(const FunctionOptions* options, Localizer&& localizer) {}
 
@@ -644,7 +668,7 @@ struct Microsecond {
 // ----------------------------------------------------------------------
 // Extract nanoseconds from timestamp
 
-template <typename Duration, typename Localizer>
+template <typename Duration, typename Localizer, typename = void*>
 struct Nanosecond {
   explicit Nanosecond(const FunctionOptions* options, Localizer&& localizer) {}
 
@@ -1858,10 +1882,8 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                                                                        month_doc);
   DCHECK_OK(registry->AddFunction(std::move(month)));
 
-  auto day =
-      UnaryTemporalFactory<Day, TemporalComponentExtract,
-                           Int64Type>::Make<WithDates, WithTimestamps, WithDurations>("day", int64(),
-                                                                       day_doc);
+  auto day = UnaryTemporalFactory<Day, TemporalComponentExtract, Int64Type>::Make<
+      WithDates, WithTimestamps, WithDurations>("day", int64(), day_doc);
   DCHECK_OK(registry->AddFunction(std::move(day)));
 
   auto year_month_day =
@@ -1930,41 +1952,36 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   // Date / time extractors
   auto hour =
       UnaryTemporalFactory<Hour, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("hour", int64(),
+                           Int64Type>::Make<WithTimes, WithTimestamps>("hour", int64(),
                                                                        hour_doc);
   DCHECK_OK(registry->AddFunction(std::move(hour)));
 
   auto minute =
       UnaryTemporalFactory<Minute, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("minute", int64(),
+                           Int64Type>::Make<WithTimes, WithTimestamps>("minute", int64(),
                                                                        minute_doc);
   DCHECK_OK(registry->AddFunction(std::move(minute)));
 
-  auto second =
-      UnaryTemporalFactory<Second, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("second", int64(),
-                                                                       second_doc);
+  auto second = UnaryTemporalFactory<Second, TemporalComponentExtract, Int64Type>::Make<
+      WithTimes, WithTimestamps, WithDurations>("second", int64(), second_doc);
   DCHECK_OK(registry->AddFunction(std::move(second)));
 
   auto millisecond =
-      UnaryTemporalFactory<Millisecond, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("millisecond",
-                                                                       int64(),
-                                                                       millisecond_doc);
+      UnaryTemporalFactory<Millisecond, TemporalComponentExtract, Int64Type>::Make<
+          WithTimes, WithTimestamps, WithDurations>("millisecond", int64(),
+                                                    millisecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(millisecond)));
 
   auto microsecond =
-      UnaryTemporalFactory<Microsecond, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("microsecond",
-                                                                       int64(),
-                                                                       microsecond_doc);
+      UnaryTemporalFactory<Microsecond, TemporalComponentExtract, Int64Type>::Make<
+          WithTimes, WithTimestamps, WithDurations>("microsecond", int64(),
+                                                    microsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(microsecond)));
 
   auto nanosecond =
-      UnaryTemporalFactory<Nanosecond, TemporalComponentExtract,
-                           Int64Type>::Make<WithTimes, WithTimestamps, WithDurations>("nanosecond",
-                                                                       int64(),
-                                                                       nanosecond_doc);
+      UnaryTemporalFactory<Nanosecond, TemporalComponentExtract, Int64Type>::Make<
+          WithTimes, WithTimestamps, WithDurations>("nanosecond", int64(),
+                                                    nanosecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond =
