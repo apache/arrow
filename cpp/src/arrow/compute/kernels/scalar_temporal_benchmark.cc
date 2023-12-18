@@ -173,6 +173,7 @@ auto time32_type = time32(TimeUnit::MILLI);
 auto time64_type = time64(TimeUnit::NANO);
 auto date32_type = date32();
 auto date64_type = date64();
+auto duration_type = duration(TimeUnit::NANO);
 
 #define DECLARE_TEMPORAL_ROUNDING_BENCHMARKS(OPTIONS)                              \
   BENCHMARK_TEMPLATE(BenchmarkTemporalRounding, CeilTemporal, zoned, OPTIONS)      \
@@ -194,6 +195,9 @@ auto date64_type = date64();
 
 #define DECLARE_TEMPORAL_BENCHMARKS_ZONED(OP) \
   BENCHMARK_TEMPLATE(BenchmarkTemporal, OP, zoned)->Apply(SetArgs);
+
+#define DECLARE_TEMPORAL_BENCHMARKS_DURATION(OP) \
+  BENCHMARK_TEMPLATE(BenchmarkTemporal, OP, duration_type)->Apply(SetArgs);
 
 #define DECLARE_TEMPORAL_BINARY_BENCHMARKS_DATES_AND_TIMESTAMPS(OP)             \
   BENCHMARK_TEMPLATE(BenchmarkTemporalBinary, OP, non_zoned)->Apply(SetArgs);   \
@@ -240,6 +244,14 @@ DECLARE_TEMPORAL_BENCHMARKS(Millisecond);
 DECLARE_TEMPORAL_BENCHMARKS(Microsecond);
 DECLARE_TEMPORAL_BENCHMARKS(Nanosecond);
 DECLARE_TEMPORAL_BENCHMARKS(Subsecond);
+
+// Temporal component extraction for durations
+DECLARE_TEMPORAL_BENCHMARKS_DURATION(Day);
+DECLARE_TEMPORAL_BENCHMARKS_DURATION(Second);
+DECLARE_TEMPORAL_BENCHMARKS_DURATION(Millisecond);
+DECLARE_TEMPORAL_BENCHMARKS_DURATION(Microsecond);
+DECLARE_TEMPORAL_BENCHMARKS_DURATION(Nanosecond);
+DECLARE_TEMPORAL_BENCHMARKS_DURATION(Subsecond);
 
 // Other temporal benchmarks
 BENCHMARK_TEMPLATE(BenchmarkStrftime, non_zoned)->Apply(SetArgs);
