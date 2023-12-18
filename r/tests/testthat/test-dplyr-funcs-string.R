@@ -445,6 +445,12 @@ test_that("str_replace and str_replace_all", {
       collect(),
     regexp = "`pattern` must be a length 1 character vector",
   )
+  expect_error(
+    arrow_table(df) %>%
+      transmute(x = call_binding("str_replace_all", x, c("F"), c("_", ""))) %>%
+      collect(),
+    regexp = "`replacement` must be a length 1 character vector",
+  )
   compare_dplyr_binding(
     .input %>%
       transmute(x = str_replace_all(x, regex("^F"), "baz")) %>%
