@@ -71,6 +71,7 @@ jobs:
           FORCE_BUNDLED_BUILD: true
           LIBARROW_MINIMAL: false
           ARROW_R_DEV: TRUE
+          PKG_CXXFLAGS: "-Wconversion -Wno-sign-conversion"
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
           sccache --start-server || echo 'sccache not found'
