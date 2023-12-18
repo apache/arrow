@@ -253,11 +253,15 @@ class RConnectionFileInterface : public virtual arrow::io::FileInterface {
       return arrow::Status::IOError("R connection is closed");
     }
 
+    if (nbytes > std::numeric_limits<int>::max()) {
+      return arrow::Status::Invalid("Can't read more than INT_MAX bytes from an R connection");
+    }
+
     return SafeCallIntoR<int64_t>(
         [&] {
           cpp11::function read_bin = cpp11::package("base")["readBin"];
           cpp11::writable::raws ptype((R_xlen_t)0);
-          cpp11::integers n = cpp11::as_sexp<int>(nbytes);
+          cpp11::integers n = cpp11::as_sexp<int>(static_cast<int>(nbytes));
 
           cpp11::sexp result = read_bin(connection_sexp_, ptype, n);
 
@@ -513,7 +517,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
     while (in_bytes_left > 0) {
       // Make enough place in the output to hopefully consume all of the input.
       RETURN_NOT_OK(
-          builder.Reserve(std::max<int64_t>(in_bytes_left * kOversizeFactor, 4)));
+          builder.Reserve(std::max<int64_t>(static_cast<int64_t>(in_bytes_left * kOversizeFactor), 4)));
       out_buf = builder.mutable_data() + builder.length();
       out_bytes_left = builder.capacity() - builder.length();
 
