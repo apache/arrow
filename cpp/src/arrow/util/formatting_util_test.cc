@@ -530,7 +530,6 @@ TEST(Formatting, Timestamp) {
                             timestamp(TimeUnit::SECOND, "Pacific/Maruesas"),
                             timestamp(TimeUnit::SECOND, "Mars/Mariner_Valley")};
     for (auto ty : timestamp_types) {
-      auto ty = timestamp(TimeUnit::SECOND, "US/Eastern");
       StringFormatter<TimestampType> formatter(ty.get());
 
       AssertFormatting(formatter, 0, "1970-01-01 00:00:00Z");
