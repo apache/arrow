@@ -494,7 +494,7 @@ def test_timestamp_print():
             ty = pa.timestamp(unit, tz=tz)
             arr = pa.array([0], ty)
             assert "Z" in str(arr)
-        arr = pa.array([0])
+        arr = pa.array([0], pa.timestamp(unit))
         assert "Z" not in str(arr)
 
 
