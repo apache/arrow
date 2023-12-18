@@ -546,7 +546,7 @@ def test_filesystem_equals_none(fs):
     with pytest.raises(TypeError, match="got NoneType"):
         fs.equals(None)
 
-    assert fs != None
+    assert fs is not None
 
 
 def test_subtree_filesystem():
