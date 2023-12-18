@@ -263,7 +263,7 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
   bool WithHierarchicalNamespace() const final { return true; }
 };
 
-TEST(AzureFileSystem, InitialiseFilesystemWithDefaultCredential) {
+TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
   AzureOptions options;
   options.backend = AzureBackend::kAzurite;  // Irrelevant for this test because it
                                              // doesn't connect to the server.
