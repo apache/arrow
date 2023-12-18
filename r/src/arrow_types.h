@@ -195,7 +195,7 @@ template <typename Lambda>
 void TraverseDots(cpp11::list dots, int num_fields, Lambda lambda) {
   cpp11::strings names(dots.attr(R_NamesSymbol));
 
-  for (R_xlen_t i = 0, j = 0; j < num_fields; i++) {
+  for (int i = 0, j = 0; j < num_fields; i++) {
     auto name_i = names[i];
 
     if (name_i.size() == 0) {

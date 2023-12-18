@@ -569,7 +569,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
 
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array = altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
@@ -578,7 +578,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
       if (WasUnified(alt)) {
         const auto* transpose_data = reinterpret_cast<const int32_t*>(
-            GetArrayTransposed(alt, resolve.chunk_index)->data());
+            GetArrayTransposed(alt, static_cast<int>(resolve.chunk_index))->data());
 
         switch (indices->type_id()) {
           case Type::UINT8:
