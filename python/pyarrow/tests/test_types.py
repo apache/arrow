@@ -487,6 +487,16 @@ def test_timestamp():
             pa.timestamp(invalid_unit)
 
 
+def test_timestamp_print():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        for tz in ('UTC', 'Europe/Paris'):
+            ty = pa.timestamp(unit, tz=tz)
+            arr = pa.array([0], ty)
+            assert "Z" in str(arr)
+        arr = pa.array([0])
+        assert "Z" not in str(arr)
+
+
 def test_time32_units():
     for valid_unit in ('s', 'ms'):
         ty = pa.time32(valid_unit)

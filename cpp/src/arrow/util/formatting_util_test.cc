@@ -522,6 +522,22 @@ TEST(Formatting, Timestamp) {
     AssertFormatting(formatter, -2203932304LL * 1000000000LL + 8,
                      "1900-02-28 12:34:56.000000008");
   }
+
+  {
+    auto ty = timestamp(TimeUnit::SECOND, "US/Eastern");
+    StringFormatter<TimestampType> formatter(ty.get());
+
+    AssertFormatting(formatter, 0, "1970-01-01 00:00:00Z");
+    AssertFormatting(formatter, 1, "1970-01-01 00:00:01Z");
+    AssertFormatting(formatter, 24 * 60 * 60, "1970-01-02 00:00:00Z");
+    AssertFormatting(formatter, 616377600, "1989-07-14 00:00:00Z");
+    AssertFormatting(formatter, 951782400, "2000-02-29 00:00:00Z");
+    AssertFormatting(formatter, 63730281600LL, "3989-07-14 00:00:00Z");
+    AssertFormatting(formatter, -2203977600LL, "1900-02-28 00:00:00Z");
+
+    AssertFormatting(formatter, 1542129070, "2018-11-13 17:11:10Z");
+    AssertFormatting(formatter, -2203932304LL, "1900-02-28 12:34:56Z");
+  }
 }
 
 TEST(Formatting, Interval) {
