@@ -1985,10 +1985,9 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(nanosecond)));
 
   auto subsecond =
-      UnaryTemporalFactory<Subsecond, TemporalComponentExtract,
-                           DoubleType>::Make<WithTimes, WithTimestamps, WithDurations>("subsecond",
-                                                                        float64(),
-                                                                        subsecond_doc);
+      UnaryTemporalFactory<Subsecond, TemporalComponentExtract, DoubleType>::Make<
+          WithTimes, WithTimestamps, WithDurations>("subsecond", float64(),
+                                                    subsecond_doc);
   DCHECK_OK(registry->AddFunction(std::move(subsecond)));
 
   // Timezone-related functions
