@@ -380,18 +380,6 @@ struct TemporalComponentExtract
   }
 };
 
-// template <template <typename...> class Op, typename Duration, typename OutType, typename... Args>
-// struct TemporalComponentExtract<Op, Duration, DurationType, OutType, Args...>
-//     : public TemporalComponentExtractBase<Op, Duration, DurationType, OutType, Args...> {
-//   using Base = TemporalComponentExtractBase<Op, Duration, DurationType, OutType, Args...>;
-
-//   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
-//                      Args... args) {
-//     const FunctionOptions* options = nullptr;
-//     return Base::ExecWithOptions(ctx, options, batch, out, args...);
-//   }
-// };
-
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
