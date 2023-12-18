@@ -723,7 +723,8 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     VisitArraySpanInline<Type>(
         *array->data(),
-        /*valid_func=*/[&](index_type index) { *out++ = static_cast<int>(transpose(index) + 1); },
+        /*valid_func=*/
+        [&](index_type index) { *out++ = static_cast<int>(transpose(index) + 1); },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });
   }
 

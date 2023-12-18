@@ -599,7 +599,9 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return static_cast<int>(from / kSecondsPerDay);
   }
 
-  static int64_t FromPosixct(const Date64Type*, double from) { return static_cast<int64_t>(from * 1000); }
+  static int64_t FromPosixct(const Date64Type*, double from) {
+    return static_cast<int64_t>(from * 1000);
+  }
 };
 
 int64_t get_TimeUnit_multiplier(TimeUnit::type unit) {

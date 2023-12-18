@@ -738,8 +738,7 @@ void RegisterScalarUDF(std::string name, cpp11::list func_sexp) {
 
   // Compute the Arity from the list of input kernels. We don't currently handle
   // variable numbers of arguments in a user-defined function.
-  int n_args =
-      cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[0])->num_fields();
+  int n_args = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[0])->num_fields();
   for (R_xlen_t i = 1; i < n_kernels; i++) {
     auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
     if (in_types->num_fields() != n_args) {
