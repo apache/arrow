@@ -94,6 +94,7 @@ public class SessionOptionValueFactory {
       this.value = value;
     }
 
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
@@ -106,6 +107,7 @@ public class SessionOptionValueFactory {
       this.value = value;
     }
 
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
@@ -118,6 +120,7 @@ public class SessionOptionValueFactory {
       this.value = value;
     }
 
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
@@ -130,6 +133,7 @@ public class SessionOptionValueFactory {
       this.value = value;
     }
 
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
@@ -142,6 +146,7 @@ public class SessionOptionValueFactory {
       this.value = value;
     }
 
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
@@ -154,6 +159,7 @@ public class SessionOptionValueFactory {
       this.value = value;
     }
 
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
@@ -166,12 +172,14 @@ public class SessionOptionValueFactory {
       this.value = value.clone();
     }
 
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit(value);
     }
   }
 
   private static class SessionOptionValueEmpty extends SessionOptionValue {
+    @Override
     public <T> T acceptVisitor(SessionOptionValueVisitor<T> v) {
       return v.visit((Void) null);
     }

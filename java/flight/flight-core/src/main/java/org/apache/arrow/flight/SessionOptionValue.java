@@ -44,36 +44,43 @@ public abstract class SessionOptionValue {
       this.b = b;
     }
 
+    @Override
     public Void visit(String value) {
       b.setStringValue(value);
       return null;
     }
 
+    @Override
     public Void visit(boolean value) {
       b.setBoolValue(value);
       return null;
     }
 
+    @Override
     public Void visit(int value) {
       b.setInt32Value(value);
       return null;
     }
 
+    @Override
     public Void visit(long value) {
       b.setInt64Value(value);
       return null;
     }
 
+    @Override
     public Void visit(float value) {
       b.setFloatValue(value);
       return null;
     }
 
+    @Override
     public Void visit(double value) {
       b.setDoubleValue(value);
       return null;
     }
 
+    @Override
     public Void visit(String[] value) {
       Flight.SessionOptionValue.StringListValue.Builder pbSLVBuilder =
           Flight.SessionOptionValue.StringListValue.newBuilder();
@@ -82,6 +89,7 @@ public abstract class SessionOptionValue {
       return null;
     }
 
+    @Override
     public Void visit(Void ignored) {
       b.clearOptionValue();
       return null;
