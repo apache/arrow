@@ -2,7 +2,7 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.trimAutoWhitespace": true,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": false
+    "source.fixAll.eslint": "explicit"
   },
   "[javascript]": {
     "editor.tabSize": 4,
