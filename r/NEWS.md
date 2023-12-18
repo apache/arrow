@@ -23,7 +23,7 @@
 
 ##  Minor improvements and fixes
 
-* Fixed C++ compiler Warnings (#39138, #39186).
+* Fixed C++ compiler warnings (#39138, #39186).
 * Fixed confusing dplyr warnings during tests (#39041).
 * Added missing "-framework Security" pkg-config flag to prevent
   issues when compiling with strict linker settings (#38861).
