@@ -90,7 +90,7 @@
 
 // JITLink is available in LLVM 9+
 // but the `InProcessMemoryManager::Create` API was added since LLVM 14
-#if LLVM_VERSION_MAJOR >= 14 && !defined(_WIN32) && !defined(_WIN64)
+#if LLVM_VERSION_MAJOR >= 14 && !defined(_WIN32)
 #define JIT_LINK_SUPPORTED
 #include <llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h>
 #endif
