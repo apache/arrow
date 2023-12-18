@@ -27,7 +27,6 @@
 * Fixed confusing dplyr warnings during tests (#39041).
 * Added missing "-framework Security" pkg-config flag to prevent
   issues when compiling with strict linker settings (#38861).
-  Version (#38236).
 
 # arrow 14.0.0.2
 
