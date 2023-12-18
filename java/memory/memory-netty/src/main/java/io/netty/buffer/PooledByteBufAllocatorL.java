@@ -150,7 +150,7 @@ public class PooledByteBufAllocatorL {
         throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve direct arenas field.", e);
       }
 
-      this.chunkSize = directArenas[0].chunkSize;
+      this.chunkSize = directArenas[0].sizeClass.chunkSize;
 
       if (memoryLogger.isTraceEnabled()) {
         statusThread = new MemoryStatusThread(this);
@@ -166,7 +166,7 @@ public class PooledByteBufAllocatorL {
 
       if (directArena != null) {
 
-        if (initialCapacity > directArena.chunkSize) {
+        if (initialCapacity > directArena.sizeClass.chunkSize) {
           // This is beyond chunk size so we'll allocate separately.
           ByteBuf buf = UnpooledByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
 
