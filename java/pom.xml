@@ -452,7 +452,7 @@
             <dependency>
               <groupId>org.apache.maven.surefire</groupId>
               <artifactId>surefire-junit-platform</artifactId>
-              <version>3.2.2</version>
+              <version>3.2.3</version>
             </dependency>
           </dependencies>
           <configuration>
