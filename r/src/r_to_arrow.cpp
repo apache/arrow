@@ -312,12 +312,20 @@ class AsArrowArrayConverter : public RConverter {
 template <typename T, typename Enable = void>
 class RPrimitiveConverter;
 
-template <typename T, typename FromT>
-Result<T> CIntFromRScalarImpl(FromT value) {
+template <typename T>
+Result<T> CIntFromRScalarImpl(int64_t value) {
   if (value < std::numeric_limits<T>::min() || value > std::numeric_limits<T>::max()) {
     return Status::Invalid("value outside of range");
   }
   return static_cast<T>(value);
+}
+
+template <>
+Result<uint64_t> CIntFromRScalarImpl<uint64_t>(int64_t value) {
+  if (value < 0) {
+    return Status::Invalid("value outside of range");
+  }
+  return static_cast<uint64_t>(value);
 }
 
 // utility to convert R single values from (int, raw, double and int64) vectors
@@ -327,7 +335,7 @@ struct RConvert {
   template <typename Type, typename From>
   static enable_if_integer<Type, Result<typename Type::c_type>> Convert(Type*,
                                                                         From from) {
-    return CIntFromRScalarImpl<typename Type::c_type, From>(from);
+    return CIntFromRScalarImpl<typename Type::c_type>(static_cast<int64_t>(from));
   }
 
   // ---- convert R integer types to double
