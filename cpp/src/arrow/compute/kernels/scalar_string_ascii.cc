@@ -2007,6 +2007,11 @@ struct PlainSubstringReplacer {
     const char* i = s.data();
     const char* end = s.data() + s.length();
     int64_t max_replacements = options_.max_replacements;
+    if (options_.pattern.empty()) {
+      // If the pattern is empty then entering the loop will hang forever.
+      return builder->Append(reinterpret_cast<const uint8_t*>(i),
+                             static_cast<int64_t>(end - i));
+    }
     while ((i < end) && (max_replacements != 0)) {
       const char* pos =
           std::search(i, end, options_.pattern.begin(), options_.pattern.end());

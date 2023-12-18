@@ -1872,12 +1872,23 @@ TYPED_TEST(TestStringKernels, Utf8ReplaceSlice) {
 
 TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};
-  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
-                   this->type(), R"(["bazz", "this bazz that bazz", null])", &options);
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
+                   this->type(), R"(["bazz", "this bazz that bazz", "", null])", &options);
 
   options = ReplaceSubstringOptions{"foo", "bazz", 1};
-  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
-                   this->type(), R"(["bazz", "this bazz that foo", null])", &options);
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
+                   this->type(), R"(["bazz", "this bazz that foo", "", null])", &options);
+  
+  options = ReplaceSubstringOptions{"", "bazz"};
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
+                   this->type(), R"(["foo", "this foo that foo", "", null])", &options);
+
+  options = ReplaceSubstringOptions{"", "bazz", 1};
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
+                   this->type(), R"(["foo", "this foo that foo", "", null])", &options);
+
+
+  
 
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}));

@@ -72,6 +72,12 @@ add_arrow_compute_test(scalar_utility_test
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing)
 
+add_arrow_compute_test(scalar_string_test
+                       SOURCES
+                       scalar_string_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
+
 add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
