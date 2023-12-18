@@ -116,16 +116,7 @@ function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
 /** @ignore */
 const getNull = <T extends Null>(_data: Data<T>, _index: number): T['TValue'] => null;
 /** @ignore */
-const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number) => {
-    if (index + 1 >= valueOffsets.length) {
-        return null as any;
-    }
-    const x = valueOffsets[index];
-    const y = valueOffsets[index + 1];
-    return values.subarray(x, y);
-};
-/** @ignore */
-const getLargeVariableWidthBytes = (values: Uint8Array, valueOffsets: BigInt64Array, index: number) => {
+const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array | BigInt64Array, index: number) => {
     if (index + 1 >= valueOffsets.length) {
         return null as any;
     }
@@ -162,13 +153,8 @@ const getFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Data<
 /** @ignore */
 const getBinary = <T extends Binary>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => getVariableWidthBytes(values, valueOffsets, index);
 /** @ignore */
-const getUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => {
+const getUtf8 = <T extends Utf8 | LargeUtf8>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => {
     const bytes = getVariableWidthBytes(values, valueOffsets, index);
-    return bytes !== null ? decodeUtf8(bytes) : null as any;
-};
-/** @ignore */
-const getLargeUtf8 = <T extends LargeUtf8>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => {
-    const bytes = getLargeVariableWidthBytes(values, valueOffsets, index);
     return bytes !== null ? decodeUtf8(bytes) : null as any;
 };
 
@@ -344,7 +330,7 @@ GetVisitor.prototype.visitFloat16 = wrapGet(getFloat16);
 GetVisitor.prototype.visitFloat32 = wrapGet(getNumeric);
 GetVisitor.prototype.visitFloat64 = wrapGet(getNumeric);
 GetVisitor.prototype.visitUtf8 = wrapGet(getUtf8);
-GetVisitor.prototype.visitLargeUtf8 = wrapGet(getLargeUtf8);
+GetVisitor.prototype.visitLargeUtf8 = wrapGet(getUtf8);
 GetVisitor.prototype.visitBinary = wrapGet(getBinary);
 GetVisitor.prototype.visitFixedSizeBinary = wrapGet(getFixedSizeBinary);
 GetVisitor.prototype.visitDate = wrapGet(getDate);
