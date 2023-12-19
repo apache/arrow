@@ -222,6 +222,6 @@ def test_download_tzdata_on_windows():
     tzdata_zones_path = os.path.join(tzdata_path, "windowsZones.xml")
     assert os.path.exists(tzdata_path)
     assert os.path.exists(tzdata_zones_path)
-    # 31 files in tzdata + compressed tzdata.tar.gz + windowsZones.xml
-    assert len(os.listdir(tzdata_path)) == 33
+    # 30 files in tzdata (2023) + compressed tzdata.tar.gz + windowsZones.xml
+    assert len(os.listdir(tzdata_path)) == 32
     assert 'version' in os.listdir(tzdata_path)
