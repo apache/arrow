@@ -852,4 +852,170 @@ TEST_F(PageIndexBuilderTest, TwoRowGroups) {
   CheckOffsetIndex(/*row_group=*/1, /*column=*/1, page_locations[1][1], final_position);
 }
 
+/*
+#include "arrow/api.h"
+#include "arrow/io/api.h"
+#include "arrow/result.h"
+#include "arrow/util/type_fwd.h"
+#include "parquet/arrow/reader.h"
+#include "parquet/arrow/writer.h"
+
+#include <iostream>
+#include <list>
+#include <chrono>
+#include <random>
+#include <vector>
+#include <fstream>
+#include <filesystem>
+#include <iomanip>
+#include <cassert>
+#include <parquet/page_index.h>
+
+
+using arrow::Status;
+
+*/
+
+
+std::shared_ptr<arrow::Table> GetTable(size_t nColumns, size_t nRows)
+{
+  std::random_device dev;
+  std::vector<std::shared_ptr<arrow::Array>> arrays;
+  std::vector<std::shared_ptr<arrow::Field>> fields;
+
+  // For simplicity, we'll create int32 columns. You can expand this to handle other types.
+  for (int i = 0; i < nColumns; i++)
+  {
+    arrow::FloatBuilder builder;
+
+    for (int j = 0; j < nRows; j++)
+    {
+      int reps = j / 10;
+      if (j % 10 < reps) {
+        float val = (j / 10) * 10;
+        builder.Append(val);
+      } else {
+        builder.Append(static_cast<float>(j));
+      }
+    }
+
+    std::shared_ptr<arrow::Array> array;
+    if (!builder.Finish(&array).ok())
+      throw std::runtime_error("builder.Finish");
+
+    arrays.push_back(array);
+    fields.push_back(arrow::field("c_" + std::to_string(i), arrow::float32(), false));
+  }
+
+  auto table = arrow::Table::Make(arrow::schema(fields), arrays);
+  return table;
+}
+
+Status WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, std::chrono::microseconds *dt, int64_t chunkSize)
+{
+  auto table = GetTable(nColumns, nRows);
+  auto begin = std::chrono::steady_clock::now();
+  auto result = arrow::io::FileOutputStream::Open(filename);
+  auto outfile = result.ValueOrDie();
+
+  parquet::WriterProperties::Builder builder;
+  auto properties = builder
+          .enable_write_page_index()
+          ->max_row_group_length(chunkSize)
+          ->disable_dictionary()
+                  // ->disable_statistics()
+          ->build();
+  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(), outfile, chunkSize, properties));
+  auto end = std::chrono::steady_clock::now();
+  *dt = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+  return Status::OK();
+}
+
+typedef std::vector<std::shared_ptr<parquet::OffsetIndex>> offsets;
+
+std::vector<offsets> ReadPageIndexes(const std::string &filename) {
+  auto read_properties = parquet::default_reader_properties();
+  auto reader = parquet::ParquetFileReader::OpenFile(filename, false, read_properties);
+  auto metadata = reader->metadata();
+  std::shared_ptr<parquet::PageIndexReader> page_index_reader = reader->GetPageIndexReader();
+
+  std::vector<offsets> rowgroup_offsets;
+  for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
+    std::shared_ptr<parquet::RowGroupPageIndexReader> row_group_index_reader = page_index_reader->RowGroup(rg);
+    auto row_group_reader = reader->RowGroup(rg);
+    offsets offset_indexes;
+    for (int col = 0; col < metadata->num_columns(); ++col) {
+      auto column_index = row_group_index_reader->GetColumnIndex(col);
+      auto offset_index = row_group_index_reader->GetOffsetIndex(col);
+      offset_indexes.push_back(offset_index);
+    }
+    rowgroup_offsets.push_back(offset_indexes);
+  }
+  return rowgroup_offsets;
+}
+
+Status ReadAndPrintMetadataRow(const std::string &filename, std::vector<int> indicies,
+                               std::shared_ptr<parquet::FileMetaData> metadata) {
+  auto readerProperties = parquet::default_reader_properties();
+  parquet::arrow::FileReaderBuilder fileReaderBuilder;
+  ARROW_RETURN_NOT_OK(fileReaderBuilder.OpenFile(filename, false, readerProperties, metadata));
+  auto reader = fileReaderBuilder.Build();
+
+  // Read and print the table.
+  std::shared_ptr<arrow::Table> parquet_table;
+  ARROW_RETURN_NOT_OK(reader->get()->ReadTable(indicies, &parquet_table));
+  std::cout << std::endl;
+  std::cout << "****************************************************************************************" << std::endl;
+  std::cout << parquet_table->ToString() << std::endl;
+  std::cout << "****************************************************************************************" << std::endl;
+
+  return Status::OK();
+}
+
+Status ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> indicies)
+{
+  auto rowgroup_offsets = ReadPageIndexes(filename);
+  std::shared_ptr<arrow::io::ReadableFile> infile;
+  ARROW_ASSIGN_OR_RAISE(infile, arrow::io::ReadableFile::Open(filename));
+  auto metadata = parquet::ReadMetaData(infile);
+  // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
+
+  int row_group = 9;
+  std::vector<int> row_groups = {row_group};
+  auto row_0_metadata = metadata->Subset({0});
+  auto target_metadata = metadata->Subset({row_group});
+  auto shifted_metadata = metadata->Subset({0}); // make a copy
+
+  auto target_column_offsets = rowgroup_offsets[row_group];
+  int64_t total_rows = metadata->num_rows();
+  int64_t chunk_rows = row_0_metadata->num_rows();
+  int64_t num_values = chunk_rows;
+  if (row_group >= total_rows/chunk_rows) {
+    // last page, set num_values to remainder
+    num_values = total_rows % chunk_rows;
+  }
+  shifted_metadata->set_column_offsets(target_column_offsets, num_values);
+
+  std::cout << "Correct read:";
+  ARROW_RETURN_NOT_OK(ReadAndPrintMetadataRow(filename, indicies, target_metadata));
+  std::cout << "\n\nOffset based read:";
+  ARROW_RETURN_NOT_OK(ReadAndPrintMetadataRow(filename, indicies, shifted_metadata));
+
+
+  return Status::OK();
+}
+
+TEST_F(PageIndexBuilderTest, OffsetReader) {
+  const char *FILE_NAME = "/tmp/ColumnReadingPerf/cmake-build-debug-docker_dbarrow/my.parquet";
+  int nColumn = 10;
+  int nRow = 95;
+  int chunk_size = 10;
+  std::chrono::microseconds writing_dt;
+  std::vector<int> indicies(nColumn/2);
+  std::iota(indicies.begin(), indicies.end(), 0);
+  ARROW_RETURN_NOT_OK(WriteTableToParquet(nColumn, nRow, FILE_NAME, &writing_dt, chunk_size));
+  ARROW_RETURN_NOT_OK(ReadColumnsUsingOffsetIndex(FILE_NAME, indicies));
+}
+
+
 }  // namespace parquet
