@@ -35,3 +35,11 @@ func isMultipleOfPowerOf2(v int, d int) bool {
 func addressOf(b []byte) uintptr {
 	return uintptr(unsafe.Pointer(&b[0]))
 }
+
+func ReleaseBuffers(buffers []*Buffer) {
+	for _, b := range buffers {
+		if b != nil {
+			b.Release()
+		}
+	}
+}
