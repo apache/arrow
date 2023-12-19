@@ -133,7 +133,7 @@ func (Plain{{.Name}}Decoder) Type() parquet.Type {
 // decoding the min(len(out), remaining values).
 // It returns the number of values actually decoded and any error encountered.
 func (dec *Plain{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
-  max := utils.MinInt(len(out), dec.nvals)
+  max := utils.Min(len(out), dec.nvals)
   nbytes := int64(max) * int64({{.prefix}}.{{.Name}}SizeBytes)
   if nbytes > int64(len(dec.data)) || nbytes > math.MaxInt32 {
     return 0, fmt.Errorf("parquet: eof exception decode plain {{.Name}}, nvals: %d, nbytes: %d, datalen: %d", dec.nvals, nbytes, len(dec.data))

@@ -178,7 +178,7 @@ func doAppendFixedSize(action Action, memo hashing.MemoTable, arr *exec.ArraySpa
 		})
 }
 
-func doAppendNumeric[T exec.IntTypes | exec.UintTypes | exec.FloatTypes](action Action, memo hashing.MemoTable, arr *exec.ArraySpan) error {
+func doAppendNumeric[T arrow.IntType | arrow.UintType | arrow.FloatType](action Action, memo hashing.MemoTable, arr *exec.ArraySpan) error {
 	arrData := exec.GetSpanValues[T](arr, 1)
 	shouldEncodeNulls := action.ShouldEncodeNulls()
 	return bitutils.VisitBitBlocksShort(arr.Buffers[0].Buf, arr.Offset, arr.Len,

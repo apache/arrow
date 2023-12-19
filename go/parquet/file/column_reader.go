@@ -517,7 +517,7 @@ func (c *columnChunkReader) readBatch(batchSize int64, defLvls, repLvls []int16,
 		// if this is a required field, ndefs will be 0 since there is no definition
 		// levels stored with it and `read` will be the number of values, otherwise
 		// we use ndefs since it will be equal to or greater than read.
-		totalVals := int64(utils.MaxInt(ndefs, read))
+		totalVals := int64(utils.Max(ndefs, read))
 		c.consumeBufferedValues(totalVals)
 
 		totalLvls += totalVals

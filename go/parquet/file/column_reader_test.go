@@ -244,7 +244,7 @@ func (p *PrimitiveReaderSuite) checkResults(typ reflect.Type) {
 
 		totalRead += batch
 		batchActual += int(read)
-		batchSize = int32(utils.MinInt(1<<24, utils.MaxInt(int(batchSize*2), 4096)))
+		batchSize = int32(utils.Min(1<<24, utils.Max(int(batchSize*2), 4096)))
 		if batch <= 0 {
 			break
 		}

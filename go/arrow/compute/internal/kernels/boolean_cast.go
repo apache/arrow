@@ -27,7 +27,7 @@ import (
 	"github.com/apache/arrow/go/v15/arrow/compute/exec"
 )
 
-func isNonZero[T exec.FixedWidthTypes](ctx *exec.KernelCtx, in []T, out []byte) error {
+func isNonZero[T arrow.FixedWidthType](ctx *exec.KernelCtx, in []T, out []byte) error {
 	var zero T
 	for i, v := range in {
 		bitutil.SetBitTo(out, i, v != zero)

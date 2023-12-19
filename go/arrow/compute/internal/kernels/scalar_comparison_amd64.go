@@ -22,7 +22,6 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/compute/exec"
 	"golang.org/x/sys/cpu"
 )
 
@@ -32,12 +31,12 @@ type cmpfn func(arrow.Type, []byte, []byte, []byte, int64, int)
 
 var comparisonMap map[CompareOperator][3]cmpfn
 
-func genCompareKernel[T exec.NumericTypes](op CompareOperator) *CompareData {
+func genCompareKernel[T arrow.NumericType](op CompareOperator) *CompareData {
 	if pureGo {
 		return genGoCompareKernel(getCmpOp[T](op))
 	}
 
-	ty := exec.GetType[T]()
+	ty := arrow.GetType[T]()
 	byteWidth := int(unsafe.Sizeof(T(0)))
 	comparisonFns := comparisonMap[op]
 	return &CompareData{
