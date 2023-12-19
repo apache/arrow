@@ -317,15 +317,15 @@ def test_parquet_sorting_column():
         pq.SortingColumn(1, descending=True),
         pq.SortingColumn(0, descending=False),
     )
-    sort_order, null_placement = pq.SortingColumn.to_sort_order(schema, sorting_cols)
+    sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_cols)
     assert sort_order == (('b', "descending"), ('a', "ascending"))
     assert null_placement == "at_end"
 
-    sorting_cols_roundtripped = pq.SortingColumn.from_sort_order(
+    sorting_cols_roundtripped = pq.SortingColumn.from_ordering(
         schema, sort_order, null_placement)
     assert sorting_cols_roundtripped == sorting_cols
 
-    sorting_cols = pq.SortingColumn.from_sort_order(
+    sorting_cols = pq.SortingColumn.from_ordering(
         schema, ('a', ('b', "descending")), null_placement="at_start")
     expected = (
         pq.SortingColumn(0, descending=False, nulls_first=True),
@@ -334,20 +334,20 @@ def test_parquet_sorting_column():
     assert sorting_cols == expected
 
     # Conversions handle empty tuples
-    empty_sorting_cols = pq.SortingColumn.from_sort_order(schema, ())
+    empty_sorting_cols = pq.SortingColumn.from_ordering(schema, ())
     assert empty_sorting_cols == ()
 
-    assert pq.SortingColumn.to_sort_order(schema, ()) == ((), "at_end")
+    assert pq.SortingColumn.to_ordering(schema, ()) == ((), "at_end")
 
     with pytest.raises(ValueError):
-        pq.SortingColumn.from_sort_order(schema, (("a", "not a valid sort order")))
+        pq.SortingColumn.from_ordering(schema, (("a", "not a valid sort order")))
 
     with pytest.raises(ValueError, match="inconsistent null placement"):
         sorting_cols = (
             pq.SortingColumn(1, nulls_first=True),
             pq.SortingColumn(0, nulls_first=False),
         )
-        pq.SortingColumn.to_sort_order(schema, sorting_cols)
+        pq.SortingColumn.to_ordering(schema, sorting_cols)
 
 
 def test_parquet_sorting_column_nested():
@@ -361,7 +361,7 @@ def test_parquet_sorting_column_nested():
         pq.SortingColumn(2, descending=False)  # b
     ]
 
-    sort_order, null_placement = pq.SortingColumn.to_sort_order(schema, sorting_columns)
+    sort_order, null_placement = pq.SortingColumn.to_ordering(schema, sorting_columns)
     assert null_placement == "at_end"
     assert len(sort_order) == 2
     assert sort_order[0] == ("a.x", "descending")

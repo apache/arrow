@@ -531,7 +531,7 @@ cdef class SortingColumn:
     depth-first order. This may make the column indices for nested schemas
     different from what you expect. In most cases, it will be easier to
     specify the sort order using column names instead of column indices
-    and converting using the ``from_sort_order`` method.
+    and converting using the ``from_ordering`` method.
 
     Examples
     --------
@@ -546,18 +546,18 @@ cdef class SortingColumn:
     >>> [pq.SortingColumn(0), pq.SortingColumn(1, descending=True)]
     [SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False)]
 
-    Convert the sort_order into the list of sorting columns with 
-    ``from_sort_order`` (note that the schema must be provided as well):
+    Convert the sort_order into the list of sorting columns with
+    ``from_ordering`` (note that the schema must be provided as well):
 
     >>> import pyarrow as pa
     >>> schema = pa.schema([('id', pa.int64()), ('timestamp', pa.timestamp('ms'))])
-    >>> sorting_columns = pq.SortingColumn.from_sort_order(schema, sort_order)
+    >>> sorting_columns = pq.SortingColumn.from_ordering(schema, sort_order)
     >>> sorting_columns
     (SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False))
 
-    Convert back to the sort order with ``to_sort_order``:
+    Convert back to the sort order with ``to_ordering``:
 
-    >>> pq.SortingColumn.to_sort_order(schema, sorting_columns)
+    >>> pq.SortingColumn.to_ordering(schema, sorting_columns)
     ((('id', 'ascending'), ('timestamp', 'descending')), 'at_end')
 
     See Also
@@ -574,7 +574,7 @@ cdef class SortingColumn:
         self.nulls_first = nulls_first
 
     @classmethod
-    def from_sort_order(cls, Schema schema, sort_keys, null_placement='at_end'):
+    def from_ordering(cls, Schema schema, sort_keys, null_placement='at_end'):
         """
         Create a tuple of SortingColumn objects from the same arguments as
         :class:`pyarrow.compute.SortOptions`.
@@ -636,7 +636,7 @@ cdef class SortingColumn:
         return tuple(sorting_columns)
 
     @staticmethod
-    def to_sort_order(Schema schema, sorting_columns):
+    def to_ordering(Schema schema, sorting_columns):
         """
         Convert a tuple of SortingColumn objects to the same format as
         :class:`pyarrow.compute.SortOptions`.
