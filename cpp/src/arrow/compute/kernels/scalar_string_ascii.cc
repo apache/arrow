@@ -2596,10 +2596,12 @@ struct SliceBytesTransform : StringSliceTransformBase {
     }
 
     if (step < 0) {
-      return std::max(static_cast<int64_t>(0), (stop - start + step + 1) / step);
+      return static_cast<int32_t>(
+          std::max(static_cast<int64_t>(0), (stop - start + step + 1) / step));
     }
 
-    return std::max(static_cast<int64_t>(0), (stop - start + step - 1) / step);
+    return static_cast<int32_t>(
+        std::max(static_cast<int64_t>(0), (stop - start + step - 1) / step));
   }
 };
 
