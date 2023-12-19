@@ -54,7 +54,7 @@ popd
 # Build nanoarrow IPC integration tests
 pushd
 mkdir -p ipc && pushd ipc
-cmake ${source_dir}/extensions/nanoarrow_ipc -DNANOARROW_BUILD_APPS=ON
+cmake ${source_dir}/extensions/nanoarrow_ipc -DNANOARROW_IPC_BUILD_APPS=ON
 popd
 
 popd
