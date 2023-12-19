@@ -34,7 +34,7 @@ if [ "${ARCHERY_INTEGRATION_WITH_NANOARROW}" -eq "0" ]; then
   exit 0;
 elif [ ! -d "${source_dir}" ]; then
   echo "====================================================================="
-  echo "The nanoarrow source is missing. Please clone the arrow-rs repository"
+  echo "The nanoarrow source is missing. Please clone the arrow-nanoarrow repository"
   echo "to arrow/nanoarrow before running the integration tests:"
   echo "  git clone https://github.com/apache/arrow-nanoarrow.git path/to/arrow/nanoarrow"
   echo "====================================================================="
@@ -49,12 +49,14 @@ pushd ${build_dir}
 # Build nanoarrow C Data integration tests
 mkdir -p cdata && pushd cdata
 cmake ${source_dir} -DNANOARROW_BUILD_INTEGRATION_TESTS=ON
+echo "Contents of build directory:"
+ls -lha .
 popd
 
 # Build nanoarrow IPC integration tests
-pushd
 mkdir -p ipc && pushd ipc
 cmake ${source_dir}/extensions/nanoarrow_ipc -DNANOARROW_IPC_BUILD_APPS=ON
+ls -lha .
 popd
 
 popd
