@@ -19,7 +19,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "arrow/type_fwd.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -34,10 +33,10 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // interesting utf8 characters for testing (lower case / upper case):
 //  * ῦ / Υ͂ (3 to 4 code units) (Note, we don't support this yet, utf8proc does not use
@@ -2485,5 +2484,4 @@ TEST(TestStringKernels, UnicodeLibraryAssumptions) {
 }
 #endif
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute
