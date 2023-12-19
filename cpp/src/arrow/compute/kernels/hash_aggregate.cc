@@ -38,6 +38,7 @@
 #include "arrow/compute/row/grouper.h"
 #include "arrow/record_batch.h"
 #include "arrow/stl_allocator.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
@@ -441,9 +442,10 @@ struct GroupedCountImpl : public GroupedAggregator {
 // ----------------------------------------------------------------------
 // Sum/Mean/Product implementation
 
-template <typename Type, typename Impl>
+template <typename Type, typename Impl,
+          typename AccumulateType = typename FindAccumulatorType<Type>::Type>
 struct GroupedReducingAggregator : public GroupedAggregator {
-  using AccType = typename FindAccumulatorType<Type>::Type;
+  using AccType = AccumulateType;
   using CType = typename TypeTraits<AccType>::CType;
   using InputCType = typename TypeTraits<Type>::CType;
 
@@ -483,7 +485,8 @@ struct GroupedReducingAggregator : public GroupedAggregator {
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
-    auto other = checked_cast<GroupedReducingAggregator<Type, Impl>*>(&raw_other);
+    auto other =
+        checked_cast<GroupedReducingAggregator<Type, Impl, AccType>*>(&raw_other);
 
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
@@ -733,9 +736,18 @@ using GroupedProductFactory =
 // ----------------------------------------------------------------------
 // Mean implementation
 
+template <typename T>
+struct GroupedMeanAccType {
+  using Type = typename std::conditional<is_number_type<T>::value, DoubleType,
+                                         typename FindAccumulatorType<T>::Type>::type;
+};
+
 template <typename Type>
-struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<Type>> {
-  using Base = GroupedReducingAggregator<Type, GroupedMeanImpl<Type>>;
+struct GroupedMeanImpl
+    : public GroupedReducingAggregator<Type, GroupedMeanImpl<Type>,
+                                       typename GroupedMeanAccType<Type>::Type> {
+  using Base = GroupedReducingAggregator<Type, GroupedMeanImpl<Type>,
+                                         typename GroupedMeanAccType<Type>::Type>;
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
   using MeanType =
@@ -746,7 +758,7 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
   template <typename T = Type>
   static enable_if_number<T, CType> Reduce(const DataType&, const CType u,
                                            const InputCType v) {
-    return static_cast<CType>(to_unsigned(u) + to_unsigned(static_cast<CType>(v)));
+    return static_cast<CType>(u) + static_cast<CType>(v);
   }
 
   static CType Reduce(const DataType&, const CType u, const CType v) {
