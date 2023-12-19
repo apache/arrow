@@ -1754,6 +1754,7 @@ services:
       # Tell Archery where Arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
       ARROW_RUST_EXE_PATH: /build/rust/debug
+      ARROW_NANOARROW_PATH: /build/nanoarrow
     command:
       ["/arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
