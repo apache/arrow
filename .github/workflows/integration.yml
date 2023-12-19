@@ -75,6 +75,11 @@ jobs:
         with:
           repository: apache/arrow-rs
           path: rust
+      - name: Checkout Arrow Rust
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        with:
+          repository: apache/arrow-nanoarrow
+          path: nanoarrow
       - name: Free up disk space
         run: |
           ci/scripts/util_free_space.sh
