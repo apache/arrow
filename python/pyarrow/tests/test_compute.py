@@ -2041,6 +2041,41 @@ def test_extract_datetime_components():
             _check_datetime_components(timestamps, timezone)
 
 
+def _check_duration_components(durations):
+    from pyarrow.vendored.version import Version
+
+    td = pd.to_timedelta(durations).to_series()
+    tda = pa.array(td, pa.duration("ns"))
+
+    # Casting is required because pandas with 2.0.0 various numeric
+    # date/time attributes have dtype int32 (previously int64)
+    days = td.dt.days.astype("int64")
+    seconds = td.dt.seconds.values.astype("int64")
+    microseconds = td.dt.microseconds.astype("int64")
+    nanoseconds = td.dt.nanoseconds.astype("int64")
+    subseconds = ((td.dt.microseconds * 10 ** 3 +
+                   td.dt.nanoseconds) * 10 ** -9).round(9)
+
+    assert pc.day(tda).equals(pa.array(days))
+    assert pc.second(tda).equals(pa.array(seconds))
+    assert pc.millisecond(tda).equals(pa.array(microseconds // 10 ** 3))
+    assert pc.microsecond(tda).equals(pa.array(microseconds % 10 ** 3))
+    assert pc.nanosecond(tda).equals(pa.array(nanoseconds))
+    assert pc.subsecond(tda).equals(pa.array(subseconds))
+
+
+@pytest.mark.pandas
+def test_extract_duration_components():
+    durations = [
+        0,
+        1777888999, -776887999, 61777888999, -60776887999,
+        86400777888999, -86400000000000, 86401777888999, -86400776887999,
+        2764800777888999, -2764800000000000, 2764801777888999, -2764800776887999
+        ]
+
+    _check_duration_components(durations)
+
+
 @pytest.mark.pandas
 @pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
                     reason="Timezone database is not installed on Windows")
