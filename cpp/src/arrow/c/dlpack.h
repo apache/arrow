@@ -22,14 +22,13 @@
 
 namespace arrow::dlpack {
 
-/// \brief DLPack protocol for producing DLManagedTensor
+/// \brief Export Arrow array as DLPack tensor.
 ///
-/// DLMangedTensor is produced from an array as defined by
-/// the DLPack protocol, see https://dmlc.github.io/dlpack/latest/.
+/// DLMangedTensor is produced as defined by the DLPack protocol,
+/// see https://dmlc.github.io/dlpack/latest/.
 ///
 /// Data types for which the protocol is supported are
-/// primitive data types without NullType, BooleanType and
-/// Decimal types.
+/// integer and floating-point data types.
 ///
 /// DLPack protocol only supports arrays with one contiguous
 /// memory region which means Arrow Arrays with validity buffers

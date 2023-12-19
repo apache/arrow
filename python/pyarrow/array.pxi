@@ -1794,7 +1794,7 @@ cdef class Array(_PandasConvertible):
             A DLPack capsule for the array, pointing to a DLManagedTensor.
         """
         if stream is None:
-            dlm_tensor = GetResultValue(ExportToDLPack(pyarrow_unwrap_array(self)))
+            dlm_tensor = GetResultValue(ExportToDLPack(self.sp_array))
 
             return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
         else:
@@ -1804,7 +1804,7 @@ cdef class Array(_PandasConvertible):
 
     def __dlpack_device__(self):
         """
-        Returns the DLPack device tuple this arrays resides on.
+        Return the DLPack device tuple this arrays resides on.
 
         Returns
         -------
@@ -1813,8 +1813,8 @@ cdef class Array(_PandasConvertible):
             CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
             device which is 0 by default for CPU.
         """
-        device = GetResultValue(ExportDevice(pyarrow_unwrap_array(self)))
-        return (device.device_type, device.device_id)
+        device = GetResultValue(ExportDevice(self.sp_array))
+        return device.device_type, device.device_id
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):

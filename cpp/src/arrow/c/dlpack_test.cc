@@ -30,9 +30,9 @@ class TestExportArray : public ::testing::Test {
   void SetUp() {}
 };
 
-auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
-                          std::shared_ptr<DataType> arrow_type,
-                          DLDataTypeCode dlpack_type, int64_t length) {
+void CheckDLTensor(const std::shared_ptr<Array>& arr,
+                   const std::shared_ptr<DataType>& arrow_type,
+                   DLDataTypeCode dlpack_type, int64_t length) {
   ASSERT_OK_AND_ASSIGN(auto dlmtensor, arrow::dlpack::ExportArray(arr));
   auto dltensor = dlmtensor->dl_tensor;
 
@@ -59,10 +59,10 @@ auto check_dlptensor = [](const std::shared_ptr<Array>& arr,
   ASSERT_EQ(0, device.device_id);
 
   dlmtensor->deleter(dlmtensor);
-};
+}
 
 TEST_F(TestExportArray, TestSupportedArray) {
-  std::vector<std::pair<std::shared_ptr<DataType>, DLDataTypeCode>> cases = {
+  const std::vector<std::pair<std::shared_ptr<DataType>, DLDataTypeCode>> cases = {
       {int8(), DLDataTypeCode::kDLInt},
       {uint8(), DLDataTypeCode::kDLUInt},
       {
@@ -89,19 +89,19 @@ TEST_F(TestExportArray, TestSupportedArray) {
   for (auto [arrow_type, dlpack_type] : cases) {
     const std::shared_ptr<Array> array =
         ArrayFromJSON(arrow_type, "[1, 0, 10, 0, 2, 1, 3, 5, 1, 0]");
-    check_dlptensor(array, arrow_type, dlpack_type, 10);
+    CheckDLTensor(array, arrow_type, dlpack_type, 10);
     ASSERT_OK_AND_ASSIGN(auto sliced_1, array->SliceSafe(1, 5));
-    check_dlptensor(sliced_1, arrow_type, dlpack_type, 5);
+    CheckDLTensor(sliced_1, arrow_type, dlpack_type, 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_2, array->SliceSafe(0, 5));
-    check_dlptensor(sliced_2, arrow_type, dlpack_type, 5);
+    CheckDLTensor(sliced_2, arrow_type, dlpack_type, 5);
     ASSERT_OK_AND_ASSIGN(auto sliced_3, array->SliceSafe(3));
-    check_dlptensor(sliced_3, arrow_type, dlpack_type, 7);
+    CheckDLTensor(sliced_3, arrow_type, dlpack_type, 7);
   }
 
   ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
 }
 
-TEST_F(TestExportArray, TestUnSupportedArray) {
+TEST_F(TestExportArray, TestErrors) {
   const std::shared_ptr<Array> array_null = ArrayFromJSON(null(), "[]");
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: DataType is not compatible with DLPack spec: " +

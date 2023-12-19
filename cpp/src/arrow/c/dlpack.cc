@@ -58,11 +58,12 @@ Result<DLDataType> GetDLDataType(const DataType& type) {
   }
 }
 
-}  // namespace
 struct ManagerCtx {
-  std::shared_ptr<ArrayData> ref;
+  std::shared_ptr<ArrayData> array;
   DLManagedTensor tensor;
 };
+
+}  // namespace
 
 Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   // Define DLDevice struct nad check if array type is supported
@@ -71,38 +72,31 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
 
   // Define the DLDataType struct
-  const DataType* arrow_type = arr->type().get();
-  ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(*arrow_type));
+  const DataType& type = *arr->type();
+  std::shared_ptr<ArrayData> data = arr->data();
+  ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(type));
 
-  // Create ManagerCtx with the reference to
-  // the data of the array
-  std::shared_ptr<ArrayData> array_ref = arr->data();
+  // Create ManagerCtx that will serve as the owner of the DLManagedTensor
   std::unique_ptr<ManagerCtx> ctx(new ManagerCtx);
-  ctx->ref = array_ref;
 
   // Define the data pointer to the DLTensor
   // If array is of length 0, data pointer should be NULL
   if (arr->length() == 0) {
     ctx->tensor.dl_tensor.data = NULL;
-  } else if (arr->offset() > 0) {
-    const auto byte_width = arr->type()->byte_width();
-    const auto start = arr->offset() * byte_width;
-    ARROW_ASSIGN_OR_RAISE(auto sliced_buffer,
-                          SliceBufferSafe(array_ref->buffers[1], start));
-    ctx->tensor.dl_tensor.data =
-        const_cast<void*>(reinterpret_cast<const void*>(sliced_buffer->address()));
   } else {
-    ctx->tensor.dl_tensor.data = const_cast<void*>(
-        reinterpret_cast<const void*>(array_ref->buffers[1]->address()));
+    const auto data_offset = data->offset * type.byte_width();
+    ctx->tensor.dl_tensor.data =
+        const_cast<uint8_t*>(data->buffers[1]->data() + data_offset);
   }
 
   ctx->tensor.dl_tensor.device = device;
   ctx->tensor.dl_tensor.ndim = 1;
   ctx->tensor.dl_tensor.dtype = dlpack_type;
-  ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(&array_ref->length);
+  ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(&data->length);
   ctx->tensor.dl_tensor.strides = NULL;
   ctx->tensor.dl_tensor.byte_offset = 0;
 
+  ctx->array = std::move(data);
   ctx->tensor.manager_ctx = ctx.get();
   ctx->tensor.deleter = [](struct DLManagedTensor* self) {
     delete reinterpret_cast<ManagerCtx*>(self->manager_ctx);
@@ -115,13 +109,13 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
   if (arr->null_count() > 0) {
     return Status::TypeError("Can only use DLPack on arrays with no nulls.");
   }
-  const DataType* arrow_type = arr->type().get();
-  if (arrow_type->id() == Type::BOOL) {
+  const DataType& type = *arr->type();
+  if (type.id() == Type::BOOL) {
     return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
   }
-  if (!is_integer(arrow_type->id()) && !is_floating(arrow_type->id())) {
+  if (!is_integer(type.id()) && !is_floating(type.id())) {
     return Status::TypeError("DataType is not compatible with DLPack spec: ",
-                             arrow_type->ToString());
+                             type.ToString());
   }
 
   // Define DLDevice struct
