@@ -49,14 +49,13 @@ pushd ${build_dir}
 # Build nanoarrow C Data integration tests
 mkdir -p cdata && pushd cdata
 cmake ${source_dir} -DNANOARROW_BUILD_INTEGRATION_TESTS=ON
-echo "Contents of build directory:"
-ls -lha .
+cmake --build .
 popd
 
 # Build nanoarrow IPC integration tests
 mkdir -p ipc && pushd ipc
 cmake ${source_dir}/extensions/nanoarrow_ipc -DNANOARROW_IPC_BUILD_APPS=ON
-ls -lha .
+cmake --build .
 popd
 
 popd
