@@ -28,7 +28,7 @@ _NANOARROW_PATH = os.environ.get(
     "ARROW_NANOARROW_PATH",
     os.path.join(ARROW_ROOT_DEFAULT, "nanoarrow"),
 )
-_INTEGRATION_EXE = os.path.join(_NANOARROW_PATH, "ipc/integration_test_util")
+
 _INTEGRATION_DLL = os.path.join(
     _NANOARROW_PATH, "cdata/libnanoarrow_c_data_integration" + cdata.dll_suffix
 )
@@ -36,7 +36,7 @@ _INTEGRATION_DLL = os.path.join(
 
 class NanoarrowTester(Tester):
     PRODUCER = False
-    CONSUMER = True
+    CONSUMER = False
     FLIGHT_SERVER = False
     FLIGHT_CLIENT = False
     C_DATA_SCHEMA_EXPORTER = True
@@ -46,35 +46,8 @@ class NanoarrowTester(Tester):
 
     name = "nanoarrow"
 
-    def _run(self, arrow_path=None, json_path=None, command="VALIDATE"):
-        cmd = [_INTEGRATION_EXE, "--integration"]
-
-        if arrow_path is not None:
-            cmd.append("--arrow=" + arrow_path)
-
-        if json_path is not None:
-            cmd.append("--json=" + json_path)
-
-        cmd.append("--mode=" + command)
-
-        if self.debug:
-            log(" ".join(cmd))
-
-        run_cmd(cmd)
-
     def validate(self, json_path, arrow_path, quirks=None):
-        cmd = [
-            _INTEGRATION_EXE,
-            "--from",
-            "json",
-            json_path,
-            "--check",
-            "ipc",
-            arrow_path,
-        ]
-        if self.debug:
-            log(" ".join(cmd))
-        run_cmd(cmd)
+        raise NotImplementedError()
 
     def json_to_file(self, json_path, arrow_path):
         raise NotImplementedError()
