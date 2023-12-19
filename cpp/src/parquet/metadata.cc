@@ -840,9 +840,11 @@ class FileMetaData::FileMetaDataImpl {
       for(PageLocation& page: pages) {
         if(chunk.meta_data.dictionary_page_offset > 0) {
           // The size of the dictionary depends on the number of rows
-          // Guess at the offset based on our integer data
-          // Not sure how to do more robustly
-          int64_t dictionary_offset = expected_num_rows*4+14;
+          int64_t original_offset = chunk.meta_data.data_page_offset - chunk.meta_data.dictionary_page_offset;
+          // Assume dictionary has fixed component of 14 bytes
+          int64_t fixed_offset = 14;
+          int64_t offset_per_row = (original_offset-fixed_offset)/chunk.meta_data.num_values;
+          int64_t dictionary_offset = expected_num_rows*offset_per_row+fixed_offset;
           chunk.meta_data.__set_dictionary_page_offset(page.offset-dictionary_offset);
         }
 
