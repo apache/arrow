@@ -1576,7 +1576,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add neg_checked(duration) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, Negate>(duration(unit));
+    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Negate>(duration(unit));
     DCHECK_OK(
         negate_checked->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
   }
