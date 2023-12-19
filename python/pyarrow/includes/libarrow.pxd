@@ -1199,6 +1199,25 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
 
 
+cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef enum DLDeviceType:
+        kDLCPU = 1
+
+    ctypedef struct DLDevice:
+        DLDeviceType device_type
+        int32_t device_id
+
+    ctypedef struct DLManagedTensor:
+        void (*deleter)(DLManagedTensor*)
+
+
+cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    CResult[DLManagedTensor*] ExportToDLPack" arrow::dlpack::ExportArray"(
+        const shared_ptr[CArray]& arr)
+
+    CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
+
+
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
