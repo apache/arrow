@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import contextlib
 import functools
 import os
 
@@ -94,15 +93,14 @@ class NanoarrowTester(Tester):
 
 
 _nanoarrow_c_data_entrypoints = """
-    const char* nanoarrow_CDataIntegration_ExportSchemaFromJson(const char* json_path,
-                                                                struct ArrowSchema* out);
+    const char* nanoarrow_CDataIntegration_ExportSchemaFromJson(
+        const char* json_path, struct ArrowSchema* out);
 
     const char* nanoarrow_CDataIntegration_ImportSchemaAndCompareToJson(
         const char* json_path, struct ArrowSchema* schema);
 
-    const char* nanoarrow_CDataIntegration_ExportBatchFromJson(const char* json_path,
-                                                            int num_batch,
-                                                            struct ArrowArray* out);
+    const char* nanoarrow_CDataIntegration_ExportBatchFromJson(
+        const char* json_path, int num_batch, struct ArrowArray* out);
 
     const char* nanoarrow_CDataIntegration_ImportBatchAndCompareToJson(
         const char* json_path, int num_batch, struct ArrowArray* batch);
