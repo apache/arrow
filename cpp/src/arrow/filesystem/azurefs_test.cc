@@ -43,9 +43,6 @@
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock-more-matchers.h>
 #include <gtest/gtest.h>
-#include <azure/identity/client_secret_credential.hpp>
-#include <azure/identity/default_azure_credential.hpp>
-#include <azure/identity/managed_identity_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
 #include <azure/storage/files/datalake.hpp>
@@ -266,15 +263,12 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
   bool WithHierarchicalNamespace() const final { return true; }
 };
 
-// Placeholder tests
-// TODO: GH-18014 Remove once a proper test is added
-TEST(AzureFileSystem, InitializeCredentials) {
-  auto default_credential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
-  auto managed_identity_credential =
-      std::make_shared<Azure::Identity::ManagedIdentityCredential>();
-  auto service_principal_credential =
-      std::make_shared<Azure::Identity::ClientSecretCredential>("tenant_id", "client_id",
-                                                                "client_secret");
+TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
+  AzureOptions options;
+  options.backend = AzureBackend::kAzurite;  // Irrelevant for this test because it
+                                             // doesn't connect to the server.
+  ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
+  EXPECT_OK_AND_ASSIGN(auto default_credential_fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
