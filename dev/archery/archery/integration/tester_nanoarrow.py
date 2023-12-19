@@ -20,7 +20,6 @@ import os
 
 from . import cdata
 from .tester import Tester, CDataExporter, CDataImporter
-from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
 
 
