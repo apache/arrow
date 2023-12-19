@@ -238,30 +238,21 @@ def download_tzdata_on_windows():
     if sys.platform != 'win32':
         raise TypeError(f"Timezone database is already provided by {sys.platform}")
 
-    import requests
     import tarfile
 
     tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
     tzdata_compressed = os.path.join(tzdata_path, "tzdata.tar.gz")
     os.makedirs(tzdata_path, exist_ok=True)
 
-    response = requests.get(
-        'https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz',
-        stream=True)
-
-    if response.status_code == 200:
+    from urllib.request import urlopen
+    with urlopen('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:
         with open(tzdata_compressed, 'wb') as f:
-            f.write(response.raw.read())
-    else:
-        raise TypeError("Timezone database not available")
+            f.write(response.read())
 
     assert os.path.exists(tzdata_compressed)
 
     tarfile.open(tzdata_compressed).extractall(tzdata_path)
 
-    response_zones = requests.get('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml',   # noqa
-                                  stream=True)
-
-    if response_zones.status_code == 200:
-        with open(os.path.join(tzdata_path, "windowsZones.xml"), "wb") as f:
-            f.write(response_zones.raw.read())
+    with (urlopen('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml') as response_zones,
+        open(os.path.join(tzdata_path, "windowsZones.xml"), 'wb') as f):
+        f.write(response_zones.read())
