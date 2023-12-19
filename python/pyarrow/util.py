@@ -233,7 +233,7 @@ def _break_traceback_cycle_from_frame(frame):
 def download_tzdata_on_windows():
     """
     Download and extract latest IANA timezone database into the
-    location expected by Arrow which is %USERPROFILE%\Downloads\tzdata.
+    location expected by Arrow which is %USERPROFILE%\\Downloads\tzdata.
     """
     if sys.platform != 'win32':
         raise TypeError(f"Timezone database is already provided by {sys.platform}")
@@ -245,14 +245,14 @@ def download_tzdata_on_windows():
     os.makedirs(tzdata_path, exist_ok=True)
 
     from urllib.request import urlopen
-    with urlopen('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response:
-        with open(tzdata_compressed, 'wb') as f:
-            f.write(response.read())
+    with (urlopen('https://data.iana.org/time-zones/tzdata-latest.tar.gz') as response,
+          open(tzdata_compressed, 'wb') as f):
+        f.write(response.read())
 
     assert os.path.exists(tzdata_compressed)
 
     tarfile.open(tzdata_compressed).extractall(tzdata_path)
 
-    with (urlopen('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml') as response_zones,
-        open(os.path.join(tzdata_path, "windowsZones.xml"), 'wb') as f):
+    with (urlopen('https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml') as response_zones,   # noqa
+          open(os.path.join(tzdata_path, "windowsZones.xml"), 'wb') as f):
         f.write(response_zones.read())
