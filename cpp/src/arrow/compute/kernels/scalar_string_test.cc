@@ -19,6 +19,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "arrow/type_fwd.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -712,18 +713,31 @@ TEST_F(TestFixedSizeBinaryKernels, BinaryLength) {
              "[6, null, 6]");
 }
 
-TEST_F(TestFixedSizeBinaryKernels, SliceBytesBasic) {
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceEmpty) {
   SliceOptions options{2, 4};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["ca", "fd"])", &options);
+  CheckScalarUnary("binary_slice", ArrayFromJSON(fixed_size_binary(0), R"([""])"),
+                   ArrayFromJSON(fixed_size_binary(0), R"([""])"), &options);
+
+  CheckScalarUnary("binary_slice",
+                   ArrayFromJSON(fixed_size_binary(0), R"(["", null, ""])"),
+                   ArrayFromJSON(fixed_size_binary(0), R"(["", null, ""])"), &options);
+
+  CheckUnary("binary_slice", R"([null, null])", fixed_size_binary(2), R"([null, null])",
+             &options);
+}
+
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceBasic) {
+  SliceOptions options{2, 4};
+  CheckUnary("binary_slice", R"(["abcdef", null, "foobaz"])", fixed_size_binary(2),
+             R"(["cd", null, "ob"])", &options);
 
   SliceOptions options_edgecase_1{-3, 1};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(0),
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(0),
              R"(["", ""])", &options_edgecase_1);
 
   SliceOptions options_edgecase_2{-10, -3};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
-             R"(["abc", "def"])", &options_edgecase_2);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz", null])", fixed_size_binary(3),
+             R"(["abc", "foo", null])", &options_edgecase_2);
 
   auto input = ArrayFromJSON(this->type(), R"(["foobaz"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -737,75 +751,75 @@ TEST_F(TestFixedSizeBinaryKernels, SliceBytesBasic) {
       CallFunction("binary_slice", {input}, &options_invalid));
 }
 
-TEST_F(TestFixedSizeBinaryKernels, SliceBytesPosPos) {
+TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosPos) {
   SliceOptions options_step{1, 5, 2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["ba", "ed"])", &options_step);
+  CheckUnary("binary_slice", R"([null, "abcdef", "foobaz"])", fixed_size_binary(2),
+             R"([null, "bd", "ob"])", &options_step);
 
   SliceOptions options_step_neg{5, 0, -2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
-             R"(["cab", "fde"])", &options_step_neg);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
 }
 
-TEST_F(TestFixedSizeBinaryKernels, SliceBytesPosNeg) {
+TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosNeg) {
   SliceOptions options{2, -1};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
-             R"(["cab", "fde"])", &options);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["cde", "oba"])", &options);
 
   SliceOptions options_step{1, -1, 2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["ba", "ed"])", &options_step);
+  CheckUnary("binary_slice", R"(["abcdef", null, "foobaz"])", fixed_size_binary(2),
+             R"(["bd", null, "ob"])", &options_step);
 
   SliceOptions options_step_neg{5, -4, -2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["ca", "fd"])", &options_step_neg);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["fd", "zb"])", &options_step_neg);
 
   options_step_neg.stop = -6;
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
-             R"(["cab", "fde"])", &options_step_neg);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
 }
 
-TEST_F(TestFixedSizeBinaryKernels, SliceBytesNegNeg) {
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceNegNeg) {
   SliceOptions options{-2, -1};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(1),
-             R"(["b", "e"])", &options);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(1),
+             R"(["e", "a"])", &options);
 
   SliceOptions options_step{-4, -1, 2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["cb", "fe"])", &options_step);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz", null, null])", fixed_size_binary(2),
+             R"(["ce", "oa", null, null])", &options_step);
 
   SliceOptions options_step_neg{-1, -3, -2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(1),
-             R"(["c", "f"])", &options_step_neg);
+  CheckUnary("binary_slice", R"([null, "abcdef", null, "foobaz"])", fixed_size_binary(1),
+             R"([null, "f", null, "z"])", &options_step_neg);
 
   options_step_neg.stop = -4;
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["ca", "fd"])", &options_step_neg);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["fd", "zb"])", &options_step_neg);
 }
 
-TEST_F(TestFixedSizeBinaryKernels, SliceBytesNegPos) {
+TEST_F(TestFixedSizeBinaryKernels, BinarySliceNegPos) {
   SliceOptions options{-2, 4};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(0),
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(0),
              R"(["", ""])", &options);
 
   SliceOptions options_step{-4, 5, 2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["cb", "fe"])", &options_step);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(2),
+             R"(["ce", "oa"])", &options_step);
 
   SliceOptions options_step_neg{-1, 1, -2};
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(2),
-             R"(["ca", "fd"])", &options_step_neg);
+  CheckUnary("binary_slice", R"([null, "abcdef", "foobaz", null])", fixed_size_binary(2),
+             R"([null, "fd", "zb", null])", &options_step_neg);
 
   options_step_neg.stop = 0;
-  CheckUnary("binary_slice", R"(["abcabc", "defdef"])", fixed_size_binary(3),
-             R"(["cab", "fde"])", &options_step_neg);
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
+             R"(["fdb", "zbo"])", &options_step_neg);
 }
 
 TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   CheckUnary("binary_replace_slice", "[]", fixed_size_binary(7), "[]", &options);
-  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
-             R"([null, "XXbcdef"])", &options);
+  CheckUnary("binary_replace_slice", R"(["foobaz", null, "abcdef"])",
+             fixed_size_binary(7), R"(["XXoobaz", null, "XXbcdef"])", &options);
 
   ReplaceSliceOptions options_shrink{0, 2, ""};
   CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(4),
@@ -820,8 +834,8 @@ TEST_F(TestFixedSizeBinaryKernels, BinaryReplaceSlice) {
              R"([null, "abXXef"])", &options_middle);
 
   ReplaceSliceOptions options_neg_start{-3, -2, "XX"};
-  CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(7),
-             R"([null, "abcXXef"])", &options_neg_start);
+  CheckUnary("binary_replace_slice", R"(["foobaz", null, "abcdef"])",
+             fixed_size_binary(7), R"(["fooXXaz", null, "abcXXef"])", &options_neg_start);
 
   ReplaceSliceOptions options_neg_end{2, -2, "XX"};
   CheckUnary("binary_replace_slice", R"([null, "abcdef"])", fixed_size_binary(6),
@@ -896,7 +910,7 @@ TEST_F(TestFixedSizeBinaryKernels, CountSubstringIgnoreCase) {
       offset_type(), "[0, null, 0, 1, 1, 1, 2, 2, 1]", &options);
 
   MatchSubstringOptions options_empty{"", /*ignore_case=*/true};
-  CheckUnary("count_substring", R"(["      ", null, "abcABc"])", offset_type(),
+  CheckUnary("count_substring", R"(["      ", null, "abcdef"])", offset_type(),
              "[7, null, 7]", &options_empty);
 }
 

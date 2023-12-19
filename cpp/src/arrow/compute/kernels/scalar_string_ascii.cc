@@ -95,7 +95,7 @@ struct FixedSizeBinaryTransformExecBase {
                           ctx->Allocate(output_width * input_nstrings));
     uint8_t* output_str = values_buffer->mutable_data();
 
-    const uint8_t* input_data = input.GetValues<uint8_t>(1);
+    const uint8_t* input_data = input.GetValues<uint8_t>(1, input.offset * input_width);
     for (int64_t i = 0; i < input_nstrings; i++) {
       if (!input.IsNull(i)) {
         const uint8_t* input_string = input_data + i * input_width;
@@ -2594,8 +2594,12 @@ struct SliceBytesTransform : StringSliceTransformBase {
         ((start <= stop) && (step < 0))) {
       return 0;
     }
-    return static_cast<int32_t>(std::max(
-        static_cast<int64_t>(0), (stop - start + (step - (step > 0 ? 1 : -1))) / step));
+
+    if (step < 0) {
+      return std::max(static_cast<int64_t>(0), (stop - start + step + 1) / step);
+    }
+
+    return std::max(static_cast<int64_t>(0), (stop - start + step - 1) / step);
   }
 };
 
