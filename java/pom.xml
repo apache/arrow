@@ -39,7 +39,7 @@
     <dep.jackson-bom.version>2.16.0</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>23.5.26</dep.fbs.version>
-    <dep.avro.version>1.10.0</dep.avro.version>
+    <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
