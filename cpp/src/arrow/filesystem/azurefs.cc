@@ -51,10 +51,12 @@ AzureOptions::~AzureOptions() = default;
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
   // TODO(GH-38598): update here when more auth methods are added.
-  const bool equals = backend == other.backend &&
+  const bool equals = blob_storage_authority == other.blob_storage_authority &&
+                      dfs_storage_authority == other.dfs_storage_authority &&
+                      blob_storage_scheme == other.blob_storage_scheme &&
+                      dfs_storage_scheme == other.dfs_storage_scheme &&
                       default_metadata == other.default_metadata &&
-                      account_blob_url_ == other.account_blob_url_ &&
-                      account_dfs_url_ == other.account_dfs_url_ &&
+                      account_name_ == other.account_name_ &&
                       credential_kind_ == other.credential_kind_;
   if (!equals) {
     return false;
@@ -72,29 +74,46 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
   return false;
 }
 
-void AzureOptions::SetUrlsForAccountName(const std::string& account_name) {
-  if (this->backend == AzureBackend::kAzurite) {
-    account_blob_url_ = "http://127.0.0.1:10000/" + account_name + "/";
-    account_dfs_url_ = "http://127.0.0.1:10000/" + account_name + "/";
-  } else {
-    account_dfs_url_ = "https://" + account_name + ".dfs.core.windows.net/";
-    account_blob_url_ = "https://" + account_name + ".blob.core.windows.net/";
+namespace {
+std::string BuildBaseUrl(const std::string& scheme, const std::string& authority,
+                         const std::string& account_name) {
+  std::string url;
+  url += scheme + "://";
+  if (!authority.empty()) {
+    if (authority[0] == '.') {
+      url += account_name;
+      url += authority;
+    } else {
+      url += authority;
+      url += "/";
+      url += account_name;
+    }
   }
+  url += "/";
+  return url;
+}
+}  // namespace
+
+std::string AzureOptions::AccountBlobUrl(const std::string& account_name) const {
+  return BuildBaseUrl(blob_storage_scheme, blob_storage_authority, account_name);
 }
 
-Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name) {
-  AzureOptions::SetUrlsForAccountName(account_name);
-  credential_kind_ = CredentialKind::kTokenCredential;
-  token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
-  return Status::OK();
+std::string AzureOptions::AccountDfsUrl(const std::string& account_name) const {
+  return BuildBaseUrl(dfs_storage_scheme, dfs_storage_authority, account_name);
 }
 
 Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_name,
                                                    const std::string& account_key) {
-  AzureOptions::SetUrlsForAccountName(account_name);
   credential_kind_ = CredentialKind::kStorageSharedKeyCredential;
+  account_name_ = account_name;
   storage_shared_key_credential_ =
       std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name) {
+  credential_kind_ = CredentialKind::kTokenCredential;
+  token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
   return Status::OK();
 }
 
@@ -104,10 +123,10 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     case CredentialKind::kAnonymous:
       break;
     case CredentialKind::kTokenCredential:
-      return std::make_unique<Blobs::BlobServiceClient>(account_blob_url_,
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name_),
                                                         token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
-      return std::make_unique<Blobs::BlobServiceClient>(account_blob_url_,
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name_),
                                                         storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
@@ -119,11 +138,11 @@ AzureOptions::MakeDataLakeServiceClient() const {
     case CredentialKind::kAnonymous:
       break;
     case CredentialKind::kTokenCredential:
-      return std::make_unique<DataLake::DataLakeServiceClient>(account_dfs_url_,
-                                                               token_credential_);
+      return std::make_unique<DataLake::DataLakeServiceClient>(
+          AccountDfsUrl(account_name_), token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          account_dfs_url_, storage_shared_key_credential_);
+          AccountDfsUrl(account_name_), storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
