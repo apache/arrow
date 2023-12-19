@@ -18,6 +18,7 @@
 #include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs_internal.h"
 
+#include <azure/identity.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/files/datalake.hpp>
 
@@ -61,6 +62,8 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return true;
+    case CredentialKind::kTokenCredential:
+      return token_credential_ == other.token_credential_;
     case CredentialKind::kStorageSharedKeyCredential:
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
@@ -69,8 +72,7 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
   return false;
 }
 
-Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_name,
-                                                   const std::string& account_key) {
+void AzureOptions::SetUrlsForAccountName(const std::string& account_name) {
   if (this->backend == AzureBackend::kAzurite) {
     account_blob_url_ = "http://127.0.0.1:10000/" + account_name + "/";
     account_dfs_url_ = "http://127.0.0.1:10000/" + account_name + "/";
@@ -78,6 +80,18 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_na
     account_dfs_url_ = "https://" + account_name + ".dfs.core.windows.net/";
     account_blob_url_ = "https://" + account_name + ".blob.core.windows.net/";
   }
+}
+
+Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name) {
+  AzureOptions::SetUrlsForAccountName(account_name);
+  credential_kind_ = CredentialKind::kTokenCredential;
+  token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_name,
+                                                   const std::string& account_key) {
+  AzureOptions::SetUrlsForAccountName(account_name);
   credential_kind_ = CredentialKind::kStorageSharedKeyCredential;
   storage_shared_key_credential_ =
       std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
@@ -89,6 +103,9 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
+    case CredentialKind::kTokenCredential:
+      return std::make_unique<Blobs::BlobServiceClient>(account_blob_url_,
+                                                        token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
       return std::make_unique<Blobs::BlobServiceClient>(account_blob_url_,
                                                         storage_shared_key_credential_);
@@ -101,6 +118,9 @@ AzureOptions::MakeDataLakeServiceClient() const {
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       break;
+    case CredentialKind::kTokenCredential:
+      return std::make_unique<DataLake::DataLakeServiceClient>(account_dfs_url_,
+                                                               token_credential_);
     case CredentialKind::kStorageSharedKeyCredential:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           account_dfs_url_, storage_shared_key_credential_);
