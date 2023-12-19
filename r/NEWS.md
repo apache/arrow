@@ -21,6 +21,13 @@
 
 # arrow 14.0.2
 
+##  Minor improvements and fixes
+
+* Fixed C++ compiler warnings caused by implicit conversions (#39138, #39186).
+* Fixed confusing dplyr warnings during tests (#39076).
+* Added missing "-framework Security" pkg-config flag to prevent
+  issues when compiling with strict linker settings (#38861).
+
 # arrow 14.0.0.2
 
 ## Minor improvements and fixes
