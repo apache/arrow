@@ -835,20 +835,30 @@ class FileMetaData::FileMetaDataImpl {
     format::RowGroup& row_group = metadata_->row_groups[0];
     int idx = 0;
     for (format::ColumnChunk& chunk : row_group.columns) {
-      // Debug. A chunk can only have 1 page??
+      // Assume a chunk has only 1 page for now
       auto pages = column_offsets[idx++].get()->page_locations();
       for(PageLocation& page: pages) {
         if(chunk.meta_data.dictionary_page_offset > 0) {
-          int64_t dictionary_offset = chunk.meta_data.dictionary_page_offset - chunk.meta_data.data_page_offset;
-          chunk.meta_data.__set_dictionary_page_offset(page.offset+dictionary_offset);
+          // The size of the dictionary depends on the number of rows
+          // Guess at the offset based on our integer data
+          // Not sure how to do more robustly
+          int64_t dictionary_offset = expected_num_rows*4+14;
+          chunk.meta_data.__set_dictionary_page_offset(page.offset-dictionary_offset);
         }
+
         chunk.meta_data.__set_data_page_offset(page.offset);
         chunk.meta_data.__set_num_values(expected_num_rows);
-        // The page index sizes seem to differ from the pages sizes in the row groups
-        // Try final = base*5-54
-        chunk.meta_data.__set_total_compressed_size(page.compressed_page_size*5-54);
 
 
+        // The compressed size can be set too large
+        // Use the value in row 0
+
+        // The page.compressed_page_size does not correspond exactly
+        // to what is used in the row groups
+        //
+        // int32_t expected_size = page.compressed_page_size*5-54;
+        // chunk.meta_data.__set_total_compressed_size(expected_size);
+        // chunk.meta_data.__set_total_uncompressed_size(expected_size);
       }
     }
   }
