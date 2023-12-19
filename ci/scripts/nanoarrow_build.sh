@@ -43,6 +43,7 @@ fi
 
 set -x
 
+mkdir -p ${build_dir}
 pushd ${build_dir}
 
 # Build nanoarrow C Data integration tests
