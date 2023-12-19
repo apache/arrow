@@ -134,31 +134,12 @@ namespace Apache.Arrow
 
         private ListViewArray(ArrayData data, IArrowArray values) : base(data)
         {
-            data.EnsureBufferCount(2);
+            data.EnsureBufferCount(3);
             data.EnsureDataType(ArrowTypeId.List);
             Values = values;
         }
 
-        // Constructor for child MapArray
-        internal ListViewArray(ArrayData data, IArrowArray values, ArrowTypeId typeId) : base(data)
-        {
-            data.EnsureBufferCount(2);
-            data.EnsureDataType(typeId);
-            Values = values;
-        }
-
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
-
-
-        [Obsolete("This method has been deprecated. Please use ValueOffsets[index] instead.")]
-        public int GetValueOffset(int index)
-        {
-            if (index < 0 || index > Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
-            return ValueOffsets[index];
-        }
 
         public int GetValueLength(int index)
         {

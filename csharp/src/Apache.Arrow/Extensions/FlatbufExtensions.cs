@@ -19,30 +19,6 @@ namespace Apache.Arrow
 {
     internal static class FlatbufExtensions
     {
-        public static bool IsFixedPrimitive(this Flatbuf.Type t)
-        {
-            if (t == Flatbuf.Type.Utf8 || t == Flatbuf.Type.Binary)
-                return false;
-            return true;
-        }
-
-        public static bool IsFixedPrimitive(this Types.IArrowType t)
-        {
-            return t.TypeId.IsFixedPrimitive();
-        }
-
-        public static bool IsFixedPrimitive(this Types.ArrowTypeId t)
-        {
-            return t switch
-            {
-                Types.ArrowTypeId.String => false,
-                Types.ArrowTypeId.StringView => false,
-                Types.ArrowTypeId.Binary => false,
-                Types.ArrowTypeId.BinaryView => false,
-                _ => true,
-            };
-        }
-
         public static Types.IntervalUnit ToArrow(this Flatbuf.IntervalUnit unit)
         {
             switch (unit)

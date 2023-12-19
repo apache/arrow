@@ -13,11 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Collections.Generic;
-using System.IO;
 using System.Text;
-using Apache.Arrow.Ipc;
-using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -97,34 +93,6 @@ namespace Apache.Arrow.Tests
 
             Assert.Equal(1, structArray.ColumnCount);
             Assert.Equal(structArray.Length, structArray.Column(0).Length);
-        }
-
-        [Fact]
-        public void Attempted()
-        {
-            var batches = new List<RecordBatch>();
-            var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
-
-            for (int i = 0; i < 100; ++i)
-            {
-                var builder = new RecordBatch.Builder(memoryAllocator);
-                var intbuilder = new Int32Array.Builder();
-                intbuilder.Append(i);
-                builder.Append("Int32", false, intbuilder);
-                var batch = builder.Build();
-                batches.Add(batch);
-            }
-
-            using (var stream = File.OpenWrite("C:\\testdata\\batch.order.tests.arrow"))
-            using (var writer = new ArrowFileWriter(stream, batches[0].Schema))
-            {
-                foreach (var b in batches)
-                {
-                    writer.WriteRecordBatch(b);
-                }
-
-                writer.WriteEnd();
-            }
         }
 
         private class TestTypeVisitor1 : IArrowTypeVisitor, IArrowTypeVisitor<IRecordType>

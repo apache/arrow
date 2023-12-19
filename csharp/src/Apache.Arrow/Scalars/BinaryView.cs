@@ -19,33 +19,35 @@ using System.Runtime.InteropServices;
 namespace Apache.Arrow.Scalars
 {
     [StructLayout(LayoutKind.Explicit)]
-    public struct BinaryView
+    public struct BinaryView : IEquatable<BinaryView>
     {
+        public const int MaxInlineLength = 12;
+
         [FieldOffset(0)]
         public readonly int Length;
 
         [FieldOffset(4)]
-        public readonly int Prefix;
+        internal readonly int Prefix;
 
         [FieldOffset(8)]
-        public readonly int BufferIndex;
+        internal readonly int BufferIndex;
 
         [FieldOffset(12)]
-        public readonly int Offset;
+        internal readonly int Offset;
 
         [FieldOffset(4)]
-        public readonly int Data0;
+        internal readonly int Data0;
 
         [FieldOffset(8)]
-        public readonly int Data1;
+        internal readonly int Data1;
 
         [FieldOffset(12)]
-        public readonly int Data2;
+        internal readonly int Data2;
 
         public unsafe BinaryView(int length, byte[] inlined) : this()
         {
-            this.Length = length;
-            fixed (int* dest = &this.Data0)
+            Length = length;
+            fixed (int* dest = &Data0)
             fixed (byte* src = inlined)
             {
                 Buffer.MemoryCopy(src, dest, 12, length);
@@ -54,14 +56,39 @@ namespace Apache.Arrow.Scalars
 
         public unsafe BinaryView(int length, byte[] prefix, int bufferIndex, int offset)
         {
-            this.Length = length;
-            this.BufferIndex = bufferIndex;
-            this.Offset = offset;
-            fixed (int* dest = &this.Data0)
+            Length = length;
+            BufferIndex = bufferIndex;
+            Offset = offset;
+            fixed (int* dest = &Data0)
             fixed (byte* src = prefix)
             {
                 *dest = *(int*)src;
             }
+        }
+
+        private BinaryView(int length, int prefix, int bufferIndex, int offset)
+        {
+            Length = length;
+            Prefix = prefix;
+            BufferIndex = bufferIndex;
+            Offset = offset;
+        }
+
+        public bool IsInline => Length <= MaxInlineLength;
+
+        public override int GetHashCode() => Length ^ Data0 ^ Data1 ^ Data2;
+
+        public override bool Equals(object obj)
+        {
+            BinaryView? other = obj as BinaryView?;
+            return other != null && Equals(other.Value);
+        }
+
+        public bool Equals(BinaryView other) => Length == other.Length && Data0 == other.Data0 && Data1 == other.Data1 && Data2 == other.Data2;
+
+        internal BinaryView AdjustBufferIndex(int bufferOffset)
+        {
+            return new BinaryView(Length, Prefix, BufferIndex + bufferOffset, Offset);
         }
     }
 }

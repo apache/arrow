@@ -40,14 +40,14 @@ namespace Apache.Arrow
             : base(data)
         {
             data.EnsureDataType(ArrowTypeId.BinaryView);
-            data.EnsureMinimumBufferCount(2);
+            data.EnsureVariadicBufferCount(2);
         }
 
         public BinaryViewArray(ArrowTypeId typeId, ArrayData data)
             : base(data)
         {
             data.EnsureDataType(typeId);
-            data.EnsureMinimumBufferCount(2);
+            data.EnsureVariadicBufferCount(2);
         }
 
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte, TArray, TBuilder>
@@ -312,8 +312,7 @@ namespace Apache.Arrow
                 return 0;
             }
 
-            ReadOnlySpan<BinaryView> offsets = Views;
-            return offsets[index].Length;
+            return Views[index].Length;
         }
 
         /// <summary>
@@ -355,8 +354,13 @@ namespace Apache.Arrow
                 return ReadOnlySpan<byte>.Empty;
             }
 
-            //return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
-            throw new NotImplementedException("TODO");
+            BinaryView binaryView = Views[index];
+            if (binaryView.IsInline)
+            {
+                return ViewsBuffer.Span.Slice(16 * index + 4, binaryView.Length);
+            }
+
+            return DataBuffer(binaryView.BufferIndex).Span.Slice(binaryView.Offset, binaryView.Length);
         }
 
         int IReadOnlyCollection<byte[]>.Count => Length;

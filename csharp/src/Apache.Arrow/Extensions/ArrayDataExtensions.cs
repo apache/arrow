@@ -31,7 +31,7 @@ namespace Apache.Arrow
             }
         }
 
-        public static void EnsureMinimumBufferCount(this ArrayData data, int count)
+        public static void EnsureVariadicBufferCount(this ArrayData data, int count)
         {
             if (data.Buffers.Length < count)
             {

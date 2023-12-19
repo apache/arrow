@@ -145,9 +145,9 @@ namespace Apache.Arrow.Tests
             public void Visit(Decimal128Array array) => CompareArrays(array);
             public void Visit(Decimal256Array array) => CompareArrays(array);
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
-            public void Visit(StringViewArray array) => throw new NotImplementedException("TODO");
+            public void Visit(StringViewArray array) => CompareVariadicArrays<StringViewArray>(array);
             public void Visit(BinaryArray array) => CompareBinaryArrays<BinaryArray>(array);
-            public void Visit(BinaryViewArray array) => throw new NotImplementedException("TODO");
+            public void Visit(BinaryViewArray array) => CompareVariadicArrays<BinaryViewArray>(array);
 
             public void Visit(StructArray array)
             {
@@ -233,6 +233,32 @@ namespace Apache.Arrow.Tests
                             expectedArray.GetBytes(i).SequenceEqual(actualArray.GetBytes(i)),
                             $"BinaryArray values do not match at index {i}.");
                     }
+                }
+            }
+
+            private void CompareVariadicArrays<T>(BinaryViewArray actualArray)
+                where T : IArrowArray
+            {
+                Assert.IsAssignableFrom<T>(_expectedArray);
+                Assert.IsAssignableFrom<T>(actualArray);
+
+                var expectedArray = (BinaryViewArray)_expectedArray;
+
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
+
+                Assert.True(expectedArray.Views.SequenceEqual(actualArray.Views));
+
+                for (int i = 0; i < expectedArray.Length; i++)
+                {
+                    Assert.True(
+                        expectedArray.GetBytes(i).SequenceEqual(actualArray.GetBytes(i)),
+                        $"BinaryArray values do not match at index {i}.");
                 }
             }
 

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Memory;
+using Apache.Arrow.Scalars;
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
@@ -87,22 +88,31 @@ namespace Apache.Arrow
             {
                 CheckData(type, 2);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
-                ArrowBuffer valueBuffer = ConcatenateFixedWidthTypeValueBuffer(type);
+                ArrowBuffer valueBuffer = ConcatenateFixedWidthTypeValueBuffer(1, type);
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, valueBuffer });
             }
 
             public void Visit(BinaryType type) => ConcatenateVariableBinaryArrayData(type);
 
-            public void Visit(BinaryViewType type) => throw new NotImplementedException("TODO");
+            public void Visit(BinaryViewType type) => ConcatenateBinaryViewArrayData(type);
 
             public void Visit(StringType type) => ConcatenateVariableBinaryArrayData(type);
 
-            public void Visit(StringViewType type) => throw new NotImplementedException("TODO");
+            public void Visit(StringViewType type) => ConcatenateBinaryViewArrayData(type);
 
             public void Visit(ListType type) => ConcatenateLists(type);
 
-            public void Visit(ListViewType type) => throw new NotImplementedException("TODO");
+            public void Visit(ListViewType type)
+            {
+                CheckData(type, 3);
+                ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
+                ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
+                ArrowBuffer sizesBuffer = ConcatenateFixedWidthTypeValueBuffer(2, Int32Type.Default);
+                ArrayData child = Concatenate(SelectChildren(0), _allocator);
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer, sizesBuffer }, new[] { child });
+            }
 
             public void Visit(FixedSizeListType type)
             {
@@ -170,6 +180,15 @@ namespace Apache.Arrow
                 }
             }
 
+            private void CheckDataVariadicCount(IArrowType type, int expectedBufferCount)
+            {
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    arrayData.EnsureDataType(type.TypeId);
+                    arrayData.EnsureVariadicBufferCount(expectedBufferCount);
+                }
+            }
+
             private void ConcatenateVariableBinaryArrayData(IArrowType type)
             {
                 CheckData(type, 3);
@@ -178,6 +197,26 @@ namespace Apache.Arrow
                 ArrowBuffer valueBuffer = ConcatenateVariableBinaryValueBuffer();
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer, valueBuffer });
+            }
+
+            private void ConcatenateBinaryViewArrayData(IArrowType type)
+            {
+                CheckDataVariadicCount(type, 2);
+                ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
+                ArrowBuffer viewBuffer = ConcatenateViewBuffer(out int variadicBufferCount);
+                ArrowBuffer[] buffers = new ArrowBuffer[2 + variadicBufferCount];
+                buffers[0] = validityBuffer;
+                buffers[1] = viewBuffer;
+                int index = 0;
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    for (int i = 2; i < arrayData.Buffers.Length; i++)
+                    {
+                        buffers[index++] = arrayData.Buffers[i];
+                    }
+                }
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, buffers);
             }
 
             private void ConcatenateLists(NestedType type)
@@ -215,7 +254,7 @@ namespace Apache.Arrow
                 return builder.Build(_allocator);
             }
 
-            private ArrowBuffer ConcatenateFixedWidthTypeValueBuffer(FixedWidthType type)
+            private ArrowBuffer ConcatenateFixedWidthTypeValueBuffer(int bufferIndex, FixedWidthType type)
             {
                 int typeByteWidth = type.BitWidth / 8;
                 var builder = new ArrowBuffer.Builder<byte>(_totalLength * typeByteWidth);
@@ -225,7 +264,7 @@ namespace Apache.Arrow
                     int length = arrayData.Length;
                     int byteLength = length * typeByteWidth;
 
-                    builder.Append(arrayData.Buffers[1].Span.Slice(0, byteLength));
+                    builder.Append(arrayData.Buffers[bufferIndex].Span.Slice(0, byteLength));
                 }
 
                 return builder.Build(_allocator);
@@ -269,6 +308,39 @@ namespace Apache.Arrow
 
                     // The next offset must start from the current last offset.
                     baseOffset += span[arrayData.Length - 1];
+                }
+
+                return builder.Build(_allocator);
+            }
+
+            private ArrowBuffer ConcatenateViewBuffer(out int variadicBufferCount)
+            {
+                var builder = new ArrowBuffer.Builder<BinaryView>(_totalLength);
+                variadicBufferCount = 0;
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    if (arrayData.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    // The first offset is always 0.
+                    // It should be skipped because it duplicate to the last offset of builder.
+                    ReadOnlySpan<BinaryView> span = arrayData.Buffers[1].Span.CastTo<BinaryView>().Slice(1, arrayData.Length);
+
+                    foreach (BinaryView view in span)
+                    {
+                        if (view.Length > BinaryView.MaxInlineLength)
+                        {
+                            builder.Append(view.AdjustBufferIndex(variadicBufferCount));
+                        }
+                        else
+                        {
+                            builder.Append(view);
+                        }
+                    }
+
+                    variadicBufferCount += (arrayData.Buffers.Length - 2);
                 }
 
                 return builder.Build(_allocator);
