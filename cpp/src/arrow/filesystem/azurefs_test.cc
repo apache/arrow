@@ -73,6 +73,13 @@ namespace Blobs = Azure::Storage::Blobs;
 namespace Core = Azure::Core;
 namespace DataLake = Azure::Storage::Files::DataLake;
 
+enum class AzureBackend {
+  /// \brief Official Azure Remote Backend
+  kAzure,
+  /// \brief Local Simulated Storage
+  kAzurite
+};
+
 class BaseAzureEnv : public ::testing::Environment {
  protected:
   std::string account_name_;
@@ -265,8 +272,6 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 
 TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
   AzureOptions options;
-  options.backend = AzureBackend::kAzurite;  // Irrelevant for this test because it
-                                             // doesn't connect to the server.
   ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
   EXPECT_OK_AND_ASSIGN(auto default_credential_fs, AzureFileSystem::Make(options));
 }
@@ -352,7 +357,17 @@ class TestAzureFileSystem : public ::testing::Test {
 
   static Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
     AzureOptions options;
-    options.backend = env->backend();
+    switch (env->backend()) {
+      case AzureBackend::kAzurite:
+        options.blob_storage_authority = "127.0.0.1:10000";
+        options.dfs_storage_authority = "127.0.0.1:10000";
+        options.blob_storage_scheme = "http";
+        options.dfs_storage_scheme = "http";
+        break;
+      case AzureBackend::kAzure:
+        // Use the default values
+        break;
+    }
     ARROW_EXPECT_OK(
         options.ConfigureAccountKeyCredential(env->account_name(), env->account_key()));
     return options;
