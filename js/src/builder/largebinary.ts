@@ -15,15 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { LargeUtf8 } from '../type.js';
-import { encodeUtf8 } from '../util/utf8.js';
+import { LargeBinary } from '../type.js';
+import { toUint8Array } from '../util/buffer.js';
 import { BufferBuilder } from './buffer.js';
 import { VariableWidthBuilder, BuilderOptions } from '../builder.js';
-import { LargeBinaryBuilder } from './largebinary.js';
 
 /** @ignore */
-export class LargeUtf8Builder<TNull = any> extends VariableWidthBuilder<LargeUtf8, TNull> {
-    constructor(opts: BuilderOptions<LargeUtf8, TNull>) {
+export class LargeBinaryBuilder<TNull = any> extends VariableWidthBuilder<LargeBinary, TNull> {
+    constructor(opts: BuilderOptions<LargeBinary, TNull>) {
         super(opts);
         this._values = new BufferBuilder(new Uint8Array(0));
     }
@@ -34,12 +33,22 @@ export class LargeUtf8Builder<TNull = any> extends VariableWidthBuilder<LargeUtf
         this._nulls && (size += this._nulls.byteLength);
         return size;
     }
-    public setValue(index: number, value: string) {
-        return super.setValue(index, encodeUtf8(value) as any);
+    public setValue(index: number, value: Uint8Array) {
+        return super.setValue(index, toUint8Array(value));
     }
-
-    // @ts-ignore
-    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number): void { }
+    protected _flushPending(pending: Map<number, Uint8Array | undefined>, pendingLength: number) {
+        const offsets = this._offsets;
+        const data = this._values.reserve(pendingLength).buffer;
+        let offset = 0;
+        for (const [index, value] of pending) {
+            if (value === undefined) {
+                offsets.set(index, BigInt(0));
+            } else {
+                const length = value.length;
+                data.set(value, offset);
+                offsets.set(index, BigInt(length));
+                offset += length;
+            }
+        }
+    }
 }
-
-(LargeUtf8Builder.prototype as any)._flushPending = (LargeBinaryBuilder.prototype as any)._flushPending;
