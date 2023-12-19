@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/array/builder_binary.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"

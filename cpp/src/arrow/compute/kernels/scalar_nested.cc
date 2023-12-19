@@ -946,7 +946,7 @@ struct AdjoinAsListImpl {
                    Status>
   Visit(const InputType& type, KernelContext* ctx, const ExecSpan& batch, int64_t length,
         std::shared_ptr<ArrayData>* out_values) {
-    using ArraySpanType = typename TypeTraits<InputType>::ArraySpanType;
+    using ArraySpanType = typename GetArraySpanType<InputType>::Type;
     using BuilderType = typename TypeTraits<InputType>::BuilderType;
 
     auto builder = std::make_shared<BuilderType>(type.GetSharedPtr(),

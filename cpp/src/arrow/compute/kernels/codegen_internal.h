@@ -1407,6 +1407,175 @@ void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types);
 
 // END of DispatchBest helpers
 // ----------------------------------------------------------------------
+// ConcreteArraySpan for easy access of ArraySpans in compute kernels
+struct ARROW_EXPORT ConcreteArraySpan {
+  const ArraySpan* span;
+
+  explicit ConcreteArraySpan(const ArraySpan& span) : span(&span) {}
+
+  bool IsNull(int64_t i) const { return span->IsNull(i); }
+  bool IsValid(int64_t i) const { return span->IsValid(i); }
+};
+
+struct ARROW_EXPORT NullArraySpan : public ConcreteArraySpan {
+  using ConcreteArraySpan::ConcreteArraySpan;
+  using TypeClass = NullType;
+
+  // For API compatibility with BinaryArray etc.
+  bool GetView(int64_t i) const { return false; }
+
+  bool Value(int64_t i) const { return false; }
+};
+
+struct ARROW_EXPORT BooleanArraySpan : public ConcreteArraySpan {
+  using ConcreteArraySpan::ConcreteArraySpan;
+  using TypeClass = BooleanType;
+
+  bool Value(int64_t i) const {
+    return bit_util::GetBit(span->buffers[1].data, i + span->offset);
+  }
+
+  // For API compatibility with BinaryArray etc.
+  bool GetView(int64_t i) const { return Value(i); }
+};
+
+template <typename TYPE>
+struct ARROW_EXPORT NumericArraySpan : public ConcreteArraySpan {
+  using ConcreteArraySpan::ConcreteArraySpan;
+  using TypeClass = TYPE;
+  using value_type = typename TypeClass::c_type;
+
+  // Return the value at the given index
+  value_type Value(int64_t i) const { return span->GetValues<value_type>(1)[i]; }
+
+  // For API compatibility with BinaryArray etc.
+  value_type GetView(int64_t i) const { return Value(i); }
+};
+
+// variable length binary/string types
+template <typename TYPE>
+struct ARROW_EXPORT BaseBinaryArraySpan : public ConcreteArraySpan {
+  using ConcreteArraySpan::ConcreteArraySpan;
+  using TypeClass = TYPE;
+  using offset_type = typename TypeClass::offset_type;
+
+  /// \brief Get binary value as a string_view
+  /// Provided for consistency with other arrays.
+  ///
+  /// \param i the value index
+  /// \return the view over the selected value
+  std::string_view Value(int64_t i) const { return GetView(i); }
+
+  /// \brief Get binary value as a string_view
+  ///
+  /// \param i the value index
+  /// \return the view over the selected value
+  std::string_view GetView(int64_t i) const {
+    // Account for base offset
+    const auto* offsets = span->GetValues<offset_type>(1);
+    const offset_type pos = offsets[i];
+    return std::string_view(reinterpret_cast<const char*>(span->buffers[2].data + pos),
+                            offsets[i + 1] - pos);
+  }
+};
+
+// Fixed size binary and decimal types
+template <typename TYPE>
+struct ARROW_EXPORT BaseFixedSizeBinaryArraySpan : public ConcreteArraySpan {
+ public:
+  using ConcreteArraySpan::ConcreteArraySpan;
+  using TypeClass = TYPE;
+
+  /// \brief Get binary value as a string_view
+  /// Provided for consistency with other arrays.
+  ///
+  /// \param i the value index
+  /// \return the view over the selected value
+  std::string_view Value(int64_t i) const { return GetView(i); }
+
+  /// \brief Get binary value as a string_view
+  ///
+  /// \param i the value index
+  /// \return the view over the selected value
+  std::string_view GetView(int64_t i) const {
+    const int64_t pos = (i + span->offset) * span->type->byte_width();
+    std::string_view view(reinterpret_cast<const char*>(span->buffers[1].data + pos),
+                          span->type->byte_width());
+    return view;
+  }
+};
+
+struct ARROW_EXPORT DayTimeIntervalArraySpan : public ConcreteArraySpan {
+ public:
+  using ConcreteArraySpan::ConcreteArraySpan;
+  using TypeClass = DayTimeIntervalType;
+
+  TypeClass::DayMilliseconds Value(int64_t i) const {
+    return span->GetValues<TypeClass::DayMilliseconds>(1)[i];
+  }
+
+  // For API compatibility with BinaryArray etc.
+  TypeClass::DayMilliseconds GetView(int64_t i) const { return Value(i); }
+};
+
+struct ARROW_EXPORT MonthDayNanoIntervalArraySpan : public ConcreteArraySpan {
+ public:
+  using ConcreteArraySpan::ConcreteArraySpan;
+  using TypeClass = MonthDayNanoIntervalType;
+
+  TypeClass::MonthDayNanos Value(int64_t i) const {
+    return span->GetValues<TypeClass::MonthDayNanos>(1)[i];
+  }
+
+  // For API compatibility with BinaryArray etc.
+  TypeClass::MonthDayNanos GetView(int64_t i) const { return Value(i); }
+};
+
+template <typename T, typename Enable = void>
+struct GetArraySpanType;
+
+template <>
+struct GetArraySpanType<NullType> {
+  using Type = NullArraySpan;
+};
+
+template <>
+struct GetArraySpanType<BooleanType> {
+  using Type = BooleanArraySpan;
+};
+
+template <typename T>
+struct GetArraySpanType<T, enable_if_number<T>> {
+  using Type = NumericArraySpan<T>;
+};
+
+template <typename T>
+struct GetArraySpanType<T, enable_if_base_binary<T>> {
+  using Type = BaseBinaryArraySpan<T>;
+};
+
+template <typename T>
+struct GetArraySpanType<T, enable_if_fixed_size_binary<T>> {
+  using Type = BaseFixedSizeBinaryArraySpan<T>;
+};
+
+template <>
+struct GetArraySpanType<DayTimeIntervalType> {
+  using Type = DayTimeIntervalArraySpan;
+};
+
+template <>
+struct GetArraySpanType<MonthDayNanoIntervalType> {
+  using Type = MonthDayNanoIntervalArraySpan;
+};
+
+template <typename T>
+struct GetArraySpanType<T, enable_if_temporal<T>> {
+  using Type = NumericArraySpan<T>;
+};
+
+// ----------------------------------------------------------------------
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
