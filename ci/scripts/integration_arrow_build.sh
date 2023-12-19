@@ -30,6 +30,8 @@ build_dir=${2}
 
 ${arrow_dir}/ci/scripts/rust_build.sh ${arrow_dir} ${build_dir}
 
+${arrow_dir}/ci/scripts/nanoarrow_build.sh ${arrow_dir} ${build_dir}
+
 if [ "${ARROW_INTEGRATION_CPP}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/cpp_build.sh ${arrow_dir} ${build_dir}
 fi
