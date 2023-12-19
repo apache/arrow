@@ -176,6 +176,9 @@ include "table.pxi"
 # Tensors
 include "tensor.pxi"
 
+# DLPack
+include "_dlpack.pxi"
+
 # File IO
 include "io.pxi"
 

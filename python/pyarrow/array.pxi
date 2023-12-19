@@ -1779,6 +1779,44 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(array)
 
+    def __dlpack__(self, stream=None):
+        """Export a primitive array as a DLPack capsule.
+
+        Parameters
+        ----------
+        stream : int, optional
+            A Python integer representing a pointer to a stream. Currently not supported.
+            Stream is provided by the consumer to the producer to instruct the producer
+            to ensure that operations can safely be performed on the array.
+
+        Returns
+        -------
+        capsule : PyCapsule
+            A DLPack capsule for the array, pointing to a DLManagedTensor.
+        """
+        if stream is None:
+            dlm_tensor = GetResultValue(ExportToDLPack(self.sp_array))
+
+            return PyCapsule_New(dlm_tensor, 'dltensor', dlpack_pycapsule_deleter)
+        else:
+            raise NotImplementedError(
+                "Only stream=None is supported."
+            )
+
+    def __dlpack_device__(self):
+        """
+        Return the DLPack device tuple this arrays resides on.
+
+        Returns
+        -------
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
+            device which is 0 by default for CPU.
+        """
+        device = GetResultValue(ExportDevice(self.sp_array))
+        return device.device_type, device.device_id
+
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
