@@ -851,7 +851,7 @@ namespace {
 // "filesystem". Creating a container using the Blob Storage API will make it
 // accessible using the Data Lake Storage Gen 2 API and vice versa.
 
-const std::string kDelimiter = std::string{internal::kSep};
+const char kDelimiter[] = {internal::kSep, '\0'};
 
 template <class ContainerClient>
 Result<FileInfo> GetContainerPropsAsFileInfo(const std::string& container_name,
