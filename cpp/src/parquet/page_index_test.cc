@@ -1007,22 +1007,11 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
   auto rowgroup_offsets = ReadPageIndexes(filename);
   std::vector<int> row_group_test({3, 9});
   for(auto row_group: row_group_test) {
-    std::vector<int> row_groups = {row_group};
-    auto row_0_metadata = metadata->Subset({0});
+    auto indexed_metadata = metadata->IndexTo(row_group, rowgroup_offsets);
     auto target_metadata = metadata->Subset({row_group});
 
-    auto target_column_offsets = rowgroup_offsets[row_group];
-    int64_t total_rows = metadata->num_rows();
-    int64_t chunk_rows = row_0_metadata->num_rows();
-    int64_t num_values = chunk_rows;
-    if (row_group >= total_rows / chunk_rows) {
-      // last page, set num_values to remainder
-      num_values = total_rows % chunk_rows;
-    }
-    row_0_metadata->set_column_offsets(target_column_offsets, num_values);
-
     std::string expected = ReadIndexedRow(filename, indicies, target_metadata);
-    std::string indexed_read = ReadIndexedRow(filename, indicies, row_0_metadata);
+    std::string indexed_read = ReadIndexedRow(filename, indicies, indexed_metadata);
 
     if(false) {
       std::cout << "Correct read:\n";

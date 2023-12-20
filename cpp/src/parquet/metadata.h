@@ -391,8 +391,14 @@ class PARQUET_EXPORT FileMetaData {
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
 
+  typedef std::vector<std::shared_ptr<parquet::OffsetIndex>> RowgroupOffsets;
+
+  /// \brief Return FileMetaData pointing to a single group
+  /// as created via page offsets
+  std::shared_ptr<FileMetaData> IndexTo(int row_group, const std::vector<RowgroupOffsets> &rowgroup_offsets) const;
+
   /// \brief Override column chunk offsets with provided page offsets
-  void set_column_offsets(const std::vector<std::shared_ptr<OffsetIndex>>& column_offsets, int64_t expected_num_rows);
+  void set_column_offsets(const RowgroupOffsets& column_offsets, int64_t expected_num_rows);
 
  private:
   friend FileMetaDataBuilder;
