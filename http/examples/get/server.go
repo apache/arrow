@@ -72,7 +72,7 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		hdrs := w.Header()
-		hdrs.Add("access-control-allow-origin", "http://localhost:8080")
+		hdrs.Add("access-control-allow-origin", "http://localhost:8000")
 		hdrs.Add("access-control-allow-methods", "GET")
 		hdrs.Add("access-control-allow-headers", "content-type")
 		if r.Method != http.MethodGet {
