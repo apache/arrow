@@ -34,7 +34,6 @@
 #include <boost/process.hpp>
 
 #include "arrow/filesystem/azurefs.h"
-#include "arrow/filesystem/azurefs_internal.h"
 
 #include <memory>
 #include <random>
@@ -520,7 +519,8 @@ class TestAzureFileSystem : public ::testing::Test {
 
   // Tests that are called from more than one implementation of TestAzureFileSystem
 
-  void TestDetectHierarchicalNamespace();
+  void TestDetectHierarchicalNamespace(bool trip_up_azurite);
+  void TestDetectHierarchicalNamespaceOnMissingContainer();
   void TestGetFileInfoObject();
   void TestGetFileInfoObjectWithNestedStructure();
 
@@ -610,14 +610,49 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 };
 
-void TestAzureFileSystem::TestDetectHierarchicalNamespace() {
-  // Check the environments are implemented and injected here correctly.
-  auto expected = WithHierarchicalNamespace();
+void TestAzureFileSystem::TestDetectHierarchicalNamespace(bool trip_up_azurite) {
+  EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (trip_up_azurite && env->backend() != AzureBackend::kAzurite) {
+    GTEST_SKIP() << "trip_up_azurite=true is only for Azurite.";
+  }
 
   auto data = SetUpPreexistingData();
-  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_OK_AND_EQ(expected, hierarchical_namespace.Enabled(data.container_name));
+  if (trip_up_azurite) {
+    // Azurite causes GetDirectoryClient("/") to throw a std::out_of_range
+    // exception when a "/" blob exists, so we exercise that code path.
+    auto container_client =
+        blob_service_client_->GetBlobContainerClient(data.container_name);
+    CreateBlob(container_client, "/");
+  }
+
+  auto adlfs_client = datalake_service_client_->GetFileSystemClient(data.container_name);
+  ASSERT_OK_AND_ASSIGN(auto hns_support, internal::CheckIfHierarchicalNamespaceIsEnabled(
+                                             adlfs_client, options_));
+  if (env->WithHierarchicalNamespace()) {
+    ASSERT_EQ(hns_support, internal::HNSSupport::kEnabled);
+  } else {
+    ASSERT_EQ(hns_support, internal::HNSSupport::kDisabled);
+  }
+}
+
+void TestAzureFileSystem::TestDetectHierarchicalNamespaceOnMissingContainer() {
+  auto container_name = PreexistingData::RandomContainerName(rng_);
+  auto adlfs_client = datalake_service_client_->GetFileSystemClient(container_name);
+  ASSERT_OK_AND_ASSIGN(auto hns_support, internal::CheckIfHierarchicalNamespaceIsEnabled(
+                                             adlfs_client, options_));
+  EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  switch (env->backend()) {
+    case AzureBackend::kAzurite:
+      ASSERT_EQ(hns_support, internal::HNSSupport::kDisabled);
+      break;
+    case AzureBackend::kAzure:
+      if (env->WithHierarchicalNamespace()) {
+        ASSERT_EQ(hns_support, internal::HNSSupport::kContainerNotFound);
+      } else {
+        ASSERT_EQ(hns_support, internal::HNSSupport::kDisabled);
+      }
+      break;
+  }
 }
 
 void TestAzureFileSystem::TestGetFileInfoObject() {
@@ -733,7 +768,12 @@ using AllEnvironments =
 TYPED_TEST_SUITE(AzureFileSystemTestOnAllEnvs, AllEnvironments);
 
 TYPED_TEST(AzureFileSystemTestOnAllEnvs, DetectHierarchicalNamespace) {
-  this->TestDetectHierarchicalNamespace();
+  this->TestDetectHierarchicalNamespace(true);
+  this->TestDetectHierarchicalNamespace(false);
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, DetectHierarchicalNamespaceOnMissingContainer) {
+  this->TestDetectHierarchicalNamespaceOnMissingContainer();
 }
 
 TYPED_TEST(AzureFileSystemTestOnAllEnvs, GetFileInfoObject) {
@@ -816,12 +856,6 @@ TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsFailureNonexistent) {
 }
 
 // Tests using Azurite (the local Azure emulator)
-
-TEST_F(TestAzuriteFileSystem, DetectHierarchicalNamespaceFailsWithMissingContainer) {
-  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_RAISES(IOError, hierarchical_namespace.Enabled("nonexistent-container"));
-}
 
 TEST_F(TestAzuriteFileSystem, GetFileInfoAccount) {
   AssertFileInfo(fs_.get(), "", FileType::Directory);
