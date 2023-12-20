@@ -48,7 +48,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               ParquetSchema, ColumnSchema,
                               ParquetLogicalType,
                               FileEncryptionProperties,
-                              FileDecryptionProperties)
+                              FileDecryptionProperties,
+                              SortingColumn)
 from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
@@ -895,6 +896,10 @@ write_page_checksum : bool, default False
     Whether to write page checksums in general for all columns.
     Page checksums enable detection of data corruption, which might occur during
     transmission or in the storage.
+sorting_columns : Sequence of SortingColumn, default None
+    Specify the sort order of the data being written. The writer does not sort
+    the data nor does it verify that the data is sorted. The sort order is
+    written to the row group metadata, which can then be used by readers.
 """
 
 _parquet_writer_example_doc = """\
@@ -989,6 +994,7 @@ Examples
                  store_schema=True,
                  write_page_index=False,
                  write_page_checksum=False,
+                 sorting_columns=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1047,6 +1053,7 @@ Examples
             store_schema=store_schema,
             write_page_index=write_page_index,
             write_page_checksum=write_page_checksum,
+            sorting_columns=sorting_columns,
             **options)
         self.is_open = True
 
@@ -3129,6 +3136,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_schema=True,
                 write_page_index=False,
                 write_page_checksum=False,
+                sorting_columns=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -3158,6 +3166,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_schema=store_schema,
                 write_page_index=write_page_index,
                 write_page_checksum=write_page_checksum,
+                sorting_columns=sorting_columns,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -3742,6 +3751,7 @@ __all__ = (
     "ParquetWriter",
     "PartitionSet",
     "RowGroupMetaData",
+    "SortingColumn",
     "Statistics",
     "read_metadata",
     "read_pandas",
