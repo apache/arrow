@@ -284,6 +284,16 @@ TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
+TEST(AzureFileSystem, InitializeFilesystemWithManagedIdentityCredential) {
+  AzureOptions options;
+  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("dummy-account-name"));
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+
+  ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("dummy-account-name",
+                                                             "specific-client-id"));
+  EXPECT_OK_AND_ASSIGN(fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, InitializeFilesystemWithWorkloadIdentityCredential) {
   AzureOptions options;
   ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential("dummy-account-name"));

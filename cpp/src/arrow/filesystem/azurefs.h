@@ -105,6 +105,9 @@ struct ARROW_EXPORT AzureOptions {
 
   Status ConfigureDefaultCredential(const std::string& account_name);
 
+  Status ConfigureManagedIdentityCredential(const std::string& account_name,
+                                            std::string const& clientId = std::string());
+
   Status ConfigureWorkloadIdentityCredential(const std::string& account_name);
 
   Status ConfigureAccountKeyCredential(const std::string& account_name,
