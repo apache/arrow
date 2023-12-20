@@ -444,8 +444,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       }
       return ExceptionToStatus(
           "GetProperties failed for '" + blob_client_->GetUrl() +
-              "' with an unexpected Azure error. Cannot initialise an ObjectInputFile "
-              "without knowing the file size.",
+              "'. Cannot initialise an ObjectInputFile without knowing the file size.",
           exception);
     }
   }
@@ -523,12 +522,11 @@ class ObjectInputFile final : public io::RandomAccessFile {
           ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
           .Value.ContentRange.Length.Value();
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus("DownloadTo from '" + blob_client_->GetUrl() +
-                                   "' at position " + std::to_string(position) + " for " +
-                                   std::to_string(nbytes) +
-                                   " bytes failed with an Azure error. ReadAt "
-                                   "failed to read the required byte range.",
-                               exception);
+      return ExceptionToStatus(
+          "DownloadTo from '" + blob_client_->GetUrl() + "' at position " +
+              std::to_string(position) + " for " + std::to_string(nbytes) +
+              " bytes failed. ReadAt failed to read the required byte range.",
+          exception);
     }
   }
 
@@ -579,9 +577,8 @@ Status CreateEmptyBlockBlob(std::shared_ptr<Blobs::BlockBlobClient> block_blob_c
   } catch (const Storage::StorageException& exception) {
     return ExceptionToStatus(
         "UploadFrom failed for '" + block_blob_client->GetUrl() +
-            "' with an unexpected Azure error. There is no existing blob at this "
-            "location or the existing blob must be replaced so ObjectAppendStream must "
-            "create a new empty block blob.",
+            "'. There is no existing blob at this location or the existing blob must be "
+            "replaced so ObjectAppendStream must create a new empty block blob.",
         exception);
   }
   return Status::OK();
@@ -594,8 +591,7 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
   } catch (Storage::StorageException& exception) {
     return ExceptionToStatus(
         "GetBlockList failed for '" + block_blob_client->GetUrl() +
-            "' with an unexpected Azure error. Cannot write to a file without first "
-            "fetching the existing block list.",
+            "'. Cannot write to a file without first fetching the existing block list.",
         exception);
   }
 }
@@ -623,8 +619,7 @@ Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_bl
   } catch (const Storage::StorageException& exception) {
     return ExceptionToStatus(
         "CommitBlockList failed for '" + block_blob_client->GetUrl() +
-            "' with an unexpected Azure error. Committing is required to flush an "
-            "output/append stream.",
+            "'. Committing is required to flush an output/append stream.",
         exception);
   }
   return Status::OK();
@@ -668,9 +663,8 @@ class ObjectAppendStream final : public io::OutputStream {
         } else {
           return ExceptionToStatus(
               "GetProperties failed for '" + block_blob_client_->GetUrl() +
-                  "' with an unexpected Azure error. Cannot initialise an "
-                  "ObjectAppendStream without knowing whether a file already exists at "
-                  "this path, and if it exists, its size.",
+                  "'. Cannot initialise an ObjectAppendStream without knowing whether a "
+                  "file already exists at this path, and if it exists, its size.",
               exception);
         }
         content_length_ = 0;
@@ -768,8 +762,7 @@ class ObjectAppendStream final : public io::OutputStream {
       return ExceptionToStatus(
           "StageBlock failed for '" + block_blob_client_->GetUrl() + "' new_block_id: '" +
               new_block_id +
-              "' with an unexpected Azure error. Staging new blocks is fundamental to "
-              "streaming writes to blob storage.",
+              "'. Staging new blocks is fundamental to streaming writes to blob storage.",
           exception);
     }
     block_ids_.push_back(new_block_id);
@@ -842,9 +835,8 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
         if (exception.ErrorCode == "HierarchicalNamespaceNotEnabled") {
           return HNSSupport::kDisabled;
         }
-        return ExceptionToStatus("Check for hierarchical namespace support on '" +
-                                     adlfs_client.GetUrl() +
-                                     "' failed with an unexpected error.",
+        return ExceptionToStatus("Check for Hierarchical Namespace support on '" +
+                                     adlfs_client.GetUrl() + "' failed.",
                                  exception);
     }
   }
@@ -934,11 +926,10 @@ class AzureFileSystem::Impl {
           info.set_type(FileType::NotFound);
           return info;
         }
-        return ExceptionToStatus(
-            "GetProperties for '" + container_client.GetUrl() +
-                "' failed with an unexpected Azure error. GetFileInfo is unable to "
-                "determine whether the container exists.",
-            exception);
+        return ExceptionToStatus("GetProperties for '" + container_client.GetUrl() +
+                                     "' failed. GetFileInfo is unable to determine "
+                                     "whether the container exists.",
+                                 exception);
       }
     }
 
@@ -997,16 +988,15 @@ class AzureFileSystem::Impl {
           return info;
         } catch (const Storage::StorageException& exception) {
           return ExceptionToStatus(
-              "ListBlobs for '" + *list_blob_options.Prefix +
-                  "' failed with an unexpected Azure error. GetFileInfo is unable to "
-                  "determine whether the path should be considered an implied directory.",
+              "ListBlobs failed for prefix='" + *list_blob_options.Prefix +
+                  "' failed. GetFileInfo is unable to determine whether the path should "
+                  "be considered an implied directory.",
               exception);
         }
       }
       return ExceptionToStatus(
-          "GetProperties for '" + file_client.GetUrl() +
-              "' failed with an unexpected "
-              "Azure error. GetFileInfo is unable to determine whether the path exists.",
+          "GetProperties failed for '" + file_client.GetUrl() +
+              "' GetFileInfo is unable to determine whether the path exists.",
           exception);
     }
   }
