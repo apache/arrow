@@ -34,6 +34,7 @@
 #include <boost/process.hpp>
 
 #include "arrow/filesystem/azurefs.h"
+#include "arrow/filesystem/azurefs_internal.h"
 
 #include <memory>
 #include <random>
@@ -71,6 +72,8 @@ using ::testing::NotNull;
 namespace Blobs = Azure::Storage::Blobs;
 namespace Core = Azure::Core;
 namespace DataLake = Azure::Storage::Files::DataLake;
+
+using HNSSupport = internal::HierarchicalNamespaceSupport;
 
 enum class AzureBackend {
   /// \brief Official Azure Remote Backend
@@ -629,9 +632,9 @@ void TestAzureFileSystem::TestDetectHierarchicalNamespace(bool trip_up_azurite) 
   ASSERT_OK_AND_ASSIGN(auto hns_support, internal::CheckIfHierarchicalNamespaceIsEnabled(
                                              adlfs_client, options_));
   if (env->WithHierarchicalNamespace()) {
-    ASSERT_EQ(hns_support, internal::HNSSupport::kEnabled);
+    ASSERT_EQ(hns_support, HNSSupport::kEnabled);
   } else {
-    ASSERT_EQ(hns_support, internal::HNSSupport::kDisabled);
+    ASSERT_EQ(hns_support, HNSSupport::kDisabled);
   }
 }
 
@@ -643,13 +646,13 @@ void TestAzureFileSystem::TestDetectHierarchicalNamespaceOnMissingContainer() {
   EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
   switch (env->backend()) {
     case AzureBackend::kAzurite:
-      ASSERT_EQ(hns_support, internal::HNSSupport::kDisabled);
+      ASSERT_EQ(hns_support, HNSSupport::kDisabled);
       break;
     case AzureBackend::kAzure:
       if (env->WithHierarchicalNamespace()) {
-        ASSERT_EQ(hns_support, internal::HNSSupport::kContainerNotFound);
+        ASSERT_EQ(hns_support, HNSSupport::kContainerNotFound);
       } else {
-        ASSERT_EQ(hns_support, internal::HNSSupport::kDisabled);
+        ASSERT_EQ(hns_support, HNSSupport::kDisabled);
       }
       break;
   }
