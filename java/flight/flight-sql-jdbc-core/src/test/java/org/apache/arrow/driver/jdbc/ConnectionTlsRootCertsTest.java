@@ -35,7 +35,6 @@ import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.calcite.avatica.org.apache.http.auth.UsernamePasswordCredentials;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -95,15 +94,13 @@ public class ConnectionTlsRootCertsTest {
    */
   @Test
   public void testGetEncryptedClientAuthenticated() throws Exception {
-    final UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
-        userTest, passTest);
 
     try (ArrowFlightSqlClientHandler client =
              new ArrowFlightSqlClientHandler.Builder()
                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-                 .withUsername(credentials.getUserName())
-                 .withPassword(credentials.getPassword())
+                 .withUsername(userTest)
+                 .withPassword(passTest)
                  .withTlsRootCertificates(tlsRootCertsPath)
                  .withBufferAllocator(allocator)
                  .withEncryption(true)
