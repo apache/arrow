@@ -18,8 +18,6 @@
 -->
 
 # arrow 14.0.2
-# arrow 14.0.0.9000
-# arrow 14.0.1.9000
 
 ##  Minor improvements and fixes
 
