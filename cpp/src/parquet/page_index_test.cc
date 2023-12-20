@@ -980,54 +980,53 @@ std::vector<offsets> ReadPageIndexes(const std::string &filename) {
   return rowgroup_offsets;
 }
 
-Status ReadAndPrintMetadataRow(const std::string &filename, std::vector<int> indicies,
+std::string ReadIndexedRow(const std::string &filename, std::vector<int> indicies,
                                std::shared_ptr<parquet::FileMetaData> metadata) {
   auto readerProperties = parquet::default_reader_properties();
   parquet::arrow::FileReaderBuilder fileReaderBuilder;
-  ARROW_RETURN_NOT_OK(fileReaderBuilder.OpenFile(filename, false, readerProperties, metadata));
+  assert(fileReaderBuilder.OpenFile(filename, false, readerProperties, metadata) == Status::OK());
   auto reader = fileReaderBuilder.Build();
 
   // Read and print the table.
   std::shared_ptr<::arrow::Table> parquet_table;
-  ARROW_RETURN_NOT_OK(reader->get()->ReadTable(indicies, &parquet_table));
-  std::cout << std::endl;
-  std::cout << "****************************************************************************************" << std::endl;
-  std::cout << parquet_table->ToString() << std::endl;
-  std::cout << "****************************************************************************************" << std::endl;
-
-  return Status::OK();
+  assert(reader->get()->ReadTable(indicies, &parquet_table) == Status::OK());
+  std::string values = parquet_table->ToString();
+  return values;
 }
 
-Status ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> indicies)
+void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> indicies)
 {
   auto rowgroup_offsets = ReadPageIndexes(filename);
   std::shared_ptr<::arrow::io::ReadableFile> infile;
-  ARROW_ASSIGN_OR_RAISE(infile, ::arrow::io::ReadableFile::Open(filename));
+  PARQUET_ASSIGN_OR_THROW(infile, ::arrow::io::ReadableFile::Open(filename));
   auto metadata = parquet::ReadMetaData(infile);
   // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
 
-  int row_group = 3;
-  std::vector<int> row_groups = {row_group};
-  auto row_0_metadata = metadata->Subset({0});
-  auto target_metadata = metadata->Subset({row_group});
-  auto shifted_metadata = metadata->Subset({0}); // make a copy
+  std::vector<int> row_group_test({3, 9});
+  for(auto row_group: row_group_test) {
+    std::vector<int> row_groups = {row_group};
+    auto row_0_metadata = metadata->Subset({0});
+    auto target_metadata = metadata->Subset({row_group});
 
-  auto target_column_offsets = rowgroup_offsets[row_group];
-  int64_t total_rows = metadata->num_rows();
-  int64_t chunk_rows = row_0_metadata->num_rows();
-  int64_t num_values = chunk_rows;
-  if (row_group >= total_rows/chunk_rows) {
-    // last page, set num_values to remainder
-    num_values = total_rows % chunk_rows;
+    auto target_column_offsets = rowgroup_offsets[row_group];
+    int64_t total_rows = metadata->num_rows();
+    int64_t chunk_rows = row_0_metadata->num_rows();
+    int64_t num_values = chunk_rows;
+    if (row_group >= total_rows / chunk_rows) {
+      // last page, set num_values to remainder
+      num_values = total_rows % chunk_rows;
+    }
+    row_0_metadata->set_column_offsets(target_column_offsets, num_values);
+
+    // std::cout << "Correct read:\n";
+    std::string expected = ReadIndexedRow(filename, indicies, target_metadata);
+    // std::cout << expected;
+
+    // std::cout << "\n\nOffset based read:\n";
+    std::string indexed_read = ReadIndexedRow(filename, indicies, row_0_metadata);
+    // std::cout << indexed_read;
+    ASSERT_EQ(expected, indexed_read);
   }
-  shifted_metadata->set_column_offsets(target_column_offsets, num_values);
-
-  std::cout << "Correct read:";
-  ARROW_RETURN_NOT_OK(ReadAndPrintMetadataRow(filename, indicies, target_metadata));
-  std::cout << "\n\nOffset based read:";
-  ARROW_RETURN_NOT_OK(ReadAndPrintMetadataRow(filename, indicies, shifted_metadata));
-
-  return Status::OK();
 }
 
 TEST_F(PageIndexBuilderTest, OffsetReader) {
@@ -1040,7 +1039,7 @@ TEST_F(PageIndexBuilderTest, OffsetReader) {
   std::vector<int> indicies(nColumn/2);
   std::iota(indicies.begin(), indicies.end(), 0);
   ASSERT_TRUE(WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size) == Status::OK());
-  ASSERT_TRUE(ReadColumnsUsingOffsetIndex(path.c_str(), indicies) == Status::OK());
+  ReadColumnsUsingOffsetIndex(path.c_str(), indicies);
 }
 
 
