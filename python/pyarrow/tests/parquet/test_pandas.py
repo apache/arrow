@@ -99,7 +99,6 @@ def test_merging_parquet_tables_with_different_pandas_metadata(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pandas_parquet_column_multiindex(tempdir):
     df = alltypes_sample(size=10)
     df.columns = pd.MultiIndex.from_tuples(
@@ -119,7 +118,6 @@ def test_pandas_parquet_column_multiindex(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
     df = alltypes_sample(size=10000)
 
@@ -145,8 +143,7 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
-def test_pandas_parquet_native_file_roundtrip(tempdir):
+def test_pandas_parquet_native_file_roundtrip():
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
@@ -158,8 +155,7 @@ def test_pandas_parquet_native_file_roundtrip(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
-def test_read_pandas_column_subset(tempdir):
+def test_read_pandas_column_subset():
     df = _test_dataframe(10000)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
@@ -173,8 +169,7 @@ def test_read_pandas_column_subset(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
-def test_pandas_parquet_empty_roundtrip(tempdir):
+def test_pandas_parquet_empty_roundtrip():
     df = _test_dataframe(0)
     arrow_table = pa.Table.from_pandas(df)
     imos = pa.BufferOutputStream()
@@ -186,7 +181,7 @@ def test_pandas_parquet_empty_roundtrip(tempdir):
 
 
 @pytest.mark.pandas
-def test_pandas_can_write_nested_data(tempdir):
+def test_pandas_can_write_nested_data():
     data = {
         "agg_col": [
             {"page_type": 1},
@@ -203,7 +198,6 @@ def test_pandas_can_write_nested_data(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pandas_parquet_pyfile_roundtrip(tempdir):
     filename = tempdir / 'pandas_pyfile_roundtrip.parquet'
     size = 5
@@ -228,7 +222,6 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pandas_parquet_configuration_options(tempdir):
     size = 10000
     np.random.seed(0)
@@ -286,7 +279,6 @@ def test_spark_flavor_preserves_pandas_metadata():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_index_column_name_duplicate(tempdir):
     data = {
         'close': {
@@ -317,7 +309,6 @@ def test_index_column_name_duplicate(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_multiindex_duplicate_values(tempdir):
     num_rows = 3
     numbers = list(range(num_rows))
@@ -340,7 +331,6 @@ def test_multiindex_duplicate_values(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_backwards_compatible_index_naming(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
@@ -362,7 +352,6 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_backwards_compatible_index_multi_level_named(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
@@ -388,7 +377,6 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_backwards_compatible_index_multi_level_some_named(datadir):
     expected_string = b"""\
 carat        cut  color  clarity  depth  table  price     x     y     z
@@ -415,7 +403,6 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_backwards_compatible_column_metadata_handling(datadir):
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
@@ -437,7 +424,6 @@ def test_backwards_compatible_column_metadata_handling(datadir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_categorical_index_survives_roundtrip():
     # ARROW-3652, addressed by ARROW-3246
     df = pd.DataFrame([['a', 'b'], ['c', 'd']], columns=['c1', 'c2'])
@@ -453,7 +439,6 @@ def test_categorical_index_survives_roundtrip():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_categorical_order_survives_roundtrip():
     # ARROW-6302
     df = pd.DataFrame({"a": pd.Categorical(
@@ -470,7 +455,6 @@ def test_categorical_order_survives_roundtrip():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pandas_categorical_na_type_row_groups():
     # ARROW-5085
     df = pd.DataFrame({"col": [None] * 100, "int": [1.0] * 100})
@@ -489,7 +473,6 @@ def test_pandas_categorical_na_type_row_groups():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pandas_categorical_roundtrip():
     # ARROW-5480, this was enabled by ARROW-3246
 
@@ -533,7 +516,6 @@ def test_categories_with_string_pyarrow_dtype(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_pandas_preserve_extensiondtypes(tempdir):
     df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})
     df['col'] = df['col'].astype("Int64")
@@ -555,7 +537,6 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_write_to_dataset_pandas_preserve_index(tempdir):
     # ARROW-8251 - preserve pandas index in roundtrip
 
@@ -581,7 +562,6 @@ def test_write_to_dataset_pandas_preserve_index(tempdir):
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 @pytest.mark.parametrize('preserve_index', [True, False, None])
 @pytest.mark.parametrize('metadata_fname', ["_metadata", "_common_metadata"])
 def test_dataset_read_pandas_common_metadata(

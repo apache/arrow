@@ -47,7 +47,6 @@ pytestmark = pytest.mark.parquet
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_pandas_parquet_datetime_tz():
     # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
     # so we need to cast the pandas dtype. Pandas v1 will always silently
@@ -75,7 +74,6 @@ def test_pandas_parquet_datetime_tz():
 
 
 @pytest.mark.pandas
-@pytest.mark.dataset
 def test_datetime_timezone_tzinfo():
     value = datetime.datetime(2018, 1, 1, 1, 23, 45,
                               tzinfo=datetime.timezone.utc)
