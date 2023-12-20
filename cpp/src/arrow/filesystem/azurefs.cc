@@ -934,14 +934,38 @@ class AzureFileSystem::Impl {
         break;
     }
     ARROW_ASSIGN_OR_RAISE(
-        cached_hns_support_,
+        auto hns_support,
         internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
-    DCHECK_NE(cached_hns_support_, HNSSupport::kUnknown);
-    // Caller should handle kContainerNotFound case appropriately.
-    return cached_hns_support_;
+    DCHECK_NE(hns_support, HNSSupport::kUnknown);
+    // Caller should handle kContainerNotFound case appropriately as it knows the
+    // container this refers to, but the cached value in that case should remain
+    // kUnknown before we get a CheckIfHierarchicalNamespaceIsEnabled result that
+    // is not kContainerNotFound.
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      DCHECK_EQ(cached_hns_support_, HNSSupport::kUnknown);
+    } else {
+      cached_hns_support_ = hns_support;
+    }
+    return hns_support;
   }
 
  public:
+  /// This is used from unit tests to ensure we perform operations on all the
+  /// possible states of cached_hns_support_.
+  void ForceCachedHierarchicalNamespaceSupport(int support) {
+    auto hns_support = static_cast<HNSSupport>(support);
+    switch (hns_support) {
+      case HNSSupport::kUnknown:
+      case HNSSupport::kContainerNotFound:
+      case HNSSupport::kDisabled:
+      case HNSSupport::kEnabled:
+        cached_hns_support_ = hns_support;
+        return;
+    }
+    // This is reachable if an invalid int is cast to enum class HNSSupport.
+    DCHECK(false) << "Invalid enum HierarchicalNamespaceSupport value.";
+  }
+
   Result<FileInfo> GetFileInfo(const AzureLocation& location) {
     if (location.container.empty()) {
       DCHECK(location.path.empty());
@@ -1551,6 +1575,12 @@ class AzureFileSystem::Impl {
 AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
     : FileSystem(impl->io_context()), impl_(std::move(impl)) {
   default_async_is_sync_ = false;
+}
+
+AzureFileSystem* AzureFileSystem::ForceCachedHierarchicalNamespaceSupport(
+    int hns_support) {
+  impl_->ForceCachedHierarchicalNamespaceSupport(hns_support);
+  return this;
 }
 
 Result<std::shared_ptr<AzureFileSystem>> AzureFileSystem::Make(

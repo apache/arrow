@@ -154,6 +154,9 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   explicit AzureFileSystem(std::unique_ptr<Impl>&& impl);
 
+ protected:
+  AzureFileSystem* ForceCachedHierarchicalNamespaceSupport(int hns_support);
+
  public:
   ~AzureFileSystem() override = default;
 
