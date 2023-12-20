@@ -117,7 +117,8 @@ Status AzureOptions::ConfigureDefaultCredential(const std::string& account_name)
   return Status::OK();
 }
 
-Status AzureOptions::ConfigureWorkloadIdentityCredential(const std::string& account_name) {
+Status AzureOptions::ConfigureWorkloadIdentityCredential(
+    const std::string& account_name) {
   credential_kind_ = CredentialKind::kTokenCredential;
   token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
   return Status::OK();
