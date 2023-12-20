@@ -65,7 +65,8 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyKmsClientVtable {
 };
 
 /// \brief A helper for KmsClient implementation in Python.
-class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyKmsClient : public ::parquet::encryption::KmsClient {
+class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyKmsClient
+    : public ::parquet::encryption::KmsClient {
  public:
   PyKmsClient(PyObject* handler, PyKmsClientVtable vtable);
   ~PyKmsClient() override;
@@ -107,7 +108,8 @@ class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyKmsClientFactory
 };
 
 /// \brief A CryptoFactory that returns Results instead of throwing exceptions.
-class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyCryptoFactory : public ::parquet::encryption::CryptoFactory {
+class ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT PyCryptoFactory
+    : public ::parquet::encryption::CryptoFactory {
  public:
   arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>>
   SafeGetFileEncryptionProperties(
