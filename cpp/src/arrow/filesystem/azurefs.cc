@@ -882,10 +882,12 @@ namespace {
 
 const char kDelimiter[] = {internal::kSep, '\0'};
 
+/// \pre location.container is not empty.
 template <class ContainerClient>
-Result<FileInfo> GetContainerPropsAsFileInfo(const std::string& container_name,
+Result<FileInfo> GetContainerPropsAsFileInfo(const AzureLocation& location,
                                              ContainerClient& container_client) {
-  FileInfo info{container_name};
+  DCHECK(!location.container.empty());
+  FileInfo info{location.path.empty() ? location.all : location.container};
   try {
     auto properties = container_client.GetProperties();
     info.set_type(FileType::Directory);
@@ -946,7 +948,16 @@ class AzureFileSystem::Impl {
   io::IOContext& io_context() { return io_context_; }
   const AzureOptions& options() const { return options_; }
 
- private:
+  Blobs::BlobContainerClient GetBlobContainerClient(const std::string& container_name) {
+    return blob_service_client_->GetBlobContainerClient(container_name);
+  }
+
+  /// \param container_name Also known as "filesystem" in the ADLS Gen2 API.
+  DataLake::DataLakeFileSystemClient GetFileSystemClient(
+      const std::string& container_name) {
+    return datalake_service_client_->GetFileSystemClient(container_name);
+  }
+
   /// \brief Memoized version of CheckIfHierarchicalNamespaceIsEnabled.
   ///
   /// \return kEnabled/kDisabled/kContainerNotFound (kUnknown is never returned).
@@ -978,7 +989,6 @@ class AzureFileSystem::Impl {
     return hns_support;
   }
 
- public:
   /// This is used from unit tests to ensure we perform operations on all the
   /// possible states of cached_hns_support_.
   void ForceCachedHierarchicalNamespaceSupport(int support) {
@@ -995,33 +1005,20 @@ class AzureFileSystem::Impl {
     DCHECK(false) << "Invalid enum HierarchicalNamespaceSupport value.";
   }
 
-  Result<FileInfo> GetFileInfo(const AzureLocation& location) {
-    if (location.container.empty()) {
-      DCHECK(location.path.empty());
-      // Root directory of the storage account.
-      return FileInfo{"", FileType::Directory};
-    }
-    if (location.path.empty()) {
-      // We have a container, but no path within the container.
-      // The container itself represents a directory.
-      auto container_client =
-          blob_service_client_->GetBlobContainerClient(location.container);
-      return GetContainerPropsAsFileInfo(location.container, container_client);
-    }
-    // There is a path to search within the container.
-    FileInfo info{location.all};
-    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
+  /// \pre location.path is not empty.
+  Result<FileInfo> GetFileInfo(DataLake::DataLakeFileSystemClient& adlfs_client,
+                               const AzureLocation& location) {
     auto file_client = adlfs_client.GetFileClient(location.path);
     try {
+      FileInfo info{location.all};
       auto properties = file_client.GetProperties();
       if (properties.Value.IsDirectory) {
         info.set_type(FileType::Directory);
       } else if (internal::HasTrailingSlash(location.path)) {
-        // For a path with a trailing slash a hierarchical namespace may return a blob
-        // with that trailing slash removed. For consistency with flat namespace and
-        // other filesystems we chose to return NotFound.
-        //
-        // NOTE(felipecrv): could this be an empty directory marker?
+        // For a path with a trailing slash, a Hierarchical Namespace storage account
+        // may recognize a file (path with trailing slash removed). For consistency
+        // with other arrow::FileSystem implementations we chose to return NotFound
+        // because the trailing slash means the user was looking for a directory.
         info.set_type(FileType::NotFound);
         return info;
       } else {
@@ -1033,43 +1030,55 @@ class AzureFileSystem::Impl {
       return info;
     } catch (const Storage::StorageException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
-        ARROW_ASSIGN_OR_RAISE(auto hns_support,
-                              HierarchicalNamespaceSupport(adlfs_client));
-        if (hns_support == HNSSupport::kContainerNotFound ||
-            hns_support == HNSSupport::kEnabled) {
-          // If the hierarchical namespace is enabled, then the storage account will
-          // have explicit directories. Neither a file nor a directory was found.
-          info.set_type(FileType::NotFound);
-          return info;
-        }
-        // On flat namespace accounts there are no real directories. Directories are only
-        // implied by using `/` in the blob name.
-        Blobs::ListBlobsOptions list_blob_options;
-        // If listing the prefix `path.path_to_file` with trailing slash returns at least
-        // one result then `path` refers to an implied directory.
-        list_blob_options.Prefix = internal::EnsureTrailingSlash(location.path);
-        // We only need to know if there is at least one result, so minimise page size
-        // for efficiency.
-        list_blob_options.PageSizeHint = 1;
-
-        try {
-          auto paged_list_result =
-              blob_service_client_->GetBlobContainerClient(location.container)
-                  .ListBlobs(list_blob_options);
-          auto file_type = paged_list_result.Blobs.size() > 0 ? FileType::Directory
-                                                              : FileType::NotFound;
-          info.set_type(file_type);
-          return info;
-        } catch (const Storage::StorageException& exception) {
-          return ExceptionToStatus(
-              exception, "ListBlobs failed for prefix='", *list_blob_options.Prefix,
-              "' failed. GetFileInfo is unable to determine whether the path should "
-              "be considered an implied directory.");
-        }
+        return FileInfo{location.all, FileType::NotFound};
       }
       return ExceptionToStatus(
-          exception, "GetProperties failed for '", file_client.GetUrl(),
-          "' GetFileInfo is unable to determine whether the path exists.");
+          exception, "GetProperties for '", file_client.GetUrl(),
+          "' failed. GetFileInfo is unable to determine whether the path exists.");
+    }
+  }
+
+  /// On flat namespace accounts there are no real directories. Directories are
+  /// implied by empty directory marker blobs with names ending in "/" or there
+  /// being blobs with names starting with the directory path.
+  ///
+  /// \pre location.path is not empty.
+  Result<FileInfo> GetFileInfo(Blobs::BlobContainerClient& container_client,
+                               const AzureLocation& location) {
+    DCHECK(!location.path.empty());
+    Blobs::ListBlobsOptions options;
+    options.Prefix = internal::RemoveTrailingSlash(location.path);
+    options.PageSizeHint = 1;
+
+    try {
+      FileInfo info{location.all};
+      auto list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
+      if (!list_response.BlobPrefixes.empty()) {
+        const auto& blob_prefix = list_response.BlobPrefixes[0];
+        if (blob_prefix == internal::EnsureTrailingSlash(location.path)) {
+          info.set_type(FileType::Directory);
+          return info;
+        }
+      }
+      if (!list_response.Blobs.empty()) {
+        const auto& blob = list_response.Blobs[0];
+        if (blob.Name == location.path) {
+          info.set_type(FileType::File);
+          info.set_size(blob.BlobSize);
+          info.set_mtime(
+              std::chrono::system_clock::time_point{blob.Details.LastModified});
+          return info;
+        }
+      }
+      info.set_type(FileType::NotFound);
+      return info;
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception)) {
+        return FileInfo{location.all, FileType::NotFound};
+      }
+      return ExceptionToStatus(
+          exception, "ListBlobsByHierarchy failed for prefix='", *options.Prefix,
+          "'. GetFileInfo is unable to determine whether the path exists.");
     }
   }
 
@@ -1314,9 +1323,8 @@ class AzureFileSystem::Impl {
       return PathNotFound(location);
     }
     if (hns_support == HNSSupport::kDisabled) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto container_info,
-          GetContainerPropsAsFileInfo(location.container, container_client));
+      ARROW_ASSIGN_OR_RAISE(auto container_info,
+                            GetContainerPropsAsFileInfo(location, container_client));
       if (container_info.type() == FileType::NotFound) {
         return PathNotFound(location);
       }
@@ -1631,7 +1639,30 @@ bool AzureFileSystem::Equals(const FileSystem& other) const {
 
 Result<FileInfo> AzureFileSystem::GetFileInfo(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
-  return impl_->GetFileInfo(location);
+  if (location.container.empty()) {
+    DCHECK(location.path.empty());
+    // Root directory of the storage account.
+    return FileInfo{"", FileType::Directory};
+  }
+  if (location.path.empty()) {
+    // We have a container, but no path within the container.
+    // The container itself represents a directory.
+    auto container_client = impl_->GetBlobContainerClient(location.container);
+    return GetContainerPropsAsFileInfo(location, container_client);
+  }
+  // There is a path to search within the container. Check HNS support to proceed.
+  auto adlfs_client = impl_->GetFileSystemClient(location.container);
+  ARROW_ASSIGN_OR_RAISE(auto hns_support,
+                        impl_->HierarchicalNamespaceSupport(adlfs_client));
+  if (hns_support == HNSSupport::kContainerNotFound) {
+    return FileInfo{location.all, FileType::NotFound};
+  }
+  if (hns_support == HNSSupport::kEnabled) {
+    return impl_->GetFileInfo(adlfs_client, location);
+  }
+  DCHECK_EQ(hns_support, HNSSupport::kDisabled);
+  auto container_client = impl_->GetBlobContainerClient(location.container);
+  return impl_->GetFileInfo(container_client, location);
 }
 
 Result<FileInfoVector> AzureFileSystem::GetFileInfo(const FileSelector& select) {

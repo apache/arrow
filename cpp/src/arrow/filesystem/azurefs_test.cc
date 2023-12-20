@@ -473,6 +473,14 @@ class TestAzureFileSystem : public ::testing::Test {
     return blob_client;
   }
 
+  Blobs::Models::BlobProperties GetBlobProperties(const std::string& container_name,
+                                                  const std::string& blob_name) {
+    return blob_service_client_->GetBlobContainerClient(container_name)
+        .GetBlobClient(blob_name)
+        .GetProperties()
+        .Value;
+  }
+
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
                    int total_size) {
     ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
@@ -570,7 +578,39 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void TestDetectHierarchicalNamespace(bool trip_up_azurite);
   void TestDetectHierarchicalNamespaceOnMissingContainer();
-  void TestGetFileInfoObject();
+
+  void TestGetFileInfoOfRoot() {
+    AssertFileInfo(fs(), "", FileType::Directory);
+
+    // URI
+    ASSERT_RAISES(Invalid, fs()->GetFileInfo("abfs://"));
+  }
+
+  void TestGetFileInfoOnExistingContainer() {
+    auto data = SetUpPreexistingData();
+    AssertFileInfo(fs(), data.container_name, FileType::Directory);
+    AssertFileInfo(fs(), data.container_name + "/", FileType::Directory);
+    auto props = GetBlobProperties(data.container_name, data.kObjectName);
+    AssertFileInfo(fs(), data.ObjectPath(), FileType::File,
+                   std::chrono::system_clock::time_point{props.LastModified},
+                   static_cast<int64_t>(props.BlobSize));
+    AssertFileInfo(fs(), data.NotFoundObjectPath(), FileType::NotFound);
+    AssertFileInfo(fs(), data.ObjectPath() + "/", FileType::NotFound);
+    AssertFileInfo(fs(), data.NotFoundObjectPath() + "/", FileType::NotFound);
+
+    // URIs
+    ASSERT_RAISES(Invalid, fs()->GetFileInfo("abfs://" + data.container_name));
+    ASSERT_RAISES(Invalid, fs()->GetFileInfo("abfs://" + std::string{data.kObjectName}));
+    ASSERT_RAISES(Invalid, fs()->GetFileInfo("abfs://" + data.ObjectPath()));
+  }
+
+  void TestGetFileInfoOnMissingContainer() {
+    auto data = SetUpPreexistingData();
+    AssertFileInfo(fs(), "nonexistent", FileType::NotFound);
+    AssertFileInfo(fs(), "nonexistent/object", FileType::NotFound);
+    AssertFileInfo(fs(), "nonexistent/object/", FileType::NotFound);
+  }
+
   void TestGetFileInfoObjectWithNestedStructure();
 
   void TestDeleteDirSuccessEmpty() {
@@ -702,22 +742,6 @@ void TestAzureFileSystem::TestDetectHierarchicalNamespaceOnMissingContainer() {
       }
       break;
   }
-}
-
-void TestAzureFileSystem::TestGetFileInfoObject() {
-  auto data = SetUpPreexistingData();
-  auto object_properties =
-      blob_service_client_->GetBlobContainerClient(data.container_name)
-          .GetBlobClient(data.kObjectName)
-          .GetProperties()
-          .Value;
-
-  AssertFileInfo(fs(), data.ObjectPath(), FileType::File,
-                 std::chrono::system_clock::time_point{object_properties.LastModified},
-                 static_cast<int64_t>(object_properties.BlobSize));
-
-  // URI
-  ASSERT_RAISES(Invalid, fs()->GetFileInfo("abfs://" + std::string{data.kObjectName}));
 }
 
 void TestAzureFileSystem::TestGetFileInfoObjectWithNestedStructure() {
@@ -855,6 +879,14 @@ TYPED_TEST(TestAzureFileSystemOnAllEnvs, DetectHierarchicalNamespaceOnMissingCon
   this->TestDetectHierarchicalNamespaceOnMissingContainer();
 }
 
+TYPED_TEST(TestAzureFileSystemOnAllEnvs, GetFileInfoOfRoot) {
+  this->TestGetFileInfoOfRoot();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllEnvs, CreateDirWithEmptyPath) {
+  ASSERT_RAISES(Invalid, this->fs()->CreateDir("", false));
+}
+
 // Tests using all the 3 environments (Azurite, Azure w/o HNS (flat), Azure w/ HNS)
 // combined with the two scenarios for AzureFileSystem::cached_hns_support_ -- unknown and
 // known according to the environment.
@@ -869,16 +901,20 @@ using AllScenarios = ::testing::Types<
 
 TYPED_TEST_SUITE(TestAzureFileSystemOnAllScenarios, AllScenarios);
 
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, GetFileInfoObject) {
-  this->TestGetFileInfoObject();
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, GetFileInfoOnExistingContainer) {
+  this->TestGetFileInfoOnExistingContainer();
 }
 
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
-  this->TestDeleteDirSuccessEmpty();
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, GetFileInfoOnMissingContainer) {
+  this->TestGetFileInfoOnMissingContainer();
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, GetFileInfoObjectWithNestedStructure) {
   this->TestGetFileInfoObjectWithNestedStructure();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
+  this->TestDeleteDirSuccessEmpty();
 }
 
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirSuccessContainerAndDirectory) {
@@ -950,23 +986,6 @@ TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsFailureNonexistent) {
 }
 
 // Tests using Azurite (the local Azure emulator)
-
-TEST_F(TestAzuriteFileSystem, GetFileInfoAccount) {
-  AssertFileInfo(fs(), "", FileType::Directory);
-
-  // URI
-  ASSERT_RAISES(Invalid, fs()->GetFileInfo("abfs://"));
-}
-
-TEST_F(TestAzuriteFileSystem, GetFileInfoContainer) {
-  auto data = SetUpPreexistingData();
-  AssertFileInfo(fs(), data.container_name, FileType::Directory);
-
-  AssertFileInfo(fs(), "nonexistent-container", FileType::NotFound);
-
-  // URI
-  ASSERT_RAISES(Invalid, fs()->GetFileInfo("abfs://" + data.container_name));
-}
 
 TEST_F(TestAzuriteFileSystem, GetFileInfoSelector) {
   SetUpSmallFileSystemTree();
