@@ -460,24 +460,24 @@ static void DecimalAdd3Large(benchmark::State& state) {
   DoDecimalAdd3(state, DecimalTypeUtil::kMaxPrecision, 18, true);
 }
 
-BENCHMARK(TimedTestAdd3)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestExtractYear)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestFilterAdd2)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestFilterLike)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestCastFloatFromString)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestCastIntFromString)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestOutputStringAllocs)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestMultiOr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestInExpr)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd2Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd2LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd2LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd2Large)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd3Fast)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd3LeadingZeroes)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd3LeadingZeroesWithDiv)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(DecimalAdd3Large)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestAdd3)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestBigNested)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestExtractYear)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestFilterAdd2)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestFilterLike)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestCastFloatFromString)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestCastIntFromString)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestAllocs)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestOutputStringAllocs)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestMultiOr)->Unit(benchmark::kMicrosecond);
+BENCHMARK(TimedTestInExpr)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2Fast)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2LeadingZeroes)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2LeadingZeroesWithDiv)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd2Large)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3Fast)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3LeadingZeroes)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3LeadingZeroesWithDiv)->Unit(benchmark::kMicrosecond);
+BENCHMARK(DecimalAdd3Large)->Unit(benchmark::kMicrosecond);
 
 }  // namespace gandiva
