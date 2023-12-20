@@ -430,7 +430,18 @@ public class JdbcToArrowUtils {
     }
   }
 
-  static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
+  /**
+   * Default function used for JdbcConsumerFactory. This function gets a JdbcConsumer for the
+   * given column based on the Arrow type and provided vector.
+   *
+   * @param arrowType   Arrow type for the column.
+   * @param columnIndex Column index to fetch from the ResultSet
+   * @param nullable    Whether the value is nullable or not
+   * @param vector      Vector to store the consumed value
+   * @param config      Associated JdbcToArrowConfig, used mainly for the Calendar.
+   * @return {@link JdbcConsumer}
+   */
+  public static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
       FieldVector vector, JdbcToArrowConfig config) {
     final Calendar calendar = config.getCalendar();
 
