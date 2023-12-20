@@ -1887,9 +1887,6 @@ TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstring) {
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
                    this->type(), R"(["foo", "this foo that foo", "", null])", &options);
 
-
-  
-
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}));
 }
