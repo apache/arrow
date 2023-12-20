@@ -922,9 +922,12 @@ std::shared_ptr<::arrow::Table> GetTable(int nColumns, int nRows)
     {
       int reps = j / 10;
       if (j % 10 < reps) {
+        // repeat first value reps times
+        // do this to force varying length encoding dictionary
         float val = (j / 10) * 10;
         assert(builder.Append(val).ok());
       } else {
+        // keep going with ascending values
         assert(builder.Append(static_cast<float>(j)).ok());
       }
     }
@@ -940,7 +943,7 @@ std::shared_ptr<::arrow::Table> GetTable(int nColumns, int nRows)
   return table;
 }
 
-Status WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, int64_t chunkSize)
+void WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, int64_t chunkSize)
 {
   auto table = GetTable(nColumns, nRows);
   auto result = ::arrow::io::FileOutputStream::Open(filename);
@@ -953,8 +956,8 @@ Status WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &fil
           ->disable_dictionary()
                   // ->disable_statistics()
           ->build();
-  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, ::arrow::default_memory_pool(), outfile, chunkSize, properties));
-  return Status::OK();
+  assert(parquet::arrow::WriteTable(*table, ::arrow::default_memory_pool(),
+                                    outfile, chunkSize, properties) == Status::OK());
 }
 
 typedef std::vector<std::shared_ptr<parquet::OffsetIndex>> offsets;
@@ -987,7 +990,7 @@ std::string ReadIndexedRow(const std::string &filename, std::vector<int> indicie
   assert(fileReaderBuilder.OpenFile(filename, false, readerProperties, metadata) == Status::OK());
   auto reader = fileReaderBuilder.Build();
 
-  // Read and print the table.
+  // Read table layout + data to string
   std::shared_ptr<::arrow::Table> parquet_table;
   assert(reader->get()->ReadTable(indicies, &parquet_table) == Status::OK());
   std::string values = parquet_table->ToString();
@@ -996,12 +999,12 @@ std::string ReadIndexedRow(const std::string &filename, std::vector<int> indicie
 
 void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> indicies)
 {
-  auto rowgroup_offsets = ReadPageIndexes(filename);
   std::shared_ptr<::arrow::io::ReadableFile> infile;
   PARQUET_ASSIGN_OR_THROW(infile, ::arrow::io::ReadableFile::Open(filename));
   auto metadata = parquet::ReadMetaData(infile);
   // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
 
+  auto rowgroup_offsets = ReadPageIndexes(filename);
   std::vector<int> row_group_test({3, 9});
   for(auto row_group: row_group_test) {
     std::vector<int> row_groups = {row_group};
@@ -1018,13 +1021,16 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
     }
     row_0_metadata->set_column_offsets(target_column_offsets, num_values);
 
-    // std::cout << "Correct read:\n";
     std::string expected = ReadIndexedRow(filename, indicies, target_metadata);
-    // std::cout << expected;
-
-    // std::cout << "\n\nOffset based read:\n";
     std::string indexed_read = ReadIndexedRow(filename, indicies, row_0_metadata);
-    // std::cout << indexed_read;
+
+    if(false) {
+      std::cout << "Correct read:\n";
+      std::cout << expected;
+      std::cout << "\n\nOffset based read:\n";
+      std::cout << indexed_read;
+    }
+
     ASSERT_EQ(expected, indexed_read);
   }
 }
@@ -1038,7 +1044,7 @@ TEST_F(PageIndexBuilderTest, OffsetReader) {
   int chunk_size = 10;
   std::vector<int> indicies(nColumn/2);
   std::iota(indicies.begin(), indicies.end(), 0);
-  ASSERT_TRUE(WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size) == Status::OK());
+  WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size);
   ReadColumnsUsingOffsetIndex(path.c_str(), indicies);
 }
 
