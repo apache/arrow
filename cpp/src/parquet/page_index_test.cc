@@ -22,11 +22,42 @@
 
 #include "arrow/io/file.h"
 #include "arrow/util/float16.h"
+#include "arrow/api.h"
+#include "arrow/io/api.h"
+#include "arrow/result.h"
+#include "arrow/util/type_fwd.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
+#include "parquet/arrow/reader.h"
+#include "parquet/arrow/writer.h"
+
+
+/*
+#include "arrow/api.h"
+#include "arrow/io/api.h"
+#include "arrow/result.h"
+#include "arrow/util/type_fwd.h"
+#include "parquet/arrow/reader.h"
+#include "parquet/arrow/writer.h"
+
+#include <iostream>
+#include <list>
+#include <chrono>
+#include <random>
+#include <vector>
+#include <fstream>
+#include <filesystem>
+#include <iomanip>
+#include <cassert>
+#include <parquet/page_index.h>
+
+
+using arrow::Status;
+
+*/
 
 namespace parquet {
 
@@ -872,50 +903,47 @@ TEST_F(PageIndexBuilderTest, TwoRowGroups) {
 #include <parquet/page_index.h>
 
 
-using arrow::Status;
-
 */
 
+using ::arrow::Status;
 
-std::shared_ptr<arrow::Table> GetTable(size_t nColumns, size_t nRows)
+std::shared_ptr<::arrow::Table> GetTable(int nColumns, int nRows)
 {
   std::random_device dev;
-  std::vector<std::shared_ptr<arrow::Array>> arrays;
-  std::vector<std::shared_ptr<arrow::Field>> fields;
+  std::vector<std::shared_ptr<::arrow::Array>> arrays;
+  std::vector<std::shared_ptr<::arrow::Field>> fields;
 
   // For simplicity, we'll create int32 columns. You can expand this to handle other types.
   for (int i = 0; i < nColumns; i++)
   {
-    arrow::FloatBuilder builder;
+    ::arrow::FloatBuilder builder;
 
     for (int j = 0; j < nRows; j++)
     {
       int reps = j / 10;
       if (j % 10 < reps) {
         float val = (j / 10) * 10;
-        builder.Append(val);
+        assert(builder.Append(val).ok());
       } else {
-        builder.Append(static_cast<float>(j));
+        assert(builder.Append(static_cast<float>(j)).ok());
       }
     }
 
-    std::shared_ptr<arrow::Array> array;
-    if (!builder.Finish(&array).ok())
-      throw std::runtime_error("builder.Finish");
+    std::shared_ptr<::arrow::Array> array;
+    assert(builder.Finish(&array).ok());
 
     arrays.push_back(array);
-    fields.push_back(arrow::field("c_" + std::to_string(i), arrow::float32(), false));
+    fields.push_back(::arrow::field("c_" + std::to_string(i), ::arrow::float32(), false));
   }
 
-  auto table = arrow::Table::Make(arrow::schema(fields), arrays);
+  auto table = ::arrow::Table::Make(::arrow::schema(fields), arrays);
   return table;
 }
 
-Status WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, std::chrono::microseconds *dt, int64_t chunkSize)
+Status WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &filename, int64_t chunkSize)
 {
   auto table = GetTable(nColumns, nRows);
-  auto begin = std::chrono::steady_clock::now();
-  auto result = arrow::io::FileOutputStream::Open(filename);
+  auto result = ::arrow::io::FileOutputStream::Open(filename);
   auto outfile = result.ValueOrDie();
 
   parquet::WriterProperties::Builder builder;
@@ -925,9 +953,7 @@ Status WriteTableToParquet(size_t nColumns, size_t nRows, const std::string &fil
           ->disable_dictionary()
                   // ->disable_statistics()
           ->build();
-  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(), outfile, chunkSize, properties));
-  auto end = std::chrono::steady_clock::now();
-  *dt = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+  PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, ::arrow::default_memory_pool(), outfile, chunkSize, properties));
   return Status::OK();
 }
 
@@ -962,7 +988,7 @@ Status ReadAndPrintMetadataRow(const std::string &filename, std::vector<int> ind
   auto reader = fileReaderBuilder.Build();
 
   // Read and print the table.
-  std::shared_ptr<arrow::Table> parquet_table;
+  std::shared_ptr<::arrow::Table> parquet_table;
   ARROW_RETURN_NOT_OK(reader->get()->ReadTable(indicies, &parquet_table));
   std::cout << std::endl;
   std::cout << "****************************************************************************************" << std::endl;
@@ -975,12 +1001,12 @@ Status ReadAndPrintMetadataRow(const std::string &filename, std::vector<int> ind
 Status ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> indicies)
 {
   auto rowgroup_offsets = ReadPageIndexes(filename);
-  std::shared_ptr<arrow::io::ReadableFile> infile;
-  ARROW_ASSIGN_OR_RAISE(infile, arrow::io::ReadableFile::Open(filename));
+  std::shared_ptr<::arrow::io::ReadableFile> infile;
+  ARROW_ASSIGN_OR_RAISE(infile, ::arrow::io::ReadableFile::Open(filename));
   auto metadata = parquet::ReadMetaData(infile);
   // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
 
-  int row_group = 9;
+  int row_group = 3;
   std::vector<int> row_groups = {row_group};
   auto row_0_metadata = metadata->Subset({0});
   auto target_metadata = metadata->Subset({row_group});
@@ -1001,20 +1027,20 @@ Status ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int>
   std::cout << "\n\nOffset based read:";
   ARROW_RETURN_NOT_OK(ReadAndPrintMetadataRow(filename, indicies, shifted_metadata));
 
-
   return Status::OK();
 }
 
 TEST_F(PageIndexBuilderTest, OffsetReader) {
-  const char *FILE_NAME = "/tmp/ColumnReadingPerf/cmake-build-debug-docker_dbarrow/my.parquet";
+  std::string dir_string(parquet::test::get_data_dir());
+  std::string path = dir_string + "/index_reader_test.parquet";
+
   int nColumn = 10;
   int nRow = 95;
   int chunk_size = 10;
-  std::chrono::microseconds writing_dt;
   std::vector<int> indicies(nColumn/2);
   std::iota(indicies.begin(), indicies.end(), 0);
-  ARROW_RETURN_NOT_OK(WriteTableToParquet(nColumn, nRow, FILE_NAME, &writing_dt, chunk_size));
-  ARROW_RETURN_NOT_OK(ReadColumnsUsingOffsetIndex(FILE_NAME, indicies));
+  ASSERT_TRUE(WriteTableToParquet(nColumn, nRow, path.c_str(), chunk_size) == Status::OK());
+  ASSERT_TRUE(ReadColumnsUsingOffsetIndex(path.c_str(), indicies) == Status::OK());
 }
 
 
