@@ -821,6 +821,7 @@ endif()
 if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
-    target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
+    target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS}
+                                                      arrow_python_parquet_encryption)
   endif()
 endif()
