@@ -63,7 +63,9 @@ jobs:
       - name: Install pygit2 binary wheel
         run: pip install pygit2 --only-binary pygit2
       - name: Install Archery, Crossbow- and Test Dependencies
-        run: pip install pytest responses -e dev/archery[all]
+        run: |
+          pip install -e dev/archery[all]
+          pip install -r dev/archery/requirements-test.txt
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
