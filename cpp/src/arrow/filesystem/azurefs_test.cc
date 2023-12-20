@@ -34,6 +34,7 @@
 #include <boost/process.hpp>
 
 #include "arrow/filesystem/azurefs.h"
+#include "arrow/filesystem/azurefs_internal.h"
 
 #include <memory>
 #include <random>
