@@ -52,7 +52,7 @@ func GetPutData() []arrow.Record {
 	defer batch.Release()
 
 	batches := make([]arrow.Record, 0)
-	records := 0
+	records := int64(0)
 	for records < totalRecords {
 		if records+length > totalRecords {
 			lastLen := totalRecords - records
