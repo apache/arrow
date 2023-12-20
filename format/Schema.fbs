@@ -463,6 +463,8 @@ union Type {
   RunEndEncoded,
   BinaryView,
   Utf8View,
+  ListView,
+  LargeListView,
 }
 
 /// ----------------------------------------------------------------------
