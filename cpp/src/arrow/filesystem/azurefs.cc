@@ -571,12 +571,12 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-Status CreateEmptyBlockBlob(std::shared_ptr<Blobs::BlockBlobClient> block_blob_client) {
+Status CreateEmptyBlockBlob(Blobs::BlockBlobClient& block_blob_client) {
   try {
-    block_blob_client->UploadFrom(nullptr, 0);
+    block_blob_client.UploadFrom(nullptr, 0);
   } catch (const Storage::StorageException& exception) {
     return ExceptionToStatus(
-        "UploadFrom failed for '" + block_blob_client->GetUrl() +
+        "UploadFrom failed for '" + block_blob_client.GetUrl() +
             "'. There is no existing blob at this location or the existing blob must be "
             "replaced so ObjectAppendStream must create a new empty block blob.",
         exception);
@@ -659,7 +659,7 @@ class ObjectAppendStream final : public io::OutputStream {
         pos_ = content_length_;
       } catch (const Storage::StorageException& exception) {
         if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
-          RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client_));
+          RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
         } else {
           return ExceptionToStatus(
               "GetProperties failed for '" + block_blob_client_->GetUrl() +
@@ -1349,7 +1349,7 @@ class AzureFileSystem::Impl {
 
     std::shared_ptr<ObjectAppendStream> stream;
     if (truncate) {
-      RETURN_NOT_OK(CreateEmptyBlockBlob(block_blob_client));
+      RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client));
       stream = std::make_shared<ObjectAppendStream>(block_blob_client, fs->io_context(),
                                                     location, metadata, options_, 0);
     } else {
