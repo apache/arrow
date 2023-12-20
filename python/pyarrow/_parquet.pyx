@@ -18,6 +18,7 @@
 # cython: profile=False
 # distutils: language = c++
 
+from collections.abc import Sequence
 from textwrap import indent
 import warnings
 
@@ -31,6 +32,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           Table, NativeFile,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
+                          pyarrow_unwrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_batch,
                           pyarrow_wrap_scalar,
@@ -506,6 +508,204 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         return self.metadata.GetColumnIndexLocation().has_value()
 
 
+cdef class SortingColumn:
+    """
+    Sorting specification for a single column.
+
+    Returned by :meth:`RowGroupMetaData.sorting_columns` and used in
+    :class:`ParquetWriter` to specify the sort order of the data.
+
+    Parameters
+    ----------
+    column_index : int
+        Index of column that data is sorted by.
+    descending : bool, default False
+        Whether column is sorted in descending order.
+    nulls_first : bool, default False
+        Whether null values appear before valid values.
+
+    Notes
+    -----
+
+    Column indices are zero-based, refer only to leaf fields, and are in
+    depth-first order. This may make the column indices for nested schemas
+    different from what you expect. In most cases, it will be easier to
+    specify the sort order using column names instead of column indices
+    and converting using the ``from_ordering`` method.
+
+    Examples
+    --------
+
+    In other APIs, sort order is specified by names, such as:
+
+    >>> sort_order = [('id', 'ascending'), ('timestamp', 'descending')]
+
+    For Parquet, the column index must be used instead:
+
+    >>> import pyarrow.parquet as pq
+    >>> [pq.SortingColumn(0), pq.SortingColumn(1, descending=True)]
+    [SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False)]
+
+    Convert the sort_order into the list of sorting columns with
+    ``from_ordering`` (note that the schema must be provided as well):
+
+    >>> import pyarrow as pa
+    >>> schema = pa.schema([('id', pa.int64()), ('timestamp', pa.timestamp('ms'))])
+    >>> sorting_columns = pq.SortingColumn.from_ordering(schema, sort_order)
+    >>> sorting_columns
+    (SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False))
+
+    Convert back to the sort order with ``to_ordering``:
+
+    >>> pq.SortingColumn.to_ordering(schema, sorting_columns)
+    ((('id', 'ascending'), ('timestamp', 'descending')), 'at_end')
+
+    See Also
+    --------
+    RowGroupMetaData.sorting_columns
+    """
+    cdef int column_index
+    cdef c_bool descending
+    cdef c_bool nulls_first
+
+    def __init__(self, int column_index, c_bool descending=False, c_bool nulls_first=False):
+        self.column_index = column_index
+        self.descending = descending
+        self.nulls_first = nulls_first
+
+    @classmethod
+    def from_ordering(cls, Schema schema, sort_keys, null_placement='at_end'):
+        """
+        Create a tuple of SortingColumn objects from the same arguments as
+        :class:`pyarrow.compute.SortOptions`.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema of the input data.
+        sort_keys : Sequence of (name, order) tuples
+            Names of field/column keys (str) to sort the input on,
+            along with the order each field/column is sorted in.
+            Accepted values for `order` are "ascending", "descending".
+        null_placement : {'at_start', 'at_end'}, default 'at_end'
+            Where null values should appear in the sort order.
+
+        Returns
+        -------
+        sorting_columns : tuple of SortingColumn
+        """
+        if null_placement == 'at_start':
+            nulls_first = True
+        elif null_placement == 'at_end':
+            nulls_first = False
+        else:
+            raise ValueError('null_placement must be "at_start" or "at_end"')
+
+        col_map = _name_to_index_map(schema)
+
+        sorting_columns = []
+
+        for sort_key in sort_keys:
+            if isinstance(sort_key, str):
+                name = sort_key
+                descending = False
+            elif (isinstance(sort_key, tuple) and len(sort_key) == 2 and
+                    isinstance(sort_key[0], str) and
+                    isinstance(sort_key[1], str)):
+                name, descending = sort_key
+                if descending == "descending":
+                    descending = True
+                elif descending == "ascending":
+                    descending = False
+                else:
+                    raise ValueError("Invalid sort key direction: {0}"
+                                     .format(descending))
+            else:
+                raise ValueError("Invalid sort key: {0}".format(sort_key))
+
+            try:
+                column_index = col_map[name]
+            except KeyError:
+                raise ValueError("Sort key name '{0}' not found in schema:\n{1}"
+                                 .format(name, schema))
+
+            sorting_columns.append(
+                cls(column_index, descending=descending, nulls_first=nulls_first)
+            )
+
+        return tuple(sorting_columns)
+
+    @staticmethod
+    def to_ordering(Schema schema, sorting_columns):
+        """
+        Convert a tuple of SortingColumn objects to the same format as
+        :class:`pyarrow.compute.SortOptions`.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema of the input data.
+        sorting_columns : tuple of SortingColumn
+            Columns to sort the input on.
+
+        Returns
+        -------
+        sort_keys : tuple of (name, order) tuples
+        null_placement : {'at_start', 'at_end'}
+        """
+        col_map = {i: name for name, i in _name_to_index_map(schema).items()}
+
+        sort_keys = []
+        nulls_first = None
+
+        for sorting_column in sorting_columns:
+            name = col_map[sorting_column.column_index]
+            if sorting_column.descending:
+                order = "descending"
+            else:
+                order = "ascending"
+            sort_keys.append((name, order))
+            if nulls_first is None:
+                nulls_first = sorting_column.nulls_first
+            elif nulls_first != sorting_column.nulls_first:
+                raise ValueError("Sorting columns have inconsistent null placement")
+
+        if nulls_first:
+            null_placement = "at_start"
+        else:
+            null_placement = "at_end"
+
+        return tuple(sort_keys), null_placement
+
+    def __repr__(self):
+        return """{}(column_index={}, descending={}, nulls_first={})""".format(
+            self.__class__.__name__,
+            self.column_index, self.descending, self.nulls_first)
+
+    def __eq__(self, SortingColumn other):
+        return (self.column_index == other.column_index and
+                self.descending == other.descending and
+                self.nulls_first == other.nulls_first)
+
+    def __hash__(self):
+        return hash((self.column_index, self.descending, self.nulls_first))
+
+    @property
+    def column_index(self):
+        """"Index of column data is sorted by (int)."""
+        return self.column_index
+
+    @property
+    def descending(self):
+        """Whether column is sorted in descending order (bool)."""
+        return self.descending
+
+    @property
+    def nulls_first(self):
+        """Whether null values appear before valid values (bool)."""
+        return self.nulls_first
+
+
 cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group."""
 
@@ -565,10 +765,12 @@ cdef class RowGroupMetaData(_Weakrefable):
         return """{0}
   num_columns: {1}
   num_rows: {2}
-  total_byte_size: {3}""".format(object.__repr__(self),
+  total_byte_size: {3}
+  sorting_columns: {4}""".format(object.__repr__(self),
                                  self.num_columns,
                                  self.num_rows,
-                                 self.total_byte_size)
+                                 self.total_byte_size,
+                                 self.sorting_columns)
 
     def to_dict(self):
         """
@@ -585,6 +787,7 @@ cdef class RowGroupMetaData(_Weakrefable):
             num_rows=self.num_rows,
             total_byte_size=self.total_byte_size,
             columns=columns,
+            sorting_columns=[col.to_dict() for col in self.sorting_columns]
         )
         for i in range(self.num_columns):
             columns.append(self.column(i).to_dict())
@@ -604,6 +807,19 @@ cdef class RowGroupMetaData(_Weakrefable):
     def total_byte_size(self):
         """Total byte size of all the uncompressed column data in this row group (int)."""
         return self.metadata.total_byte_size()
+
+    @property
+    def sorting_columns(self):
+        """Columns the row group is sorted by (tuple of :class:`SortingColumn`))."""
+        out = []
+        cdef vector[CSortingColumn] sorting_columns = self.metadata.sorting_columns()
+        for sorting_col in sorting_columns:
+            out.append(SortingColumn(
+                sorting_col.column_idx,
+                sorting_col.descending,
+                sorting_col.nulls_first
+            ))
+        return tuple(out)
 
 
 def _reconstruct_filemetadata(Buffer serialized):
@@ -1550,6 +1766,28 @@ cdef class ParquetReader(_Weakrefable):
         return closed
 
 
+cdef CSortingColumn _convert_sorting_column(SortingColumn sorting_column):
+    cdef CSortingColumn c_sorting_column
+
+    c_sorting_column.column_idx = sorting_column.column_index
+    c_sorting_column.descending = sorting_column.descending
+    c_sorting_column.nulls_first = sorting_column.nulls_first
+
+    return c_sorting_column
+
+
+cdef vector[CSortingColumn] _convert_sorting_columns(sorting_columns) except *:
+    if not (isinstance(sorting_columns, Sequence)
+            and all(isinstance(col, SortingColumn) for col in sorting_columns)):
+        raise ValueError(
+            "'sorting_columns' must be a list of `SortingColumn`")
+
+    cdef vector[CSortingColumn] c_sorting_columns = [_convert_sorting_column(col)
+                                                     for col in sorting_columns]
+
+    return c_sorting_columns
+
+
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
         compression=None,
@@ -1564,7 +1802,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_batch_size=None,
         dictionary_pagesize_limit=None,
         write_page_index=False,
-        write_page_checksum=False) except *:
+        write_page_checksum=False,
+        sorting_columns=None) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1648,6 +1887,11 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.disable_statistics()
         for column in write_statistics:
             props.enable_statistics(tobytes(column))
+
+    # sorting_columns
+
+    if sorting_columns is not None:
+        props.set_sorting_columns(_convert_sorting_columns(sorting_columns))
 
     # use_byte_stream_split
 
@@ -1788,6 +2032,34 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
 
     return arrow_properties
 
+cdef _name_to_index_map(Schema arrow_schema):
+    cdef:
+        shared_ptr[CSchema] sp_arrow_schema
+        shared_ptr[SchemaDescriptor] sp_parquet_schema
+        shared_ptr[WriterProperties] props = _create_writer_properties()
+        shared_ptr[ArrowWriterProperties] arrow_props = _create_arrow_writer_properties(
+            use_deprecated_int96_timestamps=False,
+            coerce_timestamps=None,
+            allow_truncated_timestamps=False,
+            writer_engine_version="V2"
+        )
+
+    sp_arrow_schema = pyarrow_unwrap_schema(arrow_schema)
+
+    with nogil:
+        check_status(ToParquetSchema(
+            sp_arrow_schema.get(), deref(props.get()), deref(arrow_props.get()), &sp_parquet_schema))
+
+    out = dict()
+
+    cdef SchemaDescriptor* parquet_schema = sp_parquet_schema.get()
+
+    for i in range(parquet_schema.num_columns()):
+        name = frombytes(parquet_schema.Column(i).path().get().ToDotString())
+        out[name] = i
+
+    return out
+
 
 cdef class ParquetWriter(_Weakrefable):
     cdef:
@@ -1835,7 +2107,8 @@ cdef class ParquetWriter(_Weakrefable):
                   dictionary_pagesize_limit=None,
                   store_schema=True,
                   write_page_index=False,
-                  write_page_checksum=False):
+                  write_page_checksum=False,
+                  sorting_columns=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1867,7 +2140,8 @@ cdef class ParquetWriter(_Weakrefable):
             write_batch_size=write_batch_size,
             dictionary_pagesize_limit=dictionary_pagesize_limit,
             write_page_index=write_page_index,
-            write_page_checksum=write_page_checksum
+            write_page_checksum=write_page_checksum,
+            sorting_columns=sorting_columns,
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
