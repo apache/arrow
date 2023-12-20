@@ -388,6 +388,8 @@ else()
     add_library(arrow_python_parquet_encryption SHARED ${PYARROW_CPP_ENCRYPTION_SRCS})
     target_link_libraries(arrow_python_parquet_encryption
                           PUBLIC arrow_python ${PYARROW_CPP_ENCRYPTION_LINK_LIBS})
+    target_compile_definitions(arrow_python_parquet_encryption
+                               PRIVATE ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
     install(TARGETS arrow_python_parquet_encryption
             ARCHIVE DESTINATION .
             LIBRARY DESTINATION .
