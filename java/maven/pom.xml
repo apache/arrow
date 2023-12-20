@@ -283,7 +283,7 @@
       </plugin>
       <!--
       Generate custom Arrow Java Maven Plugin for module-info.java compiler.
-      Needed to pass Github CI validation `$ mvn assembly:single`
+      Needed to pass GitHub CI validation `$ mvn assembly:single`
       -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
