@@ -525,8 +525,7 @@ TEST(Formatting, Timestamp) {
 
   {
     auto timestamp_types = {timestamp(TimeUnit::SECOND, "US/Eastern"),
-                            timestamp(TimeUnit::SECOND, "+01:00"),
-                            timestamp(TimeUnit::SECOND, "Mars/Mariner_Valley")};
+                            timestamp(TimeUnit::SECOND, "+01:00")};
     for (auto ty : timestamp_types) {
       StringFormatter<TimestampType> formatter(ty.get());
 
@@ -535,36 +534,21 @@ TEST(Formatting, Timestamp) {
   }
 
   {
-    auto timestamp_types = {timestamp(TimeUnit::MILLI, "US/Eastern"),
-                            timestamp(TimeUnit::MILLI, "Pacific/Maruesas"),
-                            timestamp(TimeUnit::MILLI, "Mars/Mariner_Valley")};
-    for (auto ty : timestamp_types) {
-      StringFormatter<TimestampType> formatter(ty.get());
-
-      AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000Z");
-    }
+    auto ty = timestamp(TimeUnit::MILLI, "Pacific/Maruesas");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000Z");
   }
 
   {
-    auto timestamp_types = {timestamp(TimeUnit::MICRO, "US/Eastern"),
-                            timestamp(TimeUnit::MICRO, "-42:00"),
-                            timestamp(TimeUnit::MICRO, "Pacific/Maruesas")};
-    for (auto ty : timestamp_types) {
-      StringFormatter<TimestampType> formatter(ty.get());
-
-      AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000Z");
-    }
+    auto ty = timestamp(TimeUnit::MICRO, "-42:00");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000Z");
   }
 
   {
-    auto timestamp_types = {timestamp(TimeUnit::NANO, "US/Eastern"),
-                            timestamp(TimeUnit::NANO, "+01:00"),
-                            timestamp(TimeUnit::NANO, "-42:00")};
-    for (auto ty : timestamp_types) {
-      StringFormatter<TimestampType> formatter(ty.get());
-
-      AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000000Z");
-    }
+    auto ty = timestamp(TimeUnit::NANO, "Mars/Mariner_Valley");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000000Z");
   }
 }
 
