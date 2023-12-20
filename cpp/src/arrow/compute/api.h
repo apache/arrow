@@ -20,6 +20,10 @@
 
 #pragma once
 
+/// \defgroup compute-functions Abstract compute function API
+/// @{
+/// @}
+
 /// \defgroup compute-concrete-options Concrete option classes for compute functions
 /// @{
 /// @}
@@ -30,6 +34,7 @@
 #include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/function.h"       // IWYU pragma: export
 #include "arrow/compute/kernel.h"         // IWYU pragma: export
+#include "arrow/compute/options.h"        // IWYU pragma: export
 #include "arrow/compute/registry.h"       // IWYU pragma: export
 #include "arrow/datum.h"                  // IWYU pragma: export
 

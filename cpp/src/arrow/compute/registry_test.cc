@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/function.h"
+#include "arrow/compute/options.h"
 #include "arrow/compute/registry.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
