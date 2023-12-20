@@ -61,6 +61,7 @@ func GetPutData() []arrow.Record {
 		} else {
 			batch.Retain()
 			batches = append(batches, batch)
+			records += length
 		}
 	}
 
