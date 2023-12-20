@@ -45,7 +45,7 @@ class MyServer(BaseHTTPRequestHandler):
         
         #######################################################################
         # include these to enable testing JavaScript client in local browser
-        self.send_header('Access-Control-Allow-Origin', 'http://localhost:8080')
+        self.send_header('Access-Control-Allow-Origin', 'http://localhost:8000')
         self.send_header('Access-Control-Allow-Methods', 'GET')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         #######################################################################
