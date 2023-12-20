@@ -617,32 +617,20 @@ class TestAzureFileSystem : public ::testing::Test {
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
 
-    if (WithHierarchicalNamespace()) {
-      ASSERT_OK(fs()->CreateDir(directory_path, true));
-      AssertFileInfo(fs(), directory_path, FileType::Directory);
-      ASSERT_OK(fs()->DeleteDir(directory_path));
-      AssertFileInfo(fs(), directory_path, FileType::NotFound);
-    } else {
-      // There is only virtual directory without hierarchical namespace
-      // support. So the CreateDir() and DeleteDir() do nothing.
-      ASSERT_OK(fs()->CreateDir(directory_path));
-      AssertFileInfo(fs(), directory_path, FileType::NotFound);
-      ASSERT_OK(fs()->DeleteDir(directory_path));
-      AssertFileInfo(fs(), directory_path, FileType::NotFound);
-    }
+    AssertFileInfo(fs(), directory_path, FileType::NotFound);
+    ASSERT_OK(fs()->CreateDir(directory_path, true));
+    AssertFileInfo(fs(), directory_path, FileType::Directory);
+    // XXX: implement DeleteDir on flat namespace storage accounts
+    // ASSERT_OK(fs()->DeleteDir(directory_path));
+    // AssertFileInfo(fs(), directory_path, FileType::NotFound);
   }
 
   void TestCreateDirSuccessContainerAndDirectory() {
     auto data = SetUpPreexistingData();
     const auto path = data.RandomDirectoryPath(rng_);
+    AssertFileInfo(fs(), path, FileType::NotFound);
     ASSERT_OK(fs()->CreateDir(path, false));
-    if (WithHierarchicalNamespace()) {
-      AssertFileInfo(fs(), path, FileType::Directory);
-    } else {
-      // There is only virtual directory without hierarchical namespace
-      // support. So the CreateDir() does nothing.
-      AssertFileInfo(fs(), path, FileType::NotFound);
-    }
+    AssertFileInfo(fs(), path, FileType::Directory);
   }
 
   void TestCreateDirRecursiveSuccessContainerOnly() {
@@ -656,15 +644,8 @@ class TestAzureFileSystem : public ::testing::Test {
     const auto parent = data.RandomDirectoryPath(rng_);
     const auto path = ConcatAbstractPath(parent, "new-sub");
     ASSERT_OK(fs()->CreateDir(path, true));
-    if (WithHierarchicalNamespace()) {
-      AssertFileInfo(fs(), path, FileType::Directory);
-      AssertFileInfo(fs(), parent, FileType::Directory);
-    } else {
-      // There is only virtual directory without hierarchical namespace
-      // support. So the CreateDir() does nothing.
-      AssertFileInfo(fs(), path, FileType::NotFound);
-      AssertFileInfo(fs(), parent, FileType::NotFound);
-    }
+    AssertFileInfo(fs(), path, FileType::Directory);
+    AssertFileInfo(fs(), parent, FileType::Directory);
   }
 
   void TestCreateDirRecursiveSuccessContainerAndDirectory() {
@@ -672,17 +653,9 @@ class TestAzureFileSystem : public ::testing::Test {
     const auto parent = data.RandomDirectoryPath(rng_);
     const auto path = ConcatAbstractPath(parent, "new-sub");
     ASSERT_OK(fs()->CreateDir(path, true));
-    if (WithHierarchicalNamespace()) {
-      AssertFileInfo(fs(), path, FileType::Directory);
-      AssertFileInfo(fs(), parent, FileType::Directory);
-      AssertFileInfo(fs(), data.container_name, FileType::Directory);
-    } else {
-      // There is only virtual directory without hierarchical namespace
-      // support. So the CreateDir() does nothing.
-      AssertFileInfo(fs(), path, FileType::NotFound);
-      AssertFileInfo(fs(), parent, FileType::NotFound);
-      AssertFileInfo(fs(), data.container_name, FileType::Directory);
-    }
+    AssertFileInfo(fs(), path, FileType::Directory);
+    AssertFileInfo(fs(), parent, FileType::Directory);
+    AssertFileInfo(fs(), data.container_name, FileType::Directory);
   }
 
   void TestDeleteDirContentsSuccessNonexistent() {

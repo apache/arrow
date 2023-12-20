@@ -903,6 +903,18 @@ Result<FileInfo> GetContainerPropsAsFileInfo(const AzureLocation& location,
   }
 }
 
+template <class ContainerClient>
+Status CreateContainerIfNotExists(const std::string& container_name,
+                                  ContainerClient& container_client) {
+  try {
+    container_client.CreateIfNotExists();
+    return Status::OK();
+  } catch (const Storage::StorageException& exception) {
+    return ExceptionToStatus(exception, "Failed to create a container: ", container_name,
+                             ": ", container_client.GetUrl());
+  }
+}
+
 FileInfo DirectoryFileInfoFromPath(std::string_view path) {
   return FileInfo{std::string{internal::RemoveTrailingSlash(path)}, FileType::Directory};
 }
@@ -1080,6 +1092,25 @@ class AzureFileSystem::Impl {
           exception, "ListBlobsByHierarchy failed for prefix='", *options.Prefix,
           "'. GetFileInfo is unable to determine whether the path exists.");
     }
+  }
+
+  /// \pref location.container is not empty.
+  template <typename ContainerClient>
+  Status CheckDirExists(ContainerClient& container_client,
+                        const AzureLocation& location) {
+    DCHECK(!location.container.empty());
+    FileInfo info;
+    if (location.path.empty()) {
+      ARROW_ASSIGN_OR_RAISE(info,
+                            GetContainerPropsAsFileInfo(location, container_client));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(info, GetFileInfo(container_client, location));
+    }
+    if (info.type() == FileType::NotFound) {
+      return PathNotFound(location);
+    }
+    DCHECK_EQ(info.type(), FileType::Directory);
+    return Status::OK();
   }
 
  private:
@@ -1297,96 +1328,80 @@ class AzureFileSystem::Impl {
     return ptr;
   }
 
-  Status CreateDir(const AzureLocation& location) {
-    if (location.container.empty()) {
-      return Status::Invalid("CreateDir requires a non-empty path.");
-    }
-
-    auto container_client =
-        blob_service_client_->GetBlobContainerClient(location.container);
-    if (location.path.empty()) {
-      try {
-        auto response = container_client.Create();
-        return response.Value.Created
-                   ? Status::OK()
-                   : Status::AlreadyExists("Directory already exists: " + location.all);
-      } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus(exception,
-                                 "Failed to create a container: ", location.container,
-                                 ": ", container_client.GetUrl());
+  /// This function cannot assume the filesystem/container already exists.
+  ///
+  /// \pre location.container is not empty.
+  /// \pre location.path is not empty.
+  template <class ContainerClient, class GetDirectoryClient, class CreateDirIfNotExists>
+  Status CreateDirTemplate(ContainerClient& container_client,
+                           GetDirectoryClient&& get_directory_client,
+                           CreateDirIfNotExists&& create_if_not_exists,
+                           const AzureLocation& location, bool recursive) {
+    DCHECK(!location.container.empty());
+    DCHECK(!location.path.empty());
+    // Non-recursive CreateDir calls require the parent directory to exist.
+    if (!recursive) {
+      auto parent = location.parent();
+      if (!parent.path.empty()) {
+        RETURN_NOT_OK(CheckDirExists(container_client, parent));
       }
+      // If the parent location is just the container, we don't need to check if it
+      // exists because the operation we perform below will fail if the container
+      // doesn't exist and we can handle that error according to the recursive flag.
     }
-
-    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
-    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
-    if (hns_support == HNSSupport::kContainerNotFound) {
-      return PathNotFound(location);
-    }
-    if (hns_support == HNSSupport::kDisabled) {
-      ARROW_ASSIGN_OR_RAISE(auto container_info,
-                            GetContainerPropsAsFileInfo(location, container_client));
-      if (container_info.type() == FileType::NotFound) {
-        return PathNotFound(location);
-      }
-      // Without hierarchical namespace enabled Azure blob storage has no directories.
-      // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
-      // in the name implies directories.
-      return Status::OK();
-    }
-
-    auto directory_client = adlfs_client.GetDirectoryClient(location.path);
+    auto directory_client = get_directory_client(container_client, location);
     try {
-      auto response = directory_client.Create();
-      if (response.Value.Created) {
-        return Status::OK();
-      } else {
-        return StatusFromErrorResponse(directory_client.GetUrl(), *response.RawResponse,
-                                       "Failed to create a directory: " + location.path);
-      }
+      create_if_not_exists(directory_client);
+      return Status::OK();
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception, "Failed to create a directory: ", location.path,
-                               ": ", directory_client.GetUrl());
+      if (IsContainerNotFound(exception)) {
+        try {
+          if (recursive) {
+            container_client.CreateIfNotExists();
+            create_if_not_exists(directory_client);
+            return Status::OK();
+          } else {
+            auto parent = location.parent();
+            return PathNotFound(parent);
+          }
+        } catch (const Storage::StorageException& second_exception) {
+          return ExceptionToStatus(second_exception);
+        }
+      }
+      return ExceptionToStatus(exception);
     }
   }
 
-  Status CreateDirRecursive(const AzureLocation& location) {
-    if (location.container.empty()) {
-      return Status::Invalid("CreateDir requires a non-empty path.");
-    }
+ public:
+  /// This function cannot assume the filesystem already exists.
+  ///
+  /// \pre location.container is not empty.
+  /// \pre location.path is not empty.
+  Status CreateDirOnFileSystem(DataLake::DataLakeFileSystemClient& adlfs_client,
+                               const AzureLocation& location, bool recursive) {
+    return CreateDirTemplate(
+        adlfs_client,
+        [](auto& adlfs_client, auto& location) {
+          return adlfs_client.GetDirectoryClient(location.path);
+        },
+        [](auto& directory_client) { directory_client.CreateIfNotExists(); }, location,
+        recursive);
+  }
 
-    auto container_client =
-        blob_service_client_->GetBlobContainerClient(location.container);
-    try {
-      container_client.CreateIfNotExists();
-    } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(exception,
-                               "Failed to create a container: ", location.container, " (",
-                               container_client.GetUrl(), ")");
-    }
-
-    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
-    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
-    if (hns_support == HNSSupport::kDisabled) {
-      // Without hierarchical namespace enabled Azure blob storage has no directories.
-      // Therefore we can't, and don't need to create one. Simply creating a blob with `/`
-      // in the name implies directories.
-      return Status::OK();
-    }
-    // Don't handle HNSSupport::kContainerNotFound, just assume it still exists (because
-    // it was created above) and try to create the directory.
-
-    if (!location.path.empty()) {
-      auto directory_client = adlfs_client.GetDirectoryClient(location.path);
-      try {
-        directory_client.CreateIfNotExists();
-      } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus(exception,
-                                 "Failed to create a directory: ", location.path, " (",
-                                 directory_client.GetUrl(), ")");
-      }
-    }
-
-    return Status::OK();
+  /// This function cannot assume the container already exists.
+  ///
+  /// \pre location.container is not empty.
+  /// \pre location.path is not empty.
+  Status CreateDirOnContainer(Blobs::BlobContainerClient& container_client,
+                              const AzureLocation& location, bool recursive) {
+    return CreateDirTemplate(
+        container_client,
+        [](auto& container_client, auto& location) {
+          auto dir_marker_blob_path = internal::EnsureTrailingSlash(location.path);
+          return container_client.GetBlobClient(dir_marker_blob_path).AsBlockBlobClient();
+        },
+        [](auto& block_blob_client) { block_blob_client.UploadFrom(nullptr, 0); },
+        location, recursive);
   }
 
   Result<std::shared_ptr<ObjectAppendStream>> OpenAppendStream(
@@ -1676,11 +1691,45 @@ Result<FileInfoVector> AzureFileSystem::GetFileInfo(const FileSelector& select) 
 
 Status AzureFileSystem::CreateDir(const std::string& path, bool recursive) {
   ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
-  if (recursive) {
-    return impl_->CreateDirRecursive(location);
-  } else {
-    return impl_->CreateDir(location);
+  if (location.container.empty()) {
+    return Status::Invalid("CreateDir requires a non-empty path.");
   }
+
+  auto container_client = impl_->GetBlobContainerClient(location.container);
+  if (location.path.empty()) {
+    // If the path is just the container, the parent (root) trivially exists,
+    // and the CreateDir operation comes down to just creating the container.
+    return CreateContainerIfNotExists(location.container, container_client);
+  }
+
+  auto adlfs_client = impl_->GetFileSystemClient(location.container);
+  ARROW_ASSIGN_OR_RAISE(auto hns_support,
+                        impl_->HierarchicalNamespaceSupport(adlfs_client));
+  if (hns_support == HNSSupport::kContainerNotFound) {
+    if (!recursive) {
+      auto parent = location.parent();
+      return PathNotFound(parent);
+    }
+    RETURN_NOT_OK(CreateContainerIfNotExists(location.container, container_client));
+    // Perform a second check for HNS support after creating the container.
+    ARROW_ASSIGN_OR_RAISE(hns_support, impl_->HierarchicalNamespaceSupport(adlfs_client));
+  }
+  if (hns_support == HNSSupport::kContainerNotFound) {
+    // We only get kContainerNotFound if we are unable to read the properties of the
+    // container we just created. This is very unlikely, but theoretically possible in
+    // a concurrent system, so the error is handled to avoid infinite recursion.
+    return Status::IOError("Unable to read properties of a newly created container: ",
+                           location.container, ": " + container_client.GetUrl());
+  }
+  // CreateDirOnFileSystem and CreateDirOnContainer can handle the container
+  // not existing which is useful and necessary here since the only reason
+  // a container was created above was to check for HNS support when it wasn't
+  // cached yet.
+  if (hns_support == HNSSupport::kEnabled) {
+    return impl_->CreateDirOnFileSystem(adlfs_client, location, recursive);
+  }
+  DCHECK_EQ(hns_support, HNSSupport::kDisabled);
+  return impl_->CreateDirOnContainer(container_client, location, recursive);
 }
 
 Status AzureFileSystem::DeleteDir(const std::string& path) {
