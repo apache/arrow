@@ -468,6 +468,7 @@ Timezone Handling
    :toctree: ../generated/
 
    assume_timezone
+   local_timestamp
 
 Associative Transforms
 ----------------------
