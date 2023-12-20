@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/filesystem/azurefs.h"
+#include "arrow/filesystem/azurefs_internal.h"
 
 #include <azure/identity.hpp>
 #include <azure/storage/blobs.hpp>
@@ -41,7 +42,7 @@ namespace DataLake = Azure::Storage::Files::DataLake;
 namespace Http = Azure::Core::Http;
 namespace Storage = Azure::Storage;
 
-using internal::HNSSupport;
+using HNSSupport = internal::HierarchicalNamespaceSupport;
 
 // -----------------------------------------------------------------------
 // AzureOptions Implementation

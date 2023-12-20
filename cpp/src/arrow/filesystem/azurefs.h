@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/filesystem/azurefs_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
@@ -117,54 +118,6 @@ struct ARROW_EXPORT AzureOptions {
   Result<std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>>
   MakeDataLakeServiceClient() const;
 };
-
-namespace internal {
-
-enum class HNSSupport {
-  kUnknown = 0,
-  kContainerNotFound = 1,
-  kDisabled = 2,
-  kEnabled = 3,
-};
-
-/// \brief Performs a request to check if the storage account has Hierarchical
-/// Namespace support enabled.
-///
-/// This check requires a DataLakeFileSystemClient for any container of the
-/// storage account. If the container doesn't exist yet, we just forward that
-/// error to the caller (kContainerNotFound) since that's a proper error to the operation
-/// on that container anyways -- no need to try again with or without the knowledge of
-/// Hierarchical Namespace support.
-///
-/// Hierarchical Namespace support can't easily be changed after the storage account is
-/// created and the feature is shared by all containers in the storage account.
-/// This means the result of this check can (and should!) be cached as soon as
-/// it returns a successful result on any container of the storage account (see
-/// AzureFileSystem::Impl).
-///
-/// The check consists of a call to DataLakeFileSystemClient::GetAccessControlList()
-/// on the root directory of the container. An approach taken by the Hadoop Azure
-/// project [1]. A more obvious approach would be to call
-/// BlobServiceClient::GetAccountInfo(), but that endpoint requires elevated
-/// permissions [2] that we can't generally rely on.
-///
-/// [1]:
-/// https://github.com/apache/hadoop/blob/7c6af6a5f626d18d68b656d085cc23e4c1f7a1ef/hadoop-tools/hadoop-azure/src/main/java/org/apache/hadoop/fs/azurebfs/AzureBlobFileSystemStore.java#L356.
-/// [2]:
-/// https://learn.microsoft.com/en-us/rest/api/storageservices/get-blob-service-properties?tabs=azure-ad#authorization
-///
-/// IMPORTANT: If the result is kEnabled or kDisabled, it doesn't necessarily mean that
-/// the container exists.
-///
-/// \param adlfs_client A DataLakeFileSystemClient for a container of the storage
-/// account.
-/// \return kEnabled/kDisabled/kContainerNotFound (kUnknown is never
-/// returned).
-Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
-    Azure::Storage::Files::DataLake::DataLakeFileSystemClient& adlfs_client,
-    const AzureOptions& options);
-
-}  // namespace internal
 
 /// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and
 /// Azure Data Lake Storage Gen2 (ADLS Gen2) [2].
