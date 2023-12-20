@@ -430,7 +430,7 @@ public class JdbcToArrowUtils {
     }
   }
 
-  static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
+  public static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
       FieldVector vector, JdbcToArrowConfig config) {
     final Calendar calendar = config.getCalendar();
 
