@@ -217,9 +217,11 @@ struct AzureLocation {
   }
 };
 
-Status ExceptionToStatus(const std::string& prefix,
-                         const Azure::Storage::StorageException& exception) {
-  return Status::IOError(prefix, " Azure Error: ", exception.what());
+template <typename... PrefixArgs>
+Status ExceptionToStatus(const Storage::StorageException& exception,
+                         PrefixArgs&&... prefix_args) {
+  return Status::IOError(std::forward<PrefixArgs>(prefix_args)...,
+                         " Azure Error: ", exception.what());
 }
 
 Status PathNotFound(const AzureLocation& location) {
@@ -452,9 +454,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
         return PathNotFound(location_);
       }
       return ExceptionToStatus(
-          "GetProperties failed for '" + blob_client_->GetUrl() +
-              "'. Cannot initialise an ObjectInputFile without knowing the file size.",
-          exception);
+          exception, "GetProperties failed for '", blob_client_->GetUrl(),
+          "'. Cannot initialise an ObjectInputFile without knowing the file size.");
     }
   }
 
@@ -532,10 +533,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
           .Value.ContentRange.Length.Value();
     } catch (const Storage::StorageException& exception) {
       return ExceptionToStatus(
-          "DownloadTo from '" + blob_client_->GetUrl() + "' at position " +
-              std::to_string(position) + " for " + std::to_string(nbytes) +
-              " bytes failed. ReadAt failed to read the required byte range.",
-          exception);
+          exception, "DownloadTo from '", blob_client_->GetUrl(), "' at position ",
+          position, " for ", nbytes,
+          " bytes failed. ReadAt failed to read the required byte range.");
     }
   }
 
@@ -585,10 +585,9 @@ Status CreateEmptyBlockBlob(Blobs::BlockBlobClient& block_blob_client) {
     block_blob_client.UploadFrom(nullptr, 0);
   } catch (const Storage::StorageException& exception) {
     return ExceptionToStatus(
-        "UploadFrom failed for '" + block_blob_client.GetUrl() +
-            "'. There is no existing blob at this location or the existing blob must be "
-            "replaced so ObjectAppendStream must create a new empty block blob.",
-        exception);
+        exception, "UploadFrom failed for '", block_blob_client.GetUrl(),
+        "'. There is no existing blob at this location or the existing blob must be "
+        "replaced so ObjectAppendStream must create a new empty block blob.");
   }
   return Status::OK();
 }
@@ -599,9 +598,8 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
     return block_blob_client->GetBlockList().Value;
   } catch (Storage::StorageException& exception) {
     return ExceptionToStatus(
-        "GetBlockList failed for '" + block_blob_client->GetUrl() +
-            "'. Cannot write to a file without first fetching the existing block list.",
-        exception);
+        exception, "GetBlockList failed for '", block_blob_client->GetUrl(),
+        "'. Cannot write to a file without first fetching the existing block list.");
   }
 }
 
@@ -618,9 +616,8 @@ Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_bl
     block_blob_client->CommitBlockList(block_ids, options);
   } catch (const Storage::StorageException& exception) {
     return ExceptionToStatus(
-        "CommitBlockList failed for '" + block_blob_client->GetUrl() +
-            "'. Committing is required to flush an output/append stream.",
-        exception);
+        exception, "CommitBlockList failed for '", block_blob_client->GetUrl(),
+        "'. Committing is required to flush an output/append stream.");
   }
   return Status::OK();
 }
@@ -662,10 +659,9 @@ class ObjectAppendStream final : public io::OutputStream {
           RETURN_NOT_OK(CreateEmptyBlockBlob(*block_blob_client_));
         } else {
           return ExceptionToStatus(
-              "GetProperties failed for '" + block_blob_client_->GetUrl() +
-                  "'. Cannot initialise an ObjectAppendStream without knowing whether a "
-                  "file already exists at this path, and if it exists, its size.",
-              exception);
+              exception, "GetProperties failed for '", block_blob_client_->GetUrl(),
+              "'. Cannot initialise an ObjectAppendStream without knowing whether a "
+              "file already exists at this path, and if it exists, its size.");
         }
         content_length_ = 0;
       }
@@ -760,10 +756,9 @@ class ObjectAppendStream final : public io::OutputStream {
       block_blob_client_->StageBlock(new_block_id, block_content);
     } catch (const Storage::StorageException& exception) {
       return ExceptionToStatus(
-          "StageBlock failed for '" + block_blob_client_->GetUrl() + "' new_block_id: '" +
-              new_block_id +
-              "'. Staging new blocks is fundamental to streaming writes to blob storage.",
-          exception);
+          exception, "StageBlock failed for '", block_blob_client_->GetUrl(),
+          "' new_block_id: '", new_block_id,
+          "'. Staging new blocks is fundamental to streaming writes to blob storage.");
     }
     block_ids_.push_back(new_block_id);
     pos_ += nbytes;
@@ -835,9 +830,9 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
         if (exception.ErrorCode == "HierarchicalNamespaceNotEnabled") {
           return HNSSupport::kDisabled;
         }
-        return ExceptionToStatus("Check for Hierarchical Namespace support on '" +
-                                     adlfs_client.GetUrl() + "' failed.",
-                                 exception);
+        return ExceptionToStatus(exception,
+                                 "Check for Hierarchical Namespace support on '",
+                                 adlfs_client.GetUrl(), "' failed.");
     }
   }
 }
@@ -855,6 +850,8 @@ namespace {
 // "filesystem". Creating a container using the Blob Storage API will make it
 // accessible using the Data Lake Storage Gen 2 API and vice versa.
 
+const std::string kDelimiter = std::string{internal::kSep};
+
 template <class ContainerClient>
 Result<FileInfo> GetContainerPropsAsFileInfo(const std::string& container_name,
                                              ContainerClient& container_client) {
@@ -869,8 +866,8 @@ Result<FileInfo> GetContainerPropsAsFileInfo(const std::string& container_name,
       info.set_type(FileType::NotFound);
       return info;
     }
-    return ExceptionToStatus(
-        "GetProperties for '" + container_client.GetUrl() + "' failed.", exception);
+    return ExceptionToStatus(exception, "GetProperties for '", container_client.GetUrl(),
+                             "' failed.");
   }
 }
 
@@ -1011,16 +1008,14 @@ class AzureFileSystem::Impl {
           return info;
         } catch (const Storage::StorageException& exception) {
           return ExceptionToStatus(
-              "ListBlobs failed for prefix='" + *list_blob_options.Prefix +
-                  "' failed. GetFileInfo is unable to determine whether the path should "
-                  "be considered an implied directory.",
-              exception);
+              exception, "ListBlobs failed for prefix='", *list_blob_options.Prefix,
+              "' failed. GetFileInfo is unable to determine whether the path should "
+              "be considered an implied directory.");
         }
       }
       return ExceptionToStatus(
-          "GetProperties failed for '" + file_client.GetUrl() +
-              "' GetFileInfo is unable to determine whether the path exists.",
-          exception);
+          exception, "GetProperties failed for '", file_client.GetUrl(),
+          "' GetFileInfo is unable to determine whether the path exists.");
     }
   }
 
@@ -1038,7 +1033,7 @@ class AzureFileSystem::Impl {
         }
       }
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus("Failed to list account containers.", exception);
+      return ExceptionToStatus(exception, "Failed to list account containers.");
     }
     return Status::OK();
   }
@@ -1153,9 +1148,9 @@ class AzureFileSystem::Impl {
       if (IsContainerNotFound(exception)) {
         found = false;
       } else {
-        return ExceptionToStatus("Failed to list blobs in a directory: " +
-                                     select.base_dir + ": " + container_client.GetUrl(),
-                                 exception);
+        return ExceptionToStatus(exception,
+                                 "Failed to list blobs in a directory: ", select.base_dir,
+                                 ": ", container_client.GetUrl());
       }
     }
 
@@ -1253,9 +1248,9 @@ class AzureFileSystem::Impl {
                    ? Status::OK()
                    : Status::AlreadyExists("Directory already exists: " + location.all);
       } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus("Failed to create a container: " + location.container +
-                                     ": " + container_client.GetUrl(),
-                                 exception);
+        return ExceptionToStatus(exception,
+                                 "Failed to create a container: ", location.container,
+                                 ": ", container_client.GetUrl());
       }
     }
 
@@ -1287,9 +1282,8 @@ class AzureFileSystem::Impl {
                                        "Failed to create a directory: " + location.path);
       }
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus("Failed to create a directory: " + location.path + ": " +
-                                   directory_client.GetUrl(),
-                               exception);
+      return ExceptionToStatus(exception, "Failed to create a directory: ", location.path,
+                               ": ", directory_client.GetUrl());
     }
   }
 
@@ -1303,9 +1297,9 @@ class AzureFileSystem::Impl {
     try {
       container_client.CreateIfNotExists();
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus("Failed to create a container: " + location.container +
-                                   " (" + container_client.GetUrl() + ")",
-                               exception);
+      return ExceptionToStatus(exception,
+                               "Failed to create a container: ", location.container, " (",
+                               container_client.GetUrl(), ")");
     }
 
     auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
@@ -1324,9 +1318,9 @@ class AzureFileSystem::Impl {
       try {
         directory_client.CreateIfNotExists();
       } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus("Failed to create a directory: " + location.path + " (" +
-                                     directory_client.GetUrl() + ")",
-                                 exception);
+        return ExceptionToStatus(exception,
+                                 "Failed to create a directory: ", location.path, " (",
+                                 directory_client.GetUrl(), ")");
       }
     }
 
@@ -1389,9 +1383,8 @@ class AzureFileSystem::Impl {
         try {
           container_client.SubmitBatch(batch);
         } catch (const Storage::StorageException& exception) {
-          return ExceptionToStatus("Failed to delete blobs in a directory: " +
-                                       location.path + ": " + container_client.GetUrl(),
-                                   exception);
+          return ExceptionToStatus(exception, "Failed to delete blobs in a directory: ",
+                                   location.path, ": ", container_client.GetUrl());
         }
         std::vector<std::string> failed_blob_names;
         for (size_t i = 0; i < deferred_responses.size(); ++i) {
@@ -1420,9 +1413,9 @@ class AzureFileSystem::Impl {
         }
       }
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus("Failed to list blobs in a directory: " + location.path +
-                                   ": " + container_client.GetUrl(),
-                               exception);
+      return ExceptionToStatus(exception,
+                               "Failed to list blobs in a directory: ", location.path,
+                               ": ", container_client.GetUrl());
     }
     return Status::OK();
   }
@@ -1452,9 +1445,9 @@ class AzureFileSystem::Impl {
               "Failed to delete a container: " + location.container);
         }
       } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus("Failed to delete a container: " + location.container +
-                                     ": " + container_client.GetUrl(),
-                                 exception);
+        return ExceptionToStatus(exception,
+                                 "Failed to delete a container: ", location.container,
+                                 ": ", container_client.GetUrl());
       }
     }
 
@@ -1470,9 +1463,9 @@ class AzureFileSystem::Impl {
               "Failed to delete a directory: " + location.path);
         }
       } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus("Failed to delete a directory: " + location.path + ": " +
-                                     directory_client.GetUrl(),
-                                 exception);
+        return ExceptionToStatus(exception,
+                                 "Failed to delete a directory: ", location.path, ": ",
+                                 directory_client.GetUrl());
       }
     } else {
       return DeleteDirContentsWithoutHierarchicalNamespace(location,
@@ -1503,9 +1496,8 @@ class AzureFileSystem::Impl {
                 sub_directory_client.DeleteRecursive();
               } catch (const Storage::StorageException& exception) {
                 return ExceptionToStatus(
-                    "Failed to delete a sub directory: " + location.container +
-                        internal::kSep + path.Name + ": " + sub_directory_client.GetUrl(),
-                    exception);
+                    exception, "Failed to delete a sub directory: ", location.container,
+                    kDelimiter, path.Name, ": ", sub_directory_client.GetUrl());
               }
             } else {
               auto sub_file_client = adlfs_client.GetFileClient(path.Name);
@@ -1513,9 +1505,8 @@ class AzureFileSystem::Impl {
                 sub_file_client.Delete();
               } catch (const Storage::StorageException& exception) {
                 return ExceptionToStatus(
-                    "Failed to delete a sub file: " + location.container +
-                        internal::kSep + path.Name + ": " + sub_file_client.GetUrl(),
-                    exception);
+                    exception, "Failed to delete a sub file: ", location.container,
+                    kDelimiter, path.Name, ": ", sub_file_client.GetUrl());
               }
             }
           }
@@ -1524,9 +1515,9 @@ class AzureFileSystem::Impl {
         if (missing_dir_ok && exception.StatusCode == Http::HttpStatusCode::NotFound) {
           return Status::OK();
         } else {
-          return ExceptionToStatus("Failed to delete directory contents: " +
-                                       location.path + ": " + directory_client.GetUrl(),
-                                   exception);
+          return ExceptionToStatus(exception,
+                                   "Failed to delete directory contents: ", location.path,
+                                   ": ", directory_client.GetUrl());
         }
       }
       return Status::OK();
@@ -1549,9 +1540,8 @@ class AzureFileSystem::Impl {
     try {
       dest_blob_client.CopyFromUri(src_url);
     } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(
-          "Failed to copy a blob. (" + src_url + " -> " + dest_blob_client.GetUrl() + ")",
-          exception);
+      return ExceptionToStatus(exception, "Failed to copy a blob. (", src_url, " -> ",
+                               dest_blob_client.GetUrl(), ")");
     }
     return Status::OK();
   }
