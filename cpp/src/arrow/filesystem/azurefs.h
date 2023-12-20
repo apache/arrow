@@ -21,7 +21,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/filesystem/azurefs_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
