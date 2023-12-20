@@ -278,7 +278,7 @@ TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
 
 TEST(AzureFileSystem, InitializeFilesystemWithWorkloadIdentityCredential) {
   AzureOptions options;
-  ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
+  ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential("dummy-account-name"));
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
