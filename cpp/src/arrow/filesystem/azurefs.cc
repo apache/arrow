@@ -581,7 +581,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-Status CreateEmptyBlockBlob(Blobs::BlockBlobClient& block_blob_client) {
+Status CreateEmptyBlockBlob(const Blobs::BlockBlobClient& block_blob_client) {
   try {
     block_blob_client.UploadFrom(nullptr, 0);
   } catch (const Storage::StorageException& exception) {
