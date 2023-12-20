@@ -36,15 +36,13 @@
 #include "arrow/filesystem/azurefs.h"
 #include "arrow/filesystem/azurefs_internal.h"
 
+#include <memory>
 #include <random>
 #include <string>
 
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock-more-matchers.h>
 #include <gtest/gtest.h>
-#include <azure/identity/client_secret_credential.hpp>
-#include <azure/identity/default_azure_credential.hpp>
-#include <azure/identity/managed_identity_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
 #include <azure/storage/files/datalake.hpp>
@@ -63,6 +61,7 @@
 namespace arrow {
 using internal::TemporaryDir;
 namespace fs {
+using internal::ConcatAbstractPath;
 namespace {
 namespace bp = boost::process;
 
@@ -71,56 +70,140 @@ using ::testing::Not;
 using ::testing::NotNull;
 
 namespace Blobs = Azure::Storage::Blobs;
-namespace Files = Azure::Storage::Files;
+namespace Core = Azure::Core;
+namespace DataLake = Azure::Storage::Files::DataLake;
 
-auto const* kLoremIpsum = R"""(
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-culpa qui officia deserunt mollit anim id est laborum.
-)""";
+enum class AzureBackend {
+  /// \brief Official Azure Remote Backend
+  kAzure,
+  /// \brief Local Simulated Storage
+  kAzurite
+};
 
-class AzuriteEnv : public ::testing::Environment {
+class BaseAzureEnv : public ::testing::Environment {
+ protected:
+  std::string account_name_;
+  std::string account_key_;
+
+  BaseAzureEnv(std::string account_name, std::string account_key)
+      : account_name_(std::move(account_name)), account_key_(std::move(account_key)) {}
+
  public:
-  AzuriteEnv() {
-    account_name_ = "devstoreaccount1";
-    account_key_ =
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
-        "KBHBeksoGMGw==";
-    auto exe_path = bp::search_path("azurite");
-    if (exe_path.empty()) {
-      auto error = std::string("Could not find Azurite emulator.");
-      status_ = Status::Invalid(error);
-      return;
-    }
-    auto temp_dir_ = *TemporaryDir::Make("azurefs-test-");
-    auto debug_log_path_result = temp_dir_->path().Join("debug.log");
-    if (!debug_log_path_result.ok()) {
-      status_ = debug_log_path_result.status();
-      return;
-    }
-    debug_log_path_ = *debug_log_path_result;
-    server_process_ =
-        bp::child(boost::this_process::environment(), exe_path, "--silent", "--location",
-                  temp_dir_->path().ToString(), "--debug", debug_log_path_.ToString());
-    if (!(server_process_.valid() && server_process_.running())) {
-      auto error = "Could not start Azurite emulator.";
-      server_process_.terminate();
-      server_process_.wait();
-      status_ = Status::Invalid(error);
-      return;
-    }
-    status_ = Status::OK();
+  const std::string& account_name() const { return account_name_; }
+  const std::string& account_key() const { return account_key_; }
+
+  virtual AzureBackend backend() const = 0;
+
+  virtual bool WithHierarchicalNamespace() const { return false; }
+
+  virtual Result<int64_t> GetDebugLogSize() { return 0; }
+  virtual Status DumpDebugLog(int64_t position) {
+    return Status::NotImplemented("BaseAzureEnv::DumpDebugLog");
   }
+};
+
+template <class AzureEnvClass>
+class AzureEnvImpl : public BaseAzureEnv {
+ private:
+  /// \brief Factory function that registers the singleton instance as a global test
+  /// environment. Must be called only once per implementation (see GetInstance()).
+  ///
+  /// Every BaseAzureEnv implementation defines a static and parameter-less member
+  /// function called Make() that returns a Result<std::unique_ptr<BaseAzureEnv>>.
+  /// This templated function performs the following steps:
+  ///
+  /// 1) Calls AzureEnvClass::Make() to get an instance of AzureEnvClass.
+  /// 2) Passes ownership of the AzureEnvClass instance to the testing environment.
+  /// 3) Returns a Result<BaseAzureEnv*> wrapping the raw heap-allocated pointer.
+  static Result<BaseAzureEnv*> MakeAndAddToGlobalTestEnvironment() {
+    ARROW_ASSIGN_OR_RAISE(auto env, AzureEnvClass::Make());
+    auto* heap_ptr = env.release();
+    ::testing::AddGlobalTestEnvironment(heap_ptr);
+    return heap_ptr;
+  }
+
+ protected:
+  using BaseAzureEnv::BaseAzureEnv;
+
+  /// \brief Create an AzureEnvClass instance from environment variables.
+  ///
+  /// Reads the account name and key from the environment variables. This can be
+  /// used in BaseAzureEnv implementations that don't need to do any additional
+  /// setup to create the singleton instance (e.g. AzureFlatNSEnv,
+  /// AzureHierarchicalNSEnv).
+  static Result<std::unique_ptr<AzureEnvClass>> MakeFromEnvVars(
+      const std::string& account_name_var, const std::string& account_key_var) {
+    const auto account_name = std::getenv(account_name_var.c_str());
+    const auto account_key = std::getenv(account_key_var.c_str());
+    if (!account_name && !account_key) {
+      return Status::Cancelled(account_name_var + " and " + account_key_var +
+                               " are not set. Skipping tests.");
+    }
+    // If only one of the variables is set. Don't cancel tests,
+    // fail with a Status::Invalid.
+    if (!account_name) {
+      return Status::Invalid(account_name_var + " not set while " + account_key_var +
+                             " is set.");
+    }
+    if (!account_key) {
+      return Status::Invalid(account_key_var + " not set while " + account_name_var +
+                             " is set.");
+    }
+    return std::unique_ptr<AzureEnvClass>{new AzureEnvClass(account_name, account_key)};
+  }
+
+ public:
+  static Result<BaseAzureEnv*> GetInstance() {
+    // Ensure MakeAndAddToGlobalTestEnvironment() is called only once by storing the
+    // Result<BaseAzureEnv*> in a static variable.
+    static auto singleton_env = MakeAndAddToGlobalTestEnvironment();
+    return singleton_env;
+  }
+
+  AzureBackend backend() const final { return AzureEnvClass::kBackend; }
+};
+
+class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
+ private:
+  std::unique_ptr<TemporaryDir> temp_dir_;
+  arrow::internal::PlatformFilename debug_log_path_;
+  bp::child server_process_;
+
+  using AzureEnvImpl::AzureEnvImpl;
+
+ public:
+  static const AzureBackend kBackend = AzureBackend::kAzurite;
 
   ~AzuriteEnv() override {
     server_process_.terminate();
     server_process_.wait();
   }
 
-  Result<int64_t> GetDebugLogSize() {
+  static Result<std::unique_ptr<AzureEnvImpl>> Make() {
+    auto self = std::unique_ptr<AzuriteEnv>(
+        new AzuriteEnv("devstoreaccount1",
+                       "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
+                       "K1SZFPTOtr/KBHBeksoGMGw=="));
+    auto exe_path = bp::search_path("azurite");
+    if (exe_path.empty()) {
+      return Status::Invalid("Could not find Azurite emulator.");
+    }
+    ARROW_ASSIGN_OR_RAISE(self->temp_dir_, TemporaryDir::Make("azurefs-test-"));
+    ARROW_ASSIGN_OR_RAISE(self->debug_log_path_,
+                          self->temp_dir_->path().Join("debug.log"));
+    auto server_process = bp::child(
+        boost::this_process::environment(), exe_path, "--silent", "--location",
+        self->temp_dir_->path().ToString(), "--debug", self->debug_log_path_.ToString());
+    if (!server_process.valid() || !server_process.running()) {
+      server_process.terminate();
+      server_process.wait();
+      return Status::Invalid("Could not start Azurite emulator.");
+    }
+    self->server_process_ = std::move(server_process);
+    return self;
+  }
+
+  Result<int64_t> GetDebugLogSize() override {
     ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
     if (!exists) {
       return 0;
@@ -131,7 +214,7 @@ class AzuriteEnv : public ::testing::Environment {
     return arrow::internal::FileTell(file_descriptor.fd());
   }
 
-  Status DumpDebugLog(int64_t position = 0) {
+  Status DumpDebugLog(int64_t position) override {
     ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
     if (!exists) {
       return Status::OK();
@@ -157,35 +240,40 @@ class AzuriteEnv : public ::testing::Environment {
     std::cerr << std::endl;
     return Status::OK();
   }
-
-  const std::string& account_name() const { return account_name_; }
-  const std::string& account_key() const { return account_key_; }
-  const Status status() const { return status_; }
-
- private:
-  std::string account_name_;
-  std::string account_key_;
-  bp::child server_process_;
-  Status status_;
-  std::unique_ptr<TemporaryDir> temp_dir_;
-  arrow::internal::PlatformFilename debug_log_path_;
 };
 
-auto* azurite_env = ::testing::AddGlobalTestEnvironment(new AzuriteEnv);
+class AzureFlatNSEnv : public AzureEnvImpl<AzureFlatNSEnv> {
+ private:
+  using AzureEnvImpl::AzureEnvImpl;
 
-AzuriteEnv* GetAzuriteEnv() {
-  return ::arrow::internal::checked_cast<AzuriteEnv*>(azurite_env);
-}
+ public:
+  static const AzureBackend kBackend = AzureBackend::kAzure;
 
-// Placeholder tests
-// TODO: GH-18014 Remove once a proper test is added
-TEST(AzureFileSystem, InitializeCredentials) {
-  auto default_credential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
-  auto managed_identity_credential =
-      std::make_shared<Azure::Identity::ManagedIdentityCredential>();
-  auto service_principal_credential =
-      std::make_shared<Azure::Identity::ClientSecretCredential>("tenant_id", "client_id",
-                                                                "client_secret");
+  static Result<std::unique_ptr<AzureFlatNSEnv>> Make() {
+    return MakeFromEnvVars("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME",
+                           "AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
+  }
+};
+
+class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
+ private:
+  using AzureEnvImpl::AzureEnvImpl;
+
+ public:
+  static const AzureBackend kBackend = AzureBackend::kAzure;
+
+  static Result<std::unique_ptr<AzureHierarchicalNSEnv>> Make() {
+    return MakeFromEnvVars("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME",
+                           "AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
+  }
+
+  bool WithHierarchicalNamespace() const final { return true; }
+};
+
+TEST(AzureFileSystem, InitializeFilesystemWithDefaultCredential) {
+  AzureOptions options;
+  ARROW_EXPECT_OK(options.ConfigureDefaultCredential("dummy-account-name"));
+  EXPECT_OK_AND_ASSIGN(auto default_credential_fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
@@ -193,50 +281,133 @@ TEST(AzureFileSystem, OptionsCompare) {
   EXPECT_TRUE(options.Equals(options));
 }
 
-class AzureFileSystemTest : public ::testing::Test {
+struct PreexistingData {
  public:
+  using RNG = std::mt19937_64;
+
+ public:
+  const std::string container_name;
+  static constexpr char const* kObjectName = "test-object-name";
+
+  static constexpr char const* kLoremIpsum = R"""(
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.
+)""";
+
+ public:
+  explicit PreexistingData(RNG& rng) : container_name{RandomContainerName(rng)} {}
+
+  // Creates a path by concatenating the container name and the stem.
+  std::string ContainerPath(std::string_view stem) const {
+    return ConcatAbstractPath(container_name, stem);
+  }
+
+  std::string ObjectPath() const { return ContainerPath(kObjectName); }
+  std::string NotFoundObjectPath() const { return ContainerPath("not-found"); }
+
+  std::string RandomDirectoryPath(RNG& rng) const {
+    return ContainerPath(RandomChars(32, rng));
+  }
+
+  // Utilities
+  static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
+
+  static std::string RandomChars(int count, RNG& rng) {
+    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
+    std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
+    std::string s;
+    std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
+    return s;
+  }
+
+  static int RandomIndex(int end, RNG& rng) {
+    return std::uniform_int_distribution<int>(0, end - 1)(rng);
+  }
+
+  static std::string RandomLine(int lineno, int width, RNG& rng) {
+    auto line = std::to_string(lineno) + ":    ";
+    line += RandomChars(width - static_cast<int>(line.size()) - 1, rng);
+    line += '\n';
+    return line;
+  }
+};
+
+class TestAzureFileSystem : public ::testing::Test {
+ protected:
+  // Set in constructor
+  std::mt19937_64 rng_;
+
+  // Set in SetUp()
+  int64_t debug_log_start_ = 0;
+  bool set_up_succeeded_ = false;
+  AzureOptions options_;
+
   std::shared_ptr<FileSystem> fs_;
   std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
-  std::unique_ptr<Files::DataLake::DataLakeServiceClient> datalake_service_client_;
-  AzureOptions options_;
-  std::mt19937_64 generator_;
-  std::string container_name_;
-  bool suite_skipped_ = false;
+  std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
 
-  AzureFileSystemTest() : generator_(std::random_device()()) {}
+ public:
+  TestAzureFileSystem() : rng_(std::random_device()()) {}
 
-  virtual Result<AzureOptions> MakeOptions() = 0;
+  virtual Result<BaseAzureEnv*> GetAzureEnv() const = 0;
+
+  static Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
+    AzureOptions options;
+    switch (env->backend()) {
+      case AzureBackend::kAzurite:
+        options.blob_storage_authority = "127.0.0.1:10000";
+        options.dfs_storage_authority = "127.0.0.1:10000";
+        options.blob_storage_scheme = "http";
+        options.dfs_storage_scheme = "http";
+        break;
+      case AzureBackend::kAzure:
+        // Use the default values
+        break;
+    }
+    ARROW_EXPECT_OK(
+        options.ConfigureAccountKeyCredential(env->account_name(), env->account_key()));
+    return options;
+  }
 
   void SetUp() override {
-    auto options = MakeOptions();
-    if (options.ok()) {
-      options_ = *options;
+    auto make_options = [this]() -> Result<AzureOptions> {
+      ARROW_ASSIGN_OR_RAISE(auto env, GetAzureEnv());
+      EXPECT_THAT(env, NotNull());
+      ARROW_ASSIGN_OR_RAISE(debug_log_start_, env->GetDebugLogSize());
+      return MakeOptions(env);
+    };
+    auto options_res = make_options();
+    if (options_res.status().IsCancelled()) {
+      GTEST_SKIP() << options_res.status().message();
     } else {
-      suite_skipped_ = true;
-      GTEST_SKIP() << options.status().message();
+      EXPECT_OK_AND_ASSIGN(options_, options_res);
     }
-    // Stop-gap solution before GH-39119 is fixed.
-    container_name_ = "z" + RandomChars(31);
-    blob_service_client_ = std::make_unique<Blobs::BlobServiceClient>(
-        options_.account_blob_url, options_.storage_credentials_provider);
-    datalake_service_client_ = std::make_unique<Files::DataLake::DataLakeServiceClient>(
-        options_.account_dfs_url, options_.storage_credentials_provider);
-    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
-    auto container_client = CreateContainer(container_name_);
 
-    auto blob_client = container_client.GetBlockBlobClient(PreexistingObjectName());
-    blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(kLoremIpsum),
-                           strlen(kLoremIpsum));
+    ASSERT_OK_AND_ASSIGN(fs_, AzureFileSystem::Make(options_));
+    EXPECT_OK_AND_ASSIGN(blob_service_client_, options_.MakeBlobServiceClient());
+    EXPECT_OK_AND_ASSIGN(datalake_service_client_, options_.MakeDataLakeServiceClient());
+    set_up_succeeded_ = true;
   }
 
   void TearDown() override {
-    if (!suite_skipped_) {
+    if (set_up_succeeded_) {
       auto containers = blob_service_client_->ListBlobContainers();
       for (auto container : containers.BlobContainers) {
         auto container_client =
             blob_service_client_->GetBlobContainerClient(container.Name);
         container_client.DeleteIfExists();
       }
+    }
+    if (HasFailure()) {
+      // XXX: This may not include all logs in the target test because
+      // Azurite doesn't flush debug logs immediately... You may want
+      // to check the log manually...
+      EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+      ARROW_IGNORE_EXPR(env->DumpDebugLog(debug_log_start_));
     }
   }
 
@@ -254,54 +425,20 @@ class AzureFileSystemTest : public ::testing::Test {
     return blob_client;
   }
 
-  std::string PreexistingContainerName() const { return container_name_; }
-
-  std::string PreexistingContainerPath() const {
-    return PreexistingContainerName() + '/';
-  }
-
-  static std::string PreexistingObjectName() { return "test-object-name"; }
-
-  std::string PreexistingObjectPath() const {
-    return PreexistingContainerPath() + PreexistingObjectName();
-  }
-
-  std::string NotFoundObjectPath() { return PreexistingContainerPath() + "not-found"; }
-
-  std::string RandomLine(int lineno, std::size_t width) {
-    auto line = std::to_string(lineno) + ":    ";
-    line += RandomChars(width - line.size() - 1);
-    line += '\n';
-    return line;
-  }
-
-  std::size_t RandomIndex(std::size_t end) {
-    return std::uniform_int_distribution<std::size_t>(0, end - 1)(generator_);
-  }
-
-  std::string RandomChars(std::size_t count) {
-    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
-    std::uniform_int_distribution<std::size_t> d(0, fillers.size() - 1);
-    std::string s;
-    std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(generator_)]; });
-    return s;
-  }
-
-  std::string RandomContainerName() { return RandomChars(32); }
-
-  std::string RandomDirectoryName() { return RandomChars(32); }
-
-  void UploadLines(const std::vector<std::string>& lines, const char* path_to_file,
+  void UploadLines(const std::vector<std::string>& lines, const std::string& path,
                    int total_size) {
-    const auto path = PreexistingContainerPath() + path_to_file;
     ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
     const auto all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
     ASSERT_OK(output->Write(all_lines));
     ASSERT_OK(output->Close());
   }
 
-  void RunGetFileInfoObjectWithNestedStructureTest();
-  void RunGetFileInfoObjectTest();
+  PreexistingData SetUpPreexistingData() {
+    PreexistingData data(rng_);
+    auto container_client = CreateContainer(data.container_name);
+    CreateBlob(container_client, data.kObjectName, PreexistingData::kLoremIpsum);
+    return data;
+  }
 
   struct HierarchicalPaths {
     std::string container;
@@ -310,15 +447,12 @@ class AzureFileSystemTest : public ::testing::Test {
   };
 
   // Need to use "void" as the return type to use ASSERT_* in this method.
-  void CreateHierarchicalData(HierarchicalPaths& paths) {
-    const auto container_path = RandomContainerName();
-    const auto directory_path =
-        internal::ConcatAbstractPath(container_path, RandomDirectoryName());
-    const auto sub_directory_path =
-        internal::ConcatAbstractPath(directory_path, "new-sub");
-    const auto sub_blob_path =
-        internal::ConcatAbstractPath(sub_directory_path, "sub.txt");
-    const auto top_blob_path = internal::ConcatAbstractPath(directory_path, "top.txt");
+  void CreateHierarchicalData(HierarchicalPaths* paths) {
+    auto data = SetUpPreexistingData();
+    const auto directory_path = data.RandomDirectoryPath(rng_);
+    const auto sub_directory_path = ConcatAbstractPath(directory_path, "new-sub");
+    const auto sub_blob_path = ConcatAbstractPath(sub_directory_path, "sub.txt");
+    const auto top_blob_path = ConcatAbstractPath(directory_path, "top.txt");
     ASSERT_OK(fs_->CreateDir(sub_directory_path, true));
     ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(sub_blob_path));
     ASSERT_OK(output->Write(std::string_view("sub")));
@@ -327,15 +461,15 @@ class AzureFileSystemTest : public ::testing::Test {
     ASSERT_OK(output->Write(std::string_view("top")));
     ASSERT_OK(output->Close());
 
-    AssertFileInfo(fs_.get(), container_path, FileType::Directory);
+    AssertFileInfo(fs_.get(), data.container_name, FileType::Directory);
     AssertFileInfo(fs_.get(), directory_path, FileType::Directory);
     AssertFileInfo(fs_.get(), sub_directory_path, FileType::Directory);
     AssertFileInfo(fs_.get(), sub_blob_path, FileType::File);
     AssertFileInfo(fs_.get(), top_blob_path, FileType::File);
 
-    paths.container = container_path;
-    paths.directory = directory_path;
-    paths.sub_paths = {
+    paths->container = data.container_name;
+    paths->directory = directory_path;
+    paths->sub_paths = {
         sub_directory_path,
         sub_blob_path,
         top_blob_path,
@@ -362,7 +496,7 @@ class AzureFileSystemTest : public ::testing::Test {
   }
 
   void AssertInfoAllContainersRecursive(const std::vector<FileInfo>& infos) {
-    ASSERT_EQ(infos.size(), 14);
+    ASSERT_EQ(infos.size(), 12);
     AssertFileInfo(infos[0], "container", FileType::Directory);
     AssertFileInfo(infos[1], "container/emptydir", FileType::Directory);
     AssertFileInfo(infos[2], "container/otherdir", FileType::Directory);
@@ -377,202 +511,336 @@ class AzureFileSystemTest : public ::testing::Test {
                    strlen(kSubData));
     AssertFileInfo(infos[10], "container/somefile", FileType::File, strlen(kSomeData));
     AssertFileInfo(infos[11], "empty-container", FileType::Directory);
-    AssertFileInfo(infos[12], PreexistingContainerName(), FileType::Directory);
-    AssertFileInfo(infos[13], PreexistingObjectPath(), FileType::File);
-  }
-};
-
-class AzuriteFileSystemTest : public AzureFileSystemTest {
-  Result<AzureOptions> MakeOptions() override {
-    EXPECT_THAT(GetAzuriteEnv(), NotNull());
-    ARROW_EXPECT_OK(GetAzuriteEnv()->status());
-    ARROW_ASSIGN_OR_RAISE(debug_log_start_, GetAzuriteEnv()->GetDebugLogSize());
-    AzureOptions options;
-    options.backend = AzureBackend::Azurite;
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredentials(
-        GetAzuriteEnv()->account_name(), GetAzuriteEnv()->account_key()));
-    return options;
   }
 
-  void TearDown() override {
-    AzureFileSystemTest::TearDown();
-    if (HasFailure()) {
-      // XXX: This may not include all logs in the target test because
-      // Azurite doesn't flush debug logs immediately... You may want
-      // to check the log manually...
-      ARROW_IGNORE_EXPR(GetAzuriteEnv()->DumpDebugLog(debug_log_start_));
+  bool WithHierarchicalNamespace() const {
+    EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    return env->WithHierarchicalNamespace();
+  }
+
+  // Tests that are called from more than one implementation of TestAzureFileSystem
+
+  void TestDetectHierarchicalNamespace();
+  void TestGetFileInfoObject();
+  void TestGetFileInfoObjectWithNestedStructure();
+
+  void TestDeleteDirSuccessEmpty() {
+    auto data = SetUpPreexistingData();
+    const auto directory_path = data.RandomDirectoryPath(rng_);
+
+    if (WithHierarchicalNamespace()) {
+      ASSERT_OK(fs_->CreateDir(directory_path, true));
+      arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::Directory);
+      ASSERT_OK(fs_->DeleteDir(directory_path));
+      arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+    } else {
+      // There is only virtual directory without hierarchical namespace
+      // support. So the CreateDir() and DeleteDir() do nothing.
+      ASSERT_OK(fs_->CreateDir(directory_path));
+      arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+      ASSERT_OK(fs_->DeleteDir(directory_path));
+      arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
     }
   }
 
-  int64_t debug_log_start_ = 0;
-};
-
-class AzureFlatNamespaceFileSystemTest : public AzureFileSystemTest {
-  Result<AzureOptions> MakeOptions() override {
-    AzureOptions options;
-    const auto account_key = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_KEY");
-    const auto account_name = std::getenv("AZURE_FLAT_NAMESPACE_ACCOUNT_NAME");
-    if (account_key && account_name) {
-      RETURN_NOT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
-      return options;
+  void TestCreateDirSuccessContainerAndDirectory() {
+    auto data = SetUpPreexistingData();
+    const auto path = data.RandomDirectoryPath(rng_);
+    ASSERT_OK(fs_->CreateDir(path, false));
+    if (WithHierarchicalNamespace()) {
+      arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+    } else {
+      // There is only virtual directory without hierarchical namespace
+      // support. So the CreateDir() does nothing.
+      arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
     }
-    return Status::Cancelled(
-        "Connection details not provided for a real flat namespace "
-        "account.");
+  }
+
+  void TestCreateDirRecursiveSuccessContainerOnly() {
+    auto container_name = PreexistingData::RandomContainerName(rng_);
+    ASSERT_OK(fs_->CreateDir(container_name, true));
+    arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+  }
+
+  void TestCreateDirRecursiveSuccessDirectoryOnly() {
+    auto data = SetUpPreexistingData();
+    const auto parent = data.RandomDirectoryPath(rng_);
+    const auto path = ConcatAbstractPath(parent, "new-sub");
+    ASSERT_OK(fs_->CreateDir(path, true));
+    if (WithHierarchicalNamespace()) {
+      arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+      arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
+    } else {
+      // There is only virtual directory without hierarchical namespace
+      // support. So the CreateDir() does nothing.
+      arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
+      arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
+    }
+  }
+
+  void TestCreateDirRecursiveSuccessContainerAndDirectory() {
+    auto data = SetUpPreexistingData();
+    const auto parent = data.RandomDirectoryPath(rng_);
+    const auto path = ConcatAbstractPath(parent, "new-sub");
+    ASSERT_OK(fs_->CreateDir(path, true));
+    if (WithHierarchicalNamespace()) {
+      arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+      arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
+      arrow::fs::AssertFileInfo(fs_.get(), data.container_name, FileType::Directory);
+    } else {
+      // There is only virtual directory without hierarchical namespace
+      // support. So the CreateDir() does nothing.
+      arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
+      arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
+      arrow::fs::AssertFileInfo(fs_.get(), data.container_name, FileType::Directory);
+    }
+  }
+
+  void TestDeleteDirContentsSuccessNonexistent() {
+    auto data = SetUpPreexistingData();
+    const auto directory_path = data.RandomDirectoryPath(rng_);
+    ASSERT_OK(fs_->DeleteDirContents(directory_path, true));
+    arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+  }
+
+  void TestDeleteDirContentsFailureNonexistent() {
+    auto data = SetUpPreexistingData();
+    const auto directory_path = data.RandomDirectoryPath(rng_);
+    ASSERT_RAISES(IOError, fs_->DeleteDirContents(directory_path, false));
   }
 };
 
-// How to enable this test:
+void TestAzureFileSystem::TestDetectHierarchicalNamespace() {
+  // Check the environments are implemented and injected here correctly.
+  auto expected = WithHierarchicalNamespace();
+
+  auto data = SetUpPreexistingData();
+  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
+  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
+  ASSERT_OK_AND_EQ(expected, hierarchical_namespace.Enabled(data.container_name));
+}
+
+void TestAzureFileSystem::TestGetFileInfoObject() {
+  auto data = SetUpPreexistingData();
+  auto object_properties =
+      blob_service_client_->GetBlobContainerClient(data.container_name)
+          .GetBlobClient(data.kObjectName)
+          .GetProperties()
+          .Value;
+
+  AssertFileInfo(fs_.get(), data.ObjectPath(), FileType::File,
+                 std::chrono::system_clock::time_point{object_properties.LastModified},
+                 static_cast<int64_t>(object_properties.BlobSize));
+
+  // URI
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + std::string{data.kObjectName}));
+}
+
+void TestAzureFileSystem::TestGetFileInfoObjectWithNestedStructure() {
+  auto data = SetUpPreexistingData();
+  // Adds detailed tests to handle cases of different edge cases
+  // with directory naming conventions (e.g. with and without slashes).
+  const std::string kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(data.ContainerPath(kObjectName),
+                                                          /*metadata=*/{}));
+  const std::string_view lorem_ipsum(PreexistingData::kLoremIpsum);
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+
+  // 0 is immediately after "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs_->OpenOutputStream(data.ContainerPath("test-object-dir/some_other_dir0"),
+                                    /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(output,
+                       fs_->OpenOutputStream(data.ContainerPath(kObjectName + "0"),
+                                             /*metadata=*/{}));
+  ASSERT_OK(output->Write(lorem_ipsum));
+  ASSERT_OK(output->Close());
+
+  AssertFileInfo(fs_.get(), data.ContainerPath(kObjectName), FileType::File);
+  AssertFileInfo(fs_.get(), data.ContainerPath(kObjectName) + "/", FileType::NotFound);
+  AssertFileInfo(fs_.get(), data.ContainerPath("test-object-dir"), FileType::Directory);
+  AssertFileInfo(fs_.get(), data.ContainerPath("test-object-dir") + "/",
+                 FileType::Directory);
+  AssertFileInfo(fs_.get(), data.ContainerPath("test-object-dir/some_other_dir"),
+                 FileType::Directory);
+  AssertFileInfo(fs_.get(), data.ContainerPath("test-object-dir/some_other_dir") + "/",
+                 FileType::Directory);
+
+  AssertFileInfo(fs_.get(), data.ContainerPath("test-object-di"), FileType::NotFound);
+  AssertFileInfo(fs_.get(), data.ContainerPath("test-object-dir/some_other_di"),
+                 FileType::NotFound);
+
+  if (WithHierarchicalNamespace()) {
+    datalake_service_client_->GetFileSystemClient(data.container_name)
+        .GetDirectoryClient("test-empty-object-dir")
+        .Create();
+
+    AssertFileInfo(fs_.get(), data.ContainerPath("test-empty-object-dir"),
+                   FileType::Directory);
+  }
+}
+
+template <class AzureEnvClass>
+class AzureFileSystemTestImpl : public TestAzureFileSystem {
+ public:
+  using TestAzureFileSystem::TestAzureFileSystem;
+
+  Result<BaseAzureEnv*> GetAzureEnv() const final { return AzureEnvClass::GetInstance(); }
+};
+
+// How to enable the non-Azurite tests:
 //
-// You need an Azure account. You should be able to create a free
-// account at https://azure.microsoft.com/en-gb/free/ . You should be
-// able to create a storage account through the portal Web UI.
-//
-// See also the official document how to create a storage account:
-// https://learn.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account
+// You need an Azure account. You should be able to create a free account [1].
+// Through the portal Web UI, you should create a storage account [2].
 //
 // A few suggestions on configuration:
 //
 // * Use Standard general-purpose v2 not premium
 // * Use LRS redundancy
-// * Obviously you need to enable hierarchical namespace.
 // * Set the default access tier to hot
 // * SFTP, NFS and file shares are not required.
-class AzureHierarchicalNamespaceFileSystemTest : public AzureFileSystemTest {
-  Result<AzureOptions> MakeOptions() override {
-    AzureOptions options;
-    const auto account_key = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY");
-    const auto account_name = std::getenv("AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME");
-    if (account_key && account_name) {
-      RETURN_NOT_OK(options.ConfigureAccountKeyCredentials(account_name, account_key));
-      return options;
-    }
-    return Status::Cancelled(
-        "Connection details not provided for a real hierarchical namespace "
-        "account.");
+//
+// You must not enable Hierarchical Namespace on the storage account used for
+// TestAzureFlatNSFileSystem, but you must enable it on the storage account
+// used for TestAzureHierarchicalNSFileSystem.
+//
+// The credentials should be placed in the correct environment variables:
+//
+// * AZURE_FLAT_NAMESPACE_ACCOUNT_NAME
+// * AZURE_FLAT_NAMESPACE_ACCOUNT_KEY
+// * AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_NAME
+// * AZURE_HIERARCHICAL_NAMESPACE_ACCOUNT_KEY
+//
+// [1]: https://azure.microsoft.com/en-gb/free/
+// [2]:
+// https://learn.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account
+using TestAzureFlatNSFileSystem = AzureFileSystemTestImpl<AzureFlatNSEnv>;
+using TestAzureHierarchicalNSFileSystem = AzureFileSystemTestImpl<AzureHierarchicalNSEnv>;
+using TestAzuriteFileSystem = AzureFileSystemTestImpl<AzuriteEnv>;
+
+// Tests using all the 3 environments (Azurite, Azure w/o HNS (flat), Azure w/ HNS)
+
+template <class AzureEnvClass>
+using AzureFileSystemTestOnAllEnvs = AzureFileSystemTestImpl<AzureEnvClass>;
+
+using AllEnvironments =
+    ::testing::Types<AzuriteEnv, AzureFlatNSEnv, AzureHierarchicalNSEnv>;
+
+TYPED_TEST_SUITE(AzureFileSystemTestOnAllEnvs, AllEnvironments);
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, DetectHierarchicalNamespace) {
+  this->TestDetectHierarchicalNamespace();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, GetFileInfoObject) {
+  this->TestGetFileInfoObject();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, DeleteDirSuccessEmpty) {
+  this->TestDeleteDirSuccessEmpty();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, GetFileInfoObjectWithNestedStructure) {
+  this->TestGetFileInfoObjectWithNestedStructure();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirSuccessContainerAndDirectory) {
+  this->TestCreateDirSuccessContainerAndDirectory();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirRecursiveSuccessContainerOnly) {
+  this->TestCreateDirRecursiveSuccessContainerOnly();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirRecursiveSuccessDirectoryOnly) {
+  this->TestCreateDirRecursiveSuccessDirectoryOnly();
+}
+
+TYPED_TEST(AzureFileSystemTestOnAllEnvs, CreateDirRecursiveSuccessContainerAndDirectory) {
+  this->TestCreateDirRecursiveSuccessContainerAndDirectory();
+}
+
+// Tests using a real storage account *with Hierarchical Namespace enabled*
+
+TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirFailureNonexistent) {
+  auto data = SetUpPreexistingData();
+  const auto path = data.RandomDirectoryPath(rng_);
+  ASSERT_RAISES(IOError, fs_->DeleteDir(path));
+}
+
+TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirSuccessHaveBlob) {
+  auto data = SetUpPreexistingData();
+  const auto directory_path = data.RandomDirectoryPath(rng_);
+  const auto blob_path = ConcatAbstractPath(directory_path, "hello.txt");
+  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(blob_path));
+  ASSERT_OK(output->Write(std::string_view("hello")));
+  ASSERT_OK(output->Close());
+  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::File);
+  ASSERT_OK(fs_->DeleteDir(directory_path));
+  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::NotFound);
+}
+
+TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirSuccessHaveDirectory) {
+  auto data = SetUpPreexistingData();
+  const auto parent = data.RandomDirectoryPath(rng_);
+  const auto path = ConcatAbstractPath(parent, "new-sub");
+  ASSERT_OK(fs_->CreateDir(path, true));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
+  ASSERT_OK(fs_->DeleteDir(parent));
+  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
+  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
+}
+
+TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsSuccessExist) {
+  auto preexisting_data = SetUpPreexistingData();
+  HierarchicalPaths paths;
+  CreateHierarchicalData(&paths);
+  ASSERT_OK(fs_->DeleteDirContents(paths.directory));
+  arrow::fs::AssertFileInfo(fs_.get(), paths.directory, FileType::Directory);
+  for (const auto& sub_path : paths.sub_paths) {
+    arrow::fs::AssertFileInfo(fs_.get(), sub_path, FileType::NotFound);
   }
-};
-
-TEST_F(AzureFlatNamespaceFileSystemTest, DetectHierarchicalNamespace) {
-  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
 }
 
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DetectHierarchicalNamespace) {
-  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_OK_AND_EQ(true, hierarchical_namespace.Enabled(PreexistingContainerName()));
+TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsSuccessNonexistent) {
+  this->TestDeleteDirContentsSuccessNonexistent();
 }
 
-TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespace) {
-  auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
-  ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_OK_AND_EQ(false, hierarchical_namespace.Enabled(PreexistingContainerName()));
+TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsFailureNonexistent) {
+  this->TestDeleteDirContentsFailureNonexistent();
 }
 
-TEST_F(AzuriteFileSystemTest, DetectHierarchicalNamespaceFailsWithMissingContainer) {
+// Tests using Azurite (the local Azure emulator)
+
+TEST_F(TestAzuriteFileSystem, DetectHierarchicalNamespaceFailsWithMissingContainer) {
   auto hierarchical_namespace = internal::HierarchicalNamespaceDetector();
   ASSERT_OK(hierarchical_namespace.Init(datalake_service_client_.get()));
-  ASSERT_NOT_OK(hierarchical_namespace.Enabled("nonexistent-container"));
+  ASSERT_RAISES(IOError, hierarchical_namespace.Enabled("nonexistent-container"));
 }
 
-TEST_F(AzuriteFileSystemTest, GetFileInfoAccount) {
+TEST_F(TestAzuriteFileSystem, GetFileInfoAccount) {
   AssertFileInfo(fs_.get(), "", FileType::Directory);
 
   // URI
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://"));
 }
 
-TEST_F(AzuriteFileSystemTest, GetFileInfoContainer) {
-  AssertFileInfo(fs_.get(), PreexistingContainerName(), FileType::Directory);
+TEST_F(TestAzuriteFileSystem, GetFileInfoContainer) {
+  auto data = SetUpPreexistingData();
+  AssertFileInfo(fs_.get(), data.container_name, FileType::Directory);
 
   AssertFileInfo(fs_.get(), "nonexistent-container", FileType::NotFound);
 
   // URI
-  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingContainerName()));
+  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + data.container_name));
 }
 
-void AzureFileSystemTest::RunGetFileInfoObjectWithNestedStructureTest() {
-  // Adds detailed tests to handle cases of different edge cases
-  // with directory naming conventions (e.g. with and without slashes).
-  constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
-  ASSERT_OK_AND_ASSIGN(
-      auto output,
-      fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName, /*metadata=*/{}));
-  const std::string_view data(kLoremIpsum);
-  ASSERT_OK(output->Write(data));
-  ASSERT_OK(output->Close());
-
-  // 0 is immediately after "/" lexicographically, ensure that this doesn't
-  // cause unexpected issues.
-  ASSERT_OK_AND_ASSIGN(output,
-                       fs_->OpenOutputStream(
-                           PreexistingContainerPath() + "test-object-dir/some_other_dir0",
-                           /*metadata=*/{}));
-  ASSERT_OK(output->Write(data));
-  ASSERT_OK(output->Close());
-  ASSERT_OK_AND_ASSIGN(
-      output, fs_->OpenOutputStream(PreexistingContainerPath() + kObjectName + "0",
-                                    /*metadata=*/{}));
-  ASSERT_OK(output->Write(data));
-  ASSERT_OK(output->Close());
-
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName, FileType::File);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + kObjectName + "/",
-                 FileType::NotFound);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir",
-                 FileType::Directory);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/",
-                 FileType::Directory);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_dir",
-                 FileType::Directory);
-  AssertFileInfo(fs_.get(),
-                 PreexistingContainerPath() + "test-object-dir/some_other_dir/",
-                 FileType::Directory);
-
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-di",
-                 FileType::NotFound);
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-object-dir/some_other_di",
-                 FileType::NotFound);
-}
-
-TEST_F(AzuriteFileSystemTest, GetFileInfoObjectWithNestedStructure) {
-  RunGetFileInfoObjectWithNestedStructureTest();
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObjectWithNestedStructure) {
-  RunGetFileInfoObjectWithNestedStructureTest();
-  datalake_service_client_->GetFileSystemClient(PreexistingContainerName())
-      .GetDirectoryClient("test-empty-object-dir")
-      .Create();
-
-  AssertFileInfo(fs_.get(), PreexistingContainerPath() + "test-empty-object-dir",
-                 FileType::Directory);
-}
-
-void AzureFileSystemTest::RunGetFileInfoObjectTest() {
-  auto object_properties =
-      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-          .GetBlobClient(PreexistingObjectName())
-          .GetProperties()
-          .Value;
-
-  AssertFileInfo(fs_.get(), PreexistingObjectPath(), FileType::File,
-                 std::chrono::system_clock::time_point(object_properties.LastModified),
-                 static_cast<int64_t>(object_properties.BlobSize));
-
-  // URI
-  ASSERT_RAISES(Invalid, fs_->GetFileInfo("abfs://" + PreexistingObjectName()));
-}
-
-TEST_F(AzuriteFileSystemTest, GetFileInfoObject) { RunGetFileInfoObjectTest(); }
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, GetFileInfoObject) {
-  RunGetFileInfoObjectTest();
-}
-
-TEST_F(AzuriteFileSystemTest, GetFileInfoSelector) {
+TEST_F(TestAzuriteFileSystem, GetFileInfoSelector) {
   SetUpSmallFileSystemTree();
 
   FileSelector select;
@@ -581,11 +849,10 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelector) {
   // Root dir
   select.base_dir = "";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 3);
+  ASSERT_EQ(infos.size(), 2);
   ASSERT_EQ(infos, SortedInfos(infos));
   AssertFileInfo(infos[0], "container", FileType::Directory);
   AssertFileInfo(infos[1], "empty-container", FileType::Directory);
-  AssertFileInfo(infos[2], container_name_, FileType::Directory);
 
   // Empty container
   select.base_dir = "empty-container";
@@ -641,7 +908,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelector) {
   ASSERT_EQ(infos.size(), 4);
 }
 
-TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
+TEST_F(TestAzuriteFileSystem, GetFileInfoSelectorRecursive) {
   SetUpSmallFileSystemTree();
 
   FileSelector select;
@@ -651,7 +918,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
   // Root dir
   select.base_dir = "";
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 14);
+  ASSERT_EQ(infos.size(), 12);
   ASSERT_EQ(infos, SortedInfos(infos));
   AssertInfoAllContainersRecursive(infos);
 
@@ -699,7 +966,7 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorRecursive) {
   AssertFileInfo(infos[3], "container/otherdir/1/2/3/otherfile", FileType::File, 10);
 }
 
-TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorExplicitImplicitDirDedup) {
+TEST_F(TestAzuriteFileSystem, GetFileInfoSelectorExplicitImplicitDirDedup) {
   {
     auto container = CreateContainer("container");
     CreateBlob(container, "mydir/emptydir1/");
@@ -746,137 +1013,60 @@ TEST_F(AzuriteFileSystemTest, GetFileInfoSelectorExplicitImplicitDirDedup) {
   AssertFileInfo(infos[0], "container/mydir/nonemptydir2/somefile", FileType::File);
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirFailureNoContainer) {
+TEST_F(TestAzuriteFileSystem, CreateDirFailureNoContainer) {
   ASSERT_RAISES(Invalid, fs_->CreateDir("", false));
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirSuccessContainerOnly) {
-  auto container_name = RandomContainerName();
+TEST_F(TestAzuriteFileSystem, CreateDirSuccessContainerOnly) {
+  auto container_name = PreexistingData::RandomContainerName(rng_);
   ASSERT_OK(fs_->CreateDir(container_name, false));
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirSuccessContainerAndDirectory) {
-  const auto path = PreexistingContainerPath() + RandomDirectoryName();
-  ASSERT_OK(fs_->CreateDir(path, false));
-  // There is only virtual directory without hierarchical namespace
-  // support. So the CreateDir() does nothing.
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirSuccessContainerAndDirectory) {
-  const auto path = PreexistingContainerPath() + RandomDirectoryName();
-  ASSERT_OK(fs_->CreateDir(path, false));
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
-}
-
-TEST_F(AzuriteFileSystemTest, CreateDirFailureDirectoryWithMissingContainer) {
+TEST_F(TestAzuriteFileSystem, CreateDirFailureDirectoryWithMissingContainer) {
   const auto path = std::string("not-a-container/new-directory");
   ASSERT_RAISES(IOError, fs_->CreateDir(path, false));
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveFailureNoContainer) {
+TEST_F(TestAzuriteFileSystem, CreateDirRecursiveFailureNoContainer) {
   ASSERT_RAISES(Invalid, fs_->CreateDir("", true));
 }
 
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirRecursiveSuccessContainerOnly) {
-  auto container_name = RandomContainerName();
-  ASSERT_OK(fs_->CreateDir(container_name, true));
-  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
+TEST_F(TestAzuriteFileSystem, CreateDirUri) {
+  ASSERT_RAISES(
+      Invalid,
+      fs_->CreateDir("abfs://" + PreexistingData::RandomContainerName(rng_), true));
 }
 
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessContainerOnly) {
-  auto container_name = RandomContainerName();
-  ASSERT_OK(fs_->CreateDir(container_name, true));
-  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, CreateDirRecursiveSuccessDirectoryOnly) {
-  const auto parent = PreexistingContainerPath() + RandomDirectoryName();
-  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
-  ASSERT_OK(fs_->CreateDir(path, true));
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
-  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
-}
-
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessDirectoryOnly) {
-  const auto parent = PreexistingContainerPath() + RandomDirectoryName();
-  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
-  ASSERT_OK(fs_->CreateDir(path, true));
-  // There is only virtual directory without hierarchical namespace
-  // support. So the CreateDir() does nothing.
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
-  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest,
-       CreateDirRecursiveSuccessContainerAndDirectory) {
-  auto container_name = RandomContainerName();
-  const auto parent = internal::ConcatAbstractPath(container_name, RandomDirectoryName());
-  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
-  ASSERT_OK(fs_->CreateDir(path, true));
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
-  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
-  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
-}
-
-TEST_F(AzuriteFileSystemTest, CreateDirRecursiveSuccessContainerAndDirectory) {
-  auto container_name = RandomContainerName();
-  const auto parent = internal::ConcatAbstractPath(container_name, RandomDirectoryName());
-  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
-  ASSERT_OK(fs_->CreateDir(path, true));
-  // There is only virtual directory without hierarchical namespace
-  // support. So the CreateDir() does nothing.
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
-  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
-  arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
-}
-
-TEST_F(AzuriteFileSystemTest, CreateDirUri) {
-  ASSERT_RAISES(Invalid, fs_->CreateDir("abfs://" + RandomContainerName(), true));
-}
-
-TEST_F(AzuriteFileSystemTest, DeleteDirSuccessContainer) {
-  const auto container_name = RandomContainerName();
+TEST_F(TestAzuriteFileSystem, DeleteDirSuccessContainer) {
+  const auto container_name = PreexistingData::RandomContainerName(rng_);
   ASSERT_OK(fs_->CreateDir(container_name));
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::Directory);
   ASSERT_OK(fs_->DeleteDir(container_name));
   arrow::fs::AssertFileInfo(fs_.get(), container_name, FileType::NotFound);
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteDirSuccessEmpty) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  // There is only virtual directory without hierarchical namespace
-  // support. So the CreateDir() and DeleteDir() do nothing.
-  ASSERT_OK(fs_->CreateDir(directory_path));
-  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
-  ASSERT_OK(fs_->DeleteDir(directory_path));
-  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
-}
-
-TEST_F(AzuriteFileSystemTest, DeleteDirSuccessNonexistent) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
+  auto data = SetUpPreexistingData();
+  const auto directory_path = data.RandomDirectoryPath(rng_);
   // There is only virtual directory without hierarchical namespace
   // support. So the DeleteDir() for nonexistent directory does nothing.
   ASSERT_OK(fs_->DeleteDir(directory_path));
   arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteDirSuccessHaveBlobs) {
+TEST_F(TestAzuriteFileSystem, DeleteDirSuccessHaveBlobs) {
 #ifdef __APPLE__
   GTEST_SKIP() << "This test fails by an Azurite problem: "
                   "https://github.com/Azure/Azurite/pull/2302";
 #endif
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
+  auto data = SetUpPreexistingData();
+  const auto directory_path = data.RandomDirectoryPath(rng_);
   // We must use 257 or more blobs here to test pagination of ListBlobs().
   // Because we can't add 257 or more delete blob requests to one SubmitBatch().
   int64_t n_blobs = 257;
   for (int64_t i = 0; i < n_blobs; ++i) {
-    const auto blob_path =
-        internal::ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
+    const auto blob_path = ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
     ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(blob_path));
     ASSERT_OK(output->Write(std::string_view(std::to_string(i))));
     ASSERT_OK(output->Close());
@@ -884,62 +1074,24 @@ TEST_F(AzuriteFileSystemTest, DeleteDirSuccessHaveBlobs) {
   }
   ASSERT_OK(fs_->DeleteDir(directory_path));
   for (int64_t i = 0; i < n_blobs; ++i) {
-    const auto blob_path =
-        internal::ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
+    const auto blob_path = ConcatAbstractPath(directory_path, std::to_string(i) + ".txt");
     arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::NotFound);
   }
 }
 
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessEmpty) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  ASSERT_OK(fs_->CreateDir(directory_path, true));
-  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::Directory);
-  ASSERT_OK(fs_->DeleteDir(directory_path));
-  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+TEST_F(TestAzuriteFileSystem, DeleteDirUri) {
+  auto data = SetUpPreexistingData();
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("abfs://" + data.container_name + "/"));
 }
 
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirFailureNonexistent) {
-  const auto path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  ASSERT_RAISES(IOError, fs_->DeleteDir(path));
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveBlob) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  const auto blob_path = internal::ConcatAbstractPath(directory_path, "hello.txt");
-  ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(blob_path));
-  ASSERT_OK(output->Write(std::string_view("hello")));
-  ASSERT_OK(output->Close());
-  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::File);
-  ASSERT_OK(fs_->DeleteDir(directory_path));
-  arrow::fs::AssertFileInfo(fs_.get(), blob_path, FileType::NotFound);
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirSuccessHaveDirectory) {
-  const auto parent =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
-  ASSERT_OK(fs_->CreateDir(path, true));
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::Directory);
-  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::Directory);
-  ASSERT_OK(fs_->DeleteDir(parent));
-  arrow::fs::AssertFileInfo(fs_.get(), path, FileType::NotFound);
-  arrow::fs::AssertFileInfo(fs_.get(), parent, FileType::NotFound);
-}
-
-TEST_F(AzuriteFileSystemTest, DeleteDirUri) {
-  ASSERT_RAISES(Invalid, fs_->DeleteDir("abfs://" + PreexistingContainerPath()));
-}
-
-TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessContainer) {
+TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessContainer) {
 #ifdef __APPLE__
   GTEST_SKIP() << "This test fails by an Azurite problem: "
                   "https://github.com/Azure/Azurite/pull/2302";
 #endif
+  auto data = SetUpPreexistingData();
   HierarchicalPaths paths;
-  CreateHierarchicalData(paths);
+  CreateHierarchicalData(&paths);
   ASSERT_OK(fs_->DeleteDirContents(paths.container));
   arrow::fs::AssertFileInfo(fs_.get(), paths.container, FileType::Directory);
   arrow::fs::AssertFileInfo(fs_.get(), paths.directory, FileType::NotFound);
@@ -948,13 +1100,14 @@ TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessContainer) {
   }
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessDirectory) {
+TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessDirectory) {
 #ifdef __APPLE__
   GTEST_SKIP() << "This test fails by an Azurite problem: "
                   "https://github.com/Azure/Azurite/pull/2302";
 #endif
+  auto data = SetUpPreexistingData();
   HierarchicalPaths paths;
-  CreateHierarchicalData(paths);
+  CreateHierarchicalData(&paths);
   ASSERT_OK(fs_->DeleteDirContents(paths.directory));
   // GH-38772: We may change this to FileType::Directory.
   arrow::fs::AssertFileInfo(fs_.get(), paths.directory, FileType::NotFound);
@@ -963,98 +1116,72 @@ TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessDirectory) {
   }
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteDirContentsSuccessNonexistent) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  ASSERT_OK(fs_->DeleteDirContents(directory_path, true));
-  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
+TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessNonexistent) {
+  this->TestDeleteDirContentsSuccessNonexistent();
 }
 
-TEST_F(AzuriteFileSystemTest, DeleteDirContentsFailureNonexistent) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  ASSERT_RAISES(IOError, fs_->DeleteDirContents(directory_path, false));
+TEST_F(TestAzuriteFileSystem, DeleteDirContentsFailureNonexistent) {
+  this->TestDeleteDirContentsFailureNonexistent();
 }
 
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirContentsSuccessExist) {
-  HierarchicalPaths paths;
-  CreateHierarchicalData(paths);
-  ASSERT_OK(fs_->DeleteDirContents(paths.directory));
-  arrow::fs::AssertFileInfo(fs_.get(), paths.directory, FileType::Directory);
-  for (const auto& sub_path : paths.sub_paths) {
-    arrow::fs::AssertFileInfo(fs_.get(), sub_path, FileType::NotFound);
-  }
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirContentsSuccessNonexistent) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  ASSERT_OK(fs_->DeleteDirContents(directory_path, true));
-  arrow::fs::AssertFileInfo(fs_.get(), directory_path, FileType::NotFound);
-}
-
-TEST_F(AzureHierarchicalNamespaceFileSystemTest, DeleteDirContentsFailureNonexistent) {
-  const auto directory_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), RandomDirectoryName());
-  ASSERT_RAISES(IOError, fs_->DeleteDirContents(directory_path, false));
-}
-
-TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationNonexistent) {
-  const auto destination_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
-  ASSERT_OK(fs_->CopyFile(PreexistingObjectPath(), destination_path));
+TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationNonexistent) {
+  auto data = SetUpPreexistingData();
+  const auto destination_path = data.ContainerPath("copy-destionation");
+  ASSERT_OK(fs_->CopyFile(data.ObjectPath(), destination_path));
   ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(destination_path));
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(info));
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
-  EXPECT_EQ(kLoremIpsum, buffer->ToString());
+  EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
 }
 
-TEST_F(AzuriteFileSystemTest, CopyFileSuccessDestinationSame) {
-  ASSERT_OK(fs_->CopyFile(PreexistingObjectPath(), PreexistingObjectPath()));
-  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
+TEST_F(TestAzuriteFileSystem, CopyFileSuccessDestinationSame) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK(fs_->CopyFile(data.ObjectPath(), data.ObjectPath()));
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(data.ObjectPath()));
   ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(info));
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
-  EXPECT_EQ(kLoremIpsum, buffer->ToString());
+  EXPECT_EQ(PreexistingData::kLoremIpsum, buffer->ToString());
 }
 
-TEST_F(AzuriteFileSystemTest, CopyFileFailureDestinationTrailingSlash) {
-  ASSERT_RAISES(IOError,
-                fs_->CopyFile(PreexistingObjectPath(),
-                              internal::EnsureTrailingSlash(PreexistingObjectPath())));
+TEST_F(TestAzuriteFileSystem, CopyFileFailureDestinationTrailingSlash) {
+  auto data = SetUpPreexistingData();
+  ASSERT_RAISES(IOError, fs_->CopyFile(data.ObjectPath(),
+                                       internal::EnsureTrailingSlash(data.ObjectPath())));
 }
 
-TEST_F(AzuriteFileSystemTest, CopyFileFailureSourceNonexistent) {
+TEST_F(TestAzuriteFileSystem, CopyFileFailureSourceNonexistent) {
+  auto data = SetUpPreexistingData();
+  const auto destination_path = data.ContainerPath("copy-destionation");
+  ASSERT_RAISES(IOError, fs_->CopyFile(data.NotFoundObjectPath(), destination_path));
+}
+
+TEST_F(TestAzuriteFileSystem, CopyFileFailureDestinationParentNonexistent) {
+  auto data = SetUpPreexistingData();
   const auto destination_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
-  ASSERT_RAISES(IOError, fs_->CopyFile(NotFoundObjectPath(), destination_path));
+      ConcatAbstractPath(PreexistingData::RandomContainerName(rng_), "copy-destionation");
+  ASSERT_RAISES(IOError, fs_->CopyFile(data.ObjectPath(), destination_path));
 }
 
-TEST_F(AzuriteFileSystemTest, CopyFileFailureDestinationParentNonexistent) {
-  const auto destination_path =
-      internal::ConcatAbstractPath(RandomContainerName(), "copy-destionation");
-  ASSERT_RAISES(IOError, fs_->CopyFile(PreexistingObjectPath(), destination_path));
+TEST_F(TestAzuriteFileSystem, CopyFileUri) {
+  auto data = SetUpPreexistingData();
+  const auto destination_path = data.ContainerPath("copy-destionation");
+  ASSERT_RAISES(Invalid, fs_->CopyFile("abfs://" + data.ObjectPath(), destination_path));
+  ASSERT_RAISES(Invalid, fs_->CopyFile(data.ObjectPath(), "abfs://" + destination_path));
 }
 
-TEST_F(AzuriteFileSystemTest, CopyFileUri) {
-  const auto destination_path =
-      internal::ConcatAbstractPath(PreexistingContainerName(), "copy-destionation");
-  ASSERT_RAISES(Invalid,
-                fs_->CopyFile("abfs://" + PreexistingObjectPath(), destination_path));
-  ASSERT_RAISES(Invalid,
-                fs_->CopyFile(PreexistingObjectPath(), "abfs://" + destination_path));
-}
-
-TEST_F(AzuriteFileSystemTest, OpenInputStreamString) {
+TEST_F(TestAzuriteFileSystem, OpenInputStreamString) {
+  auto data = SetUpPreexistingData();
   std::shared_ptr<io::InputStream> stream;
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(data.ObjectPath()));
 
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
-  EXPECT_EQ(buffer->ToString(), kLoremIpsum);
+  EXPECT_EQ(buffer->ToString(), PreexistingData::kLoremIpsum);
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamStringBuffers) {
+TEST_F(TestAzuriteFileSystem, OpenInputStreamStringBuffers) {
+  auto data = SetUpPreexistingData();
   std::shared_ptr<io::InputStream> stream;
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(data.ObjectPath()));
 
   std::string contents;
   std::shared_ptr<Buffer> buffer;
@@ -1063,23 +1190,25 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamStringBuffers) {
     contents.append(buffer->ToString());
   } while (buffer && buffer->size() != 0);
 
-  EXPECT_EQ(contents, kLoremIpsum);
+  EXPECT_EQ(contents, PreexistingData::kLoremIpsum);
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamInfo) {
-  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputStreamInfo) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(data.ObjectPath()));
 
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(info));
 
   ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(1024));
-  EXPECT_EQ(buffer->ToString(), kLoremIpsum);
+  EXPECT_EQ(buffer->ToString(), PreexistingData::kLoremIpsum);
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamEmpty) {
+TEST_F(TestAzuriteFileSystem, OpenInputStreamEmpty) {
+  auto data = SetUpPreexistingData();
   const auto path_to_file = "empty-object.txt";
-  const auto path = PreexistingContainerPath() + path_to_file;
-  blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
+  const auto path = data.ContainerPath(path_to_file);
+  blob_service_client_->GetBlobContainerClient(data.container_name)
       .GetBlockBlobClient(path_to_file)
       .UploadFrom(nullptr, 0);
 
@@ -1090,24 +1219,28 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamEmpty) {
   EXPECT_EQ(size, 0);
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamNotFound) {
-  ASSERT_RAISES(IOError, fs_->OpenInputStream(NotFoundObjectPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputStreamNotFound) {
+  auto data = SetUpPreexistingData();
+  ASSERT_RAISES(IOError, fs_->OpenInputStream(data.NotFoundObjectPath()));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamInfoInvalid) {
-  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingContainerPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputStreamInfoInvalid) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(data.container_name + "/"));
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info));
 
-  ASSERT_OK_AND_ASSIGN(auto info2, fs_->GetFileInfo(NotFoundObjectPath()));
+  ASSERT_OK_AND_ASSIGN(auto info2, fs_->GetFileInfo(data.NotFoundObjectPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputStream(info2));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamUri) {
-  ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfs://" + PreexistingObjectPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputStreamUri) {
+  auto data = SetUpPreexistingData();
+  ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfs://" + data.ObjectPath()));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamTrailingSlash) {
-  ASSERT_RAISES(IOError, fs_->OpenInputStream(PreexistingObjectPath() + '/'));
+TEST_F(TestAzuriteFileSystem, OpenInputStreamTrailingSlash) {
+  auto data = SetUpPreexistingData();
+  ASSERT_RAISES(IOError, fs_->OpenInputStream(data.ObjectPath() + '/'));
 }
 
 namespace {
@@ -1145,9 +1278,10 @@ std::shared_ptr<const KeyValueMetadata> NormalizerKeyValueMetadata(
 }
 };  // namespace
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamReadMetadata) {
+TEST_F(TestAzuriteFileSystem, OpenInputStreamReadMetadata) {
+  auto data = SetUpPreexistingData();
   std::shared_ptr<io::InputStream> stream;
-  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(PreexistingObjectPath()));
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream(data.ObjectPath()));
 
   std::shared_ptr<const KeyValueMetadata> actual;
   ASSERT_OK_AND_ASSIGN(actual, stream->ReadMetadata());
@@ -1175,8 +1309,9 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamReadMetadata) {
       NormalizerKeyValueMetadata(actual)->ToString());
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputStreamClosed) {
-  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(PreexistingObjectPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputStreamClosed) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputStream(data.ObjectPath()));
   ASSERT_OK(stream->Close());
   std::array<char, 16> buffer{};
   ASSERT_RAISES(Invalid, stream->Read(buffer.size(), buffer.data()));
@@ -1184,44 +1319,45 @@ TEST_F(AzuriteFileSystemTest, OpenInputStreamClosed) {
   ASSERT_RAISES(Invalid, stream->Tell());
 }
 
-TEST_F(AzuriteFileSystemTest, TestWriteMetadata) {
+TEST_F(TestAzuriteFileSystem, WriteMetadata) {
+  auto data = SetUpPreexistingData();
   options_.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
 
   ASSERT_OK_AND_ASSIGN(auto fs_with_defaults, AzureFileSystem::Make(options_));
-  std::string path = "object_with_defaults";
-  auto location = PreexistingContainerPath() + path;
+  std::string blob_path = "object_with_defaults";
+  auto full_path = data.ContainerPath(blob_path);
   ASSERT_OK_AND_ASSIGN(auto output,
-                       fs_with_defaults->OpenOutputStream(location, /*metadata=*/{}));
-  const std::string_view expected(kLoremIpsum);
+                       fs_with_defaults->OpenOutputStream(full_path, /*metadata=*/{}));
+  const std::string_view expected(PreexistingData::kLoremIpsum);
   ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
 
   // Verify the metadata has been set.
-  auto blob_metadata =
-      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-          .GetBlockBlobClient(path)
-          .GetProperties()
-          .Value.Metadata;
-  EXPECT_EQ(Azure::Core::CaseInsensitiveMap{std::make_pair("foo", "bar")}, blob_metadata);
+  auto blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
+                           .GetBlockBlobClient(blob_path)
+                           .GetProperties()
+                           .Value.Metadata;
+  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("foo", "bar")}, blob_metadata);
 
   // Check that explicit metadata overrides the defaults.
   ASSERT_OK_AND_ASSIGN(
       output, fs_with_defaults->OpenOutputStream(
-                  location, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
+                  full_path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
   ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
-  blob_metadata = blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-                      .GetBlockBlobClient(path)
+  blob_metadata = blob_service_client_->GetBlobContainerClient(data.container_name)
+                      .GetBlockBlobClient(blob_path)
                       .GetProperties()
                       .Value.Metadata;
   // Defaults are overwritten and not merged.
-  EXPECT_EQ(Azure::Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
+  EXPECT_EQ(Core::CaseInsensitiveMap{std::make_pair("bar", "foo")}, blob_metadata);
 }
 
-TEST_F(AzuriteFileSystemTest, OpenOutputStreamSmall) {
-  const auto path = PreexistingContainerPath() + "test-write-object";
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {
+  auto data = SetUpPreexistingData();
+  const auto path = data.ContainerPath("test-write-object");
   ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
-  const std::string_view expected(kLoremIpsum);
+  const std::string_view expected(PreexistingData::kLoremIpsum);
   ASSERT_OK(output->Write(expected));
   ASSERT_OK(output->Close());
 
@@ -1234,8 +1370,9 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamSmall) {
   EXPECT_EQ(expected, std::string_view(inbuf.data(), size));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenOutputStreamLarge) {
-  const auto path = PreexistingContainerPath() + "test-write-object";
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) {
+  auto data = SetUpPreexistingData();
+  const auto path = data.ContainerPath("test-write-object");
   ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
   std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
   std::array<std::string, 3> buffers{
@@ -1265,8 +1402,9 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamLarge) {
   EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
 }
 
-TEST_F(AzuriteFileSystemTest, OpenOutputStreamTruncatesExistingFile) {
-  const auto path = PreexistingContainerPath() + "test-write-object";
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamTruncatesExistingFile) {
+  auto data = SetUpPreexistingData();
+  const auto path = data.ContainerPath("test-write-object");
   ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
   const std::string_view expected0("Existing blob content");
   ASSERT_OK(output->Write(expected0));
@@ -1281,7 +1419,7 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamTruncatesExistingFile) {
   EXPECT_EQ(expected0, std::string_view(inbuf.data(), size));
 
   ASSERT_OK_AND_ASSIGN(output, fs_->OpenOutputStream(path, {}));
-  const std::string_view expected1(kLoremIpsum);
+  const std::string_view expected1(PreexistingData::kLoremIpsum);
   ASSERT_OK(output->Write(expected1));
   ASSERT_OK(output->Close());
 
@@ -1291,8 +1429,9 @@ TEST_F(AzuriteFileSystemTest, OpenOutputStreamTruncatesExistingFile) {
   EXPECT_EQ(expected1, std::string_view(inbuf.data(), size));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenAppendStreamDoesNotTruncateExistingFile) {
-  const auto path = PreexistingContainerPath() + "test-write-object";
+TEST_F(TestAzuriteFileSystem, OpenAppendStreamDoesNotTruncateExistingFile) {
+  auto data = SetUpPreexistingData();
+  const auto path = data.ContainerPath("test-write-object");
   ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
   const std::string_view expected0("Existing blob content");
   ASSERT_OK(output->Write(expected0));
@@ -1307,7 +1446,7 @@ TEST_F(AzuriteFileSystemTest, OpenAppendStreamDoesNotTruncateExistingFile) {
   EXPECT_EQ(expected0, std::string_view(inbuf.data()));
 
   ASSERT_OK_AND_ASSIGN(output, fs_->OpenAppendStream(path, {}));
-  const std::string_view expected1(kLoremIpsum);
+  const std::string_view expected1(PreexistingData::kLoremIpsum);
   ASSERT_OK(output->Write(expected1));
   ASSERT_OK(output->Close());
 
@@ -1319,35 +1458,37 @@ TEST_F(AzuriteFileSystemTest, OpenAppendStreamDoesNotTruncateExistingFile) {
             std::string(expected0) + std::string(expected1));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenOutputStreamClosed) {
-  const auto path = internal::ConcatAbstractPath(PreexistingContainerName(),
-                                                 "open-output-stream-closed.txt");
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamClosed) {
+  auto data = SetUpPreexistingData();
+  const auto path = data.ContainerPath("open-output-stream-closed.txt");
   ASSERT_OK_AND_ASSIGN(auto output, fs_->OpenOutputStream(path, {}));
   ASSERT_OK(output->Close());
-  ASSERT_RAISES(Invalid, output->Write(kLoremIpsum, std::strlen(kLoremIpsum)));
+  ASSERT_RAISES(Invalid, output->Write(PreexistingData::kLoremIpsum,
+                                       std::strlen(PreexistingData::kLoremIpsum)));
   ASSERT_RAISES(Invalid, output->Flush());
   ASSERT_RAISES(Invalid, output->Tell());
 }
 
-TEST_F(AzuriteFileSystemTest, OpenOutputStreamUri) {
-  const auto path = internal::ConcatAbstractPath(PreexistingContainerName(),
-                                                 "open-output-stream-uri.txt");
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamUri) {
+  auto data = SetUpPreexistingData();
+  const auto path = data.ContainerPath("open-output-stream-uri.txt");
   ASSERT_RAISES(Invalid, fs_->OpenInputStream("abfs://" + path));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputFileMixedReadVsReadAt) {
+TEST_F(TestAzuriteFileSystem, OpenInputFileMixedReadVsReadAt) {
+  auto data = SetUpPreexistingData();
   // Create a file large enough to make the random access tests non-trivial.
   auto constexpr kLineWidth = 100;
   auto constexpr kLineCount = 4096;
   std::vector<std::string> lines(kLineCount);
   int lineno = 0;
-  std::generate_n(lines.begin(), lines.size(),
-                  [&] { return RandomLine(++lineno, kLineWidth); });
+  std::generate_n(lines.begin(), lines.size(), [&] {
+    return PreexistingData::RandomLine(++lineno, kLineWidth, rng_);
+  });
 
-  const auto path_to_file = "OpenInputFileMixedReadVsReadAt/object-name";
-  const auto path = PreexistingContainerPath() + path_to_file;
+  const auto path = data.ContainerPath("OpenInputFileMixedReadVsReadAt/object-name");
 
-  UploadLines(lines, path_to_file, kLineCount * kLineWidth);
+  UploadLines(lines, path, kLineCount * kLineWidth);
 
   std::shared_ptr<io::RandomAccessFile> file;
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(path));
@@ -1368,7 +1509,7 @@ TEST_F(AzuriteFileSystemTest, OpenInputFileMixedReadVsReadAt) {
     }
 
     // Verify random reads interleave too.
-    auto const index = RandomIndex(kLineCount);
+    auto const index = PreexistingData::RandomIndex(kLineCount, rng_);
     auto const position = index * kLineWidth;
     ASSERT_OK_AND_ASSIGN(size, file->ReadAt(position, buffer.size(), buffer.data()));
     EXPECT_EQ(size, kLineWidth);
@@ -1381,27 +1522,28 @@ TEST_F(AzuriteFileSystemTest, OpenInputFileMixedReadVsReadAt) {
   }
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputFileRandomSeek) {
+TEST_F(TestAzuriteFileSystem, OpenInputFileRandomSeek) {
+  auto data = SetUpPreexistingData();
   // Create a file large enough to make the random access tests non-trivial.
   auto constexpr kLineWidth = 100;
   auto constexpr kLineCount = 4096;
   std::vector<std::string> lines(kLineCount);
   int lineno = 0;
-  std::generate_n(lines.begin(), lines.size(),
-                  [&] { return RandomLine(++lineno, kLineWidth); });
+  std::generate_n(lines.begin(), lines.size(), [&] {
+    return PreexistingData::RandomLine(++lineno, kLineWidth, rng_);
+  });
 
-  const auto path_to_file = "OpenInputFileRandomSeek/object-name";
-  const auto path = PreexistingContainerPath() + path_to_file;
+  const auto path = data.ContainerPath("OpenInputFileRandomSeek/object-name");
   std::shared_ptr<io::OutputStream> output;
 
-  UploadLines(lines, path_to_file, kLineCount * kLineWidth);
+  UploadLines(lines, path, kLineCount * kLineWidth);
 
   std::shared_ptr<io::RandomAccessFile> file;
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(path));
   for (int i = 0; i != 32; ++i) {
     SCOPED_TRACE("Iteration " + std::to_string(i));
     // Verify sequential reads work as expected.
-    auto const index = RandomIndex(kLineCount);
+    auto const index = PreexistingData::RandomIndex(kLineCount, rng_);
     auto const position = index * kLineWidth;
     ASSERT_OK(file->Seek(position));
     ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
@@ -1409,15 +1551,15 @@ TEST_F(AzuriteFileSystemTest, OpenInputFileRandomSeek) {
   }
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputFileIoContext) {
+TEST_F(TestAzuriteFileSystem, OpenInputFileIoContext) {
+  auto data = SetUpPreexistingData();
   // Create a test file.
-  const auto path_to_file = "OpenInputFileIoContext/object-name";
-  const auto path = PreexistingContainerPath() + path_to_file;
+  const auto blob_path = "OpenInputFileIoContext/object-name";
+  const auto path = data.ContainerPath(blob_path);
   const std::string contents = "The quick brown fox jumps over the lazy dog";
 
-  auto blob_client =
-      blob_service_client_->GetBlobContainerClient(PreexistingContainerName())
-          .GetBlockBlobClient(path_to_file);
+  auto blob_client = blob_service_client_->GetBlobContainerClient(data.container_name)
+                         .GetBlockBlobClient(blob_path);
   blob_client.UploadFrom(reinterpret_cast<const uint8_t*>(contents.data()),
                          contents.length());
 
@@ -1426,8 +1568,9 @@ TEST_F(AzuriteFileSystemTest, OpenInputFileIoContext) {
   EXPECT_EQ(fs_->io_context().external_id(), file->io_context().external_id());
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputFileInfo) {
-  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingObjectPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputFileInfo) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(data.ObjectPath()));
 
   std::shared_ptr<io::RandomAccessFile> file;
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile(info));
@@ -1437,24 +1580,27 @@ TEST_F(AzuriteFileSystemTest, OpenInputFileInfo) {
   auto constexpr kStart = 16;
   ASSERT_OK_AND_ASSIGN(size, file->ReadAt(kStart, buffer.size(), buffer.data()));
 
-  auto const expected = std::string(kLoremIpsum).substr(kStart);
+  auto const expected = std::string(PreexistingData::kLoremIpsum).substr(kStart);
   EXPECT_EQ(std::string(buffer.data(), size), expected);
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputFileNotFound) {
-  ASSERT_RAISES(IOError, fs_->OpenInputFile(NotFoundObjectPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputFileNotFound) {
+  auto data = SetUpPreexistingData();
+  ASSERT_RAISES(IOError, fs_->OpenInputFile(data.NotFoundObjectPath()));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputFileInfoInvalid) {
-  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(PreexistingContainerPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputFileInfoInvalid) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK_AND_ASSIGN(auto info, fs_->GetFileInfo(data.container_name));
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info));
 
-  ASSERT_OK_AND_ASSIGN(auto info2, fs_->GetFileInfo(NotFoundObjectPath()));
+  ASSERT_OK_AND_ASSIGN(auto info2, fs_->GetFileInfo(data.NotFoundObjectPath()));
   ASSERT_RAISES(IOError, fs_->OpenInputFile(info2));
 }
 
-TEST_F(AzuriteFileSystemTest, OpenInputFileClosed) {
-  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputFile(PreexistingObjectPath()));
+TEST_F(TestAzuriteFileSystem, OpenInputFileClosed) {
+  auto data = SetUpPreexistingData();
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenInputFile(data.ObjectPath()));
   ASSERT_OK(stream->Close());
   std::array<char, 16> buffer{};
   ASSERT_RAISES(Invalid, stream->Tell());

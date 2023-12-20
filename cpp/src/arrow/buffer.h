@@ -30,6 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -233,6 +234,12 @@ class ARROW_EXPORT Buffer {
     return reinterpret_cast<const T*>(data());
   }
 
+  /// \brief Return the buffer's data as a span
+  template <typename T>
+  util::span<const T> span_as() const {
+    return util::span(data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
+  }
+
   /// \brief Return a writable pointer to the buffer's data
   ///
   /// The buffer has to be a mutable CPU buffer (`is_cpu()` and `is_mutable()`
@@ -258,6 +265,12 @@ class ARROW_EXPORT Buffer {
   template <typename T>
   T* mutable_data_as() {
     return reinterpret_cast<T*>(mutable_data());
+  }
+
+  /// \brief Return the buffer's mutable data as a span
+  template <typename T>
+  util::span<T> mutable_span_as() const {
+    return util::span(mutable_data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
   }
 
   /// \brief Return the device address of the buffer's data

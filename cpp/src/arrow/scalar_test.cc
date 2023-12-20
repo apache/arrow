@@ -878,17 +878,17 @@ TEST(TestTimestampScalars, Cast) {
   EXPECT_EQ(convert(TimeUnit::MICRO, TimeUnit::MILLI, 4567), 4);
 
   ASSERT_OK_AND_ASSIGN(auto str,
-                       TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(utf8()));
-  EXPECT_EQ(*str, StringScalar("1970-01-01 00:00:01.024"));
+                       Cast(TimestampScalar(1024, timestamp(TimeUnit::MILLI)), utf8()));
+  EXPECT_EQ(*str.scalar(), StringScalar("1970-01-01 00:00:01.024"));
   ASSERT_OK_AND_ASSIGN(auto i64,
-                       TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(int64()));
-  EXPECT_EQ(*i64, Int64Scalar(1024));
+                       Cast(TimestampScalar(1024, timestamp(TimeUnit::MILLI)), int64()));
+  EXPECT_EQ(*i64.scalar(), Int64Scalar(1024));
 
   constexpr int64_t kMillisecondsInDay = 86400000;
-  ASSERT_OK_AND_ASSIGN(
-      auto d64, TimestampScalar(1024 * kMillisecondsInDay + 3, timestamp(TimeUnit::MILLI))
-                    .CastTo(date64()));
-  EXPECT_EQ(*d64, Date64Scalar(1024 * kMillisecondsInDay));
+  ASSERT_OK_AND_ASSIGN(auto d64, Cast(TimestampScalar(1024 * kMillisecondsInDay + 3,
+                                                      timestamp(TimeUnit::MILLI)),
+                                      date64()));
+  EXPECT_EQ(*d64.scalar(), Date64Scalar(1024 * kMillisecondsInDay));
 }
 
 TEST(TestDurationScalars, Basics) {

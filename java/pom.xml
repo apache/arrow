@@ -34,12 +34,12 @@
     <dep.slf4j.version>2.0.9</dep.slf4j.version>
     <dep.guava-bom.version>32.1.3-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.100.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.59.0</dep.grpc-bom.version>
+    <dep.grpc-bom.version>1.60.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.16.0</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>23.5.26</dep.fbs.version>
-    <dep.avro.version>1.10.0</dep.avro.version>
+    <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier />
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
@@ -452,7 +452,7 @@
             <dependency>
               <groupId>org.apache.maven.surefire</groupId>
               <artifactId>surefire-junit-platform</artifactId>
-              <version>3.2.2</version>
+              <version>3.2.3</version>
             </dependency>
           </dependencies>
           <configuration>

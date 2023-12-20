@@ -53,7 +53,7 @@ func TestRechunkConsistentArraysTrivial(t *testing.T) {
 	}
 }
 
-func assertEqual[T exec.NumericTypes](t *testing.T, mem memory.Allocator, arr arrow.Array, data []T) {
+func assertEqual[T arrow.NumericType](t *testing.T, mem memory.Allocator, arr arrow.Array, data []T) {
 	exp := exec.ArrayFromSlice(mem, data)
 	defer exp.Release()
 	assert.Truef(t, array.Equal(exp, arr), "expected: %s\ngot: %s", exp, arr)

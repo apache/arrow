@@ -22,6 +22,7 @@ import { DataType } from '../type.js';
 import { Visitor } from '../visitor.js';
 import { BuilderCtor } from '../interfaces.js';
 import { BinaryBuilder } from '../builder/binary.js';
+import { LargeBinaryBuilder } from '../builder/largebinary.js';
 import { BoolBuilder } from '../builder/bool.js';
 import { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from '../builder/date.js';
 import { DecimalBuilder } from '../builder/decimal.js';
@@ -40,6 +41,7 @@ import { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, 
 import { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from '../builder/time.js';
 import { UnionBuilder, DenseUnionBuilder, SparseUnionBuilder } from '../builder/union.js';
 import { Utf8Builder } from '../builder/utf8.js';
+import { LargeUtf8Builder } from '../builder/largeutf8.js';
 
 /** @ignore */
 export interface GetBuilderCtor extends Visitor {
@@ -67,7 +69,9 @@ export class GetBuilderCtor extends Visitor {
     public visitFloat32() { return Float32Builder; }
     public visitFloat64() { return Float64Builder; }
     public visitUtf8() { return Utf8Builder; }
+    public visitLargeUtf8() { return LargeUtf8Builder; }
     public visitBinary() { return BinaryBuilder; }
+    public visitLargeBinary() { return LargeBinaryBuilder; }
     public visitFixedSizeBinary() { return FixedSizeBinaryBuilder; }
     public visitDate() { return DateBuilder; }
     public visitDateDay() { return DateDayBuilder; }
