@@ -18,9 +18,9 @@
 #pragma once
 
 #include "arrow/compute/type_fwd.h"
-#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

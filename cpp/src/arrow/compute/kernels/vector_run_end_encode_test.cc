@@ -21,6 +21,7 @@
 #include "arrow/array/validate.h"
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/datum.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"

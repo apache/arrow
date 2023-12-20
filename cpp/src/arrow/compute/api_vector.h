@@ -22,7 +22,6 @@
 
 #include "arrow/compute/options.h"
 #include "arrow/compute/ordering.h"
-#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
