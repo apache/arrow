@@ -10,6 +10,7 @@
 #include <ostream>
 
 #include <thrift/TToString.h>
+#include <thrift/transport/TBufferTransports.h>
 
 namespace parquet { namespace format {
 
@@ -8412,6 +8413,22 @@ std::ostream& operator<<(std::ostream& out, const FileMetaData& obj)
   return out;
 }
 
+// As far as I can tell, the thrift protocol interface does not have a way to directly skip
+// bytes without parsing them.
+// For now, add a hack to access the transport protocol directly to add a
+// skip_bytes method.
+// If we decide to go this way, we can upgrade the thrift library to add this method.
+class CastCompactProtocol {
+public:
+  void *vtbl;
+  ::apache::thrift::transport::TBufferBase *trans_;
+};
+
+// Skip the given number of bytes. Assumes a compact protocol with a memory buffer.
+void skip_bytes(::apache::thrift::protocol::TProtocol* iprot, uint32_t len) {
+  CastCompactProtocol *cp = static_cast<CastCompactProtocol *>(static_cast<void *>(iprot));
+  cp->trans_->consume(len);
+}
 
 uint32_t FileMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
 
@@ -8420,6 +8437,7 @@ uint32_t FileMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
   std::string fname;
   ::apache::thrift::protocol::TType ftype;
   int16_t fid;
+  bool read_only_rowgroup_0 = true;
 
   xfer += iprot->readStructBegin(fname);
 
@@ -8481,11 +8499,27 @@ uint32_t FileMetaData::read(::apache::thrift::protocol::TProtocol* iprot) {
             uint32_t _size326;
             ::apache::thrift::protocol::TType _etype329;
             xfer += iprot->readListBegin(_etype329, _size326);
-            this->row_groups.resize(_size326);
+            if(read_only_rowgroup_0) {
+              this->row_groups.resize(1);
+            } else {
+              this->row_groups.resize(_size326);
+            }
+
             uint32_t _i330;
+            uint32_t rowgroup_size;
             for (_i330 = 0; _i330 < _size326; ++_i330)
             {
-              xfer += this->row_groups[_i330].read(iprot);
+              rowgroup_size = this->row_groups[_i330].read(iprot);
+              xfer += rowgroup_size;
+              if(read_only_rowgroup_0) {
+                break;
+              }
+            }
+            if(read_only_rowgroup_0) {
+              // skip the remaining rowgroups
+              uint32_t skip_len = (_size326 -1) * rowgroup_size;
+              skip_bytes(iprot, skip_len);
+              xfer += skip_len;
             }
             xfer += iprot->readListEnd();
           }
