@@ -307,14 +307,14 @@ class PARQUET_EXPORT FileMetaData {
 
   /// \brief The total number of rows.
   ///
-  /// If the FileMetaData is generate from a `SubSet()`, the number of rows
-  /// will be the sum of the number of rows of remaining RowGroup.
+  /// If the FileMetaData was obtained by calling `SubSet()`, this is the total
+  /// number of rows in the selected row groups.
   int64_t num_rows() const;
 
   /// \brief The number of row groups in the file.
   ///
-  /// If the FileMetaData is generate from a `SubSet()`, the number of
-  /// row groups will be the number of remaining RowGroup.
+  /// If the FileMetaData was obtained by calling `SubSet()`, this is the number
+  /// of selected row groups.
   int num_row_groups() const;
 
   /// \brief Return the RowGroupMetaData of the corresponding row group ordinal.
