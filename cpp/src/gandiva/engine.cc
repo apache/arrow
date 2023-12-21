@@ -32,7 +32,7 @@
 #include <utility>
 
 #include <arrow/util/io_util.h>
-#include "arrow/util/logging.h"
+#include <arrow/util/logging.h>
 
 #if defined(_MSC_VER)
 #pragma warning(push)
@@ -117,7 +117,7 @@ std::once_flag register_exported_funcs_flag;
 
 template <typename T>
 arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
-                               const std::string& error_context = "") {
+                               const std::string& error_context) {
   if (!expected) {
     return Status::CodeGenError(error_context, llvm::toString(expected.takeError()));
   }
