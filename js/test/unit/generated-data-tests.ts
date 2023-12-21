@@ -40,6 +40,7 @@ describe('Generated Test Data', () => {
     describe('Utf8', () => { validateVector(generate.utf8()); });
     describe('LargeUtf8', () => { validateVector(generate.largeUtf8()); });
     describe('Binary', () => { validateVector(generate.binary()); });
+    describe('LargeBinary', () => { validateVector(generate.largeBinary()); });
     describe('FixedSizeBinary', () => { validateVector(generate.fixedSizeBinary()); });
     describe('DateDay', () => { validateVector(generate.dateDay()); });
     describe('DateMillisecond', () => { validateVector(generate.dateMillisecond()); });

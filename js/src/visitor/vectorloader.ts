@@ -77,6 +77,9 @@ export class VectorLoader extends Visitor {
     public visitBinary<T extends type.Binary>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
     }
+    public visitLargeBinary<T extends type.LargeBinary>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
+    }
     public visitFixedSizeBinary<T extends type.FixedSizeBinary>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
     }
@@ -169,7 +172,7 @@ export class JSONVectorLoader extends VectorLoader {
             return toArrayBufferView(Uint8Array, Int64.convertArray(sources[offset] as string[]));
         } else if (DataType.isDecimal(type)) {
             return toArrayBufferView(Uint8Array, Int128.convertArray(sources[offset] as string[]));
-        } else if (DataType.isBinary(type) || DataType.isFixedSizeBinary(type)) {
+        } else if (DataType.isBinary(type) || DataType.isLargeBinary(type) || DataType.isFixedSizeBinary(type)) {
             return binaryDataFromJSON(sources[offset] as string[]);
         } else if (DataType.isBool(type)) {
             return packBools(sources[offset] as number[]);
