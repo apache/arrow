@@ -1001,9 +1001,11 @@ void ReadColumnsUsingOffsetIndex(const std::string &filename, std::vector<int> i
 {
   std::shared_ptr<::arrow::io::ReadableFile> infile;
   PARQUET_ASSIGN_OR_THROW(infile, ::arrow::io::ReadableFile::Open(filename));
-  ReaderProperties props = default_reader_properties();
+
+  ReaderProperties props = parquet::default_reader_properties();
   props.set_read_only_rowgroup_0(true);
-  auto metadata_row_0 = parquet::ReadMetaData(infile, props);
+  auto metadata_row_0 = parquet::ReadMetaData(infile, props); // only row group 0
+
   auto metadata_all_rows = parquet::ReadMetaData(infile);
   // PrintSchema(metadata->schema()->schema_root().get(), std::cout);
 

@@ -120,6 +120,7 @@ class PARQUET_EXPORT ReaderProperties {
     page_checksum_verification_ = check_crc;
   }
 
+  /// Parse only rowgroup 0 when reading the metadata
   bool read_only_rowgroup_0() const { return read_only_rowgroup_0_;}
   void set_read_only_rowgroup_0(bool val) { read_only_rowgroup_0_ = val;}
 
