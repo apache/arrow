@@ -8609,6 +8609,8 @@ public:
 };
 
 // Skip the given number of bytes. Assumes a compact protocol with a memory buffer.
+// We don't want the regular skip method since that forces a parse of all the bytes and
+// that is much too slow for large metdata structures.
 void skip_bytes(::apache::thrift::protocol::TProtocol* iprot, uint32_t len) {
   CastCompactProtocol *cp = static_cast<CastCompactProtocol *>(static_cast<void *>(iprot));
   cp->trans_->consume(len);
