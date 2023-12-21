@@ -287,10 +287,8 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
   const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
 
   auto is_null_or_empty = [&](int64_t i) {
-    if constexpr (HasNulls) {
-      if (!bit_util::GetBit(validity, list_view_array_offset + i)) {
-        return true;
-      }
+    if (HasNulls && !bit_util::GetBit(validity, list_view_array_offset + i)) {
+      return true;
     }
     return sizes[i] == 0;
   };
