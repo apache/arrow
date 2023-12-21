@@ -1189,9 +1189,6 @@ class ParquetDataset:
 Encapsulates details of reading a complete Parquet dataset possibly
 consisting of multiple files and partitions in subdirectories.
 
-Keywords `metadata`, `split_row_groups=True` and `validate_schema=False`
-are not yet supported.
-
 Parameters
 ----------
 path_or_paths : str or List[str]
