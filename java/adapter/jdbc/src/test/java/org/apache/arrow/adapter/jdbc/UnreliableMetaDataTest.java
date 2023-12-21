@@ -151,7 +151,7 @@ public class UnreliableMetaDataTest {
       assertThrows(RuntimeException.class, iter::next,
           "This is expected to fail due to inconsistent BigDecimal scales, while strict matching is enabled.");
     }
-    // Reuse same ResultSet, with RoundingMode.UNNECESSARY set to coerce BigDecmial scale as needed:
+    // Reuse same ResultSet, with RoundingMode.UNNECESSARY set to coerce BigDecimal scale as needed:
     config = new JdbcToArrowConfigBuilder(
         allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
         .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)

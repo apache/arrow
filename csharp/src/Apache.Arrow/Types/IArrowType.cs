@@ -46,7 +46,10 @@ namespace Apache.Arrow.Types
         Struct,
         Union,
         Dictionary,
-        Map
+        Map,
+        FixedSizeList,
+        Duration,
+        RecordBatch,
     }
 
     public interface IArrowType

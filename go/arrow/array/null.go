@@ -23,10 +23,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // Null represents an immutable, degenerate array with no physical storage.
@@ -118,6 +118,12 @@ func (b *NullBuilder) AppendNull() {
 	b.builder.nulls++
 }
 
+func (b *NullBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *NullBuilder) AppendValueFromString(s string) error {
 	if s == NullValueStr {
 		b.AppendNull()
@@ -127,6 +133,8 @@ func (b *NullBuilder) AppendValueFromString(s string) error {
 }
 
 func (b *NullBuilder) AppendEmptyValue() { b.AppendNull() }
+
+func (b *NullBuilder) AppendEmptyValues(n int) { b.AppendNulls(n) }
 
 func (*NullBuilder) Reserve(size int) {}
 func (*NullBuilder) Resize(size int)  {}

@@ -26,11 +26,14 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func getArrowTypeFromString(dbtype string) arrow.DataType {
@@ -108,7 +111,7 @@ type SqlBatchReader struct {
 }
 
 func NewSqlBatchReaderWithSchema(mem memory.Allocator, schema *arrow.Schema, rows *sql.Rows) (*SqlBatchReader, error) {
-	rowdest := make([]interface{}, len(schema.Fields()))
+	rowdest := make([]interface{}, schema.NumFields())
 	for i, f := range schema.Fields() {
 		switch f.Type.ID() {
 		case arrow.DENSE_UNION, arrow.SPARSE_UNION:
@@ -257,12 +260,19 @@ func (r *SqlBatchReader) Next() bool {
 	rows := 0
 	for rows < maxBatchSize && r.rows.Next() {
 		if err := r.rows.Scan(r.rowdest...); err != nil {
-			r.err = err
+			// Not really useful except for testing Flight SQL clients
+			detail := wrapperspb.StringValue{Value: r.schema.String()}
+			if st, sterr := status.New(codes.Unknown, err.Error()).WithDetails(&detail); sterr != nil {
+				r.err = err
+			} else {
+				r.err = st.Err()
+			}
 			return false
 		}
 
 		for i, v := range r.rowdest {
 			fb := r.bldr.Field(i)
+
 			switch v := v.(type) {
 			case *uint8:
 				fb.(*array.Uint8Builder).Append(*v)

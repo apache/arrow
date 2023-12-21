@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -117,7 +117,7 @@ func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	if err := dec.SetData(nvalues, data); err != nil {
 		return err
 	}
-	d.lengths = make([]int32, nvalues)
+	d.lengths = make([]int32, dec.totalValues)
 	dec.Decode(d.lengths)
 
 	return d.decoder.SetData(nvalues, data[int(dec.bytesRead()):])
@@ -126,7 +126,7 @@ func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) error {
 // Decode populates the passed in slice with data decoded until it hits the length of out
 // or runs out of values in the column to decode, then returns the number of values actually decoded.
 func (d *DeltaLengthByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
-	max := utils.MinInt(len(out), d.nvals)
+	max := utils.Min(len(out), d.nvals)
 	for i := 0; i < max; i++ {
 		out[i] = d.data[:d.lengths[i]:d.lengths[i]]
 		d.data = d.data[d.lengths[i]:]

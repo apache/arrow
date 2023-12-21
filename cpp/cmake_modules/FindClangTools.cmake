@@ -108,7 +108,7 @@ else()
 endif()
 
 find_clang_tool(clang-format CLANG_FORMAT_BIN
-                "^clang-format version ${ARROW_CLANG_TOOLS_VERSION_ESCAPED}")
+                "clang-format version ${ARROW_CLANG_TOOLS_VERSION_ESCAPED}")
 if(CLANG_FORMAT_BIN)
   set(CLANG_FORMAT_FOUND 1)
   message(STATUS "clang-format found at ${CLANG_FORMAT_BIN}")

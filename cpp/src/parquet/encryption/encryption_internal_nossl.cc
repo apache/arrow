@@ -18,8 +18,7 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/exception.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 void ThrowOpenSSLRequiredException() {
   throw ParquetException(
@@ -115,5 +114,6 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
 
 void RandBytes(unsigned char* buf, int num) { ThrowOpenSSLRequiredException(); }
 
-}  // namespace encryption
-}  // namespace parquet
+void EnsureBackendInitialized() {}
+
+}  // namespace parquet::encryption

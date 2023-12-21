@@ -31,8 +31,12 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
       std::make_shared<arrow::csv::WriteOptions>(arrow::csv::WriteOptions::Defaults());
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
-  res->io_context = MainRThread::GetInstance().CancellableIOContext();
+  res->delimiter = cpp11::as_cpp<char>(options["delimiter"]);
   res->null_string = cpp11::as_cpp<std::string>(options["null_string"]);
+  res->io_context = MainRThread::GetInstance().CancellableIOContext();
+  res->eol = cpp11::as_cpp<std::string>(options["eol"]);
+  res->quoting_style =
+      cpp11::as_cpp<enum arrow::csv::QuotingStyle>(options["quoting_style"]);
   return res;
 }
 
@@ -176,6 +180,8 @@ std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     }
     res->timestamp_parsers = timestamp_parsers;
   }
+
+  res->decimal_point = cpp11::as_cpp<char>(options["decimal_point"]);
 
   return res;
 }

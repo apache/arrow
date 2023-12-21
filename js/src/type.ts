@@ -19,8 +19,7 @@ import { Field } from './schema.js';
 import { Vector } from './vector.js';
 import { MapRow } from './row/map.js';
 import { StructRow, StructRowProxy } from './row/struct.js';
-import { TypedArrayConstructor } from './interfaces.js';
-import { BigInt64Array, BigUint64Array } from './util/compat.js';
+import { ArrayCtor, BigIntArrayConstructor, TypedArrayConstructor } from './interfaces.js';
 import { bigIntToNumber } from './util/bigint.js';
 
 import {
@@ -39,9 +38,11 @@ export type IsSigned = { 'true': true; 'false': false };
 export interface DataType<TType extends Type = Type, TChildren extends TypeMap = any> {
     readonly TType: TType;
     readonly TArray: any;
+    readonly TOffsetArray: any;
     readonly TValue: any;
     readonly TChildren: TChildren;
     readonly ArrayType: any;
+    readonly OffsetArrayType: ArrayCtor<Int32Array | BigInt64Array>;
     readonly children: Field<TChildren[keyof TChildren]>[];
 }
 
@@ -57,13 +58,16 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     /** @nocollapse */ static isInt(x: any): x is Int_ { return x?.typeId === Type.Int; }
     /** @nocollapse */ static isFloat(x: any): x is Float { return x?.typeId === Type.Float; }
     /** @nocollapse */ static isBinary(x: any): x is Binary { return x?.typeId === Type.Binary; }
+    /** @nocollapse */ static isLargeBinary(x: any): x is LargeBinary { return x?.typeId === Type.LargeBinary; }
     /** @nocollapse */ static isUtf8(x: any): x is Utf8 { return x?.typeId === Type.Utf8; }
+    /** @nocollapse */ static isLargeUtf8(x: any): x is LargeUtf8 { return x?.typeId === Type.LargeUtf8; }
     /** @nocollapse */ static isBool(x: any): x is Bool { return x?.typeId === Type.Bool; }
     /** @nocollapse */ static isDecimal(x: any): x is Decimal { return x?.typeId === Type.Decimal; }
     /** @nocollapse */ static isDate(x: any): x is Date_ { return x?.typeId === Type.Date; }
     /** @nocollapse */ static isTime(x: any): x is Time_ { return x?.typeId === Type.Time; }
     /** @nocollapse */ static isTimestamp(x: any): x is Timestamp_ { return x?.typeId === Type.Timestamp; }
     /** @nocollapse */ static isInterval(x: any): x is Interval_ { return x?.typeId === Type.Interval; }
+    /** @nocollapse */ static isDuration(x: any): x is Duration { return x?.typeId === Type.Duration; }
     /** @nocollapse */ static isList(x: any): x is List { return x?.typeId === Type.List; }
     /** @nocollapse */ static isStruct(x: any): x is Struct { return x?.typeId === Type.Struct; }
     /** @nocollapse */ static isUnion(x: any): x is Union_ { return x?.typeId === Type.Union; }
@@ -80,6 +84,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     protected static [Symbol.toStringTag] = ((proto: DataType) => {
         (<any>proto).children = null;
         (<any>proto).ArrayType = Array;
+        (<any>proto).OffsetArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'DataType';
     })(DataType.prototype);
 }
@@ -232,7 +237,7 @@ Object.defineProperty(Float32.prototype, 'ArrayType', { value: Float32Array });
 Object.defineProperty(Float64.prototype, 'ArrayType', { value: Float64Array });
 
 /** @ignore */
-export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array> }
+export interface Binary extends DataType<Type.Binary> { TArray: Uint8Array; TOffsetArray: Int32Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: TypedArrayConstructor<Int32Array> }
 /** @ignore */
 export class Binary extends DataType<Type.Binary> {
     constructor() {
@@ -247,7 +252,23 @@ export class Binary extends DataType<Type.Binary> {
 }
 
 /** @ignore */
-export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array> }
+export interface LargeBinary extends DataType<Type.LargeBinary> { TArray: Uint8Array; TOffsetArray: BigInt64Array; TValue: Uint8Array; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: BigIntArrayConstructor<BigInt64Array> }
+/** @ignore */
+export class LargeBinary extends DataType<Type.LargeBinary> {
+    constructor() {
+        super();
+    }
+    public get typeId() { return Type.LargeBinary as Type.LargeBinary; }
+    public toString() { return `LargeBinary`; }
+    protected static [Symbol.toStringTag] = ((proto: LargeBinary) => {
+        (<any>proto).ArrayType = Uint8Array;
+        (<any>proto).OffsetArrayType = BigInt64Array;
+        return proto[Symbol.toStringTag] = 'LargeBinary';
+    })(LargeBinary.prototype);
+}
+
+/** @ignore */
+export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TOffsetArray: Int32Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: TypedArrayConstructor<Int32Array> }
 /** @ignore */
 export class Utf8 extends DataType<Type.Utf8> {
     constructor() {
@@ -259,6 +280,22 @@ export class Utf8 extends DataType<Type.Utf8> {
         (<any>proto).ArrayType = Uint8Array;
         return proto[Symbol.toStringTag] = 'Utf8';
     })(Utf8.prototype);
+}
+
+/** @ignore */
+export interface LargeUtf8 extends DataType<Type.LargeUtf8> { TArray: Uint8Array; TOffsetArray: BigInt64Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: BigIntArrayConstructor<BigInt64Array> }
+/** @ignore */
+export class LargeUtf8 extends DataType<Type.LargeUtf8> {
+    constructor() {
+        super();
+    }
+    public get typeId() { return Type.LargeUtf8 as Type.LargeUtf8; }
+    public toString() { return `LargeUtf8`; }
+    protected static [Symbol.toStringTag] = ((proto: LargeUtf8) => {
+        (<any>proto).ArrayType = Uint8Array;
+        (<any>proto).OffsetArrayType = BigInt64Array;
+        return proto[Symbol.toStringTag] = 'LargeUtf8';
+    })(LargeUtf8.prototype);
 }
 
 /** @ignore */
@@ -435,6 +472,39 @@ export class IntervalDayTime extends Interval_<Type.IntervalDayTime> { construct
 export class IntervalYearMonth extends Interval_<Type.IntervalYearMonth> { constructor() { super(IntervalUnit.YEAR_MONTH); } }
 
 /** @ignore */
+type Durations = Type.Duration | Type.DurationSecond | Type.DurationMillisecond | Type.DurationMicrosecond | Type.DurationNanosecond;
+/** @ignore */
+export interface Duration<T extends Durations = Durations> extends DataType<T> {
+    TArray: BigInt64Array;
+    TValue: bigint;
+    ArrayType: BigInt64Array;
+}
+
+/** @ignore */
+export class Duration<T extends Durations = Durations> extends DataType<T> {
+    constructor(public readonly unit: TimeUnit) {
+        super();
+    }
+    public get typeId() { return Type.Duration as T; }
+    public toString() { return `Duration<${TimeUnit[this.unit]}>`; }
+    protected static [Symbol.toStringTag] = ((proto: Duration) => {
+        (<any>proto).unit = null;
+        (<any>proto).ArrayType = BigInt64Array;
+        return proto[Symbol.toStringTag] = 'Duration';
+    })(Duration.prototype);
+}
+
+/** @ignore */
+export class DurationSecond extends Duration<Type.DurationSecond> { constructor() { super(TimeUnit.SECOND); } }
+/** @ignore */
+export class DurationMillisecond extends Duration<Type.DurationMillisecond> { constructor() { super(TimeUnit.MILLISECOND); } }
+/** @ignore */
+export class DurationMicrosecond extends Duration<Type.DurationMicrosecond> { constructor() { super(TimeUnit.MICROSECOND); } }
+/** @ignore */
+export class DurationNanosecond extends Duration<Type.DurationNanosecond> { constructor() { super(TimeUnit.NANOSECOND); } }
+
+
+/** @ignore */
 export interface List<T extends DataType = any> extends DataType<Type.List, { [0]: T }> {
     TArray: Array<T>;
     TValue: Vector<T>;
@@ -586,10 +656,25 @@ export interface Map_<TKey extends DataType = any, TValue extends DataType = any
 
 /** @ignore */
 export class Map_<TKey extends DataType = any, TValue extends DataType = any> extends DataType<Type.Map, { [0]: Struct<{ key: TKey; value: TValue }> }> {
-    constructor(child: Field<Struct<{ key: TKey; value: TValue }>>, keysSorted = false) {
+    constructor(entries: Field<Struct<{ key: TKey; value: TValue }>>, keysSorted = false) {
         super();
-        this.children = [child];
+        this.children = [entries];
         this.keysSorted = keysSorted;
+        // ARROW-8716
+        // https://github.com/apache/arrow/issues/17168
+        if (entries) {
+            (entries as any)['name'] = 'entries';
+            if ((entries as any)?.type?.children) {
+                const key = (entries as any)?.type?.children[0];
+                if (key) {
+                    key['name'] = 'key';
+                }
+                const val = (entries as any)?.type?.children[1];
+                if (val) {
+                    val['name'] = 'value';
+                }
+            }
+        }
     }
     public declare readonly keysSorted: boolean;
     public declare readonly children: Field<Struct<{ key: TKey; value: TValue }>>[];

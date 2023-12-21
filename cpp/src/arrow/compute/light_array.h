@@ -122,12 +122,12 @@ class ARROW_EXPORT KeyColumnArray {
 
   /// \brief Return one of the underlying mutable buffers
   uint8_t* mutable_data(int i) {
-    ARROW_DCHECK(i >= 0 && i <= kMaxBuffers);
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
     return mutable_buffers_[i];
   }
   /// \brief Return one of the underlying read-only buffers
   const uint8_t* data(int i) const {
-    ARROW_DCHECK(i >= 0 && i <= kMaxBuffers);
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
     return buffers_[i];
   }
   /// \brief Return a mutable version of the offsets buffer
@@ -183,6 +183,31 @@ class ARROW_EXPORT KeyColumnArray {
   // Starting bit offset within the first byte (between 0 and 7)
   // to be used when accessing buffers that store bit vectors.
   int bit_offset_[kMaxBuffers - 1];
+
+  bool is_bool_type() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_fixed_width_types() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length != 0 &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_binary_type() const {
+    return !metadata_.is_fixed_length && metadata_.fixed_length == sizeof(uint32_t) &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_large_binary_type() const {
+    return !metadata_.is_fixed_length && metadata_.fixed_length == sizeof(uint64_t) &&
+           !metadata_.is_null_type;
+  }
+
+  bool is_null_type() const {
+    return metadata_.is_fixed_length && metadata_.fixed_length == 0 &&
+           metadata_.is_null_type;
+  }
 };
 
 /// \brief Create KeyColumnMetadata from a DataType
@@ -316,8 +341,7 @@ class ARROW_EXPORT ResizableArrayData {
   ///
   /// If i is 0 (kValidityBuffer) then this returns the validity buffer
   /// If i is 1 (kFixedLengthBuffer) then this returns the buffer used for values (if this
-  /// is a fixed
-  ///           length data type) or offsets (if this is a variable binary type)
+  /// is a fixed length data type) or offsets (if this is a variable binary type)
   /// If i is 2 (kVariableLengthBuffer) then this returns the buffer used for variable
   /// length binary data
   uint8_t* mutable_data(int i) { return buffers_[i]->mutable_data(); }

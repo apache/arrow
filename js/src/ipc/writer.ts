@@ -342,7 +342,7 @@ export class RecordBatchFileWriter<T extends TypeMap = any> extends RecordBatchW
 
     protected _writeFooter(schema: Schema<T>) {
         const buffer = Footer.encode(new Footer(
-            schema, MetadataVersion.V4,
+            schema, MetadataVersion.V5,
             this._recordBatchBlocks, this._dictionaryBlocks
         ));
         return super
@@ -391,7 +391,7 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
     protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         this._write(this._dictionaryBlocks.length === 0 ? `    ` : `,\n    `);
-        this._write(`${dictionaryBatchToJSON(dictionary, id, isDelta)}`);
+        this._write(dictionaryBatchToJSON(dictionary, id, isDelta));
         this._dictionaryBlocks.push(new FileBlock(0, 0, 0));
         return this;
     }
@@ -401,7 +401,6 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
         return this;
     }
     public close() {
-
         if (this._dictionaries.length > 0) {
             this._write(`,\n  "dictionaries": [\n`);
             for (const batch of this._dictionaries) {
@@ -413,7 +412,7 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
         if (this._recordBatches.length > 0) {
             for (let i = -1, n = this._recordBatches.length; ++i < n;) {
                 this._write(i === 0 ? `,\n  "batches": [\n    ` : `,\n    `);
-                this._write(`${recordBatchToJSON(this._recordBatches[i])}`);
+                this._write(recordBatchToJSON(this._recordBatches[i]));
                 this._recordBatchBlocks.push(new FileBlock(0, 0, 0));
             }
             this._write(`\n  ]`);

@@ -197,6 +197,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool decode_dictionaries
         unordered_set[c_string] categorical_columns
         unordered_set[c_string] extension_columns
+        c_bool to_numpy
 
     cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
         shared_ptr[CRecordBatch] batch
@@ -257,7 +258,15 @@ cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py":
     c_bool IsPyError(const CStatus& status)
-    void RestorePyError(const CStatus& status)
+    void RestorePyError(const CStatus& status) except *
+
+
+cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
+    cdef cppclass SharedPtrNoGIL[T](shared_ptr[T]):
+        # This looks like the only way to satisfy both Cython 2 and Cython 3
+        SharedPtrNoGIL& operator=(...)
+    cdef cppclass UniquePtrNoGIL[T, DELETER=*](unique_ptr[T, DELETER]):
+        UniquePtrNoGIL& operator=(...)
 
 
 cdef extern from "arrow/python/inference.h" namespace "arrow::py":

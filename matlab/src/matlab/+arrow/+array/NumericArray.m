@@ -15,37 +15,39 @@
 
 classdef NumericArray < arrow.array.Array
     % arrow.array.NumericArray
-    
-    
-    properties (Hidden, SetAccess=protected)
-        MatlabArray = []
-    end
 
-    properties(Abstract, Access=protected)
+    properties(Abstract, Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue;
     end
 
     methods
-        function obj = NumericArray(data, type, proxyName, opts, nullOpts)
+        function obj = NumericArray(proxy)
             arguments
-                data
-                type(1, 1) string
-                proxyName(1, 1) string
-                opts.DeepCopy(1, 1) logical = false
-                nullOpts.InferNulls(1, 1) logical = true
-                nullOpts.Valid
+                proxy(1, 1) libmexclass.proxy.Proxy
             end
-            arrow.args.validateTypeAndShape(data, type);
-            validElements = arrow.args.parseValidElements(data, nullOpts);
-            obj@arrow.array.Array("Name", proxyName, "ConstructorArguments", {data, opts.DeepCopy, validElements});
-            obj.MatlabArray = cast(obj.MatlabArray, type);
-            % Store a reference to the array if not doing a deep copy
-            if ~opts.DeepCopy, obj.MatlabArray = data; end
+            obj@arrow.array.Array(proxy);
         end
-        
+
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
             matlabArray(~obj.Valid) = obj.NullSubstitutionValue;
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, traits, opts)
+            arguments
+                data
+                traits(1, 1) arrow.type.traits.TypeTraits
+                opts.InferNulls(1, 1) logical = true
+                opts.Valid
+            end
+
+            arrow.internal.validate.numeric(data, traits.MatlabClassName);
+            validElements = arrow.internal.validate.parseValidElements(data, opts);
+            args = struct(MatlabArray=data, Valid=validElements);
+            proxy = arrow.internal.proxy.create(traits.ArrayProxyClassName, args);
+            array = traits.ArrayConstructor(proxy);
         end
     end
 end

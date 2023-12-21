@@ -47,6 +47,8 @@ G_BEGIN_DECLS
  * #GArrowDenseUnionDataType is a class for dense union data type.
  *
  * #GArrowDictionaryDataType is a class for dictionary data type.
+ *
+ * #GArrowRunEndEncodedDataType is a class for run end encoded data type.
  */
 
 G_DEFINE_TYPE(GArrowListDataType,
@@ -716,5 +718,81 @@ garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *dictionary_data
     std::static_pointer_cast<arrow::DictionaryType>(arrow_data_type);
   return arrow_dictionary_data_type->ordered();
 }
+
+
+G_DEFINE_TYPE(GArrowRunEndEncodedDataType,
+              garrow_run_end_encoded_data_type,
+              GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
+
+static void
+garrow_run_end_encoded_data_type_init(GArrowRunEndEncodedDataType *object)
+{
+}
+
+static void
+garrow_run_end_encoded_data_type_class_init(
+  GArrowRunEndEncodedDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_run_end_encoded_data_type_new:
+ * @run_end_data_type: The data type of run-end.
+ * @value_data_type: The data type of value.
+ *
+ * Returns: The newly created run-end encoded data type.
+ *
+ * Since: 13.0.0
+ */
+GArrowRunEndEncodedDataType *
+garrow_run_end_encoded_data_type_new(GArrowDataType *run_end_data_type,
+                                     GArrowDataType *value_data_type)
+{
+  auto arrow_run_end_data_type = garrow_data_type_get_raw(run_end_data_type);
+  auto arrow_value_data_type = garrow_data_type_get_raw(value_data_type);
+  auto arrow_data_type = arrow::run_end_encoded(arrow_run_end_data_type,
+                                                arrow_value_data_type);
+  return GARROW_RUN_END_ENCODED_DATA_TYPE(
+    garrow_data_type_new_raw(&arrow_data_type));
+}
+
+/**
+ * garrow_run_end_encoded_data_type_get_run_end_data_type:
+ * @data_type: The #GArrowRunEndEncodedDataType.
+ *
+ * Returns: (transfer full): The #GArrowDataType of run-end.
+ *
+ * Since: 13.0.0
+ */
+GArrowDataType *
+garrow_run_end_encoded_data_type_get_run_end_data_type(
+  GArrowRunEndEncodedDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_run_end_encoded_data_type =
+    std::static_pointer_cast<arrow::RunEndEncodedType>(arrow_data_type);
+  auto arrow_run_end_data_type = arrow_run_end_encoded_data_type->run_end_type();
+  return garrow_data_type_new_raw(&arrow_run_end_data_type);
+}
+
+/**
+ * garrow_run_end_encoded_data_type_get_value_data_type:
+ * @data_type: The #GArrowRunEndEncodedDataType.
+ *
+ * Returns: (transfer full): The #GArrowDataType of value.
+ *
+ * Since: 13.0.0
+ */
+GArrowDataType *
+garrow_run_end_encoded_data_type_get_value_data_type(
+  GArrowRunEndEncodedDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_run_end_encoded_data_type =
+    std::static_pointer_cast<arrow::RunEndEncodedType>(arrow_data_type);
+  auto arrow_value_data_type = arrow_run_end_encoded_data_type->value_type();
+  return garrow_data_type_new_raw(&arrow_value_data_type);
+}
+
 
 G_END_DECLS

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -72,7 +73,7 @@ public class TestMetadataVersion {
     try (final FlightServer server = startServer(optionV4);
          final FlightClient client = connect(server)) {
       final FlightInfo result = client.getInfo(FlightDescriptor.command(new byte[0]));
-      assertEquals(schema, result.getSchema());
+      assertEquals(Optional.of(schema), result.getSchemaOptional());
     }
   }
 

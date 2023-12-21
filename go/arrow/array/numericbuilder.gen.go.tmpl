@@ -17,11 +17,11 @@
 package array
 
 import (
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 {{range .In}}
@@ -79,8 +79,20 @@ func (b *{{.Name}}Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *{{.Name}}Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *{{.Name}}Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *{{.Name}}Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *{{.Name}}Builder) UnsafeAppend(v {{or .QualifiedType .Type}}) {

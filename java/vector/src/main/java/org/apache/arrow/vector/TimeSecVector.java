@@ -37,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class TimeSecVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 4;
-  private final FieldReader reader;
 
   /**
    * Instantiate a TimeSecVector. This doesn't allocate any memory for
@@ -71,17 +70,11 @@ public final class TimeSecVector extends BaseFixedWidthVector {
    */
   public TimeSecVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new TimeSecReaderImpl(TimeSecVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new TimeSecReaderImpl(TimeSecVector.this);
   }
 
   /**
@@ -291,7 +284,7 @@ public final class TimeSecVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -301,6 +294,19 @@ public final class TimeSecVector extends BaseFixedWidthVector {
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new TransferImpl(ref, allocator);
+  }
+
+  /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
   }
 
   /**
@@ -319,6 +325,10 @@ public final class TimeSecVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new TimeSecVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new TimeSecVector(field, allocator);
     }
 
     public TransferImpl(TimeSecVector to) {

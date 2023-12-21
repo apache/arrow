@@ -23,7 +23,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
-using FlatBuffers;
+using Google.FlatBuffers;
 
 namespace Apache.Arrow.Ipc
 {
@@ -49,11 +49,17 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<DurationArray>,
+            IArrowArrayVisitor<YearMonthIntervalArray>,
+            IArrowArrayVisitor<DayTimeIntervalArray>,
+            IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
+            IArrowArrayVisitor<UnionArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -102,11 +108,22 @@ namespace Apache.Arrow.Ipc
             public void Visit(Date64Array array) => CreateBuffers(array);
             public void Visit(Time32Array array) => CreateBuffers(array);
             public void Visit(Time64Array array) => CreateBuffers(array);
+            public void Visit(DurationArray array) => CreateBuffers(array);
+            public void Visit(YearMonthIntervalArray array) => CreateBuffers(array);
+            public void Visit(DayTimeIntervalArray array) => CreateBuffers(array);
+            public void Visit(MonthDayNanosecondIntervalArray array) => CreateBuffers(array);
 
             public void Visit(ListArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+
+                array.Values.Accept(this);
+            }
+
+            public void Visit(FixedSizeListArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
 
                 array.Values.Accept(this);
             }
@@ -141,6 +158,22 @@ namespace Apache.Arrow.Ipc
             public void Visit(StructArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(this);
+                }
+            }
+
+            public void Visit(UnionArray array)
+            {
+                _buffers.Add(CreateBuffer(array.TypeBuffer));
+
+                ArrowBuffer? offsets = (array as DenseUnionArray)?.ValueOffsetBuffer;
+                if (offsets != null)
+                {
+                    _buffers.Add(CreateBuffer(offsets.Value));
+                }
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
@@ -210,7 +243,7 @@ namespace Apache.Arrow.Ipc
         private readonly bool _leaveOpen;
         private readonly IpcOptions _options;
 
-        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V4;
+        private protected const Flatbuf.MetadataVersion CurrentMetadataVersion = Flatbuf.MetadataVersion.V5;
 
         private static readonly byte[] s_padding = new byte[64];
 
@@ -242,7 +275,6 @@ namespace Apache.Arrow.Ipc
             _fieldTypeBuilder = new ArrowTypeFlatbufferBuilder(Builder);
             _options = options ?? IpcOptions.Default;
         }
-
 
         private void CreateSelfAndChildrenFieldNodes(ArrayData data)
         {
@@ -292,7 +324,7 @@ namespace Apache.Arrow.Ipc
             if (!HasWrittenDictionaryBatch)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
-                WriteDictionaries(recordBatch);
+                WriteDictionaries(_dictionaryMemo);
                 HasWrittenDictionaryBatch = true;
             }
 
@@ -331,7 +363,7 @@ namespace Apache.Arrow.Ipc
             if (!HasWrittenDictionaryBatch)
             {
                 DictionaryCollector.Collect(recordBatch, ref _dictionaryMemo);
-                await WriteDictionariesAsync(recordBatch, cancellationToken).ConfigureAwait(false);
+                await WriteDictionariesAsync(_dictionaryMemo, cancellationToken).ConfigureAwait(false);
                 HasWrittenDictionaryBatch = true;
             }
 
@@ -465,74 +497,65 @@ namespace Apache.Arrow.Ipc
             return Tuple.Create(recordBatchBuilder, fieldNodesVectorOffset);
         }
 
-
-        private protected void WriteDictionaries(RecordBatch recordBatch)
+        private protected virtual void StartingWritingDictionary()
         {
-            foreach (Field field in recordBatch.Schema.FieldsList)
+        }
+
+        private protected virtual void FinishedWritingDictionary(long bodyLength, long metadataLength)
+        {
+        }
+
+        private protected void WriteDictionaries(DictionaryMemo dictionaryMemo)
+        {
+            int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
+            for (int i = 0; i < fieldCount; i++)
             {
-                WriteDictionary(field);
+                WriteDictionary(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i));
             }
         }
 
-        private protected void WriteDictionary(Field field)
+        private protected void WriteDictionary(long id, IArrowType valueType, IArrowArray dictionary)
         {
-            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
-            {
-                if (field.DataType is NestedType nestedType)
-                {
-                    foreach (Field child in nestedType.Fields)
-                    {
-                        WriteDictionary(child);
-                    }
-                }
-                return;
-            }
+            StartingWritingDictionary();
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
-                CreateDictionaryBatchOffset(field);
+                CreateDictionaryBatchOffset(id, valueType, dictionary);
 
-            WriteMessage(Flatbuf.MessageHeader.DictionaryBatch,
+            long metadataLength = WriteMessage(Flatbuf.MessageHeader.DictionaryBatch,
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength);
 
-            WriteBufferData(recordBatchBuilder.Buffers);
+            long bufferLength = WriteBufferData(recordBatchBuilder.Buffers);
+
+            FinishedWritingDictionary(bufferLength, metadataLength);
         }
 
-        private protected async Task WriteDictionariesAsync(RecordBatch recordBatch, CancellationToken cancellationToken)
+        private protected async Task WriteDictionariesAsync(DictionaryMemo dictionaryMemo, CancellationToken cancellationToken)
         {
-            foreach (Field field in recordBatch.Schema.FieldsList)
+            int fieldCount = dictionaryMemo?.DictionaryCount ?? 0;
+            for (int i = 0; i < fieldCount; i++)
             {
-                await WriteDictionaryAsync(field, cancellationToken).ConfigureAwait(false);
+                await WriteDictionaryAsync(i, dictionaryMemo.GetDictionaryType(i), dictionaryMemo.GetDictionary(i), cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private protected async Task WriteDictionaryAsync(Field field, CancellationToken cancellationToken)
+        private protected async Task WriteDictionaryAsync(long id, IArrowType valueType, IArrowArray dictionary, CancellationToken cancellationToken)
         {
-            if (field.DataType.TypeId != ArrowTypeId.Dictionary)
-            {
-                if (field.DataType is NestedType nestedType)
-                {
-                    foreach (Field child in nestedType.Fields)
-                    {
-                        await WriteDictionaryAsync(child, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-                return;
-            }
+            StartingWritingDictionary();
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, Offset<Flatbuf.DictionaryBatch> dictionaryBatchOffset) =
-                CreateDictionaryBatchOffset(field);
+                CreateDictionaryBatchOffset(id, valueType, dictionary);
 
-            await WriteMessageAsync(Flatbuf.MessageHeader.DictionaryBatch,
+            long metadataLength = await WriteMessageAsync(Flatbuf.MessageHeader.DictionaryBatch,
                 dictionaryBatchOffset, recordBatchBuilder.TotalLength, cancellationToken).ConfigureAwait(false);
 
-            await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+            long bufferLength = await WriteBufferDataAsync(recordBatchBuilder.Buffers, cancellationToken).ConfigureAwait(false);
+
+            FinishedWritingDictionary(bufferLength, metadataLength);
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(Field field)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, Offset<Flatbuf.DictionaryBatch>> CreateDictionaryBatchOffset(long id, IArrowType valueType, IArrowArray dictionary)
         {
-            Field dictionaryField = new Field("dummy", ((DictionaryType)field.DataType).ValueType, false);
-            long id = DictionaryMemo.GetId(field);
-            IArrowArray dictionary = DictionaryMemo.GetDictionary(id);
+            Field dictionaryField = new Field("dummy", valueType, false);
 
             var fields = new Field[] { dictionaryField };
 
@@ -867,7 +890,7 @@ namespace Apache.Arrow.Ipc
 
         private void WriteIpcMessageLength(int length)
         {
-            Buffers.RentReturn(_options.SizeOfIpcLength, (buffer) =>
+            using (Buffers.RentReturn(_options.SizeOfIpcLength, out Memory<byte> buffer))
             {
                 Memory<byte> currentBufferPosition = buffer;
                 if (!_options.WriteLegacyIpcFormat)
@@ -879,12 +902,12 @@ namespace Apache.Arrow.Ipc
 
                 BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
                 BaseStream.Write(buffer);
-            });
+            }
         }
 
         private async ValueTask WriteIpcMessageLengthAsync(int length, CancellationToken cancellationToken)
         {
-            await Buffers.RentReturnAsync(_options.SizeOfIpcLength, async (buffer) =>
+            using (Buffers.RentReturn(_options.SizeOfIpcLength, out Memory<byte> buffer))
             {
                 Memory<byte> currentBufferPosition = buffer;
                 if (!_options.WriteLegacyIpcFormat)
@@ -896,7 +919,7 @@ namespace Apache.Arrow.Ipc
 
                 BinaryPrimitives.WriteInt32LittleEndian(currentBufferPosition.Span, length);
                 await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-            }).ConfigureAwait(false);
+            }
         }
 
         protected int CalculatePadding(long offset, int alignment = 8)
@@ -960,12 +983,12 @@ namespace Apache.Arrow.Ipc
                 arrayData.Dictionary.EnsureDataType(dictionaryType.ValueType.TypeId);
 
                 IArrowArray dictionary = ArrowArrayFactory.BuildArray(arrayData.Dictionary);
+                WalkChildren(dictionary.Data, ref dictionaryMemo);
 
                 dictionaryMemo ??= new DictionaryMemo();
                 long id = dictionaryMemo.GetOrAssignId(field);
 
                 dictionaryMemo.AddOrReplaceDictionary(id, dictionary);
-                WalkChildren(dictionary.Data, ref dictionaryMemo);
             }
             else
             {

@@ -19,7 +19,7 @@ package memory
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
 )
 
 // Buffer is a wrapper type for a buffer of bytes.
@@ -31,6 +31,18 @@ type Buffer struct {
 	mem      Allocator
 
 	parent *Buffer
+}
+
+// NewBufferWithAllocator returns a buffer with the mutable flag set
+// as false. The intention here is to allow wrapping a byte slice along
+// with an allocator as a buffer to track the lifetime via refcounts
+// in order to call Free when the refcount goes to zero.
+//
+// The primary example this is used for, is currently importing data
+// through the c data interface and tracking the lifetime of the
+// imported buffers.
+func NewBufferWithAllocator(data []byte, mem Allocator) *Buffer {
+	return &Buffer{refCount: 1, buf: data, length: len(data), mem: mem}
 }
 
 // NewBufferBytes creates a fixed-size buffer from the specified data.

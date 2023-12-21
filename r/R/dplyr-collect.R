@@ -192,5 +192,6 @@ implicit_schema <- function(.data) {
       aggregate_types(.data, hash, old_schm)
     )
   }
-  schema(!!!new_fields)
+
+  schema(new_fields)
 }

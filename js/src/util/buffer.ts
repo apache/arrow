@@ -17,7 +17,7 @@
 
 import { encodeUtf8 } from '../util/utf8.js';
 import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces.js';
-import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer, BigInt64Array, BigUint64Array } from './compat.js';
+import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer } from './compat.js';
 import { ByteBuffer } from 'flatbuffers';
 
 /** @ignore */
@@ -63,7 +63,7 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
     // streaming, where we may be reading partial byte ranges out of the same underlying ArrayBuffer
     const result = collapseContiguousByteRanges(chunks);
     const byteLength = result.reduce((x, b) => x + b.byteLength, 0);
-    let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | void;
+    let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | undefined;
     let offset = 0, index = -1;
     const length = Math.min(size || Number.POSITIVE_INFINITY, byteLength);
     for (const n = result.length; ++index < n;) {
@@ -83,9 +83,9 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
 }
 
 /** @ignore */
-export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined |
-    IteratorResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined> |
-    ReadableStreamReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | ArrayLike<number> | ByteBuffer | string | null | undefined>;
+export type ArrayBufferViewInput = ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | Iterable<bigint> | ArrayLike<number> | ArrayLike<bigint> | ByteBuffer | string | null | undefined |
+    IteratorResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | Iterable<bigint> | ArrayLike<number> | ArrayLike<bigint> | ByteBuffer | string | null | undefined> |
+    ReadableStreamReadResult<ArrayBufferView | ArrayBufferLike | ArrayBufferView | Iterable<number> | Iterable<bigint> | ArrayLike<number> | ArrayLike<bigint> | ByteBuffer | string | null | undefined>;
 
 /** @ignore */
 export function toArrayBufferView<
@@ -208,16 +208,18 @@ export async function* toArrayBufferViewAsyncIterator<T extends TypedArray>(Arra
 /** @ignore */ export const toUint8ClampedArrayAsyncIterator = (input: ArrayBufferViewAsyncIteratorInput) => toArrayBufferViewAsyncIterator(Uint8ClampedArray, input);
 
 /** @ignore */
-export function rebaseValueOffsets(offset: number, length: number, valueOffsets: Int32Array) {
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: Int32Array): Int32Array;
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: BigInt64Array): BigInt64Array;
+export function rebaseValueOffsets(offset: number, length: number, valueOffsets: any) {
     // If we have a non-zero offset, create a new offsets array with the values
     // shifted by the start offset, such that the new start offset is 0
     if (offset !== 0) {
-        valueOffsets = valueOffsets.slice(0, length + 1);
-        for (let i = -1; ++i <= length;) {
+        valueOffsets = valueOffsets.slice(0, length);
+        for (let i = -1, n = valueOffsets.length; ++i < n;) {
             valueOffsets[i] += offset;
         }
     }
-    return valueOffsets;
+    return valueOffsets.subarray(0, length);
 }
 
 /** @ignore */

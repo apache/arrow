@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <regex>
+#include <sstream>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
@@ -51,7 +52,7 @@ std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
   }
 
   auto append_part = [&parts, &v](size_t start, size_t end) {
-    parts.push_back(std::string(v.substr(start, end - start)));
+    parts.emplace_back(v.substr(start, end - start));
   };
 
   size_t start = 0;
@@ -64,6 +65,39 @@ std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
     start = end + 1;
   }
   return parts;
+}
+
+std::string SliceAbstractPath(const std::string& s, int offset, int length, char sep) {
+  if (offset < 0 || length < 0) {
+    return "";
+  }
+  std::vector<std::string> components = SplitAbstractPath(s, sep);
+  if (offset >= static_cast<int>(components.size())) {
+    return "";
+  }
+  const auto end = std::min(static_cast<size_t>(offset) + length, components.size());
+  std::stringstream combined;
+  for (auto i = static_cast<size_t>(offset); i < end; i++) {
+    combined << components[i];
+    if (i < end - 1) {
+      combined << sep;
+    }
+  }
+  return combined.str();
+}
+
+int GetAbstractPathDepth(std::string_view path) {
+  if (path.empty()) {
+    return 0;
+  }
+  int depth = static_cast<int>(std::count(path.begin(), path.end(), kSep)) + 1;
+  if (path.back() == kSep) {
+    depth -= 1;
+  }
+  if (path.front() == kSep) {
+    depth -= 1;
+  }
+  return depth;
 }
 
 std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s) {
@@ -103,16 +137,20 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
   return Status::OK();
 }
 
-std::string ConcatAbstractPath(const std::string& base, const std::string& stem) {
+std::string ConcatAbstractPath(std::string_view base, std::string_view stem) {
   DCHECK(!stem.empty());
   if (base.empty()) {
-    return stem;
+    return std::string{stem};
   }
-  return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
+  std::string result;
+  result.reserve(base.length() + stem.length() + 1);  // extra 1 is for potential kSep
+  result += EnsureTrailingSlash(base);
+  result += RemoveLeadingSlash(stem);
+  return result;
 }
 
 std::string EnsureTrailingSlash(std::string_view v) {
-  if (v.length() > 0 && v.back() != kSep) {
+  if (!v.empty() && !HasTrailingSlash(v)) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "C:/"...
     // Unless the local filesystem always uses absolute paths
     return std::string(v) + kSep;
@@ -122,7 +160,7 @@ std::string EnsureTrailingSlash(std::string_view v) {
 }
 
 std::string EnsureLeadingSlash(std::string_view v) {
-  if (v.length() == 0 || v.front() != kSep) {
+  if (!HasLeadingSlash(v)) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "/C:"...
     return kSep + std::string(v);
   } else {
@@ -154,17 +192,10 @@ std::string_view RemoveLeadingSlash(std::string_view key) {
 }
 
 Status AssertNoTrailingSlash(std::string_view key) {
-  if (key.back() == '/') {
+  if (HasTrailingSlash(key)) {
     return NotAFile(key);
   }
   return Status::OK();
-}
-
-bool HasLeadingSlash(std::string_view key) {
-  if (key.front() != '/') {
-    return false;
-  }
-  return true;
 }
 
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
@@ -349,7 +380,7 @@ struct Globber::Impl {
 
 Globber::Globber(std::string pattern) : impl_(new Impl(pattern)) {}
 
-Globber::~Globber() {}
+Globber::~Globber() = default;
 
 bool Globber::Matches(const std::string& path) {
   return regex_match(path, impl_->pattern_);

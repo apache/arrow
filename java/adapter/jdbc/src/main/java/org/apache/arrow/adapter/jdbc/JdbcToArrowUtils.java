@@ -208,7 +208,7 @@ public class JdbcToArrowUtils {
         return new ArrowType.Struct();
       default:
         // no-op, shouldn't get here
-        return null;
+        throw new UnsupportedOperationException("Unmapped JDBC type: " + fieldInfo.getJdbcType());
     }
   }
 
@@ -430,7 +430,18 @@ public class JdbcToArrowUtils {
     }
   }
 
-  static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
+  /**
+   * Default function used for JdbcConsumerFactory. This function gets a JdbcConsumer for the
+   * given column based on the Arrow type and provided vector.
+   *
+   * @param arrowType   Arrow type for the column.
+   * @param columnIndex Column index to fetch from the ResultSet
+   * @param nullable    Whether the value is nullable or not
+   * @param vector      Vector to store the consumed value
+   * @param config      Associated JdbcToArrowConfig, used mainly for the Calendar.
+   * @return {@link JdbcConsumer}
+   */
+  public static JdbcConsumer getConsumer(ArrowType arrowType, int columnIndex, boolean nullable,
       FieldVector vector, JdbcToArrowConfig config) {
     final Calendar calendar = config.getCalendar();
 
@@ -489,7 +500,7 @@ public class JdbcToArrowUtils {
         return new NullConsumer((NullVector) vector);
       default:
         // no-op, shouldn't get here
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("No consumer for Arrow type: " + arrowType);
     }
   }
 }

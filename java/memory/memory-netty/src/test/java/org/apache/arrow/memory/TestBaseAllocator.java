@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
@@ -39,7 +40,13 @@ import org.apache.arrow.memory.util.AssertionUtil;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
+import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import io.netty.buffer.PooledByteBufAllocatorL;
 import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
@@ -1088,6 +1095,75 @@ public class TestBaseAllocator {
       });
       exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
+    }
+  }
+
+  @Test
+  public void testMemoryUsage() {
+    ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
+    Logger logger = (Logger) LoggerFactory.getLogger("arrow.allocator");
+    try {
+      logger.setLevel(Level.TRACE);
+      logger.addAppender(memoryLogsAppender);
+      memoryLogsAppender.start();
+      try (ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
+          1024, new PooledByteBufAllocatorL().empty.memoryAddress())) {
+        buf.memoryAddress();
+      }
+      boolean result = false;
+      long startTime = System.currentTimeMillis();
+      while ((System.currentTimeMillis() - startTime) < 10000) { // 10 seconds maximum for time to read logs
+        result = memoryLogsAppender.list.stream()
+            .anyMatch(
+                log -> log.toString().contains("Memory Usage: \n") &&
+                    log.toString().contains("Large buffers outstanding: ") &&
+                    log.toString().contains("Normal buffers outstanding: ") &&
+                    log.getLevel().equals(Level.TRACE)
+            );
+        if (result) {
+          break;
+        }
+      }
+      assertTrue("Log messages are:\n" +
+          memoryLogsAppender.list.stream().map(ILoggingEvent::toString).collect(Collectors.joining("\n")),
+          result);
+    } finally {
+      memoryLogsAppender.stop();
+      logger.detachAppender(memoryLogsAppender);
+      logger.setLevel(null);
+    }
+  }
+
+  @Test
+  public void testOverlimit() {
+    try (BufferAllocator allocator = new RootAllocator(1024)) {
+      try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, 1024);
+           BufferAllocator child2 = allocator.newChildAllocator("ChildB", 1024, 1024)) {
+        assertThrows(OutOfMemoryException.class, () -> {
+          ArrowBuf buf1 = child1.buffer(8);
+          buf1.close();
+        });
+        assertEquals(0, child1.getAllocatedMemory());
+        assertEquals(0, child2.getAllocatedMemory());
+        assertEquals(1024, allocator.getAllocatedMemory());
+      }
+    }
+  }
+
+  @Test
+  public void testOverlimitOverflow() {
+    // Regression test for https://github.com/apache/arrow/issues/35960
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, Long.MAX_VALUE);
+           BufferAllocator child2 = allocator.newChildAllocator("ChildB", Long.MAX_VALUE, Long.MAX_VALUE)) {
+        assertThrows(OutOfMemoryException.class, () -> {
+          ArrowBuf buf1 = child1.buffer(1024);
+          buf1.close();
+        });
+        assertEquals(0, child1.getAllocatedMemory());
+        assertEquals(0, child2.getAllocatedMemory());
+        assertEquals(Long.MAX_VALUE, allocator.getAllocatedMemory());
+      }
     }
   }
 

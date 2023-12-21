@@ -41,6 +41,10 @@ version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
 
+current_version=$(grep ARROW_VERSION "${SOURCE_DIR}/../../cpp/CMakeLists.txt" | \
+                    head -n1 | \
+                    grep -E -o '([0-9]+\.[0-9]+\.[0-9]+)')
+
 case "${version}" in
   *.0.0)
     is_major_release=1
@@ -63,7 +67,8 @@ if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
   git commit -m "MINOR: [Release] Update versions for ${next_version_snapshot}"
 fi
 
-if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
+if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ] && \
+     [ "${next_version}" != "${current_version}" ]; then
   echo "Updating .deb package names for ${next_version}"
   so_version() {
     local version=$1

@@ -53,6 +53,22 @@ public interface FlightProducer {
   FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor);
 
   /**
+   * Begin or get an update on execution of a long-running query.
+   *
+   * <p>If the descriptor would begin a query, the server should return a response immediately to not
+   * block the client. Otherwise, the server should not return an update until progress is made to
+   * not spam the client with inactionable updates.
+   *
+   * @param context Per-call context.
+   * @param descriptor The descriptor identifying the data stream.
+   * @return Metadata about execution.
+   */
+  default PollInfo pollFlightInfo(CallContext context, FlightDescriptor descriptor) {
+    FlightInfo info = getFlightInfo(context, descriptor);
+    return new PollInfo(info, null, null, null);
+  }
+
+  /**
    * Get schema for a particular data stream.
    *
    * @param context Per-call context.
@@ -61,7 +77,12 @@ public interface FlightProducer {
    */
   default SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
     FlightInfo info = getFlightInfo(context, descriptor);
-    return new SchemaResult(info.getSchema());
+    return new SchemaResult(info
+            .getSchemaOptional()
+            .orElseThrow(() ->
+                    CallStatus
+                            .INVALID_ARGUMENT
+                            .withDescription("No schema is present in FlightInfo").toRuntimeException()));
   }
 
 

@@ -30,6 +30,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -450,6 +451,13 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
                                                     const std::shared_ptr<Schema>& schema,
                                                     MemoryPool* pool) {
+  return PromoteTableToSchema(table, schema, compute::CastOptions::Safe(), pool);
+}
+
+Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                                                    const std::shared_ptr<Schema>& schema,
+                                                    const compute::CastOptions& options,
+                                                    MemoryPool* pool) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
     return table->ReplaceSchemaMetadata(schema->metadata());
@@ -487,8 +495,8 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     const int field_index = field_indices[0];
     const auto& current_field = current_schema->field(field_index);
     if (!field->nullable() && current_field->nullable()) {
-      return Status::Invalid("Unable to promote field ", current_field->name(),
-                             ": it was nullable but the target schema was not.");
+      return Status::TypeError("Unable to promote field ", current_field->name(),
+                               ": it was nullable but the target schema was not.");
     }
 
     fields_seen[field_index] = true;
@@ -502,9 +510,15 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
       continue;
     }
 
-    return Status::Invalid("Unable to promote field ", field->name(),
-                           ": incompatible types: ", field->type()->ToString(), " vs ",
-                           current_field->type()->ToString());
+    if (!compute::CanCast(*current_field->type(), *field->type())) {
+      return Status::TypeError("Unable to promote field ", field->name(),
+                               ": incompatible types: ", field->type()->ToString(),
+                               " vs ", current_field->type()->ToString());
+    }
+    compute::ExecContext ctx(pool);
+    ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
+                                                     field->type(), options, &ctx));
+    columns.push_back(casted.chunked_array());
   }
 
   auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);

@@ -43,7 +43,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class DurationVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
-  private final FieldReader reader;
 
   private final TimeUnit unit;
 
@@ -68,18 +67,12 @@ public final class DurationVector extends BaseFixedWidthVector {
    */
   public DurationVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new DurationReaderImpl(DurationVector.this);
     this.unit = ((ArrowType.Duration) field.getFieldType().getType()).getUnit();
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new DurationReaderImpl(DurationVector.this);
   }
 
   /**
@@ -154,9 +147,19 @@ public final class DurationVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long value = get(valueBuffer, index);
-      return toDuration(value, unit);
+      return getObjectNotNull(index);
     }
+  }
+
+  /**
+   * Same as {@link #getObject(int)} but does not check for null.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Duration getObjectNotNull(int index) {
+    final long value = get(valueBuffer, index);
+    return toDuration(value, unit);
   }
 
   /**
@@ -370,6 +373,19 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
+  /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
    * @param to target vector
@@ -385,6 +401,10 @@ public final class DurationVector extends BaseFixedWidthVector {
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new DurationVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new DurationVector(field, allocator);
     }
 
     public TransferImpl(DurationVector to) {

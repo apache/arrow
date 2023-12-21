@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -232,4 +232,22 @@ func TestTimestampBuilder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestTimestampValueStr(t *testing.T) {		
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.TimestampType{Unit: arrow.Second, TimeZone: "America/Phoenix"}
+	b := array.NewTimestampBuilder(mem, dt)
+	defer b.Release()
+
+	b.Append(-34226955)
+	b.Append(1456767743)
+
+	arr := b.NewArray()
+	defer arr.Release()
+
+	assert.Equal(t, "1968-11-30 13:30:45-0700", arr.ValueStr(0))
+	assert.Equal(t, "2016-02-29 10:42:23-0700", arr.ValueStr(1))
 }

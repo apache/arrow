@@ -24,8 +24,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/arrow"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
 )
 
 const (
@@ -295,7 +295,7 @@ var (
 		Double            Type
 		ByteArray         Type
 		FixedLenByteArray Type
-		// this only exists as a convienence so we can denote it when necessary
+		// this only exists as a convenience so we can denote it when necessary
 		// nearly all functions that take a parquet.Type will error/panic if given
 		// Undefined
 		Undefined Type

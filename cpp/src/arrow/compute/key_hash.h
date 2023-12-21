@@ -17,7 +17,7 @@
 
 #pragma once
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
 #include <immintrin.h>
 #endif
 
@@ -115,7 +115,7 @@ class ARROW_EXPORT Hashing32 {
   static void HashInt(bool combine_hashes, uint32_t num_keys, uint64_t length_key,
                       const uint8_t* keys, uint32_t* hashes);
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   static inline __m256i Avalanche_avx2(__m256i hash);
   static inline __m256i CombineHashesImp_avx2(__m256i previous_hash, __m256i hash);
   template <bool T_COMBINE_HASHES>

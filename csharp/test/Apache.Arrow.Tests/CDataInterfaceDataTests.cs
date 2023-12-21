@@ -47,7 +47,7 @@ namespace Apache.Arrow.Tests
             Assert.True(cArray->buffers == null);
             Assert.True(cArray->children == null);
             Assert.True(cArray->dictionary == null);
-            Assert.True(cArray->release == null);
+            Assert.True(cArray->release == default);
             Assert.True(cArray->private_data == null);
 
             CArrowArray.Free(cArray);
@@ -59,12 +59,13 @@ namespace Apache.Arrow.Tests
             IArrowArray array = GetTestArray();
             CArrowArray* cArray = CArrowArray.Create();
             CArrowArrayExporter.ExportArray(array, cArray);
-            Assert.False(cArray->release == null);
+            Assert.False(cArray->release == default);
             CArrowArrayImporter.ImportArray(cArray, array.Data.DataType).Dispose();
-            Assert.True(cArray->release == null);
+            Assert.True(cArray->release == default);
             CArrowArray.Free(cArray);
         }
 
+#if NET5_0_OR_GREATER
         [Fact]
         public unsafe void CallsReleaseForInvalid()
         {
@@ -75,9 +76,9 @@ namespace Apache.Arrow.Tests
             var releaseCallback = (CArrowArray* cArray) =>
             {
                 wasCalled = true;
-                cArray->release = null;
+                cArray->release = default;
             };
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate(
+            cArray->release = (delegate* unmanaged<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate(
                 releaseCallback);
 
             Assert.Throws<InvalidOperationException>(() =>
@@ -85,9 +86,11 @@ namespace Apache.Arrow.Tests
                 CArrowArrayImporter.ImportArray(cArray, GetTestArray().Data.DataType);
             });
             Assert.True(wasCalled);
+
             CArrowArray.Free(cArray);
 
             GC.KeepAlive(releaseCallback);
         }
+#endif
     }
 }

@@ -39,6 +39,7 @@
 #' - `$WithMetadata(metadata)`: returns a new `Schema` with the key-value
 #'    `metadata` set. Note that all list elements in `metadata` will be coerced
 #'    to `character`.
+#' - `$code(namespace)`: returns the R code needed to generate this schema. Use `namespace=TRUE` to call with `arrow::`.
 #'
 #' @section Active bindings:
 #'
@@ -75,22 +76,7 @@
 #'   Files with compressed metadata are readable by older versions of arrow, but
 #'   the metadata is dropped.
 #'
-#' @rdname Schema
-#' @name Schema
-#' @examples
-#' schema(a = int32(), b = float64())
-#'
-#' schema(
-#'   field("b", double()),
-#'   field("c", bool(), nullable = FALSE),
-#'   field("d", string())
-#' )
-#'
-#' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
-#' tab1 <- arrow_table(df)
-#' tab1$schema
-#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
-#' tab2$schema
+#' @rdname Schema-class
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
@@ -122,14 +108,13 @@ Schema <- R6Class("Schema",
       inherits(other, "Schema") && Schema__Equals(self, other, isTRUE(check_metadata))
     },
     export_to_c = function(ptr) ExportSchema(self, ptr),
-    code = function() {
+    code = function(namespace = FALSE) {
       names <- self$names
       codes <- map2(names, self$fields, function(name, field) {
-        field$type$code()
+        field$type$code(namespace)
       })
       codes <- set_names(codes, names)
-
-      call2("schema", !!!codes)
+      call2("schema", !!!codes, .ns = if (namespace) "arrow")
     },
     WithNames = function(names) {
       if (!inherits(names, "character")) {
@@ -244,10 +229,64 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... [fields][field] or field name/[data type][data-type] pairs
+#' Create a schema or extract one from an object.
+#'
+#' @seealso [Schema] for detailed documentation of the Schema R6 object
+#' @param ... [fields][field], field name/[data type][data-type] pairs (or a list of), or object from which to extract
+#'  a schema
+#' @examples
+#' # Create schema using pairs of field names and data types
+#' schema(a = int32(), b = float64())
+#'
+#' # Create a schema using a list of pairs of field names and data types
+#' schema(list(a = int8(), b = string()))
+#'
+#' # Create schema using fields
+#' schema(
+#'   field("b", double()),
+#'   field("c", bool(), nullable = FALSE),
+#'   field("d", string())
+#' )
+#'
+#' # Extract schemas from objects
+#' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
+#' tab1 <- arrow_table(df)
+#' schema(tab1)
+#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
+#' schema(tab2)
 #' @export
-#' @rdname Schema
-schema <- Schema$create
+schema <- function(...) {
+  dots <- list2(...)
+
+  if (length(dots) == 1 && !is_bare_list(dots[[1]]) && is.null(names(dots)) && !inherits(dots[[1]], "Field")) {
+    return(infer_schema(dots[[1]]))
+  }
+
+  Schema$create(!!!dots)
+}
+
+#' Extract a schema from an object
+#'
+#' @param x An object which has a schema, e.g. a `Dataset`
+#' @export
+infer_schema <- function(x) {
+  UseMethod("infer_schema")
+}
+
+#' @export
+infer_schema.ArrowTabular <- function(x) x$schema
+
+#' @export
+infer_schema.RecordBatchReader <- function(x) x$schema
+
+#' @export
+infer_schema.Dataset <- function(x) x$schema
+
+#' @export
+infer_schema.arrow_dplyr_query <- function(x) implicit_schema(x)
+
+#' @export
+infer_schema.data.frame <- function(x) schema(!!!lapply(x, infer_type))
 
 #' @export
 names.Schema <- function(x) x$names
@@ -344,7 +383,7 @@ length.Schema <- function(x) x$num_fields
 #' @export
 as.list.Schema <- function(x, ...) x$fields
 
-#' read a Schema from a stream
+#' Read a Schema from a stream
 #'
 #' @param stream a `Message`, `InputStream`, or `Buffer`
 #' @param ... currently ignored
@@ -387,7 +426,7 @@ print.arrow_r_metadata <- function(x, ...) {
   invisible(x)
 }
 
-#' Convert an object to an Arrow DataType
+#' Convert an object to an Arrow Schema
 #'
 #' @param x An object to convert to a [schema()]
 #' @param ... Passed to S3 methods.
@@ -411,7 +450,7 @@ as_schema.Schema <- function(x, ...) {
 #' @rdname as_schema
 #' @export
 as_schema.StructType <- function(x, ...) {
-  schema(!!!x$fields())
+  schema(x$fields())
 }
 
 #' @export

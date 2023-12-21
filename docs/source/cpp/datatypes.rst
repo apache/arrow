@@ -157,7 +157,7 @@ Visitor Pattern
 ---------------
 
 In order to process :class:`arrow::DataType`, :class:`arrow::Scalar`, or
-:class:`arrow::Array`, you may need to write write logic that specializes based 
+:class:`arrow::Array`, you may need to write logic that specializes based
 on the particular Arrow type. In these cases, use the
 `visitor pattern <https://en.wikipedia.org/wiki/Visitor_pattern>`_. Arrow provides
 the template functions:
@@ -186,7 +186,7 @@ here is how one might sum across columns of arbitrary numeric types:
    
      // Default implementation
      arrow::Status Visit(const arrow::Array& array) {
-       return arrow::Status::NotImplemented("Can not compute sum for array of type ",
+       return arrow::Status::NotImplemented("Cannot compute sum for array of type ",
                                             array.type()->ToString());
      }
    

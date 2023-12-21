@@ -26,16 +26,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/float16"
-	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 type Schema struct {
@@ -158,6 +158,10 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = nameJSON{"utf8"}
 	case *arrow.LargeStringType:
 		typ = nameJSON{"largeutf8"}
+	case *arrow.BinaryViewType:
+		typ = nameJSON{"binaryview"}
+	case *arrow.StringViewType:
+		typ = nameJSON{"utf8view"}
 	case *arrow.Date32Type:
 		typ = unitZoneJSON{Name: "date", Unit: "DAY"}
 	case *arrow.Date64Type:
@@ -208,6 +212,10 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = nameJSON{"list"}
 	case *arrow.LargeListType:
 		typ = nameJSON{"largelist"}
+	case *arrow.ListViewType:
+		typ = nameJSON{"listview"}
+	case *arrow.LargeListViewType:
+		typ = nameJSON{"largelistview"}
 	case *arrow.MapType:
 		typ = mapJSON{Name: "map", KeysSorted: dt.KeysSorted}
 	case *arrow.StructType:
@@ -338,6 +346,10 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		arrowType = arrow.BinaryTypes.String
 	case "largeutf8":
 		arrowType = arrow.BinaryTypes.LargeString
+	case "binaryview":
+		arrowType = arrow.BinaryTypes.BinaryView
+	case "utf8view":
+		arrowType = arrow.BinaryTypes.StringView
 	case "date":
 		t := unitZoneJSON{}
 		if err = json.Unmarshal(typ, &t); err != nil {
@@ -395,6 +407,20 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		})
 	case "largelist":
 		arrowType = arrow.LargeListOfField(arrow.Field{
+			Name:     children[0].Name,
+			Type:     children[0].arrowType,
+			Metadata: children[0].arrowMeta,
+			Nullable: children[0].Nullable,
+		})
+	case "listview":
+		arrowType = arrow.ListViewOfField(arrow.Field{
+			Name:     children[0].Name,
+			Type:     children[0].arrowType,
+			Metadata: children[0].arrowMeta,
+			Nullable: children[0].Nullable,
+		})
+	case "largelistview":
+		arrowType = arrow.LargeListViewOfField(arrow.Field{
 			Name:     children[0].Name,
 			Type:     children[0].arrowType,
 			Metadata: children[0].arrowMeta,
@@ -798,7 +824,10 @@ type Array struct {
 	Data     []interface{}         `json:"DATA,omitempty"`
 	TypeID   []arrow.UnionTypeCode `json:"TYPE_ID,omitempty"`
 	Offset   interface{}           `json:"OFFSET,omitempty"`
+	Size     interface{}           `json:"SIZE,omitempty"`
 	Children []Array               `json:"children,omitempty"`
+	Variadic []string              `json:"VARIADIC_DATA_BUFFERS,omitempty"`
+	Views    []interface{}         `json:"VIEWS,omitempty"`
 }
 
 func (a *Array) MarshalJSON() ([]byte, error) {
@@ -806,7 +835,8 @@ func (a *Array) MarshalJSON() ([]byte, error) {
 	aux := struct {
 		*Alias
 		OutOffset interface{} `json:"OFFSET,omitempty"`
-	}{Alias: (*Alias)(a), OutOffset: a.Offset}
+		OutSize   interface{} `json:"SIZE,omitempty"`
+	}{Alias: (*Alias)(a), OutOffset: a.Offset, OutSize: a.Size}
 	return json.Marshal(aux)
 }
 
@@ -815,6 +845,7 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 	aux := &struct {
 		*Alias
 		RawOffset json.RawMessage `json:"OFFSET,omitempty"`
+		RawSize   json.RawMessage `json:"SIZE,omitempty"`
 	}{Alias: (*Alias)(a)}
 
 	dec := json.NewDecoder(bytes.NewReader(b))
@@ -824,6 +855,7 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 		return
 	}
 
+	// Offsets
 	if len(aux.RawOffset) == 0 {
 		return
 	}
@@ -853,6 +885,38 @@ func (a *Array) UnmarshalJSON(b []byte) (err error) {
 			out[i] = int32(o.(float64))
 		}
 		a.Offset = out
+	}
+
+	if len(aux.RawSize) == 0 {
+		return
+	}
+
+	// Sizes
+	var rawSizes []interface{}
+	if err = json.Unmarshal(aux.RawSize, &rawSizes); err != nil {
+		return
+	}
+
+	if len(rawSizes) == 0 {
+		return
+	}
+
+	switch rawSizes[0].(type) {
+	case string:
+		out := make([]int64, len(rawSizes))
+		for i, o := range rawSizes {
+			out[i], err = strconv.ParseInt(o.(string), 10, 64)
+			if err != nil {
+				return
+			}
+		}
+		a.Size = out
+	case float64:
+		out := make([]int32, len(rawSizes))
+		for i, o := range rawSizes {
+			out[i] = int32(o.(float64))
+		}
+		a.Size = out
 	}
 
 	return nil
@@ -1024,6 +1088,18 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		bldr.AppendValues(data, valids)
 		return returnNewArrayData(bldr)
 
+	case arrow.BinaryViewDataType:
+		valids := validsToBitmap(validsFromJSON(arr.Valids), mem)
+		nulls := arr.Count - bitutil.CountSetBits(valids.Bytes(), 0, arr.Count)
+		headers := stringHeadersFromJSON(mem, !dt.IsUtf8(), arr.Views)
+		extraBufs := variadicBuffersFromJSON(arr.Variadic)
+		defer valids.Release()
+		defer headers.Release()
+
+		return array.NewData(dt, arr.Count,
+			append([]*memory.Buffer{valids, headers}, extraBufs...),
+			nil, nulls, 0)
+
 	case *arrow.ListType:
 		valids := validsFromJSON(arr.Valids)
 		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
@@ -1050,6 +1126,44 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 			memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Offset.([]int64)))},
 			[]arrow.ArrayData{elems}, nulls, 0)
 
+	case *arrow.ListViewType:
+		valids := validsFromJSON(arr.Valids)
+		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
+		defer elems.Release()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		var offsets, sizes *memory.Buffer
+		if arr.Count == 0 {
+			emptyBuffer := memory.NewBufferBytes(nil)
+			offsets, sizes = emptyBuffer, emptyBuffer
+		} else {
+			offsets = memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset.([]int32)))
+			sizes = memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Size.([]int32)))
+		}
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap, offsets, sizes}, []arrow.ArrayData{elems}, nulls, 0)
+
+	case *arrow.LargeListViewType:
+		valids := validsFromJSON(arr.Valids)
+		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
+		defer elems.Release()
+
+		bitmap := validsToBitmap(valids, mem)
+		defer bitmap.Release()
+
+		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
+		var offsets, sizes *memory.Buffer
+		if arr.Count == 0 {
+			emptyBuffer := memory.NewBufferBytes(nil)
+			offsets, sizes = emptyBuffer, emptyBuffer
+		} else {
+			offsets = memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Offset.([]int64)))
+			sizes = memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(arr.Size.([]int64)))
+		}
+		return array.NewData(dt, arr.Count, []*memory.Buffer{bitmap, offsets, sizes}, []arrow.ArrayData{elems}, nulls, 0)
+
 	case *arrow.FixedSizeListType:
 		valids := validsFromJSON(arr.Valids)
 		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
@@ -1068,7 +1182,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 
-		fields := make([]arrow.ArrayData, len(dt.Fields()))
+		fields := make([]arrow.ArrayData, dt.NumFields())
 		for i := range fields {
 			child := arrayFromJSON(mem, dt.Field(i).Type, arr.Children[i])
 			defer child.Release()
@@ -1215,7 +1329,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		return array.NewData(dt, arr.Count, []*memory.Buffer{nil}, []arrow.ArrayData{runEnds, values}, 0, 0)
 
 	case arrow.UnionType:
-		fields := make([]arrow.ArrayData, len(dt.Fields()))
+		fields := make([]arrow.ArrayData, dt.NumFields())
 		for i, f := range dt.Fields() {
 			child := arrayFromJSON(mem, f.Type, arr.Children[i])
 			defer child.Release()
@@ -1394,6 +1508,24 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Offset: strOffsets,
 		}
 
+	case *array.StringView:
+		variadic := variadicBuffersToJSON(arr.Data().Buffers()[2:])
+		return Array{
+			Name:     field.Name,
+			Count:    arr.Len(),
+			Valids:   validsToJSON(arr),
+			Views:    stringHeadersToJSON(arr, false),
+			Variadic: variadic,
+		}
+	case *array.BinaryView:
+		variadic := variadicBuffersToJSON(arr.Data().Buffers()[2:])
+		return Array{
+			Name:     field.Name,
+			Count:    arr.Len(),
+			Valids:   validsToJSON(arr),
+			Views:    stringHeadersToJSON(arr, true),
+			Variadic: variadic,
+		}
 	case *array.List:
 		o := Array{
 			Name:   field.Name,
@@ -1419,6 +1551,44 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Offset: strOffsets,
 			Children: []Array{
 				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.LargeListType).Elem()}, arr.ListValues()),
+			},
+		}
+
+	case *array.ListView:
+		o := Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Valids: validsToJSON(arr),
+			Offset: arr.Offsets(),
+			Size:   arr.Sizes(),
+			Children: []Array{
+				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.ListViewType).Elem()}, arr.ListValues()),
+			},
+		}
+		if arr.Len() == 0 {
+			o.Offset, o.Size = []int32{}, []int32{}
+		}
+		return o
+
+	case *array.LargeListView:
+		offsets := arr.Offsets()
+		strOffsets := make([]string, len(offsets))
+		for i, o := range offsets {
+			strOffsets[i] = strconv.FormatInt(o, 10)
+		}
+		sizes := arr.Sizes()
+		strSizes := make([]string, len(sizes))
+		for i, s := range sizes {
+			strSizes[i] = strconv.FormatInt(s, 10)
+		}
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Valids: validsToJSON(arr),
+			Offset: strOffsets,
+			Size:   strSizes,
+			Children: []Array{
+				arrayToJSON(arrow.Field{Name: "item", Type: arr.DataType().(*arrow.LargeListViewType).Elem()}, arr.ListValues()),
 			},
 		}
 
@@ -1451,7 +1621,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Name:     field.Name,
 			Count:    arr.Len(),
 			Valids:   validsToJSON(arr),
-			Children: make([]Array, len(dt.Fields())),
+			Children: make([]Array, dt.NumFields()),
 		}
 		for i := range o.Children {
 			o.Children[i] = arrayToJSON(dt.Field(i), arr.Field(i))
@@ -1572,7 +1742,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Count:    arr.Len(),
 			Valids:   validsToJSON(arr),
 			TypeID:   arr.RawTypeCodes(),
-			Children: make([]Array, len(dt.Fields())),
+			Children: make([]Array, dt.NumFields()),
 		}
 		if dt.Mode() == arrow.DenseMode {
 			o.Offset = arr.(*array.DenseUnion).RawValueOffsets()
@@ -2175,6 +2345,117 @@ func durationToJSON(arr *array.Duration) []interface{} {
 			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
 		} else {
 			o[i] = "0"
+		}
+	}
+	return o
+}
+
+func variadicBuffersFromJSON(bufs []string) []*memory.Buffer {
+	out := make([]*memory.Buffer, len(bufs))
+	for i, data := range bufs {
+		rawData, err := hex.DecodeString(data)
+		if err != nil {
+			panic(err)
+		}
+
+		out[i] = memory.NewBufferBytes(rawData)
+	}
+	return out
+}
+
+func variadicBuffersToJSON(bufs []*memory.Buffer) []string {
+	out := make([]string, len(bufs))
+	for i, data := range bufs {
+		out[i] = strings.ToUpper(hex.EncodeToString(data.Bytes()))
+	}
+	return out
+}
+
+func stringHeadersFromJSON(mem memory.Allocator, isBinary bool, data []interface{}) *memory.Buffer {
+	buf := memory.NewResizableBuffer(mem)
+	buf.Resize(arrow.ViewHeaderTraits.BytesRequired(len(data)))
+
+	values := arrow.ViewHeaderTraits.CastFromBytes(buf.Bytes())
+
+	for i, d := range data {
+		switch v := d.(type) {
+		case nil:
+			continue
+		case map[string]interface{}:
+			if inlined, ok := v["INLINED"]; ok {
+				if isBinary {
+					val, err := hex.DecodeString(inlined.(string))
+					if err != nil {
+						panic(fmt.Errorf("could not decode %v: %v", inlined, err))
+					}
+					values[i].SetBytes(val)
+				} else {
+					values[i].SetString(inlined.(string))
+				}
+				continue
+			}
+
+			idx, offset := v["BUFFER_INDEX"].(json.Number), v["OFFSET"].(json.Number)
+			bufIdx, err := idx.Int64()
+			if err != nil {
+				panic(err)
+			}
+
+			bufOffset, err := offset.Int64()
+			if err != nil {
+				panic(err)
+			}
+
+			values[i].SetIndexOffset(int32(bufIdx), int32(bufOffset))
+			prefix, err := hex.DecodeString(v["PREFIX_HEX"].(string))
+			if err != nil {
+				panic(err)
+			}
+			sz, err := v["SIZE"].(json.Number).Int64()
+			if err != nil {
+				panic(err)
+			}
+
+			rawData := make([]byte, sz)
+			copy(rawData, prefix)
+			values[i].SetBytes(rawData)
+		}
+	}
+	return buf
+}
+
+func stringHeadersToJSON(arr array.ViewLike, isBinary bool) []interface{} {
+	type StringHeader struct {
+		Size      int     `json:"SIZE"`
+		Prefix    *string `json:"PREFIX_HEX,omitempty"`
+		BufferIdx *int    `json:"BUFFER_INDEX,omitempty"`
+		BufferOff *int    `json:"OFFSET,omitempty"`
+		Inlined   *string `json:"INLINED,omitempty"`
+	}
+
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		hdr := arr.ValueHeader(i)
+		if hdr.IsInline() {
+			data := hdr.InlineString()
+			if isBinary {
+				data = strings.ToUpper(hex.EncodeToString(hdr.InlineBytes()))
+			}
+			o[i] = StringHeader{
+				Size:    hdr.Len(),
+				Inlined: &data,
+			}
+			continue
+		}
+
+		idx, off := int(hdr.BufferIndex()), int(hdr.BufferOffset())
+		prefix := hdr.Prefix()
+		encodedPrefix := strings.ToUpper(hex.EncodeToString(prefix[:]))
+		o[i] = StringHeader{
+			Size:      hdr.Len(),
+			Prefix:    &encodedPrefix,
+			BufferIdx: &idx,
+			BufferOff: &off,
 		}
 	}
 	return o

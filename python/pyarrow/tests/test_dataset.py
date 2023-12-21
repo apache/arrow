@@ -16,17 +16,16 @@
 # under the License.
 
 import contextlib
-import os
-import posixpath
 import datetime
+import os
 import pathlib
-import pickle
+import posixpath
 import sys
-import textwrap
 import tempfile
+import textwrap
 import threading
 import time
-
+from shutil import copytree
 from urllib.parse import quote
 
 import numpy as np
@@ -35,12 +34,12 @@ import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.csv
-import pyarrow.json
 import pyarrow.feather
 import pyarrow.fs as fs
-from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler,
-                                _configure_s3_limited_user)
+import pyarrow.json
+from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
+                                _configure_s3_limited_user, _filesystem_uri,
+                                change_cwd)
 
 try:
     import pandas as pd
@@ -138,7 +137,8 @@ def mockfs():
 
 @pytest.fixture
 def open_logging_fs(monkeypatch):
-    from pyarrow.fs import PyFileSystem, LocalFileSystem
+    from pyarrow.fs import LocalFileSystem, PyFileSystem
+
     from .test_fs import ProxyHandler
 
     localfs = LocalFileSystem()
@@ -588,13 +588,14 @@ def test_partitioning():
                   ds.FilenamePartitioning]:
         partitioning = klass(schema)
         assert isinstance(partitioning, ds.Partitioning)
+        assert partitioning == klass(schema)
+        assert partitioning != "other object"
 
-    partitioning = ds.DirectoryPartitioning(
-        pa.schema([
-            pa.field('group', pa.int64()),
-            pa.field('key', pa.float64())
-        ])
-    )
+    schema = pa.schema([
+        pa.field('group', pa.int64()),
+        pa.field('key', pa.float64())
+    ])
+    partitioning = ds.DirectoryPartitioning(schema)
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/3/3.14/')
@@ -610,13 +611,13 @@ def test_partitioning():
     expected = ds.field('group') == 3
     assert expr.equals(expected)
 
-    partitioning = ds.HivePartitioning(
-        pa.schema([
-            pa.field('alpha', pa.int64()),
-            pa.field('beta', pa.int64())
-        ]),
-        null_fallback='xyz'
-    )
+    assert partitioning != ds.DirectoryPartitioning(schema, segment_encoding="none")
+
+    schema = pa.schema([
+        pa.field('alpha', pa.int64()),
+        pa.field('beta', pa.int64())
+    ])
+    partitioning = ds.HivePartitioning(schema, null_fallback='xyz')
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/alpha=0/beta=3/')
@@ -636,12 +637,13 @@ def test_partitioning():
         with pytest.raises(pa.ArrowInvalid):
             partitioning.parse(shouldfail)
 
-    partitioning = ds.FilenamePartitioning(
-        pa.schema([
-            pa.field('group', pa.int64()),
-            pa.field('key', pa.float64())
-        ])
-    )
+    assert partitioning != ds.HivePartitioning(schema, null_fallback='other')
+
+    schema = pa.schema([
+        pa.field('group', pa.int64()),
+        pa.field('key', pa.float64())
+    ])
+    partitioning = ds.FilenamePartitioning(schema)
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('3_3.14_')
@@ -653,17 +655,19 @@ def test_partitioning():
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('prefix_3_aaa_')
 
+    assert partitioning != ds.FilenamePartitioning(schema, segment_encoding="none")
+
+    schema = pa.schema([
+        pa.field('group', pa.int64()),
+        pa.field('key', pa.dictionary(pa.int8(), pa.string()))
+    ])
     partitioning = ds.DirectoryPartitioning(
-        pa.schema([
-            pa.field('group', pa.int64()),
-            pa.field('key', pa.dictionary(pa.int8(), pa.string()))
-        ]),
-        dictionaries={
-            "key": pa.array(["first", "second", "third"]),
-        })
+        schema, dictionaries={"key": pa.array(["first", "second", "third"])}
+    )
     assert partitioning.dictionaries[0] is None
     assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
+    assert partitioning != ds.DirectoryPartitioning(schema, dictionaries=None)
 
     partitioning = ds.FilenamePartitioning(
         pa.schema([
@@ -694,6 +698,24 @@ def test_partitioning():
                                    partitioning=partitioning)
             load_back_table = load_back.to_table()
             assert load_back_table.equals(table)
+
+
+def test_partitioning_pickling(pickle_module):
+    schema = pa.schema([
+        pa.field('i64', pa.int64()),
+        pa.field('f64', pa.float64())
+    ])
+    parts = [
+        ds.DirectoryPartitioning(schema),
+        ds.HivePartitioning(schema),
+        ds.FilenamePartitioning(schema),
+        ds.DirectoryPartitioning(schema, segment_encoding="none"),
+        ds.FilenamePartitioning(schema, segment_encoding="none"),
+        ds.HivePartitioning(schema, segment_encoding="none", null_fallback="xyz"),
+    ]
+
+    for part in parts:
+        assert pickle_module.loads(pickle_module.dumps(part)) == part
 
 
 def test_expression_arithmetic_operators():
@@ -763,40 +785,54 @@ def test_parquet_scan_options():
     opts2 = ds.ParquetFragmentScanOptions(buffer_size=4096)
     opts3 = ds.ParquetFragmentScanOptions(
         buffer_size=2**13, use_buffered_stream=True)
-    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
+    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=False)
     opts5 = ds.ParquetFragmentScanOptions(
         thrift_string_size_limit=123456,
         thrift_container_size_limit=987654,)
+    opts6 = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=True)
+    cache_opts = pa.CacheOptions(
+        hole_size_limit=2**10, range_size_limit=8*2**10, lazy=True)
+    opts7 = ds.ParquetFragmentScanOptions(pre_buffer=True, cache_options=cache_opts)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
-    assert opts1.pre_buffer is False
+    assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
+    assert opts1.page_checksum_verification is False
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
-    assert opts2.pre_buffer is False
+    assert opts2.pre_buffer is True
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
-    assert opts3.pre_buffer is False
+    assert opts3.pre_buffer is True
 
     assert opts4.use_buffered_stream is False
     assert opts4.buffer_size == 2**13
-    assert opts4.pre_buffer is True
+    assert opts4.pre_buffer is False
 
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
+
+    assert opts6.page_checksum_verification is True
+
+    assert opts7.pre_buffer is True
+    assert opts7.cache_options == cache_opts
+    assert opts7.cache_options != opts1.cache_options
 
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
     assert opts5 != opts1
+    assert opts6 != opts1
+    assert opts7 != opts1
 
 
-def test_file_format_pickling():
+def test_file_format_pickling(pickle_module):
     formats = [
         ds.IpcFileFormat(),
         ds.CsvFileFormat(),
@@ -832,10 +868,10 @@ def test_file_format_pickling():
         ])
 
     for file_format in formats:
-        assert pickle.loads(pickle.dumps(file_format)) == file_format
+        assert pickle_module.loads(pickle_module.dumps(file_format)) == file_format
 
 
-def test_fragment_scan_options_pickling():
+def test_fragment_scan_options_pickling(pickle_module):
     options = [
         ds.CsvFragmentScanOptions(),
         ds.CsvFragmentScanOptions(
@@ -857,7 +893,7 @@ def test_fragment_scan_options_pickling():
         ])
 
     for option in options:
-        assert pickle.loads(pickle.dumps(option)) == option
+        assert pickle_module.loads(pickle_module.dumps(option)) == option
 
 
 @pytest.mark.parametrize('paths_or_selector', [
@@ -960,7 +996,65 @@ def test_make_fragment(multisourcefs):
         assert row_group_fragment.row_groups == [0]
 
 
-def test_make_csv_fragment_from_buffer(dataset_reader):
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_make_fragment_with_size(s3_example_simple):
+    """
+    Test passing file_size to make_fragment. Not all FS implementations make use
+    of the file size (by implementing an OpenInputFile that takes a FileInfo), but
+    s3 does, which is why it's used here.
+    """
+    table, path, fs, uri, host, port, access_key, secret_key = s3_example_simple
+
+    file_format = ds.ParquetFileFormat()
+    paths = [path]
+
+    fragments = [file_format.make_fragment(path, fs)
+                 for path in paths]
+    dataset = ds.FileSystemDataset(
+        fragments, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    # true sizes -> works
+    sizes_true = [dataset.filesystem.get_file_info(x).size for x in dataset.files]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_true)]
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+    tbl = dataset.to_table()
+    assert tbl.equals(table)
+
+    # too small sizes -> error
+    sizes_toosmall = [1 for path in paths]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_toosmall)]
+
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    with pytest.raises(pyarrow.lib.ArrowInvalid, match='Parquet file size is 1 bytes'):
+        table = dataset_with_size.to_table()
+
+    # too large sizes -> error
+    sizes_toolarge = [1000000 for path in paths]
+    fragments_with_size = [file_format.make_fragment(path, fs, file_size=size)
+                           for path, size in zip(paths, sizes_toolarge)]
+
+    dataset_with_size = ds.FileSystemDataset(
+        fragments_with_size, format=file_format, schema=table.schema, filesystem=fs
+    )
+
+    # invalid range
+    with pytest.raises(OSError, match='HTTP status 416'):
+        table = dataset_with_size.to_table()
+
+
+def test_make_csv_fragment_from_buffer(dataset_reader, pickle_module):
     content = textwrap.dedent("""
         alpha,num,animal
         a,12,dog
@@ -981,11 +1075,11 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
                         names=['alpha', 'num', 'animal'])
     assert dataset_reader.to_table(fragment).equals(expected)
 
-    pickled = pickle.loads(pickle.dumps(fragment))
+    pickled = pickle_module.loads(pickle_module.dumps(fragment))
     assert dataset_reader.to_table(pickled).equals(fragment.to_table())
 
 
-def test_make_json_fragment_from_buffer(dataset_reader):
+def test_make_json_fragment_from_buffer(dataset_reader, pickle_module):
     content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' + \
         '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' + \
         '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
@@ -1003,12 +1097,12 @@ def test_make_json_fragment_from_buffer(dataset_reader):
                         names=['alpha', 'num', 'animal'])
     assert dataset_reader.to_table(fragment).equals(expected)
 
-    pickled = pickle.loads(pickle.dumps(fragment))
+    pickled = pickle_module.loads(pickle_module.dumps(fragment))
     assert dataset_reader.to_table(pickled).equals(fragment.to_table())
 
 
 @pytest.mark.parquet
-def test_make_parquet_fragment_from_buffer(dataset_reader):
+def test_make_parquet_fragment_from_buffer(dataset_reader, pickle_module):
     arrays = [
         pa.array(['a', 'b', 'c']),
         pa.array([12, 11, 10]),
@@ -1041,7 +1135,7 @@ def test_make_parquet_fragment_from_buffer(dataset_reader):
         fragment = format_.make_fragment(buffer)
         assert dataset_reader.to_table(fragment).equals(table)
 
-        pickled = pickle.loads(pickle.dumps(fragment))
+        pickled = pickle_module.loads(pickle_module.dumps(fragment))
         assert dataset_reader.to_table(pickled).equals(table)
 
 
@@ -1118,7 +1212,7 @@ def test_fragments_implicit_cast(tempdir):
 @pytest.mark.parquet
 @pytest.mark.filterwarnings(
     "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
-def test_fragments_reconstruct(tempdir, dataset_reader):
+def test_fragments_reconstruct(tempdir, dataset_reader, pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir)
 
     def assert_yields_projected(fragment, row_slice,
@@ -1135,7 +1229,7 @@ def test_fragments_reconstruct(tempdir, dataset_reader):
     parquet_format = fragment.format
 
     # test pickle roundtrip
-    pickled_fragment = pickle.loads(pickle.dumps(fragment))
+    pickled_fragment = pickle_module.loads(pickle_module.dumps(fragment))
     assert dataset_reader.to_table(
         pickled_fragment) == dataset_reader.to_table(fragment)
 
@@ -1250,7 +1344,7 @@ def test_fragments_parquet_row_groups_dictionary(tempdir, dataset_reader):
 @pytest.mark.parquet
 @pytest.mark.filterwarnings(
     "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
-def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
+def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs, pickle_module):
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(
         tempdir, chunk_size=2, filesystem=fs
@@ -1282,7 +1376,7 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
     assert row_group.statistics is not None
 
     # pickling preserves row group ids
-    pickled_fragment = pickle.loads(pickle.dumps(new_fragment))
+    pickled_fragment = pickle_module.loads(pickle_module.dumps(new_fragment))
     with assert_opens([fragment.path]):
         assert pickled_fragment.row_groups == [0, 1]
         row_group = pickled_fragment.row_groups[0]
@@ -1292,7 +1386,7 @@ def test_fragments_parquet_ensure_metadata(tempdir, open_logging_fs):
 
 @pytest.mark.pandas
 @pytest.mark.parquet
-def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs):
+def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs, pickle_module):
     # https://issues.apache.org/jira/browse/ARROW-15796
     fs, assert_opens = open_logging_fs
     _, dataset = _create_dataset_for_fragments(tempdir, filesystem=fs)
@@ -1301,7 +1395,7 @@ def test_fragments_parquet_pickle_no_metadata(tempdir, open_logging_fs):
     # second fragment hasn't yet loaded the metadata,
     # and pickling it also should not read the metadata
     with assert_opens([]):
-        pickled_fragment = pickle.loads(pickle.dumps(fragment))
+        pickled_fragment = pickle_module.loads(pickle_module.dumps(fragment))
 
     # then accessing the row group info reads the metadata
     with assert_opens([pickled_fragment.path]):
@@ -1465,7 +1559,8 @@ def test_fragments_parquet_row_groups_predicate(tempdir):
 @pytest.mark.parquet
 @pytest.mark.filterwarnings(
     "ignore:Passing 'use_legacy_dataset=True':FutureWarning")
-def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader):
+def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader,
+                                                  pickle_module):
     table, dataset = _create_dataset_for_fragments(tempdir, chunk_size=2)
 
     fragment = list(dataset.get_fragments())[0]
@@ -1473,7 +1568,7 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader):
     row_group_fragments = list(fragment.split_by_row_group())
 
     # test pickle roundtrip
-    pickled_fragment = pickle.loads(pickle.dumps(fragment))
+    pickled_fragment = pickle_module.loads(pickle_module.dumps(fragment))
     assert dataset_reader.to_table(
         pickled_fragment) == dataset_reader.to_table(fragment)
 
@@ -1593,9 +1688,13 @@ def test_fragments_repr(tempdir, dataset):
     # partitioned parquet dataset
     fragment = list(dataset.get_fragments())[0]
     assert (
+        # Ordering of partition items is non-deterministic
         repr(fragment) ==
         "<pyarrow.dataset.ParquetFileFragment path=subdir/1/xxx/file0.parquet "
-        "partition=[key=xxx, group=1]>"
+        "partition=[key=xxx, group=1]>" or
+        repr(fragment) ==
+        "<pyarrow.dataset.ParquetFileFragment path=subdir/1/xxx/file0.parquet "
+        "partition=[group=1, key=xxx]>"
     )
 
     # single-file parquet dataset (no partition information in repr)
@@ -1621,12 +1720,15 @@ def test_fragments_repr(tempdir, dataset):
 
 
 @pytest.mark.parquet
-def test_partitioning_factory(mockfs):
+@pytest.mark.parametrize(
+    "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
+def test_partitioning_factory(mockfs, pickled, pickle_module):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
 
     options = ds.FileSystemFactoryOptions('subdir')
     partitioning_factory = ds.DirectoryPartitioning.discover(['group', 'key'])
+    partitioning_factory = pickled(partitioning_factory, pickle_module)
     assert isinstance(partitioning_factory, ds.PartitioningFactory)
     options.partitioning_factory = partitioning_factory
 
@@ -1652,13 +1754,17 @@ def test_partitioning_factory(mockfs):
 
 @pytest.mark.parquet
 @pytest.mark.parametrize('infer_dictionary', [False, True])
-def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
+@pytest.mark.parametrize(
+    "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
+def test_partitioning_factory_dictionary(mockfs, infer_dictionary, pickled,
+                                         pickle_module):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
     options = ds.FileSystemFactoryOptions('subdir')
 
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         ['group', 'key'], infer_dictionary=infer_dictionary)
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
 
     factory = ds.FileSystemDatasetFactory(
         mockfs, paths_or_selector, format, options)
@@ -1682,7 +1788,9 @@ def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
         assert inferred_schema.field('key').type == pa.string()
 
 
-def test_partitioning_factory_segment_encoding():
+@pytest.mark.parametrize(
+    "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
+def test_partitioning_factory_segment_encoding(pickled, pickle_module):
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -1705,8 +1813,9 @@ def test_partitioning_factory_segment_encoding():
     # Directory
     selector = fs.FileSelector("directory", recursive=True)
     options = ds.FileSystemFactoryOptions("directory")
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         schema=partition_schema)
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
@@ -1715,24 +1824,27 @@ def test_partitioning_factory_segment_encoding():
     })
     assert actual[0][0].as_py() == 1620086400
 
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         ["date", "string"], segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
 
-    options.partitioning = ds.DirectoryPartitioning(
+    partitioning = ds.DirectoryPartitioning(
         string_partition_schema, segment_encoding="none")
+    options.partitioning = pickled(partitioning, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
 
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         schema=partition_schema, segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):
@@ -1741,8 +1853,9 @@ def test_partitioning_factory_segment_encoding():
     # Hive
     selector = fs.FileSelector("hive", recursive=True)
     options = ds.FileSystemFactoryOptions("hive")
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema)
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
@@ -1751,8 +1864,9 @@ def test_partitioning_factory_segment_encoding():
     })
     assert actual[0][0].as_py() == 1620086400
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
@@ -1767,15 +1881,18 @@ def test_partitioning_factory_segment_encoding():
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema, segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):
         inferred_schema = factory.inspect()
 
 
-def test_partitioning_factory_hive_segment_encoding_key_encoded():
+@pytest.mark.parametrize(
+    "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
+def test_partitioning_factory_hive_segment_encoding_key_encoded(pickled, pickle_module):
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -1804,8 +1921,9 @@ def test_partitioning_factory_hive_segment_encoding_key_encoded():
     # Hive
     selector = fs.FileSelector("hive", recursive=True)
     options = ds.FileSystemFactoryOptions("hive")
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema)
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
@@ -1814,40 +1932,45 @@ def test_partitioning_factory_hive_segment_encoding_key_encoded():
     })
     assert actual[0][0].as_py() == 1620086400
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         segment_encoding="uri")
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test'; date") == "2021-05-04 00:00:00") &
         (ds.field("test';[ string'") == "$"))
 
-    options.partitioning = ds.HivePartitioning(
+    partitioning = ds.HivePartitioning(
         string_partition_schema, segment_encoding="uri")
+    options.partitioning = pickled(partitioning, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test'; date") == "2021-05-04 00:00:00") &
         (ds.field("test';[ string'") == "$"))
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test%27%3B%20date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("test%27%3B%5B%20string%27") == "%24"))
 
-    options.partitioning = ds.HivePartitioning(
+    partitioning = ds.HivePartitioning(
         string_partition_schema_en, segment_encoding="none")
+    options.partitioning = pickled(partitioning, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test%27%3B%20date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("test%27%3B%5B%20string%27") == "%24"))
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema_en, segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory, pickle_module)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):
@@ -2042,14 +2165,14 @@ def _create_directory_of_files(base_dir):
     return (table1, table2), (path1, path2)
 
 
-def _check_dataset(dataset, table, dataset_reader):
+def _check_dataset(dataset, table, dataset_reader, pickler):
     # also test that pickle roundtrip keeps the functionality
-    for d in [dataset, pickle.loads(pickle.dumps(dataset))]:
+    for d in [dataset, pickler.loads(pickler.dumps(dataset))]:
         assert dataset.schema.equals(table.schema)
         assert dataset_reader.to_table(dataset).equals(table)
 
 
-def _check_dataset_from_path(path, table, dataset_reader, **kwargs):
+def _check_dataset_from_path(path, table, dataset_reader, pickler, **kwargs):
     # pathlib object
     assert isinstance(path, pathlib.Path)
 
@@ -2057,39 +2180,39 @@ def _check_dataset_from_path(path, table, dataset_reader, **kwargs):
     for p in [path, str(path), [path], [str(path)]]:
         dataset = ds.dataset(path, **kwargs)
         assert isinstance(dataset, ds.FileSystemDataset)
-        _check_dataset(dataset, table, dataset_reader)
+        _check_dataset(dataset, table, dataset_reader, pickler)
 
     # relative string path
     with change_cwd(path.parent):
         dataset = ds.dataset(path.name, **kwargs)
         assert isinstance(dataset, ds.FileSystemDataset)
-        _check_dataset(dataset, table, dataset_reader)
+        _check_dataset(dataset, table, dataset_reader, pickler)
 
 
 @pytest.mark.parquet
-def test_open_dataset_single_file(tempdir, dataset_reader):
+def test_open_dataset_single_file(tempdir, dataset_reader, pickle_module):
     table, path = _create_single_file(tempdir)
-    _check_dataset_from_path(path, table, dataset_reader)
+    _check_dataset_from_path(path, table, dataset_reader, pickle_module)
 
 
 @pytest.mark.parquet
-def test_deterministic_row_order(tempdir, dataset_reader):
+def test_deterministic_row_order(tempdir, dataset_reader, pickle_module):
     # ARROW-8447 Ensure that dataset.to_table (and Scanner::ToTable) returns a
     # deterministic row ordering. This is achieved by constructing a single
     # parquet file with one row per RowGroup.
     table, path = _create_single_file(tempdir, row_group_size=1)
-    _check_dataset_from_path(path, table, dataset_reader)
+    _check_dataset_from_path(path, table, dataset_reader, pickle_module)
 
 
 @pytest.mark.parquet
-def test_open_dataset_directory(tempdir, dataset_reader):
+def test_open_dataset_directory(tempdir, dataset_reader, pickle_module):
     tables, _ = _create_directory_of_files(tempdir)
     table = pa.concat_tables(tables)
-    _check_dataset_from_path(tempdir, table, dataset_reader)
+    _check_dataset_from_path(tempdir, table, dataset_reader, pickle_module)
 
 
 @pytest.mark.parquet
-def test_open_dataset_list_of_files(tempdir, dataset_reader):
+def test_open_dataset_list_of_files(tempdir, dataset_reader, pickle_module):
     tables, (path1, path2) = _create_directory_of_files(tempdir)
     table = pa.concat_tables(tables)
 
@@ -2098,7 +2221,7 @@ def test_open_dataset_list_of_files(tempdir, dataset_reader):
         ds.dataset([str(path1), str(path2)])
     ]
     datasets += [
-        pickle.loads(pickle.dumps(d)) for d in datasets
+        pickle_module.loads(pickle_module.dumps(d)) for d in datasets
     ]
 
     for dataset in datasets:
@@ -2128,7 +2251,7 @@ def test_open_dataset_filesystem_fspath(tempdir):
 
 
 @pytest.mark.parquet
-def test_construct_from_single_file(tempdir, dataset_reader):
+def test_construct_from_single_file(tempdir, dataset_reader, pickle_module):
     directory = tempdir / 'single-file'
     directory.mkdir()
     table, path = _create_single_file(directory)
@@ -2141,14 +2264,14 @@ def test_construct_from_single_file(tempdir, dataset_reader):
     # instantiate from a single file with prefixed filesystem URI
     d3 = ds.dataset(str(relative_path), filesystem=_filesystem_uri(directory))
     # pickle roundtrip
-    d4 = pickle.loads(pickle.dumps(d1))
+    d4 = pickle_module.loads(pickle_module.dumps(d1))
 
     assert dataset_reader.to_table(d1) == dataset_reader.to_table(
         d2) == dataset_reader.to_table(d3) == dataset_reader.to_table(d4)
 
 
 @pytest.mark.parquet
-def test_construct_from_single_directory(tempdir, dataset_reader):
+def test_construct_from_single_directory(tempdir, dataset_reader, pickle_module):
     directory = tempdir / 'single-directory'
     directory.mkdir()
     tables, paths = _create_directory_of_files(directory)
@@ -2163,7 +2286,7 @@ def test_construct_from_single_directory(tempdir, dataset_reader):
 
     # test pickle roundtrip
     for d in [d1, d2, d3]:
-        restored = pickle.loads(pickle.dumps(d))
+        restored = pickle_module.loads(pickle_module.dumps(d))
         assert dataset_reader.to_table(restored) == t1
 
 
@@ -2192,7 +2315,7 @@ def test_construct_from_list_of_files(tempdir, dataset_reader):
 
 @pytest.mark.parquet
 def test_construct_from_list_of_mixed_paths_fails(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     files = [
         'subdir/1/xxx/file0.parquet',
         'subdir/1/xxx/doesnt-exist.parquet',
@@ -2203,7 +2326,7 @@ def test_construct_from_list_of_mixed_paths_fails(mockfs):
 
 @pytest.mark.parquet
 def test_construct_from_mixed_child_datasets(mockfs):
-    # isntantiate from a list of mixed paths
+    # instantiate from a list of mixed paths
     a = ds.dataset(['subdir/1/xxx/file0.parquet',
                     'subdir/2/yyy/file1.parquet'], filesystem=mockfs)
     b = ds.dataset('subdir', filesystem=mockfs)
@@ -2358,12 +2481,12 @@ def _create_partitioned_dataset(basedir):
 
 
 @pytest.mark.parquet
-def test_open_dataset_partitioned_directory(tempdir, dataset_reader):
+def test_open_dataset_partitioned_directory(tempdir, dataset_reader, pickle_module):
     full_table, path = _create_partitioned_dataset(tempdir)
 
     # no partitioning specified, just read all individual files
     table = full_table.select(['a', 'b'])
-    _check_dataset_from_path(path, table, dataset_reader)
+    _check_dataset_from_path(path, table, dataset_reader, pickle_module)
 
     # specify partition scheme with discovery
     dataset = ds.dataset(
@@ -2425,14 +2548,14 @@ def test_open_dataset_unsupported_format(tempdir):
 
 
 @pytest.mark.parquet
-def test_open_union_dataset(tempdir, dataset_reader):
+def test_open_union_dataset(tempdir, dataset_reader, pickle_module):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
 
     union = ds.dataset([dataset, dataset])
     assert isinstance(union, ds.UnionDataset)
 
-    pickled = pickle.loads(pickle.dumps(union))
+    pickled = pickle_module.loads(pickle_module.dumps(union))
     assert dataset_reader.to_table(pickled) == dataset_reader.to_table(union)
 
 
@@ -2523,7 +2646,7 @@ def test_partition_discovery(
 
 
 @pytest.mark.pandas
-def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
+def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module):
     # https://issues.apache.org/jira/browse/ARROW-11400
     table = pa.table({'part': np.repeat(['A', 'B'], 5), 'col': range(10)})
     part = ds.partitioning(table.select(['part']).schema, flavor="hive")
@@ -2541,10 +2664,10 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir):
     assert fragment.to_table(schema=dataset.schema).equals(expected[:5])
     part_expr = fragment.partition_expression
 
-    restored = pickle.loads(pickle.dumps(dataset))
+    restored = pickle_module.loads(pickle_module.dumps(dataset))
     assert restored.to_table().equals(expected)
 
-    restored = pickle.loads(pickle.dumps(fragment))
+    restored = pickle_module.loads(pickle_module.dumps(fragment))
     assert restored.to_table(schema=dataset.schema).equals(expected[:5])
     # to_pandas call triggers computation of the actual dictionary values
     assert restored.to_table(schema=dataset.schema).to_pandas().equals(
@@ -2596,7 +2719,7 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
     table, path, _, _, host, port, access_key, secret_key = s3_example_simple
     s3fs = pytest.importorskip("s3fs")
 
-    from pyarrow.fs import PyFileSystem, FSSpecHandler
+    from pyarrow.fs import FSSpecHandler, PyFileSystem
 
     fs = s3fs.S3FileSystem(
         key=access_key,
@@ -2871,7 +2994,7 @@ def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
     _, path = _create_single_file(tempdir, table=table)
     child4 = ds.dataset(path)
 
-    with pytest.raises(pa.ArrowInvalid, match='Unable to merge'):
+    with pytest.raises(pa.ArrowTypeError, match='Unable to merge'):
         ds.dataset([child1, child4])
 
 
@@ -3230,6 +3353,7 @@ def test_json_format(tempdir, dataset_reader):
     assert result.equals(table)
 
 
+@pytest.mark.pandas
 def test_json_format_options(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
@@ -3250,6 +3374,7 @@ def test_json_format_options(tempdir, dataset_reader):
     assert result.equals(table)
 
 
+@pytest.mark.pandas
 def test_json_fragment_options(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
@@ -3740,6 +3865,10 @@ def test_dataset_preserved_partitioning(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
     assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
+    # TODO(GH-34884) partitioning attribute not preserved in pickling
+    # dataset_ = ds.dataset(path)
+    # for dataset in [dataset_, pickle_module.loads(pickle_module.dumps(dataset_))]:
+    #     assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning but not specified
     full_table, path = _create_partitioned_dataset(tempdir)
@@ -4539,7 +4668,9 @@ def test_write_table_partitioned_dict(tempdir):
 @pytest.mark.parquet
 def test_write_dataset_parquet(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(range(20), type="uint32"),
+        pa.array(np.arange("2012-01-01", 20, dtype="datetime64[D]").astype(
+            "datetime64[ns]")),
         pa.array(np.repeat(['a', 'b'], 10))
     ], names=["f1", "f2", "part"])
 
@@ -4551,7 +4682,7 @@ def test_write_dataset_parquet(tempdir):
     file_paths = list(base_dir.rglob("*"))
     expected_paths = [base_dir / "part-0.parquet"]
     assert set(file_paths) == set(expected_paths)
-    # check Table roundtrip
+    # check Table roundtrip with default version
     result = ds.dataset(base_dir, format="parquet").to_table()
     assert result.equals(table)
 
@@ -4559,11 +4690,23 @@ def test_write_dataset_parquet(tempdir):
     for version in ["1.0", "2.4", "2.6"]:
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
+        assert "<pyarrow.dataset.ParquetFileWriteOptions" in repr(opts)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
         expected_version = "1.0" if version == "1.0" else "2.6"
         assert meta.format_version == expected_version
+
+        # ensure version is actually honored based on supported datatypes
+        result = ds.dataset(base_dir, format="parquet").to_table()
+        schema = table.schema
+        if version == "1.0":
+            # uint32 is written as int64
+            schema = schema.set(0, schema.field(0).with_type(pa.int64()))
+        if version in ("1.0", "2.4"):
+            schema = schema.set(1, schema.field(1).with_type(pa.timestamp("us")))
+        expected = table.cast(schema)
+        assert result.equals(expected)
 
 
 def test_write_dataset_csv(tempdir):
@@ -4956,8 +5099,8 @@ def test_dataset_filter(tempdir, dstype):
 
     # Ensure chained filtering works.
     result = ds1.filter(pc.field("colA") < 3).filter(pc.field("col2") == "a")
-    assert type(result) == (ds.FileSystemDataset if dstype ==
-                            "fs" else ds.InMemoryDataset)
+    expected = ds.FileSystemDataset if dstype == "fs" else ds.InMemoryDataset
+    assert isinstance(result, expected)
 
     assert result.to_table() == pa.table({
         "colA": [1],
@@ -5116,9 +5259,9 @@ def test_read_table_nested_columns(tempdir, format):
                       "a.dotted.field": [1, 2],
                       "interaction": [
         {"type": None, "element": "button",
-         "values": [1, 2], "structs":[{"foo": "bar"}, None]},
+         "values": [1, 2], "structs": [{"foo": "bar"}, None]},
         {"type": "scroll", "element": "window",
-         "values": [None, 3, 4], "structs":[{"fizz": "buzz"}]}
+         "values": [None, 3, 4], "structs": [{"fizz": "buzz"}]}
     ]})
     ds.write_dataset(table, tempdir / "table", format=format)
     ds1 = ds.dataset(tempdir / "table", format=format)
@@ -5225,6 +5368,38 @@ def test_write_dataset_preserve_field_metadata(tempdir):
     assert dataset.to_table().schema.equals(schema_metadata, check_metadata=True)
 
 
+def test_write_dataset_write_page_index(tempdir):
+    for write_statistics in [True, False]:
+        for write_page_index in [True, False]:
+            schema = pa.schema([
+                pa.field("x", pa.int64()),
+                pa.field("y", pa.int64())])
+
+            arrays = [[1, 2, 3], [None, 5, None]]
+            table = pa.Table.from_arrays(arrays, schema=schema)
+
+            file_format = ds.ParquetFileFormat()
+            base_dir = tempdir / f"write_page_index_{write_page_index}"
+            ds.write_dataset(
+                table,
+                base_dir,
+                format="parquet",
+                file_options=file_format.make_write_options(
+                    write_statistics=write_statistics,
+                    write_page_index=write_page_index,
+                ),
+                existing_data_behavior='overwrite_or_ignore',
+            )
+            ds1 = ds.dataset(base_dir, format="parquet")
+
+            for file in ds1.files:
+                # Can retrieve sorting columns from metadata
+                metadata = pq.read_metadata(file)
+                cc = metadata.row_group(0).column(0)
+                assert cc.has_offset_index is write_page_index
+                assert cc.has_column_index is write_page_index & write_statistics
+
+
 @pytest.mark.parametrize('dstype', [
     "fs", "mem"
 ])
@@ -5274,3 +5449,76 @@ def test_dataset_sort_by(tempdir, dstype):
     sorted_tab_dict = sorted_tab.to_table().to_pydict()
     assert sorted_tab_dict["a"] == [5, 7, 7, 35]
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
+
+
+def test_checksum_write_dataset_read_dataset_to_table(tempdir):
+    """Check that checksum verification works for datasets created with
+    ds.write_dataset and read with ds.dataset.to_table"""
+
+    table_orig = pa.table({'a': [1, 2, 3, 4]})
+
+    # Write a sample dataset with page checksum enabled
+    pq_write_format = pa.dataset.ParquetFileFormat()
+    write_options = pq_write_format.make_write_options(
+        write_page_checksum=True)
+
+    original_dir_path = tempdir / 'correct_dir'
+    ds.write_dataset(
+        data=table_orig,
+        base_dir=original_dir_path,
+        format=pq_write_format,
+        file_options=write_options,
+    )
+
+    # Open dataset and verify that the data is correct
+    pq_scan_opts_crc = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=True)
+    pq_read_format_crc = pa.dataset.ParquetFileFormat(
+        default_fragment_scan_options=pq_scan_opts_crc)
+    table_check = ds.dataset(
+        original_dir_path,
+        format=pq_read_format_crc
+    ).to_table()
+    assert table_orig == table_check
+
+    # Copy dataset dir (which should be just one file)
+    corrupted_dir_path = tempdir / 'corrupted_dir'
+    copytree(original_dir_path, corrupted_dir_path)
+
+    # Read the only file in the path as binary and swap the 31-th and 36-th
+    # bytes. This should be equivalent to storing the following data:
+    #    pa.table({'a': [1, 3, 2, 4]})
+    corrupted_file_path_list = list(corrupted_dir_path.iterdir())
+    assert len(corrupted_file_path_list) == 1
+    corrupted_file_path = corrupted_file_path_list[0]
+    bin_data = bytearray(corrupted_file_path.read_bytes())
+
+    # Swap two bytes to emulate corruption. Also, check that the two bytes are
+    # different, otherwise no corruption occurs
+    assert bin_data[31] != bin_data[36]
+    bin_data[31], bin_data[36] = bin_data[36], bin_data[31]
+
+    # Write the corrupted data to the parquet file
+    corrupted_file_path.write_bytes(bin_data)
+
+    # Case 1: Reading the corrupted file with dataset().to_table() and without
+    # page checksum verification succeeds but yields corrupted data
+    pq_scan_opts_no_crc = ds.ParquetFragmentScanOptions(
+        page_checksum_verification=False)
+    pq_read_format_no_crc = pa.dataset.ParquetFileFormat(
+        default_fragment_scan_options=pq_scan_opts_no_crc)
+    table_corrupt = ds.dataset(
+        corrupted_dir_path, format=pq_read_format_no_crc).to_table()
+
+    # The read should complete without error, but the table has different
+    # content than the original file!
+    assert table_corrupt != table_orig
+    assert table_corrupt == pa.table({'a': [1, 3, 2, 4]})
+
+    # Case 2: Reading the corrupted file with read_table() and with page
+    # checksum verification enabled raises an exception
+    with pytest.raises(OSError, match="CRC checksum verification"):
+        _ = ds.dataset(
+            corrupted_dir_path,
+            format=pq_read_format_crc
+        ).to_table()

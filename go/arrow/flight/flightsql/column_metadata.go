@@ -19,7 +19,7 @@ package flightsql
 import (
 	"strconv"
 
-	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v15/arrow"
 )
 
 const (

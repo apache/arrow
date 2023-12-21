@@ -51,10 +51,11 @@ bool IsCodecSupported(Compression::type codec) {
 }
 
 std::unique_ptr<Codec> GetCodec(Compression::type codec) {
-  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
+  return GetCodec(codec, CodecOptions());
 }
 
-std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options) {
   std::unique_ptr<Codec> result;
   if (codec == Compression::LZO) {
     throw ParquetException(
@@ -69,8 +70,13 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     throw ParquetException(ss.str());
   }
 
-  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
+  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, codec_options));
   return result;
+}
+
+// use compression level to create Codec
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+  return GetCodec(codec, CodecOptions{compression_level});
 }
 
 bool PageCanUseChecksum(PageType::type pageType) {
@@ -435,6 +441,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     return BSONLogicalType::Make();
   } else if (type.__isset.UUID) {
     return UUIDLogicalType::Make();
+  } else if (type.__isset.FLOAT16) {
+    return Float16LogicalType::Make();
   } else {
     throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
   }
@@ -487,6 +495,10 @@ std::shared_ptr<const LogicalType> LogicalType::JSON() { return JSONLogicalType:
 std::shared_ptr<const LogicalType> LogicalType::BSON() { return BSONLogicalType::Make(); }
 
 std::shared_ptr<const LogicalType> LogicalType::UUID() { return UUIDLogicalType::Make(); }
+
+std::shared_ptr<const LogicalType> LogicalType::Float16() {
+  return Float16LogicalType::Make();
+}
 
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
@@ -569,6 +581,7 @@ class LogicalType::Impl {
   class JSON;
   class BSON;
   class UUID;
+  class Float16;
   class No;
   class Undefined;
 
@@ -638,6 +651,9 @@ bool LogicalType::is_null() const { return impl_->type() == LogicalType::Type::N
 bool LogicalType::is_JSON() const { return impl_->type() == LogicalType::Type::JSON; }
 bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::BSON; }
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
+bool LogicalType::is_float16() const {
+  return impl_->type() == LogicalType::Type::FLOAT16;
+}
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
   return impl_->type() != LogicalType::Type::UNDEFINED;
@@ -1550,6 +1566,22 @@ class LogicalType::Impl::UUID final : public LogicalType::Impl::Incompatible,
 };
 
 GENERATE_MAKE(UUID)
+
+class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
+                                         public LogicalType::Impl::TypeLengthApplicable {
+ public:
+  friend class Float16LogicalType;
+
+  OVERRIDE_TOSTRING(Float16)
+  OVERRIDE_TOTHRIFT(Float16Type, FLOAT16)
+
+ private:
+  Float16()
+      : LogicalType::Impl(LogicalType::Type::FLOAT16, SortOrder::SIGNED),
+        LogicalType::Impl::TypeLengthApplicable(parquet::Type::FIXED_LEN_BYTE_ARRAY, 2) {}
+};
+
+GENERATE_MAKE(Float16)
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {

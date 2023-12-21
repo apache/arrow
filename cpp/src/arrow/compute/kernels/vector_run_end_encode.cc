@@ -28,6 +28,7 @@
 namespace arrow {
 namespace compute {
 namespace internal {
+namespace {
 
 struct RunEndEncondingState : public KernelState {
   explicit RunEndEncondingState(std::shared_ptr<DataType> run_end_type)
@@ -178,7 +179,9 @@ class RunEndEncodeImpl {
       ARROW_ASSIGN_OR_RAISE(
           auto output_array_data,
           ree_util::PreallocateREEArray(std::move(ree_type), has_validity_buffer,
-                                        input_length, 0, 0, ctx_->memory_pool(), 0));
+                                        /*logical_length=*/input_length,
+                                        /*physical_length=*/0, ctx_->memory_pool(),
+                                        /*data_buffer_size=*/0));
       output_->value = std::move(output_array_data);
       return Status::OK();
     }
@@ -195,17 +198,22 @@ class RunEndEncodeImpl {
         /*output_run_ends=*/NULLPTR);
     std::tie(num_valid_runs, num_output_runs, data_buffer_size) =
         counting_loop.CountNumberOfRuns();
+    const auto physical_null_count = num_output_runs - num_valid_runs;
+    DCHECK(!has_validity_buffer || physical_null_count > 0)
+        << "has_validity_buffer is expected to imply physical_null_count > 0";
 
     ARROW_ASSIGN_OR_RAISE(
         auto output_array_data,
         ree_util::PreallocateREEArray(
-            std::move(ree_type), has_validity_buffer, input_length, num_output_runs,
-            num_output_runs - num_valid_runs, ctx_->memory_pool(), data_buffer_size));
+            std::move(ree_type), has_validity_buffer, /*logical_length=*/input_length,
+            /*physical_length=*/num_output_runs, ctx_->memory_pool(), data_buffer_size));
 
     // Initialize the output pointers
     auto* output_run_ends =
         output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1, 0);
     auto* output_values_array_data = output_array_data->child_data[1].get();
+    // Set the null_count on the physical array
+    output_values_array_data->null_count = physical_null_count;
 
     // Second pass: write the runs
     RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> writing_loop(
@@ -253,7 +261,7 @@ struct RunEndEncodeExec {
       return RunEndEncodeNullArray(TypeTraits<RunEndType>::type_singleton(), ctx,
                                    input_array, result);
     } else {
-      const bool has_validity_buffer = input_array.MayHaveNulls();
+      const bool has_validity_buffer = input_array.GetNullCount() > 0;
       if (has_validity_buffer) {
         return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, input_array, result)
             .Exec();
@@ -397,10 +405,10 @@ class RunEndDecodeImpl {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto output_array_data,
-                          ree_util::PreallocateValuesArray(
-                              ree_type->value_type(), has_validity_buffer, length,
-                              kUnknownNullCount, ctx_->memory_pool(), data_buffer_size));
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_array_data,
+        ree_util::PreallocateValuesArray(ree_type->value_type(), has_validity_buffer,
+                                         length, ctx_->memory_pool(), data_buffer_size));
 
     int64_t output_null_count = 0;
     if (length > 0) {
@@ -434,7 +442,7 @@ struct RunEndDecodeExec {
       return RunEndDecodeNullREEArray(ctx, input_array, result);
     } else {
       const bool has_validity_buffer =
-          arrow::ree_util::ValuesArray(input_array).MayHaveNulls();
+          arrow::ree_util::ValuesArray(input_array).GetNullCount() > 0;
       if (has_validity_buffer) {
         return RunEndDecodeImpl<RunEndType, ValueType, true>(ctx, input_array, result)
             .Exec();
@@ -525,6 +533,8 @@ static const FunctionDoc run_end_encode_doc(
 static const FunctionDoc run_end_decode_doc(
     "Decode run-end encoded array",
     ("Return a decoded version of a run-end encoded input array."), {"array"});
+
+}  // namespace
 
 void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_encode", Arity::Unary(),

@@ -18,6 +18,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
@@ -35,7 +37,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -60,7 +62,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -85,7 +87,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowSchema pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowSchema* importedPtr = CArrowSchema.Create();
         /// foreign_export_function(importedPtr);
@@ -111,7 +113,7 @@ namespace Apache.Arrow.C
                     throw new ArgumentException("Passed null pointer for cSchema.");
                 }
                 _cSchema = cSchema;
-                if (_cSchema->release == null)
+                if (_cSchema->release == default)
                 {
                     throw new ArgumentException("Tried to import a schema that has already been released.");
                 }
@@ -126,9 +128,13 @@ namespace Apache.Arrow.C
             public void Dispose()
             {
                 // We only call release on a root-level schema, not child ones.
-                if (_isRoot && _cSchema->release != null)
+                if (_isRoot && _cSchema->release != default)
                 {
+#if NET5_0_OR_GREATER
                     _cSchema->release(_cSchema);
+#else
+                    Marshal.GetDelegateForFunctionPointer<CArrowSchemaExporter.ReleaseArrowSchema>(_cSchema->release)(_cSchema);
+#endif
                 }
             }
 
@@ -178,23 +184,36 @@ namespace Apache.Arrow.C
                 }
                 else if (format == "+s")
                 {
-                    var child_schemas = new ImportedArrowSchema[_cSchema->n_children];
-
-                    for (int i = 0; i < _cSchema->n_children; i++)
-                    {
-                        if (_cSchema->GetChild(i) == null)
-                        {
-                            throw new InvalidDataException("Expected struct type child to be non-null.");
-                        }
-                        child_schemas[i] = new ImportedArrowSchema(_cSchema->GetChild(i), isRoot: false);
-                    }
-
-
-                    List<Field> childFields = child_schemas.Select(schema => schema.GetAsField()).ToList();
-
-                    return new StructType(childFields);
+                    return new StructType(ParseChildren("struct"));
                 }
-                // TODO: Map type and large list type
+                else if (format.StartsWith("+w:"))
+                {
+                    // Fixed-width list
+                    int width = Int32.Parse(format.Substring(3));
+
+                    if (_cSchema->n_children != 1)
+                    {
+                        throw new InvalidDataException("Expected fixed-length list type to have exactly one child.");
+                    }
+                    ImportedArrowSchema childSchema;
+                    if (_cSchema->GetChild(0) == null)
+                    {
+                        throw new InvalidDataException("Expected fixed-length list type child to be non-null.");
+                    }
+                    childSchema = new ImportedArrowSchema(_cSchema->GetChild(0), isRoot: false);
+
+                    Field childField = childSchema.GetAsField();
+
+                    return new FixedSizeListType(childField, width);
+                }
+                else if (format == "+m")
+                {
+                    return new MapType(
+                        ParseChildren("map").Single(),
+                        (_cSchema->flags & CArrowSchema.ArrowFlagMapKeysSorted) != 0);
+                }
+
+                // TODO: Large list type
 
                 // Decimals
                 if (format.StartsWith("d:"))
@@ -228,6 +247,10 @@ namespace Apache.Arrow.C
                     };
 
                     string timezone = format.Substring(format.IndexOf(':') + 1);
+                    if (timezone.Length == 0)
+                    {
+                        timezone = null;
+                    }
                     return new TimestampType(timeUnit, timezone);
                 }
 
@@ -236,6 +259,30 @@ namespace Apache.Arrow.C
                 {
                     int width = Int32.Parse(format.Substring(2));
                     return new FixedSizeBinaryType(width);
+                }
+
+                // Unions
+                if (format.StartsWith("+ud:") || format.StartsWith("+us:"))
+                {
+                    UnionMode unionMode = format[2] == 'd' ? UnionMode.Dense : UnionMode.Sparse;
+                    List<int> typeIds = new List<int>();
+                    int pos = 4;
+                    do
+                    {
+                        int next = format.IndexOf(',', pos);
+                        if (next < 0) { next = format.Length; }
+
+                        int code;
+                        if (!int.TryParse(format.Substring(pos, next - pos), out code))
+                        {
+                            throw new InvalidDataException($"Invalid type code for union import: {format.Substring(pos, next - pos)}");
+                        }
+                        typeIds.Add(code);
+
+                        pos = next + 1;
+                    } while (pos < format.Length);
+
+                    return new UnionType(ParseChildren("union"), typeIds, unionMode);
                 }
 
                 return format switch
@@ -262,14 +309,17 @@ namespace Apache.Arrow.C
                     // Date and time
                     "tdD" => Date32Type.Default,
                     "tdm" => Date64Type.Default,
-                    "tts" => new Time32Type(TimeUnit.Second),
-                    "ttm" => new Time32Type(TimeUnit.Millisecond),
-                    "ttu" => new Time64Type(TimeUnit.Microsecond),
-                    "ttn" => new Time64Type(TimeUnit.Nanosecond),
-                    // TODO: duration not yet implemented
-                    "tiM" => new IntervalType(IntervalUnit.YearMonth),
-                    "tiD" => new IntervalType(IntervalUnit.DayTime),
-                    //"tin" => new IntervalType(IntervalUnit.MonthDayNanosecond), // Not yet implemented
+                    "tts" => TimeType.Second,
+                    "ttm" => TimeType.Millisecond,
+                    "ttu" => TimeType.Microsecond,
+                    "ttn" => TimeType.Nanosecond,
+                    "tDs" => DurationType.Second,
+                    "tDm" => DurationType.Millisecond,
+                    "tDu" => DurationType.Microsecond,
+                    "tDn" => DurationType.Nanosecond,
+                    "tiM" => IntervalType.YearMonth,
+                    "tiD" => IntervalType.DayTime,
+                    "tin" => IntervalType.MonthDayNanosecond,
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }
@@ -281,7 +331,7 @@ namespace Apache.Arrow.C
 
                 bool nullable = _cSchema->GetFlag(CArrowSchema.ArrowFlagNullable);
 
-                return new Field(fieldName, GetAsType(), nullable);
+                return new Field(fieldName, GetAsType(), nullable, GetMetadata(_cSchema->metadata));
             }
 
             public Schema GetAsSchema()
@@ -289,12 +339,65 @@ namespace Apache.Arrow.C
                 ArrowType fullType = GetAsType();
                 if (fullType is StructType structType)
                 {
-                    return new Schema(structType.Fields, default);
+                    return new Schema(structType.Fields, GetMetadata(_cSchema->metadata));
                 }
                 else
                 {
                     throw new ArgumentException("Imported type is not a struct type, so it cannot be converted to a schema.");
                 }
+            }
+
+            private List<Field> ParseChildren(string typeName)
+            {
+                var child_schemas = new ImportedArrowSchema[_cSchema->n_children];
+
+                for (int i = 0; i < _cSchema->n_children; i++)
+                {
+                    if (_cSchema->GetChild(i) == null)
+                    {
+                        throw new InvalidDataException($"Expected {typeName} type child to be non-null.");
+                    }
+                    child_schemas[i] = new ImportedArrowSchema(_cSchema->GetChild(i), isRoot: false);
+                }
+
+                return child_schemas.Select(schema => schema.GetAsField()).ToList();
+            }
+
+            private unsafe static IReadOnlyDictionary<string, string> GetMetadata(byte* metadata)
+            {
+                if (metadata == null)
+                {
+                    return null;
+                }
+
+                IntPtr ptr = (IntPtr)metadata;
+                int count = Marshal.ReadInt32(ptr);
+                if (count <= 0)
+                {
+                    return null;
+                }
+                ptr += 4;
+
+                Dictionary<string, string> result = new Dictionary<string, string>(count);
+                for (int i = 0; i < count; i++)
+                {
+                    result[ReadMetadataString(ref ptr)] = ReadMetadataString(ref ptr);
+                }
+                return result;
+            }
+
+            private unsafe static string ReadMetadataString(ref IntPtr ptr)
+            {
+                int length = Marshal.ReadInt32(ptr);
+                if (length < 0)
+                {
+                    throw new InvalidOperationException("unexpected negative length for metadata string");
+                }
+
+                ptr += 4;
+                string result = Encoding.UTF8.GetString((byte*)ptr, length);
+                ptr += length;
+                return result;
             }
         }
     }

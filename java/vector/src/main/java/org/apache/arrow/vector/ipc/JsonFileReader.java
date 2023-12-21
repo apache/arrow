@@ -237,6 +237,28 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
+  /**
+   * Skips a number of record batches in the file.
+   *
+   * @param numBatches the number of batches to skip
+   * @return the actual number of skipped batches.
+   */
+  // This is currently called using JPype by the integration tests.
+  public int skip(int numBatches) throws IOException {
+    for (int i = 0; i < numBatches; ++i) {
+      JsonToken t = parser.nextToken();
+      if (t == START_OBJECT) {
+        parser.skipChildren();
+        assert parser.getCurrentToken() == END_OBJECT;
+      } else if (t == END_ARRAY) {
+        return i;
+      } else {
+        throw new IllegalArgumentException("Invalid token: " + t);
+      }
+    }
+    return numBatches;
+  }
+
   private abstract class BufferReader {
     protected abstract ArrowBuf read(BufferAllocator allocator, int count) throws IOException;
 
@@ -692,7 +714,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   }
 
   private void readFromJsonIntoVector(Field field, FieldVector vector) throws JsonParseException, IOException {
-    TypeLayout typeLayout = TypeLayout.getTypeLayout(field.getType());
+    ArrowType type = field.getType();
+    TypeLayout typeLayout = TypeLayout.getTypeLayout(type);
     List<BufferType> vectorTypes = typeLayout.getBufferTypes();
     ArrowBuf[] vectorBuffers = new ArrowBuf[vectorTypes.size()];
     /*
@@ -728,21 +751,18 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         BufferType bufferType = vectorTypes.get(v);
         nextFieldIs(bufferType.getName());
         int innerBufferValueCount = valueCount;
-        if (bufferType.equals(OFFSET) && !field.getType().getTypeID().equals(ArrowType.ArrowTypeID.Union)) {
-          /* offset buffer has 1 additional value capacity */
+        if (bufferType.equals(OFFSET) && !(type instanceof ArrowType.Union)) {
+          /* offset buffer has 1 additional value capacity except for dense unions */
           innerBufferValueCount = valueCount + 1;
         }
 
         vectorBuffers[v] = readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
       }
 
-      if (vectorBuffers.length == 0) {
-        readToken(END_OBJECT);
-        return;
-      }
-
       int nullCount = 0;
-      if (!(vector.getField().getFieldType().getType() instanceof ArrowType.Union)) {
+      if (type instanceof ArrowType.Null) {
+        nullCount = valueCount;
+      } else if (!(type instanceof ArrowType.Union)) {
         nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);
       }
       final ArrowFieldNode fieldNode = new ArrowFieldNode(valueCount, nullCount);

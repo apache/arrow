@@ -23,9 +23,7 @@ using ArrowType = ::arrow::DataType;
 using ArrowTypeId = ::arrow::Type;
 using ParquetType = parquet::Type;
 
-namespace parquet {
-
-namespace arrow {
+namespace parquet::arrow {
 
 using ::arrow::Result;
 using ::arrow::Status;
@@ -50,7 +48,7 @@ Result<std::shared_ptr<ArrowType>> MakeArrowInt(const LogicalType& logical_type)
       return integer.is_signed() ? ::arrow::int32() : ::arrow::uint32();
     default:
       return Status::TypeError(logical_type.ToString(),
-                               " can not annotate physical type Int32");
+                               " cannot annotate physical type Int32");
   }
 }
 
@@ -61,7 +59,7 @@ Result<std::shared_ptr<ArrowType>> MakeArrowInt64(const LogicalType& logical_typ
       return integer.is_signed() ? ::arrow::int64() : ::arrow::uint64();
     default:
       return Status::TypeError(logical_type.ToString(),
-                               " can not annotate physical type Int64");
+                               " cannot annotate physical type Int64");
   }
 }
 
@@ -72,7 +70,7 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTime32(const LogicalType& logical_ty
       return ::arrow::time32(::arrow::TimeUnit::MILLI);
     default:
       return Status::TypeError(logical_type.ToString(),
-                               " can not annotate physical type Time32");
+                               " cannot annotate physical type Time32");
   }
 }
 
@@ -85,7 +83,7 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTime64(const LogicalType& logical_ty
       return ::arrow::time64(::arrow::TimeUnit::NANO);
     default:
       return Status::TypeError(logical_type.ToString(),
-                               " can not annotate physical type Time64");
+                               " cannot annotate physical type Time64");
   }
 }
 
@@ -132,6 +130,8 @@ Result<std::shared_ptr<ArrowType>> FromFLBA(const LogicalType& logical_type,
   switch (logical_type.type()) {
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
+    case LogicalType::Type::FLOAT16:
+      return ::arrow::float16();
     case LogicalType::Type::NONE:
     case LogicalType::Type::INTERVAL:
     case LogicalType::Type::UUID:
@@ -218,5 +218,4 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
                       primitive.type_length(), int96_arrow_time_unit);
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

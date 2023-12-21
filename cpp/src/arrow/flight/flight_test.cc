@@ -40,17 +40,14 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
 #endif
 
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
-#else
-#include <grpc++/grpc++.h>
-#endif
 
 // Include before test_util.h (boost), contains Windows fixes
 #include "arrow/flight/platform.h"
@@ -92,12 +89,45 @@ const char kBasicPrefix[] = "Basic ";
 const char kBearerPrefix[] = "Bearer ";
 const char kAuthHeader[] = "authorization";
 
+class OtelEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // The default tracer always generates no-op spans which have no
+    // span/trace ID. Set up a different tracer. Note, this needs to be run
+    // before Arrow uses OTel as GetTracer() gets a tracer once and keeps it
+    // in a static. Also, arrow::Future may GetTracer(). So this has to be
+    // done as a Googletest environment, which runs before any tests.
+    std::vector<std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>> processors;
+    auto provider =
+        opentelemetry::nostd::shared_ptr<opentelemetry::sdk::trace::TracerProvider>(
+            new opentelemetry::sdk::trace::TracerProvider(std::move(processors)));
+    opentelemetry::trace::Provider::SetTracerProvider(std::move(provider));
+
+    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
+        opentelemetry::nostd::shared_ptr<
+            opentelemetry::context::propagation::TextMapPropagator>(
+            new opentelemetry::trace::propagation::HttpTraceContext()));
+#endif
+  }
+};
+
+static ::testing::Environment* kOtelEnvironment =
+    ::testing::AddGlobalTestEnvironment(new OtelEnvironment);
+
 //------------------------------------------------------------
 // Common transport tests
+
+#ifdef GRPC_ENABLE_ASYNC
+constexpr bool kGrpcSupportsAsync = true;
+#else
+constexpr bool kGrpcSupportsAsync = false;
+#endif
 
 class GrpcConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -106,6 +136,7 @@ ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 class GrpcDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -114,6 +145,7 @@ ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 class GrpcDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -122,6 +154,7 @@ ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 class GrpcAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -130,6 +163,7 @@ ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 class GrpcIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -138,6 +172,7 @@ ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 class GrpcCudaDataTest : public CudaDataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -146,10 +181,20 @@ ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
 class GrpcErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_ERROR_HANDLING(GrpcErrorHandlingTest);
+
+class GrpcAsyncClientTest : public AsyncClientTest, public ::testing::Test {
+ protected:
+  std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
+};
+ARROW_FLIGHT_TEST_ASYNC_CLIENT(GrpcAsyncClientTest);
 
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
@@ -408,7 +453,7 @@ class TestTls : public ::testing::Test {
     // get initialized.
     // https://github.com/grpc/grpc/issues/13856
     // https://github.com/grpc/grpc/issues/20311
-    // In general, gRPC on MacOS struggles with TLS (both in the sense
+    // In general, gRPC on macOS struggles with TLS (both in the sense
     // of thread-locals and encryption)
     grpc_init();
 
@@ -447,7 +492,7 @@ class TestTls : public ::testing::Test {
   Location location_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
-  bool server_is_initialized_;
+  bool server_is_initialized_ = false;
 };
 
 // A server middleware that rejects all calls.
@@ -1662,24 +1707,7 @@ class TracingTestServer : public FlightServerBase {
 
 class TestTracing : public ::testing::Test {
  public:
-  void SetUp() {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    // The default tracer always generates no-op spans which have no
-    // span/trace ID. Set up a different tracer. Note, this needs to
-    // be run before Arrow uses OTel as GetTracer() gets a tracer once
-    // and keeps it in a static.
-    std::vector<std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>> processors;
-    auto provider =
-        opentelemetry::nostd::shared_ptr<opentelemetry::sdk::trace::TracerProvider>(
-            new opentelemetry::sdk::trace::TracerProvider(std::move(processors)));
-    opentelemetry::trace::Provider::SetTracerProvider(std::move(provider));
-
-    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
-        opentelemetry::nostd::shared_ptr<
-            opentelemetry::context::propagation::TextMapPropagator>(
-            new opentelemetry::trace::propagation::HttpTraceContext()));
-#endif
-
+  void SetUp() override {
     ASSERT_OK(MakeServer<TracingTestServer>(
         &server_, &client_,
         [](FlightServerOptions* options) {
@@ -1692,7 +1720,7 @@ class TestTracing : public ::testing::Test {
           return Status::OK();
         }));
   }
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() override { ASSERT_OK(server_->Shutdown()); }
 
  protected:
   std::unique_ptr<FlightClient> client_;

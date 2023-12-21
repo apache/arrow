@@ -498,7 +498,9 @@ Result<std::string> SubTreeFileSystem::PathFromUri(const std::string& uri_string
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                std::shared_ptr<io::LatencyGenerator> latencies)
-    : FileSystem(base_fs->io_context()), base_fs_(base_fs), latencies_(latencies) {}
+    : FileSystem(base_fs->io_context()),
+      base_fs_(std::move(base_fs)),
+      latencies_(std::move(latencies)) {}
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency)
@@ -652,8 +654,7 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
                              "', which is outside base dir '", source_sel.base_dir, "'");
     }
 
-    auto destination_path =
-        internal::ConcatAbstractPath(destination_base_dir, std::string(*relative));
+    auto destination_path = internal::ConcatAbstractPath(destination_base_dir, *relative);
 
     if (source_info.IsDirectory()) {
       dirs.push_back(destination_path);

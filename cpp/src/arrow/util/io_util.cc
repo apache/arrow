@@ -45,6 +45,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -1465,7 +1466,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromMmapErrno("ftruncate failed");
   }
   // we set READ / WRITE flags on the new map, since we could only have
-  // unlarged a RW map in the first place
+  // enlarged a RW map in the first place
   *new_addr = mmap(NULL, new_size, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
   if (*new_addr == MAP_FAILED) {
     return StatusFromMmapErrno("mmap failed");
@@ -1896,7 +1897,8 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 }
 
 std::string MakeRandomName(int num_chars) {
-  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  constexpr std::string_view chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+
   std::default_random_engine gen(
       static_cast<std::default_random_engine::result_type>(GetRandomSeed()));
   std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));

@@ -328,7 +328,7 @@ class ArrowConan(ConanFile):
             return bool(self.options.with_boost)
 
     def _with_thrift(self, required=False):
-        # No self.options.with_thift exists
+        # No self.options.with_thrift exists
         return bool(required or self._parquet())
 
     def _with_utf8proc(self, required=False):
@@ -358,6 +358,7 @@ class ArrowConan(ConanFile):
 
     def requirements(self):
         if self._with_thrift():
+            self.requires("zlib/1.2.13")
             self.requires("thrift/0.17.0")
         if self._with_protobuf():
             self.requires("protobuf/3.21.4")

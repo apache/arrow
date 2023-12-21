@@ -26,7 +26,7 @@ utility called Archery.
 Installation
 ------------
 
-Archery requires Python 3.7 or later. It is recommended to install Archery in
+Archery requires Python 3.8 or later. It is recommended to install Archery in
 *editable* mode with the ``-e`` flag to automatically update the installation
 when pulling the Arrow repository. After cloning the Arrow repository, from
 the top level directory install Archery by using the command
@@ -68,7 +68,7 @@ You can inspect Archery usage by passing the ``--help`` flag:
      linking      Quick and dirty utilities for checking library linkage.
      lint         Check Arrow source tree for errors
      numpydoc     Lint python docstring with NumpyDoc
-     release      Release releated commands.
+     release      Release related commands.
      trigger-bot
 
 Archery exposes independent subcommands, each of which provides dedicated

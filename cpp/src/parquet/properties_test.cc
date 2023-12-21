@@ -44,9 +44,18 @@ TEST(TestWriterProperties, Basics) {
 
   ASSERT_EQ(kDefaultDataPageSize, props->data_pagesize());
   ASSERT_EQ(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT, props->dictionary_pagesize_limit());
-  ASSERT_EQ(ParquetVersion::PARQUET_2_4, props->version());
+  ASSERT_EQ(ParquetVersion::PARQUET_2_6, props->version());
   ASSERT_EQ(ParquetDataPageVersion::V1, props->data_page_version());
   ASSERT_FALSE(props->page_checksum_enabled());
+}
+
+TEST(TestWriterProperties, DefaultCompression) {
+  std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
+
+  ASSERT_EQ(props->compression(ColumnPath::FromDotString("any")),
+            Compression::UNCOMPRESSED);
+  ASSERT_EQ(props->compression_level(ColumnPath::FromDotString("any")),
+            ::arrow::util::kUseDefaultCompressionLevel);
 }
 
 TEST(TestWriterProperties, AdvancedHandling) {
@@ -68,6 +77,37 @@ TEST(TestWriterProperties, AdvancedHandling) {
   ASSERT_EQ(Encoding::DELTA_LENGTH_BYTE_ARRAY,
             props->encoding(ColumnPath::FromDotString("delta-length")));
   ASSERT_EQ(ParquetDataPageVersion::V2, props->data_page_version());
+}
+
+TEST(TestWriterProperties, SetCodecOptions) {
+  WriterProperties::Builder builder;
+  builder.compression("gzip", Compression::GZIP);
+  builder.compression("zstd", Compression::ZSTD);
+  builder.compression("brotli", Compression::BROTLI);
+  auto gzip_codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
+  gzip_codec_options->compression_level = 5;
+  gzip_codec_options->window_bits = 12;
+  builder.codec_options("gzip", gzip_codec_options);
+  auto codec_options = std::make_shared<CodecOptions>();
+  builder.codec_options(codec_options);
+  auto brotli_codec_options = std::make_shared<::arrow::util::BrotliCodecOptions>();
+  brotli_codec_options->compression_level = 11;
+  brotli_codec_options->window_bits = 20;
+  builder.codec_options("brotli", brotli_codec_options);
+  std::shared_ptr<WriterProperties> props = builder.build();
+
+  ASSERT_EQ(5,
+            props->codec_options(ColumnPath::FromDotString("gzip"))->compression_level);
+  ASSERT_EQ(12, std::dynamic_pointer_cast<::arrow::util::GZipCodecOptions>(
+                    props->codec_options(ColumnPath::FromDotString("gzip")))
+                    ->window_bits);
+  ASSERT_EQ(Codec::UseDefaultCompressionLevel(),
+            props->codec_options(ColumnPath::FromDotString("zstd"))->compression_level);
+  ASSERT_EQ(11,
+            props->codec_options(ColumnPath::FromDotString("brotli"))->compression_level);
+  ASSERT_EQ(20, std::dynamic_pointer_cast<::arrow::util::BrotliCodecOptions>(
+                    props->codec_options(ColumnPath::FromDotString("brotli")))
+                    ->window_bits);
 }
 
 TEST(TestReaderProperties, GetStreamInsufficientData) {

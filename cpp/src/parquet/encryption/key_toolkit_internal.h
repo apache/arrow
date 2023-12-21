@@ -21,9 +21,7 @@
 
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
-namespace internal {
+namespace parquet::encryption::internal {
 
 /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
 PARQUET_EXPORT
@@ -38,6 +36,4 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
 PARQUET_EXPORT
 bool ValidateKeyLength(int32_t key_length_bits);
 
-}  // namespace internal
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::internal

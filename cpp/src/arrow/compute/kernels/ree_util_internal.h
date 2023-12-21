@@ -83,6 +83,18 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
     return valid;
   }
 
+  /// Pre-conditions guaranteed by the callers:
+  /// - i and j are valid indices into the values buffer
+  /// - the values in i and j are valid
+  bool CompareValuesAt(int64_t i, int64_t j) const {
+    if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+      return bit_util::GetBit(input_values_, i) == bit_util::GetBit(input_values_, j);
+    } else {
+      return (reinterpret_cast<const ValueRepr*>(input_values_))[i] ==
+             (reinterpret_cast<const ValueRepr*>(input_values_))[j];
+    }
+  }
+
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
     DCHECK(output_values_);
@@ -164,6 +176,11 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
     }
     *out = input_values_ + (read_offset * byte_width_);
     return valid;
+  }
+
+  bool CompareValuesAt(int64_t i, int64_t j) const {
+    return 0 == memcmp(input_values_ + (i * byte_width_),
+                       input_values_ + (j * byte_width_), byte_width_);
   }
 
   /// \brief Ensure padding is zeroed in validity bitmap.
@@ -253,6 +270,14 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
     return valid;
   }
 
+  bool CompareValuesAt(int64_t i, int64_t j) const {
+    const offset_type len_i = input_offsets_[i + 1] - input_offsets_[i];
+    const offset_type len_j = input_offsets_[j + 1] - input_offsets_[j];
+    return len_i == len_j &&
+           memcmp(input_values_ + input_offsets_[i], input_values_ + input_offsets_[j],
+                  static_cast<size_t>(len_i));
+  }
+
   /// \brief Ensure padding is zeroed in validity bitmap.
   void ZeroValidityPadding(int64_t length) const {
     DCHECK(output_values_);
@@ -308,18 +333,39 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
     const std::shared_ptr<DataType>& run_end_type, int64_t physical_length,
     MemoryPool* pool);
 
+/// \brief Preallocate the physical values array for a run-end encoded array
+///
+/// data_buffer_size is passed here pre-calculated so this function doesn't have
+/// to be template-specialized for each type.
+///
+/// The null_count is left as kUnknownNullCount (or 0 if length is 0) and, if
+/// after writing the values, the caller knows the null count, it can be set.
+///
+/// \post if has_validity_buffer and length > 0, then data.buffer[0] != NULLPTR
+///
+/// \param has_validity_buffer a validity buffer must be allocated
+/// \param length the length of the values array
+/// \param data_buffer_size the size of the data buffer for string and binary types
 Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
     const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
-    int64_t null_count, MemoryPool* pool, int64_t data_buffer_size);
+    MemoryPool* pool, int64_t data_buffer_size);
 
 /// \brief Preallocate the ArrayData for the run-end encoded version
 /// of the flat input array
 ///
+/// The top-level null_count is set to 0 (REEs keep all the data in child
+/// arrays). The null_count of the values array (child_data[1]) is left as
+/// kUnknownNullCount (or 0 if physical_length is 0) and, if after writing
+/// the values, the caller knows the null count, it can be set.
+///
+/// \post if has_validity_buffer and physical_length > 0, then
+/// data.child_data[1].buffer[0] != NULLPTR
+///
 /// \param data_buffer_size the size of the data buffer for string and binary types
 Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
     std::shared_ptr<RunEndEncodedType> ree_type, bool has_validity_buffer,
-    int64_t logical_length, int64_t physical_length, int64_t physical_null_count,
-    MemoryPool* pool, int64_t data_buffer_size);
+    int64_t logical_length, int64_t physical_length, MemoryPool* pool,
+    int64_t data_buffer_size);
 
 /// \brief Writes a single run-end to the first slot of the pre-allocated
 /// run-end encoded array in out

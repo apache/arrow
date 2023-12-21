@@ -21,18 +21,20 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
+	"os"
+	"path"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/compress"
-	"github.com/apache/arrow/go/v13/parquet/file"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v13/parquet/metadata"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/compress"
+	"github.com/apache/arrow/go/v15/parquet/file"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -332,4 +334,115 @@ func TestIncompleteMetadata(t *testing.T) {
 	defer buf.Release()
 	_, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 	assert.Error(t, err)
+}
+
+func TestDeltaLengthByteArrayPackingWithNulls(t *testing.T) {
+	// produce file with DeltaLengthByteArray Encoding with mostly null values but one actual value.
+	root, _ := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{
+		schema.NewByteArrayNode("byte_array_col", parquet.Repetitions.Optional, -1),
+	}, -1)
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_LATEST),
+		parquet.WithEncoding(parquet.Encodings.DeltaLengthByteArray), parquet.WithDictionaryDefault(false))
+	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+
+	writer := file.NewParquetWriter(sink, root, file.WithWriterProps(props))
+	rgw := writer.AppendRowGroup()
+	ccw, err := rgw.NextColumn()
+	assert.NoError(t, err)
+	const elements = 500
+	data := make([]parquet.ByteArray, elements)
+	data[0] = parquet.ByteArray{1, 2, 3, 4, 5, 6, 7, 8}
+
+	defLvls := make([]int16, elements)
+	repLvls := make([]int16, elements)
+	defLvls[0] = 1
+
+	_, err = ccw.(*file.ByteArrayColumnChunkWriter).WriteBatch(data, defLvls, repLvls)
+	assert.NoError(t, err)
+	assert.NoError(t, ccw.Close())
+	assert.NoError(t, rgw.Close())
+	assert.NoError(t, writer.Close())
+	buf := sink.Finish()
+	defer buf.Release()
+
+	// read file back in
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	assert.NoError(t, err)
+	defer reader.Close()
+	ccr, err := reader.RowGroup(0).Column(0)
+	assert.NoError(t, err)
+	const batchSize = 500
+
+	for ccr.HasNext() {
+		readData := make([]parquet.ByteArray, batchSize)
+		readdevLvls := make([]int16, batchSize)
+		readrepLvls := make([]int16, batchSize)
+		cr := ccr.(*file.ByteArrayColumnChunkReader)
+
+		total, read, err := cr.ReadBatch(batchSize, readData, readdevLvls, readrepLvls)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(batchSize), total)
+		assert.Equal(t, 1, read)
+		assert.Equal(t, data[0], readData[0])
+		assert.NotNil(t, readData[0])
+	}
+}
+
+func TestRleBooleanEncodingFileRead(t *testing.T) {
+	dir := os.Getenv("PARQUET_TEST_DATA")
+	if dir == "" {
+		t.Skip("no path supplied with PARQUET_TEST_DATA")
+	}
+	assert.DirExists(t, dir)
+
+	props := parquet.NewReaderProperties(memory.DefaultAllocator)
+	fileReader, err := file.OpenParquetFile(path.Join(dir, "rle_boolean_encoding.parquet"),
+		false, file.WithReadProps(props))
+	require.NoError(t, err)
+	defer fileReader.Close()
+
+	assert.Equal(t, 1, fileReader.NumRowGroups())
+	rgr := fileReader.RowGroup(0)
+	assert.EqualValues(t, 68, rgr.NumRows())
+
+	rdr, err := rgr.Column(0)
+	require.NoError(t, err)
+	brdr := rdr.(*file.BooleanColumnChunkReader)
+
+	values := make([]bool, 68)
+	defLvls, repLvls := make([]int16, 68), make([]int16, 68)
+	total, read, err := brdr.ReadBatch(68, values, defLvls, repLvls)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, 68, total)
+	md, err := rgr.MetaData().ColumnChunk(0)
+	require.NoError(t, err)
+	stats, err := md.Statistics()
+	require.NoError(t, err)
+	assert.EqualValues(t, total-stats.NullCount(), read)
+
+	expected := []bool{
+		true, false, true, true, false, false,
+		true, true, true, false, false, true, true,
+		false, true, true, false, false, true, true,
+		false, true, true, false, false, true, true,
+		true, false, false, false, false, true, true,
+		false, true, true, false, false, true, true,
+		true, false, false, true, true, false, false,
+		true, true, true, false, true, true, false,
+		true, true, false, false, true, true, true,
+	}
+	expectedNulls := []int{2, 15, 23, 38, 48, 60}
+
+	expectedNullIdx := 0
+	for i, v := range defLvls {
+		if expectedNullIdx < len(expectedNulls) && i == expectedNulls[expectedNullIdx] {
+			assert.Zero(t, v)
+			expectedNullIdx++
+		} else {
+			assert.EqualValues(t, 1, v)
+		}
+	}
+
+	assert.Equal(t, expected, values[:len(expected)])
 }

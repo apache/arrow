@@ -14,6 +14,8 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Numerics;
 using Xunit;
 
@@ -94,6 +96,34 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
+        public void EnumerateArray()
+        {
+            var array = new Int64Array.Builder().Append(1).Append(2).Build();
+
+            foreach(long? foo in (IEnumerable<long?>)array)
+            {
+                Assert.InRange(foo.Value, 1, 2);
+            }
+
+            foreach (object foo in (IEnumerable)array)
+            {
+                Assert.InRange((long)foo, 1, 2);
+            }
+        }
+
+        [Fact]
+        public void ArrayAsReadOnlyList()
+        {
+            Int64Array array = new Int64Array.Builder().Append(1).Append(2).Build();
+            var readOnlyList = (IReadOnlyList<long?>)array;
+
+            Assert.Equal(array.Length, readOnlyList.Count);
+            Assert.Equal(readOnlyList[0], 1);
+            Assert.Equal(readOnlyList[1], 2);
+        }
+
+#if NET5_0_OR_GREATER
+        [Fact]
         public void SliceArray()
         {
             TestNumberSlice<int, Int32Array, Int32Array.Builder>();
@@ -109,8 +139,8 @@ namespace Apache.Arrow.Tests
             TestNumberSlice<double, DoubleArray, DoubleArray.Builder>();
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
-            TestNumberSlice<int, Time32Array, Time32Array.Builder>();
-            TestNumberSlice<long, Time64Array, Time64Array.Builder>();
+            TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).Append(30));
             TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append("20").Append("30"));
 
             static void TestNumberSlice<T, TArray, TBuilder>()
@@ -136,8 +166,8 @@ namespace Apache.Arrow.Tests
             TestNumberSlice<double, DoubleArray, DoubleArray.Builder>();
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
-            TestNumberSlice<int, Time32Array, Time32Array.Builder>();
-            TestNumberSlice<long, Time64Array, Time64Array.Builder>();
+            TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
 
             static void TestNumberSlice<T, TArray, TBuilder>()
                 where T : struct, INumber<T>
@@ -145,6 +175,7 @@ namespace Apache.Arrow.Tests
                 where TBuilder : PrimitiveArrayBuilder<T, TArray, TBuilder>, new() =>
                 TestSlice<TArray, TBuilder>(x => x.AppendNull().Append(T.CreateChecked(10)).Append(T.CreateChecked(20)).AppendNull().Append(T.CreateChecked(30)));
         }
+#endif
 
         [Fact]
         public void SliceBooleanArray()
@@ -198,7 +229,10 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<DurationArray>,
+#if NET5_0_OR_GREATER
             IArrowArrayVisitor<HalfFloatArray>,
+#endif
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
@@ -239,8 +273,11 @@ namespace Apache.Arrow.Tests
             }
             public void Visit(Time32Array array) => ValidateArrays(array);
             public void Visit(Time64Array array) => ValidateArrays(array);
+            public void Visit(DurationArray array) => ValidateArrays(array);
 
+#if NET5_0_OR_GREATER
             public void Visit(HalfFloatArray array) => ValidateArrays(array);
+#endif
             public void Visit(FloatArray array) => ValidateArrays(array);
             public void Visit(DoubleArray array) => ValidateArrays(array);
             public void Visit(StringArray array) => ValidateArrays(array);

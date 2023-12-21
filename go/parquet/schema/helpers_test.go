@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,6 +62,25 @@ func TestListOfNested(t *testing.T) {
 }`, strings.TrimSpace(buf.String()))
 }
 
+func TestListOfWithNameNested(t *testing.T) {
+	n, err := schema.ListOfWithName("arrays", schema.NewInt32Node("element", parquet.Repetitions.Required, -1), parquet.Repetitions.Required, -1)
+	assert.NoError(t, err)
+	final, err := schema.ListOf(n, parquet.Repetitions.Required, -1)
+	assert.NoError(t, err)
+
+	var buf bytes.Buffer
+	schema.PrintSchema(final, &buf, 4)
+	assert.Equal(t,
+		`required group field_id=-1 arrays (List) {
+    repeated group field_id=-1 list {
+        required group field_id=-1 element (List) {
+            repeated group field_id=-1 list {
+                required int32 field_id=-1 element;
+            }
+        }
+    }
+}`, strings.TrimSpace(buf.String()))
+}
 func TestMapOfNestedTypes(t *testing.T) {
 	n, err := schema.NewGroupNode("student", parquet.Repetitions.Required, schema.FieldList{
 		schema.NewByteArrayNode("name", parquet.Repetitions.Required, -1),

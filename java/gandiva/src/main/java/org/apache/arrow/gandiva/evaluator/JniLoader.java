@@ -71,7 +71,7 @@ class JniLoader {
   private static void loadGandivaLibraryFromJar(final String tmpDir)
           throws IOException, GandivaException {
     final String libraryToLoad =
-        getNormalizedArch() + File.separator + System.mapLibraryName(LIBRARY_NAME);
+        getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
     final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad, LIBRARY_NAME);
     System.load(libraryFile.getAbsolutePath());
   }
@@ -158,10 +158,10 @@ class JniLoader {
       synchronized (ConfigurationBuilder.class) {
         if (defaultConfiguration == 0L) {
           JniLoader.getInstance(); // setup
-          ConfigurationBuilder.ConfigOptions defaultConfigOptons = ConfigurationBuilder.ConfigOptions.getDefault();
+          ConfigurationBuilder.ConfigOptions defaultConfigOptions = ConfigurationBuilder.ConfigOptions.getDefault();
           defaultConfiguration = new ConfigurationBuilder()
-            .buildConfigInstance(defaultConfigOptons);
-          configurationMap.put(defaultConfigOptons, defaultConfiguration);
+            .buildConfigInstance(defaultConfigOptions);
+          configurationMap.put(defaultConfigOptions, defaultConfiguration);
         }
       }
     }

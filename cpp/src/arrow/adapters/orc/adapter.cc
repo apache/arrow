@@ -204,7 +204,7 @@ class ORCFileReader::Impl {
 
   Status Init() {
     int64_t nstripes = reader_->getNumberOfStripes();
-    stripes_.resize(nstripes);
+    stripes_.resize(static_cast<size_t>(nstripes));
     std::unique_ptr<liborc::StripeInformation> stripe;
     uint64_t first_row_of_stripe = 0;
     for (int i = 0; i < nstripes; ++i) {
@@ -222,7 +222,9 @@ class ORCFileReader::Impl {
 
   int64_t NumberOfRows() { return static_cast<int64_t>(reader_->getNumberOfRows()); }
 
-  StripeInformation GetStripeInformation(int64_t stripe) { return stripes_[stripe]; }
+  StripeInformation GetStripeInformation(int64_t stripe) {
+    return stripes_[static_cast<size_t>(stripe)];
+  }
 
   FileVersion GetFileVersion() {
     liborc::FileVersion orc_file_version = reader_->getFormatVersion();
@@ -365,7 +367,7 @@ class ORCFileReader::Impl {
     liborc::RowReaderOptions opts = default_row_reader_options();
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
     ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
-    return ReadBatch(opts, schema, stripes_[stripe].num_rows);
+    return ReadBatch(opts, schema, stripes_[static_cast<size_t>(stripe)].num_rows);
   }
 
   Result<std::shared_ptr<RecordBatch>> ReadStripe(
@@ -374,7 +376,7 @@ class ORCFileReader::Impl {
     RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
     ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
-    return ReadBatch(opts, schema, stripes_[stripe].num_rows);
+    return ReadBatch(opts, schema, stripes_[static_cast<size_t>(stripe)].num_rows);
   }
 
   Result<std::shared_ptr<RecordBatch>> ReadStripe(
@@ -383,15 +385,15 @@ class ORCFileReader::Impl {
     RETURN_NOT_OK(SelectNames(&opts, include_names));
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
     ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
-    return ReadBatch(opts, schema, stripes_[stripe].num_rows);
+    return ReadBatch(opts, schema, stripes_[static_cast<size_t>(stripe)].num_rows);
   }
 
   Status SelectStripe(liborc::RowReaderOptions* opts, int64_t stripe) {
     ARROW_RETURN_IF(stripe < 0 || stripe >= NumberOfStripes(),
                     Status::Invalid("Out of bounds stripe: ", stripe));
 
-    opts->range(static_cast<uint64_t>(stripes_[stripe].offset),
-                static_cast<uint64_t>(stripes_[stripe].length));
+    opts->range(static_cast<uint64_t>(stripes_[static_cast<size_t>(stripe)].offset),
+                static_cast<uint64_t>(stripes_[static_cast<size_t>(stripe)].length));
     return Status::OK();
   }
 

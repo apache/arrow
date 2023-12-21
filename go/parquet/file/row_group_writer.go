@@ -17,10 +17,10 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -52,7 +52,7 @@ type SerialRowGroupWriter interface {
 	RowGroupWriter
 	NextColumn() (ColumnChunkWriter, error)
 	// returns the current column being built, if buffered it will equal NumColumns
-	// if serialized then it will return which column is currenly being written
+	// if serialized then it will return which column is currently being written
 	CurrentColumn() int
 }
 
@@ -110,13 +110,13 @@ func (rg *rowGroupWriter) checkRowsWritten() error {
 		if rg.nrows == 0 {
 			rg.nrows = current
 		} else if rg.nrows != current {
-			return xerrors.New("row mismatch")
+			return xerrors.Errorf("row mismatch for unbuffered row group: %d, count expected: %d, actual: %d", rg.ordinal, current, rg.nrows)
 		}
 	} else if rg.buffered {
 		current := rg.columnWriters[0].RowsWritten()
-		for _, wr := range rg.columnWriters[1:] {
+		for i, wr := range rg.columnWriters[1:] {
 			if current != wr.RowsWritten() {
-				return xerrors.New("row mismatch error")
+				return xerrors.Errorf("row mismatch for buffered row group: %d, column: %d, count expected: %d, actual: %d", rg.ordinal, i+1, current, wr.RowsWritten())
 			}
 		}
 		rg.nrows = current
@@ -182,7 +182,7 @@ func (rg *rowGroupWriter) Column(i int) (ColumnChunkWriter, error) {
 	if i >= 0 && i < len(rg.columnWriters) {
 		return rg.columnWriters[i], nil
 	}
-	return nil, xerrors.New("invalid column number requested")
+	return nil, xerrors.Errorf("invalid column number requested: %d", i)
 }
 
 func (rg *rowGroupWriter) CurrentColumn() int { return rg.metadata.CurrentColumn() }

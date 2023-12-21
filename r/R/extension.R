@@ -18,7 +18,7 @@
 #' @include arrow-object.R
 
 
-#' @title class arrow::ExtensionArray
+#' @title ExtensionArray class
 #'
 #' @usage NULL
 #' @format NULL
@@ -60,7 +60,7 @@ ExtensionArray$create <- function(x, type) {
   type$WrapArray(storage)
 }
 
-#' @title class arrow::ExtensionType
+#' @title ExtensionType class
 #'
 #' @usage NULL
 #' @format NULL
@@ -83,7 +83,7 @@ ExtensionArray$create <- function(x, type) {
 #' - `$WrapArray(array)`: Wraps a storage [Array] into an [ExtensionArray]
 #'   with this extension type.
 #'
-#' In addition, subclasses may override the following methos to customize
+#' In addition, subclasses may override the following methods to customize
 #' the behaviour of extension classes.
 #'
 #' - `$deserialize_instance()`: This method is called when a new [ExtensionType]
@@ -184,7 +184,7 @@ ExtensionType <- R6Class("ExtensionType",
     },
     ToString = function() {
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
-      # and it's confusing to error when printing the object. This herustic
+      # and it's confusing to error when printing the object. This heuristic
       # isn't perfect (but subclasses should override this method anyway)
       metadata_raw <- self$extension_metadata()
 
@@ -286,7 +286,7 @@ ExtensionType$create <- function(storage_type,
 #'   "dot" syntax (i.e., "some_package.some_type"). The namespace "arrow"
 #'    is reserved for extension types defined by the Apache Arrow libraries.
 #' @param extension_metadata A [raw()] or [character()] vector containing the
-#'   serialized version of the type. Chatacter vectors must be length 1 and
+#'   serialized version of the type. Character vectors must be length 1 and
 #'   are converted to UTF-8 before converting to [raw()].
 #' @param type_class An [R6::R6Class] whose `$new()` class method will be
 #'   used to construct a new instance of the type.

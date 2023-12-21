@@ -39,7 +39,7 @@ corresponding C FFI declarations.
 Applications and libraries can therefore work with Arrow memory without
 necessarily using Arrow libraries or reinventing the wheel. Developers can
 choose between tight integration
-with the Arrow *software project* (benefitting from the growing array of
+with the Arrow *software project* (benefiting from the growing array of
 facilities exposed by e.g. the C++ or Java implementations of Apache Arrow,
 but with the cost of a dependency) or minimal integration with the Arrow
 *format* only.
@@ -140,9 +140,13 @@ strings:
 +-----------------+---------------------------------------------------+------------+
 | ``Z``           | large binary                                      |            |
 +-----------------+---------------------------------------------------+------------+
+| ``vz``          | binary view                                       |            |
++-----------------+---------------------------------------------------+------------+
 | ``u``           | utf-8 string                                      |            |
 +-----------------+---------------------------------------------------+------------+
 | ``U``           | large utf-8 string                                |            |
++-----------------+---------------------------------------------------+------------+
+| ``vu``          | utf-8 view                                        |            |
 +-----------------+---------------------------------------------------+------------+
 | ``d:19,10``     | decimal128 [precision 19, scale 10]               |            |
 +-----------------+---------------------------------------------------+------------+
@@ -207,6 +211,10 @@ names and types of child fields are read from the child arrays.
 +------------------------+---------------------------------------------------+------------+
 | ``+L``                 | large list                                        |            |
 +------------------------+---------------------------------------------------+------------+
+| ``+vl``                | list-view                                         |            |
++------------------------+---------------------------------------------------+------------+
+| ``+vL``                | large list-view                                   |            |
++------------------------+---------------------------------------------------+------------+
 | ``+w:123``             | fixed-sized list [123 items]                      |            |
 +------------------------+---------------------------------------------------+------------+
 | ``+s``                 | struct                                            |            |
@@ -216,6 +224,8 @@ names and types of child fields are read from the child arrays.
 | ``+ud:I,J,...``        | dense union with type ids I,J...                  |            |
 +------------------------+---------------------------------------------------+------------+
 | ``+us:I,J,...``        | sparse union with type ids I,J...                 |            |
++------------------------+---------------------------------------------------+------------+
+| ``+r``                 | run-end encoded                                   | \(3)       |
 +------------------------+---------------------------------------------------+------------+
 
 Notes:
@@ -228,6 +238,11 @@ Notes:
    As specified in the Arrow columnar format, the map type has a single child type
    named ``entries``, itself a 2-child struct type of ``(key, value)``.
 
+(3)
+   As specified in the Arrow columnar format, the run-end encoded type has two
+   children where the first is the (integral) ``run_ends`` and the second is the
+   ``values``.
+
 Examples
 --------
 
@@ -236,6 +251,8 @@ Examples
   array has format string ``d:12,5``.
 * A ``list<uint64>`` array has format string ``+l``, and its single child
   has format string ``L``.
+* A ``large_list_view<uint64>`` array has format string ``+Lv``, and its single
+  child has format string ``L``.
 * A ``struct<ints: int32, floats: float32>`` has format string ``+s``; its two
   children have names ``ints`` and ``floats``, and format strings ``i`` and
   ``f`` respectively.
@@ -245,6 +262,9 @@ Examples
 * A ``sparse_union<ints: int32, floats: float32>`` with type ids ``4, 5``
   has format string ``+us:4,5``; its two children have names ``ints`` and
   ``floats``, and format strings ``i`` and ``f`` respectively.
+* A ``run_end_encoded<int32, float32>`` has format string ``+r``; its two
+  children have names ``run_ends`` and ``values``, and format strings
+  ``i`` and ``f`` respectively.
 
 .. _c-data-interface-struct-defs:
 
@@ -531,6 +551,14 @@ parameterized extension types).
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
+
+Binary view arrays
+------------------
+
+For binary or utf-8 view arrays, an extra buffer is appended which stores
+the lengths of each variadic data buffer as ``int64_t``. This buffer is
+necessary since these buffer lengths are not trivially extractable from
+other data in an array of binary or utf-8 view type.
 
 .. _c-data-interface-semantics:
 
@@ -980,3 +1008,14 @@ adaptation cost.
 
 
 .. _Python buffer protocol: https://www.python.org/dev/peps/pep-3118/
+
+Language-specific protocols
+===========================
+
+Some languages may define additional protocols on top of the Arrow C data
+interface.
+
+.. toctree::
+   :maxdepth: 1
+
+   CDataInterface/PyCapsuleInterface

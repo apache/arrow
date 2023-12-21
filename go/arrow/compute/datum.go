@@ -21,9 +21,9 @@ package compute
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/scalar"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
 )
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=DatumKind -linecomment
@@ -250,7 +250,7 @@ func (d *TableDatum) Equals(other Datum) bool {
 // an array.Table gets a TableDatum
 // a scalar.Scalar gets a ScalarDatum
 //
-// Anything else is passed to scalar.MakeScalar and recieves a scalar
+// Anything else is passed to scalar.MakeScalar and receives a scalar
 // datum of that appropriate type.
 func NewDatum(value interface{}) Datum {
 	switch v := value.(type) {

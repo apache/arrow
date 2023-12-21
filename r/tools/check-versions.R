@@ -23,7 +23,8 @@ test_mode <- exists("TESTING")
 check_versions <- function(r_version, cpp_version) {
   r_parsed <- package_version(r_version)
   r_dev_version <- r_parsed[1, 4]
-  r_is_dev <- !is.na(r_dev_version) && r_dev_version > 100
+  r_is_dev <- !is.na(r_dev_version) && r_dev_version > "100"
+  r_is_patch <- !is.na(r_dev_version) && r_dev_version <= "100"
   cpp_is_dev <- grepl("SNAPSHOT$", cpp_version)
   cpp_parsed <- package_version(sub("-SNAPSHOT$", "", cpp_version))
 
@@ -38,6 +39,16 @@ check_versions <- function(r_version, cpp_version) {
       "*** > or retry with FORCE_BUNDLED_BUILD=true"
     )
     cat(paste0(msg, "\n", collapse = ""))
+  } else if (r_is_patch && as.character(r_parsed[1, 1:3]) == cpp_version) {
+    # Patch releases we do for CRAN feedback get an extra x.y.z.1 version.
+    # These should work with the x.y.z C++ library (which never has .1 added)
+    cat(
+      sprintf(
+        "*** > Using C++ library version %s with R package %s\n",
+        cpp_version,
+        r_version
+      )
+    )
   } else if (r_version != cpp_version) {
     cat(
       sprintf(

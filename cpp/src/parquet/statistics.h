@@ -73,16 +73,16 @@ class TypedComparator : public Comparator {
 
   /// \brief Scalar comparison of two elements, return true if first
   /// is strictly less than the second
-  virtual bool Compare(const T& a, const T& b) = 0;
+  virtual bool Compare(const T& a, const T& b) const = 0;
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements without any nulls
-  virtual std::pair<T, T> GetMinMax(const T* values, int64_t length) = 0;
+  virtual std::pair<T, T> GetMinMax(const T* values, int64_t length) const = 0;
 
   /// \brief Compute minimum and maximum elements from an Arrow array. Only
   /// valid for certain Parquet Type / Arrow Type combinations, like BYTE_ARRAY
   /// / arrow::BinaryArray
-  virtual std::pair<T, T> GetMinMax(const ::arrow::Array& values) = 0;
+  virtual std::pair<T, T> GetMinMax(const ::arrow::Array& values) const = 0;
 
   /// \brief Compute maximum and minimum elements in a batch of
   /// elements with accompanying bitmap indicating which elements are
@@ -96,7 +96,7 @@ class TypedComparator : public Comparator {
   /// the first element in the sequence
   virtual std::pair<T, T> GetMinMaxSpaced(const T* values, int64_t length,
                                           const uint8_t* valid_bits,
-                                          int64_t valid_bits_offset) = 0;
+                                          int64_t valid_bits_offset) const = 0;
 };
 
 /// \brief Typed version of Comparator::Make
@@ -117,17 +117,16 @@ std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* d
 // ----------------------------------------------------------------------
 
 /// \brief Structure represented encoded statistics to be written to
-/// and from Parquet serialized metadata
+/// and read from Parquet serialized metadata.
 class PARQUET_EXPORT EncodedStatistics {
-  std::shared_ptr<std::string> max_, min_;
+  std::string max_, min_;
   bool is_signed_ = false;
 
  public:
-  EncodedStatistics()
-      : max_(std::make_shared<std::string>()), min_(std::make_shared<std::string>()) {}
+  EncodedStatistics() = default;
 
-  const std::string& max() const { return *max_; }
-  const std::string& min() const { return *min_; }
+  const std::string& max() const { return max_; }
+  const std::string& min() const { return min_; }
 
   int64_t null_count = 0;
   int64_t distinct_count = 0;
@@ -149,11 +148,13 @@ class PARQUET_EXPORT EncodedStatistics {
   // the true minimum for aggregations and there is no way to mark that a
   // value has been truncated and is a lower bound and not in the page.
   void ApplyStatSizeLimits(size_t length) {
-    if (max_->length() > length) {
+    if (max_.length() > length) {
       has_max = false;
+      max_.clear();
     }
-    if (min_->length() > length) {
+    if (min_.length() > length) {
       has_min = false;
+      min_.clear();
     }
   }
 
@@ -165,14 +166,14 @@ class PARQUET_EXPORT EncodedStatistics {
 
   void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
 
-  EncodedStatistics& set_max(const std::string& value) {
-    *max_ = value;
+  EncodedStatistics& set_max(std::string value) {
+    max_ = std::move(value);
     has_max = true;
     return *this;
   }
 
-  EncodedStatistics& set_min(const std::string& value) {
-    *min_ = value;
+  EncodedStatistics& set_min(std::string value) {
+    min_ = std::move(value);
     has_min = true;
     return *this;
   }
@@ -204,7 +205,7 @@ class PARQUET_EXPORT Statistics {
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// \brief Create a new statistics instance given a column schema
-  /// definition and pre-existing state
+  /// definition and preexisting state
   /// \param[in] descr the column schema
   /// \param[in] encoded_min the encoded minimum value
   /// \param[in] encoded_max the encoded maximum value
@@ -329,7 +330,7 @@ class TypedStatistics : public Statistics {
   /// null count is determined from the indices)
   virtual void IncrementNullCount(int64_t n) = 0;
 
-  /// \brief Increments the number ov values directly
+  /// \brief Increments the number of values directly
   /// The same note on IncrementNullCount applies here
   virtual void IncrementNumValues(int64_t n) = 0;
 };

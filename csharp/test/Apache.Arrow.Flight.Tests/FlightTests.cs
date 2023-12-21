@@ -284,6 +284,32 @@ namespace Apache.Arrow.Flight.Tests
         }
 
         [Fact]
+        public async Task TestHandshake()
+        {
+            var duplexStreamingCall = _flightClient.Handshake();
+
+            await duplexStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.Empty)).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.CompleteAsync().ConfigureAwait(false);
+            var results = await duplexStreamingCall.ResponseStream.ToListAsync().ConfigureAwait(false);
+
+            Assert.Single(results);
+            Assert.Equal("Done", results.First().Payload.ToStringUtf8());
+        }
+
+        [Fact]
+        public async Task TestHandshakeWithSpecificMessage()
+        {
+            var duplexStreamingCall = _flightClient.Handshake();
+
+            await duplexStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.CopyFromUtf8("Hello"))).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.CompleteAsync().ConfigureAwait(false);
+            var results = await duplexStreamingCall.ResponseStream.ToListAsync().ConfigureAwait(false);
+
+            Assert.Single(results);
+            Assert.Equal("Hello handshake", results.First().Payload.ToStringUtf8());
+        }
+
+        [Fact]
         public async Task TestGetBatchesWithAsyncEnumerable()
         {
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");

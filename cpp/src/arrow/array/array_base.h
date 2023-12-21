@@ -106,7 +106,7 @@ class ARROW_EXPORT Array {
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
 
-  std::shared_ptr<DataType> type() const { return data_->type; }
+  const std::shared_ptr<DataType>& type() const { return data_->type; }
   Type::type type_id() const { return data_->type->id(); }
 
   /// Buffer for the validity (null) bitmap, if any. Note that Union types
@@ -251,7 +251,7 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
                  int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   /// Does not account for any slice offset
-  std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
+  const std::shared_ptr<Buffer>& values() const { return data_->buffers[1]; }
 
  protected:
   PrimitiveArray() : raw_values_(NULLPTR) {}

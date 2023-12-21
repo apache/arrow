@@ -18,7 +18,6 @@
 import { ArrayBufferViewInput, toArrayBufferView } from './buffer.js';
 import { TypedArray, TypedArrayConstructor } from '../interfaces.js';
 import { BigIntArray, BigIntArrayConstructor } from '../interfaces.js';
-import { BigInt64Array, BigUint64Array } from './compat.js';
 
 /** @ignore */
 export const isArrowBigNumSymbol = Symbol.for('isArrowBigNum');

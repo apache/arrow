@@ -45,14 +45,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/arrow/scalar"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow/scalar"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
 )
@@ -462,6 +464,9 @@ type dbQueryCtx interface {
 func doGetQuery(ctx context.Context, mem memory.Allocator, db dbQueryCtx, query string, schema *arrow.Schema, args ...interface{}) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
+		// Not really useful except for testing Flight SQL clients
+		trailers := metadata.Pairs("afsql-sqlite-query", query)
+		grpc.SetTrailer(ctx, trailers)
 		return nil, nil, err
 	}
 
@@ -679,7 +684,7 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoPrimaryKeys(_ context.Context, cmd 
 }
 
 func (s *SQLiteFlightSQLServer) DoGetPrimaryKeys(ctx context.Context, cmd flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	// the field key_name can not be recovered by sqlite so it is
+	// the field key_name cannot be recovered by sqlite so it is
 	// being set to null following the same pattern for catalog name and schema_name
 	var b strings.Builder
 

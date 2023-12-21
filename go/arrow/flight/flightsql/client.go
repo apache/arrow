@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	pb "github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/flight"
+	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v15/arrow/ipc"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -56,18 +56,6 @@ type Client struct {
 	Client flight.Client
 
 	Alloc memory.Allocator
-}
-
-// Ensure the result of a DoAction is fully consumed
-func readUntilEOF(stream pb.FlightService_DoActionClient) error {
-	for {
-		_, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		} else if err != nil {
-			return err
-		}
-	}
 }
 
 func descForCommand(cmd proto.Message) (*flight.FlightDescriptor, error) {
@@ -475,7 +463,7 @@ func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.
 
 	// XXX: assuming server will not return a result and then an error
 	// (or else we need to also try to clean up the statement)
-	if err = readUntilEOF(results); err != nil {
+	if err = flight.ReadUntilEOF(results); err != nil {
 		return nil, err
 	}
 
@@ -498,6 +486,9 @@ func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, o
 // Close will close the underlying flight Client in use by this flightsql.Client
 func (c *Client) Close() error { return c.Client.Close() }
 
+// Deprecated: In 13.0.0. Use CancelFlightInfo instead if you can
+// assume that server requires 13.0.0 or later. Otherwise, you may
+// need to use CancelQuery and/or CancelFlightInfo.
 func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (cancelResult CancelResult, err error) {
 	const actionType = CancelQueryActionType
 
@@ -527,7 +518,7 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 		return
 	}
 
-	if err = readUntilEOF(stream); err != nil {
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return
 	}
 
@@ -541,6 +532,14 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 
 	cancelResult = result.GetResult()
 	return
+}
+
+func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+	return c.Client.CancelFlightInfo(ctx, request, opts...)
+}
+
+func (c *Client) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
+	return c.Client.RenewFlightEndpoint(ctx, request, opts...)
 }
 
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {
@@ -564,7 +563,7 @@ func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) 
 		return nil, err
 	}
 
-	if err = readUntilEOF(stream); err != nil {
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return nil, err
 	}
 
@@ -801,7 +800,7 @@ func (tx *Txn) Commit(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
@@ -829,7 +828,7 @@ func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.CallOption) (Savepoint, error) {
@@ -861,7 +860,7 @@ func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.Cal
 		return nil, err
 	}
 
-	if err = readUntilEOF(stream); err != nil {
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return nil, err
 	}
 
@@ -895,7 +894,7 @@ func (tx *Txn) ReleaseSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.CallOption) error {
@@ -921,7 +920,7 @@ func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }
 
 // PreparedStatement represents a constructed PreparedStatement on the server
@@ -1170,5 +1169,5 @@ func (p *PreparedStatement) Close(ctx context.Context, opts ...grpc.CallOption) 
 	}
 
 	p.closed = true
-	return readUntilEOF(stream)
+	return flight.ReadUntilEOF(stream)
 }

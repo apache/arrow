@@ -17,7 +17,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-%define use_dnf (%{rhel} >= 8)
+%define _amzn %{?amzn:%{amzn}}%{!?amzn:0}
+%define _rhel %{?rhel:%{rhel}}%{!?rhel:0}
+
+%define use_dnf (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define use_epel (%{_amzn} < 2023)
+
 %if %{use_dnf}
 %define yum_repository_enable() (dnf config-manager --set-enabled %1)
 %define yum_repository_disable() (dnf config-manager --set-disabled %1)
@@ -37,7 +42,9 @@ Source0:	@PACKAGE@-%{version}.tar.gz
 
 BuildArch:	noarch
 
+%if %{use_epel}
 Requires:	epel-release
+%endif
 %if %{use_dnf}
 Requires:	dnf-command(config-manager)
 %else
@@ -80,8 +87,8 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/yum.repos.d/Apache-Arrow.repo
 
 %post
-if grep -q 'Amazon Linux release 2' /etc/system-release 2>/dev/null; then
-  %{yum_repository_enable apache-arrow-amazon-linux}
+if grep -q 'Amazon Linux release 2023' /etc/system-release 2>/dev/null; then
+  %{yum_repository_enable apache-arrow-amazon-linux-2023}
 elif grep -q 'Red Hat Enterprise Linux Server release 7' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-rhel7}
 elif grep -q 'Red Hat Enterprise Linux' /etc/system-release 2>/dev/null; then
@@ -95,6 +102,18 @@ else
 fi
 
 %changelog
+* Tue Dec 12 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.2-1
+- New upstream release.
+
+* Mon Nov 06 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.1-1
+- New upstream release.
+
+* Thu Oct 19 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.0-1
+- New upstream release.
+
+* Thu Aug 17 2023 Raúl Cumplido <raulcumplido@gmail.com> - 13.0.0-1
+- New upstream release.
+
 * Wed Jun 07 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.1-1
 - New upstream release.
 

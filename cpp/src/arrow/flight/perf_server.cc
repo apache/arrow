@@ -189,14 +189,14 @@ class FlightPerfServer : public FlightServerBase {
       (void)token.SerializeToString(&tmp_ticket.ticket);
 
       // All endpoints same location for now
-      endpoints.push_back(FlightEndpoint{tmp_ticket, {location_}});
+      endpoints.push_back(FlightEndpoint{tmp_ticket, {location_}, std::nullopt, ""});
     }
 
     uint64_t total_records =
         perf_request.stream_count() * perf_request.records_per_stream();
 
     *info = std::make_unique<FlightInfo>(
-        MakeFlightInfo(*perf_schema_, request, endpoints, total_records, -1, false));
+        MakeFlightInfo(*perf_schema_, request, endpoints, total_records, -1, false, ""));
     return Status::OK();
   }
 

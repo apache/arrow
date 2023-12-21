@@ -22,11 +22,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // FixedSizeList represents an immutable sequence of N array values.
@@ -214,10 +214,23 @@ func (b *FixedSizeListBuilder) AppendNull() {
 	}
 }
 
+// AppendNulls will append n null values to the underlying values by itself
+func (b *FixedSizeListBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *FixedSizeListBuilder) AppendEmptyValue() {
 	b.Append(true)
 	for i := int32(0); i < b.n; i++ {
 		b.values.AppendEmptyValue()
+	}
+}
+
+func (b *FixedSizeListBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
 	}
 }
 

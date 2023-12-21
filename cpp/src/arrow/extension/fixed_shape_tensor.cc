@@ -26,7 +26,9 @@
 #include "arrow/tensor.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/print.h"
 #include "arrow/util/sort.h"
+#include "arrow/util/string.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -102,6 +104,22 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   return (storage_type()->Equals(other_ext.storage_type())) &&
          (this->shape() == other_ext.shape()) && (dim_names_ == other_ext.dim_names()) &&
          permutation_equivalent;
+}
+
+std::string FixedShapeTensorType::ToString() const {
+  std::stringstream ss;
+  ss << "extension<" << this->extension_name()
+     << "[value_type=" << value_type_->ToString()
+     << ", shape=" << ::arrow::internal::PrintVector{shape_, ","};
+
+  if (!permutation_.empty()) {
+    ss << ", permutation=" << ::arrow::internal::PrintVector{permutation_, ","};
+  }
+  if (!dim_names_.empty()) {
+    ss << ", dim_names=[" << internal::JoinStrings(dim_names_, ",") << "]";
+  }
+  ss << "]>";
+  return ss.str();
 }
 
 std::string FixedShapeTensorType::Serialize() const {

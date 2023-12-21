@@ -34,8 +34,7 @@
 
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 namespace {
 
@@ -481,11 +480,29 @@ TYPED_TEST_SUITE(TestUnaryRoundArithmeticFloating, FloatingTypes);
 
 TEST(TestUnaryRound, DispatchBestRound) {
   // Integer -> Float64
-  for (std::string name : {"floor", "ceil", "trunc", "round", "round_to_multiple"}) {
+  for (std::string name : {"floor", "ceil", "trunc"}) {
     for (const auto& ty :
          {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64()}) {
       CheckDispatchBest(name, {ty}, {float64()});
       CheckDispatchBest(name, {dictionary(int8(), ty)}, {float64()});
+    }
+  }
+  // Integer -> Integer
+  for (std::string name : {"round", "round_to_multiple"}) {
+    for (const auto& ty :
+         {int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(), uint64()}) {
+      CheckDispatchBest(name, {ty}, {ty});
+      CheckDispatchBest(name, {dictionary(int8(), ty)}, {ty});
+    }
+  }
+
+  // Any -> Int32
+  for (std::string name : {"round_binary"}) {
+    for (const auto& ty1 : NumericTypes()) {
+      for (const auto& ty2 : NumericTypes()) {
+        CheckDispatchBest(name, {ty1, ty2}, {ty1, int32()});
+        CheckDispatchBest(name, {dictionary(int8(), ty1), ty2}, {ty1, int32()});
+      }
     }
   }
 }
@@ -1014,13 +1031,13 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
   this->SetRoundNdigits(0);
   for (const auto& round_mode : kRoundModes) {
     this->SetRoundMode(round_mode);
-    this->AssertUnaryOp(Round, values, ArrayFromJSON(float64(), values));
+    this->AssertUnaryOp(Round, values, ArrayFromJSON(this->type_singleton(), values));
   }
 
   // Test different round N-digits for nearest rounding mode
   std::vector<std::pair<int64_t, std::string>> ndigits_and_expected{{
-      {-2, "[0.0, 0.0, -0.0, -100, 100]"},
-      {-1, "[0.0, 0.0, -10, -50, 120]"},
+      {-2, "[0, 0, -0, -100, 100]"},
+      {-1, "[0, 0, -10, -50, 120]"},
       {0, values},
       {1, values},
       {2, values},
@@ -1028,7 +1045,53 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : ndigits_and_expected) {
     this->SetRoundNdigits(pair.first);
-    this->AssertUnaryOp(Round, values, ArrayFromJSON(float64(), pair.second));
+    this->AssertUnaryOp(Round, values,
+                        ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  // Test different rounding mode
+  // skip int8 because of its small range
+  if constexpr (!std::is_same_v<TypeParam, Int8Type>) {
+    std::string values("[0, 1, -13, -50, 115, -150, -176, 200, 250]");
+    this->SetRoundNdigits(-2);
+    std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+        {RoundMode::DOWN, "[0, 0, -100, -100, 100, -200, -200, 200, 200]"},
+        {RoundMode::UP, "[0, 100, -0, -0, 200, -100, -100, 200, 300]"},
+        {RoundMode::TOWARDS_ZERO, "[0, 0, -0, -0, 100, -100, -100, 200, 200]"},
+        {RoundMode::TOWARDS_INFINITY, "[0, 100, -100, -100, 200, -200, -200, 200, 300]"},
+        {RoundMode::HALF_DOWN, "[0, 0, -0, -100, 100, -200, -200, 200, 200]"},
+        {RoundMode::HALF_UP, "[0, 0, -0, -0, 100, -100, -200, 200, 300]"},
+        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, -0, -0, 100, -100, -200, 200, 200]"},
+        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, -0, -100, 100, -200, -200, 200, 300]"},
+        {RoundMode::HALF_TO_EVEN, "[0, 0, -0, -0, 100, -200, -200, 200, 200]"},
+        {RoundMode::HALF_TO_ODD, "[0, 0, -0, -100, 100, -100, -200, 200, 300]"},
+    }};
+    for (const auto& pair : round_modes_and_expected) {
+      this->SetRoundMode(pair.first);
+      this->AssertUnaryOp(Round, values,
+                          ArrayFromJSON(this->type_singleton(), pair.second));
+    }
+  }
+
+  // An overly large ndigits would cause an error
+  this->SetRoundNdigits(-100);
+  this->SetRoundMode(RoundMode::UP);
+  this->AssertUnaryOpRaises(Round, "[1]", "out of range");
+
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+    this->SetRoundNdigits(-1);
+    this->SetRoundMode(RoundMode::DOWN);
+    this->AssertUnaryOpRaises(Round, "[-127]", "overflow");
+  }
+
+  // A larger than double int64 should be correctly handled
+  if constexpr (std::is_same_v<TypeParam, Int64Type>) {
+    this->SetRoundNdigits(-2);
+    this->SetRoundMode(RoundMode::UP);
+    auto values = "[1152921504606846976]";  // 2 ^ 60
+    this->AssertUnaryOp(Round, values,
+                        ArrayFromJSON(this->type_singleton(), "[1152921504606847000]"));
   }
 }
 
@@ -1038,7 +1101,7 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
   this->SetRoundNdigits(0);
   for (const auto& round_mode : kRoundModes) {
     this->SetRoundMode(round_mode);
-    this->AssertUnaryOp(Round, values, ArrayFromJSON(float64(), values));
+    this->AssertUnaryOp(Round, values, ArrayFromJSON(this->type_singleton(), values));
   }
 
   // Test different round N-digits for nearest rounding mode
@@ -1052,7 +1115,53 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : ndigits_and_expected) {
     this->SetRoundNdigits(pair.first);
-    this->AssertUnaryOp(Round, values, ArrayFromJSON(float64(), pair.second));
+    this->AssertUnaryOp(Round, values,
+                        ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  // Test different rounding mode
+  // skip uint8 because of its small range
+  if constexpr (!std::is_same_v<TypeParam, UInt8Type>) {
+    std::string values("[0, 1, 13, 50, 115, 150, 176, 200, 250]");
+    this->SetRoundNdigits(-2);
+    std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+        {RoundMode::DOWN, "[0, 0, 0, 0, 100, 100, 100, 200, 200]"},
+        {RoundMode::UP, "[0, 100, 100, 100, 200, 200, 200, 200, 300]"},
+        {RoundMode::TOWARDS_ZERO, "[0, 0, 0, 0, 100, 100, 100, 200, 200]"},
+        {RoundMode::TOWARDS_INFINITY, "[0, 100, 100, 100, 200, 200, 200, 200, 300]"},
+        {RoundMode::HALF_DOWN, "[0, 0, 0, 0, 100, 100, 200, 200, 200]"},
+        {RoundMode::HALF_UP, "[0, 0, 0, 100, 100, 200, 200, 200, 300]"},
+        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, 0, 0, 100, 100, 200, 200, 200]"},
+        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, 0, 100, 100, 200, 200, 200, 300]"},
+        {RoundMode::HALF_TO_EVEN, "[0, 0, 0, 0, 100, 200, 200, 200, 200]"},
+        {RoundMode::HALF_TO_ODD, "[0, 0, 0, 100, 100, 100, 200, 200, 300]"},
+    }};
+    for (const auto& pair : round_modes_and_expected) {
+      this->SetRoundMode(pair.first);
+      this->AssertUnaryOp(Round, values,
+                          ArrayFromJSON(this->type_singleton(), pair.second));
+    }
+  }
+
+  // An overly large ndigits would cause an error
+  this->SetRoundNdigits(-100);
+  this->SetRoundMode(RoundMode::UP);
+  this->AssertUnaryOpRaises(Round, "[1]", "out of range");
+
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+    this->SetRoundNdigits(-1);
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertUnaryOpRaises(Round, "[255]", "overflow");
+  }
+
+  // A larger than double uint64 should be correctly handled
+  if constexpr (std::is_same_v<TypeParam, Int64Type>) {
+    this->SetRoundNdigits(-2);
+    this->SetRoundMode(RoundMode::UP);
+    auto values = "[1152921504606846976]";  // 2 ^ 60
+    this->AssertUnaryOp(Round, values,
+                        ArrayFromJSON(this->type_singleton(), "[1152921504606847000]"));
   }
 }
 
@@ -1108,13 +1217,14 @@ TYPED_TEST(TestBinaryRoundSigned, Round) {
   std::string values("[0, 1, -13, -50, 115]");
   for (const auto& round_mode : kRoundModes) {
     this->SetRoundMode(round_mode);
-    this->AssertBinaryOp(RoundBinary, values, 0, ArrayFromJSON(float64(), values));
+    this->AssertBinaryOp(RoundBinary, values, 0,
+                         ArrayFromJSON(this->type_singleton(), values));
   }
 
   // Test different round N-digits for nearest rounding mode
   std::vector<std::pair<int32_t, std::string>> ndigits_and_expected{{
-      {-2, "[0.0, 0.0, -0.0, -100, 100]"},
-      {-1, "[0.0, 0.0, -10, -50, 120]"},
+      {-2, "[0, 0, -0, -100, 100]"},
+      {-1, "[0, 0, -10, -50, 120]"},
       {0, values},
       {1, values},
       {2, values},
@@ -1122,7 +1232,42 @@ TYPED_TEST(TestBinaryRoundSigned, Round) {
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : ndigits_and_expected) {
     this->AssertBinaryOp(RoundBinary, values, pair.first,
-                         ArrayFromJSON(float64(), pair.second));
+                         ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  // Test different rounding mode
+  // skip int8 because of its small range
+  if constexpr (!std::is_same<TypeParam, Int8Type>::value) {
+    std::string values("[0, 1, -13, -50, 115, -176, 200, 250]");
+    std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+        {RoundMode::DOWN, "[0, 0, -100, -100, 100, -200, 200, 200]"},
+        {RoundMode::UP, "[0, 100, -0, -0, 200, -100, 200, 300]"},
+        {RoundMode::TOWARDS_ZERO, "[0, 0, -0, -0, 100, -100, 200, 200]"},
+        {RoundMode::TOWARDS_INFINITY, "[0, 100, -100, -100, 200, -200, 200, 300]"},
+        {RoundMode::HALF_DOWN, "[0, 0, -0, -100, 100, -200, 200, 200]"},
+        {RoundMode::HALF_UP, "[0, 0, -0, -0, 100, -200, 200, 300]"},
+        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, -0, -0, 100, -200, 200, 200]"},
+        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, -0, -100, 100, -200, 200, 300]"},
+        {RoundMode::HALF_TO_EVEN, "[0, 0, -0, -0, 100, -200, 200, 200]"},
+        {RoundMode::HALF_TO_ODD, "[0, 0, -0, -100, 100, -200, 200, 300]"},
+    }};
+    for (const auto& pair : round_modes_and_expected) {
+      this->SetRoundMode(pair.first);
+      this->AssertBinaryOp(RoundBinary, values, -2,
+                           ArrayFromJSON(this->type_singleton(), pair.second));
+    }
+  }
+
+  // An overly large ndigits would cause an error
+  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
+  }
+
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+    this->SetRoundMode(RoundMode::DOWN);
+    this->AssertBinaryOpRaises(RoundBinary, "[-127]", "[-1]", "overflow");
   }
 }
 
@@ -1131,7 +1276,8 @@ TYPED_TEST(TestBinaryRoundUnsigned, Round) {
   std::string values("[0, 1, 13, 50, 115]");
   for (const auto& round_mode : kRoundModes) {
     this->SetRoundMode(round_mode);
-    this->AssertBinaryOp(RoundBinary, values, 0, ArrayFromJSON(float64(), values));
+    this->AssertBinaryOp(RoundBinary, values, 0,
+                         ArrayFromJSON(this->type_singleton(), values));
   }
 
   // Test different round N-digits for nearest rounding mode
@@ -1145,7 +1291,42 @@ TYPED_TEST(TestBinaryRoundUnsigned, Round) {
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : ndigits_and_expected) {
     this->AssertBinaryOp(RoundBinary, values, pair.first,
-                         ArrayFromJSON(float64(), pair.second));
+                         ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  // Test different rounding mode
+  // skip uint8 because of its small range
+  if constexpr (!std::is_same<TypeParam, UInt8Type>::value) {
+    std::string values("[0, 1, 13, 50, 115, 176, 200, 250]");
+    std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+        {RoundMode::DOWN, "[0, 0, 0, 0, 100, 100, 200, 200]"},
+        {RoundMode::UP, "[0, 100, 100, 100, 200, 200, 200, 300]"},
+        {RoundMode::TOWARDS_ZERO, "[0, 0, 0, 0, 100, 100, 200, 200]"},
+        {RoundMode::TOWARDS_INFINITY, "[0, 100, 100, 100, 200, 200, 200, 300]"},
+        {RoundMode::HALF_DOWN, "[0, 0, 0, 0, 100, 200, 200, 200]"},
+        {RoundMode::HALF_UP, "[0, 0, 0, 100, 100, 200, 200, 300]"},
+        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, 0, 0, 100, 200, 200, 200]"},
+        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, 0, 100, 100, 200, 200, 300]"},
+        {RoundMode::HALF_TO_EVEN, "[0, 0, 0, 0, 100, 200, 200, 200]"},
+        {RoundMode::HALF_TO_ODD, "[0, 0, 0, 100, 100, 200, 200, 300]"},
+    }};
+    for (const auto& pair : round_modes_and_expected) {
+      this->SetRoundMode(pair.first);
+      this->AssertBinaryOp(RoundBinary, values, -2,
+                           ArrayFromJSON(this->type_singleton(), pair.second));
+    }
+  }
+
+  // An overly large ndigits would cause an error
+  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
+  }
+
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertBinaryOpRaises(RoundBinary, "[255]", "[-1]", "overflow");
   }
 }
 
@@ -1203,21 +1384,74 @@ TYPED_TEST(TestUnaryRoundToMultipleSigned, RoundToMultiple) {
   this->SetRoundMultiple(1);
   for (const auto& round_mode : kRoundModes) {
     this->SetRoundMode(round_mode);
-    this->AssertUnaryOp(RoundToMultiple, values, ArrayFromJSON(float64(), values));
+    this->AssertUnaryOp(RoundToMultiple, values,
+                        ArrayFromJSON(this->type_singleton(), values));
   }
 
+  // Out of range multiple is not allowed
+  this->SetRoundMultiple(
+      static_cast<double>(
+          std::numeric_limits<typename TypeTraits<TypeParam>::CType>::max()) +
+      1e9);
+  this->AssertUnaryOpRaises(RoundToMultiple, values, "Invalid");
+
   // Test different round multiples for nearest rounding mode
-  std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {2, "[0.0, 2, -14, -50, 116]"},
-      {0.05, "[0.0, 1, -13, -50, 115]"},
-      {0.1, values},
-      {10, "[0.0, 0.0, -10, -50, 120]"},
-      {100, "[0.0, 0.0, -0.0, -100, 100]"},
+  std::vector<std::pair<int, std::string>> multiple_and_expected{{
+      {2, "[0, 2, -14, -50, 116]"},
+      {10, "[0, 0, -10, -50, 120]"},
+      {100, "[0, 0, -0, -100, 100]"},
   }};
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : multiple_and_expected) {
     this->SetRoundMultiple(pair.first);
-    this->AssertUnaryOp(RoundToMultiple, values, ArrayFromJSON(float64(), pair.second));
+    this->AssertUnaryOp(RoundToMultiple, values,
+                        ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  // Test different rounding mode
+  values = "[0, -1, 2, -5, 6, -8]";
+  // Even case is tested by round and round_binary so we test an odd case here
+  this->SetRoundMultiple(3);
+  std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+      {RoundMode::DOWN, "[0, -3, 0, -6, 6, -9]"},
+      {RoundMode::UP, "[0, 0, 3, -3, 6, -6]"},
+      {RoundMode::TOWARDS_ZERO, "[0, 0, 0, -3, 6, -6]"},
+      {RoundMode::TOWARDS_INFINITY, "[0, -3, 3, -6, 6, -9]"},
+      {RoundMode::HALF_DOWN, "[0, 0, 3, -6, 6, -9]"},
+      {RoundMode::HALF_UP, "[0, 0, 3, -6, 6, -9]"},
+      {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, 3, -6, 6, -9]"},
+      {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, 3, -6, 6, -9]"},
+      {RoundMode::HALF_TO_EVEN, "[0, 0, 3, -6, 6, -9]"},
+      {RoundMode::HALF_TO_ODD, "[0, 0, 3, -6, 6, -9]"},
+  }};
+  for (const auto& pair : round_modes_and_expected) {
+    this->SetRoundMode(pair.first);
+    this->AssertUnaryOp(RoundToMultiple, values,
+                        ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  if constexpr (std::is_same_v<TypeParam, Int32Type>) {
+    // Test overflow handling
+    this->SetRoundMultiple(10);
+    auto input = "[-2147483645]";
+    std::vector<RoundMode> invalid_modes{
+        RoundMode::DOWN, RoundMode::TOWARDS_INFINITY, RoundMode::HALF_DOWN,
+        RoundMode::HALF_TOWARDS_INFINITY, RoundMode::HALF_TO_ODD};
+    std::vector<RoundMode> valid_modes{RoundMode::UP, RoundMode::TOWARDS_ZERO,
+                                       RoundMode::HALF_UP, RoundMode::HALF_TOWARDS_ZERO,
+                                       RoundMode::HALF_TO_EVEN};
+    for (auto mode : invalid_modes) {
+      this->SetRoundMode(mode);
+      this->AssertUnaryOpRaises(
+          RoundToMultiple, input,
+          "Rounding -2147483645 down to multiple of 10 would overflow");
+    }
+
+    for (auto mode : valid_modes) {
+      this->SetRoundMode(mode);
+      this->AssertUnaryOp(RoundToMultiple, input,
+                          ArrayFromJSON(int32(), "[-2147483640]"));
+    }
   }
 }
 
@@ -1227,13 +1461,19 @@ TYPED_TEST(TestUnaryRoundToMultipleUnsigned, RoundToMultiple) {
   this->SetRoundMultiple(1);
   for (const auto& round_mode : kRoundModes) {
     this->SetRoundMode(round_mode);
-    this->AssertUnaryOp(RoundToMultiple, values, ArrayFromJSON(float64(), values));
+    this->AssertUnaryOp(RoundToMultiple, values,
+                        ArrayFromJSON(this->type_singleton(), values));
   }
+
+  // Out of range multiple is not allowed
+  this->SetRoundMultiple(
+      static_cast<double>(
+          std::numeric_limits<typename TypeTraits<TypeParam>::CType>::max()) +
+      1e9);
+  this->AssertUnaryOpRaises(RoundToMultiple, values, "Invalid");
 
   // Test different round multiples for nearest rounding mode
   std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {0.05, "[0, 1, 13, 50, 115]"},
-      {0.1, values},
       {2, "[0, 2, 14, 50, 116]"},
       {10, "[0, 0, 10, 50, 120]"},
       {100, "[0, 0, 0, 100, 100]"},
@@ -1241,7 +1481,54 @@ TYPED_TEST(TestUnaryRoundToMultipleUnsigned, RoundToMultiple) {
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : multiple_and_expected) {
     this->SetRoundMultiple(pair.first);
-    this->AssertUnaryOp(RoundToMultiple, values, ArrayFromJSON(float64(), pair.second));
+    this->AssertUnaryOp(RoundToMultiple, values,
+                        ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  // Test different rounding mode
+  values = "[0, 1, 2, 5, 6, 8]";
+  // Even case is tested by round and round_binary so we test an odd case here
+  this->SetRoundMultiple(3);
+  std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
+      {RoundMode::DOWN, "[0, 0, 0, 3, 6, 6]"},
+      {RoundMode::UP, "[0, 3, 3, 6, 6, 9]"},
+      {RoundMode::TOWARDS_ZERO, "[0, 0, 0, 3, 6, 6]"},
+      {RoundMode::TOWARDS_INFINITY, "[0, 3, 3, 6, 6, 9]"},
+      {RoundMode::HALF_DOWN, "[0, 0, 3, 6, 6, 9]"},
+      {RoundMode::HALF_UP, "[0, 0, 3, 6, 6, 9]"},
+      {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, 3, 6, 6, 9]"},
+      {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, 3, 6, 6, 9]"},
+      {RoundMode::HALF_TO_EVEN, "[0, 0, 3, 6, 6, 9]"},
+      {RoundMode::HALF_TO_ODD, "[0, 0, 3, 6, 6, 9]"},
+  }};
+  for (const auto& pair : round_modes_and_expected) {
+    this->SetRoundMode(pair.first);
+    this->AssertUnaryOp(RoundToMultiple, values,
+                        ArrayFromJSON(this->type_singleton(), pair.second));
+  }
+
+  if constexpr (std::is_same_v<TypeParam, UInt32Type>) {
+    // Test overflow handling
+    this->SetRoundMultiple(10);
+    auto input = "[4294967295]";
+    std::vector<RoundMode> valid_modes{RoundMode::DOWN, RoundMode::TOWARDS_ZERO,
+                                       RoundMode::HALF_DOWN, RoundMode::HALF_TOWARDS_ZERO,
+                                       RoundMode::HALF_TO_ODD};
+    std::vector<RoundMode> invalid_modes{RoundMode::UP, RoundMode::TOWARDS_INFINITY,
+                                         RoundMode::HALF_UP, RoundMode::TOWARDS_INFINITY,
+                                         RoundMode::HALF_TO_EVEN};
+    for (auto mode : invalid_modes) {
+      this->SetRoundMode(mode);
+      this->AssertUnaryOpRaises(
+          RoundToMultiple, input,
+          "Rounding 4294967295 up to multiple of 10 would overflow");
+    }
+
+    for (auto mode : valid_modes) {
+      this->SetRoundMode(mode);
+      this->AssertUnaryOp(RoundToMultiple, input,
+                          ArrayFromJSON(uint32(), "[4294967290]"));
+    }
   }
 }
 
@@ -1444,5 +1731,4 @@ TYPED_TEST(TestUnaryRoundArithmeticFloating, Trunc) {
 }
 
 }  // namespace
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

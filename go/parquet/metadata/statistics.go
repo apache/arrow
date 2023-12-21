@@ -22,17 +22,18 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/debug"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/debug"
+	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 )
 
-//go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata statistics_types.gen.go.tmpl
+//go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=statistics_types.tmpldata statistics_types.gen.go.tmpl
 
 type StatProvider interface {
 	GetMin() []byte
@@ -270,7 +271,7 @@ func signedByteLess(a, b []byte) bool {
 	sa := *(*[]int8)(unsafe.Pointer(&a))
 	sb := *(*[]int8)(unsafe.Pointer(&b))
 
-	// we can short circuit for different signd numbers or for equal length byte
+	// we can short circuit for different signed numbers or for equal length byte
 	// arrays that have different first bytes. The equality requirement is necessary
 	// for sign extension cases. 0xFF10 should be equal to 0x10 (due to big endian sign extension)
 	if int8(0x80&uint8(sa[0])) != int8(0x80&uint8(sb[0])) || (len(sa) == len(sb) && sa[0] != sb[0]) {
@@ -340,7 +341,7 @@ func (BooleanStatistics) defaultMin() bool { return true }
 func (BooleanStatistics) defaultMax() bool { return false }
 func (s *Int32Statistics) defaultMin() int32 {
 	if s.order == schema.SortUNSIGNED {
-		val := math.MaxUint32
+		val := uint32(math.MaxUint32)
 		return int32(val)
 	}
 	return math.MaxInt32
@@ -373,6 +374,9 @@ var (
 	defaultMinUInt96 parquet.Int96
 	defaultMaxInt96  parquet.Int96
 	defaultMaxUInt96 parquet.Int96
+
+	defaultMinFloat16 parquet.FixedLenByteArray = float16.MaxNum.ToLEBytes()
+	defaultMaxFloat16 parquet.FixedLenByteArray = float16.MinNum.ToLEBytes()
 )
 
 func init() {
@@ -407,6 +411,14 @@ func (s *Int96Statistics) defaultMax() parquet.Int96 {
 	return defaultMaxInt96
 }
 
+func (Float16Statistics) defaultMin() parquet.FixedLenByteArray {
+	return defaultMinFloat16
+}
+
+func (Float16Statistics) defaultMax() parquet.FixedLenByteArray {
+	return defaultMaxFloat16
+}
+
 func (Float32Statistics) defaultMin() float32                             { return math.MaxFloat32 }
 func (Float32Statistics) defaultMax() float32                             { return -math.MaxFloat32 }
 func (Float64Statistics) defaultMin() float64                             { return math.MaxFloat64 }
@@ -425,6 +437,10 @@ func (Int96Statistics) equal(a, b parquet.Int96) bool         { return bytes.Equ
 func (ByteArrayStatistics) equal(a, b parquet.ByteArray) bool { return bytes.Equal(a, b) }
 func (FixedLenByteArrayStatistics) equal(a, b parquet.FixedLenByteArray) bool {
 	return bytes.Equal(a, b)
+}
+
+func (Float16Statistics) equal(a, b parquet.FixedLenByteArray) bool {
+	return float16.FromLEBytes(a).Equal(float16.FromLEBytes(b))
 }
 
 func (BooleanStatistics) less(a, b bool) bool {
@@ -481,6 +497,10 @@ func (s *FixedLenByteArrayStatistics) less(a, b parquet.FixedLenByteArray) bool 
 	return signedByteLess([]byte(a), []byte(b))
 }
 
+func (Float16Statistics) less(a, b parquet.FixedLenByteArray) bool {
+	return float16.FromLEBytes(a).Less(float16.FromLEBytes(b))
+}
+
 func (BooleanStatistics) cleanStat(minMax minmaxPairBoolean) *minmaxPairBoolean { return &minMax }
 func (Int32Statistics) cleanStat(minMax minmaxPairInt32) *minmaxPairInt32       { return &minMax }
 func (Int64Statistics) cleanStat(minMax minmaxPairInt64) *minmaxPairInt64       { return &minMax }
@@ -530,6 +550,29 @@ func (Float64Statistics) cleanStat(minMax minmaxPairFloat64) *minmaxPairFloat64 
 
 	if minMax[1] == zero && math.Signbit(minMax[1]) {
 		minMax[1] = -minMax[1]
+	}
+
+	return &minMax
+}
+
+func (Float16Statistics) cleanStat(minMax minmaxPairFloat16) *minmaxPairFloat16 {
+	min := float16.FromLEBytes(minMax[0][:])
+	max := float16.FromLEBytes(minMax[1][:])
+
+	if min.IsNaN() || max.IsNaN() {
+		return nil
+	}
+
+	if min.Equal(float16.MaxNum) && max.Equal(float16.MinNum) {
+		return nil
+	}
+
+	zero := float16.New(0)
+	if min.Equal(zero) && !min.Signbit() {
+		minMax[0] = min.Negate().ToLEBytes()
+	}
+	if max.Equal(zero) && max.Signbit() {
+		minMax[1] = max.Negate().ToLEBytes()
 	}
 
 	return &minMax

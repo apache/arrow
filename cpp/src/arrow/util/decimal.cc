@@ -30,6 +30,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/decimal_internal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int128_internal.h"
@@ -44,195 +45,321 @@ using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
 using internal::uint128_t;
 
-Decimal128::Decimal128(const std::string& str) : Decimal128() {
-  *this = Decimal128::FromString(str).ValueOrDie();
-}
-
-static constexpr auto kInt64DecimalDigits =
-    static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
-
-static constexpr uint64_t kUInt64PowersOfTen[kInt64DecimalDigits + 1] = {
-    // clang-format off
-    1ULL,
-    10ULL,
-    100ULL,
-    1000ULL,
-    10000ULL,
-    100000ULL,
-    1000000ULL,
-    10000000ULL,
-    100000000ULL,
-    1000000000ULL,
-    10000000000ULL,
-    100000000000ULL,
-    1000000000000ULL,
-    10000000000000ULL,
-    100000000000000ULL,
-    1000000000000000ULL,
-    10000000000000000ULL,
-    100000000000000000ULL,
-    1000000000000000000ULL
-    // clang-format on
-};
-
-static constexpr float kFloatPowersOfTen[2 * 38 + 1] = {
-    1e-38f, 1e-37f, 1e-36f, 1e-35f, 1e-34f, 1e-33f, 1e-32f, 1e-31f, 1e-30f, 1e-29f,
-    1e-28f, 1e-27f, 1e-26f, 1e-25f, 1e-24f, 1e-23f, 1e-22f, 1e-21f, 1e-20f, 1e-19f,
-    1e-18f, 1e-17f, 1e-16f, 1e-15f, 1e-14f, 1e-13f, 1e-12f, 1e-11f, 1e-10f, 1e-9f,
-    1e-8f,  1e-7f,  1e-6f,  1e-5f,  1e-4f,  1e-3f,  1e-2f,  1e-1f,  1e0f,   1e1f,
-    1e2f,   1e3f,   1e4f,   1e5f,   1e6f,   1e7f,   1e8f,   1e9f,   1e10f,  1e11f,
-    1e12f,  1e13f,  1e14f,  1e15f,  1e16f,  1e17f,  1e18f,  1e19f,  1e20f,  1e21f,
-    1e22f,  1e23f,  1e24f,  1e25f,  1e26f,  1e27f,  1e28f,  1e29f,  1e30f,  1e31f,
-    1e32f,  1e33f,  1e34f,  1e35f,  1e36f,  1e37f,  1e38f};
-
-static constexpr double kDoublePowersOfTen[2 * 38 + 1] = {
-    1e-38, 1e-37, 1e-36, 1e-35, 1e-34, 1e-33, 1e-32, 1e-31, 1e-30, 1e-29, 1e-28,
-    1e-27, 1e-26, 1e-25, 1e-24, 1e-23, 1e-22, 1e-21, 1e-20, 1e-19, 1e-18, 1e-17,
-    1e-16, 1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10, 1e-9,  1e-8,  1e-7,  1e-6,
-    1e-5,  1e-4,  1e-3,  1e-2,  1e-1,  1e0,   1e1,   1e2,   1e3,   1e4,   1e5,
-    1e6,   1e7,   1e8,   1e9,   1e10,  1e11,  1e12,  1e13,  1e14,  1e15,  1e16,
-    1e17,  1e18,  1e19,  1e20,  1e21,  1e22,  1e23,  1e24,  1e25,  1e26,  1e27,
-    1e28,  1e29,  1e30,  1e31,  1e32,  1e33,  1e34,  1e35,  1e36,  1e37,  1e38};
-
-// On the Windows R toolchain, INFINITY is double type instead of float
-static constexpr float kFloatInf = std::numeric_limits<float>::infinity();
-static constexpr float kFloatPowersOfTen76[2 * 76 + 1] = {
-    0,         0,         0,         0,         0,         0,         0,
-    0,         0,         0,         0,         0,         0,         0,
-    0,         0,         0,         0,         0,         0,         0,
-    0,         0,         0,         0,         0,         0,         0,
-    0,         0,         0,         1e-45f,    1e-44f,    1e-43f,    1e-42f,
-    1e-41f,    1e-40f,    1e-39f,    1e-38f,    1e-37f,    1e-36f,    1e-35f,
-    1e-34f,    1e-33f,    1e-32f,    1e-31f,    1e-30f,    1e-29f,    1e-28f,
-    1e-27f,    1e-26f,    1e-25f,    1e-24f,    1e-23f,    1e-22f,    1e-21f,
-    1e-20f,    1e-19f,    1e-18f,    1e-17f,    1e-16f,    1e-15f,    1e-14f,
-    1e-13f,    1e-12f,    1e-11f,    1e-10f,    1e-9f,     1e-8f,     1e-7f,
-    1e-6f,     1e-5f,     1e-4f,     1e-3f,     1e-2f,     1e-1f,     1e0f,
-    1e1f,      1e2f,      1e3f,      1e4f,      1e5f,      1e6f,      1e7f,
-    1e8f,      1e9f,      1e10f,     1e11f,     1e12f,     1e13f,     1e14f,
-    1e15f,     1e16f,     1e17f,     1e18f,     1e19f,     1e20f,     1e21f,
-    1e22f,     1e23f,     1e24f,     1e25f,     1e26f,     1e27f,     1e28f,
-    1e29f,     1e30f,     1e31f,     1e32f,     1e33f,     1e34f,     1e35f,
-    1e36f,     1e37f,     1e38f,     kFloatInf, kFloatInf, kFloatInf, kFloatInf,
-    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
-    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
-    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
-    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
-    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf};
-
-static constexpr double kDoublePowersOfTen76[2 * 76 + 1] = {
-    1e-76, 1e-75, 1e-74, 1e-73, 1e-72, 1e-71, 1e-70, 1e-69, 1e-68, 1e-67, 1e-66, 1e-65,
-    1e-64, 1e-63, 1e-62, 1e-61, 1e-60, 1e-59, 1e-58, 1e-57, 1e-56, 1e-55, 1e-54, 1e-53,
-    1e-52, 1e-51, 1e-50, 1e-49, 1e-48, 1e-47, 1e-46, 1e-45, 1e-44, 1e-43, 1e-42, 1e-41,
-    1e-40, 1e-39, 1e-38, 1e-37, 1e-36, 1e-35, 1e-34, 1e-33, 1e-32, 1e-31, 1e-30, 1e-29,
-    1e-28, 1e-27, 1e-26, 1e-25, 1e-24, 1e-23, 1e-22, 1e-21, 1e-20, 1e-19, 1e-18, 1e-17,
-    1e-16, 1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10, 1e-9,  1e-8,  1e-7,  1e-6,  1e-5,
-    1e-4,  1e-3,  1e-2,  1e-1,  1e0,   1e1,   1e2,   1e3,   1e4,   1e5,   1e6,   1e7,
-    1e8,   1e9,   1e10,  1e11,  1e12,  1e13,  1e14,  1e15,  1e16,  1e17,  1e18,  1e19,
-    1e20,  1e21,  1e22,  1e23,  1e24,  1e25,  1e26,  1e27,  1e28,  1e29,  1e30,  1e31,
-    1e32,  1e33,  1e34,  1e35,  1e36,  1e37,  1e38,  1e39,  1e40,  1e41,  1e42,  1e43,
-    1e44,  1e45,  1e46,  1e47,  1e48,  1e49,  1e50,  1e51,  1e52,  1e53,  1e54,  1e55,
-    1e56,  1e57,  1e58,  1e59,  1e60,  1e61,  1e62,  1e63,  1e64,  1e65,  1e66,  1e67,
-    1e68,  1e69,  1e70,  1e71,  1e72,  1e73,  1e74,  1e75,  1e76};
-
 namespace {
 
-template <typename Real, typename Derived>
-struct DecimalRealConversion {
-  static Result<Decimal128> FromPositiveReal(Real real, int32_t precision,
-                                             int32_t scale) {
-    auto x = real;
-    if (scale >= -38 && scale <= 38) {
-      x *= Derived::powers_of_ten()[scale + 38];
-    } else {
-      x *= std::pow(static_cast<Real>(10), static_cast<Real>(scale));
-    }
-    x = std::nearbyint(x);
-    const auto max_abs = Derived::powers_of_ten()[precision + 38];
-    if (x <= -max_abs || x >= max_abs) {
-      return Status::Invalid("Cannot convert ", real,
-                             " to Decimal128(precision = ", precision,
-                             ", scale = ", scale, "): overflow");
-    }
-    // Extract high and low bits
-    const auto high = std::floor(std::ldexp(x, -64));
-    const auto low = x - std::ldexp(high, 64);
-
-    DCHECK_GE(high, -9.223372036854776e+18);  // -2**63
-    DCHECK_LT(high, 9.223372036854776e+18);   // 2**63
-    DCHECK_GE(low, 0);
-    DCHECK_LT(low, 1.8446744073709552e+19);  // 2**64
-    return Decimal128(static_cast<int64_t>(high), static_cast<uint64_t>(low));
+struct BaseDecimalRealConversion {
+  // Return 10**exp, with a fast lookup, assuming `exp` is within bounds
+  template <typename Real>
+  static Real PowerOfTen(int32_t exp) {
+    constexpr int N = kPrecomputedPowersOfTen;
+    DCHECK(exp >= -N && exp <= N);
+    return RealTraits<Real>::powers_of_ten()[exp + N];
   }
 
-  static Result<Decimal128> FromReal(Real x, int32_t precision, int32_t scale) {
+  // Return 10**exp, with a fast lookup if possible
+  template <typename Real>
+  static Real LargePowerOfTen(int32_t exp) {
+    constexpr int N = kPrecomputedPowersOfTen;
+    if (ARROW_PREDICT_TRUE(exp >= -N && exp <= N)) {
+      return RealTraits<Real>::powers_of_ten()[exp + N];
+    } else {
+      return std::pow(static_cast<Real>(10), static_cast<Real>(exp));
+    }
+  }
+};
+
+template <typename DecimalType, typename Derived>
+struct DecimalRealConversion : public BaseDecimalRealConversion {
+  using DecimalTypeTraits = DecimalTraits<DecimalType>;
+  static constexpr int kMaxPrecision = DecimalType::kMaxPrecision;
+  static constexpr int kMaxScale = DecimalType::kMaxScale;
+
+  static const auto& DecimalPowerOfTen(int exp) {
+    DCHECK(exp >= 0 && exp <= kMaxPrecision);
+    return DecimalTypeTraits::powers_of_ten()[exp];
+  }
+
+  template <typename Real>
+  static Status OverflowError(Real real, int precision, int scale) {
+    return Status::Invalid("Cannot convert ", real, " to ", DecimalTypeTraits::kTypeName,
+                           "(precision = ", precision, ", scale = ", scale,
+                           "): overflow");
+  }
+
+  template <typename Real>
+  static Result<DecimalType> FromPositiveReal(Real real, int32_t precision,
+                                              int32_t scale) {
+    constexpr int kMantissaBits = RealTraits<Real>::kMantissaBits;
+    constexpr int kMantissaDigits = RealTraits<Real>::kMantissaDigits;
+
+    // Problem statement: construct the Decimal with the value
+    // closest to `real * 10^scale`.
+    if (scale < 0) {
+      // Negative scales are not handled below, fall back to approx algorithm
+      return Derived::FromPositiveRealApprox(real, precision, scale);
+    }
+
+    // 1. Check that `real` is within acceptable bounds.
+    const Real limit = PowerOfTen<Real>(precision - scale);
+    if (real > limit) {
+      // Checking the limit early helps ensure the computations below do not
+      // overflow.
+      // NOTE: `limit` is allowed here as rounding can make it smaller than
+      // the theoretical limit (for example, 1.0e23 < 10^23).
+      return OverflowError(real, precision, scale);
+    }
+
+    // 2. Losslessly convert `real` to `mant * 2**k`
+    int binary_exp = 0;
+    const Real real_mant = std::frexp(real, &binary_exp);
+    // `real_mant` is within 0.5 and 1 and has M bits of precision.
+    // Multiply it by 2^M to get an exact integer.
+    const uint64_t mant = static_cast<uint64_t>(std::ldexp(real_mant, kMantissaBits));
+    const int k = binary_exp - kMantissaBits;
+    // (note that `real = mant * 2^k`)
+
+    // 3. Start with `mant`.
+    // We want to end up with `real * 10^scale` i.e. `mant * 2^k * 10^scale`.
+    DecimalType x(mant);
+
+    if (k < 0) {
+      // k < 0 (i.e. binary_exp < kMantissaBits), is probably the common case
+      // when converting to decimal. It implies right-shifting by -k bits,
+      // while multiplying by 10^scale. We also must avoid overflow (losing
+      // bits on the left) and precision loss (losing bits on the right).
+      int right_shift_by = -k;
+      int mul_by_ten_to = scale;
+
+      // At this point, `x` has kMantissaDigits significant digits but it can
+      // fit kMaxPrecision (excluding sign). We can therefore multiply by up
+      // to 10^(kMaxPrecision - kMantissaDigits).
+      constexpr int kSafeMulByTenTo = kMaxPrecision - kMantissaDigits;
+
+      if (mul_by_ten_to <= kSafeMulByTenTo) {
+        // Scale is small enough, so we can do it all at once.
+        x *= DecimalPowerOfTen(mul_by_ten_to);
+        x = Derived::RoundedRightShift(x, right_shift_by);
+      } else {
+        // Scale is too large, we cannot multiply at once without overflow.
+        // We use an iterative algorithm which alternately shifts left by
+        // multiplying by a power of ten, and shifts right by a number of bits.
+
+        // First multiply `x` by as large a power of ten as possible
+        // without overflowing.
+        x *= DecimalPowerOfTen(kSafeMulByTenTo);
+        mul_by_ten_to -= kSafeMulByTenTo;
+
+        // `x` now has full precision. However, we know we'll only
+        // keep `precision` digits at the end. Extraneous bits/digits
+        // on the right can be safely shifted away, before multiplying
+        // again.
+        // NOTE: if `precision` is the full precision then the algorithm will
+        // lose the last digit. If `precision` is almost the full precision,
+        // there can be an off-by-one error due to rounding.
+        const int mul_step = std::max(1, kMaxPrecision - precision);
+
+        // The running exponent, useful to compute by how much we must
+        // shift right to make place on the left before the next multiply.
+        int total_exp = 0;
+        int total_shift = 0;
+        while (mul_by_ten_to > 0 && right_shift_by > 0) {
+          const int exp = std::min(mul_by_ten_to, mul_step);
+          total_exp += exp;
+          // The supplementary right shift required so that
+          // `x * 10^total_exp / 2^total_shift` fits in the decimal.
+          DCHECK_LT(static_cast<size_t>(total_exp), sizeof(kCeilLog2PowersOfTen));
+          const int bits =
+              std::min(right_shift_by, kCeilLog2PowersOfTen[total_exp] - total_shift);
+          total_shift += bits;
+          // Right shift to make place on the left, then multiply
+          x = Derived::RoundedRightShift(x, bits);
+          right_shift_by -= bits;
+          // Should not overflow thanks to the precautions taken
+          x *= DecimalPowerOfTen(exp);
+          mul_by_ten_to -= exp;
+        }
+        if (mul_by_ten_to > 0) {
+          x *= DecimalPowerOfTen(mul_by_ten_to);
+        }
+        if (right_shift_by > 0) {
+          x = Derived::RoundedRightShift(x, right_shift_by);
+        }
+      }
+    } else {
+      // k >= 0 implies left-shifting by k bits and multiplying by 10^scale.
+      // The order of these operations therefore doesn't matter. We know
+      // we won't overflow because of the limit check above, and we also
+      // won't lose any significant bits on the right.
+      x *= DecimalPowerOfTen(scale);
+      x <<= k;
+    }
+
+    // Rounding might have pushed `x` just above the max precision, check again
+    if (!x.FitsInPrecision(precision)) {
+      return OverflowError(real, precision, scale);
+    }
+    return x;
+  }
+
+  template <typename Real>
+  static Result<DecimalType> FromReal(Real x, int32_t precision, int32_t scale) {
     DCHECK_GT(precision, 0);
-    DCHECK_LE(precision, 38);
+    DCHECK_LE(precision, kMaxPrecision);
+    DCHECK_GE(scale, -kMaxScale);
+    DCHECK_LE(scale, kMaxScale);
 
     if (!std::isfinite(x)) {
       return Status::Invalid("Cannot convert ", x, " to Decimal128");
+    }
+    if (x == 0) {
+      return DecimalType{};
     }
     if (x < 0) {
       ARROW_ASSIGN_OR_RAISE(auto dec, FromPositiveReal(-x, precision, scale));
       return dec.Negate();
     } else {
-      // Includes negative zero
       return FromPositiveReal(x, precision, scale);
     }
   }
 
-  static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
-    Real x = static_cast<Real>(decimal.high_bits()) * Derived::two_to_64();
-    x += static_cast<Real>(decimal.low_bits());
-    if (scale >= -38 && scale <= 38) {
-      x *= Derived::powers_of_ten()[-scale + 38];
+  template <typename Real>
+  static Real ToReal(const DecimalType& decimal, int32_t scale) {
+    DCHECK_GE(scale, -kMaxScale);
+    DCHECK_LE(scale, kMaxScale);
+    if (decimal.IsNegative()) {
+      // Convert the absolute value to avoid precision loss
+      auto abs = decimal;
+      abs.Negate();
+      return -Derived::template ToRealPositive<Real>(abs, scale);
     } else {
-      x *= std::pow(static_cast<Real>(10), static_cast<Real>(-scale));
+      return Derived::template ToRealPositive<Real>(decimal, scale);
     }
+  }
+};
+
+struct Decimal128RealConversion
+    : public DecimalRealConversion<Decimal128, Decimal128RealConversion> {
+  using Base = DecimalRealConversion<Decimal128, Decimal128RealConversion>;
+  using Base::LargePowerOfTen;
+  using Base::PowerOfTen;
+
+  // Right shift positive `x` by positive `bits`, rounded half to even
+  static Decimal128 RoundedRightShift(const Decimal128& x, int bits) {
+    if (bits == 0) {
+      return x;
+    }
+    int64_t result_hi = x.high_bits();
+    uint64_t result_lo = x.low_bits();
+    uint64_t shifted = 0;
+    while (bits >= 64) {
+      // Retain the information that set bits were shifted right.
+      // This is important to detect an exact half.
+      shifted = result_lo | (shifted > 0);
+      result_lo = result_hi;
+      result_hi >>= 63;  // for sign
+      bits -= 64;
+    }
+    if (bits > 0) {
+      shifted = (result_lo << (64 - bits)) | (shifted > 0);
+      result_lo >>= bits;
+      result_lo |= static_cast<uint64_t>(result_hi) << (64 - bits);
+      result_hi >>= bits;
+    }
+    // We almost have our result, but now do the rounding.
+    constexpr uint64_t kHalf = 0x8000000000000000ULL;
+    if (shifted > kHalf) {
+      // Strictly more than half => round up
+      result_lo += 1;
+      result_hi += (result_lo == 0);
+    } else if (shifted == kHalf) {
+      // Exactly half => round to even
+      if ((result_lo & 1) != 0) {
+        result_lo += 1;
+        result_hi += (result_lo == 0);
+      }
+    } else {
+      // Strictly less than half => round down
+    }
+    return Decimal128{result_hi, result_lo};
+  }
+
+  template <typename Real>
+  static Result<Decimal128> FromPositiveRealApprox(Real real, int32_t precision,
+                                                   int32_t scale) {
+    // Approximate algorithm that operates in the FP domain (thus subject
+    // to precision loss).
+    const auto x = std::nearbyint(real * PowerOfTen<double>(scale));
+    const auto max_abs = PowerOfTen<double>(precision);
+    if (x <= -max_abs || x >= max_abs) {
+      return OverflowError(real, precision, scale);
+    }
+    // Extract high and low bits
+    const auto high = std::floor(std::ldexp(x, -64));
+    const auto low = x - std::ldexp(high, 64);
+
+    DCHECK_GE(high, 0);
+    DCHECK_LT(high, 9.223372036854776e+18);  // 2**63
+    DCHECK_GE(low, 0);
+    DCHECK_LT(low, 1.8446744073709552e+19);  // 2**64
+    return Decimal128(static_cast<int64_t>(high), static_cast<uint64_t>(low));
+  }
+
+  template <typename Real>
+  static Real ToRealPositiveNoSplit(const Decimal128& decimal, int32_t scale) {
+    Real x = RealTraits<Real>::two_to_64(static_cast<Real>(decimal.high_bits()));
+    x += static_cast<Real>(decimal.low_bits());
+    x *= LargePowerOfTen<Real>(-scale);
     return x;
   }
 
-  static Real ToReal(Decimal128 decimal, int32_t scale) {
-    if (decimal.high_bits() < 0) {
-      // Convert the absolute value to avoid precision loss
-      decimal.Negate();
-      return -ToRealPositive(decimal, scale);
-    } else {
-      return ToRealPositive(decimal, scale);
+  /// An approximate conversion from Decimal128 to Real that guarantees:
+  /// 1. If the decimal is an integer, the conversion is exact.
+  /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
+  ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact
+  ///    value.
+  /// 3. Otherwise, the conversion is within 2^(-RealTraits<Real>::kMantissaDigits+1)
+  ///    (e.g. 2^-23 for float and 2^-52 for double) of the exact value.
+  /// Here "exact value" means the closest representable value by Real.
+  template <typename Real>
+  static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
+    if (scale <= 0 || (decimal.high_bits() == 0 &&
+                       decimal.low_bits() <= RealTraits<Real>::kMaxPreciseInteger)) {
+      // No need to split the decimal if it is already an integer (scale <= 0) or if it
+      // can be precisely represented by Real
+      return ToRealPositiveNoSplit<Real>(decimal, scale);
     }
+
+    // Split decimal into whole and fractional parts to avoid precision loss
+    BasicDecimal128 whole_decimal, fraction_decimal;
+    decimal.GetWholeAndFraction(scale, &whole_decimal, &fraction_decimal);
+
+    Real whole = ToRealPositiveNoSplit<Real>(whole_decimal, 0);
+    Real fraction = ToRealPositiveNoSplit<Real>(fraction_decimal, scale);
+
+    return whole + fraction;
   }
-};
-
-struct DecimalFloatConversion
-    : public DecimalRealConversion<float, DecimalFloatConversion> {
-  static constexpr const float* powers_of_ten() { return kFloatPowersOfTen; }
-
-  static constexpr float two_to_64() { return 1.8446744e+19f; }
-};
-
-struct DecimalDoubleConversion
-    : public DecimalRealConversion<double, DecimalDoubleConversion> {
-  static constexpr const double* powers_of_ten() { return kDoublePowersOfTen; }
-
-  static constexpr double two_to_64() { return 1.8446744073709552e+19; }
 };
 
 }  // namespace
 
+Decimal128::Decimal128(const std::string& str) : Decimal128() {
+  *this = Decimal128::FromString(str).ValueOrDie();
+}
+
 Result<Decimal128> Decimal128::FromReal(float x, int32_t precision, int32_t scale) {
-  return DecimalFloatConversion::FromReal(x, precision, scale);
+  return Decimal128RealConversion::FromReal(x, precision, scale);
 }
 
 Result<Decimal128> Decimal128::FromReal(double x, int32_t precision, int32_t scale) {
-  return DecimalDoubleConversion::FromReal(x, precision, scale);
+  return Decimal128RealConversion::FromReal(x, precision, scale);
 }
 
 float Decimal128::ToFloat(int32_t scale) const {
-  return DecimalFloatConversion::ToReal(*this, scale);
+  return Decimal128RealConversion::ToReal<float>(*this, scale);
 }
 
 double Decimal128::ToDouble(int32_t scale) const {
-  return DecimalDoubleConversion::ToReal(*this, scale);
+  return Decimal128RealConversion::ToReal<double>(*this, scale);
 }
 
 template <size_t n>
@@ -741,7 +868,7 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
   std::array<uint64_t, 4> little_endian_array;
 
   if (ARROW_PREDICT_FALSE(length < kMinDecimalBytes || length > kMaxDecimalBytes)) {
-    return Status::Invalid("Length of byte array passed to Decimal128::FromBigEndian ",
+    return Status::Invalid("Length of byte array passed to Decimal256::FromBigEndian ",
                            "was ", length, ", but must be between ", kMinDecimalBytes,
                            " and ", kMaxDecimalBytes);
   }
@@ -782,22 +909,67 @@ Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {
 
 namespace {
 
-template <typename Real, typename Derived>
-struct Decimal256RealConversion {
-  static Result<Decimal256> FromPositiveReal(Real real, int32_t precision,
-                                             int32_t scale) {
-    auto x = real;
-    if (scale >= -76 && scale <= 76) {
-      x *= Derived::powers_of_ten()[scale + 76];
-    } else {
-      x *= std::pow(static_cast<Real>(10), static_cast<Real>(scale));
+struct Decimal256RealConversion
+    : public DecimalRealConversion<Decimal256, Decimal256RealConversion> {
+  using Base = DecimalRealConversion<Decimal256, Decimal256RealConversion>;
+  using Base::LargePowerOfTen;
+  using Base::PowerOfTen;
+
+  // Right shift positive `x` by positive `bits`, rounded half to even
+  static Decimal256 RoundedRightShift(Decimal256 x, int bits) {
+    if (bits == 0) {
+      return x;
     }
-    x = std::nearbyint(x);
-    const auto max_abs = Derived::powers_of_ten()[precision + 76];
+    const int cross_word_shift = bits / 64;
+    if (cross_word_shift >= Decimal256::kNumWords) {
+      return Decimal256();
+    }
+    const uint32_t in_word_shift = bits % 64;
+    const auto array_le = x.little_endian_array();
+    Decimal256::WordArray shifted_le{};
+    uint64_t shifted_out = 0;
+    // Iterate from LSW to MSW
+    for (int i = 0; i < cross_word_shift; ++i) {
+      // Retain the information that non-zero bits were shifted out.
+      // This is important for half-to-even rounding.
+      shifted_out = (shifted_out > 0) | array_le[i];
+    }
+    if (in_word_shift != 0) {
+      const uint64_t carry_bits = array_le[cross_word_shift] << (64 - in_word_shift);
+      shifted_out = (shifted_out > 0) | (shifted_out >> in_word_shift) | carry_bits;
+    }
+    for (int i = cross_word_shift; i < Decimal256::kNumWords; ++i) {
+      shifted_le[i - cross_word_shift] = array_le[i] >> in_word_shift;
+      if (in_word_shift != 0 && i + 1 < Decimal256::kNumWords) {
+        const uint64_t carry_bits = array_le[i + 1] << (64 - in_word_shift);
+        shifted_le[i - cross_word_shift] |= carry_bits;
+      }
+    }
+    auto result = Decimal256(Decimal256::LittleEndianArray, shifted_le);
+
+    // We almost have our result, but now do the rounding.
+    constexpr uint64_t kHalf = 0x8000000000000000ULL;
+    if (shifted_out > kHalf) {
+      // Strictly more than half => round up
+      result += 1;
+    } else if (shifted_out == kHalf) {
+      // Exactly half => round to even
+      if ((result.low_bits() & 1) != 0) {
+        result += 1;
+      }
+    } else {
+      // Strictly less than half => round down
+    }
+    return result;
+  }
+
+  template <typename Real>
+  static Result<Decimal256> FromPositiveRealApprox(Real real, int32_t precision,
+                                                   int32_t scale) {
+    auto x = std::nearbyint(real * PowerOfTen<double>(scale));
+    const auto max_abs = PowerOfTen<double>(precision);
     if (x >= max_abs) {
-      return Status::Invalid("Cannot convert ", real,
-                             " to Decimal256(precision = ", precision,
-                             ", scale = ", scale, "): overflow");
+      return OverflowError(real, precision, scale);
     }
     // Extract parts
     const auto part3 = std::floor(std::ldexp(x, -192));
@@ -809,95 +981,75 @@ struct Decimal256RealConversion {
     const auto part0 = x;
 
     DCHECK_GE(part3, 0);
-    DCHECK_LT(part3, 1.8446744073709552e+19);  // 2**64
+    DCHECK_LT(part3, 9.223372036854776e+18);  // 2**63
     DCHECK_GE(part2, 0);
     DCHECK_LT(part2, 1.8446744073709552e+19);  // 2**64
     DCHECK_GE(part1, 0);
     DCHECK_LT(part1, 1.8446744073709552e+19);  // 2**64
     DCHECK_GE(part0, 0);
     DCHECK_LT(part0, 1.8446744073709552e+19);  // 2**64
-    return Decimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
-        {static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
-         static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)}));
+    return Decimal256(Decimal256::LittleEndianArray,
+                      {static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
+                       static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)});
   }
 
-  static Result<Decimal256> FromReal(Real x, int32_t precision, int32_t scale) {
-    DCHECK_GT(precision, 0);
-    DCHECK_LE(precision, 76);
-
-    if (!std::isfinite(x)) {
-      return Status::Invalid("Cannot convert ", x, " to Decimal256");
-    }
-    if (x < 0) {
-      ARROW_ASSIGN_OR_RAISE(auto dec, FromPositiveReal(-x, precision, scale));
-      return dec.Negate();
-    } else {
-      // Includes negative zero
-      return FromPositiveReal(x, precision, scale);
-    }
-  }
-
-  static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
+  template <typename Real>
+  static Real ToRealPositiveNoSplit(const Decimal256& decimal, int32_t scale) {
     DCHECK_GE(decimal, 0);
     Real x = 0;
     const auto parts_le = bit_util::little_endian::Make(decimal.native_endian_array());
-    x += Derived::two_to_192(static_cast<Real>(parts_le[3]));
-    x += Derived::two_to_128(static_cast<Real>(parts_le[2]));
-    x += Derived::two_to_64(static_cast<Real>(parts_le[1]));
+    x += RealTraits<Real>::two_to_192(static_cast<Real>(parts_le[3]));
+    x += RealTraits<Real>::two_to_128(static_cast<Real>(parts_le[2]));
+    x += RealTraits<Real>::two_to_64(static_cast<Real>(parts_le[1]));
     x += static_cast<Real>(parts_le[0]);
-    if (scale >= -76 && scale <= 76) {
-      x *= Derived::powers_of_ten()[-scale + 76];
-    } else {
-      x *= std::pow(static_cast<Real>(10), static_cast<Real>(-scale));
-    }
+    x *= LargePowerOfTen<Real>(-scale);
     return x;
   }
 
-  static Real ToReal(Decimal256 decimal, int32_t scale) {
-    if (decimal.IsNegative()) {
-      // Convert the absolute value to avoid precision loss
-      decimal.Negate();
-      return -ToRealPositive(decimal, scale);
-    } else {
-      return ToRealPositive(decimal, scale);
+  /// An approximate conversion from Decimal256 to Real that guarantees:
+  /// 1. If the decimal is an integer, the conversion is exact.
+  /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
+  ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact
+  ///    value.
+  /// 3. Otherwise, the conversion is within 2^(-RealTraits<Real>::kMantissaDigits+1)
+  ///    (e.g. 2^-23 for float and 2^-52 for double) of the exact value.
+  /// Here "exact value" means the closest representable value by Real.
+  template <typename Real>
+  static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
+    const auto parts_le = decimal.little_endian_array();
+    if (scale <= 0 || (parts_le[3] == 0 && parts_le[2] == 0 && parts_le[1] == 0 &&
+                       parts_le[0] < RealTraits<Real>::kMaxPreciseInteger)) {
+      // No need to split the decimal if it is already an integer (scale <= 0) or if it
+      // can be precisely represented by Real
+      return ToRealPositiveNoSplit<Real>(decimal, scale);
     }
+
+    // Split the decimal into whole and fractional parts to avoid precision loss
+    BasicDecimal256 whole_decimal, fraction_decimal;
+    decimal.GetWholeAndFraction(scale, &whole_decimal, &fraction_decimal);
+
+    Real whole = ToRealPositiveNoSplit<Real>(whole_decimal, 0);
+    Real fraction = ToRealPositiveNoSplit<Real>(fraction_decimal, scale);
+    return whole + fraction;
   }
-};
-
-struct Decimal256FloatConversion
-    : public Decimal256RealConversion<float, Decimal256FloatConversion> {
-  static constexpr const float* powers_of_ten() { return kFloatPowersOfTen76; }
-
-  static float two_to_64(float x) { return x * 1.8446744e+19f; }
-  static float two_to_128(float x) { return x == 0 ? 0 : INFINITY; }
-  static float two_to_192(float x) { return x == 0 ? 0 : INFINITY; }
-};
-
-struct Decimal256DoubleConversion
-    : public Decimal256RealConversion<double, Decimal256DoubleConversion> {
-  static constexpr const double* powers_of_ten() { return kDoublePowersOfTen76; }
-
-  static double two_to_64(double x) { return x * 1.8446744073709552e+19; }
-  static double two_to_128(double x) { return x * 3.402823669209385e+38; }
-  static double two_to_192(double x) { return x * 6.277101735386681e+57; }
 };
 
 }  // namespace
 
 Result<Decimal256> Decimal256::FromReal(float x, int32_t precision, int32_t scale) {
-  return Decimal256FloatConversion::FromReal(x, precision, scale);
+  return Decimal256RealConversion::FromReal(x, precision, scale);
 }
 
 Result<Decimal256> Decimal256::FromReal(double x, int32_t precision, int32_t scale) {
-  return Decimal256DoubleConversion::FromReal(x, precision, scale);
+  return Decimal256RealConversion::FromReal(x, precision, scale);
 }
 
 float Decimal256::ToFloat(int32_t scale) const {
-  return Decimal256FloatConversion::ToReal(*this, scale);
+  return Decimal256RealConversion::ToReal<float>(*this, scale);
 }
 
 double Decimal256::ToDouble(int32_t scale) const {
-  return Decimal256DoubleConversion::ToReal(*this, scale);
+  return Decimal256RealConversion::ToReal<double>(*this, scale);
 }
 
 std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {

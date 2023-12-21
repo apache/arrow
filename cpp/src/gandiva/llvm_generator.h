@@ -47,7 +47,7 @@ class FunctionHolder;
 class GANDIVA_EXPORT LLVMGenerator {
  public:
   /// \brief Factory method to initialize the generator.
-  static Status Make(std::shared_ptr<Configuration> config, bool cached,
+  static Status Make(const std::shared_ptr<Configuration>& config, bool cached,
                      std::unique_ptr<LLVMGenerator>* llvm_generator);
 
   /// \brief Get the cache to be used for LLVM ObjectCache.
@@ -82,11 +82,13 @@ class GANDIVA_EXPORT LLVMGenerator {
   std::string DumpIR() { return engine_->DumpIR(); }
 
  private:
-  explicit LLVMGenerator(bool cached);
+  explicit LLVMGenerator(bool cached,
+                         std::shared_ptr<FunctionRegistry> function_registry);
 
   FRIEND_TEST(TestLLVMGenerator, VerifyPCFunctions);
   FRIEND_TEST(TestLLVMGenerator, TestAdd);
   FRIEND_TEST(TestLLVMGenerator, TestNullInternal);
+  friend class TestLLVMGenerator;
 
   llvm::LLVMContext* context() { return engine_->context(); }
   llvm::IRBuilder<>* ir_builder() { return engine_->ir_builder(); }
@@ -144,7 +146,7 @@ class GANDIVA_EXPORT LLVMGenerator {
                                           const ValueValidityPairVector& args,
                                           bool with_validity, bool with_context);
 
-    // Generate code to onvoke a function call.
+    // Generate code to invoke a function call.
     LValuePtr BuildFunctionCall(const NativeFunction* func, DataTypePtr arrow_return_type,
                                 std::vector<llvm::Value*>* params);
 
@@ -250,7 +252,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   std::unique_ptr<Engine> engine_;
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
   bool cached_;
-  FunctionRegistry function_registry_;
+  std::shared_ptr<FunctionRegistry> function_registry_;
   Annotator annotator_;
   SelectionVector::Mode selection_vector_mode_;
 

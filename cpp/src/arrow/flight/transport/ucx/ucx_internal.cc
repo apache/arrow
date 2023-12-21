@@ -41,7 +41,6 @@ namespace transport {
 namespace ucx {
 
 using internal::TransportStatus;
-using internal::TransportStatusCode;
 
 // Defines to test different implementation strategies
 // Enable the CONTIG path for CPU-only data

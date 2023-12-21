@@ -63,11 +63,17 @@ These two steps are mandatory and must be executed in order.
 
    .. note::
 
-      This step requires the pyarrow library is installed
+      If you are working on the Python bindings documentation then
+      this step requires that ``pyarrow`` library is installed
       in your python environment.  One way to accomplish
       this is to follow the build instructions at :ref:`python-development`
       and then run ``python setup.py install`` in arrow/python
       (it is best to do this in a dedicated conda/virtual environment).
+
+      You can still build the documentation without ``pyarrow``
+      library installed but note that Python part of the documentation
+      will be missing from the ``_build/html`` file structure and the
+      links to the Python documentation will get broken.
 
    .. code-block:: shell
 
@@ -85,6 +91,21 @@ After these steps are completed, the documentation is rendered in HTML
 format in ``arrow/docs/_build/html``.  In particular, you can point your browser
 at ``arrow/docs/_build/html/index.html`` to read the docs and review any changes
 you made.
+
+.. note::
+
+   If you are working on the Python documentation and are building the documentation
+   with ``pyarrow`` build from source on macOS Monterey, the Python section of the
+   documentation might not be included in the ``_build/html``. In this case, try
+   installing ``pyarrow`` in non-editable mode first before running the ``make html``
+   command.
+
+   .. code-block:: shell
+
+     pushd arrow/docs
+     python -m pip install ../python --quiet
+     make html
+     popd
 
 Building with Docker
 --------------------
@@ -115,7 +136,7 @@ GitHub Actions response, where you need to click on the Crossbow build badge:
 
 .. figure:: ./images/docs_preview_1.jpeg
    :scale: 70 %
-   :alt: Github-actions response with the crossbow build status.
+   :alt: GitHub Actions response with the crossbow build status.
 
    Crossbow build status
 

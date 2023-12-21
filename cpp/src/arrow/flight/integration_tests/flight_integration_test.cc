@@ -55,6 +55,28 @@ TEST(FlightIntegration, Middleware) { ASSERT_OK(RunScenario("middleware")); }
 
 TEST(FlightIntegration, Ordered) { ASSERT_OK(RunScenario("ordered")); }
 
+TEST(FlightIntegration, ExpirationTimeDoGet) {
+  ASSERT_OK(RunScenario("expiration_time:do_get"));
+}
+
+TEST(FlightIntegration, ExpirationTimeListActions) {
+  ASSERT_OK(RunScenario("expiration_time:list_actions"));
+}
+
+TEST(FlightIntegration, ExpirationTimeCancelFlightInfo) {
+  ASSERT_OK(RunScenario("expiration_time:cancel_flight_info"));
+}
+
+TEST(FlightIntegration, ExpirationTimeRenewFlightEndpoint) {
+  ASSERT_OK(RunScenario("expiration_time:renew_flight_endpoint"));
+}
+
+TEST(FlightIntegration, PollFlightInfo) { ASSERT_OK(RunScenario("poll_flight_info")); }
+
+TEST(FlightIntegration, AppMetadataFlightInfoEndpoint) {
+  ASSERT_OK(RunScenario("app_metadata_flight_info_endpoint"));
+}
+
 TEST(FlightIntegration, FlightSql) { ASSERT_OK(RunScenario("flight_sql")); }
 
 TEST(FlightIntegration, FlightSqlExtension) {

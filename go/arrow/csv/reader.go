@@ -29,12 +29,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -423,6 +424,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseUint64(bldr, str)
 		}
+	case *arrow.Float16Type:
+		return func(str string) {
+			r.parseFloat16(bldr, str)
+		}
 	case *arrow.Float32Type:
 		return func(str string) {
 			r.parseFloat32(bldr, str)
@@ -444,6 +449,21 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		} else {
 			return func(str string) {
 				bldr.(*array.StringBuilder).Append(str)
+			}
+		}
+	case *arrow.LargeStringType:
+		// specialize the implementation when we know we cannot have nulls
+		if r.stringsCanBeNull {
+			return func(str string) {
+				if r.isNull(str) {
+					bldr.AppendNull()
+				} else {
+					bldr.(*array.LargeStringBuilder).Append(str)
+				}
+			}
+		} else {
+			return func(str string) {
+				bldr.(*array.LargeStringBuilder).Append(str)
 			}
 		}
 	case *arrow.TimestampType:
@@ -470,9 +490,25 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(s string) {
 			r.parseList(bldr, s)
 		}
+	case *arrow.LargeListType:
+		return func(s string) {
+			r.parseLargeList(bldr, s)
+		}
+	case *arrow.FixedSizeListType:
+		return func(s string) {
+			r.parseFixedSizeList(bldr, s, int(dt.Len()))
+		}
 	case *arrow.BinaryType:
 		return func(s string) {
 			r.parseBinaryType(bldr, s)
+		}
+	case *arrow.LargeBinaryType:
+		return func(s string) {
+			r.parseLargeBinaryType(bldr, s)
+		}
+	case *arrow.FixedSizeBinaryType:
+		return func(s string) {
+			r.parseFixedSizeBinaryType(bldr, s, dt.Bytes())
 		}
 	case arrow.ExtensionType:
 		return func(s string) {
@@ -627,6 +663,21 @@ func (r *Reader) parseUint64(field array.Builder, str string) {
 	field.(*array.Uint64Builder).Append(v)
 }
 
+func (r *Reader) parseFloat16(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseFloat(str, 32)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Float16Builder).Append(float16.New(float32(v)))
+}
+
 func (r *Reader) parseFloat32(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
@@ -640,7 +691,6 @@ func (r *Reader) parseFloat32(field array.Builder, str string) {
 		return
 	}
 	field.(*array.Float32Builder).Append(float32(v))
-
 }
 
 func (r *Reader) parseFloat64(field array.Builder, str string) {
@@ -764,6 +814,68 @@ func (r *Reader) parseList(field array.Builder, str string) {
 	}
 }
 
+func (r *Reader) parseLargeList(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	if !(strings.HasPrefix(str, "{") && strings.HasSuffix(str, "}")) {
+		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
+		return
+	}
+	str = strings.Trim(str, "{}")
+	largeListBldr := field.(*array.LargeListBuilder)
+	largeListBldr.Append(true)
+	if len(str) == 0 {
+		// we don't want to create the csv reader if we already know the
+		// string is empty
+		return
+	}
+	valueBldr := largeListBldr.ValueBuilder()
+	reader := csv.NewReader(strings.NewReader(str))
+	items, err := reader.Read()
+	if err != nil {
+		r.err = err
+		return
+	}
+	for _, str := range items {
+		r.initFieldConverter(valueBldr)(str)
+	}
+}
+
+func (r *Reader) parseFixedSizeList(field array.Builder, str string, n int) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	if !(strings.HasPrefix(str, "{") && strings.HasSuffix(str, "}")) {
+		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
+		return
+	}
+	str = strings.Trim(str, "{}")
+	fixedSizeListBldr := field.(*array.FixedSizeListBuilder)
+	fixedSizeListBldr.Append(true)
+	if len(str) == 0 {
+		// we don't want to create the csv reader if we already know the
+		// string is empty
+		return
+	}
+	valueBldr := fixedSizeListBldr.ValueBuilder()
+	reader := csv.NewReader(strings.NewReader(str))
+	items, err := reader.Read()
+	if err != nil {
+		r.err = err
+		return
+	}
+	if len(items) == n {
+		for _, str := range items {
+			r.initFieldConverter(valueBldr)(str)
+		}
+	} else {
+		r.err = fmt.Errorf("%w: fixed size list items should match the fixed size list length, expected %d, got %d", arrow.ErrInvalid, n, len(items))
+	}
+}
+
 func (r *Reader) parseBinaryType(field array.Builder, str string) {
 	// specialize the implementation when we know we cannot have nulls
 	if r.isNull(str) {
@@ -772,9 +884,48 @@ func (r *Reader) parseBinaryType(field array.Builder, str string) {
 	}
 	decodedVal, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		panic("cannot decode base64 string " + str)
+		r.err = fmt.Errorf("cannot decode base64 string %s", str)
+		field.AppendNull()
+		return
 	}
+
 	field.(*array.BinaryBuilder).Append(decodedVal)
+}
+
+func (r *Reader) parseLargeBinaryType(field array.Builder, str string) {
+	// specialize the implementation when we know we cannot have nulls
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	decodedVal, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		r.err = fmt.Errorf("cannot decode base64 string %s", str)
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.BinaryBuilder).Append(decodedVal)
+}
+
+func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string, byteWidth int) {
+	// specialize the implementation when we know we cannot have nulls
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	decodedVal, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		r.err = fmt.Errorf("cannot decode base64 string %s", str)
+		field.AppendNull()
+		return
+	}
+
+	if len(decodedVal) == byteWidth {
+		field.(*array.FixedSizeBinaryBuilder).Append(decodedVal)
+	} else {
+		r.err = fmt.Errorf("%w: the length of fixed size binary value should match the fixed size binary byte width, expected %d, got %d", arrow.ErrInvalid, byteWidth, len(decodedVal))
+	}
 }
 
 func (r *Reader) parseExtension(field array.Builder, str string) {

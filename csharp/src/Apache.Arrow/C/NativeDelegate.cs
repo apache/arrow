@@ -20,17 +20,16 @@ using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.C
 {
-    internal readonly struct NativeDelegate<T>
+    internal readonly struct NativeDelegate<T> where T : Delegate
     {
         private readonly T _managedDelegate; // For lifetime management
-        private readonly IntPtr _nativePointer;
 
         public NativeDelegate(T managedDelegate)
         {
             _managedDelegate = managedDelegate;
-            _nativePointer = Marshal.GetFunctionPointerForDelegate<T>(managedDelegate);
+            Pointer = Marshal.GetFunctionPointerForDelegate(managedDelegate);
         }
 
-        public IntPtr Pointer { get { return _nativePointer; } }
+        public IntPtr Pointer { get; }
     }
 }

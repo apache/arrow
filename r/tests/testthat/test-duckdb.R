@@ -34,7 +34,7 @@ test_that("meaningful error message when duckdb is not installed", {
   )
 })
 
-skip_if_not_installed("duckdb", minimum_version = "0.3.1")
+skip_if_not_installed("duckdb", minimum_version = "0.3.2")
 skip_if_not_installed("dbplyr")
 
 library(duckdb, quietly = TRUE)
@@ -138,9 +138,6 @@ test_that("to_duckdb then to_arrow", {
 })
 
 test_that("to_arrow roundtrip, with dataset", {
-  # these will continue to error until 0.3.2 is released
-  # https://github.com/duckdb/duckdb/pull/2957
-  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
   # With a multi-part dataset
   tf <- tempfile()
   new_ds <- rbind(
@@ -174,9 +171,6 @@ test_that("to_arrow roundtrip, with dataset", {
 })
 
 test_that("to_arrow roundtrip, with dataset (without wrapping)", {
-  # these will continue to error until 0.3.2 is released
-  # https://github.com/duckdb/duckdb/pull/2957
-  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
   # With a multi-part dataset
   tf <- tempfile()
   new_ds <- rbind(
@@ -205,10 +199,6 @@ dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 test_that("Joining, auto-cleanup enabled", {
-  # ARROW-17643, ARROW-17818: A change in duckdb 0.5.0 caused this test to fail
-  # TODO: ARROW-17809 Follow up with the latest duckdb release to solve the issue
-  skip("ARROW-17818: Latest DuckDB causes this test to fail")
-
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"
@@ -258,11 +248,12 @@ test_that("to_duckdb with a table", {
         int_mean = mean(int, na.rm = TRUE),
         dbl_mean = mean(dbl, na.rm = TRUE)
       ) %>%
-      collect(),
+      collect() %>%
+      arrange(int_mean),
     tibble::tibble(
-      "int > 4" = c(FALSE, NA, TRUE),
-      int_mean = c(2, NA, 7.5),
-      dbl_mean = c(2.1, 4.1, 7.3)
+      "int > 4" = c(FALSE, TRUE, NA),
+      int_mean = c(2, 7.5, NA),
+      dbl_mean = c(2.1, 7.3, 4.1)
     )
   )
 })
@@ -286,8 +277,14 @@ test_that("to_duckdb passing a connection", {
   table_four <- ds %>%
     select(int, lgl, dbl) %>%
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
-  # dbplyr 2.2.0 renames this internal attribute to lazy_query
-  table_four_name <- table_four$ops$x %||% table_four$lazy_query$x
+
+  # dbplyr 2.3.0 renamed this internal attribute to lazy_query;
+  # and 2.4.0 reserved $... for internal use + changed the identifier class
+  if (packageVersion("dbplyr") < "2.4.0") {
+    table_four_name <- unclass(table_four)$lazy_query$x
+  } else {
+    table_four_name <- unclass(unclass(table_four)$lazy_query$x)$table
+  }
 
   result <- DBI::dbGetQuery(
     con_separate,

@@ -38,7 +38,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampMilliVector extends TimeStampVector {
-  private final FieldReader reader;
 
   /**
    * Instantiate a TimeStampMilliVector. This doesn't allocate any memory for
@@ -61,7 +60,6 @@ public final class TimeStampMilliVector extends TimeStampVector {
    */
   public TimeStampMilliVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    reader = new TimeStampMilliReaderImpl(TimeStampMilliVector.this);
   }
 
   /**
@@ -73,17 +71,11 @@ public final class TimeStampMilliVector extends TimeStampVector {
    */
   public TimeStampMilliVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    reader = new TimeStampMilliReaderImpl(TimeStampMilliVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new TimeStampMilliReaderImpl(TimeStampMilliVector.this);
   }
 
   /**
@@ -209,7 +201,7 @@ public final class TimeStampMilliVector extends TimeStampVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -220,6 +212,20 @@ public final class TimeStampMilliVector extends TimeStampVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     TimeStampMilliVector to = new TimeStampMilliVector(ref,
             field.getFieldType(), allocator);
+    return new TransferImpl(to);
+  }
+
+  /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    TimeStampMilliVector to = new TimeStampMilliVector(field, allocator);
     return new TransferImpl(to);
   }
 

@@ -374,12 +374,6 @@ Python executable which you are using.
    :ref:`here <cpp-build-dependency-management>`)
    to explicitly tell CMake not to use conda.
 
-.. note::
-
-   With older versions of CMake (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
-   instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`_
-   for more details.
-
 For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
@@ -411,6 +405,12 @@ set the ``PYARROW_PARALLEL`` environment variable.
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
+By default, PyArrow will be built in release mode even if Arrow C++ has been
+built in debug mode. To create a debug build of PyArrow, run
+``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
+build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
+similarly.
+
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 
@@ -440,6 +440,9 @@ Debugging
 
 Since pyarrow depends on the Arrow C++ libraries, debugging can
 frequently involve crossing between Python and C++ shared libraries.
+For the best experience, make sure you've built both Arrow C++
+(``-DCMAKE_BUILD_TYPE=Debug``) and PyArrow (``export PYARROW_BUILD_TYPE=debug``)
+in debug mode.
 
 Using gdb on Linux
 ~~~~~~~~~~~~~~~~~~
@@ -722,6 +725,9 @@ Install the development version of PyArrow from `arrow-nightlies
 .. code-block:: bash
 
     conda install -c arrow-nightlies pyarrow
+
+Note that this requires to use the ``conda-forge`` channel for all other
+packages (``conda config --add channels conda-forge``).
 
 Install the development version from an `alternative PyPI
 <https://gemfury.com/arrow-nightlies>`_ index:

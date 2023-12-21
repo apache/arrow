@@ -1262,13 +1262,14 @@ def _test_write_to_dataset_with_partitions(base_path,
     import pyarrow.parquet as pq
 
     # ARROW-1400
-    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
-                              'group2': list('eefeffgeee'),
-                              'num': list(range(10)),
-                              'nan': [np.nan] * 10,
-                              'date': np.arange('2017-01-01', '2017-01-11',
-                                                dtype='datetime64[D]')})
-    output_df["date"] = output_df["date"].astype('datetime64[ns]')
+    output_df = pd.DataFrame({
+        'group1': list('aaabbbbccc'),
+        'group2': list('eefeffgeee'),
+        'num': list(range(10)),
+        'nan': [np.nan] * 10,
+        'date': np.arange('2017-01-01', '2017-01-11', dtype='datetime64[D]').astype(
+            'datetime64[ns]')
+    })
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
@@ -1313,6 +1314,11 @@ def _test_write_to_dataset_with_partitions(base_path,
     # Partitioned columns become 'categorical' dtypes
     for col in partition_by:
         output_df[col] = output_df[col].astype('category')
+
+    if schema:
+        expected_date_type = schema.field('date').type.to_pandas_dtype()
+        output_df["date"] = output_df["date"].astype(expected_date_type)
+
     tm.assert_frame_equal(output_df, input_df)
 
 
@@ -1324,12 +1330,13 @@ def _test_write_to_dataset_no_partitions(base_path,
     import pyarrow.parquet as pq
 
     # ARROW-1400
-    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
-                              'group2': list('eefeffgeee'),
-                              'num': list(range(10)),
-                              'date': np.arange('2017-01-01', '2017-01-11',
-                                                dtype='datetime64[D]')})
-    output_df["date"] = output_df["date"].astype('datetime64[ns]')
+    output_df = pd.DataFrame({
+        'group1': list('aaabbbbccc'),
+        'group2': list('eefeffgeee'),
+        'num': list(range(10)),
+        'date': np.arange('2017-01-01', '2017-01-11', dtype='datetime64[D]').astype(
+            'datetime64[ns]')
+    })
     cols = output_df.columns.tolist()
     output_table = pa.Table.from_pandas(output_df)
 
@@ -1355,7 +1362,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
     input_df = input_df[cols]
-    assert output_df.equals(input_df)
+    tm.assert_frame_equal(output_df, input_df)
 
 
 @pytest.mark.pandas
@@ -1458,7 +1465,6 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
-    output_df["date"] = output_df["date"].astype('datetime64[ns]')
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df)
     path = str(tempdir)
@@ -1527,10 +1533,13 @@ def _make_dataset_for_pickling(tempdir, use_legacy_dataset=False, N=100):
     return dataset
 
 
-def _assert_dataset_is_picklable(dataset, pickler, use_legacy_dataset=False):
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_pickle_dataset(tempdir, datadir, use_legacy_dataset, pickle_module):
     def is_pickleable(obj):
-        return obj == pickler.loads(pickler.dumps(obj))
+        return obj == pickle_module.loads(pickle_module.dumps(obj))
 
+    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
     assert is_pickleable(dataset)
     if use_legacy_dataset:
         with pytest.warns(FutureWarning):
@@ -1547,24 +1556,6 @@ def _assert_dataset_is_picklable(dataset, pickler, use_legacy_dataset=False):
             assert metadata.num_row_groups
             for i in range(metadata.num_row_groups):
                 assert is_pickleable(metadata.row_group(i))
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_builtin_pickle_dataset(tempdir, datadir, use_legacy_dataset):
-    import pickle
-    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
-    _assert_dataset_is_picklable(
-        dataset, pickler=pickle, use_legacy_dataset=use_legacy_dataset)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_cloudpickle_dataset(tempdir, datadir, use_legacy_dataset):
-    cp = pytest.importorskip('cloudpickle')
-    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
-    _assert_dataset_is_picklable(
-        dataset, pickler=cp, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -1631,7 +1622,7 @@ def test_read_table_schema(tempdir):
     expected = pa.table({'a': [1, 2, 3]}, schema=schema)
     assert result.equals(expected)
 
-    # reading multiple fiels
+    # reading multiple fields
     result = pq.read_table(tempdir, schema=schema)
     expected = pa.table({'a': [1, 2, 3, 1, 2, 3]}, schema=schema)
     assert result.equals(expected)
@@ -1805,7 +1796,7 @@ def test_parquet_write_to_dataset_deprecated_properties(tempdir):
 
 
 @pytest.mark.dataset
-def test_parquet_write_to_dataset_unsupported_keywards_in_legacy(tempdir):
+def test_parquet_write_to_dataset_unsupported_keywords_in_legacy(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
 
@@ -1932,3 +1923,24 @@ def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
         pq.write_to_dataset(table, path, **{key: arg})
         _name, _args, kwargs = mock_write_dataset.mock_calls[0]
         assert kwargs[key] == arg
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_category_observed(tempdir, use_legacy_dataset):
+    # if we partition on a categorical variable with "unobserved" categories
+    # (values present in the dictionary, but not in the actual data)
+    # ensure those are not creating empty files/directories
+    df = pd.DataFrame({
+        "cat": pd.Categorical(["a", "b", "a"], categories=["a", "b", "c"]),
+        "col": [1, 2, 3]
+    })
+    table = pa.table(df)
+    path = tempdir / "dataset"
+    pq.write_to_dataset(
+        table, tempdir / "dataset", partition_cols=["cat"],
+        use_legacy_dataset=use_legacy_dataset
+    )
+    subdirs = [f.name for f in path.iterdir() if f.is_dir()]
+    assert len(subdirs) == 2
+    assert "cat=c" not in subdirs

@@ -25,12 +25,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	"github.com/apache/arrow/go/v15/internal/json"
 )
 
 // Union is a convenience interface to encompass both Sparse and Dense
@@ -69,7 +69,7 @@ type Union interface {
 	// or arrow.DenseMode.
 	Mode() arrow.UnionMode
 	// Field returns the requested child array for this union. Returns nil if a
-	// non-existent position is passed in.
+	// nonexistent position is passed in.
 	//
 	// The appropriate child for an index can be retrieved with Field(ChildID(index))
 	Field(pos int) arrow.Array
@@ -703,10 +703,6 @@ func arrayDenseUnionApproxEqual(l, r *DenseUnion, opt equalOption) bool {
 // either Dense or Sparse mode.
 type UnionBuilder interface {
 	Builder
-	// AppendNulls appends n nulls to the array
-	AppendNulls(n int)
-	// AppendEmptyValues appends n empty zero values to the array
-	AppendEmptyValues(n int)
 	// AppendChild allows constructing the union type on the fly by making new
 	// new array builder available to the union builder. The type code (index)
 	// of the new child is returned, which should be passed to the Append method
@@ -900,7 +896,7 @@ func NewEmptySparseUnionBuilder(mem memory.Allocator) *SparseUnionBuilder {
 // children and type codes. Builders will be constructed for each child
 // using the fields in typ
 func NewSparseUnionBuilder(mem memory.Allocator, typ *arrow.SparseUnionType) *SparseUnionBuilder {
-	children := make([]Builder, len(typ.Fields()))
+	children := make([]Builder, typ.NumFields())
 	for i, f := range typ.Fields() {
 		children[i] = NewBuilder(mem, f.Type)
 		defer children[i].Release()
@@ -984,7 +980,7 @@ func (b *SparseUnionBuilder) AppendEmptyValues(n int) {
 //
 // After appending to the corresponding child builder, all other child
 // builders should have a null or empty value appended to them (although
-// this is not enfoced and any value is theoretically allowed and will be
+// this is not enforced and any value is theoretically allowed and will be
 // ignored).
 func (b *SparseUnionBuilder) Append(nextType arrow.UnionTypeCode) {
 	b.typesBuilder.AppendValue(nextType)
@@ -1133,7 +1129,7 @@ func NewEmptyDenseUnionBuilder(mem memory.Allocator) *DenseUnionBuilder {
 // children and type codes. Builders will be constructed for each child
 // using the fields in typ
 func NewDenseUnionBuilder(mem memory.Allocator, typ *arrow.DenseUnionType) *DenseUnionBuilder {
-	children := make([]Builder, 0, len(typ.Fields()))
+	children := make([]Builder, 0, typ.NumFields())
 	defer func() {
 		for _, child := range children {
 			child.Release()

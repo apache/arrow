@@ -63,9 +63,7 @@ using parquet::LogicalType;
 
 using parquet::internal::LevelInfo;
 
-namespace parquet {
-
-namespace arrow {
+namespace parquet::arrow {
 
 // ----------------------------------------------------------------------
 // Parquet to Arrow schema conversion
@@ -231,7 +229,7 @@ static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
   }
 
   // The user implicitly wants timestamp data to retain its original time units,
-  // however the Arrow seconds time unit can not be represented (annotated) in
+  // however the Arrow seconds time unit cannot be represented (annotated) in
   // any version of Parquet and so must be coerced to milliseconds.
   if (type.unit() == ::arrow::TimeUnit::SECOND) {
     *logical_type =
@@ -398,6 +396,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     } break;
     case ArrowTypeId::DURATION:
       type = ParquetType::INT64;
+      break;
+    case ArrowTypeId::HALF_FLOAT:
+      type = ParquetType::FIXED_LEN_BYTE_ARRAY;
+      logical_type = LogicalType::Float16();
+      length = sizeof(uint16_t);
       break;
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
@@ -841,7 +844,7 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
   switch (inferred_type.id()) {
     case ::arrow::Type::STRUCT:
       if (origin_type.id() == ::arrow::Type::STRUCT) {
-        return ::arrow::struct_;
+        return [](FieldVector fields) { return ::arrow::struct_(std::move(fields)); };
       }
       break;
     case ::arrow::Type::LIST:
@@ -1106,5 +1109,4 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   return Status::OK();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

@@ -26,6 +26,8 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
@@ -1671,42 +1673,71 @@ TEST_F(ScalarTemporalTest, TestTemporalMultiplyDuration) {
   ArrayFromVector<Int64Type, int64_t>({max, max, max, max, max}, &max_array);
 
   for (auto u : TimeUnit::values()) {
-    auto unit = duration(u);
-    auto durations = ArrayFromJSON(unit, R"([0, -1, 2, 6, null])");
-    auto multipliers = ArrayFromJSON(int64(), R"([0, 3, 2, 7, null])");
-    auto durations_multiplied = ArrayFromJSON(unit, R"([0, -3, 4, 42, null])");
+    for (auto numeric : NumericTypes()) {
+      if (!is_integer(numeric->id())) continue;
+      auto unit = duration(u);
+      auto durations = ArrayFromJSON(unit, R"([0, -1, 2, 6, null])");
+      auto multipliers = ArrayFromJSON(numeric, R"([0, 3, 2, 7, null])");
+      auto durations_multiplied = ArrayFromJSON(unit, R"([0, -3, 4, 42, null])");
 
-    CheckScalarBinaryCommutative("multiply", durations, multipliers,
-                                 durations_multiplied);
-    CheckScalarBinaryCommutative("multiply_checked", durations, multipliers,
-                                 durations_multiplied);
+      CheckScalarBinaryCommutative("multiply", durations, multipliers,
+                                   durations_multiplied);
+      CheckScalarBinaryCommutative("multiply_checked", durations, multipliers,
+                                   durations_multiplied);
 
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("Invalid: overflow"),
-        CallFunction("multiply_checked", {durations, max_array}));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("Invalid: overflow"),
-        CallFunction("multiply_checked", {max_array, durations}));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::HasSubstr("Invalid: overflow"),
+          CallFunction("multiply_checked", {durations, max_array}));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::HasSubstr("Invalid: overflow"),
+          CallFunction("multiply_checked", {max_array, durations}));
+    }
   }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
+  // div(duration, integer) -> integer
   for (auto u : TimeUnit::values()) {
-    auto unit = duration(u);
-    auto divided_durations = ArrayFromJSON(unit, R"([0, -1, -2, 6, null])");
-    auto divisors = ArrayFromJSON(int64(), R"([3, 3, -2, 7, null])");
-    auto durations = ArrayFromJSON(unit, R"([1, -3, 4, 42, null])");
-    auto zeros = ArrayFromJSON(int64(), R"([0, 0, 0, 0, null])");
-    CheckScalarBinary("divide", durations, divisors, divided_durations);
-    CheckScalarBinary("divide_checked", durations, divisors, divided_durations);
+    for (auto numeric : NumericTypes()) {
+      if (!is_integer(numeric->id())) continue;
+      auto unit = duration(u);
+      auto divided_durations = is_signed_integer(numeric->id())
+                                   ? ArrayFromJSON(unit, R"([0, -1, -2, 6, null])")
+                                   : ArrayFromJSON(unit, R"([0, -1, 2, 6, null])");
+      auto divisors = is_signed_integer(numeric->id())
+                          ? ArrayFromJSON(numeric, R"([3, 3, -2, 7, null])")
+                          : ArrayFromJSON(numeric, R"([3, 3, 2, 7, null])");
+      auto durations = ArrayFromJSON(unit, R"([1, -3, 4, 42, null])");
+      auto zeros = ArrayFromJSON(numeric, R"([0, 0, 0, 0, null])");
+      CheckScalarBinary("divide", durations, divisors, divided_durations);
+      CheckScalarBinary("divide_checked", durations, divisors, divided_durations);
 
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("Invalid: divide by zero"),
-                                    CallFunction("divide", {durations, zeros}));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                    ::testing::HasSubstr("Invalid: divide by zero"),
-                                    CallFunction("divide_checked", {durations, zeros}));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                      ::testing::HasSubstr("Invalid: divide by zero"),
+                                      CallFunction("divide", {durations, zeros}));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                      ::testing::HasSubstr("Invalid: divide by zero"),
+                                      CallFunction("divide_checked", {durations, zeros}));
+    }
   }
+
+  // div(duration, duration) -> float64
+  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, -3, 4]");
+  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, -300, 20, 1]");
+  auto expected_left_by_right =
+      ArrayFromJSON(float64(), "[0.25, -6.666666666666667, -150, 4000]");
+  auto expected_right_by_left =
+      ArrayFromJSON(float64(), "[4, -0.15, -0.006666666666666667, 0.00025]");
+  CheckScalarBinary("divide", left, right, expected_left_by_right);
+  CheckScalarBinary("divide_checked", left, right, expected_left_by_right);
+  CheckScalarBinary("divide", right, left, expected_right_by_left);
+  CheckScalarBinary("divide_checked", right, left, expected_right_by_left);
+
+  // Check dispatching
+  CheckDispatchBest("divide", {duration(TimeUnit::SECOND), duration(TimeUnit::MILLI)},
+                    {duration(TimeUnit::MILLI), duration(TimeUnit::MILLI)});
+  CheckDispatchBest("divide", {duration(TimeUnit::NANO), duration(TimeUnit::MILLI)},
+                    {duration(TimeUnit::NANO), duration(TimeUnit::NANO)});
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {

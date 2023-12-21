@@ -23,11 +23,11 @@ final class ArrayTests: XCTestCase {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-        let arrayBuilder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder();
-        for i in 0..<100 {
-            arrayBuilder.append(UInt8(i))
+        let arrayBuilder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        for index in 0..<100 {
+            arrayBuilder.append(UInt8(index))
         }
-        
+
         XCTAssertEqual(arrayBuilder.nullCount, 0)
         arrayBuilder.append(nil)
         XCTAssertEqual(arrayBuilder.length, 101)
@@ -38,8 +38,8 @@ final class ArrayTests: XCTestCase {
         XCTAssertEqual(array[1]!, 1)
         XCTAssertEqual(array[10]!, 10)
         XCTAssertEqual(try array.isNull(100), true)
-        
-        let doubleBuilder: NumberArrayBuilder<Double> = try ArrowArrayBuilders.loadNumberArrayBuilder();
+
+        let doubleBuilder: NumberArrayBuilder<Double> = try ArrowArrayBuilders.loadNumberArrayBuilder()
         doubleBuilder.append(14)
         doubleBuilder.append(40.4)
         XCTAssertEqual(doubleBuilder.nullCount, 0)
@@ -50,33 +50,34 @@ final class ArrayTests: XCTestCase {
         XCTAssertEqual(doubleArray[0]!, 14)
         XCTAssertEqual(doubleArray[1]!, 40.4)
     }
-    
+
     func testStringArray() throws {
-        let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder();
-        for i in 0..<100 {
-            if i % 10 == 9 {
+        let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
+        for index in 0..<100 {
+            if index % 10 == 9 {
                 stringBuilder.append(nil)
             } else {
-                stringBuilder.append("test" + String(i))
+                stringBuilder.append("test" + String(index))
             }
         }
+
         XCTAssertEqual(stringBuilder.nullCount, 10)
         XCTAssertEqual(stringBuilder.length, 100)
         XCTAssertEqual(stringBuilder.capacity, 648)
         let stringArray = try stringBuilder.finish()
         XCTAssertEqual(stringArray.length, 100)
-        for i in 0..<stringArray.length {
-            if i % 10 == 9 {
-                XCTAssertEqual(try stringArray.isNull(i), true)
+        for index in 0..<stringArray.length {
+            if index % 10 == 9 {
+                XCTAssertEqual(try stringArray.isNull(index), true)
             } else {
-                XCTAssertEqual(stringArray[i]!, "test" + String(i))
+                XCTAssertEqual(stringArray[index]!, "test" + String(index))
             }
         }
-        
+
         XCTAssertEqual(stringArray[1]!, "test1")
         XCTAssertEqual(stringArray[0]!, "test0")
     }
-    
+
     func testBoolArray() throws {
         let boolBuilder = try ArrowArrayBuilders.loadBoolArrayBuilder()
         boolBuilder.append(true)
@@ -91,11 +92,10 @@ final class ArrayTests: XCTestCase {
         XCTAssertEqual(boolArray[1], nil)
         XCTAssertEqual(boolArray[0]!, true)
         XCTAssertEqual(boolArray[2]!, false)
-        
     }
-    
+
     func testDate32Array() throws {
-        let date32Builder: Date32ArrayBuilder = try ArrowArrayBuilders.loadDate32ArrayBuilder();
+        let date32Builder: Date32ArrayBuilder = try ArrowArrayBuilders.loadDate32ArrayBuilder()
         let date2 = Date(timeIntervalSinceReferenceDate: 86400 * 1)
         let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
         date32Builder.append(date1)
@@ -110,9 +110,9 @@ final class ArrayTests: XCTestCase {
         let adjustedDate1 = Date(timeIntervalSince1970: date1.timeIntervalSince1970 - 352)
         XCTAssertEqual(date32Array[0]!, adjustedDate1)
     }
-    
+
     func testDate64Array() throws {
-        let date64Builder: Date64ArrayBuilder = try ArrowArrayBuilders.loadDate64ArrayBuilder();
+        let date64Builder: Date64ArrayBuilder = try ArrowArrayBuilders.loadDate64ArrayBuilder()
         let date2 = Date(timeIntervalSinceReferenceDate: 86400 * 1)
         let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
         date64Builder.append(date1)
@@ -125,6 +125,90 @@ final class ArrayTests: XCTestCase {
         XCTAssertEqual(date64Array.length, 3)
         XCTAssertEqual(date64Array[1], date2)
         XCTAssertEqual(date64Array[0]!, date1)
-        
+    }
+
+    func testBinaryArray() throws {
+        let binaryBuilder = try ArrowArrayBuilders.loadBinaryArrayBuilder()
+        for index in 0..<100 {
+            if index % 10 == 9 {
+                binaryBuilder.append(nil)
+            } else {
+                binaryBuilder.append(("test" + String(index)).data(using: .utf8))
+            }
+        }
+
+        XCTAssertEqual(binaryBuilder.nullCount, 10)
+        XCTAssertEqual(binaryBuilder.length, 100)
+        XCTAssertEqual(binaryBuilder.capacity, 648)
+        let binaryArray = try binaryBuilder.finish()
+        XCTAssertEqual(binaryArray.length, 100)
+        for index in 0..<binaryArray.length {
+            if index % 10 == 9 {
+                XCTAssertEqual(try binaryArray.isNull(index), true)
+            } else {
+                let stringData = String(bytes: binaryArray[index]!, encoding: .utf8)
+                XCTAssertEqual(stringData, "test" + String(index))
+            }
+        }
+    }
+
+    func testTime32Array() throws {
+        let milliBuilder = try ArrowArrayBuilders.loadTime32ArrayBuilder(.milliseconds)
+        milliBuilder.append(100)
+        milliBuilder.append(1000000)
+        milliBuilder.append(nil)
+        XCTAssertEqual(milliBuilder.nullCount, 1)
+        XCTAssertEqual(milliBuilder.length, 3)
+        XCTAssertEqual(milliBuilder.capacity, 136)
+        let milliArray = try milliBuilder.finish()
+        let milliType = milliArray.arrowData.type as! ArrowTypeTime32 // swiftlint:disable:this force_cast
+        XCTAssertEqual(milliType.unit, .milliseconds)
+        XCTAssertEqual(milliArray.length, 3)
+        XCTAssertEqual(milliArray[1], 1000000)
+        XCTAssertEqual(milliArray[2], nil)
+
+        let secBuilder = try ArrowArrayBuilders.loadTime32ArrayBuilder(.seconds)
+        secBuilder.append(200)
+        secBuilder.append(nil)
+        secBuilder.append(2000011)
+        XCTAssertEqual(secBuilder.nullCount, 1)
+        XCTAssertEqual(secBuilder.length, 3)
+        XCTAssertEqual(secBuilder.capacity, 136)
+        let secArray = try secBuilder.finish()
+        let secType = secArray.arrowData.type as! ArrowTypeTime32 // swiftlint:disable:this force_cast
+        XCTAssertEqual(secType.unit, .seconds)
+        XCTAssertEqual(secArray.length, 3)
+        XCTAssertEqual(secArray[1], nil)
+        XCTAssertEqual(secArray[2], 2000011)
+    }
+
+    func testTime64Array() throws {
+        let nanoBuilder = try ArrowArrayBuilders.loadTime64ArrayBuilder(.nanoseconds)
+        nanoBuilder.append(10000)
+        nanoBuilder.append(nil)
+        nanoBuilder.append(123456789)
+        XCTAssertEqual(nanoBuilder.nullCount, 1)
+        XCTAssertEqual(nanoBuilder.length, 3)
+        XCTAssertEqual(nanoBuilder.capacity, 264)
+        let nanoArray = try nanoBuilder.finish()
+        let nanoType = nanoArray.arrowData.type as! ArrowTypeTime64 // swiftlint:disable:this force_cast
+        XCTAssertEqual(nanoType.unit, .nanoseconds)
+        XCTAssertEqual(nanoArray.length, 3)
+        XCTAssertEqual(nanoArray[1], nil)
+        XCTAssertEqual(nanoArray[2], 123456789)
+
+        let microBuilder = try ArrowArrayBuilders.loadTime64ArrayBuilder(.microseconds)
+        microBuilder.append(nil)
+        microBuilder.append(20000)
+        microBuilder.append(987654321)
+        XCTAssertEqual(microBuilder.nullCount, 1)
+        XCTAssertEqual(microBuilder.length, 3)
+        XCTAssertEqual(microBuilder.capacity, 264)
+        let microArray = try microBuilder.finish()
+        let microType = microArray.arrowData.type as! ArrowTypeTime64 // swiftlint:disable:this force_cast
+        XCTAssertEqual(microType.unit, .microseconds)
+        XCTAssertEqual(microArray.length, 3)
+        XCTAssertEqual(microArray[1], 20000)
+        XCTAssertEqual(microArray[2], 987654321)
     }
 }

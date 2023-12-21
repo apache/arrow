@@ -10,7 +10,9 @@ io_thread_count()
 set_io_thread_count(num_threads)
 }
 \arguments{
-\item{num_threads}{integer: New number of threads for thread pool}
+\item{num_threads}{integer: New number of threads for thread pool. At least
+two threads are recommended to support all operations in the arrow
+package.}
 }
 \description{
 Manage the global I/O thread pool in libarrow

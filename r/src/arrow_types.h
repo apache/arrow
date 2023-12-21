@@ -270,6 +270,7 @@ R6_CLASS_NAME(arrow::csv::WriteOptions, "CsvWriteOptions");
 
 #if defined(ARROW_R_WITH_PARQUET)
 R6_CLASS_NAME(parquet::ArrowReaderProperties, "ParquetArrowReaderProperties");
+R6_CLASS_NAME(parquet::ReaderProperties, "ParquetReaderProperties");
 R6_CLASS_NAME(parquet::ArrowWriterProperties, "ParquetArrowWriterProperties");
 R6_CLASS_NAME(parquet::WriterProperties, "ParquetWriterProperties");
 R6_CLASS_NAME(parquet::arrow::FileReader, "ParquetFileReader");

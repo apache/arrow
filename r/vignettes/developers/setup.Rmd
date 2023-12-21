@@ -38,56 +38,38 @@ set -e
 set -x
 ```
 
+The Arrow R package is unique compared to other R packages that you may have
+contributed to because it builds on top of the large and feature-rich Arrow C++
+implementation. Because the R package integrates tightly with Arrow C++,
+it typically requires a dedicated copy of the library (i.e., it is usually
+not possible to link to a system version of libarrow during development).
 
-```{bash, save=run & windows, hide=TRUE}
-# For some reason CRAN Mirror goes missing in CI
-echo 'options(repos=structure(c(CRAN="https://cloud.r-project.org")))' > $HOME/.Rprofile
-```
+## Option 1: Using nightly libarrow binaries
 
-Windows and macOS users who wish to contribute to the R package and
-don't need to alter libarrow (Arrow's C++ library) may be able to obtain a
-recent version of the library without building from source.
+On Linux, macOS, and Windows you can use the same workflow you might use for another
+package that contains compiled code (e.g., `R CMD INSTALL .` from
+a terminal, `devtools::load_all()` from an R prompt, or `Install & Restart` from
+RStudio). If the `arrow/r/libarrow` directory is not populated, the configure script will
+attempt to download the latest nightly libarrow binary, extract it to the
+`arrow/r/libarrow` directory (macOS, Linux) or `arrow/r/windows`
+directory (Windows), and continue building the R package as usual.
 
-### Linux
+Most of the time, you won't need to update your version of libarrow because
+the R package rarely changes with updates to the C++ library; however, if you
+start to get errors when rebuilding the R package, you may have to remove the
+`libarrow` directory (macOS, Linux) or `windows` directory (Windows)
+and do a "clean" rebuild. You can do this from a terminal with
+`R CMD INSTALL . --preclean`, from RStudio using the "Clean and Install"
+option from "Build" tab, or using `make clean` if you are using the `Makefile`
+located in the root of the R package.
 
-On Linux, you can download a .zip file containing libarrow from the
-[nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/).
-
-The directory names correspond to the OpenSSL version the binaries built with:
-- "linux-openssl-1.0" (OpenSSL 1.0)
-- "linux-openssl-1.1" (OpenSSL 1.1)
-- "linux-openssl-3.0" (OpenSSL 3.0)
-
-Version numbers in that repository correspond to dates.
-
-You'll need to create a `libarrow` directory inside the R package directory and unzip the zip file containing the compiled libarrow binary files into it.
-
-### macOS
-On macOS, you can install libarrow using [Homebrew](https://brew.sh/):
-
-```bash
-# For the released version:
-brew install apache-arrow
-# Or for a development version, you can try:
-brew install apache-arrow --HEAD
-```
-
-### Windows
-
-On Windows, you can download a .zip file containing libarrow from the
-[nightly repository](https://nightlies.apache.org/arrow/r/libarrow/bin/windows/).
-
-Version numbers in that repository correspond to dates.
-
-You can set the `RWINLIB_LOCAL` environment variable to point to the zip file containing libarrow before installing the arrow R package.
-
-## R and C++
+## Option 2: Use a local Arrow C++ development build
 
 If you need to alter both libarrow and the R package code, or if you can't get a binary version of the latest libarrow elsewhere, you'll need to build it from source. This section discusses how to set up a C++ libarrow build configured to work with the R package. For more general resources, see the [Arrow C++ developer guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
 There are five major steps to the process.
 
-### Step 1 - Install dependencies {.tabset}
+### Step 1 - Install dependencies
 
 When building libarrow, by default, system dependencies will be used if suitable versions are found.  If system dependencies are not present, libarrow will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are [cmake](https://cmake.org/) (for configuring the build) and [openssl](https://www.openssl.org/) if you are building with S3 support.
 
@@ -101,43 +83,6 @@ sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 #### macOS
 ```{bash, save=run & macos}
 brew install cmake openssl
-```
-
-#### Windows
-
-The package can be built on Windows using [RTools 4](https://cran.r-project.org/bin/windows/Rtools/). It can be built for mingw32 (i386), mingw64 (x64), or ucrt64 (UCRT x64). mingw64 is the recommended 64-bit installation.
-
-Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
-
-Install CMake, ccache, and Ninja with:
-
-```{bash, save=run & windows}
-pacman --sync --refresh --noconfirm \
-  ${MINGW_PACKAGE_PREFIX}-{ccache,cmake,ninja,openssl}
-export CMAKE_GENERATOR=Ninja
-```
-
-You will need to add R to your path. For a user-level installation, R will be at something like `~/Documents/R/R-4.1.2/bin`. For a global installation, R will be at something like `/c/Program\ Files/R/R-4.1.2/bin`. The R on your path needs to match the architecture you are compiling for, so if you are compiling on 32-bit specify `.../bin/i386` instead of `.../bin/x64`.
-
-```{bash}
-export PATH=~/Documents/R/R-4.1.2/bin/x64:$PATH
-```
-
-You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
-
-```{bash, save=run & windows}
-pacman --sync --refresh --noconfirm \
-  ${MINGW_PACKAGE_PREFIX}-boost \
-  ${MINGW_PACKAGE_PREFIX}-brotli \
-  ${MINGW_PACKAGE_PREFIX}-lz4 \
-  ${MINGW_PACKAGE_PREFIX}-protobuf \
-  ${MINGW_PACKAGE_PREFIX}-snappy \
-  ${MINGW_PACKAGE_PREFIX}-thrift \
-  ${MINGW_PACKAGE_PREFIX}-zlib \
-  ${MINGW_PACKAGE_PREFIX}-zstd \
-  ${MINGW_PACKAGE_PREFIX}-aws-sdk-cpp \
-  ${MINGW_PACKAGE_PREFIX}-re2 \
-  ${MINGW_PACKAGE_PREFIX}-libutf8proc
 ```
 
 ### Step 2 - Configure the libarrow build
@@ -156,13 +101,6 @@ _Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
-```
-
-_Special instructions on Windows:_ You will need to add `$ARROW_HOME/bin` to your `PATH` if you are using dynamic libraries (which is recommended).
-
-```{bash, save=run & windows}
-export PATH=$ARROW_HOME/bin:$PATH
-echo "export PATH=\"$ARROW_HOME/bin:$PATH\"" >> ~/.bash_profile
 ```
 
 Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
@@ -197,31 +135,9 @@ cmake \
   ..
 ```
 
-##### Windows
-
-```{bash, save=run & !sys_install & windows}
-cmake \
-  -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-  -DCMAKE_INSTALL_LIBDIR=lib \
-  -DARROW_COMPUTE=ON \
-  -DARROW_CSV=ON \
-  -DARROW_DATASET=ON \
-  -DARROW_EXTRA_ERROR_CONTEXT=ON \
-  -DARROW_FILESYSTEM=ON \
-  -DARROW_MIMALLOC=ON \
-  -DARROW_JSON=OFF \
-  -DARROW_PARQUET=ON \
-  -DARROW_WITH_SNAPPY=OFF \
-  -DARROW_WITH_ZLIB=ON \
-  ..
-```
-
 #### {-}
 
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
-
-**For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows.
-
 
 ```{bash, save=run & !sys_install, hide=TRUE}
 # For testing purposes, build with only shared libraries

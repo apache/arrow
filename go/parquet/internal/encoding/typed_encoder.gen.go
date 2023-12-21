@@ -22,15 +22,15 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
-	shared_utils "github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/bitutils"
+	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -192,10 +192,10 @@ func (DictInt32Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictInt32Decoder) Decode(out []int32) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decode(out[:vals])
 	if err != nil {
 		return decoded, err
@@ -209,7 +209,7 @@ func (d *DictInt32Decoder) Decode(out []int32) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *DictInt32Decoder) DecodeSpaced(out []int32, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
 	if err != nil {
 		return decoded, err
@@ -429,10 +429,10 @@ func (DictInt64Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictInt64Decoder) Decode(out []int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decode(out[:vals])
 	if err != nil {
 		return decoded, err
@@ -446,7 +446,7 @@ func (d *DictInt64Decoder) Decode(out []int64) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *DictInt64Decoder) DecodeSpaced(out []int64, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
 	if err != nil {
 		return decoded, err
@@ -644,10 +644,10 @@ func (DictInt96Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictInt96Decoder) Decode(out []parquet.Int96) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decode(out[:vals])
 	if err != nil {
 		return decoded, err
@@ -661,7 +661,7 @@ func (d *DictInt96Decoder) Decode(out []parquet.Int96) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *DictInt96Decoder) DecodeSpaced(out []parquet.Int96, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
 	if err != nil {
 		return decoded, err
@@ -869,10 +869,10 @@ func (DictFloat32Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictFloat32Decoder) Decode(out []float32) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decode(out[:vals])
 	if err != nil {
 		return decoded, err
@@ -886,7 +886,7 @@ func (d *DictFloat32Decoder) Decode(out []float32) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *DictFloat32Decoder) DecodeSpaced(out []float32, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
 	if err != nil {
 		return decoded, err
@@ -1094,10 +1094,10 @@ func (DictFloat64Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictFloat64Decoder) Decode(out []float64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decode(out[:vals])
 	if err != nil {
 		return decoded, err
@@ -1111,7 +1111,7 @@ func (d *DictFloat64Decoder) Decode(out []float64) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *DictFloat64Decoder) DecodeSpaced(out []float64, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
 	if err != nil {
 		return decoded, err
@@ -1225,6 +1225,8 @@ func (boolEncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema.
 	switch e {
 	case format.Encoding_PLAIN:
 		return &PlainBooleanEncoder{encoder: newEncoderBase(e, descr, mem)}
+	case format.Encoding_RLE:
+		return &RleBooleanEncoder{encoder: newEncoderBase(e, descr, mem)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1248,6 +1250,8 @@ func (boolDecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useDi
 	switch e {
 	case parquet.Encodings.Plain:
 		return &PlainBooleanDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+	case parquet.Encodings.RLE:
+		return &RleBooleanDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1358,10 +1362,10 @@ func (DictByteArrayDecoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decode(out[:vals])
 	if err != nil {
 		return decoded, err
@@ -1375,7 +1379,7 @@ func (d *DictByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *DictByteArrayDecoder) DecodeSpaced(out []parquet.ByteArray, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
 	if err != nil {
 		return decoded, err
@@ -1537,10 +1541,10 @@ func (DictFixedLenByteArrayDecoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *DictFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decode(out[:vals])
 	if err != nil {
 		return decoded, err
@@ -1554,7 +1558,7 @@ func (d *DictFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *DictFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenByteArray, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	vals := shared_utils.MinInt(len(out), d.nvals)
+	vals := shared_utils.Min(len(out), d.nvals)
 	decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
 	if err != nil {
 		return decoded, err

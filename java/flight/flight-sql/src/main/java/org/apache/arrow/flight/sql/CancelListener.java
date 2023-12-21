@@ -24,6 +24,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql;
 import com.google.protobuf.Any;
 
 /** Typed StreamListener for cancelQuery. */
+@SuppressWarnings("deprecation")
 class CancelListener implements FlightProducer.StreamListener<CancelResult> {
   private final FlightProducer.StreamListener<Result> listener;
 

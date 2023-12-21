@@ -19,10 +19,11 @@ package gen
 import (
 	"math"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -51,7 +52,7 @@ func (r *RandomArrayGenerator) GenerateBitmap(buffer []byte, n int64, prob float
 	count := int64(0)
 	r.extra++
 
-	// bernoulli distribution uses P to determine the probabitiliy of a 0 or a 1,
+	// bernoulli distribution uses P to determine the probability of a 0 or a 1,
 	// which we'll use to generate the bitmap.
 	dist := distuv.Bernoulli{P: 1 - prob, Src: rand.NewSource(r.seed + r.extra)}
 	for i := 0; int64(i) < n; i++ {
@@ -350,6 +351,40 @@ func (r *RandomArrayGenerator) LargeString(size int64, minLength, maxLength int6
 	return bldr.NewArray()
 }
 
+func (r *RandomArrayGenerator) StringView(size int64, minLength, maxLength int64, nullProb float64) arrow.Array {
+	return r.generateBinaryView(arrow.BinaryTypes.StringView, size, minLength, maxLength, nullProb)
+}
+
+func (r *RandomArrayGenerator) generateBinaryView(dt arrow.DataType, size int64, minLength, maxLength int64, nullProb float64) arrow.Array {
+	lengths := r.Int32(size, int32(minLength), int32(maxLength), nullProb).(*array.Int32)
+	defer lengths.Release()
+
+	bldr := array.NewBuilder(r.mem, dt).(array.StringLikeBuilder)
+	defer bldr.Release()
+
+	r.extra++
+	dist := rand.New(rand.NewSource(r.seed + r.extra))
+
+	buf := make([]byte, 0, maxLength)
+	gen := func(n int32) string {
+		out := buf[:n]
+		for i := range out {
+			out[i] = uint8(dist.Int31n(int32('z')-int32('A')+1) + int32('A'))
+		}
+		return string(out)
+	}
+
+	for i := 0; i < lengths.Len(); i++ {
+		if lengths.IsNull(i) {
+			bldr.AppendNull()
+			continue
+		}
+		bldr.Append(gen(lengths.Value(i)))
+	}
+
+	return bldr.NewArray()
+}
+
 func (r *RandomArrayGenerator) Numeric(dt arrow.Type, size int64, min, max int64, nullprob float64) arrow.Array {
 	switch dt {
 	case arrow.INT8:
@@ -374,6 +409,156 @@ func (r *RandomArrayGenerator) Numeric(dt arrow.Type, size int64, min, max int64
 		return r.Float64(size, float64(min), float64(max), nullprob)
 	}
 	panic("invalid type for random numeric array")
+}
+
+// Generate an array of random offsets based on a given sizes array for
+// list-view arrays.
+//
+// Pre-condition: every non-null sizes[i] <= valuesLength.
+func viewOffsetsFromLengthsArray32(
+	seed uint64, avgLength int32, valuesLength int32,
+	sizesArray *array.Int32, forceEmptyNulls bool,
+	zeroUndefinedOffsets bool) *memory.Buffer {
+	sizes := sizesArray.Int32Values()
+	offsets := make([]int32, sizesArray.Len())
+
+	offsetDeltaRand := rand.New(rand.NewSource(seed))
+	sampleOffset := func(offsetBase int32) int32 {
+		delta := int32(offsetDeltaRand.Int63n(2*int64(avgLength)) - int64(avgLength))
+		offset := offsetBase + delta
+		if offset < 0 {
+			return 0
+		}
+		return offset
+	}
+	offsetBase := int32(0)
+	for i := 0; i < sizesArray.Len(); i += 1 {
+		isNull := sizesArray.IsNull(i)
+		if forceEmptyNulls && isNull {
+			sizes[i] = 0
+		}
+		if zeroUndefinedOffsets && (isNull || sizes[i] == 0) {
+			offsets[i] = 0
+		} else {
+			offset := sampleOffset(offsetBase)
+			if offset > valuesLength-sizes[i] {
+				offset = valuesLength - sizes[i]
+			}
+			offsets[i] = offset
+		}
+		offsetBase += avgLength
+	}
+
+	return memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(offsets))
+}
+
+// Generate an array of random offsets based on a given sizes array for
+// large list-view arrays.
+//
+// Pre-condition: every non-null sizes[i] <= valuesLength.
+func viewOffsetsFromLengthsArray64(
+	seed uint64, avgLength int64, valuesLength int64,
+	sizesArray *array.Int64, forceEmptyNulls bool,
+	zeroUndefinedOffsets bool) *memory.Buffer {
+	sizes := sizesArray.Int64Values()
+	offsets := make([]int64, sizesArray.Len())
+
+	offsetDeltaRand := rand.New(rand.NewSource(seed))
+	sampleOffset := func(offsetBase int64) int64 {
+		delta := int64(offsetDeltaRand.Int63n(2*avgLength) - avgLength)
+		offset := offsetBase + delta
+		if offset < 0 {
+			return 0
+		}
+		return offset
+	}
+	offsetBase := int64(0)
+	for i := 0; i < sizesArray.Len(); i += 1 {
+		isNull := sizesArray.IsNull(i)
+		if forceEmptyNulls && isNull {
+			sizes[i] = 0
+		}
+		if zeroUndefinedOffsets && (isNull || sizes[i] == 0) {
+			offsets[i] = 0
+		} else {
+			offset := sampleOffset(offsetBase)
+			if offset > valuesLength-sizes[i] {
+				offset = valuesLength - sizes[i]
+			}
+			offsets[i] = offset
+		}
+		offsetBase += avgLength
+	}
+
+	return memory.NewBufferBytes(arrow.Int64Traits.CastToBytes(offsets))
+}
+
+// Generate a random data for ListView or LargeListView arrays.
+func (r *RandomArrayGenerator) genListViewData(dt arrow.VarLenListLikeType, length int64,
+	minLength, maxLength int, nullprob float64,
+	forceEmptyNulls bool, zeroUndefinedOffsets bool) arrow.ArrayData {
+	offsetByteWidth := dt.Layout().Buffers[1].ByteWidth
+	var lengths arrow.Array
+	if offsetByteWidth == 4 {
+		lengths = r.Int32(length, int32(minLength), int32(maxLength), nullprob)
+	} else {
+		lengths = r.Int64(length, int64(minLength), int64(maxLength), nullprob)
+	}
+	defer lengths.Release()
+
+	// List-views don't have to be disjoint, so let's make the valuesLength a
+	// multiple of the average list-view size. To make sure every list view
+	// into the values array can fit, it should be at least maxLength.
+	avgLength := minLength + (maxLength-minLength)/2
+	valuesLength := int64(avgLength) * (length - int64(lengths.NullN()))
+	if valuesLength < int64(maxLength) {
+		valuesLength = int64(maxLength)
+	}
+	debug.Assert(offsetByteWidth == 8 || valuesLength < math.MaxInt32,
+		"valuesLength must be less than math.MaxInt32")
+
+	values := r.ArrayOf(dt.Elem().ID(), int64(valuesLength), 0.0)
+	defer values.Release()
+
+	var offsets *memory.Buffer
+	if offsetByteWidth == 4 {
+		lengths32 := lengths.(*array.Int32)
+		offsets = viewOffsetsFromLengthsArray32(r.seed, int32(avgLength), int32(valuesLength), lengths32,
+			forceEmptyNulls, zeroUndefinedOffsets)
+	} else {
+		lengths64 := lengths.(*array.Int64)
+		offsets = viewOffsetsFromLengthsArray64(r.seed, int64(avgLength), int64(valuesLength), lengths64,
+			forceEmptyNulls, zeroUndefinedOffsets)
+	}
+	defer offsets.Release()
+
+	buffers := []*memory.Buffer{
+		memory.NewBufferBytes(lengths.NullBitmapBytes()),
+		offsets,
+		memory.NewBufferBytes(lengths.Data().Buffers()[1].Bytes()),
+	}
+	childData := []arrow.ArrayData{values.Data()}
+	return array.NewData(dt, int(length), buffers, childData, int(lengths.NullN()), 0)
+}
+
+func (r *RandomArrayGenerator) ListView(dt arrow.VarLenListLikeType, length int64,
+	minLength, maxLength int32, nullprob float64) *array.ListView {
+	forceEmptyNulls := false
+	zeroUndefineOffsets := false
+	data := r.genListViewData(dt, length, int(minLength), int(maxLength), nullprob,
+		forceEmptyNulls, zeroUndefineOffsets)
+	defer data.Release()
+	return array.NewListViewData(data)
+}
+
+func (r *RandomArrayGenerator) LargeListView(dt arrow.VarLenListLikeType, length int64,
+	minLength, maxLength int64, nullprob float64) *array.LargeListView {
+	forceEmptyNulls := false
+	zeroUndefineOffsets := false
+	data := r.genListViewData(dt, length, int(minLength), int(maxLength), nullprob,
+		forceEmptyNulls, zeroUndefineOffsets)
+	defer data.Release()
+	return array.NewLargeListViewData(data)
 }
 
 func (r *RandomArrayGenerator) ArrayOf(dt arrow.Type, size int64, nullprob float64) arrow.Array {

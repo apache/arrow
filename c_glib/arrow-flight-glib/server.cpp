@@ -41,6 +41,10 @@ G_BEGIN_DECLS
  * IPC payloads to be sent in `FlightData` protobuf messages by
  * #GArrowRecordBatchReader`.
  *
+ * #GAFlightMessageReader is a class for IPC payloads uploaded by a
+ * client. Also allows reading application-defined metadata via the
+ * Flight protocol.
+ *
  * #GAFlightServerAuthSender is a class for sending messages to the
  * client during an authentication handshake.
  *
@@ -258,9 +262,42 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
 }
 
 
-typedef struct GAFlightServerCallContextPrivate_ {
+G_DEFINE_TYPE(GAFlightMessageReader,
+              gaflight_message_reader,
+              GAFLIGHT_TYPE_RECORD_BATCH_READER)
+
+static void
+gaflight_message_reader_init(GAFlightMessageReader *object)
+{
+}
+
+static void
+gaflight_message_reader_class_init(GAFlightMessageReaderClass *klass)
+{
+}
+
+/**
+ * gaflight_message_reader_get_descriptor:
+ * @reader: A #GAFlightMessageReader.
+ *
+ * Returns: (transfer full): The descriptor for this upload.
+ *
+ * Since: 14.0.0
+ */
+GAFlightDescriptor *
+gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader)
+{
+  auto flight_reader = gaflight_message_reader_get_raw(reader);
+  const auto &flight_descriptor = flight_reader->descriptor();
+  return gaflight_descriptor_new_raw(&flight_descriptor);
+}
+
+
+struct GAFlightServerCallContextPrivate {
   arrow::flight::ServerCallContext *call_context;
-} GAFlightServerCallContextPrivate;
+  std::string current_incoming_header_key;
+  std::string current_incoming_header_value;
+};
 
 enum {
   PROP_CALL_CONTEXT = 1,
@@ -274,6 +311,15 @@ G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerCallContext,
   static_cast<GAFlightServerCallContextPrivate *>(      \
     gaflight_server_call_context_get_instance_private(  \
       GAFLIGHT_SERVER_CALL_CONTEXT(obj)))
+
+static void
+gaflight_server_call_context_finalize(GObject *object)
+{
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(object);
+  priv->current_incoming_header_key.~basic_string();
+  priv->current_incoming_header_value.~basic_string();
+  G_OBJECT_CLASS(gaflight_server_call_context_parent_class)->finalize(object);
+}
 
 static void
 gaflight_server_call_context_set_property(GObject *object,
@@ -298,6 +344,9 @@ gaflight_server_call_context_set_property(GObject *object,
 static void
 gaflight_server_call_context_init(GAFlightServerCallContext *object)
 {
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(object);
+  new(&(priv->current_incoming_header_key)) std::string;
+  new(&(priv->current_incoming_header_value)) std::string;
 }
 
 static void
@@ -305,6 +354,7 @@ gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize = gaflight_server_call_context_finalize;
   gobject_class->set_property = gaflight_server_call_context_set_property;
 
   GParamSpec *spec;
@@ -314,6 +364,33 @@ gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CALL_CONTEXT, spec);
+}
+
+/**
+ * gaflight_server_call_context_foreach_incoming_header:
+ * @context: A #GAFlightServerCallContext.
+ * @func: (scope call): The user's callback function.
+ * @user_data: (closure): Data for @func.
+ *
+ * Iterates over all incoming headers.
+ *
+ * Since: 14.0.0
+ */
+void
+gaflight_server_call_context_foreach_incoming_header(
+  GAFlightServerCallContext *context,
+  GAFlightHeaderFunc func,
+  gpointer user_data)
+{
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(context);
+  auto flight_context = gaflight_server_call_context_get_raw(context);
+  for (const auto &header : flight_context->incoming_headers()) {
+    priv->current_incoming_header_key = std::string(header.first);
+    priv->current_incoming_header_value = std::string(header.second);
+    func(priv->current_incoming_header_key.c_str(),
+         priv->current_incoming_header_value.c_str(),
+         user_data);
+  }
 }
 
 
@@ -595,9 +672,8 @@ namespace gaflight {
       auto klass = GAFLIGHT_SERVER_CUSTOM_AUTH_HANDLER_GET_CLASS(handler_);
       auto gacontext = gaflight_server_call_context_new_raw(&context);
       auto gtoken = g_bytes_new_static(token.data(), token.size());
-      GBytes *gpeer_identity = nullptr;
       GError *error = nullptr;
-      klass->is_valid(handler_, gacontext, gtoken, &gpeer_identity, &error);
+      auto gpeer_identity = klass->is_valid(handler_, gacontext, gtoken, &error);
       g_bytes_unref(gtoken);
       g_object_unref(gacontext);
       if (gpeer_identity) {
@@ -683,20 +759,20 @@ gaflight_server_custom_auth_handler_authenticate(
  * @context: A #GAFlightServerCallContext.
  * @token: The client token. May be the empty string if the client does not
  *   provide a token.
- * @peer_identity: (out): The identity of the peer, if this authentication
- *   method supports it.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Validates a per-call client token.
  *
+ * Returns: (nullable) (transfer full): The identity of the peer, if
+ *   this authentication method supports it.
+ *
  * Since: 12.0.0
  */
-void
+GBytes *
 gaflight_server_custom_auth_handler_is_valid(
   GAFlightServerCustomAuthHandler *handler,
   GAFlightServerCallContext *context,
   GBytes *token,
-  GBytes **peer_identity,
   GError **error)
 {
   auto flight_handler =
@@ -714,8 +790,10 @@ gaflight_server_custom_auth_handler_is_valid(
                     status,
                     "[flight-server-custom-auth-handler]"
                     "[is-valid]")) {
-    *peer_identity = g_bytes_new(flight_peer_identity.data(),
-                                 flight_peer_identity.size());
+    return g_bytes_new(flight_peer_identity.data(),
+                       flight_peer_identity.size());
+  } else {
+    return nullptr;
   }
 }
 
@@ -1214,6 +1292,28 @@ gaflight_data_stream_get_raw(GAFlightDataStream *stream)
   auto priv = GAFLIGHT_DATA_STREAM_GET_PRIVATE(stream);
   return priv->stream;
 }
+
+
+GAFlightMessageReader *
+gaflight_message_reader_new_raw(
+  arrow::flight::FlightMessageReader *flight_reader,
+  gboolean is_owner)
+{
+  return GAFLIGHT_MESSAGE_READER(
+    g_object_new(GAFLIGHT_TYPE_MESSAGE_READER,
+                 "reader", flight_reader,
+                 "is-owner", is_owner,
+                 NULL));
+}
+
+arrow::flight::FlightMessageReader *
+gaflight_message_reader_get_raw(GAFlightMessageReader *reader)
+{
+  auto flight_reader =
+    gaflight_record_batch_reader_get_raw(GAFLIGHT_RECORD_BATCH_READER(reader));
+  return static_cast<arrow::flight::FlightMessageReader *>(flight_reader);
+}
+
 
 GAFlightServerCallContext *
 gaflight_server_call_context_new_raw(

@@ -28,9 +28,16 @@ namespace Apache.Arrow
         DelegatingArrayBuilder<TUnderlying, TArray, TBuilder>,
         IArrowArrayBuilder<DateTime, TArray, TBuilder>,
         IArrowArrayBuilder<DateTimeOffset, TArray, TBuilder>
+#if NET6_0_OR_GREATER
+        , IArrowArrayBuilder<DateOnly, TArray, TBuilder>
+#endif
         where TArray : IArrowArray
         where TBuilder : class, IArrowArrayBuilder<TArray>
     {
+#if NET6_0_OR_GREATER
+        protected static readonly long _epochDayNumber = new DateOnly(1970, 1, 1).DayNumber;
+#endif
+
         /// <summary>
         /// Construct a new instance of the <see cref="DateArrayBuilder{TUnderlying,TArray,TBuilder}"/> class.
         /// </summary>
@@ -71,6 +78,20 @@ namespace Apache.Arrow
             InnerBuilder.Append(Convert(value));
             return this as TBuilder;
         }
+
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Append a date from a <see cref="DateOnly"/> object to the array.
+        /// </summary>
+        /// </remarks>
+        /// <param name="value">Date to add.</param>
+        /// <returns>Returns the builder (for fluent-style composition).</returns>
+        public TBuilder Append(DateOnly value)
+        {
+            InnerBuilder.Append(Convert(value));
+            return this as TBuilder;
+        }
+#endif
 
         /// <summary>
         /// Append a span of dates in the form of <see cref="DateTime"/> objects to the array.
@@ -114,11 +135,29 @@ namespace Apache.Arrow
             return this as TBuilder;
         }
 
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Append a span of dates in the form of <see cref="DateOnly"/> objects to the array.
+        /// </summary>
+        /// <param name="span">Span of dates to add.</param>
+        /// <returns>Returns the builder (for fluent-style composition).</returns>
+        public TBuilder Append(ReadOnlySpan<DateOnly> span)
+        {
+            InnerBuilder.Reserve(span.Length);
+            foreach (var item in span)
+            {
+                InnerBuilder.Append(Convert(item));
+            }
+
+            return this as TBuilder;
+        }
+#endif
+
         /// <summary>
         /// Append a null date to the array.
         /// </summary>
         /// <returns>Returns the builder (for fluent-style composition).</returns>
-        public TBuilder AppendNull()
+        public override TBuilder AppendNull()
         {
             InnerBuilder.AppendNull();
             return this as TBuilder;
@@ -156,6 +195,19 @@ namespace Apache.Arrow
             return this as TBuilder;
         }
 
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Append a collection of dates in the form of <see cref="DateOnly"/> objects to the array.
+        /// </summary>
+        /// <param name="values">Collection of dates to add.</param>
+        /// <returns>Returns the builder (for fluent-style composition).</returns>
+        public TBuilder AppendRange(IEnumerable<DateOnly> values)
+        {
+            InnerBuilder.AppendRange(values.Select(Convert));
+            return this as TBuilder;
+        }
+#endif
+
         /// <summary>
         /// Set the value of a date in the form of a <see cref="DateTime"/> object at the specified index.
         /// </summary>
@@ -190,6 +242,20 @@ namespace Apache.Arrow
             return this as TBuilder;
         }
 
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Set the value of a date in the form of a <see cref="DateOnly"/> object at the specified index.
+        /// </summary>
+        /// <param name="index">Index at which to set value.</param>
+        /// <param name="value">Date to set.</param>
+        /// <returns>Returns the builder (for fluent-style composition).</returns>
+        public TBuilder Set(int index, DateOnly value)
+        {
+            InnerBuilder.Set(index, Convert(value));
+            return this as TBuilder;
+        }
+#endif
+
         /// <summary>
         /// Swap the values of the dates at the specified indices.
         /// </summary>
@@ -205,5 +271,9 @@ namespace Apache.Arrow
         protected abstract TUnderlying Convert(DateTime dateTime);
 
         protected abstract TUnderlying Convert(DateTimeOffset dateTimeOffset);
+
+#if NET6_0_OR_GREATER
+        protected abstract TUnderlying Convert(DateOnly date);
+#endif
     }
 }

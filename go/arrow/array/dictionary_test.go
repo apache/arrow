@@ -19,17 +19,18 @@ package array_test
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v15/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -106,7 +107,7 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderBasic() {
 	expected := array.NewDictionaryArray(expectedType, expectedIndices, expectedDict)
 	defer expected.Release()
 
-	p.True(array.ArrayEqual(expected, arr))
+	p.True(array.Equal(expected, arr))
 }
 
 func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderInit() {
@@ -139,7 +140,7 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderInit() {
 	expected := array.NewDictionaryArray(dictType, expectedIndices, dictArr)
 	defer expected.Release()
 
-	p.True(array.ArrayEqual(expected, arr))
+	p.True(array.Equal(expected, arr))
 }
 
 func (p *PrimitiveDictionaryTestSuite) TestDictionaryNewBuilder() {
@@ -172,7 +173,7 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryNewBuilder() {
 	expected := array.NewDictionaryArray(dictType, expectedIndices, dictArr)
 	defer expected.Release()
 
-	p.True(array.ArrayEqual(expected, arr))
+	p.True(array.Equal(expected, arr))
 }
 
 func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderAppendArr() {
@@ -200,7 +201,7 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderAppendArr() {
 	expected := array.NewDictionaryArray(expectedType, expectedIndices, expectedDict)
 	defer expected.Release()
 
-	p.True(array.ArrayEqual(expected, result))
+	p.True(array.Equal(expected, result))
 }
 
 func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderDeltaDictionary() {
@@ -226,7 +227,7 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderDeltaDictionary() {
 	defer exindices.Release()
 	expected := array.NewDictionaryArray(result.DataType().(*arrow.DictionaryType), exindices, exdict)
 	defer expected.Release()
-	p.True(array.ArrayEqual(expected, result))
+	p.True(array.Equal(expected, result))
 
 	p.Nil(appfn.Call([]reflect.Value{reflect.ValueOf(2).Convert(p.reftyp)})[0].Interface())
 	p.Nil(appfn.Call([]reflect.Value{reflect.ValueOf(3).Convert(p.reftyp)})[0].Interface())
@@ -244,8 +245,8 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderDeltaDictionary() {
 	exdelta, _, _ := array.FromJSON(p.mem, p.typ, strings.NewReader("[3]"))
 	defer exdelta.Release()
 
-	p.True(array.ArrayEqual(exindices, indices))
-	p.True(array.ArrayEqual(exdelta, delta))
+	p.True(array.Equal(exindices, indices))
+	p.True(array.Equal(exdelta, delta))
 }
 
 func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderDoubleDeltaDictionary() {
@@ -271,7 +272,7 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderDoubleDeltaDictionar
 	defer exindices.Release()
 	expected := array.NewDictionaryArray(result.DataType().(*arrow.DictionaryType), exindices, exdict)
 	defer expected.Release()
-	p.True(array.ArrayEqual(expected, result))
+	p.True(array.Equal(expected, result))
 
 	p.Nil(appfn.Call([]reflect.Value{reflect.ValueOf(2).Convert(p.reftyp)})[0].Interface())
 	p.Nil(appfn.Call([]reflect.Value{reflect.ValueOf(3).Convert(p.reftyp)})[0].Interface())
@@ -289,8 +290,8 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderDoubleDeltaDictionar
 	exdelta, _, _ := array.FromJSON(p.mem, p.typ, strings.NewReader("[3]"))
 	defer exdelta.Release()
 
-	p.True(array.ArrayEqual(exindices, indices))
-	p.True(array.ArrayEqual(exdelta, delta))
+	p.True(array.Equal(exindices, indices))
+	p.True(array.Equal(exdelta, delta))
 
 	p.Nil(appfn.Call([]reflect.Value{reflect.ValueOf(1).Convert(p.reftyp)})[0].Interface())
 	p.Nil(appfn.Call([]reflect.Value{reflect.ValueOf(2).Convert(p.reftyp)})[0].Interface())
@@ -308,8 +309,8 @@ func (p *PrimitiveDictionaryTestSuite) TestDictionaryBuilderDoubleDeltaDictionar
 	exdelta, _, _ = array.FromJSON(p.mem, p.typ, strings.NewReader("[4, 5]"))
 	defer exdelta.Release()
 
-	p.True(array.ArrayEqual(exindices, indices))
-	p.True(array.ArrayEqual(exdelta, delta))
+	p.True(array.Equal(exindices, indices))
+	p.True(array.Equal(exdelta, delta))
 }
 
 func (p *PrimitiveDictionaryTestSuite) TestNewResetBehavior() {
@@ -369,8 +370,8 @@ func (p *PrimitiveDictionaryTestSuite) TestResetFull() {
 	defer exindices.Release()
 	defer exdict.Release()
 
-	p.True(array.ArrayEqual(exindices, result.Indices()))
-	p.True(array.ArrayEqual(exdict, result.Dictionary()))
+	p.True(array.Equal(exindices, result.Indices()))
+	p.True(array.Equal(exdict, result.Dictionary()))
 
 	bldr.ResetFull()
 	p.Nil(appfn.Call([]reflect.Value{reflect.ValueOf(4).Convert(p.reftyp)})[0].Interface())
@@ -382,8 +383,8 @@ func (p *PrimitiveDictionaryTestSuite) TestResetFull() {
 	defer exindices.Release()
 	defer exdict.Release()
 
-	p.True(array.ArrayEqual(exindices, result.Indices()))
-	p.True(array.ArrayEqual(exdict, result.Dictionary()))
+	p.True(array.Equal(exindices, result.Indices()))
+	p.True(array.Equal(exdict, result.Dictionary()))
 }
 
 func (p *PrimitiveDictionaryTestSuite) TestStringRoundTrip() {
@@ -448,7 +449,7 @@ func TestBasicStringDictionaryBuilder(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, exint, exdict)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 }
 
 func TestStringDictionaryInsertValues(t *testing.T) {
@@ -490,7 +491,7 @@ func TestStringDictionaryInsertValues(t *testing.T) {
 	defer exindices.Release()
 	expected := array.NewDictionaryArray(dictType, exindices, exdict)
 	defer expected.Release()
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 }
 
 func TestStringDictionaryBuilderInit(t *testing.T) {
@@ -517,7 +518,7 @@ func TestStringDictionaryBuilderInit(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, intarr, dictArr)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 }
 
 func TestStringDictionaryBuilderOnlyNull(t *testing.T) {
@@ -540,7 +541,7 @@ func TestStringDictionaryBuilderOnlyNull(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, intarr, dict)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 }
 
 func TestStringDictionaryBuilderDelta(t *testing.T) {
@@ -568,7 +569,7 @@ func TestStringDictionaryBuilderDelta(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, exint, exdict)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 
 	assert.NoError(t, builder.AppendString("test2"))
 	assert.NoError(t, builder.AppendString("test3"))
@@ -584,8 +585,8 @@ func TestStringDictionaryBuilderDelta(t *testing.T) {
 	exint, _, _ = array.FromJSON(mem, arrow.PrimitiveTypes.Int8, strings.NewReader("[1, 2, 1]"))
 	defer exint.Release()
 
-	assert.True(t, array.ArrayEqual(exdelta, delta))
-	assert.True(t, array.ArrayEqual(exint, indices))
+	assert.True(t, array.Equal(exdelta, delta))
+	assert.True(t, array.Equal(exint, indices))
 }
 
 func TestStringDictionaryBuilderBigDelta(t *testing.T) {
@@ -626,7 +627,7 @@ func TestStringDictionaryBuilderBigDelta(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, intarr, strarr)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 
 	strbldr2 := array.NewStringBuilder(mem)
 	defer strbldr2.Release()
@@ -652,8 +653,8 @@ func TestStringDictionaryBuilderBigDelta(t *testing.T) {
 	intarr2 := intbldr2.NewInt16Array()
 	defer intarr2.Release()
 
-	assert.True(t, array.ArrayEqual(intarr2, indices2))
-	assert.True(t, array.ArrayEqual(strarr2, delta2))
+	assert.True(t, array.Equal(intarr2, indices2))
+	assert.True(t, array.Equal(strarr2, delta2))
 
 	strbldr3 := array.NewStringBuilder(mem)
 	defer strbldr3.Release()
@@ -679,8 +680,28 @@ func TestStringDictionaryBuilderBigDelta(t *testing.T) {
 	intarr3 := intbldr3.NewInt16Array()
 	defer intarr3.Release()
 
-	assert.True(t, array.ArrayEqual(intarr3, indices3))
-	assert.True(t, array.ArrayEqual(strarr3, delta3))
+	assert.True(t, array.Equal(intarr3, indices3))
+	assert.True(t, array.Equal(strarr3, delta3))
+}
+
+func TestStringDictionaryBuilderIsNull(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(mem, dictType)
+	defer bldr.Release()
+
+	builder := bldr.(*array.BinaryDictionaryBuilder)
+	assert.NoError(t, builder.AppendString("test"))
+	builder.AppendNull()
+	assert.NoError(t, builder.AppendString("test2"))
+	assert.NoError(t, builder.AppendString("test"))
+
+	assert.False(t, bldr.IsNull(0))
+	assert.True(t, bldr.IsNull(1))
+	assert.False(t, bldr.IsNull(2))
+	assert.False(t, bldr.IsNull(3))
 }
 
 func TestFixedSizeBinaryDictionaryBuilder(t *testing.T) {
@@ -719,7 +740,7 @@ func TestFixedSizeBinaryDictionaryBuilder(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, intArr, fsbArr)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 }
 
 func TestFixedSizeBinaryDictionaryBuilderInit(t *testing.T) {
@@ -752,7 +773,7 @@ func TestFixedSizeBinaryDictionaryBuilderInit(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, indices, dictArr)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 }
 
 func TestFixedSizeBinaryDictionaryBuilderMakeBuilder(t *testing.T) {
@@ -785,7 +806,7 @@ func TestFixedSizeBinaryDictionaryBuilderMakeBuilder(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, indices, dictArr)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayEqual(expected, result))
+	assert.True(t, array.Equal(expected, result))
 }
 
 func TestFixedSizeBinaryDictionaryBuilderDeltaDictionary(t *testing.T) {
@@ -823,7 +844,7 @@ func TestFixedSizeBinaryDictionaryBuilderDeltaDictionary(t *testing.T) {
 
 	expected := array.NewDictionaryArray(dictType, intArr1, fsbArr1)
 	defer expected.Release()
-	assert.True(t, array.ArrayEqual(expected, result1))
+	assert.True(t, array.Equal(expected, result1))
 
 	assert.NoError(t, builder.Append(test))
 	assert.NoError(t, builder.Append(test2))
@@ -842,8 +863,8 @@ func TestFixedSizeBinaryDictionaryBuilderDeltaDictionary(t *testing.T) {
 	intArr2 := intBuilder.NewInt8Array()
 	defer intArr2.Release()
 
-	assert.True(t, array.ArrayEqual(intArr2, indices2))
-	assert.True(t, array.ArrayEqual(fsbArr2, delta2))
+	assert.True(t, array.Equal(intArr2, indices2))
+	assert.True(t, array.Equal(fsbArr2, delta2))
 }
 
 func TestFixedSizeBinaryDictionaryStringRoundTrip(t *testing.T) {
@@ -904,7 +925,7 @@ func TestDecimal128DictionaryBuilderBasic(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, indices, dict)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayApproxEqual(expected, result))
+	assert.True(t, array.ApproxEqual(expected, result))
 }
 
 func TestDecimal256DictionaryBuilderBasic(t *testing.T) {
@@ -932,7 +953,7 @@ func TestDecimal256DictionaryBuilderBasic(t *testing.T) {
 	expected := array.NewDictionaryArray(dictType, indices, dict)
 	defer expected.Release()
 
-	assert.True(t, array.ArrayApproxEqual(expected, result))
+	assert.True(t, array.ApproxEqual(expected, result))
 }
 
 func TestNullDictionaryBuilderBasic(t *testing.T) {
@@ -944,9 +965,7 @@ func TestNullDictionaryBuilderBasic(t *testing.T) {
 	defer bldr.Release()
 
 	builder := bldr.(*array.NullDictionaryBuilder)
-	builder.AppendNull()
-	builder.AppendNull()
-	builder.AppendNull()
+	builder.AppendNulls(3)
 	assert.Equal(t, 3, builder.Len())
 	assert.Equal(t, 3, builder.NullN())
 
@@ -1009,15 +1028,15 @@ func TestDictionaryEquals(t *testing.T) {
 		arr4.Release()
 	}()
 
-	assert.True(t, array.ArrayEqual(arr, arr))
+	assert.True(t, array.Equal(arr, arr))
 	// equal because the unequal index is masked by null
-	assert.True(t, array.ArrayEqual(arr, arr2))
+	assert.True(t, array.Equal(arr, arr2))
 	// unequal dictionaries
-	assert.False(t, array.ArrayEqual(arr, arr3))
+	assert.False(t, array.Equal(arr, arr3))
 	// unequal indices
-	assert.False(t, array.ArrayEqual(arr, arr4))
-	assert.True(t, array.ArraySliceEqual(arr, 3, 6, arr4, 3, 6))
-	assert.False(t, array.ArraySliceEqual(arr, 1, 3, arr4, 1, 3))
+	assert.False(t, array.Equal(arr, arr4))
+	assert.True(t, array.SliceEqual(arr, 3, 6, arr4, 3, 6))
+	assert.False(t, array.SliceEqual(arr, 1, 3, arr4, 1, 3))
 
 	sz := arr.Len()
 	slice := array.NewSlice(arr, 2, int64(sz))
@@ -1026,8 +1045,8 @@ func TestDictionaryEquals(t *testing.T) {
 	defer slice2.Release()
 
 	assert.Equal(t, sz-2, slice.Len())
-	assert.True(t, array.ArrayEqual(slice, slice2))
-	assert.True(t, array.ArraySliceEqual(arr, 2, int64(arr.Len()), slice, 0, int64(slice.Len())))
+	assert.True(t, array.Equal(slice, slice2))
+	assert.True(t, array.SliceEqual(arr, 2, int64(arr.Len()), slice, 0, int64(slice.Len())))
 
 	// chained slice
 	slice2 = array.NewSlice(arr, 1, int64(arr.Len()))
@@ -1035,15 +1054,15 @@ func TestDictionaryEquals(t *testing.T) {
 	slice2 = array.NewSlice(slice2, 1, int64(slice2.Len()))
 	defer slice2.Release()
 
-	assert.True(t, array.ArrayEqual(slice, slice2))
+	assert.True(t, array.Equal(slice, slice2))
 	slice = array.NewSlice(arr, 1, 4)
 	defer slice.Release()
 	slice2 = array.NewSlice(arr, 1, 4)
 	defer slice2.Release()
 
 	assert.Equal(t, 3, slice.Len())
-	assert.True(t, array.ArrayEqual(slice, slice2))
-	assert.True(t, array.ArraySliceEqual(arr, 1, 4, slice, 0, int64(slice.Len())))
+	assert.True(t, array.Equal(slice, slice2))
+	assert.True(t, array.SliceEqual(arr, 1, 4, slice, 0, int64(slice.Len())))
 }
 
 func TestDictionaryIndexTypes(t *testing.T) {
@@ -1082,7 +1101,7 @@ func TestDictionaryIndexTypes(t *testing.T) {
 			expectedIndices, _, _ := array.FromJSON(mem, indextyp, strings.NewReader("[0, 1, 0, 2, null]"))
 			defer expectedIndices.Release()
 
-			assert.True(t, array.ArrayEqual(expectedIndices, result.Indices()))
+			assert.True(t, array.Equal(expectedIndices, result.Indices()))
 		})
 	}
 }
@@ -1188,7 +1207,7 @@ func TestListOfDictionary(t *testing.T) {
 	defer arr.Release()
 
 	actualDict := arr.(*array.List).ListValues().(*array.Dictionary)
-	assert.True(t, array.ArrayEqual(expectedDict, actualDict.Dictionary()))
+	assert.True(t, array.Equal(expectedDict, actualDict.Dictionary()))
 }
 
 func TestDictionaryCanCompareIndices(t *testing.T) {
@@ -1372,6 +1391,55 @@ func TestDictionaryUnifierString(t *testing.T) {
 
 	unifier, err := array.NewDictionaryUnifier(mem, dictType)
 	assert.NoError(t, err)
+	defer unifier.Release()
+
+	assert.NoError(t, unifier.Unify(d1))
+	assert.NoError(t, unifier.Unify(d2))
+	outType, outDict, err := unifier.GetResult()
+	assert.NoError(t, err)
+	defer outDict.Release()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	b1, err := unifier.UnifyAndTranspose(d1)
+	assert.NoError(t, err)
+	b2, err := unifier.UnifyAndTranspose(d2)
+	assert.NoError(t, err)
+
+	outType, outDict, err = unifier.GetResult()
+	assert.NoError(t, err)
+	defer func() {
+		outDict.Release()
+		b1.Release()
+		b2.Release()
+	}()
+
+	assert.Truef(t, arrow.TypeEqual(expected, outType), "got: %s, expected: %s", outType, expected)
+	assert.Truef(t, array.Equal(expectedDict, outDict), "got: %s, expected: %s", outDict, expectedDict)
+
+	checkTransposeMap(t, b1, []int32{0, 1})
+	checkTransposeMap(t, b2, []int32{2, 0})
+}
+
+func TestDictionaryUnifierBinary(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := arrow.BinaryTypes.Binary
+	d1, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["Zm9vCg==", "YmFyCg=="]`)) // base64("foo\n"), base64("bar\n")
+	require.NoError(t, err)
+	defer d1.Release()
+
+	d2, _, err := array.FromJSON(mem, dictType, strings.NewReader(`["cXV1eAo=", "Zm9vCg=="]`)) // base64("quux\n"), base64("foo\n")
+	require.NoError(t, err)
+	defer d2.Release()
+
+	expected := &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int8, ValueType: dictType}
+	expectedDict, _, _ := array.FromJSON(mem, dictType, strings.NewReader(`["Zm9vCg==", "YmFyCg==", "cXV1eAo="]`))
+	defer expectedDict.Release()
+
+	unifier := array.NewBinaryDictionaryUnifier(mem)
 	defer unifier.Release()
 
 	assert.NoError(t, unifier.Unify(d1))
@@ -1780,5 +1848,69 @@ func TestDictionaryAppendIndices(t *testing.T) {
 
 			assert.Equal(t, fmt.Sprint(indices), arrIndices.String())
 		})
+	}
+}
+
+type panicAllocator struct {
+	n       int
+	paniced bool
+	memory.Allocator
+}
+
+func (p *panicAllocator) Allocate(size int) []byte {
+	if size > p.n {
+		p.paniced = true
+		panic("panic allocator")
+	}
+	return p.Allocator.Allocate(size)
+}
+
+func (p *panicAllocator) Reallocate(size int, b []byte) []byte {
+	return p.Allocator.Reallocate(size, b)
+}
+
+func (p *panicAllocator) Free(b []byte) {
+	p.Allocator.Free(b)
+}
+
+func TestBinaryDictionaryPanic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	allocator := &panicAllocator{
+		n:         400,
+		Allocator: mem,
+	}
+
+	expectedType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(allocator, expectedType)
+	defer bldr.Release()
+
+	bldr.AppendNull()
+	allocator.n = 0 // force panic
+	func() {
+		defer func() {
+			recover()
+		}()
+		bldr.NewArray()
+	}()
+	assert.True(t, allocator.paniced)
+}
+
+func BenchmarkBinaryDictionaryBuilder(b *testing.B) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(b, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int32Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(mem, dictType)
+	defer bldr.Release()
+
+	randString := func() string {
+		return fmt.Sprintf("test-%d", rand.Intn(30))
+	}
+
+	builder := bldr.(*array.BinaryDictionaryBuilder)
+	for i := 0; i < b.N; i++ {
+		assert.NoError(b, builder.AppendString(randString()))
 	}
 }

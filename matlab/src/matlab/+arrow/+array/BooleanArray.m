@@ -16,20 +16,17 @@
 classdef BooleanArray < arrow.array.Array
 % arrow.array.BooleanArray
 
-    properties (Hidden, SetAccess=private)
-        NullSubstitionValue = false;
+    properties (Hidden, GetAccess=public, SetAccess=private)
+        NullSubstitutionValue = false;
     end
 
     methods
-        function obj = BooleanArray(data, opts)
-            arguments
-                data
-                opts.InferNulls(1,1) logical = true
-                opts.Valid
+        function obj = BooleanArray(proxy)
+             arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.BooleanArray")}
             end
-            arrow.args.validateTypeAndShape(data, "logical");
-            validElements = arrow.args.parseValidElements(data, opts);
-            obj@arrow.array.Array("Name", "arrow.array.proxy.BooleanArray", "ConstructorArguments", {data, validElements});
+            import arrow.internal.proxy.validate
+            obj@arrow.array.Array(proxy);
         end
 
         function data = logical(obj)
@@ -38,7 +35,26 @@ classdef BooleanArray < arrow.array.Array
 
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
-            matlabArray(~obj.Valid) = obj.NullSubstitionValue;
+            matlabArray(~obj.Valid) = obj.NullSubstitutionValue;
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, opts)
+            arguments
+                data
+                opts.InferNulls(1, 1) logical = true
+                opts.Valid
+            end
+
+            arrow.internal.validate.type(data, "logical");
+            arrow.internal.validate.shape(data);
+            arrow.internal.validate.nonsparse(data);
+            validElements = arrow.internal.validate.parseValidElements(data, opts);
+            
+            args = struct(MatlabArray=data, Valid=validElements);
+            proxy = arrow.internal.proxy.create("arrow.array.proxy.BooleanArray", args);
+            array = arrow.array.BooleanArray(proxy);
         end
     end
 end

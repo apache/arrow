@@ -21,7 +21,6 @@ import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.util.Preconditions.checkArgument;
-import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -98,12 +97,11 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   protected final CallBack callBack;
   protected int valueCount;
   protected long offsetAllocationSizeInBytes = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH;
-  private final String name;
 
   protected String defaultDataVectorName = DATA_VECTOR_NAME;
   protected ArrowBuf validityBuffer;
   protected UnionLargeListReader reader;
-  private final FieldType fieldType;
+  private Field field;
   private int validityAllocationSizeInBytes;
 
   /**
@@ -120,10 +118,20 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
    * @param callBack A schema change callback.
    */
   public LargeListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+    this(new Field(name, fieldType, null), allocator, callBack);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use for creating/reallocating buffers for the vector.
+   * @param callBack A schema change callback.
+   */
+  public LargeListVector(Field field, BufferAllocator allocator, CallBack callBack) {
     super(allocator);
-    this.name = name;
+    this.field = field;
     this.validityBuffer = allocator.getEmpty();
-    this.fieldType = checkNotNull(fieldType);
     this.callBack = callBack;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
     this.lastSet = -1;
@@ -142,6 +150,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
+    this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
   }
 
   @Override
@@ -194,6 +203,27 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     } else {
       vector.setInitialCapacity(innerValueCapacity);
     }
+  }
+
+  /**
+   * Specialized version of setInitialTotalCapacity() for ListVector. This is
+   * used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector. This is
+   * very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In
+   * such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount but the multiplier
+   * forces the memory requirement to go beyond what was needed.
+   *
+   * @param numRecords value count
+   * @param totalNumberOfElements the total number of elements to to allow
+   *                              for in this vector across all records.
+   */
+  public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
+    offsetAllocationSizeInBytes = (numRecords + 1) * OFFSET_WIDTH;
+    vector.setInitialCapacity(totalNumberOfElements);
   }
 
   /**
@@ -475,8 +505,18 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return getTransferPair(field, allocator, null);
+  }
+
+  @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return new TransferImpl(ref, allocator, callBack);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return new TransferImpl(field, allocator, callBack);
   }
 
   @Override
@@ -569,7 +609,11 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     TransferPair dataTransferPair;
 
     public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
-      this(new LargeListVector(name, allocator, fieldType, callBack));
+      this(new LargeListVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new LargeListVector(field, allocator, callBack));
     }
 
     public TransferImpl(LargeListVector to) {
@@ -696,10 +740,13 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   @Override
+  protected FieldReader getReaderImpl() {
+    return new UnionLargeListReader(this);
+  }
+
+  @Override
   public UnionLargeListReader getReader() {
-    if (reader == null) {
-      reader = new UnionLargeListReader(this);
-    }
+    reader = (UnionLargeListReader) super.getReader();
     return reader;
   }
 
@@ -760,7 +807,11 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public Field getField() {
-    return new Field(getName(), fieldType, Collections.singletonList(getDataVector().getField()));
+    if (field.getChildren().contains(getDataVector().getField())) {
+      return field;
+    }
+    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
+    return field;
   }
 
   @Override
@@ -770,7 +821,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public String getName() {
-    return name;
+    return field.getName();
   }
 
   @Override

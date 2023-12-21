@@ -29,6 +29,7 @@
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/cast.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -178,7 +179,7 @@ TEST_F(TestTable, Equals) {
   other = Table::Make(schema_, other_columns);
   ASSERT_FALSE(table_->Equals(*other));
 
-  // Differring schema metadata
+  // Differing schema metadata
   other_schema = schema_->WithMetadata(::arrow::key_value_metadata({"key"}, {"value"}));
   other = Table::Make(other_schema, columns_);
   ASSERT_TRUE(table_->Equals(*other));
@@ -418,16 +419,17 @@ TEST_F(TestPromoteTableToSchema, IncompatibleTypes) {
   auto table = MakeTableWithOneNullFilledColumn("field", int32(), length);
 
   // Invalid promotion: int32 to null.
-  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", null())})));
+  ASSERT_RAISES(TypeError, PromoteTableToSchema(table, schema({field("field", null())})));
 
-  // Invalid promotion: int32 to uint32.
-  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", uint32())})));
+  // Invalid promotion: int32 to list.
+  ASSERT_RAISES(TypeError,
+                PromoteTableToSchema(table, schema({field("field", list(int32()))})));
 }
 
 TEST_F(TestPromoteTableToSchema, IncompatibleNullity) {
   const int length = 10;
   auto table = MakeTableWithOneNullFilledColumn("field", int32(), length);
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 PromoteTableToSchema(
                     table, schema({field("field", uint32())->WithNullable(false)})));
 }
@@ -520,6 +522,36 @@ TEST_F(ConcatenateTablesWithPromotionTest, Simple) {
   AssertTablesEqualUnorderedFields(*expected, *result);
 }
 
+TEST_F(ConcatenateTablesWithPromotionTest, Unify) {
+  auto t_i32 = TableFromJSON(schema({field("f0", int32())}), {"[[0], [1]]"});
+  auto t_i64 = TableFromJSON(schema({field("f0", int64())}), {"[[2], [3]]"});
+  auto t_null = TableFromJSON(schema({field("f0", null())}), {"[[null], [null]]"});
+
+  auto expected_int64 =
+      TableFromJSON(schema({field("f0", int64())}), {"[[0], [1], [2], [3]]"});
+  auto expected_null =
+      TableFromJSON(schema({field("f0", int32())}), {"[[0], [1], [null], [null]]"});
+
+  ConcatenateTablesOptions options;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Schema at index 1 was different"),
+                                  ConcatenateTables({t_i32, t_i64}, options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Schema at index 1 was different"),
+                                  ConcatenateTables({t_i32, t_null}, options));
+
+  options.unify_schemas = true;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                  ::testing::HasSubstr("Field f0 has incompatible types"),
+                                  ConcatenateTables({t_i64, t_i32}, options));
+  ASSERT_OK_AND_ASSIGN(auto actual, ConcatenateTables({t_i32, t_null}, options));
+  AssertTablesEqual(*expected_null, *actual, /*same_chunk_layout=*/false);
+
+  options.field_merge_options.promote_numeric_width = true;
+  ASSERT_OK_AND_ASSIGN(actual, ConcatenateTables({t_i32, t_i64}, options));
+  AssertTablesEqual(*expected_int64, *actual, /*same_chunk_layout=*/false);
+}
+
 TEST_F(TestTable, Slice) {
   const int64_t length = 10;
 
@@ -603,8 +635,8 @@ TEST_F(TestTable, SelectColumns) {
   ASSERT_OK_AND_ASSIGN(auto subset, table->SelectColumns({0, 2}));
   ASSERT_OK(subset->ValidateFull());
 
-  auto expexted_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
-  auto expected = Table::Make(expexted_schema, {table->column(0), table->column(2)});
+  auto expected_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
+  auto expected = Table::Make(expected_schema, {table->column(0), table->column(2)});
   ASSERT_TRUE(subset->Equals(*expected));
 
   // Out of bounds indices

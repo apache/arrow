@@ -67,5 +67,5 @@ clean:
 	-rm src/Makevars.win
 	-rm -rf arrow.Rcheck/
 	-rm -rf libarrow/
-	-rm -rf tools/cpp/ tools/.env tools/NOTICE.txt tools/LICENSE.txt
+	-rm -rf tools/cpp/ tools/.env tools/NOTICE.txt tools/LICENSE.txt tools/checksums
 	-find . -name "*.orig" -delete

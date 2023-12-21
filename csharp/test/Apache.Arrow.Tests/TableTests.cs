@@ -30,7 +30,7 @@ namespace Apache.Arrow.Tests
             Field field = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
             Schema s0 = new Schema.Builder().Field(field).Build();
 
-            Column column = new Column(field, new List<Array> { intArray, intArrayCopy });
+            Column column = new Column(field, new List<IArrowArray> { intArray, intArrayCopy });
             Table table = new Table(s0, new List<Column> { column });
             return table;
         }
@@ -49,6 +49,8 @@ namespace Apache.Arrow.Tests
             Table table = MakeTableWithOneColumnOfTwoIntArrays(10);
             Assert.Equal(20, table.RowCount);
             Assert.Equal(1, table.ColumnCount);
+            Assert.Equal("Table: 1 columns by 20 rows", table.ToString());
+            Assert.Equal("ChunkedArray: Length=20, DataType=int32", table.Column(0).Data.ToString());
         }
 
         [Fact]
@@ -60,7 +62,8 @@ namespace Apache.Arrow.Tests
 
             Table table1 = Table.TableFromRecordBatches(recordBatch1.Schema, recordBatches);
             Assert.Equal(20, table1.RowCount);
-            Assert.Equal(23, table1.ColumnCount);
+            Assert.Equal(30, table1.ColumnCount);
+            Assert.Equal("ChunkedArray: Length=20, DataType=list", table1.Column(0).Data.ToString());
 
             FixedSizeBinaryType type = new FixedSizeBinaryType(17);
             Field newField1 = new Field(type.Name, type, false);
@@ -83,16 +86,19 @@ namespace Apache.Arrow.Tests
         public void TestTableAddRemoveAndSetColumn()
         {
             Table table = MakeTableWithOneColumnOfTwoIntArrays(10);
+            Assert.Equal("Table: 1 columns by 20 rows", table.ToString());
+            Assert.Equal("Field: Name=f0, DataType=int32, IsNullable=True, Metadata count=0", table.Column(0).Field.ToString());
+            Assert.Equal("ChunkedArray: Length=20, DataType=int32", table.Column(0).Data.ToString());
 
             Array nonEqualLengthIntArray = ColumnTests.MakeIntArray(10);
             Field field1 = new Field.Builder().Name("f1").DataType(Int32Type.Default).Build();
-            Column nonEqualLengthColumn = new Column(field1, new[] { nonEqualLengthIntArray});
+            Column nonEqualLengthColumn = new Column(field1, new IArrowArray[] { nonEqualLengthIntArray });
             Assert.Throws<ArgumentException>(() => table.InsertColumn(-1, nonEqualLengthColumn));
             Assert.Throws<ArgumentException>(() => table.InsertColumn(1, nonEqualLengthColumn));
 
             Array equalLengthIntArray = ColumnTests.MakeIntArray(20);
             Field field2 = new Field.Builder().Name("f2").DataType(Int32Type.Default).Build();
-            Column equalLengthColumn = new Column(field2, new[] { equalLengthIntArray});
+            Column equalLengthColumn = new Column(field2, new IArrowArray[] { equalLengthIntArray });
             Column existingColumn = table.Column(0);
 
             Table newTable = table.InsertColumn(0, equalLengthColumn);
@@ -118,7 +124,7 @@ namespace Apache.Arrow.Tests
             RecordBatch batch = TestData.CreateSampleRecordBatch(schema, 10);
             Table table = Table.TableFromRecordBatches(schema, new[] { batch });
 
-            Assert.NotNull(table.Column(0).Data.Array(0) as Int64Array);
+            Assert.NotNull(table.Column(0).Data.ArrowArray(0) as Int64Array);
         }
     }
 

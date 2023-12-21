@@ -37,7 +37,7 @@ call activate arrow
 @rem The "main" C++ build script for Windows CI
 @rem (i.e. for usual configurations)
 
-set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
+set ARROW_CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
@@ -58,7 +58,7 @@ pushd cpp\build
 @rem In release mode, disable optimizations (/Od) for faster compiling
 @rem and enable runtime assertions.
 
-cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
+cmake -G "%GENERATOR%" %ARROW_CMAKE_ARGS% ^
       -DARROW_ACERO=ON ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
@@ -131,6 +131,19 @@ set PYARROW_WITH_SUBSTRAIT=ON
 set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
+
+@rem Download IANA Timezone Database to a non-standard location to
+@rem test the configurability of the timezone database path
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
+mkdir %USERPROFILE%\Downloads\test\tzdata
+tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
+curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
+  --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml || exit /B
+@rem Remove the database from the default location
+rmdir /s /q %USERPROFILE%\Downloads\tzdata
+@rem Set the env var for the non-standard location of the database
+@rem (only needed for testing purposes)
+set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
 python setup.py develop -q || exit /B
 

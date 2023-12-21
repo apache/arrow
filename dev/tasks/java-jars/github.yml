@@ -22,10 +22,31 @@
 jobs:
 
   build-cpp-ubuntu:
-    name: Build C++ libraries Ubuntu
-    runs-on: ubuntu-latest
+    {% set arch = '${{ matrix.platform.arch }}' %}
+    name: Build C++ libraries Ubuntu {{ arch }}
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
+    env:
+      # architecture name used for archery build
+      ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
+      ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
+      ARCH_SHORT: {{ '${{ matrix.platform.archery_arch_short }}' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - runs_on: ["ubuntu-latest"]
+            arch: "x86_64"
+            archery_arch: "amd64"
+            archery_arch_alias: "x86_64"
+            archery_arch_short: "amd64"
+          - runs_on: ["self-hosted", "Linux", "arm64"]
+            arch: "aarch_64"
+            archery_arch: "arm64v8"
+            archery_arch_alias: "aarch64"
+            archery_arch_short: "arm64"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ libraries
         env:
@@ -36,12 +57,12 @@ jobs:
             -e ARROW_JAVA_TEST=OFF \
             java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
+        run: tar -cvzf arrow-shared-libs-linux-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: ubuntu-shared-lib
-          path: arrow-shared-libs-linux.tar.gz
+          name: ubuntu-shared-lib-{{ arch }}
+          path: arrow-shared-libs-linux-{{ arch }}.tar.gz
     {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker image
@@ -60,7 +81,7 @@ jobs:
           - { runs_on: ["macos-latest"], arch: "x86_64"}
           - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      MACOSX_DEPLOYMENT_TARGET: "10.15"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
@@ -98,7 +119,13 @@ jobs:
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
           brew uninstall grpc || : # gRPC depends on RE2
-          brew uninstall re2 || :
+          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+          brew uninstall re2
+          # We want to use bundled Protobuf for static linking. If
+          # Homebrew's Protobuf is installed, its library file may be
+          # used on test  We uninstall Homebrew's Protobuf to ensure using
+          # bundled Protobuf.
+          brew uninstall protobuf
 
           brew bundle --file=arrow/java/Brewfile
       - name: Build C++ libraries
@@ -172,7 +199,8 @@ jobs:
       - name: Decompress artifacts
         run: |
           mv artifacts/*/*.tar.gz .
-          tar -xvzf arrow-shared-libs-linux.tar.gz
+          tar -xvzf arrow-shared-libs-linux-x86_64.tar.gz
+          tar -xvzf arrow-shared-libs-linux-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-macos-x86_64.tar.gz
           tar -xvzf arrow-shared-libs-macos-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-windows.tar.gz
@@ -184,6 +212,11 @@ jobs:
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.so
           test -f arrow/java-dist/x86_64/libarrow_orc_jni.so
           test -f arrow/java-dist/x86_64/libgandiva_jni.so
+
+          test -f arrow/java-dist/aarch_64/libarrow_cdata_jni.so
+          test -f arrow/java-dist/aarch_64/libarrow_dataset_jni.so
+          test -f arrow/java-dist/aarch_64/libarrow_orc_jni.so
+          test -f arrow/java-dist/aarch_64/libgandiva_jni.so
 
           test -f arrow/java-dist/x86_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.dylib

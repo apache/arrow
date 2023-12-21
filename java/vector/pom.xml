@@ -14,7 +14,7 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>13.0.0-SNAPSHOT</version>
+    <version>15.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-vector</artifactId>
   <name>Arrow Vectors</name>
@@ -25,12 +25,10 @@
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-format</artifactId>
-      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>
-      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -56,18 +54,12 @@
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
-      <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-unsafe</artifactId>
-      <version>${project.version}</version>
       <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-common</artifactId>
     </dependency>
     <dependency>
       <groupId>com.google.flatbuffers</groupId>
@@ -77,6 +69,11 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.collections</groupId>
+      <artifactId>eclipse-collections</artifactId>
+      <version>11.1.0</version>
     </dependency>
   </dependencies>
 
@@ -177,7 +174,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.1.1</version>
+        <!--
+          Downgrade maven-shade-plugin specifically for this module.
+          Using a newer version up to at least 3.5.1 will cause
+          issues in the arrow-tools tests looking up FlatBuffer
+          dependencies.
+         -->
+        <version>3.2.4</version>
         <executions>
           <execution>
             <phase>package</phase>

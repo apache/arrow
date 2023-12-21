@@ -64,7 +64,7 @@ namespace detail {
 // create an adjusted mantissa, biased by the invalid power2
 // for significant digits already multiplied by 10 ** q.
 template <typename binary>
-fastfloat_really_inline
+fastfloat_really_inline FASTFLOAT_CONSTEXPR14
 adjusted_mantissa compute_error_scaled(int64_t q, uint64_t w, int lz) noexcept  {
   int hilz = int(w >> 63) ^ 1;
   adjusted_mantissa answer;
@@ -118,16 +118,11 @@ adjusted_mantissa compute_float(int64_t q, uint64_t w)  noexcept  {
   // 3. We might lose a bit due to the "upperbit" routine (result too small, requiring a shift)
 
   value128 product = compute_product_approximation<binary::mantissa_explicit_bits() + 3>(q, w);
-  if(product.low == 0xFFFFFFFFFFFFFFFF) { //  could guard it further
-    // In some very rare cases, this could happen, in which case we might need a more accurate
-    // computation that what we can provide cheaply. This is very, very unlikely.
-    //
-    const bool inside_safe_exponent = (q >= -27) && (q <= 55); // always good because 5**q <2**128 when q>=0, 
-    // and otherwise, for q<0, we have 5**-q<2**64 and the 128-bit reciprocal allows for exact computation.
-    if(!inside_safe_exponent) {
-      return compute_error_scaled<binary>(q, product.high, lz);
-    }
-  }
+  // The computed 'product' is always sufficient.
+  // Mathematical proof:
+  // Noble Mushtak and Daniel Lemire, Fast Number Parsing Without Fallback (to appear)
+  // See script/mushtak_lemire.py
+
   // The "compute_product_approximation" function can be slightly slower than a branchless approach:
   // value128 product = compute_product(q, w);
   // but in practice, we can win big with the compute_product_approximation if its additional branch

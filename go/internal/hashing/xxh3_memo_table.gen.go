@@ -21,9 +21,9 @@ package hashing
 import (
 	"math"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/internal/utils"
 )
 
 type payloadInt8 struct {
@@ -298,6 +298,11 @@ func (s *Int8MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err e
 	return
 }
 
+// GetOrInsertBytes is unimplemented
+func (s *Int8MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
+}
+
 type payloadUint8 struct {
 	val     uint8
 	memoIdx int32
@@ -568,6 +573,11 @@ func (s *Uint8MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err 
 		s.tbl.Insert(e, h, val.(uint8), int32(idx))
 	}
 	return
+}
+
+// GetOrInsertBytes is unimplemented
+func (s *Uint8MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
 }
 
 type payloadInt16 struct {
@@ -842,6 +852,11 @@ func (s *Int16MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err 
 	return
 }
 
+// GetOrInsertBytes is unimplemented
+func (s *Int16MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
+}
+
 type payloadUint16 struct {
 	val     uint16
 	memoIdx int32
@@ -1112,6 +1127,11 @@ func (s *Uint16MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err
 		s.tbl.Insert(e, h, val.(uint16), int32(idx))
 	}
 	return
+}
+
+// GetOrInsertBytes is unimplemented
+func (s *Uint16MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
 }
 
 type payloadInt32 struct {
@@ -1386,6 +1406,11 @@ func (s *Int32MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err 
 	return
 }
 
+// GetOrInsertBytes is unimplemented
+func (s *Int32MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
+}
+
 type payloadInt64 struct {
 	val     int64
 	memoIdx int32
@@ -1656,6 +1681,11 @@ func (s *Int64MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err 
 		s.tbl.Insert(e, h, val.(int64), int32(idx))
 	}
 	return
+}
+
+// GetOrInsertBytes is unimplemented
+func (s *Int64MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
 }
 
 type payloadUint32 struct {
@@ -1930,6 +1960,11 @@ func (s *Uint32MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err
 	return
 }
 
+// GetOrInsertBytes is unimplemented
+func (s *Uint32MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
+}
+
 type payloadUint64 struct {
 	val     uint64
 	memoIdx int32
@@ -2200,6 +2235,11 @@ func (s *Uint64MemoTable) GetOrInsert(val interface{}) (idx int, found bool, err
 		s.tbl.Insert(e, h, val.(uint64), int32(idx))
 	}
 	return
+}
+
+// GetOrInsertBytes is unimplemented
+func (s *Uint64MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
 }
 
 type payloadFloat32 struct {
@@ -2493,6 +2533,11 @@ func (s *Float32MemoTable) GetOrInsert(val interface{}) (idx int, found bool, er
 	return
 }
 
+// GetOrInsertBytes is unimplemented
+func (s *Float32MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
+}
+
 type payloadFloat64 struct {
 	val     float64
 	memoIdx int32
@@ -2780,4 +2825,9 @@ func (s *Float64MemoTable) GetOrInsert(val interface{}) (idx int, found bool, er
 		s.tbl.Insert(e, h, val.(float64), int32(idx))
 	}
 	return
+}
+
+// GetOrInsertBytes is unimplemented
+func (s *Float64MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	panic("unimplemented")
 }

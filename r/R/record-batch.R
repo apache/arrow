@@ -75,7 +75,7 @@
 #'    Modify or replace by assigning in (`batch$metadata <- new_metadata`).
 #'    All list elements are coerced to string. See `schema()` for more information.
 #' - `$columns`: Returns a list of `Array`s
-#' @rdname RecordBatch
+#' @rdname RecordBatch-class
 #' @name RecordBatch
 #' @export
 RecordBatch <- R6Class("RecordBatch",
@@ -169,13 +169,15 @@ RecordBatch$from_message <- function(obj, schema) {
 #' @include arrowExports.R
 RecordBatch$import_from_c <- ImportRecordBatch
 
+#' Create a RecordBatch
+#'
 #' @param ... A `data.frame` or a named set of Arrays or vectors. If given a
 #' mixture of data.frames and vectors, the inputs will be autospliced together
 #' (see examples). Alternatively, you can provide a single Arrow IPC
 #' `InputStream`, `Message`, `Buffer`, or R `raw` object containing a `Buffer`.
 #' @param schema a [Schema], or `NULL` (the default) to infer the schema from
 #' the data in `...`. When providing an Arrow IPC buffer, `schema` is required.
-#' @rdname RecordBatch
+#' @rdname record_batch
 #' @examples
 #' batch <- record_batch(name = rownames(mtcars), mtcars)
 #' dim(batch)

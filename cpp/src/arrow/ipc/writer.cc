@@ -52,10 +52,12 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
 #include "arrow/visit_array_inline.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -174,7 +176,8 @@ class RecordBatchSerializer {
   // Override this for writing dictionary metadata
   virtual Status SerializeMetadata(int64_t num_rows) {
     return WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
-                                   field_nodes_, buffer_meta_, options_, &out_->metadata);
+                                   field_nodes_, buffer_meta_, variadic_counts_, options_,
+                                   &out_->metadata);
   }
 
   bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
@@ -192,8 +195,9 @@ class RecordBatchSerializer {
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
     int64_t prefixed_length = buffer.size();
 
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          AllocateResizableBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result,
+        AllocateResizableBuffer(maximum_length + sizeof(int64_t), options_.memory_pool));
     ARROW_ASSIGN_OR_RAISE(auto actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
@@ -213,6 +217,10 @@ class RecordBatchSerializer {
       actual_length = buffer.size();
       // Size of -1 indicates to the reader that the body doesn't need to be decompressed
       prefixed_length = -1;
+    } else {
+      // Shrink compressed buffer
+      RETURN_NOT_OK(
+          result->Resize(actual_length + sizeof(int64_t), /* shrink_to_fit= */ true));
     }
     *reinterpret_cast<int64_t*>(result->mutable_data()) =
         bit_util::ToLittleEndian(prefixed_length);
@@ -291,6 +299,8 @@ class RecordBatchSerializer {
       offset += size + padding;
     }
 
+    variadic_counts_ = out_->variadic_buffer_counts;
+
     out_->body_length = offset - buffer_start_offset_;
     DCHECK(bit_util::IsMultipleOf8(out_->body_length));
 
@@ -337,6 +347,67 @@ class RecordBatchSerializer {
       }
     }
     *value_offsets = std::move(offsets);
+    return Status::OK();
+  }
+
+  template <typename ArrayType, typename offset_type = typename ArrayType::offset_type>
+  Status GetZeroBasedListViewOffsets(const ArrayType& array,
+                                     std::shared_ptr<Buffer>* out_value_offsets,
+                                     offset_type* out_min_offset,
+                                     offset_type* out_max_end) {
+    auto offsets = array.value_offsets();
+    auto sizes = array.value_sizes();
+
+    const int64_t required_bytes = sizeof(offset_type) * array.length();
+    if (array.offset() != 0) {
+      // If we have a non-zero offset, it's likely that the smallest offset is
+      // not zero. We must a) create a new offsets array with shifted offsets and
+      // b) slice the values array accordingly.
+
+      ARROW_ASSIGN_OR_RAISE(auto shifted_offsets,
+                            AllocateBuffer(required_bytes, options_.memory_pool));
+      offset_type min_offset = 0;
+      offset_type max_end = 0;
+      if (array.length() > 0) {
+        min_offset = std::numeric_limits<offset_type>::max();
+        for (int i = 0; i < array.length(); ++i) {
+          min_offset = std::min(min_offset, array.value_offset(i));
+          max_end = std::max(max_end, array.value_offset(i) + array.value_length(i));
+        }
+      }
+
+      auto* dest_offsets = shifted_offsets->mutable_data_as<offset_type>();
+
+      for (int i = 0; i < array.length(); ++i) {
+        dest_offsets[i] = array.value_offset(i) - min_offset;
+      }
+      *out_min_offset = min_offset;
+      *out_max_end = max_end;
+      offsets = std::move(shifted_offsets);
+    } else {
+      // ARROW-6046: Slice offsets to used extent, in case we have a truncated
+      // slice
+      if (offsets != nullptr && offsets->size() > required_bytes) {
+        offsets = SliceBuffer(offsets, 0, required_bytes);
+      }
+      *out_min_offset = 0;
+      *out_max_end = static_cast<offset_type>(array.values()->length());
+    }
+    *out_value_offsets = std::move(offsets);
+    return Status::OK();
+  }
+
+  template <typename ArrayType, typename offset_type = typename ArrayType::offset_type>
+  Status GetListViewSizes(const ArrayType& array,
+                          std::shared_ptr<Buffer>* out_value_sizes) {
+    const int64_t required_bytes = sizeof(offset_type) * array.length();
+    auto sizes = array.value_sizes();
+    if (sizes != nullptr && (array.offset() != 0 || sizes->size() > required_bytes)) {
+      // ARROW-6046: Slice offsets to used extent, in case we have a truncated slice
+      auto offset_bytes = array.offset() * sizeof(offset_type);
+      sizes = SliceBuffer(sizes, offset_bytes, required_bytes);
+    }
+    *out_value_sizes = std::move(sizes);
     return Status::OK();
   }
 
@@ -398,15 +469,26 @@ class RecordBatchSerializer {
     return Status::OK();
   }
 
+  Status Visit(const BinaryViewArray& array) {
+    auto views = SliceBuffer(array.values(), array.offset() * BinaryViewType::kSize,
+                             array.length() * BinaryViewType::kSize);
+    out_->body_buffers.emplace_back(std::move(views));
+
+    out_->variadic_buffer_counts.emplace_back(array.data()->buffers.size() - 2);
+    for (size_t i = 2; i < array.data()->buffers.size(); ++i) {
+      out_->body_buffers.emplace_back(array.data()->buffers[i]);
+    }
+    return Status::OK();
+  }
+
   template <typename T>
-  enable_if_base_list<typename T::TypeClass, Status> Visit(const T& array) {
+  enable_if_var_size_list<typename T::TypeClass, Status> Visit(const T& array) {
     using offset_type = typename T::offset_type;
 
     std::shared_ptr<Buffer> value_offsets;
     RETURN_NOT_OK(GetZeroBasedValueOffsets<T>(array, &value_offsets));
     out_->body_buffers.emplace_back(value_offsets);
 
-    --max_recursion_depth_;
     std::shared_ptr<Array> values = array.values();
 
     offset_type values_offset = 0;
@@ -420,6 +502,37 @@ class RecordBatchSerializer {
       // Must also slice the values
       values = values->Slice(values_offset, values_length);
     }
+    --max_recursion_depth_;
+    RETURN_NOT_OK(VisitArray(*values));
+    ++max_recursion_depth_;
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_list_view<typename T::TypeClass, Status> Visit(const T& array) {
+    using offset_type = typename T::offset_type;
+
+    offset_type min_offset = 0;
+    offset_type max_end = 0;
+    {
+      std::shared_ptr<Buffer> value_offsets;
+      RETURN_NOT_OK(
+          GetZeroBasedListViewOffsets<T>(array, &value_offsets, &min_offset, &max_end));
+      out_->body_buffers.push_back(std::move(value_offsets));
+    }
+    {
+      std::shared_ptr<Buffer> value_sizes;
+      RETURN_NOT_OK(GetListViewSizes<T>(array, &value_sizes));
+      out_->body_buffers.push_back(std::move(value_sizes));
+    }
+
+    std::shared_ptr<Array> values = array.values();
+
+    if (min_offset != 0 || max_end < values->length()) {
+      // Must also slice the values
+      values = values->Slice(min_offset, max_end);
+    }
+    --max_recursion_depth_;
     RETURN_NOT_OK(VisitArray(*values));
     ++max_recursion_depth_;
     return Status::OK();
@@ -585,6 +698,7 @@ class RecordBatchSerializer {
 
   std::vector<internal::FieldMetadata> field_nodes_;
   std::vector<internal::BufferMetadata> buffer_meta_;
+  std::vector<int64_t> variadic_counts_;
 
   const IpcWriteOptions& options_;
   int64_t max_recursion_depth_;
@@ -601,8 +715,8 @@ class DictionarySerializer : public RecordBatchSerializer {
 
   Status SerializeMetadata(int64_t num_rows) override {
     return WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
-                                  custom_metadata_, field_nodes_, buffer_meta_, options_,
-                                  &out_->metadata);
+                                  custom_metadata_, field_nodes_, buffer_meta_,
+                                  variadic_counts_, options_, &out_->metadata);
   }
 
   Status Assemble(const std::shared_ptr<Array>& dictionary) {
@@ -1065,6 +1179,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   Status WriteRecordBatch(
       const RecordBatch& batch,
       const std::shared_ptr<const KeyValueMetadata>& custom_metadata) override {
+    if (closed_) {
+      return Status::Invalid("Destination already closed");
+    }
     if (!batch.schema()->Equals(schema_, false /* check_metadata */)) {
       return Status::Invalid("Tried to write record batch with different schema");
     }
@@ -1096,7 +1213,9 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
 
   Status Close() override {
     RETURN_NOT_OK(CheckStarted());
-    return payload_writer_->Close();
+    RETURN_NOT_OK(payload_writer_->Close());
+    closed_ = true;
+    return Status::OK();
   }
 
   Status Start() {
@@ -1208,6 +1327,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   std::unordered_map<int64_t, std::shared_ptr<Array>> last_dictionaries_;
 
   bool started_ = false;
+  bool closed_ = false;
   IpcWriteOptions options_;
   WriteStats stats_;
 };

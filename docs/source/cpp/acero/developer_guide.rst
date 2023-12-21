@@ -38,7 +38,7 @@ ExecNode is an abstract class with several pure virtual methods that control how
 --------------------------------
 
 This method is called once at the start of the plan.  Most nodes ignore this method (any
-neccesary initialization should happen in the construtor or Init).  However, source nodes
+necessary initialization should happen in the constructor or Init).  However, source nodes
 will typically provide a custom implementation.  Source nodes should schedule whatever tasks
 are needed to start reading and providing the data.  Source nodes are usually the primary
 creator of tasks in a plan.
@@ -52,7 +52,7 @@ Examples
 ^^^^^^^^
 
 * In the ``table_source`` node the input table is divided into batches.  A task is created for
-  each batch and that task calls ``InputRecieved`` on the node's output.
+  each batch and that task calls ``InputReceived`` on the node's output.
 * In the ``scan`` node a task is created to start listing fragments from the dataset.  Each listing
   task then creates tasks to read batches from the fragment, asynchronously.  When the batch is
   full read in then a continuation schedules a new task with the exec plan.  This task calls
@@ -95,7 +95,7 @@ Examples
 
 This method will be called once per input.  A node will call InputFinished on its output once it
 knows how many batches it will be sending to that output.  Normally this happens when the node is
-finished working.  For example, a scan node will call InputFinished once it has finsihed reading
+finished working.  For example, a scan node will call InputFinished once it has finished reading
 its files.  However, it could call it earlier if it knows (maybe from file metadata) how many
 batches will be created.
 
@@ -173,10 +173,10 @@ There is no expectation or requirement that a node sends any remaining data it h
 schedules tasks (e.g. a source node) should stop producing new data.
 
 In addition to plan-wide cancellation, a node may call this method on its input if it has decided
-that it has recevied all the data that it needs.  However, because of parallelism, a node may still
+that it has received all the data that it needs.  However, because of parallelism, a node may still
 receive a few calls to ``InputReceived`` after it has stopped its input.
 
-If any external reosurces are used then cleanup should happen as part of this call.
+If any external resources are used then cleanup should happen as part of this call.
 
 Examples
 ^^^^^^^^
@@ -194,7 +194,7 @@ Initialization / Construction / Destruction
 Simple initialization logic (that cannot error) can be done in the constructor.  If the initialization
 logic may return an invalid status then it can either be done in the exec node's factory method or
 the ``Init`` method.  The factory method is preferred for simple validation.  The ``Init`` method is
-preferred if the intialization might do expensive allocation or other resource consumption.  ``Init`` will
+preferred if the initialization might do expensive allocation or other resource consumption.  ``Init`` will
 always be called before ``StartProducing`` is called.  Initialization could also be done in
 ``StartProducing`` but keep in mind that other nodes may have started by that point.
 
@@ -264,7 +264,7 @@ have 20 files and 10 cores and you want to read and sort all the data.  You coul
 2 files to read and sort those files.  Then you could create one extra plan that takes the input from these
 10 child plans and merges the 10 input streams in a sorted fashion.
 
-This approach is popular because it is how queries are distributed across mulitple servers and so it
+This approach is popular because it is how queries are distributed across multiple servers and so it
 is widely supported and well understood.  Acero does not do this today but there is no reason to prevent it.
 Adding shuffle & partition nodes to Acero should be a high priority and would enable Acero to be used by
 distributed systems.  Once that has been done then it should be possible to do a local shuffle (local
@@ -308,7 +308,7 @@ more complex to implement.
 
 Due to a lack of standard C++ async APIs, Acero uses a combination of the two approaches.  Acero has two thread pools.
 The first is the CPU thread pool.  This thread pool has one thread per core.  Tasks in this thread pool should never
-block (beyond minor delays for synchornization) and should generally be actively using CPU as much as possible.  Threads
+block (beyond minor delays for synchronization) and should generally be actively using CPU as much as possible.  Threads
 on the I/O thread pool are expected to spend most of the time idle.  They should avoid doing any CPU-intensive work.
 Their job is basically to wait for data to be available and schedule follow-up tasks on the CPU thread pool.
 
@@ -329,7 +329,7 @@ exec nodes, scan, project, and then filter (this is a very common use case).  No
 In a task-per-operator model we would have tasks like "Scan Batch 5", "Project Batch 5", and "Filter Batch 5".  Each
 of those tasks is potentially going to access the same data.  For example, maybe the `project` and `filter` nodes need
 to read the same column.  A column which is intially created in a decode phase of the `scan` node.  To maximize cache
-utiliziation we would need to carefully schedule our tasks to ensure that all three of those tasks are run consecutively
+utilization we would need to carefully schedule our tasks to ensure that all three of those tasks are run consecutively
 and assigned to the same CPU core.
 
 To avoid this problem we design tasks that run through as many nodes as possible before the task ends.  This sequence
@@ -378,7 +378,7 @@ yet had to address this problem.  Let's go through some common situations:
    locality.  However, since Acero uses a task-per-pipeline model there isn't much lost opportunity for cache
    parallelism that a scheduler could reclaim.  Tasks only end when there is no more work that can be done with the data.
 
-While there is not much prioritzation in place in Acero today we do have the tools to apply it should we need to.
+While there is not much prioritization in place in Acero today we do have the tools to apply it should we need to.
 
 .. note::
    In addition to the AsyncTaskScheduler there is another class called the TaskScheduler.  This class predates the
@@ -391,7 +391,7 @@ Intra-node Parallelism
 
 Some nodes can potentially exploit parallelism within a task.  For example, in the scan node we can decode
 columns in parallel.  In the hash join node, parallelism is sometimes exploited for complex tasks such as
-building the hash table.  This sort of parallelism is less common but not neccesarily discouraged.  Profiling should
+building the hash table.  This sort of parallelism is less common but not necessarily discouraged.  Profiling should
 be done first though to ensure that this extra parallelism will be helpful in your workload.
 
 All Work Happens in Tasks
@@ -412,7 +412,7 @@ Ordered Execution
 =================
 
 Some nodes either establish an ordering to their outgoing batches or they need to be able to process batches in order.
-Acero handles ordering using the `batch_index` property on an ExecBatch.  If a node has a determinstic output order
+Acero handles ordering using the `batch_index` property on an ExecBatch.  If a node has a deterministic output order
 then it should apply a batch index on batches that it emits.  For example, the OrderByNode applies a new ordering to
 batches (regardless of the incoming ordering).  The scan node is able to attach an implicit ordering to batches which
 reflects the order of the rows in the files being scanned.
@@ -458,7 +458,7 @@ Profiling & Tracing
 ===================
 
 Acero's tracing is currently half-implemented and there are major gaps in profiling tools.  However, there has been some
-effort at tracing with open telemetry and most of the neccesary pieces are in place.  The main thing currently lacking is
+effort at tracing with open telemetry and most of the necessary pieces are in place.  The main thing currently lacking is
 some kind of effective visualization of the tracing results.
 
 In order to use the tracing that is present today you will need to build with Arrow with `ARROW_WITH_OPENTELEMETRY=ON`.
@@ -521,7 +521,7 @@ any particular engine design.  For example, the hash join node uses utilities su
 and an exec batch builder.  Other places share implementations of sequencing queues and row segmenters.  The node
 itself should be kept minimal and simply maps from Acero to the abstraction.
 
-This helps to decouple designs from Acero's design details and allows them to be more resilant to changes in the
+This helps to decouple designs from Acero's design details and allows them to be more resilient to changes in the
 engine.  It also helps to promote these abstractions as capabilities on their own.  Either for use in other engines
 or for potential new additions to pyarrow as compute utilities.
 
@@ -642,7 +642,7 @@ OrderBySink and SelectKSink
 ---------------------------
 
 These two exec nodes provided custom sink implementations.  They were written before ordered execution
-was added to Acero and were the only way to generate ordered ouptut.  However, they had to be placed
+was added to Acero and were the only way to generate ordered output.  However, they had to be placed
 at the end of a plan and the fact that they were custom sink nodes made them difficult to describe with
 Declaration.  The OrderByNode and FetchNode replace these.  These are kept at the moment until existing
 bindings move away from them.
@@ -680,7 +680,7 @@ Because of this, we highly recommend taking the following steps:
 
 * Any PR will need to have the following:
 
-  * Unit tests convering the new functionality
+  * Unit tests converting the new functionality
 
   * Microbenchmarks if there is any significant compute work going on
 
@@ -688,5 +688,5 @@ Because of this, we highly recommend taking the following steps:
 
   * Updates to the API reference and this guide
 
-  * Passing CI (you can enable Github Actions on your fork and that will allow most CI jobs to run before
+  * Passing CI (you can enable GitHub Actions on your fork and that will allow most CI jobs to run before
     you create your PR)

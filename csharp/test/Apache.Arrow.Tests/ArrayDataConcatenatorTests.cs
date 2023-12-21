@@ -26,27 +26,17 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void TestNullOrEmpty()
         {
-            Assert.Null(ArrayDataConcatenatorReflector.InvokeConcatenate(null));
-            Assert.Null(ArrayDataConcatenatorReflector.InvokeConcatenate(new List<ArrayData>()));
+            Assert.Null(ArrayDataConcatenator.Concatenate(null));
+            Assert.Null(ArrayDataConcatenator.Concatenate(new List<ArrayData>()));
         }
 
         [Fact]
         public void TestSingleElement()
         {
             Int32Array array = new Int32Array.Builder().Append(1).Append(2).Build();
-            ArrayData actualArray = ArrayDataConcatenatorReflector.InvokeConcatenate(new[] { array.Data });
+            ArrayData actualArray = ArrayDataConcatenator.Concatenate(new[] { array.Data });
             ArrowReaderVerifier.CompareArrays(array, ArrowArrayFactory.BuildArray(actualArray));
         }
 
-        private static class ArrayDataConcatenatorReflector
-        {
-            private static readonly MethodInfo s_concatenateInfo = typeof(ArrayData).Assembly.GetType("Apache.Arrow.ArrayDataConcatenator")
-                .GetMethod("Concatenate", BindingFlags.Static | BindingFlags.NonPublic);
-
-            internal static ArrayData InvokeConcatenate(IReadOnlyList<ArrayData> arrayDataList, MemoryAllocator allocator = default)
-            {
-                return s_concatenateInfo.Invoke(null, new object[] { arrayDataList, allocator }) as ArrayData;
-            }
-        }
     }
 }

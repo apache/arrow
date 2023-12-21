@@ -76,12 +76,31 @@ to_duckdb <- function(.data,
   tbl
 }
 
+arrow_duck_finalizer <- new.env(parent = emptyenv())
+
 arrow_duck_connection <- function() {
   con <- getOption("arrow_duck_con")
   if (is.null(con) || !DBI::dbIsValid(con)) {
     con <- DBI::dbConnect(duckdb::duckdb())
     # Use the same CPU count that the arrow library is set to
     DBI::dbExecute(con, paste0("PRAGMA threads=", cpu_count()))
+
+    # This connection will get cleaned up at exit using the garbage collector,
+    # but if we don't explicitly run dbDisconnect() the user gets a warning
+    # that they may not expect (since they did not open a duckdb connection).
+    # This bit of code will run when the package namespace is cleaned up (i.e.,
+    # at exit). This is more reliable than .onUnload() or .onDetach(), which
+    # don't necessarily run on exit.
+    reg.finalizer(arrow_duck_finalizer, function(...) {
+      con <- getOption("arrow_duck_con")
+      if (is.null(con)) {
+        return()
+      }
+
+      options(arrow_duck_con = NULL)
+      DBI::dbDisconnect(con, shutdown = TRUE)
+    }, onexit = TRUE)
+
     options(arrow_duck_con = con)
   }
   con
@@ -95,7 +114,7 @@ run_duckdb_examples <- function() {
     packageVersion("duckdb") > "0.2.7" &&
     requireNamespace("dplyr", quietly = TRUE) &&
     requireNamespace("dbplyr", quietly = TRUE) &&
-    getRversion() >= 4
+    getRversion() >= "4"
 }
 
 # Adapted from dbplyr
@@ -116,10 +135,9 @@ duckdb_disconnector <- function(con, tbl_name) {
   environment()
 }
 
-#' Create an Arrow object from others
+#' Create an Arrow object from a DuckDB connection
 #'
-#' This can be used in pipelines that pass data back and forth between Arrow and
-#' other processes (like DuckDB).
+#' This can be used in pipelines that pass data back and forth between Arrow and DuckDB
 #'
 #' @param .data the object to be converted
 #' @return A `RecordBatchReader`.
@@ -156,5 +174,6 @@ to_arrow <- function(.data) {
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  duckdb::duckdb_fetch_record_batch(res)
+  reader <- duckdb::duckdb_fetch_record_batch(res)
+  MakeSafeRecordBatchReader(reader)
 }

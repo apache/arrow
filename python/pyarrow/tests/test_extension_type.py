@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import os
-import pickle
 import shutil
 import subprocess
 import weakref
@@ -30,31 +30,69 @@ from pyarrow.vendored.version import Version
 import pytest
 
 
-class TinyIntType(pa.PyExtensionType):
+@contextlib.contextmanager
+def registered_extension_type(ext_type):
+    pa.register_extension_type(ext_type)
+    try:
+        yield
+    finally:
+        pa.unregister_extension_type(ext_type.extension_name)
+
+
+@contextlib.contextmanager
+def enabled_auto_load():
+    pa.PyExtensionType.set_auto_load(True)
+    try:
+        yield
+    finally:
+        pa.PyExtensionType.set_auto_load(False)
+
+
+class TinyIntType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int8())
+        super().__init__(pa.int8(), 'pyarrow.tests.TinyIntType')
 
-    def __reduce__(self):
-        return TinyIntType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
 
-
-class IntegerType(pa.PyExtensionType):
-
-    def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.int64())
-
-    def __reduce__(self):
-        return IntegerType, ()
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        assert storage_type == pa.int8()
+        return cls()
 
 
-class IntegerEmbeddedType(pa.PyExtensionType):
+class IntegerType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, IntegerType())
+        super().__init__(pa.int64(), 'pyarrow.tests.IntegerType')
 
-    def __reduce__(self):
-        return IntegerEmbeddedType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        assert storage_type == pa.int64()
+        return cls()
+
+
+class IntegerEmbeddedType(pa.ExtensionType):
+
+    def __init__(self):
+        super().__init__(IntegerType(), 'pyarrow.tests.IntegerType')
+
+    def __arrow_ext_serialize__(self):
+        # XXX pa.BaseExtensionType should expose C++ serialization method
+        return self.storage_type.__arrow_ext_serialize__()
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        deserialized_storage_type = storage_type.__arrow_ext_deserialize__(
+            serialized)
+        assert deserialized_storage_type == storage_type
+        return cls()
 
 
 class UuidScalarType(pa.ExtensionScalar):
@@ -62,81 +100,125 @@ class UuidScalarType(pa.ExtensionScalar):
         return None if self.value is None else UUID(bytes=self.value.as_py())
 
 
-class UuidType(pa.PyExtensionType):
+class UuidType(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.binary(16))
-
-    def __reduce__(self):
-        return UuidType, ()
+        super().__init__(pa.binary(16), 'pyarrow.tests.UuidType')
 
     def __arrow_ext_scalar_class__(self):
         return UuidScalarType
 
+    def __arrow_ext_serialize__(self):
+        return b''
 
-class UuidType2(pa.PyExtensionType):
-
-    def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.binary(16))
-
-    def __reduce__(self):
-        return UuidType2, ()
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return cls()
 
 
-class LabelType(pa.PyExtensionType):
+class UuidType2(pa.ExtensionType):
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, pa.string())
+        super().__init__(pa.binary(16), 'pyarrow.tests.UuidType2')
 
-    def __reduce__(self):
-        return LabelType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return cls()
 
 
-class ParamExtType(pa.PyExtensionType):
+class LabelType(pa.ExtensionType):
+
+    def __init__(self):
+        super().__init__(pa.string(), 'pyarrow.tests.LabelType')
+
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        return cls()
+
+
+class ParamExtType(pa.ExtensionType):
 
     def __init__(self, width):
         self._width = width
-        pa.PyExtensionType.__init__(self, pa.binary(width))
+        super().__init__(pa.binary(width), 'pyarrow.tests.ParamExtType')
 
     @property
     def width(self):
         return self._width
 
-    def __reduce__(self):
-        return ParamExtType, (self.width,)
+    def __arrow_ext_serialize__(self):
+        return str(self._width).encode()
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        width = int(serialized.decode())
+        assert storage_type == pa.binary(width)
+        return cls(width)
 
 
-class MyStructType(pa.PyExtensionType):
+class MyStructType(pa.ExtensionType):
     storage_type = pa.struct([('left', pa.int64()),
                               ('right', pa.int64())])
 
     def __init__(self):
-        pa.PyExtensionType.__init__(self, self.storage_type)
+        super().__init__(self.storage_type, 'pyarrow.tests.MyStructType')
 
-    def __reduce__(self):
-        return MyStructType, ()
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        assert storage_type == cls.storage_type
+        return cls()
 
 
-class MyListType(pa.PyExtensionType):
+class MyListType(pa.ExtensionType):
 
     def __init__(self, storage_type):
-        pa.PyExtensionType.__init__(self, storage_type)
+        assert isinstance(storage_type, pa.ListType)
+        super().__init__(storage_type, 'pyarrow.tests.MyListType')
 
-    def __reduce__(self):
-        return MyListType, (self.storage_type,)
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        return cls(storage_type)
 
 
-class AnnotatedType(pa.PyExtensionType):
+class AnnotatedType(pa.ExtensionType):
     """
     Generic extension type that can store any storage type.
     """
 
     def __init__(self, storage_type, annotation):
         self.annotation = annotation
-        super().__init__(storage_type)
+        super().__init__(storage_type, 'pyarrow.tests.AnnotatedType')
+
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        return cls(storage_type)
+
+
+class LegacyIntType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int8())
 
     def __reduce__(self):
-        return AnnotatedType, (self.storage_type, self.annotation)
+        return LegacyIntType, ()
 
 
 def ipc_write_batch(batch):
@@ -154,12 +236,12 @@ def ipc_read_batch(buf):
 
 def test_ext_type_basics():
     ty = UuidType()
-    assert ty.extension_name == "arrow.py_extension_type"
+    assert ty.extension_name == "pyarrow.tests.UuidType"
 
 
 def test_ext_type_str():
     ty = IntegerType()
-    expected = "extension<arrow.py_extension_type<IntegerType>>"
+    expected = "extension<pyarrow.tests.IntegerType<IntegerType>>"
     assert str(ty) == expected
     assert pa.DataType.__str__(ty) == expected
 
@@ -217,14 +299,14 @@ def test_ext_type_as_py():
         assert result.as_py() == expected
 
 
-def test_uuid_type_pickle():
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+def test_uuid_type_pickle(pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = UuidType()
-        ser = pickle.dumps(ty, protocol=proto)
+        ser = pickle_module.dumps(ty, protocol=proto)
         del ty
-        ty = pickle.loads(ser)
+        ty = pickle_module.loads(ser)
         wr = weakref.ref(ty)
-        assert ty.extension_name == "arrow.py_extension_type"
+        assert ty.extension_name == "pyarrow.tests.UuidType"
         del ty
         assert wr() is None
 
@@ -340,8 +422,8 @@ def test_ext_scalar_from_array():
     assert len(scalars_a) == 4
 
     assert ty1.__arrow_ext_scalar_class__() == UuidScalarType
-    assert type(a[0]) == UuidScalarType
-    assert type(scalars_a[0]) == UuidScalarType
+    assert isinstance(a[0], UuidScalarType)
+    assert isinstance(scalars_a[0], UuidScalarType)
 
     for s, val in zip(scalars_a, data):
         assert isinstance(s, pa.ExtensionScalar)
@@ -410,14 +492,14 @@ def test_ext_scalar_from_storage():
     assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
 
 
-def test_ext_array_pickling():
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+def test_ext_array_pickling(pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = ParamExtType(3)
         storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
         arr = pa.ExtensionArray.from_storage(ty, storage)
-        ser = pickle.dumps(arr, protocol=proto)
+        ser = pickle_module.dumps(arr, protocol=proto)
         del ty, storage, arr
-        arr = pickle.loads(ser)
+        arr = pickle_module.loads(ser)
         arr.validate()
         assert isinstance(arr, pa.ExtensionArray)
         assert arr.type == ParamExtType(3)
@@ -572,9 +654,9 @@ def test_cast_between_extension_types():
     assert tiny_int_arr.type == TinyIntType()
 
     # Casting between extension types w/ different storage types not okay.
-    msg = ("Casting from 'extension<arrow.py_extension_type<TinyIntType>>' "
+    msg = ("Casting from 'extension<.*?<TinyIntType>>' "
            "to different extension type "
-           "'extension<arrow.py_extension_type<IntegerType>>' not permitted. "
+           "'extension<.*?<IntegerType>>' not permitted. "
            "One can first cast to the storage type, "
            "then to the extension type."
            )
@@ -661,53 +743,38 @@ def example_batch():
     return pa.RecordBatch.from_arrays([arr], ["exts"])
 
 
-def check_example_batch(batch):
+def check_example_batch(batch, *, expect_extension):
     arr = batch.column(0)
-    assert isinstance(arr, pa.ExtensionArray)
-    assert arr.type.storage_type == pa.binary(3)
-    assert arr.storage.to_pylist() == [b"foo", b"bar"]
+    if expect_extension:
+        assert isinstance(arr, pa.ExtensionArray)
+        assert arr.type.storage_type == pa.binary(3)
+        assert arr.storage.to_pylist() == [b"foo", b"bar"]
+    else:
+        assert arr.type == pa.binary(3)
+        assert arr.to_pylist() == [b"foo", b"bar"]
     return arr
 
 
-def test_ipc():
+def test_ipc_unregistered():
     batch = example_batch()
     buf = ipc_write_batch(batch)
     del batch
 
     batch = ipc_read_batch(buf)
-    arr = check_example_batch(batch)
-    assert arr.type == ParamExtType(3)
+    batch.validate(full=True)
+    check_example_batch(batch, expect_extension=False)
 
 
-def test_ipc_unknown_type():
-    batch = example_batch()
-    buf = ipc_write_batch(batch)
-    del batch
-
-    orig_type = ParamExtType
-    try:
-        # Simulate the original Python type being unavailable.
-        # Deserialization should not fail but return a placeholder type.
-        del globals()['ParamExtType']
+def test_ipc_registered():
+    with registered_extension_type(ParamExtType(1)):
+        batch = example_batch()
+        buf = ipc_write_batch(batch)
+        del batch
 
         batch = ipc_read_batch(buf)
-        arr = check_example_batch(batch)
-        assert isinstance(arr.type, pa.UnknownExtensionType)
-
-        # Can be serialized again
-        buf2 = ipc_write_batch(batch)
-        del batch, arr
-
-        batch = ipc_read_batch(buf2)
-        arr = check_example_batch(batch)
-        assert isinstance(arr.type, pa.UnknownExtensionType)
-    finally:
-        globals()['ParamExtType'] = orig_type
-
-    # Deserialize again with the type restored
-    batch = ipc_read_batch(buf2)
-    arr = check_example_batch(batch)
-    assert arr.type == ParamExtType(3)
+        batch.validate(full=True)
+        arr = check_example_batch(batch, expect_extension=True)
+        assert arr.type == ParamExtType(3)
 
 
 class PeriodArray(pa.ExtensionArray):
@@ -737,7 +804,7 @@ class PeriodType(pa.ExtensionType):
 
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
-            return (type(self) == type(other) and
+            return (isinstance(self, type(other)) and
                     self.freq == other.freq)
         else:
             return NotImplemented
@@ -799,7 +866,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
     # check the built array has exactly the expected clss
-    assert type(arr) == period_class
+    assert isinstance(arr, period_class)
 
     buf = ipc_write_batch(batch)
     del batch
@@ -807,7 +874,7 @@ def test_generic_ext_type_ipc(registered_period_type):
 
     result = batch.column(0)
     # check the deserialized array class is the expected one
-    assert type(result) == period_class
+    assert isinstance(result, period_class)
     assert result.type.extension_name == "test.period"
     assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
@@ -830,7 +897,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     result = batch.column(0)
     assert isinstance(result.type, PeriodType)
     assert result.type.freq == 'H'
-    assert type(result) == period_class
+    assert isinstance(result, period_class)
 
 
 def test_generic_ext_type_ipc_unknown(registered_period_type):
@@ -865,6 +932,31 @@ def test_generic_ext_type_equality():
     period_type3 = PeriodType('H')
     assert period_type == period_type2
     assert not period_type == period_type3
+
+
+def test_generic_ext_type_pickling(registered_period_type, pickle_module):
+    # GH-36038
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        period_type, _ = registered_period_type
+        ser = pickle_module.dumps(period_type, protocol=proto)
+        period_type_pickled = pickle_module.loads(ser)
+        assert period_type == period_type_pickled
+
+
+def test_generic_ext_array_pickling(registered_period_type, pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        period_type, _ = registered_period_type
+        storage = pa.array([1, 2, 3, 4], pa.int64())
+        arr = pa.ExtensionArray.from_storage(period_type, storage)
+        ser = pickle_module.dumps(arr, protocol=proto)
+        del storage, arr
+        arr = pickle_module.loads(ser)
+        arr.validate()
+        assert isinstance(arr, pa.ExtensionArray)
+        assert arr.type == period_type
+        assert arr.type.storage_type == pa.int64()
+        assert arr.storage.type == pa.int64()
+        assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
 
 def test_generic_ext_type_register(registered_period_type):
@@ -906,6 +998,7 @@ def test_parquet_period(tmpdir, registered_period_type):
 
     # When reading in, properly create extension type if it is registered
     result = pq.read_table(filename)
+    result.validate(full=True)
     assert result.schema.field("ext").type == period_type
     assert result.schema.field("ext").metadata == {}
     # Get the exact array class defined by the registered type.
@@ -915,6 +1008,7 @@ def test_parquet_period(tmpdir, registered_period_type):
     # When the type is not registered, read in as storage type
     pa.unregister_extension_type(period_type.extension_name)
     result = pq.read_table(filename)
+    result.validate(full=True)
     assert result.schema.field("ext").type == pa.int64()
     # The extension metadata is present for roundtripping.
     assert result.schema.field("ext").metadata == {
@@ -943,13 +1037,28 @@ def test_parquet_extension_with_nested_storage(tmpdir):
     filename = tmpdir / 'nested_extension_storage.parquet'
     pq.write_table(orig_table, filename)
 
+    # Unregistered
     table = pq.read_table(filename)
-    assert table.column('structs').type == mystruct_array.type
-    assert table.column('lists').type == mylist_array.type
-    assert table == orig_table
+    table.validate(full=True)
+    assert table.column('structs').type == struct_array.type
+    assert table.column('structs').combine_chunks() == struct_array
+    assert table.column('lists').type == list_array.type
+    assert table.column('lists').combine_chunks() == list_array
 
-    with pytest.raises(pa.ArrowInvalid, match='without all of its fields'):
-        pq.ParquetFile(filename).read(columns=['structs.left'])
+    # Registered
+    with registered_extension_type(mystruct_array.type):
+        with registered_extension_type(mylist_array.type):
+            table = pq.read_table(filename)
+            table.validate(full=True)
+            assert table.column('structs').type == mystruct_array.type
+            assert table.column('lists').type == mylist_array.type
+            assert table == orig_table
+
+            # Cannot select a subfield of an extension type with
+            # a struct storage type.
+            with pytest.raises(pa.ArrowInvalid,
+                               match='without all of its fields'):
+                pq.ParquetFile(filename).read(columns=['structs.left'])
 
 
 @pytest.mark.parquet
@@ -971,8 +1080,14 @@ def test_parquet_nested_extension(tmpdir):
     pq.write_table(orig_table, filename)
 
     table = pq.read_table(filename)
-    assert table.column(0).type == struct_array.type
-    assert table == orig_table
+    table.validate(full=True)
+    assert table.column(0).type == pa.struct({'ints': pa.int64(),
+                                              'exts': pa.int64()})
+    with registered_extension_type(ext_type):
+        table = pq.read_table(filename)
+        table.validate(full=True)
+        assert table.column(0).type == struct_array.type
+        assert table == orig_table
 
     # List of extensions
     list_array = pa.ListArray.from_arrays([0, 1, None, 3], ext_array)
@@ -982,8 +1097,13 @@ def test_parquet_nested_extension(tmpdir):
     pq.write_table(orig_table, filename)
 
     table = pq.read_table(filename)
-    assert table.column(0).type == list_array.type
-    assert table == orig_table
+    table.validate(full=True)
+    assert table.column(0).type == pa.list_(pa.int64())
+    with registered_extension_type(ext_type):
+        table = pq.read_table(filename)
+        table.validate(full=True)
+        assert table.column(0).type == list_array.type
+        assert table == orig_table
 
     # Large list of extensions
     list_array = pa.LargeListArray.from_arrays([0, 1, None, 3], ext_array)
@@ -993,8 +1113,13 @@ def test_parquet_nested_extension(tmpdir):
     pq.write_table(orig_table, filename)
 
     table = pq.read_table(filename)
-    assert table.column(0).type == list_array.type
-    assert table == orig_table
+    table.validate(full=True)
+    assert table.column(0).type == pa.large_list(pa.int64())
+    with registered_extension_type(ext_type):
+        table = pq.read_table(filename)
+        table.validate(full=True)
+        assert table.column(0).type == list_array.type
+        assert table == orig_table
 
 
 @pytest.mark.parquet
@@ -1016,8 +1141,12 @@ def test_parquet_extension_nested_in_extension(tmpdir):
     pq.write_table(orig_table, filename)
 
     table = pq.read_table(filename)
-    assert table.column(0).type == mylist_array.type
-    assert table == orig_table
+    assert table.column(0).type == pa.list_(pa.int64())
+    with registered_extension_type(mylist_array.type):
+        with registered_extension_type(inner_ext_array.type):
+            table = pq.read_table(filename)
+            assert table.column(0).type == mylist_array.type
+            assert table == orig_table
 
 
 def test_to_numpy():
@@ -1071,7 +1200,8 @@ def test_empty_take():
     ([1, 2, 3], IntegerType),
     (["cat", "dog", "horse"], LabelType)
 ))
-@pytest.mark.parametrize("into", ("to_numpy", "to_pandas"))
+@pytest.mark.parametrize(
+    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
@@ -1198,6 +1328,10 @@ def test_tensor_class_methods():
     result = arr.to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
+    expected = np.array([[[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    result = arr[:1].to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
     arr = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
         dtype=np.float32, order="C")
@@ -1231,7 +1365,7 @@ def test_tensor_type_ipc(tensor_type):
 
     # check the built array has exactly the expected clss
     tensor_class = tensor_type.__arrow_ext_class__()
-    assert type(arr) == tensor_class
+    assert isinstance(arr, tensor_class)
 
     buf = ipc_write_batch(batch)
     del batch
@@ -1239,7 +1373,7 @@ def test_tensor_type_ipc(tensor_type):
 
     result = batch.column(0)
     # check the deserialized array class is the expected one
-    assert type(result) == tensor_class
+    assert isinstance(result, tensor_class)
     assert result.type.extension_name == "arrow.fixed_shape_tensor"
     assert arr.storage.to_pylist() == [[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]]
 
@@ -1308,17 +1442,58 @@ def test_extension_to_pandas_storage_type(registered_period_type):
         assert isinstance(result["ext"].dtype, pd.ArrowDtype)
 
 
-def test_tensor_type_is_picklable():
+def test_tensor_type_is_picklable(pickle_module):
     # GH-35599
 
     expected_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
-    result = pickle.loads(pickle.dumps(expected_type))
+    result = pickle_module.loads(pickle_module.dumps(expected_type))
 
     assert result == expected_type
 
     arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
     storage = pa.array(arr, pa.list_(pa.int32(), 4))
     expected_arr = pa.ExtensionArray.from_storage(expected_type, storage)
-    result = pickle.loads(pickle.dumps(expected_arr))
+    result = pickle_module.loads(pickle_module.dumps(expected_arr))
 
     assert result == expected_arr
+
+
+@pytest.mark.parametrize(("tensor_type", "text"), [
+    (
+        pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
+        'fixed_shape_tensor[value_type=int8, shape=[2,2,3]]'
+    ),
+    (
+        pa.fixed_shape_tensor(pa.int32(), [2, 2, 3], permutation=[0, 2, 1]),
+        'fixed_shape_tensor[value_type=int32, shape=[2,2,3], permutation=[0,2,1]]'
+    ),
+    (
+        pa.fixed_shape_tensor(pa.int64(), [2, 2, 3], dim_names=['C', 'H', 'W']),
+        'fixed_shape_tensor[value_type=int64, shape=[2,2,3], dim_names=[C,H,W]]'
+    )
+])
+def test_tensor_type_str(tensor_type, text):
+    tensor_type_str = tensor_type.__str__()
+    assert text in tensor_type_str
+
+
+def test_legacy_int_type():
+    with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
+        ext_ty = LegacyIntType()
+    arr = pa.array([1, 2, 3], type=ext_ty.storage_type)
+    ext_arr = pa.ExtensionArray.from_storage(ext_ty, arr)
+    batch = pa.RecordBatch.from_arrays([ext_arr], names=['ext'])
+    buf = ipc_write_batch(batch)
+
+    with pytest.warns(
+            RuntimeWarning,
+            match="pickle-based deserialization of pyarrow.PyExtensionType "
+                  "subclasses is disabled by default"):
+        batch = ipc_read_batch(buf)
+        assert isinstance(batch.column(0).type, pa.UnknownExtensionType)
+
+    with enabled_auto_load():
+        with pytest.warns(FutureWarning, match="PyExtensionType is deprecated"):
+            batch = ipc_read_batch(buf)
+            assert isinstance(batch.column(0).type, LegacyIntType)
+            assert batch.column(0) == ext_arr

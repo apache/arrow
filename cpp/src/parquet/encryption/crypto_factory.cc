@@ -26,8 +26,7 @@
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_toolkit_internal.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
@@ -192,5 +191,4 @@ void CryptoFactory::RotateMasterKeys(
                                 double_wrapping, cache_lifetime_seconds);
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

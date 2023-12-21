@@ -23,12 +23,14 @@ on:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'python/**'
   pull_request:
     paths:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'python/**'
 
 concurrency:
@@ -53,52 +55,52 @@ jobs:
       matrix:
         name:
           - conda-python-docs
-          - conda-python-3.8-nopandas
-          - conda-python-3.7-pandas-1.0
-          - conda-python-3.9-pandas-latest
+          - conda-python-3.9-nopandas
+          - conda-python-3.8-pandas-1.0
+          - conda-python-3.10-pandas-latest
         include:
           - name: conda-python-docs
             cache: conda-python-3.9
             image: conda-python-docs
             title: AMD64 Conda Python 3.9 Sphinx & Numpydoc
             python: 3.9
-          - name: conda-python-3.8-nopandas
-            cache: conda-python-3.8
-            image: conda-python
-            title: AMD64 Conda Python 3.8 Without Pandas
-            python: 3.8
-          - name: conda-python-3.7-pandas-1.0
-            cache: conda-python-3.7
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.7 Pandas 1.0
-            python: 3.7
-            pandas: 1.0
-            numpy: 1.16
-          - name: conda-python-3.9-pandas-latest
+          - name: conda-python-3.9-nopandas
             cache: conda-python-3.9
-            image: conda-python-pandas
-            title: AMD64 Conda Python 3.9 Pandas latest
+            image: conda-python
+            title: AMD64 Conda Python 3.9 Without Pandas
             python: 3.9
+          - name: conda-python-3.8-pandas-1.0
+            cache: conda-python-3.8
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.8 Pandas 1.0
+            python: 3.8
+            pandas: "1.0"
+            numpy: 1.16
+          - name: conda-python-3.10-pandas-latest
+            cache: conda-python-3.10
+            image: conda-python-pandas
+            title: AMD64 Conda Python 3.10 Pandas latest
+            python: "3.10"
             pandas: latest
     env:
-      PYTHON: ${{ matrix.python || 3.7 }}
-      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      PYTHON: ${{ matrix.python || 3.8 }}
+      UBUNTU: ${{ matrix.ubuntu || 20.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
           restore-keys: ${{ matrix.cache }}-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -112,7 +114,11 @@ jobs:
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -150,26 +156,18 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: 10.15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install Dependencies
         shell: bash
         run: |
-          rm -f /usr/local/bin/2to3* || :
-          rm -f /usr/local/bin/idle3* || :
-          rm -f /usr/local/bin/pydoc3* || :
-          rm -f /usr/local/bin/python3* || :
-          rm -f /usr/local/bin/python3-config || :
-          brew update --preinstall
-          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
-          brew install coreutils
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt

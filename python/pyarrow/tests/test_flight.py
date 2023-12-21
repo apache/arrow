@@ -577,7 +577,7 @@ class NoopAuthHandler(ServerAuthHandler):
 
 def case_insensitive_header_lookup(headers, lookup_key):
     """Lookup the value of given key in the given headers.
-       The key lookup is case insensitive.
+       The key lookup is case-insensitive.
     """
     for key in headers:
         if key.lower() == lookup_key.lower():
@@ -833,7 +833,7 @@ class MultiHeaderClientMiddleware(ClientMiddleware):
     def received_headers(self, headers):
         # Let the test code know what the last set of headers we
         # received were.
-        self.factory.last_headers = headers
+        self.factory.last_headers.update(headers)
 
 
 class MultiHeaderServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -1495,7 +1495,7 @@ def test_tls_override_hostname():
     """Check that incorrectly overriding the hostname fails."""
     certs = example_tls_certs()
 
-    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s,\
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s, \
         flight.connect(('localhost', s.port),
                        tls_root_certs=certs["root_cert"],
                        override_hostname="fakehostname") as client:
@@ -2323,3 +2323,45 @@ def test_do_put_does_not_crash_when_schema_is_none():
     with pytest.raises(TypeError, match=msg):
         client.do_put(flight.FlightDescriptor.for_command('foo'),
                       schema=None)
+
+
+def test_headers_trailers():
+    """Ensure that server-sent headers/trailers make it through."""
+
+    class HeadersTrailersFlightServer(FlightServerBase):
+        def get_flight_info(self, context, descriptor):
+            context.add_header("x-header", "header-value")
+            context.add_header("x-header-bin", "header\x01value")
+            context.add_trailer("x-trailer", "trailer-value")
+            context.add_trailer("x-trailer-bin", "trailer\x01value")
+            return flight.FlightInfo(
+                pa.schema([]),
+                descriptor,
+                [],
+                -1, -1
+            )
+
+    class HeadersTrailersMiddlewareFactory(ClientMiddlewareFactory):
+        def __init__(self):
+            self.headers = []
+
+        def start_call(self, info):
+            return HeadersTrailersMiddleware(self)
+
+    class HeadersTrailersMiddleware(ClientMiddleware):
+        def __init__(self, factory):
+            self.factory = factory
+
+        def received_headers(self, headers):
+            for key, values in headers.items():
+                for value in values:
+                    self.factory.headers.append((key, value))
+
+    factory = HeadersTrailersMiddlewareFactory()
+    with HeadersTrailersFlightServer() as server, \
+            FlightClient(("localhost", server.port), middleware=[factory]) as client:
+        client.get_flight_info(flight.FlightDescriptor.for_path(""))
+        assert ("x-header", "header-value") in factory.headers
+        assert ("x-header-bin", b"header\x01value") in factory.headers
+        assert ("x-trailer", "trailer-value") in factory.headers
+        assert ("x-trailer-bin", b"trailer\x01value") in factory.headers

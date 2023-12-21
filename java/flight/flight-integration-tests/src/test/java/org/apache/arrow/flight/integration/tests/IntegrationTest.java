@@ -34,6 +34,26 @@ class IntegrationTest {
   }
 
   @Test
+  void expirationTimeCancelFlightInfo() throws Exception {
+    testScenario("expiration_time:cancel_flight_info");
+  }
+
+  @Test
+  void expirationTimeDoGet() throws Exception {
+    testScenario("expiration_time:do_get");
+  }
+
+  @Test
+  void expirationTimeListActions() throws Exception {
+    testScenario("expiration_time:list_actions");
+  }
+
+  @Test
+  void expirationTimeRenewFlightEndpoint() throws Exception {
+    testScenario("expiration_time:renew_flight_endpoint");
+  }
+
+  @Test
   void middleware() throws Exception {
     testScenario("middleware");
   }
@@ -44,6 +64,11 @@ class IntegrationTest {
   }
 
   @Test
+  void pollFlightInfo() throws Exception {
+    testScenario("poll_flight_info");
+  }
+
+  @Test
   void flightSql() throws Exception {
     testScenario("flight_sql");
   }
@@ -51,6 +76,11 @@ class IntegrationTest {
   @Test
   void flightSqlExtension() throws Exception {
     testScenario("flight_sql:extension");
+  }
+
+  @Test
+  void appMetadataFlightInfoEndpoint() throws Exception {
+    testScenario("app_metadata_flight_info_endpoint");
   }
 
   void testScenario(String scenarioName) throws Exception {

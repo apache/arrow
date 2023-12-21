@@ -30,7 +30,6 @@ import {
     wrapChunkedCall2,
     wrapChunkedIndexOf,
 } from './util/chunk.js';
-import { BigInt64Array, BigUint64Array } from './util/compat.js';
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
@@ -100,8 +99,6 @@ export class Vector<T extends DataType = any> {
     }
 
     declare protected _offsets: number[] | Uint32Array;
-    declare protected _nullCount: number;
-    declare protected _byteLength: number;
 
     /**
      * The {@link DataType `DataType`} of this Vector.
@@ -132,20 +129,14 @@ export class Vector<T extends DataType = any> {
      * The aggregate size (in bytes) of this Vector's buffers and/or child Vectors.
      */
     public get byteLength() {
-        if (this._byteLength === -1) {
-            this._byteLength = this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
-        }
-        return this._byteLength;
+        return this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
     }
 
     /**
      * The number of null elements in this Vector.
      */
     public get nullCount() {
-        if (this._nullCount === -1) {
-            this._nullCount = computeChunkNullCounts(this.data);
-        }
-        return this._nullCount;
+        return computeChunkNullCounts(this.data);
     }
 
     /**
@@ -196,7 +187,10 @@ export class Vector<T extends DataType = any> {
     // @ts-ignore
     public indexOf(element: T['TValue'], offset?: number): number { return -1; }
 
-    public includes(element: T['TValue'], offset?: number): boolean { return this.indexOf(element, offset) > 0; }
+    public includes(element: T['TValue'], offset?: number): boolean {
+        // eslint-disable-next-line unicorn/prefer-includes
+        return this.indexOf(element, offset) > -1;
+    }
 
     /**
      * Get the size in bytes of an element by index.
@@ -308,8 +302,8 @@ export class Vector<T extends DataType = any> {
      * values.
      *
      * Memoization is very useful when decoding a value is expensive such as
-     * Uft8. The memoization creates a cache of the size of the Vector and
-     * therfore increases memory usage.
+     * Utf8. The memoization creates a cache of the size of the Vector and
+     * therefore increases memory usage.
      *
      * @returns A new vector that memoizes calls to {@link get}.
      */
@@ -330,7 +324,7 @@ export class Vector<T extends DataType = any> {
      * Returns a vector without memoization of the {@link get} method. If this
      * vector is not memoized, this method returns this vector.
      *
-     * @returns A a vector without memoization.
+     * @returns A new vector without memoization.
      */
     public unmemoize(): Vector<T> {
         if (DataType.isDictionary(this.type) && this.isMemoized) {
@@ -353,8 +347,6 @@ export class Vector<T extends DataType = any> {
         (proto as any).length = 0;
         (proto as any).stride = 1;
         (proto as any).numChildren = 0;
-        (proto as any)._nullCount = -1;
-        (proto as any)._byteLength = -1;
         (proto as any)._offsets = new Uint32Array([0]);
         (proto as any)[Symbol.isConcatSpreadable] = true;
 

@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
           static_cast<parquet::BoolWriter*>(rg_writer->column(col_id));
       bool bool_value = ((i % 2) == 0) ? true : false;
       bool_writer->WriteBatch(1, nullptr, nullptr, &bool_value);
-      buffered_values_estimate[col_id] = bool_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = bool_writer->estimated_buffered_value_bytes();
 
       // Write the Int32 column
       col_id++;
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
           static_cast<parquet::Int32Writer*>(rg_writer->column(col_id));
       int32_t int32_value = i;
       int32_writer->WriteBatch(1, nullptr, nullptr, &int32_value);
-      buffered_values_estimate[col_id] = int32_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = int32_writer->estimated_buffered_value_bytes();
 
       // Write the Int64 column. Each row has repeats twice.
       col_id++;
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
       int64_t int64_value2 = (2 * i + 1);
       repetition_level = 1;  // start of a new record
       int64_writer->WriteBatch(1, &definition_level, &repetition_level, &int64_value2);
-      buffered_values_estimate[col_id] = int64_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = int64_writer->estimated_buffered_value_bytes();
 
       // Write the INT96 column.
       col_id++;
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
       int96_value.value[1] = i + 1;
       int96_value.value[2] = i + 2;
       int96_writer->WriteBatch(1, nullptr, nullptr, &int96_value);
-      buffered_values_estimate[col_id] = int96_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = int96_writer->estimated_buffered_value_bytes();
 
       // Write the Float column
       col_id++;
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
           static_cast<parquet::FloatWriter*>(rg_writer->column(col_id));
       float float_value = static_cast<float>(i) * 1.1f;
       float_writer->WriteBatch(1, nullptr, nullptr, &float_value);
-      buffered_values_estimate[col_id] = float_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = float_writer->estimated_buffered_value_bytes();
 
       // Write the Double column
       col_id++;
@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
           static_cast<parquet::DoubleWriter*>(rg_writer->column(col_id));
       double double_value = i * 1.1111111;
       double_writer->WriteBatch(1, nullptr, nullptr, &double_value);
-      buffered_values_estimate[col_id] = double_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = double_writer->estimated_buffered_value_bytes();
 
       // Write the ByteArray column. Make every alternate values NULL
       col_id++;
@@ -166,7 +166,7 @@ int main(int argc, char** argv) {
         int16_t definition_level = 0;
         ba_writer->WriteBatch(1, &definition_level, nullptr, nullptr);
       }
-      buffered_values_estimate[col_id] = ba_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = ba_writer->estimated_buffered_value_bytes();
 
       // Write the FixedLengthByteArray column
       col_id++;
@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
       flba_value.ptr = reinterpret_cast<const uint8_t*>(&flba[0]);
 
       flba_writer->WriteBatch(1, nullptr, nullptr, &flba_value);
-      buffered_values_estimate[col_id] = flba_writer->EstimatedBufferedValueBytes();
+      buffered_values_estimate[col_id] = flba_writer->estimated_buffered_value_bytes();
     }
 
     // Close the RowGroupWriter

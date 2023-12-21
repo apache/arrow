@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using FlatBuffers;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -24,6 +23,7 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Types;
 using Apache.Arrow.Memory;
+using Google.FlatBuffers;
 using Type = System.Type;
 
 namespace Apache.Arrow.Ipc
@@ -116,11 +116,11 @@ namespace Apache.Arrow.Ipc
                     break;
                 case Flatbuf.MessageHeader.DictionaryBatch:
                     Flatbuf.DictionaryBatch dictionaryBatch = message.Header<Flatbuf.DictionaryBatch>().Value;
-                    ReadDictionaryBatch(dictionaryBatch, bodyByteBuffer, memoryOwner);
+                    ReadDictionaryBatch(message.Version, dictionaryBatch, bodyByteBuffer, memoryOwner);
                     break;
                 case Flatbuf.MessageHeader.RecordBatch:
                     Flatbuf.RecordBatch rb = message.Header<Flatbuf.RecordBatch>().Value;
-                    List<IArrowArray> arrays = BuildArrays(Schema, bodyByteBuffer, rb);
+                    List<IArrowArray> arrays = BuildArrays(message.Version, Schema, bodyByteBuffer, rb);
                     return new RecordBatch(Schema, memoryOwner, arrays, (int)rb.Length);
                 default:
                     // NOTE: Skip unsupported message type
@@ -136,7 +136,11 @@ namespace Apache.Arrow.Ipc
             return new ByteBuffer(new ReadOnlyMemoryBufferAllocator(buffer), 0);
         }
 
-        private void ReadDictionaryBatch(Flatbuf.DictionaryBatch dictionaryBatch, ByteBuffer bodyByteBuffer, IMemoryOwner<byte> memoryOwner)
+        private void ReadDictionaryBatch(
+            MetadataVersion version,
+            Flatbuf.DictionaryBatch dictionaryBatch,
+            ByteBuffer bodyByteBuffer,
+            IMemoryOwner<byte> memoryOwner)
         {
             long id = dictionaryBatch.Id;
             IArrowType valueType = DictionaryMemo.GetDictionaryType(id);
@@ -149,7 +153,7 @@ namespace Apache.Arrow.Ipc
 
             Field valueField = new Field("dummy", valueType, true);
             var schema = new Schema(new[] { valueField }, default);
-            IList<IArrowArray> arrays = BuildArrays(schema, bodyByteBuffer, recordBatch.Value);
+            IList<IArrowArray> arrays = BuildArrays(version, schema, bodyByteBuffer, recordBatch.Value);
 
             if (arrays.Count != 1)
             {
@@ -167,6 +171,7 @@ namespace Apache.Arrow.Ipc
         }
 
         private List<IArrowArray> BuildArrays(
+            MetadataVersion version,
             Schema schema,
             ByteBuffer messageBuffer,
             Flatbuf.RecordBatch recordBatchMessage)
@@ -187,8 +192,8 @@ namespace Apache.Arrow.Ipc
                 Flatbuf.FieldNode fieldNode = recordBatchEnumerator.CurrentNode;
 
                 ArrayData arrayData = field.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator)
-                    : LoadVariableField(ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator);
+                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator)
+                    : LoadVariableField(version, ref recordBatchEnumerator, field, in fieldNode, messageBuffer, bufferCreator);
 
                 arrays.Add(ArrowArrayFactory.BuildArray(arrayData));
             } while (recordBatchEnumerator.MoveNextNode());
@@ -225,6 +230,7 @@ namespace Apache.Arrow.Ipc
         }
 
         private ArrayData LoadPrimitiveField(
+            MetadataVersion version,
             ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
             in Flatbuf.FieldNode fieldNode,
@@ -245,31 +251,44 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
             }
 
-            if (field.DataType.TypeId == ArrowTypeId.Null)
+            int buffers;
+            switch (field.DataType.TypeId)
             {
-                return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, System.Array.Empty<ArrowBuffer>());
+                case ArrowTypeId.Null:
+                    return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, System.Array.Empty<ArrowBuffer>());
+                case ArrowTypeId.Union:
+                    if (version < MetadataVersion.V5)
+                    {
+                        if (fieldNullCount > 0)
+                        {
+                            if (recordBatchEnumerator.CurrentBuffer.Length > 0)
+                            {
+                                // With older metadata we can get a validity bitmap. Fixing up union data is hard,
+                                // so we will just quit.
+                                throw new NotSupportedException("Cannot read pre-1.0.0 Union array with top-level validity bitmap");
+                            }
+                        }
+                        recordBatchEnumerator.MoveNextBuffer();
+                    }
+                    buffers = ((UnionType)field.DataType).Mode == Types.UnionMode.Dense ? 2 : 1;
+                    break;
+                case ArrowTypeId.Struct:
+                case ArrowTypeId.FixedSizeList:
+                    buffers = 1;
+                    break;
+                default:
+                    buffers = 2;
+                    break;
             }
 
-            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
+            ArrowBuffer[] arrowBuff = new ArrowBuffer[buffers];
+            for (int i = 0; i < buffers; i++)
             {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-
-            ArrowBuffer[] arrowBuff;
-            if (field.DataType.TypeId == ArrowTypeId.Struct)
-            {
-                arrowBuff = new[] { nullArrowBuffer };
-            }
-            else
-            {
-                ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
+                arrowBuff[i] = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
                 recordBatchEnumerator.MoveNextBuffer();
-
-                arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
             }
 
-            ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData, bufferCreator);
+            ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator);
 
             IArrowArray dictionary = null;
             if (field.DataType.TypeId == ArrowTypeId.Dictionary)
@@ -282,6 +301,7 @@ namespace Apache.Arrow.Ipc
         }
 
         private ArrayData LoadVariableField(
+            MetadataVersion version,
             ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
             in Flatbuf.FieldNode fieldNode,
@@ -316,7 +336,7 @@ namespace Apache.Arrow.Ipc
             }
 
             ArrowBuffer[] arrowBuff = new[] { nullArrowBuffer, offsetArrowBuffer, valueArrowBuffer };
-            ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData, bufferCreator);
+            ArrayData[] children = GetChildren(version, ref recordBatchEnumerator, field, bodyData, bufferCreator);
 
             IArrowArray dictionary = null;
             if (field.DataType.TypeId == ArrowTypeId.Dictionary)
@@ -329,6 +349,7 @@ namespace Apache.Arrow.Ipc
         }
 
         private ArrayData[] GetChildren(
+            MetadataVersion version,
             ref RecordBatchEnumerator recordBatchEnumerator,
             Field field,
             ByteBuffer bodyData,
@@ -345,8 +366,8 @@ namespace Apache.Arrow.Ipc
 
                 Field childField = type.Fields[index];
                 ArrayData child = childField.DataType.IsFixedPrimitive()
-                    ? LoadPrimitiveField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator)
-                    : LoadVariableField(ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator);
+                    ? LoadPrimitiveField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator)
+                    : LoadVariableField(version, ref recordBatchEnumerator, childField, in childFieldNode, bodyData, bufferCreator);
 
                 children[index] = child;
             }

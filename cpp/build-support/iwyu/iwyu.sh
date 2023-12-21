@@ -49,8 +49,8 @@ affected_files() {
 include-what-you-use --version
 
 if [[ "${1:-}" == "all" ]]; then
-    python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} \
-        -- $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
+  ${PYTHON:-python3} $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} \
+      -- $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
 elif [[ "${1:-}" == "match" ]]; then
   ALL_FILES=
   IWYU_FILE_LIST=
@@ -61,7 +61,7 @@ elif [[ "${1:-}" == "match" ]]; then
   done
 
   echo "Running IWYU on $IWYU_FILE_LIST"
-  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py \
+  ${PYTHON:-python3} $ROOT/cpp/build-support/iwyu/iwyu_tool.py \
       -p ${IWYU_COMPILATION_DATABASE_PATH:-.} $IWYU_FILE_LIST  -- \
        $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
 else
@@ -78,7 +78,7 @@ else
     IWYU_FILE_LIST="$IWYU_FILE_LIST $ROOT/$p"
   done
 
-  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py \
+  ${PYTHON:-python3} $ROOT/cpp/build-support/iwyu/iwyu_tool.py \
       -p ${IWYU_COMPILATION_DATABASE_PATH:-.} $IWYU_FILE_LIST  -- \
        $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk > $IWYU_LOG
 fi

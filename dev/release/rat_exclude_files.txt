@@ -12,6 +12,7 @@ ci/etc/*.patch
 ci/vcpkg/*.patch
 CHANGELOG.md
 cpp/CHANGELOG_PARQUET.md
+cpp/src/arrow/c/dlpack_abi.h
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
@@ -22,8 +23,6 @@ cpp/build-support/cpplint.py
 cpp/build-support/lint_exclusions.txt
 cpp/build-support/iwyu/*
 cpp/cmake_modules/FindPythonLibsNew.cmake
-cpp/cmake_modules/SnappyCMakeLists.txt
-cpp/cmake_modules/SnappyConfig.h
 cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
 cpp/src/generated/parquet_constants.cpp
@@ -63,8 +62,7 @@ docs/requirements.txt
 go.work.sum
 go/go.sum
 go/arrow/Gopkg.lock
-go/arrow/flight/internal/flight/Flight.pb.go
-go/arrow/flight/internal/flight/Flight_grpc.pb.go
+go/arrow/flight/gen/flight/*.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
@@ -89,8 +87,6 @@ js/yarn.lock
 js/.eslintignore
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
-python/cmake_modules/SnappyCMakeLists.txt
-python/cmake_modules/SnappyConfig.h
 python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
@@ -114,8 +110,10 @@ csharp/src/Apache.Arrow/Properties/Resources.resx
 csharp/src/Apache.Arrow.Flight/Apache.Arrow.Flight.csproj
 csharp/src/Apache.Arrow.Flight.AspNetCore/Apache.Arrow.Flight.AspNetCore.csproj
 csharp/src/Apache.Arrow.Compression/Apache.Arrow.Compression.csproj
+csharp/src/Apache.Arrow.Flight.Sql/Apache.Arrow.Flight.Sql.csproj
 csharp/test/Apache.Arrow.Benchmarks/Apache.Arrow.Benchmarks.csproj
 csharp/test/Apache.Arrow.Flight.Tests/Apache.Arrow.Flight.Tests.csproj
+csharp/test/Apache.Arrow.Flight.Sql.Tests/Apache.Arrow.Flight.Sql.Tests.csproj
 csharp/test/Apache.Arrow.Flight.TestWeb/Apache.Arrow.Flight.TestWeb.csproj
 csharp/test/Apache.Arrow.IntegrationTest/Apache.Arrow.IntegrationTest.csproj
 csharp/test/Apache.Arrow.Tests/Apache.Arrow.Tests.csproj

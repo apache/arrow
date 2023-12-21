@@ -45,6 +45,7 @@ class Future;
 
 namespace util {
 class Codec;
+class CodecOptions;
 }  // namespace util
 
 class Buffer;
@@ -68,6 +69,7 @@ using FieldVector = std::vector<std::shared_ptr<Field>>;
 
 class Array;
 struct ArrayData;
+struct ArraySpan;
 class ArrayBuilder;
 struct Scalar;
 
@@ -108,6 +110,11 @@ class BinaryArray;
 class BinaryBuilder;
 struct BinaryScalar;
 
+class BinaryViewType;
+class BinaryViewArray;
+class BinaryViewBuilder;
+struct BinaryViewScalar;
+
 class LargeBinaryType;
 class LargeBinaryArray;
 class LargeBinaryBuilder;
@@ -123,6 +130,11 @@ class StringArray;
 class StringBuilder;
 struct StringScalar;
 
+class StringViewType;
+class StringViewArray;
+class StringViewBuilder;
+struct StringViewScalar;
+
 class LargeStringType;
 class LargeStringArray;
 class LargeStringBuilder;
@@ -137,6 +149,16 @@ class LargeListType;
 class LargeListArray;
 class LargeListBuilder;
 struct LargeListScalar;
+
+class ListViewType;
+class ListViewArray;
+class ListViewBuilder;
+struct ListViewScalar;
+
+class LargeListViewType;
+class LargeListViewArray;
+class LargeListViewBuilder;
+struct LargeListViewScalar;
 
 class MapType;
 class MapArray;
@@ -290,128 +312,141 @@ struct Type {
     NA = 0,
 
     /// Boolean as 1 bit, LSB bit-packed ordering
-    BOOL,
+    BOOL = 1,
 
     /// Unsigned 8-bit little-endian integer
-    UINT8,
+    UINT8 = 2,
 
     /// Signed 8-bit little-endian integer
-    INT8,
+    INT8 = 3,
 
     /// Unsigned 16-bit little-endian integer
-    UINT16,
+    UINT16 = 4,
 
     /// Signed 16-bit little-endian integer
-    INT16,
+    INT16 = 5,
 
     /// Unsigned 32-bit little-endian integer
-    UINT32,
+    UINT32 = 6,
 
     /// Signed 32-bit little-endian integer
-    INT32,
+    INT32 = 7,
 
     /// Unsigned 64-bit little-endian integer
-    UINT64,
+    UINT64 = 8,
 
     /// Signed 64-bit little-endian integer
-    INT64,
+    INT64 = 9,
 
     /// 2-byte floating point value
-    HALF_FLOAT,
+    HALF_FLOAT = 10,
 
     /// 4-byte floating point value
-    FLOAT,
+    FLOAT = 11,
 
     /// 8-byte floating point value
-    DOUBLE,
+    DOUBLE = 12,
 
     /// UTF8 variable-length string as List<Char>
-    STRING,
+    STRING = 13,
 
     /// Variable-length bytes (no guarantee of UTF8-ness)
-    BINARY,
+    BINARY = 14,
 
     /// Fixed-size binary. Each value occupies the same number of bytes
-    FIXED_SIZE_BINARY,
+    FIXED_SIZE_BINARY = 15,
 
     /// int32_t days since the UNIX epoch
-    DATE32,
+    DATE32 = 16,
 
     /// int64_t milliseconds since the UNIX epoch
-    DATE64,
+    DATE64 = 17,
 
     /// Exact timestamp encoded with int64 since UNIX epoch
     /// Default unit millisecond
-    TIMESTAMP,
+    TIMESTAMP = 18,
 
     /// Time as signed 32-bit integer, representing either seconds or
     /// milliseconds since midnight
-    TIME32,
+    TIME32 = 19,
 
     /// Time as signed 64-bit integer, representing either microseconds or
     /// nanoseconds since midnight
-    TIME64,
+    TIME64 = 20,
 
     /// YEAR_MONTH interval in SQL style
-    INTERVAL_MONTHS,
+    INTERVAL_MONTHS = 21,
 
     /// DAY_TIME interval in SQL style
-    INTERVAL_DAY_TIME,
+    INTERVAL_DAY_TIME = 22,
 
     /// Precision- and scale-based decimal type with 128 bits.
-    DECIMAL128,
+    DECIMAL128 = 23,
 
     /// Defined for backward-compatibility.
     DECIMAL = DECIMAL128,
 
     /// Precision- and scale-based decimal type with 256 bits.
-    DECIMAL256,
+    DECIMAL256 = 24,
 
     /// A list of some logical data type
-    LIST,
+    LIST = 25,
 
     /// Struct of logical types
-    STRUCT,
+    STRUCT = 26,
 
     /// Sparse unions of logical types
-    SPARSE_UNION,
+    SPARSE_UNION = 27,
 
     /// Dense unions of logical types
-    DENSE_UNION,
+    DENSE_UNION = 28,
 
     /// Dictionary-encoded type, also called "categorical" or "factor"
     /// in other programming languages. Holds the dictionary value
     /// type but not the dictionary itself, which is part of the
     /// ArrayData struct
-    DICTIONARY,
+    DICTIONARY = 29,
 
     /// Map, a repeated struct logical type
-    MAP,
+    MAP = 30,
 
     /// Custom data type, implemented by user
-    EXTENSION,
+    EXTENSION = 31,
 
     /// Fixed size list of some logical type
-    FIXED_SIZE_LIST,
+    FIXED_SIZE_LIST = 32,
 
     /// Measure of elapsed time in either seconds, milliseconds, microseconds
     /// or nanoseconds.
-    DURATION,
+    DURATION = 33,
 
     /// Like STRING, but with 64-bit offsets
-    LARGE_STRING,
+    LARGE_STRING = 34,
 
     /// Like BINARY, but with 64-bit offsets
-    LARGE_BINARY,
+    LARGE_BINARY = 35,
 
     /// Like LIST, but with 64-bit offsets
-    LARGE_LIST,
+    LARGE_LIST = 36,
 
     /// Calendar interval type with three fields.
-    INTERVAL_MONTH_DAY_NANO,
+    INTERVAL_MONTH_DAY_NANO = 37,
 
     /// Run-end encoded data.
-    RUN_END_ENCODED,
+    RUN_END_ENCODED = 38,
+
+    /// String (UTF8) view type with 4-byte prefix and inline small string
+    /// optimization
+    STRING_VIEW = 39,
+
+    /// Bytes view type with 4-byte prefix and inline small string optimization
+    BINARY_VIEW = 40,
+
+    /// A list of some logical data type represented by offset and size.
+    LIST_VIEW = 41,
+
+    /// Like LIST_VIEW, but with 64-bit offsets and sizes
+    LARGE_LIST_VIEW = 42,
 
     // Leave this at the end
     MAX_ID
@@ -454,10 +489,14 @@ ARROW_EXPORT const std::shared_ptr<DataType>& float32();
 ARROW_EXPORT const std::shared_ptr<DataType>& float64();
 /// \brief Return a StringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& utf8();
+/// \brief Return a StringViewType instance
+ARROW_EXPORT const std::shared_ptr<DataType>& utf8_view();
 /// \brief Return a LargeStringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_utf8();
 /// \brief Return a BinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& binary();
+/// \brief Return a BinaryViewType instance
+ARROW_EXPORT const std::shared_ptr<DataType>& binary_view();
 /// \brief Return a LargeBinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_binary();
 /// \brief Return a Date32Type instance
@@ -499,6 +538,19 @@ std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
 /// \brief Create a LargeListType instance from its child DataType
 ARROW_EXPORT
 std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
+
+/// \brief Create a ListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type);
+
+/// \brief Create a ListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<Field> value_type);
+
+/// \brief Create a LargetListViewType instance
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(
+    std::shared_ptr<DataType> value_type);
+
+/// \brief Create a LargetListViewType instance from its child Field type
+ARROW_EXPORT std::shared_ptr<DataType> large_list_view(std::shared_ptr<Field> value_type);
 
 /// \brief Create a MapType instance from its key and value DataTypes
 ARROW_EXPORT
@@ -555,8 +607,11 @@ ARROW_EXPORT std::shared_ptr<DataType> time32(TimeUnit::type unit);
 ARROW_EXPORT std::shared_ptr<DataType> time64(TimeUnit::type unit);
 
 /// \brief Create a StructType instance
+ARROW_EXPORT std::shared_ptr<DataType> struct_(const FieldVector& fields);
+
+/// \brief Create a StructType instance from (name, type) pairs
 ARROW_EXPORT std::shared_ptr<DataType> struct_(
-    const std::vector<std::shared_ptr<Field>>& fields);
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields);
 
 /// \brief Create a RunEndEncodedType instance
 ARROW_EXPORT std::shared_ptr<DataType> run_end_encoded(
@@ -624,7 +679,18 @@ ARROW_EXPORT std::shared_ptr<Field> field(
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    std::vector<std::shared_ptr<Field>> fields,
+    FieldVector fields, std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Schema instance from (name, type) pairs
+///
+/// The schema's fields will all be nullable with no associated metadata.
+///
+/// \param fields (name, type) pairs of the schema's fields
+/// \param metadata any custom key-value metadata, default null
+/// \return schema shared_ptr to Schema
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// \brief Create a Schema instance
@@ -635,8 +701,21 @@ std::shared_ptr<Schema> schema(
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+    FieldVector fields, Endianness endianness,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Schema instance
+///
+/// The schema's fields will all be nullable with no associated metadata.
+///
+/// \param fields (name, type) pairs of the schema's fields
+/// \param endianness the endianness of the data
+/// \param metadata any custom key-value metadata, default null
+/// \return schema shared_ptr to Schema
+ARROW_EXPORT
+std::shared_ptr<Schema> schema(
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
+    Endianness endianness, std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}
 

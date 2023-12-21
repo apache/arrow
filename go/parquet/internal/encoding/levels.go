@@ -19,17 +19,16 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"io"
 	"math/bits"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	shared_utils "github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v15/parquet"
+	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v15/parquet/internal/utils"
 )
 
 // LevelEncoder is for handling the encoding of Definition and Repetition levels
@@ -49,7 +48,7 @@ func LevelEncodingMaxBufferSize(encoding parquet.Encoding, maxLvl int16, nbuffer
 	nbytes := 0
 	switch encoding {
 	case parquet.Encodings.RLE:
-		nbytes = utils.MaxBufferSize(bitWidth, nbuffered) + utils.MinBufferSize(bitWidth)
+		nbytes = utils.MaxRLEBufferSize(bitWidth, nbuffered) + utils.MinRLEBufferSize(bitWidth)
 	case parquet.Encodings.BitPacked:
 		nbytes = int(bitutil.BytesForBits(int64(nbuffered * bitWidth)))
 	default:
@@ -75,7 +74,7 @@ func (l *LevelEncoder) Reset(maxLvl int16) {
 
 // Init is called to set up the desired encoding type, max level and underlying writer for a
 // level encoder to control where the resulting encoded buffer will end up.
-func (l *LevelEncoder) Init(encoding parquet.Encoding, maxLvl int16, w io.WriterAt) {
+func (l *LevelEncoder) Init(encoding parquet.Encoding, maxLvl int16, w utils.WriterAtWithLen) {
 	l.bitWidth = bits.Len64(uint64(maxLvl))
 	l.encoding = format.Encoding(encoding)
 	switch l.encoding {
@@ -195,12 +194,12 @@ func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffere
 	switch encoding {
 	case parquet.Encodings.RLE:
 		if len(data) < 4 {
-			return 0, xerrors.New("parquet: received invalid levels (corrupt data page?)")
+			return 0, errors.New("parquet: received invalid levels (corrupt data page?)")
 		}
 
 		nbytes := int32(binary.LittleEndian.Uint32(data[:4]))
 		if nbytes < 0 || nbytes > int32(len(data)-4) {
-			return 0, xerrors.New("parquet: received invalid number of bytes (corrupt data page?)")
+			return 0, errors.New("parquet: received invalid number of bytes (corrupt data page?)")
 		}
 
 		buf := data[4:]
@@ -213,12 +212,12 @@ func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffere
 	case parquet.Encodings.BitPacked:
 		nbits, ok := overflow.Mul(nbuffered, l.bitWidth)
 		if !ok {
-			return 0, xerrors.New("parquet: number of buffered values too large (corrupt data page?)")
+			return 0, errors.New("parquet: number of buffered values too large (corrupt data page?)")
 		}
 
 		nbytes := bitutil.BytesForBits(int64(nbits))
 		if nbytes < 0 || nbytes > int64(len(data)) {
-			return 0, xerrors.New("parquet: recieved invalid number of bytes (corrupt data page?)")
+			return 0, errors.New("parquet: received invalid number of bytes (corrupt data page?)")
 		}
 		if l.bit == nil {
 			l.bit = utils.NewBitReader(bytes.NewReader(data))
@@ -235,7 +234,7 @@ func (l *LevelDecoder) SetData(encoding parquet.Encoding, maxLvl int16, nbuffere
 // run length encoding.
 func (l *LevelDecoder) SetDataV2(nbytes int32, maxLvl int16, nbuffered int, data []byte) error {
 	if nbytes < 0 {
-		return xerrors.New("parquet: invalid page header (corrupt data page?)")
+		return errors.New("parquet: invalid page header (corrupt data page?)")
 	}
 
 	l.maxLvl = maxLvl

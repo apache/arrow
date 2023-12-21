@@ -14,7 +14,7 @@
     <parent>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-java-root</artifactId>
-      <version>13.0.0-SNAPSHOT</version>
+      <version>15.0.0-SNAPSHOT</version>
     </parent>
 
     <groupId>org.apache.arrow.gandiva</groupId>
@@ -25,7 +25,7 @@
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <protobuf.version>3.20.3</protobuf.version>
+        <protobuf.version>3.25.1</protobuf.version>
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
         <arrow.cpp.build.dir>../../../cpp/release-build</arrow.cpp.build.dir>
     </properties>
@@ -33,18 +33,15 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-core</artifactId>
-            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-netty</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>${project.version}</version>
             <classifier>${arrow.vector.classifier}</classifier>
         </dependency>
         <dependency>

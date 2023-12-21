@@ -17,9 +17,10 @@
  */
 
 syntax = "proto3";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "org.apache.arrow.flight.impl";
-option go_package = "github.com/apache/arrow/go/arrow/flight/internal/flight";
+option go_package = "github.com/apache/arrow/go/arrow/flight/gen/flight";
 option csharp_namespace = "Apache.Arrow.Flight.Protocol";
 
 package arrow.flight.protocol;
@@ -63,6 +64,32 @@ service FlightService {
    * service.
    */
   rpc GetFlightInfo(FlightDescriptor) returns (FlightInfo) {}
+
+  /*
+   * For a given FlightDescriptor, start a query and get information
+   * to poll its execution status. This is a useful interface if the
+   * query may be a long-running query. The first PollFlightInfo call
+   * should return as quickly as possible. (GetFlightInfo doesn't
+   * return until the query is complete.)
+   *
+   * A client can consume any available results before
+   * the query is completed. See PollInfo.info for details.
+   *
+   * A client can poll the updated query status by calling
+   * PollFlightInfo() with PollInfo.flight_descriptor. A server
+   * should not respond until the result would be different from last
+   * time. That way, the client can "long poll" for updates
+   * without constantly making requests. Clients can set a short timeout
+   * to avoid blocking calls if desired.
+   *
+   * A client can't use PollInfo.flight_descriptor after
+   * PollInfo.expiration_time passes. A server might not accept the
+   * retry descriptor anymore and the query may be cancelled.
+   *
+   * A client may use the CancelFlightInfo action with
+   * PollInfo.info to cancel the running query.
+   */
+  rpc PollFlightInfo(FlightDescriptor) returns (PollInfo) {}
 
   /*
    * For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
@@ -115,7 +142,6 @@ service FlightService {
    * understand the capabilities of the flight service.
    */
   rpc ListActions(Empty) returns (stream ActionType) {}
-
 }
 
 /*
@@ -183,10 +209,58 @@ message Action {
 }
 
 /*
+ * The request of the CancelFlightInfo action.
+ *
+ * The request should be stored in Action.body.
+ */
+message CancelFlightInfoRequest {
+  FlightInfo info = 1;
+}
+
+/*
+ * The request of the RenewFlightEndpoint action.
+ *
+ * The request should be stored in Action.body.
+ */
+message RenewFlightEndpointRequest {
+  FlightEndpoint endpoint = 1;
+}
+
+/*
  * An opaque result returned after executing an action.
  */
 message Result {
   bytes body = 1;
+}
+
+/*
+ * The result of a cancel operation.
+ *
+ * This is used by CancelFlightInfoResult.status.
+ */
+enum CancelStatus {
+  // The cancellation status is unknown. Servers should avoid using
+  // this value (send a NOT_FOUND error if the requested query is
+  // not known). Clients can retry the request.
+  CANCEL_STATUS_UNSPECIFIED = 0;
+  // The cancellation request is complete. Subsequent requests with
+  // the same payload may return CANCELLED or a NOT_FOUND error.
+  CANCEL_STATUS_CANCELLED = 1;
+  // The cancellation request is in progress. The client may retry
+  // the cancellation request.
+  CANCEL_STATUS_CANCELLING = 2;
+  // The query is not cancellable. The client should not retry the
+  // cancellation request.
+  CANCEL_STATUS_NOT_CANCELLABLE = 3;
+}
+
+/*
+ * The result of the CancelFlightInfo action.
+ *
+ * The result should be stored in Result.body.
+ */
+message CancelFlightInfoResult {
+  CancelStatus status = 1;
 }
 
 /*
@@ -292,6 +366,61 @@ message FlightInfo {
    * FlightEndpoints are in the same order as the data.
    */
   bool ordered = 6;
+
+  /*
+   * Application-defined metadata.
+   * 
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightEndpoints or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
+   */
+  bytes app_metadata = 7;
+}
+
+/*
+ * The information to process a long-running query.
+ */
+message PollInfo {
+  /*
+   * The currently available results.
+   *
+   * If "flight_descriptor" is not specified, the query is complete
+   * and "info" specifies all results. Otherwise, "info" contains
+   * partial query results.
+   *
+   * Note that each PollInfo response contains a complete
+   * FlightInfo (not just the delta between the previous and current
+   * FlightInfo).
+   *
+   * Subsequent PollInfo responses may only append new endpoints to
+   * info.
+   *
+   * Clients can begin fetching results via DoGet(Ticket) with the
+   * ticket in the info before the query is
+   * completed. FlightInfo.ordered is also valid.
+   */
+  FlightInfo info = 1;
+
+  /*
+   * The descriptor the client should use on the next try.
+   * If unset, the query is complete.
+   */
+  FlightDescriptor flight_descriptor = 2;
+
+  /*
+   * Query progress. If known, must be in [0.0, 1.0] but need not be
+   * monotonic or nondecreasing. If unknown, do not set.
+   */
+  optional double progress = 3;
+
+  /*
+   * Expiration time for this request. After this passes, the server
+   * might not accept the retry descriptor anymore (and the query may
+   * be cancelled). This may be updated on a call to PollFlightInfo.
+   */
+  google.protobuf.Timestamp expiration_time = 4;
 }
 
 /*
@@ -321,6 +450,24 @@ message FlightEndpoint {
    * represent redundant and/or load balanced services.
    */
   repeated Location location = 2;
+
+  /*
+   * Expiration time of this stream. If present, clients may assume
+   * they can retry DoGet requests. Otherwise, it is
+   * application-defined whether DoGet requests may be retried.
+   */
+  google.protobuf.Timestamp expiration_time = 3;
+
+  /*
+   * Application-defined metadata.
+   * 
+   * There is no inherent or required relationship between this
+   * and the app_metadata fields in the FlightInfo or resulting
+   * FlightData messages. Since this metadata is application-defined,
+   * a given application could define there to be a relationship,
+   * but there is none required by the spec.
+   */
+  bytes app_metadata = 4;
 }
 
 /*

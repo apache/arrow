@@ -39,7 +39,7 @@ Result<std::shared_ptr<Array>> Convert(std::shared_ptr<DataType> type,
   return converted;
 }
 
-// bool, null are trivial pass throughs
+// bool, null are trivial pass-throughs
 
 TEST(ConverterTest, Integers) {
   for (auto int_type : {int8(), int16(), int32(), int64()}) {
@@ -131,8 +131,8 @@ TEST(ConverterTest, Floats) {
   }
 }
 
-TEST(ConverterTest, StringAndLargeString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+TEST(ConverterTest, StringAndLargeStringAndStringView) {
+  for (auto string_type : {utf8(), large_utf8(), utf8_view()}) {
     ParseOptions options;
     options.explicit_schema = schema({field("", string_type)});
 

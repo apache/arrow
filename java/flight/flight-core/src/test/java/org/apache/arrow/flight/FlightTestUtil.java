@@ -19,13 +19,13 @@ package org.apache.arrow.flight;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 
+import org.apache.arrow.util.ArrowTestDataUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
@@ -37,21 +37,9 @@ public class FlightTestUtil {
   private static final Random RANDOM = new Random();
 
   public static final String LOCALHOST = "localhost";
-  public static final String TEST_DATA_ENV_VAR = "ARROW_TEST_DATA";
-  public static final String TEST_DATA_PROPERTY = "arrow.test.dataRoot";
-
-  static Path getTestDataRoot() {
-    String path = System.getenv(TEST_DATA_ENV_VAR);
-    if (path == null) {
-      path = System.getProperty(TEST_DATA_PROPERTY);
-    }
-    return Paths.get(Objects.requireNonNull(path,
-        String.format("Could not find test data path. Set the environment variable %s or the JVM property %s.",
-            TEST_DATA_ENV_VAR, TEST_DATA_PROPERTY)));
-  }
 
   static Path getFlightTestDataRoot() {
-    return getTestDataRoot().resolve("flight");
+    return ArrowTestDataUtil.getTestDataRoot().resolve("flight");
   }
 
   static Path exampleTlsRootCert() {
@@ -60,7 +48,11 @@ public class FlightTestUtil {
 
   static List<CertKeyPair> exampleTlsCerts() {
     final Path root = getFlightTestDataRoot();
-    return Arrays.asList(new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
+    final Path cert0Pem = root.resolve("cert0.pem");
+    if (!Files.exists(cert0Pem)) {
+      throw new RuntimeException(cert0Pem + " doesn't exist. Make sure submodules are initialized (see https://arrow.apache.org/docs/dev/developers/java/building.html#building)");
+    }
+    return Arrays.asList(new CertKeyPair(cert0Pem.toFile(), root.resolve("cert0.pkcs1").toFile()),
         new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
   }
 

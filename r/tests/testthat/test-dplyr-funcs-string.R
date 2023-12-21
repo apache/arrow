@@ -17,6 +17,8 @@
 
 skip_if_not_available("utf8proc")
 skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 library(dplyr, warn.conflicts = FALSE)
 library(lubridate)
@@ -303,6 +305,15 @@ test_that("str_detect", {
       collect(),
     df
   )
+
+  string <- "^F"
+  compare_dplyr_binding(
+    .input %>%
+      filter(str_detect(x, regex(string))) %>%
+      collect(),
+    df
+  )
+
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -414,6 +425,23 @@ test_that("sub and gsub with namespacing", {
 })
 
 test_that("str_replace and str_replace_all", {
+  x <- Expression$field_ref("x")
+
+  expect_error(
+    call_binding("str_replace_all", x, c("F" = "_", "b" = "")),
+    regexp = "`pattern` must be a length 1 character vector"
+  )
+
+  expect_error(
+    call_binding("str_replace_all", x, c("F", "b"), c("_", "")),
+    regexp = "`pattern` must be a length 1 character vector"
+  )
+
+  expect_error(
+    call_binding("str_replace_all", x, c("F"), c("_", "")),
+    regexp = "`replacement` must be a length 1 character vector"
+  )
+
   df <- tibble(x = c("Foo", "bar"))
 
   compare_dplyr_binding(
@@ -1464,5 +1492,35 @@ test_that("str_remove and str_remove_all", {
       transmute(x = str_remove(x, fixed("O", ignore_case = TRUE))) %>%
       collect(),
     df
+  )
+})
+
+test_that("GH-36720: stringr modifier functions can be called with namespace prefix", {
+  df <- tibble(x = c("Foo", "bar"))
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_replace_all(x, stringr::regex("^f", ignore_case = TRUE), "baz")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(str_detect(x, stringr::fixed("f", ignore_case = TRUE), negate = TRUE)) %>%
+      collect(),
+    df
+  )
+
+  x <- Expression$field_ref("x")
+
+  expect_error(
+    call_binding("str_detect", x, stringr::boundary(type = "character")),
+    "Pattern modifier `boundary()` not supported in Arrow",
+    fixed = TRUE
+  )
+  expect_error(
+    call_binding("str_replace_all", x, stringr::coll("o", locale = "en"), "ó"),
+    "Pattern modifier `coll()` not supported in Arrow",
+    fixed = TRUE
   )
 })

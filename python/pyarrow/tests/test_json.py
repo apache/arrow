@@ -20,7 +20,6 @@ from decimal import Decimal
 import io
 import itertools
 import json
-import pickle
 import string
 import unittest
 
@@ -53,15 +52,15 @@ def make_random_json(num_cols=2, num_rows=10, linesep='\r\n'):
     return data, expected
 
 
-def check_options_class_pickling(cls, **attr_values):
+def check_options_class_pickling(cls, pickler, **attr_values):
     opts = cls(**attr_values)
-    new_opts = pickle.loads(pickle.dumps(opts,
-                                         protocol=pickle.HIGHEST_PROTOCOL))
+    new_opts = pickler.loads(pickler.dumps(opts,
+                                           protocol=pickler.HIGHEST_PROTOCOL))
     for name, value in attr_values.items():
         assert getattr(new_opts, name) == value
 
 
-def test_read_options():
+def test_read_options(pickle_module):
     cls = ReadOptions
     opts = cls()
 
@@ -77,11 +76,12 @@ def test_read_options():
     assert opts.block_size == 1234
     assert opts.use_threads is False
 
-    check_options_class_pickling(cls, block_size=1234,
+    check_options_class_pickling(cls, pickler=pickle_module,
+                                 block_size=1234,
                                  use_threads=False)
 
 
-def test_parse_options():
+def test_parse_options(pickle_module):
     cls = ParseOptions
     opts = cls()
     assert opts.newlines_in_values is False
@@ -102,7 +102,8 @@ def test_parse_options():
     with pytest.raises(ValueError):
         opts.unexpected_field_behavior = "invalid-value"
 
-    check_options_class_pickling(cls, explicit_schema=schema,
+    check_options_class_pickling(cls, pickler=pickle_module,
+                                 explicit_schema=schema,
                                  newlines_in_values=False,
                                  unexpected_field_behavior="ignore")
 
@@ -225,7 +226,7 @@ class BaseTestJSONRead:
         assert table.num_columns == 0
         assert table.num_rows == 2
 
-    def test_reconcile_accross_blocks(self):
+    def test_reconcile_across_blocks(self):
         # ARROW-12065: reconciling inferred types across blocks
         first_row = b'{                               }\n'
         read_options = ReadOptions(block_size=len(first_row))
@@ -302,6 +303,14 @@ class BaseTestJSONRead:
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
+
+    def test_load_large_json(self):
+        data, expected = make_random_json(num_cols=2, num_rows=100100)
+        # set block size is 10MB
+        read_options = ReadOptions(block_size=1024*1024*10)
+        table = self.read_bytes(data, read_options=read_options)
+        assert table.num_rows == 100100
+        assert expected.num_rows == 100100
 
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching

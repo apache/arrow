@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/endian"
-	"github.com/apache/arrow/go/v13/arrow/internal"
-	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/endian"
+	"github.com/apache/arrow/go/v15/arrow/internal"
+	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 // FileReader is an Arrow file reader.
@@ -351,9 +351,9 @@ func newRecord(schema *arrow.Schema, memo *dictutils.Memo, meta *memory.Buffer, 
 	}
 
 	pos := dictutils.NewFieldPos()
-	cols := make([]arrow.Array, len(schema.Fields()))
-	for i, field := range schema.Fields() {
-		data := ctx.loadArray(field.Type)
+	cols := make([]arrow.Array, schema.NumFields())
+	for i := 0; i < schema.NumFields(); i++ {
+		data := ctx.loadArray(schema.Field(i).Type)
 		defer data.Release()
 
 		if err := dictutils.ResolveFieldDict(memo, data, pos.Child(int32(i)), mem); err != nil {
@@ -430,13 +430,18 @@ func (src *ipcSource) fieldMetadata(i int) *flatbuf.FieldNode {
 	return &node
 }
 
+func (src *ipcSource) variadicCount(i int) int64 {
+	return src.meta.VariadicBufferCounts(i)
+}
+
 type arrayLoaderContext struct {
-	src     ipcSource
-	ifield  int
-	ibuffer int
-	max     int
-	memo    *dictutils.Memo
-	version MetadataVersion
+	src       ipcSource
+	ifield    int
+	ibuffer   int
+	ivariadic int
+	max       int
+	memo      *dictutils.Memo
+	version   MetadataVersion
 }
 
 func (ctx *arrayLoaderContext) field() *flatbuf.FieldNode {
@@ -449,6 +454,12 @@ func (ctx *arrayLoaderContext) buffer() *memory.Buffer {
 	buf := ctx.src.buffer(ctx.ibuffer)
 	ctx.ibuffer++
 	return buf
+}
+
+func (ctx *arrayLoaderContext) variadic() int64 {
+	v := ctx.src.variadicCount(ctx.ivariadic)
+	ctx.ivariadic++
+	return v
 }
 
 func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
@@ -476,6 +487,9 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 	case *arrow.BinaryType, *arrow.StringType, *arrow.LargeStringType, *arrow.LargeBinaryType:
 		return ctx.loadBinary(dt)
 
+	case arrow.BinaryViewDataType:
+		return ctx.loadBinaryView(dt)
+
 	case *arrow.FixedSizeBinaryType:
 		return ctx.loadFixedSizeBinary(dt)
 
@@ -484,6 +498,12 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 
 	case *arrow.LargeListType:
 		return ctx.loadList(dt)
+
+	case *arrow.ListViewType:
+		return ctx.loadListView(dt)
+
+	case *arrow.LargeListViewType:
+		return ctx.loadListView(dt)
 
 	case *arrow.FixedSizeListType:
 		return ctx.loadFixedSizeList(dt)
@@ -501,7 +521,7 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 
 	case *arrow.RunEndEncodedType:
 		field, buffers := ctx.loadCommon(dt.ID(), 1)
-		defer releaseBuffers(buffers)
+		defer memory.ReleaseBuffers(buffers)
 
 		runEnds := ctx.loadChild(dt.RunEnds())
 		defer runEnds.Release()
@@ -563,7 +583,7 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.ArrayData 
 		buffers = append(buffers, ctx.buffer())
 	}
 
-	defer releaseBuffers(buffers)
+	defer memory.ReleaseBuffers(buffers)
 
 	return array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 }
@@ -571,7 +591,19 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.ArrayData 
 func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 3)
 	buffers = append(buffers, ctx.buffer(), ctx.buffer())
-	defer releaseBuffers(buffers)
+	defer memory.ReleaseBuffers(buffers)
+
+	return array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+}
+
+func (ctx *arrayLoaderContext) loadBinaryView(dt arrow.DataType) arrow.ArrayData {
+	nVariadicBufs := ctx.variadic()
+	field, buffers := ctx.loadCommon(dt.ID(), 2+int(nVariadicBufs))
+	buffers = append(buffers, ctx.buffer())
+	for i := 0; i < int(nVariadicBufs); i++ {
+		buffers = append(buffers, ctx.buffer())
+	}
+	defer memory.ReleaseBuffers(buffers)
 
 	return array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 }
@@ -579,7 +611,7 @@ func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.ArrayData {
 func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
-	defer releaseBuffers(buffers)
+	defer memory.ReleaseBuffers(buffers)
 
 	return array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 }
@@ -587,7 +619,7 @@ func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType
 func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
-	defer releaseBuffers(buffers)
+	defer memory.ReleaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
@@ -598,7 +630,18 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 func (ctx *arrayLoaderContext) loadList(dt arrow.ListLikeType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
-	defer releaseBuffers(buffers)
+	defer memory.ReleaseBuffers(buffers)
+
+	sub := ctx.loadChild(dt.Elem())
+	defer sub.Release()
+
+	return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub}, int(field.NullCount()), 0)
+}
+
+func (ctx *arrayLoaderContext) loadListView(dt arrow.VarLenListLikeType) arrow.ArrayData {
+	field, buffers := ctx.loadCommon(dt.ID(), 3)
+	buffers = append(buffers, ctx.buffer(), ctx.buffer())
+	defer memory.ReleaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
@@ -608,7 +651,7 @@ func (ctx *arrayLoaderContext) loadList(dt arrow.ListLikeType) arrow.ArrayData {
 
 func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 1)
-	defer releaseBuffers(buffers)
+	defer memory.ReleaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
@@ -618,9 +661,9 @@ func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) ar
 
 func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 1)
-	defer releaseBuffers(buffers)
+	defer memory.ReleaseBuffers(buffers)
 
-	subs := make([]arrow.ArrayData, len(dt.Fields()))
+	subs := make([]arrow.ArrayData, dt.NumFields())
 	for i, f := range dt.Fields() {
 		subs[i] = ctx.loadChild(f.Type)
 	}
@@ -661,8 +704,8 @@ func (ctx *arrayLoaderContext) loadUnion(dt arrow.UnionType) arrow.ArrayData {
 		}
 	}
 
-	defer releaseBuffers(buffers)
-	subs := make([]arrow.ArrayData, len(dt.Fields()))
+	defer memory.ReleaseBuffers(buffers)
+	subs := make([]arrow.ArrayData, dt.NumFields())
 	for i, f := range dt.Fields() {
 		subs[i] = ctx.loadChild(f.Type)
 	}
@@ -687,6 +730,7 @@ func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker
 	bodyCompress := data.Compression(nil)
 	if bodyCompress != nil {
 		codec = getDecompressor(bodyCompress.Codec())
+		defer codec.Close()
 	}
 
 	id := md.Id()
@@ -723,12 +767,4 @@ func readDictionary(memo *dictutils.Memo, meta *memory.Buffer, body ReadAtSeeker
 		return dictutils.KindNew, nil
 	}
 	return dictutils.KindReplacement, nil
-}
-
-func releaseBuffers(buffers []*memory.Buffer) {
-	for _, b := range buffers {
-		if b != nil {
-			b.Release()
-		}
-	}
 }

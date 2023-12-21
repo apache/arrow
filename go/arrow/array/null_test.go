@@ -19,9 +19,9 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,16 +33,18 @@ func TestNullArray(t *testing.T) {
 	defer b.Release()
 
 	b.AppendNull()
-	b.AppendNull()
+	b.AppendNulls(2)
+	b.AppendEmptyValue()
+	b.AppendEmptyValues(2)
 
 	arr1 := b.NewArray().(*array.Null)
 	defer arr1.Release()
 
-	if got, want := arr1.Len(), 2; got != want {
+	if got, want := arr1.Len(), 6; got != want {
 		t.Fatalf("invalid null array length: got=%d, want=%d", got, want)
 	}
 
-	if got, want := arr1.NullN(), 2; got != want {
+	if got, want := arr1.NullN(), 6; got != want {
 		t.Fatalf("invalid number of nulls: got=%d, want=%d", got, want)
 	}
 
@@ -86,7 +88,9 @@ func TestNullStringRoundTrip(t *testing.T) {
 	defer b.Release()
 
 	b.AppendNull()
-	b.AppendNull()
+	b.AppendNulls(2)
+	b.AppendEmptyValue()
+	b.AppendEmptyValues(2)
 
 	arr := b.NewArray().(*array.Null)
 	defer arr.Release()

@@ -236,14 +236,14 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     const auto& type = *field->type();
     if (!IsTypeSupported(type)) {
       return Status::Invalid("Data type ", type,
-                             " is not supported in join non-key field");
+                             " is not supported in join non-key field ", field->name());
     }
   }
   for (const auto& field : right_schema.fields()) {
     const auto& type = *field->type();
     if (!IsTypeSupported(type)) {
       return Status::Invalid("Data type ", type,
-                             " is not supported in join non-key field");
+                             " is not supported in join non-key field ", field->name());
     }
   }
 

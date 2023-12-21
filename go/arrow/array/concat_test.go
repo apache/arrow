@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -56,7 +56,7 @@ func TestConcatenateValueBuffersNull(t *testing.T) {
 	assert.NoError(t, err)
 	defer actual.Release()
 
-	assert.True(t, array.ArrayEqual(actual, inputs[1]))
+	assert.True(t, array.Equal(actual, inputs[1]))
 }
 
 func TestConcatenate(t *testing.T) {
@@ -78,10 +78,13 @@ func TestConcatenate(t *testing.T) {
 		{arrow.BinaryTypes.LargeString},
 		{arrow.ListOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.LargeListOf(arrow.PrimitiveTypes.Int8)},
+		{arrow.ListViewOf(arrow.PrimitiveTypes.Int8)},
+		{arrow.LargeListViewOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int8)},
 		{arrow.StructOf()},
 		{arrow.MapOf(arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int8)},
 		{&arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrow.PrimitiveTypes.Float64}},
+		{arrow.BinaryTypes.StringView},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +151,8 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Arra
 		return cts.rng.String(size, 0, 15, nullprob)
 	case arrow.LARGE_STRING:
 		return cts.rng.LargeString(size, 0, 15, nullprob)
+	case arrow.STRING_VIEW:
+		return cts.rng.StringView(size, 0, 20, nullprob)
 	case arrow.LIST:
 		valuesSize := size * 4
 		values := cts.rng.Int8(valuesSize, 0, 127, nullprob).(*array.Int8)
@@ -200,6 +205,16 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Arra
 			}
 		}
 		return bldr.NewArray()
+	case arrow.LIST_VIEW:
+		arr := cts.rng.ListView(cts.dt.(arrow.VarLenListLikeType), size, 0, 20, nullprob)
+		err := arr.ValidateFull()
+		cts.NoError(err)
+		return arr
+	case arrow.LARGE_LIST_VIEW:
+		arr := cts.rng.LargeListView(cts.dt.(arrow.VarLenListLikeType), size, 0, 20, nullprob)
+		err := arr.ValidateFull()
+		cts.NoError(err)
+		return arr
 	case arrow.FIXED_SIZE_LIST:
 		const listsize = 3
 		valuesSize := size * listsize
@@ -317,14 +332,23 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 
 					slices := cts.slices(arr, offsets)
 					for _, s := range slices {
+						if s.DataType().ID() == arrow.LIST_VIEW {
+							err := s.(*array.ListView).ValidateFull()
+							cts.NoError(err)
+						}
 						defer s.Release()
 					}
 
 					actual, err := array.Concatenate(slices, cts.mem)
 					cts.NoError(err)
+					if arr.DataType().ID() == arrow.LIST_VIEW {
+						lv := actual.(*array.ListView)
+						err := lv.ValidateFull()
+						cts.NoError(err)
+					}
 					defer actual.Release()
 
-					cts.Truef(array.ArrayEqual(expected, actual), "expected: %s\ngot: %s\n", expected, actual)
+					cts.Truef(array.Equal(expected, actual), "expected: %s\ngot: %s\n", expected, actual)
 					if len(actual.Data().Buffers()) > 0 {
 						if actual.Data().Buffers()[0] != nil {
 							cts.checkTrailingBitsZeroed(actual.Data().Buffers()[0], int64(actual.Len()))
@@ -670,7 +694,7 @@ func TestConcatAlmostOverflowRunEndEncoding(t *testing.T) {
 			defer bldr.Release()
 			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
-			// max is not evently divisible by 4, so we add one to each
+			// max is not evenly divisible by 4, so we add one to each
 			// to account for that so our final concatenate will overflow
 			bldr.Append((tt.max / 4) + 1)
 			valBldr.Append("foo")
@@ -717,7 +741,7 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 			defer bldr.Release()
 			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
-			// max is not evently divisible by 4, so we add one to each
+			// max is not evenly divisible by 4, so we add one to each
 			// to account for that so our final concatenate will overflow
 			bldr.Append((tt.max / 4) + 1)
 			valBldr.Append("foo")
@@ -742,4 +766,24 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 			assert.ErrorIs(t, err, arrow.ErrInvalid)
 		})
 	}
+}
+
+func TestConcatPanic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	allocator := &panicAllocator{
+		n:         400,
+		Allocator: mem,
+	}
+
+	g := gen.NewRandomArrayGenerator(0, memory.DefaultAllocator)
+	ar1 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar1.Release()
+	ar2 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar2.Release()
+
+	concat, err := array.Concatenate([]arrow.Array{ar1, ar2}, allocator)
+	assert.Error(t, err)
+	assert.Nil(t, concat)
 }

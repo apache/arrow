@@ -31,6 +31,11 @@ namespace Apache.Arrow.Tests
         public static IEnumerable<object[]> GetDateTimeOffsetsData() =>
             TestDateAndTimeData.ExampleDateTimeOffsets.Select(dto => new object[] { dto });
 
+#if NET6_0_OR_GREATER
+        public static IEnumerable<object[]> GetDateOnlyData() =>
+            TestDateAndTimeData.ExampleDates.Select(d => new object[] { DateOnly.FromDateTime(d) });
+#endif
+
         public class AppendNull
         {
             [Fact]
@@ -121,5 +126,32 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedValue, array.GetValue(0));
             }
         }
+
+#if NET6_0_OR_GREATER
+        public class AppendDateOnly
+        {
+            [Theory]
+            [MemberData(nameof(GetDateOnlyData), MemberType = typeof(Date64ArrayTests))]
+            public void AppendDateGivesSameDate(DateOnly date)
+            {
+                // Arrange
+                var builder = new Date32Array.Builder();
+                var expectedDateTime = date.ToDateTime(TimeOnly.MinValue);
+                var expectedDateTimeOffset = new DateTimeOffset(expectedDateTime, TimeSpan.Zero);
+                int expectedValue = date.DayNumber - new DateOnly(1970, 1, 1).DayNumber;
+
+                // Act
+                builder = builder.Append(date);
+
+                // Assert
+                var array = builder.Build();
+                Assert.Equal(1, array.Length);
+                Assert.Equal(date, array.GetDateOnly(0));
+                Assert.Equal(expectedDateTime, array.GetDateTime(0));
+                Assert.Equal(expectedDateTimeOffset, array.GetDateTimeOffset(0));
+                Assert.Equal(expectedValue, array.GetValue(0));
+            }
+        }
+#endif
     }
 }

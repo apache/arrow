@@ -1705,7 +1705,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     return in1_len;
   }
 
-  // arr_larger and arr_smaller is one pointer for entrys
+  // arr_larger and arr_smaller is one pointer for entries
   const char* arr_larger;
   const char* arr_smaller;
   // len_larger and len_smaller is one copy from lengths
@@ -1733,7 +1733,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     return 0;
   }
 
-  // MEMORY ADRESS MALLOC
+  // MEMORY ADDRESS MALLOC
   // v0 -> (0, ..., &ptr[in2_len])
   // v1 -> (in2_len+1, ..., &ptr[in2_len * 2])
   int* v0;
@@ -1742,7 +1742,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
   v0 = &ptr[0];
   v1 = &ptr[len_smaller + 1];
 
-  // Initializate v0
+  // Initialize v0
   for (int i = 0; i <= len_smaller; i++) {
     v0[i] = i;
   }
@@ -1778,7 +1778,7 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
       v1[j + 1] = min;
     }
 
-    // Swaping v0 and v1
+    // Swapping v0 and v1
     aux = v0;
     v0 = v1;
     v1 = aux;

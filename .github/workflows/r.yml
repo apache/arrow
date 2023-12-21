@@ -27,6 +27,7 @@ on:
       - "ci/etc/rprofile"
       - "ci/docker/**"
       - "cpp/**"
+      - 'docker-compose.yml'
       - "r/**"
   pull_request:
     paths:
@@ -37,6 +38,7 @@ on:
       - "ci/etc/rprofile"
       - "ci/docker/**"
       - "cpp/**"
+      - 'docker-compose.yml'
       - "r/**"
 
 concurrency:
@@ -58,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.2"]
+        r: ["4.3"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -66,12 +68,12 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -80,10 +82,8 @@ jobs:
           restore-keys: |
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
-      - name: Check pkgdown reference sections
-        run: ci/scripts/r_pkgdown_check.sh
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -106,12 +106,16 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: test-output
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -135,12 +139,12 @@ jobs:
       DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -164,12 +168,16 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: test-output
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -189,7 +197,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Setup ccache
@@ -207,6 +215,9 @@ jobs:
             r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       - uses: r-lib/actions/setup-r@v2
         with:
+          # Note: RTools must be 40 here because RTools40 + ucrt is how we build the Arrow C++
+          # static library. The R is not used here but R 4.1 was the last R to use
+          # Rtools40.
           r-version: "4.1"
           rtools-version: 40
           Ncpus: 2
@@ -226,7 +237,7 @@ jobs:
 
   windows-r:
     needs: [windows-cpp]
-    name: AMD64 Windows R ${{ matrix.config.rversion }} RTools ${{ matrix.config.rtools }}
+    name: AMD64 Windows R ${{ matrix.config.rversion }}
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
@@ -234,20 +245,19 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 42, rversion: "4.2" }
-        - { rtools: 42, rversion: "devel" }
+        - { rversion: "release" }
+
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 42 }}
         uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools40-ucrt64.zip
@@ -261,7 +271,6 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
-          rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - uses: r-lib/actions/setup-r-dependencies@v2
         env:
@@ -299,7 +308,8 @@ jobs:
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
             ARROW_R_DEV = TRUE,
-            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE,
+            "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE
           )
           rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
@@ -309,7 +319,7 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        if: ${{ matrix.config.rversion == '4.2' }}
+        if: ${{ matrix.config.rversion == 'release' }}
         env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

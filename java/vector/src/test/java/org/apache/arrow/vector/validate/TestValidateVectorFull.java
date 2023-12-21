@@ -23,11 +23,14 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.Decimal256Vector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
@@ -229,6 +232,77 @@ public class TestValidateVectorFull {
       ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
       assertTrue(e.getMessage().contains("Dense union vector offset exceeds sub-vector boundary"));
+    }
+  }
+
+  @Test
+  public void testBaseVariableWidthVectorInstanceMethod() {
+    try (final VarCharVector vector = new VarCharVector("v", allocator)) {
+      vector.validateFull();
+      setVector(vector, "aaa", "bbb", "ccc");
+      vector.validateFull();
+
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      offsetBuf.setInt(0, 100);
+      offsetBuf.setInt(4, 50);
+
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          vector::validateFull);
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
+    }
+  }
+
+  @Test
+  public void testValidateVarCharUTF8() {
+    try (final VarCharVector vector = new VarCharVector("v", allocator)) {
+      vector.validateFull();
+      setVector(vector, "aaa".getBytes(StandardCharsets.UTF_8), "bbb".getBytes(StandardCharsets.UTF_8),
+          new byte[] {(byte) 0xFF, (byte) 0xFE});
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          vector::validateFull);
+      assertTrue(e.getMessage().contains("UTF"));
+    }
+  }
+
+  @Test
+  public void testValidateLargeVarCharUTF8() {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("v", allocator)) {
+      vector.validateFull();
+      setVector(vector, "aaa".getBytes(StandardCharsets.UTF_8), "bbb".getBytes(StandardCharsets.UTF_8),
+          new byte[] {(byte) 0xFF, (byte) 0xFE});
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          vector::validateFull);
+      assertTrue(e.getMessage().contains("UTF"));
+    }
+  }
+
+  @Test
+  public void testValidateDecimal() {
+    try (final DecimalVector vector = new DecimalVector(Field.nullable("v",
+        new ArrowType.Decimal(2, 0, DecimalVector.TYPE_WIDTH * 8)), allocator)) {
+      vector.validateFull();
+      setVector(vector, 1L);
+      vector.validateFull();
+      vector.clear();
+      setVector(vector, Long.MAX_VALUE);
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          vector::validateFull);
+      assertTrue(e.getMessage().contains("Decimal"));
+    }
+  }
+
+  @Test
+  public void testValidateDecimal256() {
+    try (final Decimal256Vector vector = new Decimal256Vector(Field.nullable("v",
+        new ArrowType.Decimal(2, 0, DecimalVector.TYPE_WIDTH * 8)), allocator)) {
+      vector.validateFull();
+      setVector(vector, 1L);
+      vector.validateFull();
+      vector.clear();
+      setVector(vector, Long.MAX_VALUE);
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          vector::validateFull);
+      assertTrue(e.getMessage().contains("Decimal"));
     }
   }
 }

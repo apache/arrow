@@ -2,6 +2,9 @@
 % Please edit documentation in R/dplyr-funcs-doc.R
 \name{acero}
 \alias{acero}
+\alias{arrow-functions}
+\alias{arrow-verbs}
+\alias{arrow-dplyr}
 \title{Functions available in Arrow dplyr queries}
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
@@ -18,7 +21,7 @@ Most verb functions return an \code{arrow_dplyr_query} object, similar in spirit
 to a \code{dbplyr::tbl_lazy}. This means that the verbs do not eagerly evaluate
 the query on the data. To run the query, call either \code{compute()},
 which returns an \code{arrow} \link{Table}, or \code{collect()}, which pulls the resulting
-Table into an R \code{data.frame}.
+Table into an R \code{tibble}.
 \itemize{
 \item \code{\link[dplyr:filter-joins]{anti_join()}}: the \code{copy} and \code{na_matches} arguments are ignored
 \item \code{\link[dplyr:arrange]{arrange()}}
@@ -153,6 +156,7 @@ Consider using the lubridate specialised parsing functions \code{ymd()}, \code{y
 \item \code{\link[base:paste]{paste0()}}: the \code{collapse} argument is not yet supported
 \item \code{\link[base:Extremes]{pmax()}}
 \item \code{\link[base:Extremes]{pmin()}}
+\item \code{\link[base:prod]{prod()}}
 \item \code{\link[base:Round]{round()}}
 \item \code{\link[base:sign]{sign()}}
 \item \code{\link[base:Trig]{sin()}}

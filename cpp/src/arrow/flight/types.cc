@@ -24,11 +24,16 @@
 
 #include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/types_async.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/base64.h"
+#include "arrow/util/formatting.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/uri.h"
 
@@ -147,7 +152,8 @@ Status FlightPayload::Validate() const {
 
 arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
     ipc::DictionaryMemo* dictionary_memo) const {
-  io::BufferReader schema_reader(raw_schema_);
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(raw_schema_));
   return ipc::ReadSchema(&schema_reader, dictionary_memo);
 }
 
@@ -155,11 +161,6 @@ arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& sc
   std::string schema_in;
   RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
   return std::make_unique<SchemaResult>(std::move(schema_in));
-}
-
-Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
-                               std::shared_ptr<Schema>* out) const {
-  return GetSchema(dictionary_memo).Value(out);
 }
 
 std::string SchemaResult::ToString() const {
@@ -205,10 +206,6 @@ arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
   return out;
 }
 
-Status FlightDescriptor::SerializeToString(std::string* out) const {
-  return SerializeToString().Value(out);
-}
-
 arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
     std::string_view serialized) {
   pb::FlightDescriptor pb_descriptor;
@@ -223,11 +220,6 @@ arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
   FlightDescriptor out;
   RETURN_NOT_OK(internal::FromProto(pb_descriptor, &out));
   return out;
-}
-
-Status FlightDescriptor::Deserialize(const std::string& serialized,
-                                     FlightDescriptor* out) {
-  return Deserialize(serialized).Value(out);
 }
 
 std::string Ticket::ToString() const {
@@ -249,10 +241,6 @@ arrow::Result<std::string> Ticket::SerializeToString() const {
   return out;
 }
 
-Status Ticket::SerializeToString(std::string* out) const {
-  return SerializeToString().Value(out);
-}
-
 arrow::Result<Ticket> Ticket::Deserialize(std::string_view serialized) {
   pb::Ticket pb_ticket;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
@@ -268,21 +256,18 @@ arrow::Result<Ticket> Ticket::Deserialize(std::string_view serialized) {
   return out;
 }
 
-Status Ticket::Deserialize(const std::string& serialized, Ticket* out) {
-  return Deserialize(serialized).Value(out);
-}
-
 arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
                                            const FlightDescriptor& descriptor,
                                            const std::vector<FlightEndpoint>& endpoints,
                                            int64_t total_records, int64_t total_bytes,
-                                           bool ordered) {
+                                           bool ordered, std::string app_metadata) {
   FlightInfo::Data data;
   data.descriptor = descriptor;
   data.endpoints = endpoints;
   data.total_records = total_records;
   data.total_bytes = total_bytes;
   data.ordered = ordered;
+  data.app_metadata = std::move(app_metadata);
   RETURN_NOT_OK(internal::SchemaToString(schema, &data.schema));
   return FlightInfo(data);
 }
@@ -292,15 +277,11 @@ arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
   if (reconstructed_schema_) {
     return schema_;
   }
-  io::BufferReader schema_reader(data_.schema);
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(data_.schema));
   RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo).Value(&schema_));
   reconstructed_schema_ = true;
   return schema_;
-}
-
-Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
-                             std::shared_ptr<Schema>* out) const {
-  return GetSchema(dictionary_memo).Value(out);
 }
 
 arrow::Result<std::string> FlightInfo::SerializeToString() const {
@@ -314,10 +295,6 @@ arrow::Result<std::string> FlightInfo::SerializeToString() const {
   return out;
 }
 
-Status FlightInfo::SerializeToString(std::string* out) const {
-  return SerializeToString().Value(out);
-}
-
 arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
     std::string_view serialized) {
   pb::FlightInfo pb_info;
@@ -329,14 +306,8 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
   if (!pb_info.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid FlightInfo");
   }
-  FlightInfo::Data data;
-  RETURN_NOT_OK(internal::FromProto(pb_info, &data));
-  return std::make_unique<FlightInfo>(std::move(data));
-}
-
-Status FlightInfo::Deserialize(const std::string& serialized,
-                               std::unique_ptr<FlightInfo>* out) {
-  return Deserialize(serialized).Value(out);
+  ARROW_ASSIGN_OR_RAISE(FlightInfo info, internal::FromProto(pb_info));
+  return std::make_unique<FlightInfo>(std::move(info));
 }
 
 std::string FlightInfo::ToString() const {
@@ -358,6 +329,7 @@ std::string FlightInfo::ToString() const {
   ss << "] total_records=" << data_.total_records;
   ss << " total_bytes=" << data_.total_bytes;
   ss << " ordered=" << (data_.ordered ? "true" : "false");
+  ss << " app_metadata='" << HexEncode(data_.app_metadata) << "'";
   ss << '>';
   return ss.str();
 }
@@ -368,23 +340,140 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.endpoints == other.data_.endpoints &&
          data_.total_records == other.data_.total_records &&
          data_.total_bytes == other.data_.total_bytes &&
-         data_.ordered == other.data_.ordered;
+         data_.ordered == other.data_.ordered &&
+         data_.app_metadata == other.data_.app_metadata;
+}
+
+arrow::Result<std::string> PollInfo::SerializeToString() const {
+  pb::PollInfo pb_info;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
+
+  std::string out;
+  if (!pb_info.SerializeToString(&out)) {
+    return Status::IOError("Serialized PollInfo exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
+    std::string_view serialized) {
+  pb::PollInfo pb_info;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized PollInfo size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_info.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid PollInfo");
+  }
+  PollInfo info;
+  RETURN_NOT_OK(internal::FromProto(pb_info, &info));
+  return std::make_unique<PollInfo>(std::move(info));
+}
+
+std::string PollInfo::ToString() const {
+  std::stringstream ss;
+  ss << "<PollInfo info=" << info->ToString();
+  ss << " descriptor=";
+  if (descriptor) {
+    ss << descriptor->ToString();
+  } else {
+    ss << "null";
+  }
+  ss << " progress=";
+  if (progress) {
+    ss << progress.value();
+  } else {
+    ss << "null";
+  }
+  ss << " expiration_time=";
+  if (expiration_time) {
+    auto type = timestamp(TimeUnit::NANO);
+    arrow::internal::StringFormatter<TimestampType> formatter(type.get());
+    auto expiration_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    expiration_time->time_since_epoch())
+                                    .count();
+    formatter(expiration_timestamp,
+              [&ss](std::string_view formatted) { ss << formatted; });
+  } else {
+    ss << "null";
+  }
+  ss << '>';
+  return ss.str();
+}
+
+bool PollInfo::Equals(const PollInfo& other) const {
+  if ((info.get() != nullptr) != (other.info.get() != nullptr)) {
+    return false;
+  }
+  if (info && *info != *other.info) {
+    return false;
+  }
+  if (descriptor.has_value() != other.descriptor.has_value()) {
+    return false;
+  }
+  if (descriptor && *descriptor != *other.descriptor) {
+    return false;
+  }
+  if (progress.has_value() != other.progress.has_value()) {
+    return false;
+  }
+  if (progress && fabs(*progress - *other.progress) > arrow::kDefaultAbsoluteTolerance) {
+    return false;
+  }
+  if (expiration_time.has_value() != other.expiration_time.has_value()) {
+    return false;
+  }
+  if (expiration_time && *expiration_time != *other.expiration_time) {
+    return false;
+  }
+  return true;
+}
+
+std::string CancelFlightInfoRequest::ToString() const {
+  std::stringstream ss;
+  ss << "<CancelFlightInfoRequest info=" << info->ToString() << ">";
+  return ss.str();
+}
+
+bool CancelFlightInfoRequest::Equals(const CancelFlightInfoRequest& other) const {
+  return info == other.info;
+}
+
+arrow::Result<std::string> CancelFlightInfoRequest::SerializeToString() const {
+  pb::CancelFlightInfoRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized CancelFlightInfoRequest exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
+    std::string_view serialized) {
+  pb::CancelFlightInfoRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized CancelFlightInfoRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid CancelFlightInfoRequest");
+  }
+  CancelFlightInfoRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
 }
 
 Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
-
-Status FlightListing::Next(std::unique_ptr<FlightInfo>* info) {
-  return Next().Value(info);
-}
 
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   Location location;
   RETURN_NOT_OK(location.uri_->Parse(uri_string));
   return location;
-}
-
-Status Location::Parse(const std::string& uri_string, Location* location) {
-  return Parse(uri_string).Value(location);
 }
 
 arrow::Result<Location> Location::ForGrpcTcp(const std::string& host, const int port) {
@@ -393,28 +482,16 @@ arrow::Result<Location> Location::ForGrpcTcp(const std::string& host, const int 
   return Location::Parse(uri_string.str());
 }
 
-Status Location::ForGrpcTcp(const std::string& host, const int port, Location* location) {
-  return ForGrpcTcp(host, port).Value(location);
-}
-
 arrow::Result<Location> Location::ForGrpcTls(const std::string& host, const int port) {
   std::stringstream uri_string;
   uri_string << "grpc+tls://" << host << ':' << port;
   return Location::Parse(uri_string.str());
 }
 
-Status Location::ForGrpcTls(const std::string& host, const int port, Location* location) {
-  return ForGrpcTls(host, port).Value(location);
-}
-
 arrow::Result<Location> Location::ForGrpcUnix(const std::string& path) {
   std::stringstream uri_string;
   uri_string << "grpc+unix://" << path;
   return Location::Parse(uri_string.str());
-}
-
-Status Location::ForGrpcUnix(const std::string& path, Location* location) {
-  return ForGrpcUnix(path).Value(location);
 }
 
 arrow::Result<Location> Location::ForScheme(const std::string& scheme,
@@ -448,12 +525,43 @@ std::string FlightEndpoint::ToString() const {
     ss << location.ToString();
     first = false;
   }
-  ss << "]>";
+  ss << "]";
+  auto type = timestamp(TimeUnit::NANO);
+  arrow::internal::StringFormatter<TimestampType> formatter(type.get());
+  ss << " expiration_time=";
+  if (expiration_time) {
+    auto expiration_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    expiration_time.value().time_since_epoch())
+                                    .count();
+    formatter(expiration_timestamp,
+              [&ss](std::string_view formatted) { ss << formatted; });
+  } else {
+    ss << "null";
+  }
+  ss << " app_metadata='" << HexEncode(app_metadata) << "'";
+  ss << ">";
   return ss.str();
 }
 
 bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
-  return ticket == other.ticket && locations == other.locations;
+  if (ticket != other.ticket) {
+    return false;
+  }
+  if (locations != other.locations) {
+    return false;
+  }
+  if (expiration_time.has_value() != other.expiration_time.has_value()) {
+    return false;
+  }
+  if (expiration_time) {
+    if (expiration_time.value() != other.expiration_time.value()) {
+      return false;
+    }
+  }
+  if (app_metadata != other.app_metadata) {
+    return false;
+  }
+  return true;
 }
 
 arrow::Result<std::string> FlightEndpoint::SerializeToString() const {
@@ -482,10 +590,59 @@ arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(std::string_view seria
   return out;
 }
 
+std::string RenewFlightEndpointRequest::ToString() const {
+  std::stringstream ss;
+  ss << "<RenewFlightEndpointRequest endpoint=" << endpoint.ToString() << ">";
+  return ss.str();
+}
+
+bool RenewFlightEndpointRequest::Equals(const RenewFlightEndpointRequest& other) const {
+  return endpoint == other.endpoint;
+}
+
+arrow::Result<std::string> RenewFlightEndpointRequest::SerializeToString() const {
+  pb::RenewFlightEndpointRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized RenewFlightEndpointRequest exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<RenewFlightEndpointRequest> RenewFlightEndpointRequest::Deserialize(
+    std::string_view serialized) {
+  pb::RenewFlightEndpointRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized RenewFlightEndpointRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid RenewFlightEndpointRequest");
+  }
+  RenewFlightEndpointRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
+
 std::string ActionType::ToString() const {
   return arrow::util::StringBuilder("<ActionType type='", type, "' description='",
                                     description, "'>");
 }
+
+const ActionType ActionType::kCancelFlightInfo =
+    ActionType{"CancelFlightInfo",
+               "Explicitly cancel a running FlightInfo.\n"
+               "Request Message: CancelFlightInfoRequest\n"
+               "Response Message: CancelFlightInfoResult"};
+const ActionType ActionType::kRenewFlightEndpoint =
+    ActionType{"RenewFlightEndpoint",
+               "Extend expiration time of the given FlightEndpoint.\n"
+               "Request Message: RenewFlightEndpointRequest\n"
+               "Response Message: Renewed FlightEndpoint"};
 
 bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
@@ -636,10 +793,69 @@ arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
   return out;
 }
 
-Status ResultStream::Next(std::unique_ptr<Result>* info) { return Next().Value(info); }
+std::string CancelFlightInfoResult::ToString() const {
+  std::stringstream ss;
+  ss << "<CancelFlightInfoResult status=" << status << ">";
+  return ss.str();
+}
 
-Status MetadataRecordBatchReader::Next(FlightStreamChunk* next) {
-  return Next().Value(next);
+bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
+  return status == other.status;
+}
+
+arrow::Result<std::string> CancelFlightInfoResult::SerializeToString() const {
+  pb::CancelFlightInfoResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError(
+        "Serialized ActionCancelFlightInfoResult exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<CancelFlightInfoResult> CancelFlightInfoResult::Deserialize(
+    std::string_view serialized) {
+  pb::CancelFlightInfoResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized ActionCancelFlightInfoResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid CancelFlightInfoResult");
+  }
+  CancelFlightInfoResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& os, CancelStatus status) {
+  switch (status) {
+    case CancelStatus::kUnspecified:
+      os << "Unspecified";
+      break;
+    case CancelStatus::kCancelled:
+      os << "Cancelled";
+      break;
+    case CancelStatus::kCancelling:
+      os << "Cancelling";
+      break;
+    case CancelStatus::kNotCancellable:
+      os << "NotCancellable";
+      break;
+  }
+  return os;
+}
+
+Status ResultStream::Drain() {
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto result, Next());
+    if (!result) break;
+  }
+  return Status::OK();
 }
 
 arrow::Result<std::vector<std::shared_ptr<RecordBatch>>>
@@ -653,19 +869,10 @@ MetadataRecordBatchReader::ToRecordBatches() {
   return batches;
 }
 
-Status MetadataRecordBatchReader::ReadAll(
-    std::vector<std::shared_ptr<RecordBatch>>* batches) {
-  return ToRecordBatches().Value(batches);
-}
-
 arrow::Result<std::shared_ptr<Table>> MetadataRecordBatchReader::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
   ARROW_ASSIGN_OR_RAISE(auto schema, GetSchema());
   return Table::FromRecordBatches(schema, std::move(batches));
-}
-
-Status MetadataRecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
-  return ToTable().Value(table);
 }
 
 Status MetadataRecordBatchWriter::Begin(const std::shared_ptr<Schema>& schema) {
@@ -754,10 +961,6 @@ arrow::Result<BasicAuth> BasicAuth::Deserialize(std::string_view serialized) {
   return out;
 }
 
-Status BasicAuth::Deserialize(const std::string& serialized, BasicAuth* out) {
-  return Deserialize(serialized).Value(out);
-}
-
 arrow::Result<std::string> BasicAuth::SerializeToString() const {
   pb::BasicAuth pb_result;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
@@ -768,8 +971,88 @@ arrow::Result<std::string> BasicAuth::SerializeToString() const {
   return out;
 }
 
-Status BasicAuth::Serialize(const BasicAuth& basic_auth, std::string* out) {
-  return basic_auth.SerializeToString().Value(out);
+//------------------------------------------------------------
+// Error propagation helpers
+
+std::string ToString(TransportStatusCode code) {
+  switch (code) {
+    case TransportStatusCode::kOk:
+      return "kOk";
+    case TransportStatusCode::kUnknown:
+      return "kUnknown";
+    case TransportStatusCode::kInternal:
+      return "kInternal";
+    case TransportStatusCode::kInvalidArgument:
+      return "kInvalidArgument";
+    case TransportStatusCode::kTimedOut:
+      return "kTimedOut";
+    case TransportStatusCode::kNotFound:
+      return "kNotFound";
+    case TransportStatusCode::kAlreadyExists:
+      return "kAlreadyExists";
+    case TransportStatusCode::kCancelled:
+      return "kCancelled";
+    case TransportStatusCode::kUnauthenticated:
+      return "kUnauthenticated";
+    case TransportStatusCode::kUnauthorized:
+      return "kUnauthorized";
+    case TransportStatusCode::kUnimplemented:
+      return "kUnimplemented";
+    case TransportStatusCode::kUnavailable:
+      return "kUnavailable";
+  }
+  return "(unknown code)";
 }
+
+std::string TransportStatusDetail::ToString() const {
+  std::string repr = "TransportStatusDetail{";
+  repr += arrow::flight::ToString(code());
+  repr += ", message=\"";
+  repr += message();
+  repr += "\", details={";
+
+  bool first = true;
+  for (const auto& [key, value] : details()) {
+    if (!first) {
+      repr += ", ";
+    }
+    first = false;
+
+    repr += "{\"";
+    repr += key;
+    repr += "\", ";
+    if (arrow::internal::EndsWith(key, "-bin")) {
+      repr += arrow::util::base64_encode(value);
+    } else {
+      repr += "\"";
+      repr += value;
+      repr += "\"";
+    }
+    repr += "}";
+  }
+
+  repr += "}}";
+  return repr;
+}
+
+std::optional<std::reference_wrapper<const TransportStatusDetail>>
+TransportStatusDetail::Unwrap(const Status& status) {
+  std::shared_ptr<StatusDetail> detail = status.detail();
+  if (!detail) return std::nullopt;
+  if (detail->type_id() != kTypeId) return std::nullopt;
+  return std::cref(arrow::internal::checked_cast<const TransportStatusDetail&>(*detail));
+}
+
+//------------------------------------------------------------
+// Async types
+
+AsyncListenerBase::AsyncListenerBase() = default;
+AsyncListenerBase::~AsyncListenerBase() = default;
+void AsyncListenerBase::TryCancel() {
+  if (rpc_state_) {
+    rpc_state_->TryCancel();
+  }
+}
+
 }  // namespace flight
 }  // namespace arrow

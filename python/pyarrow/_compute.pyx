@@ -29,11 +29,29 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-
+from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
 import numpy as np
+import warnings
+
+
+__pas = None
+_substrait_msg = (
+    "The pyarrow installation is not built with support for Substrait."
+)
+
+
+def _pas():
+    global __pas
+    if __pas is None:
+        try:
+            import pyarrow.substrait as pas
+            __pas = pas
+        except ImportError:
+            raise ImportError(_substrait_msg)
+    return __pas
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -1201,6 +1219,8 @@ class SliceOptions(_SliceOptions):
     def __init__(self, start, stop=None, step=1):
         if stop is None:
             stop = sys.maxsize
+            if step < 0:
+                stop = -stop
         self._set_options(start, stop, step)
 
 
@@ -1370,7 +1390,7 @@ class TakeOptions(_TakeOptions):
     ----------
     boundscheck : boolean, default True
         Whether to check indices are within bounds. If False and an
-        index is out of boundes, behavior is undefined (the process
+        index is out of bounds, behavior is undefined (the process
         may crash).
     """
 
@@ -1448,7 +1468,7 @@ cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
 
         if isinstance(indices, (list, tuple)) and not len(indices):
-            # Allow empty indices; effecitively return same array
+            # Allow empty indices; effectively return same array
             self.wrapped.reset(
                 new CStructFieldOptions(<vector[int]>indices))
             return
@@ -1565,7 +1585,7 @@ class MapLookupOptions(_MapLookupOptions):
 
     Parameters
     ----------
-    query_key : Scalar
+    query_key : Scalar or Object can be converted to Scalar
         The key to search for.
     occurrence : str
         The occurrence(s) to return from the Map
@@ -1573,6 +1593,9 @@ class MapLookupOptions(_MapLookupOptions):
     """
 
     def __init__(self, query_key, occurrence):
+        if not isinstance(query_key, lib.Scalar):
+            query_key = lib.scalar(query_key)
+
         self._set_options(query_key, occurrence)
 
 
@@ -1659,6 +1682,9 @@ class StrptimeOptions(_StrptimeOptions):
     ----------
     format : str
         Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+        Note that the semantics of the format follow the C/C++ strptime, not the Python one.
+        There are differences in behavior, for example how the "%y" placeholder
+        handles years with less than four digits.
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
@@ -1928,32 +1954,85 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
-cdef class _CumulativeSumOptions(FunctionOptions):
+cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
-        if not isinstance(start, Scalar):
+        if start is None:
+            self.wrapped.reset(new CCumulativeOptions(skip_nulls))
+        elif isinstance(start, Scalar):
+            self.wrapped.reset(new CCumulativeOptions(
+                pyarrow_unwrap_scalar(start), skip_nulls))
+        else:
             try:
                 start = lib.scalar(start)
+                self.wrapped.reset(new CCumulativeOptions(
+                    pyarrow_unwrap_scalar(start), skip_nulls))
             except Exception:
                 _raise_invalid_function_option(
-                    start, "`start` type for CumulativeSumOptions", TypeError)
-
-        self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
+                    start, "`start` type for CumulativeOptions", TypeError)
 
 
-class CumulativeSumOptions(_CumulativeSumOptions):
+class CumulativeOptions(_CumulativeOptions):
+    """
+    Options for `cumulative_*` functions.
+
+    - cumulative_sum
+    - cumulative_sum_checked
+    - cumulative_prod
+    - cumulative_prod_checked
+    - cumulative_max
+    - cumulative_min
+
+    Parameters
+    ----------
+    start : Scalar, default None
+        Starting value for the cumulative operation. If none is given,
+        a default value depending on the operation and input type is used.
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=None, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
+class CumulativeSumOptions(_CumulativeOptions):
     """
     Options for `cumulative_sum` function.
 
     Parameters
     ----------
-    start : Scalar, default 0.0
+    start : Scalar, default None
         Starting value for sum computation
     skip_nulls : bool, default False
         When false, the first encountered null is propagated.
     """
 
-    def __init__(self, start=0.0, *, skip_nulls=False):
+    def __init__(self, start=None, *, skip_nulls=False):
+        warnings.warn(
+            _DEPR_MSG.format("CumulativeSumOptions", "14.0", "CumulativeOptions"),
+            FutureWarning,
+            stacklevel=2
+        )
         self._set_options(start, skip_nulls)
+
+
+cdef class _PairwiseOptions(FunctionOptions):
+    def _set_options(self, period):
+        self.wrapped.reset(new CPairwiseOptions(period))
+
+
+class PairwiseOptions(_PairwiseOptions):
+    """
+    Options for `pairwise` functions.
+
+    Parameters
+    ----------
+    period : int, default 1
+        Period for applying the period function.
+    """
+
+    def __init__(self, period=1):
+        self._set_options(period)
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -2069,7 +2148,8 @@ class QuantileOptions(_QuantileOptions):
     Parameters
     ----------
     q : double or sequence of double, default 0.5
-        Quantiles to compute. All values must be in [0, 1].
+        Probability levels of the quantiles to compute. All values must be in
+        [0, 1].
     interpolation : str, default "linear"
         How to break ties between competing data points for a given quantile.
         Accepted values are:
@@ -2106,7 +2186,8 @@ class TDigestOptions(_TDigestOptions):
     Parameters
     ----------
     q : double or sequence of double, default 0.5
-        Quantiles to approximate. All values must be in [0, 1].
+        Probability levels of the quantiles to approximate. All values must be
+        in [0, 1].
     delta : int, default 100
         Compression parameter for the T-digest algorithm.
     buffer_size : int, default 500
@@ -2288,7 +2369,7 @@ cdef class Expression(_Weakrefable):
       1,
       2,
       3
-    ], skip_nulls=false})>
+    ], null_matching_behavior=MATCH})>
     """
 
     def __init__(self):
@@ -2308,6 +2389,15 @@ cdef class Expression(_Weakrefable):
         return self.expr
 
     def equals(self, Expression other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.Expression
+
+        Returns
+        -------
+        bool
+        """
         return self.expr.Equals(other.unwrap())
 
     def __str__(self):
@@ -2317,6 +2407,58 @@ cdef class Expression(_Weakrefable):
         return "<pyarrow.compute.{0} {1}>".format(
             self.__class__.__name__, str(self)
         )
+
+    @staticmethod
+    def from_substrait(object buffer not None):
+        """
+        Deserialize an expression from Substrait
+
+        The serialized message must be an ExtendedExpression message that has
+        only a single expression.  The name of the expression and the schema
+        the expression was bound to will be ignored.  Use
+        pyarrow.substrait.deserialize_expressions if this information is needed
+        or if the message might contain multiple expressions.
+
+        Parameters
+        ----------
+        buffer : bytes or Buffer
+            The Substrait message to deserialize
+
+        Returns
+        -------
+        Expression
+            The deserialized expression
+        """
+        expressions = _pas().deserialize_expressions(buffer).expressions
+        if len(expressions) == 0:
+            raise ValueError("Substrait message did not contain any expressions")
+        if len(expressions) > 1:
+            raise ValueError(
+                "Substrait message contained multiple expressions.  Use pyarrow.substrait.deserialize_expressions instead")
+        return next(iter(expressions.values()))
+
+    def to_substrait(self, Schema schema not None, c_bool allow_arrow_extensions=False):
+        """
+        Serialize the expression using Substrait
+
+        The expression will be serialized as an ExtendedExpression message that has a
+        single expression named "expression"
+
+        Parameters
+        ----------
+        schema : Schema
+            The input schema the expression will be bound to
+        allow_arrow_extensions : bool, default False
+            If False then only functions that are part of the core Substrait function
+            definitions will be allowed.  Set this to True to allow pyarrow-specific functions
+            but the result may not be accepted by other compute libraries.
+
+        Returns
+        -------
+        Buffer
+            A buffer containing the serialized Protobuf plan.
+        """
+        return _pas().serialize_expressions([self], ["expression"], schema, allow_arrow_extensions=allow_arrow_extensions)
 
     @staticmethod
     def _deserialize(Buffer buffer not None):
@@ -2670,6 +2812,11 @@ cdef get_register_aggregate_function():
     reg.register_func = RegisterAggregateFunction
     return reg
 
+cdef get_register_vector_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterVectorFunction
+    return reg
+
 
 def register_scalar_function(func, function_name, function_doc, in_types, out_type,
                              func_registry=None):
@@ -2752,6 +2899,83 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
                                            out_type, func_registry)
 
 
+def register_vector_function(func, function_name, function_doc, in_types, out_type,
+                             func_registry=None):
+    """
+    Register a user-defined vector function.
+
+    This API is EXPERIMENTAL.
+
+    A vector function is a function that executes vector
+    operations on arrays. Vector function is often used
+    when compute doesn't fit other more specific types of
+    functions (e.g., scalar and aggregate).
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The first argument is the context argument of type
+        UdfContext.
+        Then, it must take arguments equal to the number of
+        in_types defined. It must return an Array or Scalar
+        matching the out_type. It must return a Scalar if
+        all arguments are scalar, else it must return an Array.
+
+        To define a varargs function, pass a callable that takes
+        *args. The last in_type will be the type of all varargs
+        arguments.
+    function_name : str
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>>
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "percent rank"
+    >>> func_doc["description"] = "compute percent rank"
+    >>>
+    >>> def list_flatten_udf(ctx, x):
+    ...     return pc.list_flatten(x)
+    >>>
+    >>> func_name = "list_flatten_udf"
+    >>> in_types = {"array": pa.list_(pa.int64())}
+    >>> out_type = pa.int64()
+    >>> pc.register_vector_function(list_flatten_udf, func_name, func_doc,
+    ...                   in_types, out_type)
+    >>>
+    >>> answer = pc.call_function(func_name, [pa.array([[1, 2], [3, 4]])])
+    >>> answer
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      1,
+      2,
+      3,
+      4
+    ]
+    """
+    return _register_user_defined_function(get_register_vector_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
+
+
 def register_aggregate_function(func, function_name, function_doc, in_types, out_type,
                                 func_registry=None):
     """
@@ -2766,6 +2990,9 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
 
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
+
+    Note that currently the size of any input column cannot exceed 2 GB
+    for a single segment (all groups combined).
 
     Parameters
     ----------
@@ -2823,6 +3050,15 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     >>> answer = pc.call_function(func_name, [pa.array([20, 40])])
     >>> answer
     <pyarrow.DoubleScalar: 30.0>
+    >>> table = pa.table([pa.array([1, 1, 2, 2]), pa.array([10, 20, 30, 40])], names=['k', 'v'])
+    >>> result = table.group_by('k').aggregate([('v', 'py_compute_median')])
+    >>> result
+    pyarrow.Table
+    k: int64
+    v_py_compute_median: double
+    ----
+    k: [[1,2]]
+    v_py_compute_median: [[15,35]]
     """
     return _register_user_defined_function(get_register_aggregate_function(),
                                            func, function_name, function_doc, in_types,
@@ -2840,7 +3076,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     UdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
-    correspoding to the schema.
+    corresponding to the schema.
 
     Parameters
     ----------

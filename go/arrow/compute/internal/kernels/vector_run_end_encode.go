@@ -24,14 +24,14 @@ import (
 	"sort"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/float16"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/bitutil"
+	"github.com/apache/arrow/go/v15/arrow/compute/exec"
+	"github.com/apache/arrow/go/v15/arrow/decimal128"
+	"github.com/apache/arrow/go/v15/arrow/decimal256"
+	"github.com/apache/arrow/go/v15/arrow/float16"
+	"github.com/apache/arrow/go/v15/arrow/internal/debug"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 )
 
 type RunEndEncodeState struct {
@@ -46,18 +46,18 @@ type RunEndsType interface {
 	int16 | int32 | int64
 }
 
-func readFixedWidthVal[V exec.FixedWidthTypes](inputValidity, inputValues []byte, offset int64, out *V) bool {
+func readFixedWidthVal[V arrow.FixedWidthType](inputValidity, inputValues []byte, offset int64, out *V) bool {
 	sz := int64(unsafe.Sizeof(*out))
 	*out = *(*V)(unsafe.Pointer(&inputValues[offset*sz]))
 	return bitutil.BitIsSet(inputValidity, int(offset))
 }
 
-func writeFixedWidthVal[V exec.FixedWidthTypes](result *exec.ExecResult, offset int64, valid bool, value V) {
+func writeFixedWidthVal[V arrow.FixedWidthType](result *exec.ExecResult, offset int64, valid bool, value V) {
 	if len(result.Buffers[0].Buf) != 0 {
 		bitutil.SetBitTo(result.Buffers[0].Buf, int(offset), valid)
 	}
 
-	arr := exec.GetData[V](result.Buffers[1].Buf)
+	arr := arrow.GetData[V](result.Buffers[1].Buf)
 	arr[offset] = value
 }
 
@@ -73,7 +73,7 @@ func writeBoolVal(result *exec.ExecResult, offset int64, valid bool, value bool)
 	bitutil.SetBitTo(result.Buffers[1].Buf, int(offset), value)
 }
 
-type runEndEncodeLoopFixedWidth[R RunEndsType, V exec.FixedWidthTypes | bool] struct {
+type runEndEncodeLoopFixedWidth[R RunEndsType, V arrow.FixedWidthType | bool] struct {
 	inputLen, inputOffset int64
 	inputValidity         []byte
 	inputValues           []byte
@@ -84,7 +84,7 @@ type runEndEncodeLoopFixedWidth[R RunEndsType, V exec.FixedWidthTypes | bool] st
 }
 
 func (re *runEndEncodeLoopFixedWidth[R, V]) WriteEncodedRuns(out *exec.ExecResult) int64 {
-	outputRunEnds := exec.GetData[R](out.Children[0].Buffers[1].Buf)
+	outputRunEnds := arrow.GetData[R](out.Children[0].Buffers[1].Buf)
 
 	readOffset := re.inputOffset
 	var currentRun V
@@ -155,7 +155,7 @@ func (re *runEndEncodeLoopFixedWidth[R, V]) PreallocOutput(ctx *exec.KernelCtx, 
 		valueBuffer = ctx.Allocate(int(numOutput) * bufSpec.ByteWidth)
 	}
 
-	reeType := arrow.RunEndEncodedOf(exec.GetDataType[R](), re.valueType)
+	reeType := arrow.RunEndEncodedOf(arrow.GetDataType[R](), re.valueType)
 	out.Release()
 
 	*out = exec.ExecResult{
@@ -230,7 +230,7 @@ func (re *runEndEncodeFSB[R]) PreallocOutput(ctx *exec.KernelCtx, numOutput int6
 	}
 
 	valueBuffer := ctx.Allocate(re.width * int(numOutput))
-	reeType := arrow.RunEndEncodedOf(exec.GetDataType[R](), re.valueType)
+	reeType := arrow.RunEndEncodedOf(arrow.GetDataType[R](), re.valueType)
 	out.Release()
 
 	*out = exec.ExecResult{
@@ -258,7 +258,7 @@ func (re *runEndEncodeFSB[R]) PreallocOutput(ctx *exec.KernelCtx, numOutput int6
 }
 
 func (re *runEndEncodeFSB[R]) WriteEncodedRuns(out *exec.ExecResult) int64 {
-	outputRunEnds := exec.GetData[R](out.Children[0].Buffers[1].Buf)
+	outputRunEnds := arrow.GetData[R](out.Children[0].Buffers[1].Buf)
 	outputValues := out.Children[1].Buffers[1].Buf
 
 	readOffset := re.inputOffset
@@ -362,7 +362,7 @@ func (re *runEndEncodeLoopBinary[R, O]) PreallocOutput(ctx *exec.KernelCtx, numO
 	valueBuffer := ctx.Allocate(int(re.estimatedValuesLen))
 	offsetsBuffer := ctx.Allocate(int(numOutput+1) * int(SizeOf[O]()))
 
-	reeType := arrow.RunEndEncodedOf(exec.GetDataType[R](), re.valueType)
+	reeType := arrow.RunEndEncodedOf(arrow.GetDataType[R](), re.valueType)
 	*out = exec.ExecResult{
 		Type:   reeType,
 		Len:    re.inputLen,
@@ -389,12 +389,12 @@ func (re *runEndEncodeLoopBinary[R, O]) PreallocOutput(ctx *exec.KernelCtx, numO
 }
 
 func (re *runEndEncodeLoopBinary[R, O]) WriteEncodedRuns(out *exec.ExecResult) int64 {
-	outputRunEnds := exec.GetData[R](out.Children[0].Buffers[1].Buf)
+	outputRunEnds := arrow.GetData[R](out.Children[0].Buffers[1].Buf)
 	outputOffsets := exec.GetSpanOffsets[O](&out.Children[1], 1)
 	outputValues := out.Children[1].Buffers[2].Buf
 
 	// re.offsetValues already accounts for the input.offset so we don't
-	// need to initalize readOffset to re.inputOffset
+	// need to initialize readOffset to re.inputOffset
 	var readOffset int64
 	currentRun, curRunValid := re.readValue(readOffset)
 	readOffset++
@@ -443,7 +443,7 @@ func validateRunEndType[R RunEndsType](length int64) error {
 	return nil
 }
 
-func createEncoder[R RunEndsType, V exec.FixedWidthTypes](input *exec.ArraySpan) *runEndEncodeLoopFixedWidth[R, V] {
+func createEncoder[R RunEndsType, V arrow.FixedWidthType](input *exec.ArraySpan) *runEndEncodeLoopFixedWidth[R, V] {
 	return &runEndEncodeLoopFixedWidth[R, V]{
 		inputLen:      input.Len,
 		inputOffset:   input.Offset,
@@ -539,7 +539,7 @@ func runEndEncodeImpl[R RunEndsType](ctx *exec.KernelCtx, batch *exec.ExecSpan, 
 	)
 
 	if inputLen == 0 {
-		reeType := arrow.RunEndEncodedOf(exec.GetDataType[R](), inputArr.Type)
+		reeType := arrow.RunEndEncodedOf(arrow.GetDataType[R](), inputArr.Type)
 		*out = exec.ExecResult{
 			Type: reeType,
 			Children: []exec.ArraySpan{

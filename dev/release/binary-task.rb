@@ -1085,9 +1085,10 @@ class BinaryTask
     [
       ["debian", "bullseye", "main"],
       ["debian", "bookworm", "main"],
+      ["debian", "trixie", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
-      ["ubuntu", "kinetic", "main"],
+      ["ubuntu", "mantic", "main"],
     ]
   end
 
@@ -1460,7 +1461,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     [
       ["almalinux", "9"],
       ["almalinux", "8"],
-      ["amazon-linux", "2"],
+      ["amazon-linux", "2023"],
       ["centos", "9-stream"],
       ["centos", "8-stream"],
       ["centos", "7"],
@@ -1784,7 +1785,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
           release_distribution(distribution,
                                list: uploaded_files_name)
 
-          # Remove old repodata
           distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
           download_distribution(distribution,
                                 distribution_dir,
@@ -1794,7 +1794,14 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                                              distribution: distribution,
                                              source: distribution_dir,
                                              staging: staging?,
-                                             sync: true,
+                                             # Don't remove old repodata for
+                                             # unsupported distribution version
+                                             # such as Amazon Linux 2.
+                                             # This keeps garbage in repodata/
+                                             # for currently available
+                                             # distribution versions but we
+                                             # accept it for easy to implement.
+                                             sync: false,
                                              sync_pattern: /\/repodata\//)
           uploader.upload
         end
@@ -1888,7 +1895,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               :docs,
                               "#{rc_dir}/docs/#{full_version}",
                               "#{release_dir}/docs/#{full_version}",
-                              "test-ubuntu-default-docs/**/*")
+                              "test-ubuntu-22.04-docs/**/*")
   end
 
   def define_nuget_tasks
@@ -2104,16 +2111,18 @@ class LocalBinaryTask < BinaryTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-buster",
-      # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
+      "debian-trixie",
+      # "debian-trixie-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
-      "ubuntu-impish",
-      # "ubuntu-impish-arm64",
+      "ubuntu-jammy",
+      # "ubuntu-jammy-arm64",
+      "ubuntu-lunar",
+      # "ubuntu-lunar-arm64",
     ]
   end
 
@@ -2164,8 +2173,8 @@ class LocalBinaryTask < BinaryTask
       # "almalinux-9-aarch64",
       "almalinux-8",
       # "almalinux-8-aarch64",
-      "amazon-linux-2",
-      # "amazon-linux-2-aarch64",
+      "amazon-linux-2023",
+      # "amazon-linux-2023-aarch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
       "centos-8-stream",

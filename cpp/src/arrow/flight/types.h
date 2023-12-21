@@ -19,19 +19,23 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 
 namespace arrow {
 
@@ -55,7 +59,23 @@ class Uri;
 
 namespace flight {
 
-/// \brief A Flight-specific status code.
+/// \brief A timestamp compatible with Protocol Buffer's
+/// google.protobuf.Timestamp:
+///
+/// https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp
+///
+/// > A Timestamp represents a point in time independent of any time
+/// > zone or calendar, represented as seconds and fractions of
+/// > seconds at nanosecond resolution in UTC Epoch time. It is
+/// > encoded using the Proleptic Gregorian Calendar which extends the
+/// > Gregorian calendar backwards to year one. It is encoded assuming
+/// > all minutes are 60 seconds long, i.e. leap seconds are "smeared"
+/// > so that no leap second table is needed for interpretation. Range
+/// > is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
+using Timestamp = std::chrono::system_clock::time_point;
+
+/// \brief A Flight-specific status code.  Used to encode some
+///   additional status codes into an Arrow Status.
 enum class FlightStatusCode : int8_t {
   /// An implementation error has occurred.
   Internal,
@@ -161,6 +181,9 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<ActionType> Deserialize(std::string_view serialized);
+
+  static const ActionType kCancelFlightInfo;
+  static const ActionType kRenewFlightEndpoint;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
@@ -231,6 +254,48 @@ struct ARROW_FLIGHT_EXPORT Result {
   static arrow::Result<Result> Deserialize(std::string_view serialized);
 };
 
+enum class CancelStatus {
+  /// The cancellation status is unknown. Servers should avoid using
+  /// this value (send a kNotCancellable if the requested FlightInfo
+  /// is not known). Clients can retry the request.
+  kUnspecified = 0,
+  /// The cancellation request is complete. Subsequent requests with
+  /// the same payload may return kCancelled or a kNotCancellable error.
+  kCancelled = 1,
+  /// The cancellation request is in progress. The client may retry
+  /// the cancellation request.
+  kCancelling = 2,
+  // The FlightInfo is not cancellable. The client should not retry the
+  // cancellation request.
+  kNotCancellable = 3,
+};
+
+/// \brief The result of the CancelFlightInfo action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult {
+  CancelStatus status;
+
+  std::string ToString() const;
+  bool Equals(const CancelFlightInfoResult& other) const;
+
+  friend bool operator==(const CancelFlightInfoResult& left,
+                         const CancelFlightInfoResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CancelFlightInfoResult& left,
+                         const CancelFlightInfoResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CancelFlightInfoResult> Deserialize(std::string_view serialized);
+};
+
+ARROW_FLIGHT_EXPORT
+std::ostream& operator<<(std::ostream& os, CancelStatus status);
+
 /// \brief message for simple auth
 struct ARROW_FLIGHT_EXPORT BasicAuth {
   std::string username;
@@ -250,12 +315,6 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
   static arrow::Result<BasicAuth> Deserialize(std::string_view serialized);
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized, BasicAuth* out);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Serialize(const BasicAuth& basic_auth, std::string* out);
 };
 
 /// \brief A request to retrieve or generate a dataset
@@ -288,17 +347,11 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   /// services) that may want to return Flight types.
   arrow::Result<std::string> SerializeToString() const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status SerializeToString(std::string* out) const;
-
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static arrow::Result<FlightDescriptor> Deserialize(std::string_view serialized);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
 
   // Convenience factory functions
 
@@ -339,17 +392,11 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   /// services) that may want to return Flight types.
   arrow::Result<std::string> SerializeToString() const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status SerializeToString(std::string* out) const;
-
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static arrow::Result<Ticket> Deserialize(std::string_view serialized);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized, Ticket* out);
 };
 
 class FlightClient;
@@ -373,18 +420,12 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \brief Initialize a location by parsing a URI string
   static arrow::Result<Location> Parse(const std::string& uri_string);
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Parse(const std::string& uri_string, Location* location);
-
   /// \brief Initialize a location for a non-TLS, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to
   /// \param[in] port The port
   /// \return Arrow result with the resulting location
   static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status ForGrpcTcp(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
   /// service from a host and port
@@ -393,17 +434,11 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \return Arrow result with the resulting location
   static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status ForGrpcTls(const std::string& host, const int port, Location* location);
-
   /// \brief Initialize a location for a domain socket-based Flight
   /// service
   /// \param[in] path The path to the domain socket
   /// \return Arrow result with the resulting location
   static arrow::Result<Location> ForGrpcUnix(const std::string& path);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status ForGrpcUnix(const std::string& path, Location* location);
 
   /// \brief Initialize a location based on a URI scheme
   static arrow::Result<Location> ForScheme(const std::string& scheme,
@@ -441,6 +476,14 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   /// generated
   std::vector<Location> locations;
 
+  /// Expiration time of this stream. If present, clients may assume
+  /// they can retry DoGet requests. Otherwise, clients should avoid
+  /// retrying DoGet requests.
+  std::optional<Timestamp> expiration_time;
+
+  /// Opaque Application-defined metadata
+  std::string app_metadata;
+
   std::string ToString() const;
   bool Equals(const FlightEndpoint& other) const;
 
@@ -456,6 +499,30 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<FlightEndpoint> Deserialize(std::string_view serialized);
+};
+
+/// \brief The request of the RenewFlightEndpoint action.
+struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest {
+  FlightEndpoint endpoint;
+
+  std::string ToString() const;
+  bool Equals(const RenewFlightEndpointRequest& other) const;
+
+  friend bool operator==(const RenewFlightEndpointRequest& left,
+                         const RenewFlightEndpointRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const RenewFlightEndpointRequest& left,
+                         const RenewFlightEndpointRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<RenewFlightEndpointRequest> Deserialize(
+      std::string_view serialized);
 };
 
 /// \brief Staging data structure for messages about to be put on the wire
@@ -486,10 +553,6 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
-                   std::shared_ptr<Schema>* out) const;
-
   const std::string& serialized_schema() const { return raw_schema_; }
 
   std::string ToString() const;
@@ -512,7 +575,7 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   std::string raw_schema_;
 };
 
-/// \brief The access coordinates for retireval of a dataset, returned by
+/// \brief The access coordinates for retrieval of a dataset, returned by
 /// GetFlightInfo
 class ARROW_FLIGHT_EXPORT FlightInfo {
  public:
@@ -520,9 +583,10 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
     std::string schema;
     FlightDescriptor descriptor;
     std::vector<FlightEndpoint> endpoints;
-    int64_t total_records;
-    int64_t total_bytes;
-    bool ordered;
+    int64_t total_records = -1;
+    int64_t total_bytes = -1;
+    bool ordered = false;
+    std::string app_metadata;
   };
 
   explicit FlightInfo(Data data) : data_(std::move(data)), reconstructed_schema_(false) {}
@@ -532,20 +596,17 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
                                         const FlightDescriptor& descriptor,
                                         const std::vector<FlightEndpoint>& endpoints,
                                         int64_t total_records, int64_t total_bytes,
-                                        bool ordered = false);
+                                        bool ordered = false,
+                                        std::string app_metadata = "");
 
   /// \brief Deserialize the Arrow schema of the dataset. Populate any
   ///   dictionary encoded fields into a DictionaryMemo for
   ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
-  /// \return Arrrow result with the reconstructed Schema
+  /// \return Arrow result with the reconstructed Schema
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
-                   std::shared_ptr<Schema>* out) const;
 
   const std::string& serialized_schema() const { return data_.schema; }
 
@@ -565,14 +626,14 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// Whether endpoints are in the same order as the data.
   bool ordered() const { return data_.ordered; }
 
+  /// Application-defined opaque metadata
+  const std::string& app_metadata() const { return data_.app_metadata; }
+
   /// \brief Get the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   arrow::Result<std::string> SerializeToString() const;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
@@ -580,10 +641,6 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// services) that may want to return Flight types.
   static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
       std::string_view serialized);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized,
-                            std::unique_ptr<FlightInfo>* out);
 
   std::string ToString() const;
 
@@ -605,6 +662,94 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   mutable bool reconstructed_schema_;
 };
 
+/// \brief The information to process a long-running query.
+class ARROW_FLIGHT_EXPORT PollInfo {
+ public:
+  /// The currently available results so far.
+  std::unique_ptr<FlightInfo> info = NULLPTR;
+  /// The descriptor the client should use on the next try. If unset,
+  /// the query is complete.
+  std::optional<FlightDescriptor> descriptor = std::nullopt;
+  /// Query progress. Must be in [0.0, 1.0] but need not be
+  /// monotonic or nondecreasing. If unknown, do not set.
+  std::optional<double> progress = std::nullopt;
+  /// Expiration time for this request. After this passes, the server
+  /// might not accept the poll descriptor anymore (and the query may
+  /// be cancelled). This may be updated on a call to PollFlightInfo.
+  std::optional<Timestamp> expiration_time = std::nullopt;
+
+  PollInfo()
+      : info(NULLPTR),
+        descriptor(std::nullopt),
+        progress(std::nullopt),
+        expiration_time(std::nullopt) {}
+
+  explicit PollInfo(std::unique_ptr<FlightInfo> info,
+                    std::optional<FlightDescriptor> descriptor,
+                    std::optional<double> progress,
+                    std::optional<Timestamp> expiration_time)
+      : info(std::move(info)),
+        descriptor(std::move(descriptor)),
+        progress(progress),
+        expiration_time(expiration_time) {}
+
+  explicit PollInfo(const PollInfo& other)
+      : info(other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR),
+        descriptor(other.descriptor),
+        progress(other.progress),
+        expiration_time(other.expiration_time) {}
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  static arrow::Result<std::unique_ptr<PollInfo>> Deserialize(
+      std::string_view serialized);
+
+  std::string ToString() const;
+
+  /// Compare two PollInfo for equality. This will compare the
+  /// serialized schema representations, NOT the logical equality of
+  /// the schemas.
+  bool Equals(const PollInfo& other) const;
+
+  friend bool operator==(const PollInfo& left, const PollInfo& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const PollInfo& left, const PollInfo& right) {
+    return !(left == right);
+  }
+};
+
+/// \brief The request of the CancelFlightInfoRequest action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
+  std::unique_ptr<FlightInfo> info;
+
+  std::string ToString() const;
+  bool Equals(const CancelFlightInfoRequest& other) const;
+
+  friend bool operator==(const CancelFlightInfoRequest& left,
+                         const CancelFlightInfoRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CancelFlightInfoRequest& left,
+                         const CancelFlightInfoRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
+};
+
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {
  public:
@@ -614,9 +759,6 @@ class ARROW_FLIGHT_EXPORT FlightListing {
   /// \return Arrow result with a single FlightInfo. Set to \a nullptr if there
   /// are none left.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> Next() = 0;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(std::unique_ptr<FlightInfo>* info);
 };
 
 /// \brief An iterator to Result instances returned by DoAction.
@@ -628,8 +770,10 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   /// \return Arrow result with a single Result. Set to \a nullptr if there are none left.
   virtual arrow::Result<std::unique_ptr<Result>> Next() = 0;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(std::unique_ptr<Result>* info);
+  /// \brief Read and drop the remaining messages to get the error (if any) from a server.
+  /// \return Status OK if this is no error from a server, any other status if a
+  /// server returns an error.
+  Status Drain();
 };
 
 /// \brief A holder for a RecordBatch with associated Flight metadata.
@@ -652,20 +796,11 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
   /// nullptr.
   virtual arrow::Result<FlightStreamChunk> Next() = 0;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(FlightStreamChunk* next);
-
   /// \brief Consume entire stream as a vector of record batches
   virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches();
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
-
   /// \brief Consume entire stream as a Table
   virtual arrow::Result<std::shared_ptr<Table>> ToTable();
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
-  Status ReadAll(std::shared_ptr<Table>* table);
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
@@ -715,6 +850,82 @@ class ARROW_FLIGHT_EXPORT SimpleResultStream : public ResultStream {
   std::vector<Result> results_;
   size_t position_;
 };
+
+/// \defgroup flight-error Error Handling
+/// Types for handling errors from RPCs.  Flight uses a set of status
+/// codes standardized across Flight implementations, so these types
+/// let applications work directly with those codes instead of having
+/// to translate to and from Arrow Status.
+/// @{
+
+/// \brief Abstract status code for an RPC as per the Flight
+///   specification.
+enum class TransportStatusCode {
+  /// \brief No error.
+  kOk = 0,
+  /// \brief An unknown error occurred.
+  kUnknown = 1,
+  /// \brief An error occurred in the transport implementation, or an
+  ///   error internal to the service implementation occurred.
+  kInternal = 2,
+  /// \brief An argument is invalid.
+  kInvalidArgument = 3,
+  /// \brief The request timed out.
+  kTimedOut = 4,
+  /// \brief An argument is not necessarily invalid, but references
+  ///   some resource that does not exist.  Prefer over
+  ///   kInvalidArgument where applicable.
+  kNotFound = 5,
+  /// \brief The request attempted to create some resource that does
+  ///   not exist.
+  kAlreadyExists = 6,
+  /// \brief The request was explicitly cancelled.
+  kCancelled = 7,
+  /// \brief The client is not authenticated.
+  kUnauthenticated = 8,
+  /// \brief The client is not authorized to perform this request.
+  kUnauthorized = 9,
+  /// \brief The request is not implemented
+  kUnimplemented = 10,
+  /// \brief There is a network connectivity error, or some resource
+  ///   is otherwise unavailable.  Most likely a temporary condition.
+  kUnavailable = 11,
+};
+
+/// \brief Convert a code to a string.
+std::string ToString(TransportStatusCode code);
+
+/// \brief An error from an RPC call, using Flight error codes directly
+///   instead of trying to translate to Arrow Status.
+///
+/// Currently, only attached to the Status passed to AsyncListener::OnFinish.
+///
+/// This API is EXPERIMENTAL.
+class ARROW_FLIGHT_EXPORT TransportStatusDetail : public StatusDetail {
+ public:
+  constexpr static const char* kTypeId = "flight::TransportStatusDetail";
+  explicit TransportStatusDetail(TransportStatusCode code, std::string message,
+                                 std::vector<std::pair<std::string, std::string>> details)
+      : code_(code), message_(std::move(message)), details_(std::move(details)) {}
+  const char* type_id() const override { return kTypeId; }
+  std::string ToString() const override;
+
+  static std::optional<std::reference_wrapper<const TransportStatusDetail>> Unwrap(
+      const Status& status);
+
+  TransportStatusCode code() const { return code_; }
+  std::string_view message() const { return message_; }
+  const std::vector<std::pair<std::string, std::string>>& details() const {
+    return details_;
+  }
+
+ private:
+  TransportStatusCode code_;
+  std::string message_;
+  std::vector<std::pair<std::string, std::string>> details_;
+};
+
+/// @}
 
 }  // namespace flight
 }  // namespace arrow

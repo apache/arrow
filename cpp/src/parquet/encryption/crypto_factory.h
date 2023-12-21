@@ -25,8 +25,7 @@
 #include "parquet/encryption/kms_client_factory.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 static constexpr ParquetCipher::type kDefaultEncryptionAlgorithm =
     ParquetCipher::AES_GCM_V1;
@@ -152,5 +151,4 @@ class PARQUET_EXPORT CryptoFactory {
   KeyToolkit key_toolkit_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

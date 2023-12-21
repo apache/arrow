@@ -21,9 +21,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/metadata"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v15/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -270,6 +270,41 @@ func TestKeyValueMetadata(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, faccessor.KeyValueMetadata().Equals(kvmeta))
+}
+
+func TestKeyValueMetadataAppend(t *testing.T) {
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V1_0))
+
+	fields := schema.FieldList{
+		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1),
+		schema.NewFloat32Node("float_col", parquet.Repetitions.Required, -1),
+	}
+	root, err := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, fields, -1)
+	require.NoError(t, err)
+	schema := schema.NewSchema(root)
+
+	kvmeta := metadata.NewKeyValueMetadata()
+	key1 := "test_key1"
+	value1 := "test_value1"
+	require.NoError(t, kvmeta.Append(key1, value1))
+
+	fbuilder := metadata.NewFileMetadataBuilder(schema, props, kvmeta)
+
+	key2 := "test_key2"
+	value2 := "test_value2"
+	require.NoError(t, fbuilder.AppendKeyValueMetadata(key2, value2))
+	faccessor, err := fbuilder.Finish()
+	require.NoError(t, err)
+
+	kv := faccessor.KeyValueMetadata()
+
+	got1 := kv.FindValue(key1)
+	require.NotNil(t, got1)
+	assert.Equal(t, value1, *got1)
+
+	got2 := kv.FindValue(key2)
+	require.NotNil(t, got2)
+	assert.Equal(t, value2, *got2)
 }
 
 func TestApplicationVersion(t *testing.T) {

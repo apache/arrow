@@ -478,7 +478,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
     if (!children.isEmpty()) {
-      throw new IllegalArgumentException("primitive type vector can not have children");
+      throw new IllegalArgumentException("primitive type vector cannot have children");
     }
   }
 
@@ -551,6 +551,13 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   /**
+   * Validate the scalar values held by this vector.
+   */
+  public void validateScalars() {
+    // No validation by default.
+  }
+
+  /**
    * Construct a transfer pair of this vector and another vector of same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
@@ -560,6 +567,18 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return getTransferPair(ref, allocator);
+  }
+
+  /**
+   * Construct a transfer pair of this vector and another vector of same type.
+   * @param field The field materialized by this vector.
+   * @param allocator allocator for the target vector
+   * @param callBack not used
+   * @return TransferPair
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return getTransferPair(field, allocator);
   }
 
   /**
@@ -581,7 +600,15 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
   /**
-   * Transfer this vector'data to another vector. The memory associated
+   * Construct a transfer pair of this vector and another vector of same type.
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return TransferPair
+   */
+  public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
+
+  /**
+   * Transfer this vector's data to another vector. The memory associated
    * with this vector is transferred to the allocator of target vector
    * for accounting and management purposes.
    * @param target destination vector for transfer

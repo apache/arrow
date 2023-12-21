@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
@@ -36,6 +37,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -119,7 +121,7 @@ const MonthDayNanoAttrData MonthDayNanoTraits<MonthDayNanoField::kNanoseconds>::
      {"minutes", /*minutes_in_hours=*/60},
      {"seconds", /*seconds_in_minute=*/60},
      {"milliseconds", /*milliseconds_in_seconds*/ 1000},
-     {"microseconds", /*microseconds_in_millseconds=*/1000},
+     {"microseconds", /*microseconds_in_milliseconds=*/1000},
      {"nanoseconds", /*nanoseconds_in_microseconds=*/1000},
      {nullptr, 0}};
 
@@ -479,7 +481,7 @@ class PyValue {
 
   // The binary-like intermediate representation is PyBytesView because it keeps temporary
   // python objects alive (non-contiguous memoryview) and stores whether the original
-  // object was unicode encoded or not, which is used for unicode -> bytes coersion if
+  // object was unicode encoded or not, which is used for unicode -> bytes coercion if
   // there is a non-unicode object observed.
 
   static Status Convert(const BaseBinaryType*, const O&, I obj, PyBytesView& view) {
@@ -570,10 +572,16 @@ struct PyConverterTrait;
 
 template <typename T>
 struct PyConverterTrait<
-    T, enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                    !is_extension_type<T>::value) ||
-                   std::is_same<T, MonthDayNanoIntervalType>::value>> {
+    T,
+    enable_if_t<(!is_nested_type<T>::value && !is_interval_type<T>::value &&
+                 !is_extension_type<T>::value && !is_binary_view_like_type<T>::value) ||
+                std::is_same<T, MonthDayNanoIntervalType>::value>> {
   using type = PyPrimitiveConverter<T>;
+};
+
+template <typename T>
+struct PyConverterTrait<T, enable_if_binary_view_like<T>> {
+  // not implemented
 };
 
 template <typename T>
@@ -599,6 +607,15 @@ class PyPrimitiveConverter<T, enable_if_null<T>>
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->primitive_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      if (scalar->is_valid) {
+        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                               " to builder for type null");
+      } else {
+        return this->primitive_builder_->AppendNull();
+      }
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -620,6 +637,10 @@ class PyPrimitiveConverter<
     // rely on the Unsafe builder API which improves the performance.
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -637,6 +658,10 @@ class PyPrimitiveConverter<
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -659,6 +684,10 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -681,6 +710,10 @@ class PyPrimitiveConverter<T, enable_if_base_binary<T>>
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -721,6 +754,10 @@ class PyDictionaryConverter<U, enable_if_has_c_type<U>>
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      return this->value_builder_->AppendScalar(*scalar, 1);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
                             PyValue::Convert(this->value_type_, this->options_, value));
@@ -736,6 +773,10 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      return this->value_builder_->AppendScalar(*scalar, 1);
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->value_type_, this->options_, value, view_));
@@ -778,7 +819,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
  protected:
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
-      return Status::Invalid("Invalid Map: key field can not contain null values");
+      return Status::Invalid("Invalid Map: key field cannot contain null values");
     } else {
       return Status::OK();
     }
@@ -884,17 +925,21 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->struct_builder_->AppendNull();
+    } else if (arrow::py::is_scalar(value)) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      return this->struct_builder_->AppendScalar(*scalar);
     }
     switch (input_kind_) {
       case InputKind::DICT:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendDict(value);
+        RETURN_NOT_OK(AppendDict(value));
+        return this->struct_builder_->Append();
       case InputKind::TUPLE:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendTuple(value);
+        RETURN_NOT_OK(AppendTuple(value));
+        return this->struct_builder_->Append();
       case InputKind::ITEMS:
-        RETURN_NOT_OK(this->struct_builder_->Append());
-        return AppendItems(value);
+        RETURN_NOT_OK(AppendItems(value));
+        return this->struct_builder_->Append();
       default:
         RETURN_NOT_OK(InferInputKind(value));
         return Append(value);
@@ -904,6 +949,10 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
  protected:
   Status Init(MemoryPool* pool) override {
     RETURN_NOT_OK((StructConverter<PyConverter, PyConverterTrait>::Init(pool)));
+
+    // This implementation will check the child values before appending itself,
+    // so no rewind is necessary
+    this->rewind_on_overflow_ = false;
 
     // Store the field names as a PyObjects for dict matching
     num_fields_ = this->struct_type_->num_fields();

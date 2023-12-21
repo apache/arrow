@@ -38,7 +38,6 @@ namespace Apache.Arrow
             : this(name, dataType, nullable)
         {
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
-
         }
 
         internal Field(string name, IArrowType dataType, bool nullable,
@@ -52,7 +51,7 @@ namespace Apache.Arrow
 
         private Field(string name, IArrowType dataType, bool nullable)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            if (name == null)
             {
                 throw new ArgumentNullException(nameof(name));
             }
@@ -61,5 +60,7 @@ namespace Apache.Arrow
             DataType = dataType ?? NullType.Default;
             IsNullable = nullable;
         }
+
+        public override string ToString() => $"{nameof(Field)}: Name={Name}, DataType={DataType.Name}, IsNullable={IsNullable}, Metadata count={Metadata?.Count ?? 0}";
     }
 }

@@ -22,10 +22,10 @@ package cdata
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/arrio"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v15/arrow/array"
+	"github.com/apache/arrow/go/v15/arrow/arrio"
+	"github.com/apache/arrow/go/v15/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -116,6 +116,7 @@ func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (arrow.Rec
 	if err != nil {
 		return nil, err
 	}
+	defer imp.data.Release()
 
 	st := array.NewStructData(imp.data)
 	defer st.Release()
@@ -198,6 +199,11 @@ func ImportCRecordReader(stream *CArrowArrayStream, schema *arrow.Schema) (arrio
 // the populating of the struct. Any memory allocated will be allocated using malloc
 // which means that it is invisible to the Go Garbage Collector and must be freed manually
 // using the callback on the CArrowSchema object.
+//
+// WARNING: the output ArrowSchema MUST BE ZERO INITIALIZED, or the Go garbage collector
+// may error at runtime, due to CGO rules ("the current implementation may sometimes
+// cause a runtime error if the contents of the C memory appear to be a Go pointer").
+// You have been warned!
 func ExportArrowSchema(schema *arrow.Schema, out *CArrowSchema) {
 	dummy := arrow.Field{Type: arrow.StructOf(schema.Fields()...), Metadata: schema.Metadata()}
 	exportField(dummy, out)
@@ -220,6 +226,11 @@ func ExportArrowSchema(schema *arrow.Schema, out *CArrowSchema) {
 // The release function on the populated CArrowArray will properly decrease the reference counts,
 // and release the memory if the record has already been released. But since this must be explicitly
 // done, make sure it is released so that you do not create a memory leak.
+//
+// WARNING: the output ArrowArray MUST BE ZERO INITIALIZED, or the Go garbage collector
+// may error at runtime, due to CGO rules ("the current implementation may sometimes
+// cause a runtime error if the contents of the C memory appear to be a Go pointer").
+// You have been warned!
 func ExportArrowRecordBatch(rb arrow.Record, out *CArrowArray, outSchema *CArrowSchema) {
 	children := make([]arrow.ArrayData, rb.NumCols())
 	for i := range rb.Columns() {
@@ -243,6 +254,11 @@ func ExportArrowRecordBatch(rb arrow.Record, out *CArrowArray, outSchema *CArrow
 // being used by the arrow.Array passed in, in order to share with zero-copy across the C
 // Data Interface. See the documentation for ExportArrowRecordBatch for details on how to ensure
 // you do not leak memory and prevent unwanted, undefined or strange behaviors.
+//
+// WARNING: the output ArrowArray MUST BE ZERO INITIALIZED, or the Go garbage collector
+// may error at runtime, due to CGO rules ("the current implementation may sometimes
+// cause a runtime error if the contents of the C memory appear to be a Go pointer").
+// You have been warned!
 func ExportArrowArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	exportArray(arr, out, outSchema)
 }
@@ -250,8 +266,13 @@ func ExportArrowArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema
 // ExportRecordReader populates the CArrowArrayStream that is passed in with the appropriate
 // callbacks to be a working ArrowArrayStream utilizing the passed in RecordReader. The
 // CArrowArrayStream takes ownership of the RecordReader until the consumer calls the release
-// callback, as such it is unnecesary to call Release on the passed in reader unless it has
+// callback, as such it is unnecessary to call Release on the passed in reader unless it has
 // previously been retained.
+//
+// WARNING: the output ArrowArrayStream MUST BE ZERO INITIALIZED, or the Go garbage
+// collector may error at runtime, due to CGO rules ("the current implementation may
+// sometimes cause a runtime error if the contents of the C memory appear to be a Go
+// pointer").  You have been warned!
 func ExportRecordReader(reader array.RecordReader, out *CArrowArrayStream) {
 	exportStream(reader, out)
 }

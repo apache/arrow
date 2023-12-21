@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "parquet/encryption/type_fwd.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -34,14 +35,9 @@ namespace parquet {
 
 class ColumnDescriptor;
 class EncodedStatistics;
+class FileCryptoMetaData;
 class Statistics;
 class SchemaDescriptor;
-
-class FileCryptoMetaData;
-class InternalFileDecryptor;
-class Decryptor;
-class Encryptor;
-class FooterSigningEncryptor;
 
 namespace schema {
 
@@ -172,6 +168,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   const std::vector<Encoding::type>& encodings() const;
   const std::vector<PageEncodingStats>& encoding_stats() const;
   std::optional<int64_t> bloom_filter_offset() const;
+  std::optional<int64_t> bloom_filter_length() const;
   bool has_dictionary_page() const;
   int64_t dictionary_page_offset() const;
   int64_t data_page_offset() const;

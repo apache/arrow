@@ -46,6 +46,8 @@ namespace Apache.Arrow
                     return Types.IntervalUnit.DayTime;
                 case Flatbuf.IntervalUnit.YEAR_MONTH:
                     return Types.IntervalUnit.YearMonth;
+                case Flatbuf.IntervalUnit.MONTH_DAY_NANO:
+                    return Types.IntervalUnit.MonthDayNanosecond;
                 default:
                     throw new ArgumentException($"Unexpected Flatbuf IntervalUnit", nameof(unit));
             }
@@ -79,6 +81,16 @@ namespace Apache.Arrow
                 default:
                     throw new ArgumentException($"Unexpected Flatbuf TimeUnit", nameof(unit));
             }
+        }
+
+        public static Types.UnionMode ToArrow(this Flatbuf.UnionMode mode)
+        {
+            return mode switch
+            {
+                Flatbuf.UnionMode.Dense => Types.UnionMode.Dense,
+                Flatbuf.UnionMode.Sparse => Types.UnionMode.Sparse,
+                _ => throw new ArgumentException($"Unsupported Flatbuf UnionMode", nameof(mode)),
+            };
         }
     }
 }

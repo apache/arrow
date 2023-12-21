@@ -12,23 +12,32 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-<<<<<<< HEAD
 
 classdef UInt64Array < arrow.array.NumericArray
 % arrow.array.UInt64Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = uint64(0)
     end
 
     methods
-        function obj = UInt64Array(data, varargin)
-            obj@arrow.array.NumericArray(data, "uint64", ...
-                "arrow.array.proxy.UInt64Array", varargin{:});
+        function obj = UInt64Array(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.UInt64Array")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = uint64(obj)
             data = obj.toMATLAB();
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.UInt64Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

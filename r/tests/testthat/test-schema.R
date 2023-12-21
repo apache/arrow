@@ -43,7 +43,7 @@ test_that("Schema$code()", {
     schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
   )
 
-  skip_if(packageVersion("rlang") < 1)
+  skip_if(packageVersion("rlang") < "1")
   expect_error(
     eval(schema(x = int32(), y = DayTimeInterval__initialize())$code()),
     "Unsupported type"
@@ -291,4 +291,29 @@ test_that("schema name assignment", {
   names(schm2) <- c("col1", "col2")
   expect_identical(names(schm2), c("col1", "col2"))
   expect_identical(names(schm2$r_metadata$columns), c("col1", "col2"))
+})
+
+test_that("schema extraction", {
+  skip_if_not_available("dataset")
+
+  tbl <- arrow_table(example_data)
+  expect_equal(schema(example_data), tbl$schema)
+  expect_equal(schema(tbl), tbl$schema)
+
+  expect_equal(
+    schema(data.frame(a = 1, a = "x", check.names = FALSE, stringsAsFactors = FALSE)),
+    schema(a = double(), a = string())
+  )
+
+  expect_equal(schema(data.frame()), schema())
+
+  ds <- InMemoryDataset$create(example_data)
+  expect_equal(schema(ds), ds$schema)
+
+  rdr <- RecordBatchReader$create(record_batch(example_data))
+  expect_equal(schema(rdr), rdr$schema)
+
+  adq <- as_adq(example_data)
+  expect_equal(schema(adq), adq$.data$schema)
+
 })

@@ -455,7 +455,7 @@ void EncoderBinary::Decode(uint32_t start_row, uint32_t num_rows,
 
     bool is_row_fixed_length = rows.metadata().is_fixed_length;
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
     if (ctx->has_avx2()) {
       DecodeHelper_avx2(is_row_fixed_length, start_row, num_rows, offset_within_row, rows,
                         col);
@@ -466,7 +466,7 @@ void EncoderBinary::Decode(uint32_t start_row, uint32_t num_rows,
       } else {
         DecodeImp<false>(start_row, num_rows, offset_within_row, rows, col);
       }
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
     }
 #endif
 
@@ -524,7 +524,7 @@ void EncoderBinaryPair::Decode(uint32_t start_row, uint32_t num_rows,
   bool is_row_fixed_length = rows.metadata().is_fixed_length;
 
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (ctx->has_avx2() && col_width1 == col_width2) {
     num_processed =
         DecodeHelper_avx2(is_row_fixed_length, col_width1, start_row, num_rows,
@@ -772,7 +772,7 @@ void EncoderVarBinary::Decode(uint32_t start_row, uint32_t num_rows,
                               KeyColumnArray* col, LightContext* ctx) {
   // Output column varbinary buffer needs an extra 32B
   // at the end in avx2 version and 8B otherwise.
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (ctx->has_avx2()) {
     DecodeHelper_avx2(start_row, num_rows, varbinary_col_id, rows, col);
   } else {
@@ -782,7 +782,7 @@ void EncoderVarBinary::Decode(uint32_t start_row, uint32_t num_rows,
     } else {
       DecodeImp<false>(start_row, num_rows, varbinary_col_id, rows, col);
     }
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   }
 #endif
 }
