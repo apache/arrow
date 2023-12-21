@@ -475,6 +475,7 @@ TEST(ExecBatchBuilder, AppendBatchDupRows) {
   std::unique_ptr<MemoryPool> owned_pool = MemoryPool::CreateDefault();
   MemoryPool* pool = owned_pool.get();
   // Case of cross-word copying for the last row, which may exceed the buffer boundary.
+  // This is a simplified case of GH-32570
   {
     // 64-byte data fully occupying one minimal 64-byte aligned memory region.
     ExecBatch batch_string = JSONToExecBatch({binary()}, R"([["123456789ABCDEF0"],
