@@ -937,12 +937,12 @@ class AzureFileSystem::Impl {
         auto hns_support,
         internal::CheckIfHierarchicalNamespaceIsEnabled(adlfs_client, options_));
     DCHECK_NE(hns_support, HNSSupport::kUnknown);
-    // Caller should handle kContainerNotFound case appropriately as it knows the
-    // container this refers to, but the cached value in that case should remain
-    // kUnknown before we get a CheckIfHierarchicalNamespaceIsEnabled result that
-    // is not kContainerNotFound.
     if (hns_support == HNSSupport::kContainerNotFound) {
-      DCHECK_EQ(cached_hns_support_, HNSSupport::kUnknown);
+      // Caller should handle kContainerNotFound case appropriately as it knows the
+      // container this refers to, but the cached value in that case should remain
+      // kUnknown before we get a CheckIfHierarchicalNamespaceIsEnabled result that
+      // is not kContainerNotFound.
+      cached_hns_support_ = HNSSupport::kUnknown;
     } else {
       cached_hns_support_ = hns_support;
     }
