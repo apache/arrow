@@ -793,25 +793,18 @@ class FileMetaData::FileMetaDataImpl {
 
     std::shared_ptr<FileMetaData> out(new FileMetaData());
     out->impl_ = std::make_unique<FileMetaDataImpl>();
-    out->impl_->metadata_ = std::make_unique<format::FileMetaData>();
+    out->impl_->metadata_ = std::make_unique<format::FileMetaData>(*metadata_);
+    auto output_metadata = out->impl_->metadata_.get();
 
-    auto metadata = out->impl_->metadata_.get();
-    metadata->version = metadata_->version;
-    metadata->schema = metadata_->schema;
-
-    metadata->row_groups.resize(row_groups.size());
+    // Discard row groups that are not in the subset
+    output_metadata->num_rows = 0;
+    output_metadata->row_groups.clear();
+    output_metadata->row_groups.resize(row_groups.size());
     int i = 0;
     for (int selected_index : row_groups) {
-      metadata->num_rows += row_group(selected_index).num_rows;
-      metadata->row_groups[i++] = row_group(selected_index);
+      output_metadata->num_rows += row_group(selected_index).num_rows;
+      output_metadata->row_groups[i++] = row_group(selected_index);
     }
-
-    metadata->key_value_metadata = metadata_->key_value_metadata;
-    metadata->created_by = metadata_->created_by;
-    metadata->column_orders = metadata_->column_orders;
-    metadata->encryption_algorithm = metadata_->encryption_algorithm;
-    metadata->footer_signing_key_metadata = metadata_->footer_signing_key_metadata;
-    metadata->__isset = metadata_->__isset;
 
     out->impl_->schema_ = schema_;
     out->impl_->writer_version_ = writer_version_;
@@ -886,13 +879,14 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
     const void* metadata, uint32_t* metadata_len,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   return std::shared_ptr<FileMetaData>(new FileMetaData(
-      metadata, metadata_len, default_reader_properties(), file_decryptor));
+      metadata, metadata_len, default_reader_properties(), std::move(file_decryptor)));
 }
 
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
                            const ReaderProperties& properties,
                            std::shared_ptr<InternalFileDecryptor> file_decryptor)
-    : impl_(new FileMetaDataImpl(metadata, metadata_len, properties, file_decryptor)) {}
+    : impl_(new FileMetaDataImpl(metadata, metadata_len, properties,
+                                 std::move(file_decryptor))) {}
 
 FileMetaData::FileMetaData() : impl_(new FileMetaDataImpl()) {}
 
@@ -942,7 +936,7 @@ const std::string& FileMetaData::footer_signing_key_metadata() const {
 
 void FileMetaData::set_file_decryptor(
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  impl_->set_file_decryptor(file_decryptor);
+  impl_->set_file_decryptor(std::move(file_decryptor));
 }
 
 ParquetVersion::type FileMetaData::version() const {
