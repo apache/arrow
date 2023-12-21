@@ -309,6 +309,8 @@ class HdfsTestCases:
         expected = pa.concat_tables(test_data)
         return expected
 
+    @pytest.mark.xfail(reason="legacy.FileSystem.read_parquet used legacy ParquetDataset "
+                       "that has been removed in PyArrow 15.0.0.", raises=TypeError)
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_multiple_parquet_files(self):

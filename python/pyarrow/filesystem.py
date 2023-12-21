@@ -223,12 +223,8 @@ class FileSystem:
         table : pyarrow.Table
         """
         from pyarrow.parquet import ParquetDataset
-
-        if metadata is not None:
-            raise ValueError(
-                "Keyword 'metadata' is not supported with the Dataset API")
-
-        dataset = ParquetDataset(path, schema=schema, filesystem=self)
+        dataset = ParquetDataset(path, schema=schema, metadata=metadata,
+                                 filesystem=self)
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
 
