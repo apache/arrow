@@ -1,8 +1,0 @@
-﻿---
-BasedOnStyle: WebKit
-AlignAfterOpenBracket: Align
-AlignConsecutiveDeclarations: 'false'
-BreakBeforeBraces: Allman
-NamespaceIndentation: All
-
-...

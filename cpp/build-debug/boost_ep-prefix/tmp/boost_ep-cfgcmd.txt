@@ -1,1 +1,0 @@
-cmd='./bootstrap.sh;--prefix=/Users/simon/Desktop/arrow/arrowSF/cpp/build-debug/boost_ep-prefix/src/boost_ep;--with-libraries=filesystem,system'
