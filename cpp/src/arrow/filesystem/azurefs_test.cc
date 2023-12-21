@@ -574,6 +574,23 @@ class TestAzureFileSystem : public ::testing::Test {
     return env->WithHierarchicalNamespace();
   }
 
+  constexpr static const char* const kSubmitBatchBugMessage =
+      "This test is affected by an Azurite isse: "
+      "https://github.com/Azure/Azurite/pull/2302";
+
+  /// Azurite has a bug that causes BlobContainerClient::SubmitBatch to fail on macOS.
+  /// SubmitBatch is used by:
+  ///  - AzureFileSystem::DeleteDir
+  ///  - AzureFileSystem::DeleteDirContents
+  bool HasSubmitBatchBug() const {
+    EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+#ifdef __APPLE__
+    return env->backend() == AzureBackend::kAzurite;
+#else
+    return false;
+#endif
+  }
+
   // Tests that are called from more than one implementation of TestAzureFileSystem
 
   void TestDetectHierarchicalNamespace(bool trip_up_azurite);
@@ -1255,10 +1272,9 @@ TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirSuccessHaveBlobs) {
-#ifdef __APPLE__
-  GTEST_SKIP() << "This test fails by an Azurite problem: "
-                  "https://github.com/Azure/Azurite/pull/2302";
-#endif
+  if (HasSubmitBatchBug()) {
+    GTEST_SKIP() << kSubmitBatchBugMessage;
+  }
   auto data = SetUpPreexistingData();
   const auto directory_path = data.RandomDirectoryPath(rng_);
   // We must use 257 or more blobs here to test pagination of ListBlobs().
@@ -1284,10 +1300,9 @@ TEST_F(TestAzuriteFileSystem, DeleteDirUri) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessContainer) {
-#ifdef __APPLE__
-  GTEST_SKIP() << "This test fails by an Azurite problem: "
-                  "https://github.com/Azure/Azurite/pull/2302";
-#endif
+  if (HasSubmitBatchBug()) {
+    GTEST_SKIP() << kSubmitBatchBugMessage;
+  }
   auto data = SetUpPreexistingData();
   HierarchicalPaths paths;
   CreateHierarchicalData(&paths);
@@ -1300,10 +1315,9 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessContainer) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessDirectory) {
-#ifdef __APPLE__
-  GTEST_SKIP() << "This test fails by an Azurite problem: "
-                  "https://github.com/Azure/Azurite/pull/2302";
-#endif
+  if (HasSubmitBatchBug()) {
+    GTEST_SKIP() << kSubmitBatchBugMessage;
+  }
   auto data = SetUpPreexistingData();
   HierarchicalPaths paths;
   CreateHierarchicalData(&paths);
