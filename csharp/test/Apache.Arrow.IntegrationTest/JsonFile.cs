@@ -188,7 +188,6 @@ namespace Apache.Arrow.IntegrationTest
                 "timestamp" => ToTimestampArrowType(type),
                 "list" => ToListArrowType(type, children),
                 "listview" => ToListViewArrowType(type, children),
-                "largelistview" => ToListViewArrowType(type, children),
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
                 "struct" => ToStructArrowType(type, children),
                 "union" => ToUnionArrowType(type, children),
