@@ -771,6 +771,47 @@ class TestAzureFileSystem : public ::testing::Test {
     // AssertFileInfo(fs(), directory_path, FileType::NotFound);
   }
 
+  void TestDeleteDirFailureNonexistent() {
+    auto data = SetUpPreexistingData();
+    const auto path = data.RandomDirectoryPath(rng_);
+    ASSERT_RAISES(IOError, fs()->DeleteDir(path));
+  }
+
+  void TestDeleteDirSuccessHaveBlob() {
+    auto data = SetUpPreexistingData();
+    const auto directory_path = data.RandomDirectoryPath(rng_);
+    const auto blob_path = ConcatAbstractPath(directory_path, "hello.txt");
+    ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(blob_path));
+    ASSERT_OK(output->Write("hello"));
+    ASSERT_OK(output->Close());
+    AssertFileInfo(fs(), blob_path, FileType::File);
+    ASSERT_OK(fs()->DeleteDir(directory_path));
+    AssertFileInfo(fs(), blob_path, FileType::NotFound);
+  }
+
+  void TestDeleteDirSuccessHaveDirectory() {
+    auto data = SetUpPreexistingData();
+    const auto parent = data.RandomDirectoryPath(rng_);
+    const auto path = ConcatAbstractPath(parent, "new-sub");
+    ASSERT_OK(fs()->CreateDir(path, true));
+    AssertFileInfo(fs(), path, FileType::Directory);
+    AssertFileInfo(fs(), parent, FileType::Directory);
+    ASSERT_OK(fs()->DeleteDir(parent));
+    AssertFileInfo(fs(), path, FileType::NotFound);
+    AssertFileInfo(fs(), parent, FileType::NotFound);
+  }
+
+  void TestDeleteDirContentsSuccessExist() {
+    auto preexisting_data = SetUpPreexistingData();
+    HierarchicalPaths paths;
+    CreateHierarchicalData(&paths);
+    ASSERT_OK(fs()->DeleteDirContents(paths.directory));
+    AssertFileInfo(fs(), paths.directory, FileType::Directory);
+    for (const auto& sub_path : paths.sub_paths) {
+      AssertFileInfo(fs(), sub_path, FileType::NotFound);
+    }
+  }
+
   void TestDeleteDirContentsSuccessNonexistent() {
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
@@ -1013,54 +1054,27 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
   this->TestDeleteDirSuccessEmpty();
 }
 
-// Tests using a real storage account *with Hierarchical Namespace enabled*
-
-TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirFailureNonexistent) {
-  auto data = SetUpPreexistingData();
-  const auto path = data.RandomDirectoryPath(rng_);
-  ASSERT_RAISES(IOError, fs()->DeleteDir(path));
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirFailureNonexistent) {
+  this->TestDeleteDirFailureNonexistent();
 }
 
-TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirSuccessHaveBlob) {
-  auto data = SetUpPreexistingData();
-  const auto directory_path = data.RandomDirectoryPath(rng_);
-  const auto blob_path = ConcatAbstractPath(directory_path, "hello.txt");
-  ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(blob_path));
-  ASSERT_OK(output->Write(std::string_view("hello")));
-  ASSERT_OK(output->Close());
-  AssertFileInfo(fs(), blob_path, FileType::File);
-  ASSERT_OK(fs()->DeleteDir(directory_path));
-  AssertFileInfo(fs(), blob_path, FileType::NotFound);
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessHaveBlob) {
+  this->TestDeleteDirSuccessHaveBlob();
 }
 
-TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirSuccessHaveDirectory) {
-  auto data = SetUpPreexistingData();
-  const auto parent = data.RandomDirectoryPath(rng_);
-  const auto path = ConcatAbstractPath(parent, "new-sub");
-  ASSERT_OK(fs()->CreateDir(path, true));
-  AssertFileInfo(fs(), path, FileType::Directory);
-  AssertFileInfo(fs(), parent, FileType::Directory);
-  ASSERT_OK(fs()->DeleteDir(parent));
-  AssertFileInfo(fs(), path, FileType::NotFound);
-  AssertFileInfo(fs(), parent, FileType::NotFound);
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessHaveDirectory) {
+  this->TestDeleteDirSuccessHaveDirectory();
 }
 
-TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsSuccessExist) {
-  auto preexisting_data = SetUpPreexistingData();
-  HierarchicalPaths paths;
-  CreateHierarchicalData(&paths);
-  ASSERT_OK(fs()->DeleteDirContents(paths.directory));
-  AssertFileInfo(fs(), paths.directory, FileType::Directory);
-  for (const auto& sub_path : paths.sub_paths) {
-    AssertFileInfo(fs(), sub_path, FileType::NotFound);
-  }
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsSuccessExist) {
+  this->TestDeleteDirContentsSuccessExist();
 }
 
-TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsSuccessNonexistent) {
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsSuccessNonexistent) {
   this->TestDeleteDirContentsSuccessNonexistent();
 }
 
-TEST_F(TestAzureHierarchicalNSFileSystem, DeleteDirContentsFailureNonexistent) {
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirContentsFailureNonexistent) {
   this->TestDeleteDirContentsFailureNonexistent();
 }
 
