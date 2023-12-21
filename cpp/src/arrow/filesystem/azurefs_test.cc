@@ -613,6 +613,135 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void TestGetFileInfoObjectWithNestedStructure();
 
+  void TestCreateDirOnRoot() {
+    auto dir1 = PreexistingData::RandomContainerName(rng_);
+    auto dir2 = PreexistingData::RandomContainerName(rng_);
+
+    AssertFileInfo(fs(), dir1, FileType::NotFound);
+    ASSERT_OK(fs()->CreateDir(dir1, false));
+    AssertFileInfo(fs(), dir1, FileType::Directory);
+
+    AssertFileInfo(fs(), dir2, FileType::NotFound);
+    ASSERT_OK(fs()->CreateDir(dir2, true));
+    AssertFileInfo(fs(), dir1, FileType::Directory);
+
+    // Should not fail if the directory already exists.
+    ASSERT_OK(fs()->CreateDir(dir1, false));
+    ASSERT_OK(fs()->CreateDir(dir1, true));
+    AssertFileInfo(fs(), dir1, FileType::Directory);
+  }
+
+  void TestCreateDirOnExistingContainer() {
+    auto data = SetUpPreexistingData();
+    auto dir1 = data.RandomDirectoryPath(rng_);
+    auto dir2 = data.RandomDirectoryPath(rng_);
+
+    AssertFileInfo(fs(), dir1, FileType::NotFound);
+    ASSERT_OK(fs()->CreateDir(dir1, /*recursive=*/false));
+    AssertFileInfo(fs(), dir1, FileType::Directory);
+
+    AssertFileInfo(fs(), dir2, FileType::NotFound);
+    ASSERT_OK(fs()->CreateDir(dir2, /*recursive=*/true));
+    AssertFileInfo(fs(), dir2, FileType::Directory);
+
+    auto subdir1 = ConcatAbstractPath(dir1, "subdir");
+    auto subdir2 = ConcatAbstractPath(dir2, "subdir");
+    AssertFileInfo(fs(), subdir1, FileType::NotFound);
+    ASSERT_OK(fs()->CreateDir(subdir1, /*recursive=*/false));
+    AssertFileInfo(fs(), subdir1, FileType::Directory);
+    AssertFileInfo(fs(), subdir2, FileType::NotFound);
+    ASSERT_OK(fs()->CreateDir(subdir2, /*recursive=*/true));
+    AssertFileInfo(fs(), subdir2, FileType::Directory);
+
+    auto dir3 = data.RandomDirectoryPath(rng_);
+    AssertFileInfo(fs(), dir3, FileType::NotFound);
+    auto subdir3 = ConcatAbstractPath(dir3, "subdir");
+    AssertFileInfo(fs(), subdir3, FileType::NotFound);
+    // Creating subdir3 with recursive=false should fail.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + dir3 + "'"),
+        fs()->CreateDir(subdir3, /*recursive=*/false));
+    AssertFileInfo(fs(), dir3, FileType::NotFound);
+    AssertFileInfo(fs(), subdir3, FileType::NotFound);
+    // Creating subdir3 with recursive=true should work.
+    ASSERT_OK(fs()->CreateDir(subdir3, /*recursive=*/true));
+    AssertFileInfo(fs(), dir3, FileType::Directory);
+    AssertFileInfo(fs(), subdir3, FileType::Directory);
+
+    auto dir4 = data.RandomDirectoryPath(rng_);
+    auto subdir4 = ConcatAbstractPath(dir4, "subdir4");
+    auto subdir5 = ConcatAbstractPath(dir4, "subdir4/subdir5");
+    // Creating subdir4 with recursive=false should fail.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + dir4 + "'"),
+        fs()->CreateDir(subdir4, /*recursive=*/false));
+    AssertFileInfo(fs(), dir4, FileType::NotFound);
+    AssertFileInfo(fs(), subdir4, FileType::NotFound);
+    // Creating subdir5 with recursive=false should fail.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + subdir4 + "'"),
+        fs()->CreateDir(subdir5, /*recursive=*/false));
+    AssertFileInfo(fs(), dir4, FileType::NotFound);
+    AssertFileInfo(fs(), subdir4, FileType::NotFound);
+    AssertFileInfo(fs(), subdir5, FileType::NotFound);
+    // Creating subdir5 with recursive=true should work.
+    ASSERT_OK(fs()->CreateDir(subdir5, /*recursive=*/true));
+    AssertFileInfo(fs(), dir4, FileType::Directory);
+    AssertFileInfo(fs(), subdir4, FileType::Directory);
+    AssertFileInfo(fs(), subdir5, FileType::Directory);
+  }
+
+  void TestCreateDirOnMissingContainer() {
+    auto container1 = PreexistingData::RandomContainerName(rng_);
+    auto container2 = PreexistingData::RandomContainerName(rng_);
+    AssertFileInfo(fs(), container1, FileType::NotFound);
+    AssertFileInfo(fs(), container2, FileType::NotFound);
+
+    auto dir1 = ConcatAbstractPath(container1, "dir");
+    AssertFileInfo(fs(), dir1, FileType::NotFound);
+    // Creating dir1 with recursive=false should fail.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + container1 + "'"),
+        fs()->CreateDir(dir1, /*recursive=*/false));
+    AssertFileInfo(fs(), container1, FileType::NotFound);
+    AssertFileInfo(fs(), dir1, FileType::NotFound);
+    // Creating dir1 with recursive=true should work.
+    ASSERT_OK(fs()->CreateDir(dir1, /*recursive=*/true));
+    AssertFileInfo(fs(), container1, FileType::Directory);
+    AssertFileInfo(fs(), dir1, FileType::Directory);
+
+    auto dir2 = ConcatAbstractPath(container2, "dir");
+    auto subdir2 = ConcatAbstractPath(dir2, "subdir2");
+    auto subdir3 = ConcatAbstractPath(dir2, "subdir2/subdir3");
+    // Creating dir2 with recursive=false should fail.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + container2 + "'"),
+        fs()->CreateDir(dir2, /*recursive=*/false));
+    AssertFileInfo(fs(), container2, FileType::NotFound);
+    AssertFileInfo(fs(), dir2, FileType::NotFound);
+    // Creating subdir2 with recursive=false should fail.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + dir2 + "'"),
+        fs()->CreateDir(subdir2, /*recursive=*/false));
+    AssertFileInfo(fs(), container2, FileType::NotFound);
+    AssertFileInfo(fs(), dir2, FileType::NotFound);
+    AssertFileInfo(fs(), subdir2, FileType::NotFound);
+    // Creating subdir3 with recursive=false should fail.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IOError, ::testing::HasSubstr("Path does not exist '" + subdir2 + "'"),
+        fs()->CreateDir(subdir3, /*recursive=*/false));
+    AssertFileInfo(fs(), container2, FileType::NotFound);
+    AssertFileInfo(fs(), dir2, FileType::NotFound);
+    AssertFileInfo(fs(), subdir2, FileType::NotFound);
+    AssertFileInfo(fs(), subdir3, FileType::NotFound);
+    // Creating subdir3 with recursive=true should work.
+    ASSERT_OK(fs()->CreateDir(subdir3, /*recursive=*/true));
+    AssertFileInfo(fs(), container2, FileType::Directory);
+    AssertFileInfo(fs(), dir2, FileType::Directory);
+    AssertFileInfo(fs(), subdir2, FileType::Directory);
+    AssertFileInfo(fs(), subdir3, FileType::Directory);
+  }
+
   void TestDeleteDirSuccessEmpty() {
     auto data = SetUpPreexistingData();
     const auto directory_path = data.RandomDirectoryPath(rng_);
@@ -623,39 +752,6 @@ class TestAzureFileSystem : public ::testing::Test {
     // XXX: implement DeleteDir on flat namespace storage accounts
     // ASSERT_OK(fs()->DeleteDir(directory_path));
     // AssertFileInfo(fs(), directory_path, FileType::NotFound);
-  }
-
-  void TestCreateDirSuccessContainerAndDirectory() {
-    auto data = SetUpPreexistingData();
-    const auto path = data.RandomDirectoryPath(rng_);
-    AssertFileInfo(fs(), path, FileType::NotFound);
-    ASSERT_OK(fs()->CreateDir(path, false));
-    AssertFileInfo(fs(), path, FileType::Directory);
-  }
-
-  void TestCreateDirRecursiveSuccessContainerOnly() {
-    auto container_name = PreexistingData::RandomContainerName(rng_);
-    ASSERT_OK(fs()->CreateDir(container_name, true));
-    AssertFileInfo(fs(), container_name, FileType::Directory);
-  }
-
-  void TestCreateDirRecursiveSuccessDirectoryOnly() {
-    auto data = SetUpPreexistingData();
-    const auto parent = data.RandomDirectoryPath(rng_);
-    const auto path = ConcatAbstractPath(parent, "new-sub");
-    ASSERT_OK(fs()->CreateDir(path, true));
-    AssertFileInfo(fs(), path, FileType::Directory);
-    AssertFileInfo(fs(), parent, FileType::Directory);
-  }
-
-  void TestCreateDirRecursiveSuccessContainerAndDirectory() {
-    auto data = SetUpPreexistingData();
-    const auto parent = data.RandomDirectoryPath(rng_);
-    const auto path = ConcatAbstractPath(parent, "new-sub");
-    ASSERT_OK(fs()->CreateDir(path, true));
-    AssertFileInfo(fs(), path, FileType::Directory);
-    AssertFileInfo(fs(), parent, FileType::Directory);
-    AssertFileInfo(fs(), data.container_name, FileType::Directory);
   }
 
   void TestDeleteDirContentsSuccessNonexistent() {
@@ -860,6 +956,8 @@ TYPED_TEST(TestAzureFileSystemOnAllEnvs, CreateDirWithEmptyPath) {
   ASSERT_RAISES(Invalid, this->fs()->CreateDir("", false));
 }
 
+TYPED_TEST(TestAzureFileSystemOnAllEnvs, CreateDirOnRoot) { this->TestCreateDirOnRoot(); }
+
 // Tests using all the 3 environments (Azurite, Azure w/o HNS (flat), Azure w/ HNS)
 // combined with the two scenarios for AzureFileSystem::cached_hns_support_ -- unknown and
 // known according to the environment.
@@ -886,25 +984,16 @@ TYPED_TEST(TestAzureFileSystemOnAllScenarios, GetFileInfoObjectWithNestedStructu
   this->TestGetFileInfoObjectWithNestedStructure();
 }
 
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirOnExistingContainer) {
+  this->TestCreateDirOnExistingContainer();
+}
+
+TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirOnMissingContainer) {
+  this->TestCreateDirOnMissingContainer();
+}
+
 TYPED_TEST(TestAzureFileSystemOnAllScenarios, DeleteDirSuccessEmpty) {
   this->TestDeleteDirSuccessEmpty();
-}
-
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirSuccessContainerAndDirectory) {
-  this->TestCreateDirSuccessContainerAndDirectory();
-}
-
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirRecursiveSuccessContainerOnly) {
-  this->TestCreateDirRecursiveSuccessContainerOnly();
-}
-
-TYPED_TEST(TestAzureFileSystemOnAllScenarios, CreateDirRecursiveSuccessDirectoryOnly) {
-  this->TestCreateDirRecursiveSuccessDirectoryOnly();
-}
-
-TYPED_TEST(TestAzureFileSystemOnAllScenarios,
-           CreateDirRecursiveSuccessContainerAndDirectory) {
-  this->TestCreateDirRecursiveSuccessContainerAndDirectory();
 }
 
 // Tests using a real storage account *with Hierarchical Namespace enabled*
@@ -1131,16 +1220,6 @@ TEST_F(TestAzuriteFileSystem, GetFileInfoSelectorExplicitImplicitDirDedup) {
   ASSERT_OK_AND_ASSIGN(infos, fs()->GetFileInfo(select));
   ASSERT_EQ(infos.size(), 1);
   AssertFileInfo(infos[0], "container/mydir/nonemptydir2/somefile", FileType::File);
-}
-
-TEST_F(TestAzuriteFileSystem, CreateDirFailureNoContainer) {
-  ASSERT_RAISES(Invalid, fs()->CreateDir("", false));
-}
-
-TEST_F(TestAzuriteFileSystem, CreateDirSuccessContainerOnly) {
-  auto container_name = PreexistingData::RandomContainerName(rng_);
-  ASSERT_OK(fs()->CreateDir(container_name, false));
-  AssertFileInfo(fs(), container_name, FileType::Directory);
 }
 
 TEST_F(TestAzuriteFileSystem, CreateDirFailureDirectoryWithMissingContainer) {
