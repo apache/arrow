@@ -380,14 +380,9 @@ if(NOT PYARROW_BUILD_PARQUET_ENCRYPTION)
   message(STATUS "Parquet Encryption is NOT Enabled")
 else()
   if(PARQUET_REQUIRE_ENCRYPTION)
-    if(ARROW_BUILD_SHARED)
-      set(PYARROW_CPP_ENCRYPTION_LINK_LIBS Parquet::parquet_shared)
-    else()
-      set(PYARROW_CPP_ENCRYPTION_LINK_LIBS Parquet::parquet_static)
-    endif()
     add_library(arrow_python_parquet_encryption SHARED ${PYARROW_CPP_ENCRYPTION_SRCS})
-    target_link_libraries(arrow_python_parquet_encryption
-                          PUBLIC arrow_python ${PYARROW_CPP_ENCRYPTION_LINK_LIBS})
+    target_link_libraries(arrow_python_parquet_encryption PUBLIC arrow_python
+                                                                 ${PARQUET_LINK_LIBS})
     target_compile_definitions(arrow_python_parquet_encryption
                                PRIVATE ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
     install(TARGETS arrow_python_parquet_encryption
@@ -823,7 +818,6 @@ endif()
 if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
-    target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS}
-                                                      arrow_python_parquet_encryption)
+    target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
   endif()
 endif()
