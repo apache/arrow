@@ -159,13 +159,16 @@ namespace Apache.Arrow.C
                         break;
                     case ArrowTypeId.StringView:
                     case ArrowTypeId.BinaryView:
-                        throw new NotImplementedException("TODO");
+                        buffers = ImportByteArrayViewBuffers(cArray);
+                        break;
                     case ArrowTypeId.List:
                         children = ProcessListChildren(cArray, ((ListType)type).ValueDataType);
                         buffers = ImportListBuffers(cArray);
                         break;
                     case ArrowTypeId.ListView:
-                        throw new NotImplementedException("TODO");
+                        children = ProcessListChildren(cArray, ((ListViewType)type).ValueDataType);
+                        buffers = ImportListViewBuffers(cArray);
+                        break;
                     case ArrowTypeId.FixedSizeList:
                         children = ProcessListChildren(cArray, ((FixedSizeListType)type).ValueDataType);
                         buffers = ImportFixedSizeListBuffers(cArray);
@@ -273,6 +276,28 @@ namespace Apache.Arrow.C
                 return buffers;
             }
 
+            private ArrowBuffer[] ImportByteArrayViewBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers < 3)
+                {
+                    throw new InvalidOperationException("Byte array views are expected to have at least three buffers");
+                }
+
+                int length = checked((int)cArray->length);
+                int viewsLength = length * 16;
+
+                int* bufferLengths = (int*)cArray->buffers[cArray->n_buffers - 1];
+                ArrowBuffer[] buffers = new ArrowBuffer[cArray->n_buffers - 1];
+                buffers[0] = ImportValidityBuffer(cArray);
+                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, viewsLength));
+                for (int i = 2; i < buffers.Length; i++)
+                {
+                    buffers[i] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[i], 0, bufferLengths[i - 2]));
+                }
+
+                return buffers;
+            }
+
             private ArrowBuffer[] ImportListBuffers(CArrowArray* cArray)
             {
                 if (cArray->n_buffers != 2)
@@ -286,6 +311,24 @@ namespace Apache.Arrow.C
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
                 buffers[0] = ImportValidityBuffer(cArray);
                 buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportListViewBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 3)
+                {
+                    throw new InvalidOperationException("List view arrays are expected to have exactly three buffers");
+                }
+
+                int length = checked((int)cArray->length);
+                int offsetsLength = length * 4;
+
+                ArrowBuffer[] buffers = new ArrowBuffer[3];
+                buffers[0] = ImportValidityBuffer(cArray);
+                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+                buffers[2] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[2], 0, offsetsLength));
 
                 return buffers;
             }

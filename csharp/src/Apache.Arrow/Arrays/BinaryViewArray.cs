@@ -56,29 +56,17 @@ namespace Apache.Arrow
         {
             protected IArrowType DataType { get; }
             protected TBuilder Instance => this as TBuilder;
-            protected ArrowBuffer.Builder<int> ValueOffsets { get; }
+            protected ArrowBuffer.Builder<BinaryView> BinaryViews { get; }
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }
             protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
-            protected int Offset { get; set; }
             protected int NullCount => this.ValidityBuffer.UnsetBitCount;
 
             protected BuilderBase(IArrowType dataType)
             {
                 DataType = dataType;
-                ValueOffsets = new ArrowBuffer.Builder<int>();
+                BinaryViews = new ArrowBuffer.Builder<BinaryView>();
                 ValueBuffer = new ArrowBuffer.Builder<byte>();
                 ValidityBuffer = new ArrowBuffer.BitmapBuilder();
-
-                // From the docs:
-                //
-                // The offsets buffer contains length + 1 signed integers (either 32-bit or 64-bit, depending on the
-                // logical type), which encode the start position of each slot in the data buffer. The length of the
-                // value in each slot is computed using the difference between the offset at that slot’s index and the
-                // subsequent offset.
-                //
-                // In this builder, we choose to append the first offset (zero) upon construction, and each trailing
-                // offset is then added after each individual item has been appended.
-                ValueOffsets.Append(this.Offset);
             }
 
             protected abstract TArray Build(ArrayData data);
@@ -86,7 +74,7 @@ namespace Apache.Arrow
             /// <summary>
             /// Gets the length of the array built so far.
             /// </summary>
-            public int Length => ValueOffsets.Length - 1;
+            public int Length => BinaryViews.Length - 1;
 
             /// <summary>
             /// Build an Arrow array from the appended contents so far.
@@ -98,7 +86,7 @@ namespace Apache.Arrow
                 var bufs = new[]
                 {
                     NullCount > 0 ? ValidityBuffer.Build(allocator) : ArrowBuffer.Empty,
-                    ValueOffsets.Build(allocator),
+                    BinaryViews.Build(allocator),
                     ValueBuffer.Build(allocator),
                 };
                 var data = new ArrayData(
@@ -120,7 +108,7 @@ namespace Apache.Arrow
                 // Do not add to the value buffer in the case of a null.
                 // Note that we do not need to increment the offset as a result.
                 ValidityBuffer.Append(false);
-                ValueOffsets.Append(Offset);
+                BinaryViews.Append(default(BinaryView));
                 return Instance;
             }
 
@@ -131,10 +119,9 @@ namespace Apache.Arrow
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public TBuilder Append(byte value)
             {
-                ValueBuffer.Append(value);
                 ValidityBuffer.Append(true);
-                Offset++;
-                ValueOffsets.Append(Offset);
+                Span<byte> buf = stackalloc[] { value };
+                BinaryViews.Append(new BinaryView(buf));
                 return Instance;
             }
 
@@ -149,37 +136,17 @@ namespace Apache.Arrow
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public TBuilder Append(ReadOnlySpan<byte> span)
             {
-                ValueBuffer.Append(span);
-                ValidityBuffer.Append(true);
-                Offset += span.Length;
-                ValueOffsets.Append(Offset);
-                return Instance;
-            }
-
-            /// <summary>
-            /// Append a value, consisting of an enumerable collection of bytes, to the array.
-            /// </summary>
-            /// <remarks>
-            /// Note that this method appends a single value, which may consist of arbitrarily many bytes.  If multiple
-            /// values are to be added, use the <see cref="AppendRange(IEnumerable{byte})"/> method instead.
-            /// </remarks>
-            /// <param name="value">Enumerable collection of bytes to add.</param>
-            /// <returns>Returns the builder (for fluent-style composition).</returns>
-            public TBuilder Append(IEnumerable<byte> value)
-            {
-                if (value == null)
+                if (span.Length > BinaryView.MaxInlineLength)
                 {
-                    return AppendNull();
+                    int offset = ValueBuffer.Length;
+                    ValueBuffer.Append(span);
+                    BinaryViews.Append(new BinaryView(span.Length, span.Slice(0, 4), 0, offset));
                 }
-
-                // Note: by looking at the length of the value buffer before and after, we avoid having to iterate
-                // through the enumerable multiple times to get both length and contents.
-                int priorLength = ValueBuffer.Length;
-                ValueBuffer.AppendRange(value);
-                int valueLength = ValueBuffer.Length - priorLength;
-                Offset += valueLength;
+                else
+                {
+                    BinaryViews.Append(new BinaryView(span));
+                }
                 ValidityBuffer.Append(true);
-                ValueOffsets.Append(Offset);
                 return Instance;
             }
 
@@ -187,8 +154,7 @@ namespace Apache.Arrow
             /// Append an enumerable collection of single-byte values to the array.
             /// </summary>
             /// <remarks>
-            /// Note that this method appends multiple values, each of which is a single byte.  If a single value is
-            /// to be added, use the <see cref="Append(IEnumerable{byte})"/> method instead.
+            /// Note that this method appends multiple values, each of which is a single byte
             /// </remarks>
             /// <param name="values">Single-byte values to add.</param>
             /// <returns>Returns the builder (for fluent-style composition).</returns>
@@ -237,7 +203,7 @@ namespace Apache.Arrow
             public TBuilder Reserve(int capacity)
             {
                 // TODO: [ARROW-9366] Reserve capacity in the value buffer in a more sensible way.
-                ValueOffsets.Reserve(capacity + 1);
+                BinaryViews.Reserve(capacity);
                 ValueBuffer.Reserve(capacity);
                 ValidityBuffer.Reserve(capacity);
                 return Instance;
@@ -246,7 +212,7 @@ namespace Apache.Arrow
             public TBuilder Resize(int length)
             {
                 // TODO: [ARROW-9366] Resize the value buffer to a safe length based on offsets, not `length`.
-                ValueOffsets.Resize(length + 1);
+                BinaryViews.Resize(length);
                 ValueBuffer.Resize(length);
                 ValidityBuffer.Resize(length);
                 return Instance;
@@ -254,8 +220,11 @@ namespace Apache.Arrow
 
             public TBuilder Swap(int i, int j)
             {
-                // TODO: Implement
-                throw new NotImplementedException();
+                ValidityBuffer.Swap(i, j);
+                BinaryView view = BinaryViews.Span[i];
+                BinaryViews.Span[i] = BinaryViews.Span[j];
+                BinaryViews.Span[j] = view;
+                return Instance;
             }
 
             public TBuilder Set(int index, byte value)
@@ -270,31 +239,27 @@ namespace Apache.Arrow
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public TBuilder Clear()
             {
-                ValueOffsets.Clear();
+                BinaryViews.Clear();
                 ValueBuffer.Clear();
                 ValidityBuffer.Clear();
-
-                // Always write the first offset before anything has been written.
-                Offset = 0;
-                ValueOffsets.Append(Offset);
                 return Instance;
             }
         }
 
         public BinaryViewArray(IArrowType dataType, int length,
-            ArrowBuffer valueOffsetsBuffer,
+            ArrowBuffer binaryViewsBuffer,
             ArrowBuffer dataBuffer,
             ArrowBuffer nullBitmapBuffer,
             int nullCount = 0, int offset = 0)
         : this(new ArrayData(dataType, length, nullCount, offset,
-            new[] { nullBitmapBuffer, valueOffsetsBuffer, dataBuffer }))
+            new[] { nullBitmapBuffer, binaryViewsBuffer, dataBuffer }))
         { }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
         public ArrowBuffer ViewsBuffer => Data.Buffers[1];
 
-        public int BufferCount => Data.Buffers.Length - 2;
+        public int DataBufferCount => Data.Buffers.Length - 2;
 
         public ArrowBuffer DataBuffer(int index) => Data.Buffers[index + 2];
 

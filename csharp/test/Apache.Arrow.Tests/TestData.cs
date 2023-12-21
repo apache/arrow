@@ -35,6 +35,7 @@ namespace Apache.Arrow.Tests
             for (int i = 0; i < columnSetCount; i++)
             {
                 builder.Field(CreateField(new ListType(Int64Type.Default), i));
+                builder.Field(CreateField(new ListViewType(Int64Type.Default), i));
                 builder.Field(CreateField(BooleanType.Default, i));
                 builder.Field(CreateField(UInt8Type.Default, i));
                 builder.Field(CreateField(Int8Type.Default, i));
@@ -52,6 +53,7 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(Time64Type.Default, i));
                 builder.Field(CreateField(TimestampType.Default, i));
                 builder.Field(CreateField(StringType.Default, i));
+                builder.Field(CreateField(StringViewType.Default, i));
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
                 builder.Field(CreateField(new Decimal128Type(10, 6), i));
                 builder.Field(CreateField(new Decimal256Type(16, 8), i));
@@ -59,6 +61,11 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(IntervalType.YearMonth, i));
                 builder.Field(CreateField(IntervalType.DayTime, i));
                 builder.Field(CreateField(IntervalType.MonthDayNanosecond, i));
+                builder.Field(CreateField(BinaryType.Default, i));
+                builder.Field(CreateField(BinaryViewType.Default, i));
+#if NET5_0_OR_GREATER
+                builder.Field(CreateField(HalfFloatType.Default, i));
+#endif
 
                 if (createAdvancedTypeArrays)
                 {
@@ -68,9 +75,6 @@ namespace Apache.Arrow.Tests
                     builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Sparse), i));
                     builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Dense), -i));
                 }
-
-                //builder.Field(CreateField(HalfFloatType.Default));
-                //builder.Field(CreateField(StringType.Default));
             }
 
             Schema schema = builder.Build();
@@ -144,6 +148,9 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<IntervalType>,
+#if NET5_0_OR_GREATER
+            IArrowTypeVisitor<HalfFloatType>,
+#endif
             IArrowTypeVisitor<NullType>
         {
             private int Length { get; }
@@ -164,6 +171,9 @@ namespace Apache.Arrow.Tests
             public void Visit(UInt32Type type) => GenerateArray(new UInt32Array.Builder(), x => (uint)x);
             public void Visit(UInt64Type type) => GenerateArray(new UInt64Array.Builder(), x => (ulong)x);
             public void Visit(FloatType type) => GenerateArray(new FloatArray.Builder(), x => ((float)x / Length));
+#if NET5_0_OR_GREATER
+            public void Visit(HalfFloatType type) => GenerateArray(new HalfFloatArray.Builder(), x => ((Half)x / (Half)Length));
+#endif
             public void Visit(DoubleType type) => GenerateArray(new DoubleArray.Builder(), x => ((double)x / Length));
             public void Visit(Decimal128Type type)
             {
@@ -281,7 +291,29 @@ namespace Apache.Arrow.Tests
                 Array = builder.Build();
             }
 
-            public void Visit(StringViewType type) => throw new NotImplementedException("TODO");
+            public void Visit(StringViewType type)
+            {
+                var str = "length=ten";
+                var builder = new StringViewArray.Builder();
+
+                for (var i = 0; i < Length; i++)
+                {
+                    switch (i % 3)
+                    {
+                        case 0:
+                            builder.AppendNull();
+                            break;
+                        case 1:
+                            builder.Append(str);
+                            break;
+                        case 2:
+                            builder.Append(str + str);
+                            break;
+                    }
+                }
+
+                Array = builder.Build();
+            }
 
             public void Visit(ListType type)
             {
@@ -300,7 +332,22 @@ namespace Apache.Arrow.Tests
                 Array = builder.Build();
             }
 
-            public void Visit(ListViewType type) => throw new NotImplementedException("TODO");
+            public void Visit(ListViewType type)
+            {
+                var builder = new ListViewArray.Builder(type.ValueField).Reserve(Length);
+
+                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length + 1);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append();
+                    valueBuilder.Append(i);
+                }
+                //Add a value to check if Values.Length can exceed ListArray.Length
+                valueBuilder.Append(0);
+
+                Array = builder.Build();
+            }
 
             public void Visit(FixedSizeListType type)
             {
@@ -419,9 +466,63 @@ namespace Apache.Arrow.Tests
                 Array = new DictionaryArray(type, indicesBuilder.Build(), valueBuilder.Build());
             }
 
-            public void Visit(BinaryType type) => throw new NotImplementedException("TODO");
+            public void Visit(BinaryType type)
+            {
+                ReadOnlySpan<byte> shortData = new[] { (byte)0, (byte)1, (byte)2, (byte)3, (byte)4, (byte)5, (byte)6, (byte)7, (byte)8, (byte)9 };
+                ReadOnlySpan<byte> longData = new[]
+                {
+                    (byte)0, (byte)1, (byte)2, (byte)3, (byte)4, (byte)5, (byte)6, (byte)7, (byte)8, (byte)9,
+                    (byte)10, (byte)11, (byte)12, (byte)13, (byte)14, (byte)15, (byte)16, (byte)17, (byte)18, (byte)19
+                };
+                var builder = new BinaryArray.Builder();
 
-            public void Visit(BinaryViewType type) => throw new NotImplementedException("TODO");
+                for (var i = 0; i < Length; i++)
+                {
+                    switch (i % 3)
+                    {
+                        case 0:
+                            builder.AppendNull();
+                            break;
+                        case 1:
+                            builder.Append(shortData);
+                            break;
+                        case 2:
+                            builder.Append(longData);
+                            break;
+                    }
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(BinaryViewType type)
+            {
+                ReadOnlySpan<byte> shortData = new[] { (byte)0, (byte)1, (byte)2, (byte)3, (byte)4, (byte)5, (byte)6, (byte)7, (byte)8, (byte)9 };
+                ReadOnlySpan<byte> longData = new[]
+                {
+                    (byte)0, (byte)1, (byte)2, (byte)3, (byte)4, (byte)5, (byte)6, (byte)7, (byte)8, (byte)9,
+                    (byte)10, (byte)11, (byte)12, (byte)13, (byte)14, (byte)15, (byte)16, (byte)17, (byte)18, (byte)19
+                };
+                var builder = new BinaryViewArray.Builder();
+
+                for (var i = 0; i < Length; i++)
+                {
+                    switch (i % 3)
+                    {
+                        case 0:
+                            builder.AppendNull();
+                            break;
+                        case 1:
+                            builder.Append(shortData);
+                            break;
+                        case 2:
+                            builder.Append(longData);
+                            break;
+                    }
+                }
+
+                Array = builder.Build();
+            }
 
             public void Visit(FixedSizeBinaryType type)
             {

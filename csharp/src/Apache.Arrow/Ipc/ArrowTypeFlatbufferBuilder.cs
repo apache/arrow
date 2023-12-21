@@ -50,6 +50,9 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<UInt16Type>,
             IArrowTypeVisitor<UInt32Type>,
             IArrowTypeVisitor<UInt64Type>,
+#if NET5_0_OR_GREATER
+            IArrowTypeVisitor<HalfFloatType>,
+#endif
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<StringType>,
@@ -195,6 +198,15 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Type.Time,
                     Flatbuf.Time.CreateTime(Builder, ToFlatBuffer(type.Unit)));
             }
+
+#if NET5_0_OR_GREATER
+            public void Visit(HalfFloatType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.FloatingPoint,
+                    Flatbuf.FloatingPoint.CreateFloatingPoint(Builder, Precision.HALF));
+            }
+#endif
 
             public void Visit(FloatType type)
             {

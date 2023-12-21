@@ -125,7 +125,14 @@ namespace Apache.Arrow.Ipc
                 array.Values.Accept(this);
             }
 
-            public void Visit(ListViewArray array) => throw new NotImplementedException("TODO");
+            public void Visit(ListViewArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+                _buffers.Add(CreateBuffer(array.SizesBuffer));
+
+                array.Values.Accept(this);
+            }
 
             public void Visit(FixedSizeListArray array)
             {
@@ -149,12 +156,12 @@ namespace Apache.Arrow.Ipc
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ViewsBuffer));
-                for (int i = 0; i < array.BufferCount; i++)
+                for (int i = 0; i < array.DataBufferCount; i++)
                 {
                     _buffers.Add(CreateBuffer(array.DataBuffer(i)));
                 }
                 VariadicCounts = VariadicCounts ?? new List<long>();
-                VariadicCounts.Add(array.BufferCount);
+                VariadicCounts.Add(array.DataBufferCount);
             }
 
             public void Visit(FixedSizeBinaryArray array)

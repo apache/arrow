@@ -29,11 +29,15 @@ namespace Apache.Arrow
 
             private ArrowBuffer.Builder<int> ValueOffsetsBufferBuilder { get; }
 
+            private ArrowBuffer.Builder<int> SizesBufferBuilder { get; }
+
             private ArrowBuffer.BitmapBuilder ValidityBufferBuilder { get; }
 
             public int NullCount { get; protected set; }
 
             private IArrowType DataType { get; }
+
+            private int Start { get; set; }
 
             public Builder(IArrowType valueDataType) : this(new ListViewType(valueDataType))
             {
@@ -47,20 +51,22 @@ namespace Apache.Arrow
             {
                 ValueBuilder = ArrowArrayBuilderFactory.Build(dataType.ValueDataType);
                 ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
+                SizesBufferBuilder = new ArrowBuffer.Builder<int>();
                 ValidityBufferBuilder = new ArrowBuffer.BitmapBuilder();
                 DataType = dataType;
+                Start = -1;
             }
 
             /// <summary>
             /// Start a new variable-length list slot
             ///
             /// This function should be called before beginning to append elements to the
-            /// value builder
+            /// value builder. TODO: Consider adding builder APIs to support construction
+            /// of overlapping lists.
             /// </summary>
-            /// <returns></returns>
             public Builder Append()
             {
-                ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
+                AppendPrevious();
                 ValidityBufferBuilder.Append(true);
 
                 return this;
@@ -68,36 +74,55 @@ namespace Apache.Arrow
 
             public Builder AppendNull()
             {
-                ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
+                AppendPrevious();
+                ValueOffsetsBufferBuilder.Append(Start);
+                SizesBufferBuilder.Append(0);
                 ValidityBufferBuilder.Append(false);
                 NullCount++;
 
                 return this;
             }
 
+            private void AppendPrevious()
+            {
+                if (Start < 0)
+                {
+                    Start = 0;
+                }
+                else
+                {
+                    ValueOffsetsBufferBuilder.Append(Start);
+                    SizesBufferBuilder.Append(ValueOffsetsBufferBuilder.Length - Start);
+                    Start = ValueOffsetsBufferBuilder.Length;
+                }
+            }
+
             public ListViewArray Build(MemoryAllocator allocator = default)
             {
-                ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
+                AppendPrevious();
 
                 ArrowBuffer validityBuffer = NullCount > 0
                                         ? ValidityBufferBuilder.Build(allocator)
                                         : ArrowBuffer.Empty;
 
-                return new ListViewArray(DataType, Length - 1,
-                    ValueOffsetsBufferBuilder.Build(allocator), ValueBuilder.Build(allocator),
+                return new ListViewArray(DataType, Length,
+                    ValueOffsetsBufferBuilder.Build(allocator), SizesBufferBuilder.Build(allocator),
+                    ValueBuilder.Build(allocator),
                     validityBuffer, NullCount, 0);
             }
 
             public Builder Reserve(int capacity)
             {
-                ValueOffsetsBufferBuilder.Reserve(capacity + 1);
+                ValueOffsetsBufferBuilder.Reserve(capacity);
+                SizesBufferBuilder.Reserve(capacity);
                 ValidityBufferBuilder.Reserve(capacity);
                 return this;
             }
 
             public Builder Resize(int length)
             {
-                ValueOffsetsBufferBuilder.Resize(length + 1);
+                ValueOffsetsBufferBuilder.Resize(length);
+                SizesBufferBuilder.Resize(length);
                 ValidityBufferBuilder.Resize(length);
                 return this;
             }
@@ -105,6 +130,7 @@ namespace Apache.Arrow
             public Builder Clear()
             {
                 ValueOffsetsBufferBuilder.Clear();
+                SizesBufferBuilder.Clear();
                 ValueBuilder.Clear();
                 ValidityBufferBuilder.Clear();
                 return this;
@@ -118,11 +144,15 @@ namespace Apache.Arrow
 
         public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(Offset, Length + 1);
 
+        public ArrowBuffer SizesBuffer => Data.Buffers[2];
+
+        public ReadOnlySpan<int> Sizes => SizesBuffer.Span.CastTo<int>().Slice(Offset, Length + 1);
+
         public ListViewArray(IArrowType dataType, int length,
-            ArrowBuffer valueOffsetsBuffer, IArrowArray values,
+            ArrowBuffer valueOffsetsBuffer, ArrowBuffer sizesBuffer, IArrowArray values,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
             : this(new ArrayData(dataType, length, nullCount, offset,
-                new[] { nullBitmapBuffer, valueOffsetsBuffer }, new[] { values.Data }),
+                new[] { nullBitmapBuffer, valueOffsetsBuffer, sizesBuffer }, new[] { values.Data }),
                 values)
         {
         }
@@ -135,7 +165,7 @@ namespace Apache.Arrow
         private ListViewArray(ArrayData data, IArrowArray values) : base(data)
         {
             data.EnsureBufferCount(3);
-            data.EnsureDataType(ArrowTypeId.List);
+            data.EnsureDataType(ArrowTypeId.ListView);
             Values = values;
         }
 

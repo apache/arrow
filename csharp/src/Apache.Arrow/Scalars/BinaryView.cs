@@ -14,12 +14,13 @@
 // limitations under the License.
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.Scalars
 {
     [StructLayout(LayoutKind.Explicit)]
-    public struct BinaryView : IEquatable<BinaryView>
+    public unsafe struct BinaryView : IEquatable<BinaryView>
     {
         public const int MaxInlineLength = 12;
 
@@ -36,34 +37,26 @@ namespace Apache.Arrow.Scalars
         internal readonly int Offset;
 
         [FieldOffset(4)]
-        internal readonly int Data0;
+        internal fixed byte Inline[12];
 
-        [FieldOffset(8)]
-        internal readonly int Data1;
-
-        [FieldOffset(12)]
-        internal readonly int Data2;
-
-        public unsafe BinaryView(int length, byte[] inlined) : this()
+        public unsafe BinaryView(ReadOnlySpan<byte> inlined) : this()
         {
-            Length = length;
-            fixed (int* dest = &Data0)
+            Length = inlined.Length;
+            fixed (byte* dest = Inline)
             fixed (byte* src = inlined)
             {
-                Buffer.MemoryCopy(src, dest, 12, length);
+                Buffer.MemoryCopy(src, dest, 12, inlined.Length);
             }
         }
 
-        public unsafe BinaryView(int length, byte[] prefix, int bufferIndex, int offset)
+        public BinaryView(int length, ReadOnlySpan<byte> prefix, int bufferIndex, int offset)
         {
+            Debug.Assert(prefix.Length == 4);
+
             Length = length;
             BufferIndex = bufferIndex;
             Offset = offset;
-            fixed (int* dest = &Data0)
-            fixed (byte* src = prefix)
-            {
-                *dest = *(int*)src;
-            }
+            Prefix = prefix.CastTo<int>()[0];
         }
 
         private BinaryView(int length, int prefix, int bufferIndex, int offset)
@@ -76,7 +69,7 @@ namespace Apache.Arrow.Scalars
 
         public bool IsInline => Length <= MaxInlineLength;
 
-        public override int GetHashCode() => Length ^ Data0 ^ Data1 ^ Data2;
+        public override int GetHashCode() => Length ^ Prefix ^ BufferIndex ^ Offset;
 
         public override bool Equals(object obj)
         {
@@ -84,7 +77,7 @@ namespace Apache.Arrow.Scalars
             return other != null && Equals(other.Value);
         }
 
-        public bool Equals(BinaryView other) => Length == other.Length && Data0 == other.Data0 && Data1 == other.Data1 && Data2 == other.Data2;
+        public bool Equals(BinaryView other) => Length == other.Length && Prefix == other.Prefix && BufferIndex == other.BufferIndex && Offset == other.Offset;
 
         internal BinaryView AdjustBufferIndex(int bufferOffset)
         {

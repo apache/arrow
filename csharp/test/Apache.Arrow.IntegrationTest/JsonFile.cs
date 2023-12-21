@@ -21,6 +21,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
@@ -186,7 +187,8 @@ namespace Apache.Arrow.IntegrationTest
                 "interval_mdn" => ToIntervalArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
                 "list" => ToListArrowType(type, children),
-                "listview" => throw new NotImplementedException("TODO"),
+                "listview" => ToListViewArrowType(type, children),
+                "largelistview" => ToListViewArrowType(type, children),
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
                 "struct" => ToStructArrowType(type, children),
                 "union" => ToUnionArrowType(type, children),
@@ -295,6 +297,11 @@ namespace Apache.Arrow.IntegrationTest
         private static IArrowType ToListArrowType(JsonArrowType type, Field[] children)
         {
             return new ListType(children[0]);
+        }
+
+        private static IArrowType ToListViewArrowType(JsonArrowType type, Field[] children)
+        {
+            return new ListViewType(children[0]);
         }
 
         private static IArrowType ToFixedSizeListArrowType(JsonArrowType type, Field[] children)
@@ -670,7 +677,7 @@ namespace Apache.Arrow.IntegrationTest
                     foreach (JsonView jsonView in JsonFieldData.Views)
                     {
                         BinaryView view = (jsonView.BufferIndex == null) ?
-                            new BinaryView(jsonView.Size, Encoding.UTF8.GetBytes(jsonView.Inlined)) :
+                            new BinaryView(Encoding.UTF8.GetBytes(jsonView.Inlined)) :
                             new BinaryView(jsonView.Size, Convert.FromHexString(jsonView.PrefixHex), jsonView.BufferIndex.Value, jsonView.Offset.Value);
                         viewBuilder.Append(view);
                     }
@@ -683,7 +690,7 @@ namespace Apache.Arrow.IntegrationTest
                 buffers[1] = viewsBuffer;
                 for (int i = 0; i < bufferCount; i++)
                 {
-                    buffers[i + 2] = new ArrowBuffer(Convert.FromHexString(JsonFieldData.VariadicDataBuffers[i]));
+                    buffers[i + 2] = new ArrowBuffer(Convert.FromHexString(JsonFieldData.VariadicDataBuffers[i])).Clone();
                 }
 
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, buffers);
@@ -721,7 +728,7 @@ namespace Apache.Arrow.IntegrationTest
                     foreach (JsonView jsonView in JsonFieldData.Views)
                     {
                         BinaryView view = (jsonView.BufferIndex == null) ?
-                            new BinaryView(jsonView.Size, Convert.FromHexString(jsonView.Inlined)) :
+                            new BinaryView(Convert.FromHexString(jsonView.Inlined)) :
                             new BinaryView(jsonView.Size, Convert.FromHexString(jsonView.PrefixHex), jsonView.BufferIndex.Value, jsonView.Offset.Value);
                         viewBuilder.Append(view);
                     }
@@ -734,7 +741,7 @@ namespace Apache.Arrow.IntegrationTest
                 buffers[1] = viewsBuffer;
                 for (int i = 0; i < bufferCount; i++)
                 {
-                    buffers[i + 2] = new ArrowBuffer(Convert.FromHexString(JsonFieldData.VariadicDataBuffers[i]));
+                    buffers[i + 2] = new ArrowBuffer(Convert.FromHexString(JsonFieldData.VariadicDataBuffers[i])).Clone();
                 }
 
                 ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0, buffers);
@@ -774,7 +781,21 @@ namespace Apache.Arrow.IntegrationTest
                 Array = new ListArray(arrayData);
             }
 
-            public void Visit(ListViewType type) => throw new NotImplementedException("TODO");
+            public void Visit(ListViewType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetOffsetBuffer();
+                ArrowBuffer sizeBuffer = GetSizeBuffer();
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.ValueDataType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer, offsetBuffer, sizeBuffer }, new[] { Array.Data });
+                Array = new ListViewArray(arrayData);
+            }
 
             public void Visit(FixedSizeListType type)
             {
@@ -950,9 +971,16 @@ namespace Apache.Arrow.IntegrationTest
 
             private ArrowBuffer GetOffsetBuffer()
             {
-                ArrowBuffer.Builder<int> valueOffsets = new ArrowBuffer.Builder<int>(JsonFieldData.Offset.Length);
-                valueOffsets.AppendRange(JsonFieldData.Offset);
+                ArrowBuffer.Builder<int> valueOffsets = new ArrowBuffer.Builder<int>(JsonFieldData.Offset.Count);
+                valueOffsets.AppendRange(JsonFieldData.IntOffset);
                 return valueOffsets.Build(default);
+            }
+
+            private ArrowBuffer GetSizeBuffer()
+            {
+                ArrowBuffer.Builder<int> valueSizes = new ArrowBuffer.Builder<int>(JsonFieldData.Size.Count);
+                valueSizes.AppendRange(JsonFieldData.IntSize);
+                return valueSizes.Build(default);
             }
 
             private ArrowBuffer GetTypeIdBuffer()
@@ -992,7 +1020,10 @@ namespace Apache.Arrow.IntegrationTest
         public string Name { get; set; }
         public int Count { get; set; }
         public bool[] Validity { get; set; }
-        public int[] Offset { get; set; }
+        public JsonArray Offset { get; set; }
+
+        [JsonPropertyName("SIZE")]
+        public JsonArray Size { get; set; }
         public int[] TypeId { get; set; }
         public JsonElement Data { get; set; }
         public List<JsonFieldData> Children { get; set; }
@@ -1002,6 +1033,30 @@ namespace Apache.Arrow.IntegrationTest
 
         [JsonPropertyName("VARIADIC_DATA_BUFFERS")]
         public List<string> VariadicDataBuffers { get; set; }
+
+        [JsonIgnore]
+        public IEnumerable<int> IntOffset
+        {
+            get { return Offset.Select(GetInt); }
+        }
+
+        [JsonIgnore]
+        public IEnumerable<int> IntSize
+        {
+            get { return Size.Select(GetInt); }
+        }
+
+        static int GetInt(JsonNode node)
+        {
+            try
+            {
+                return node.GetValue<int>();
+            }
+            catch
+            {
+                return int.Parse(node.GetValue<string>());
+            }
+        }
     }
 
     public class JsonView
