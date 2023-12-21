@@ -117,6 +117,12 @@ class TestCompressionCodec {
     return outputBuffers;
   }
 
+  private void assertWriterIndex(List<ArrowBuf> decompressedBuffers) {
+    for (ArrowBuf decompressedBuf : decompressedBuffers) {
+      assertTrue(decompressedBuf.writerIndex() > 0);
+    }
+  }
+
   @ParameterizedTest
   @MethodSource("codecs")
   void testCompressFixedWidthBuffers(int vectorLength, CompressionCodec codec) throws Exception {
@@ -139,6 +145,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(2, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     IntVector newVec = new IntVector("new vec", allocator);
@@ -180,6 +187,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(3, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     VarCharVector newVec = new VarCharVector("new vec", allocator);

@@ -79,6 +79,7 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
     byte[] outBytes = out.toByteArray();
     ArrowBuf decompressedBuffer = allocator.buffer(outBytes.length);
     decompressedBuffer.setBytes(/*index=*/0, outBytes);
+    decompressedBuffer.writerIndex(decompressedLength);
     return decompressedBuffer;
   }
 
