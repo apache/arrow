@@ -1145,6 +1145,7 @@ def test_pickle_dataset(tempdir, pickle_module):
     assert is_pickleable(dataset)
 
 
+@pytest.mark.pandas
 def test_partitioned_dataset(tempdir):
     # ARROW-3208: Segmentation fault when reading a Parquet partitioned dataset
     # to a Parquet file
