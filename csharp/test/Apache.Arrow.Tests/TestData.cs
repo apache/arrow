@@ -24,57 +24,66 @@ namespace Apache.Arrow.Tests
 {
     public static class TestData
     {
-        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = true)
+        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray)
         {
-            return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray);
+            HashSet<ArrowTypeId> excluded = createDictionaryArray ? null : new HashSet<ArrowTypeId> { ArrowTypeId.Dictionary };
+            return CreateSampleRecordBatch(length, columnSetCount: 1, excluded);
         }
 
-        public static RecordBatch CreateSampleRecordBatch(int length, int columnSetCount, bool createAdvancedTypeArrays)
+        public static RecordBatch CreateSampleRecordBatch(
+            int length,
+            int columnSetCount = 1,
+            HashSet<ArrowTypeId> excludedTypes = null)
         {
             Schema.Builder builder = new Schema.Builder();
+
+            void AddField(Field field)
+            {
+                if (excludedTypes == null || !excludedTypes.Contains(field.DataType.TypeId))
+                {
+                    builder.Field(field);
+                }
+            }
+
             for (int i = 0; i < columnSetCount; i++)
             {
-                builder.Field(CreateField(new ListType(Int64Type.Default), i));
-                builder.Field(CreateField(new ListViewType(Int64Type.Default), i));
-                builder.Field(CreateField(BooleanType.Default, i));
-                builder.Field(CreateField(UInt8Type.Default, i));
-                builder.Field(CreateField(Int8Type.Default, i));
-                builder.Field(CreateField(UInt16Type.Default, i));
-                builder.Field(CreateField(Int16Type.Default, i));
-                builder.Field(CreateField(UInt32Type.Default, i));
-                builder.Field(CreateField(Int32Type.Default, i));
-                builder.Field(CreateField(UInt64Type.Default, i));
-                builder.Field(CreateField(Int64Type.Default, i));
-                builder.Field(CreateField(FloatType.Default, i));
-                builder.Field(CreateField(DoubleType.Default, i));
-                builder.Field(CreateField(Date32Type.Default, i));
-                builder.Field(CreateField(Date64Type.Default, i));
-                builder.Field(CreateField(Time32Type.Default, i));
-                builder.Field(CreateField(Time64Type.Default, i));
-                builder.Field(CreateField(TimestampType.Default, i));
-                builder.Field(CreateField(StringType.Default, i));
-                builder.Field(CreateField(StringViewType.Default, i));
-                builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
-                builder.Field(CreateField(new Decimal128Type(10, 6), i));
-                builder.Field(CreateField(new Decimal256Type(16, 8), i));
-                builder.Field(CreateField(new MapType(StringType.Default, Int32Type.Default), i));
-                builder.Field(CreateField(IntervalType.YearMonth, i));
-                builder.Field(CreateField(IntervalType.DayTime, i));
-                builder.Field(CreateField(IntervalType.MonthDayNanosecond, i));
-                builder.Field(CreateField(BinaryType.Default, i));
-                builder.Field(CreateField(BinaryViewType.Default, i));
+                AddField(CreateField(new ListType(Int64Type.Default), i));
+                AddField(CreateField(new ListViewType(Int64Type.Default), i));
+                AddField(CreateField(BooleanType.Default, i));
+                AddField(CreateField(UInt8Type.Default, i));
+                AddField(CreateField(Int8Type.Default, i));
+                AddField(CreateField(UInt16Type.Default, i));
+                AddField(CreateField(Int16Type.Default, i));
+                AddField(CreateField(UInt32Type.Default, i));
+                AddField(CreateField(Int32Type.Default, i));
+                AddField(CreateField(UInt64Type.Default, i));
+                AddField(CreateField(Int64Type.Default, i));
 #if NET5_0_OR_GREATER
-                builder.Field(CreateField(HalfFloatType.Default, i));
+                AddField(CreateField(HalfFloatType.Default, i));
 #endif
-
-                if (createAdvancedTypeArrays)
-                {
-                    builder.Field(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
-                    builder.Field(CreateField(new FixedSizeBinaryType(16), i));
-                    builder.Field(CreateField(new FixedSizeListType(Int32Type.Default, 3), i));
-                    builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Sparse), i));
-                    builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Dense), -i));
-                }
+                AddField(CreateField(FloatType.Default, i));
+                AddField(CreateField(DoubleType.Default, i));
+                AddField(CreateField(Date32Type.Default, i));
+                AddField(CreateField(Date64Type.Default, i));
+                AddField(CreateField(Time32Type.Default, i));
+                AddField(CreateField(Time64Type.Default, i));
+                AddField(CreateField(TimestampType.Default, i));
+                AddField(CreateField(StringType.Default, i));
+                AddField(CreateField(StringViewType.Default, i));
+                AddField(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
+                AddField(CreateField(new Decimal128Type(10, 6), i));
+                AddField(CreateField(new Decimal256Type(16, 8), i));
+                AddField(CreateField(new MapType(StringType.Default, Int32Type.Default), i));
+                AddField(CreateField(IntervalType.YearMonth, i));
+                AddField(CreateField(IntervalType.DayTime, i));
+                AddField(CreateField(IntervalType.MonthDayNanosecond, i));
+                AddField(CreateField(BinaryType.Default, i));
+                AddField(CreateField(BinaryViewType.Default, i));
+                AddField(CreateField(new FixedSizeBinaryType(16), i));
+                AddField(CreateField(new FixedSizeListType(Int32Type.Default, 3), i));
+                AddField(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Sparse), i));
+                AddField(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Dense), -i));
+                AddField(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
             }
 
             Schema schema = builder.Build();

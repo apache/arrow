@@ -123,11 +123,11 @@ namespace Apache.Arrow.C
             cArray->buffers = null;
             if (cArray->n_buffers > 0)
             {
-                int* lengths = null;
+                long* lengths = null;
                 int bufferCount = array.Buffers.Length;
                 if (array.DataType.TypeId == ArrowTypeId.BinaryView || array.DataType.TypeId == ArrowTypeId.StringView)
                 {
-                    lengths = (int*)sharedOwner.Allocate(4 * bufferCount); // overallocation to avoid edge case
+                    lengths = (long*)sharedOwner.Allocate(8 * bufferCount); // overallocation to avoid edge case
                     bufferCount++;
                     cArray->n_buffers++;
                 }

@@ -286,13 +286,13 @@ namespace Apache.Arrow.C
                 int length = checked((int)cArray->length);
                 int viewsLength = length * 16;
 
-                int* bufferLengths = (int*)cArray->buffers[cArray->n_buffers - 1];
+                long* bufferLengths = (long*)cArray->buffers[cArray->n_buffers - 1];
                 ArrowBuffer[] buffers = new ArrowBuffer[cArray->n_buffers - 1];
                 buffers[0] = ImportValidityBuffer(cArray);
                 buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, viewsLength));
                 for (int i = 2; i < buffers.Length; i++)
                 {
-                    buffers[i] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[i], 0, bufferLengths[i - 2]));
+                    buffers[i] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[i], 0, checked((int)bufferLengths[i - 2])));
                 }
 
                 return buffers;
