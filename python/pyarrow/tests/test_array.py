@@ -3341,8 +3341,8 @@ def test_c_array_protocol():
         def __init__(self, data):
             self.data = data
 
-        def __arrow_c_array__(self, requested_type=None):
-            return self.data.__arrow_c_array__(requested_type)
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.data.__arrow_c_array__(requested_schema)
 
     # Can roundtrip through the C array protocol
     arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))

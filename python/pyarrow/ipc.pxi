@@ -897,7 +897,7 @@ cdef class RecordBatchReader(_Weakrefable):
             Any object that implements the Arrow PyCapsule Protocol for
             streams.
         schema : Schema, default None
-            The schema to which the stream should be casted, is supported
+            The schema to which the stream should be casted, if supported
             by the stream object.
 
         Returns
@@ -913,6 +913,12 @@ cdef class RecordBatchReader(_Weakrefable):
             )
 
         if schema is not None:
+            if not hasattr(schema, "__arrow_c_schema__"):
+                raise TypeError(
+                    "Expected an object implementing the Arrow PyCapsule Protocol for "
+                    "schema (i.e. having a `__arrow_c_schema__` method), "
+                    f"got {type(schema)!r}."
+                )
             requested = schema.__arrow_c_schema__()
         else:
             requested = None
