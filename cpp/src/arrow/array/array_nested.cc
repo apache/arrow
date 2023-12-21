@@ -267,6 +267,7 @@ template <typename ListViewArrayT, bool HasNulls>
 Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
                                                     MemoryPool* memory_pool) {
   using offset_type = typename ListViewArrayT::offset_type;
+  const int64_t list_view_array_offset = list_view_array.offset();
   const int64_t list_view_array_length = list_view_array.length();
   std::shared_ptr<arrow::Array> value_array = list_view_array.values();
 
@@ -281,24 +282,16 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
     }
   }
 
+  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0, 0);
   const auto* offsets = list_view_array.data()->template GetValues<offset_type>(1);
   const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
 
-  std::function<bool(int64_t)> is_null_or_empty;
-  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0, 0);
-  const int64_t list_view_array_offset = list_view_array.offset();
-  if constexpr (HasNulls) {
-    is_null_or_empty = [&](int64_t i) {
-      if (!bit_util::GetBit(validity, list_view_array_offset + i)) {
-        return true;
-      }
-      return sizes[i] == 0;
-    };
-  } else {
-    ARROW_UNUSED(validity);
-    ARROW_UNUSED(list_view_array_offset);
-    is_null_or_empty = [&](int64_t i) { return sizes[i] == 0; };
-  }
+  auto is_null_or_empty = [&](int64_t i) {
+    if (HasNulls && !bit_util::GetBit(validity, list_view_array_offset + i)) {
+      return true;
+    }
+    return sizes[i] == 0;
+  };
 
   // Index of the first valid, non-empty list-view.
   int64_t first_i = 0;
