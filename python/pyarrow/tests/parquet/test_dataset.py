@@ -920,6 +920,7 @@ def test_ignore_custom_prefixes(tempdir):
 
 
 def test_empty_directory(tempdir):
+    # ARROW-5310
     empty_dir = tempdir / 'dataset'
     empty_dir.mkdir()
 
