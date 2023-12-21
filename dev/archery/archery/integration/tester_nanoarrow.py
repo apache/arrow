@@ -105,8 +105,10 @@ class _CDataBase:
         """
         assert self.ffi.typeof(na_error) is self.ffi.typeof("const char*")
         if na_error != self.ffi.NULL:
-            error = self.ffi.string(na_error).decode("utf8", errors="replace")
-            raise RuntimeError(f"nanoarrow C Data Integration call failed: {error}")
+            # TODO: remove these...at least one call is returning a non-null-terminated
+            # message causing a crash.
+            # error = self.ffi.string(na_error).decode("utf8", errors="replace")
+            raise RuntimeError("nanoarrow C Data Integration call failed")
 
 
 class NanoarrowCDataExporter(CDataExporter, _CDataBase):
