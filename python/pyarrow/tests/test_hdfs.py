@@ -311,6 +311,8 @@ class HdfsTestCases:
 
     @pytest.mark.xfail(reason="legacy.FileSystem.read_parquet used legacy ParquetDataset "
                        "that has been removed in PyArrow 15.0.0.", raises=TypeError)
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset due to "
+                       "legacy path being removed in PyArrow 15.0.0.", raises=TypeError)
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_multiple_parquet_files(self):
@@ -345,6 +347,8 @@ class HdfsTestCases:
             expected.to_pandas()
         )
 
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset due to "
+                       "legacy path being removed in PyArrow 15.0.0.", raises=TypeError)
     @pytest.mark.pandas
     @pytest.mark.parquet
     def test_read_write_parquet_files_with_uri(self):
@@ -366,6 +370,8 @@ class HdfsTestCases:
 
         assert_frame_equal(result, df)
 
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset due to "
+                       "legacy path being removed in PyArrow 15.0.0.", raises=TypeError)
     @pytest.mark.parquet
     @pytest.mark.pandas
     def test_write_to_dataset_with_partitions(self):
@@ -374,6 +380,8 @@ class HdfsTestCases:
         _test_write_to_dataset_with_partitions(
             tmpdir, filesystem=self.hdfs)
 
+    @pytest.mark.xfail(reason="legacy.FileSystem not supported with ParquetDataset due to "
+                       "legacy path being removed in PyArrow 15.0.0.", raises=TypeError)
     @pytest.mark.parquet
     @pytest.mark.pandas
     def test_write_to_dataset_no_partitions(self):
