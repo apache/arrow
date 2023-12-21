@@ -1878,7 +1878,7 @@ TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstring) {
   options = ReplaceSubstringOptions{"foo", "bazz", 1};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
                    this->type(), R"(["bazz", "this bazz that foo", "", null])", &options);
-  
+ 
   options = ReplaceSubstringOptions{"", "bazz"};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", "", null])",
                    this->type(), R"(["foo", "this foo that foo", "", null])", &options);
