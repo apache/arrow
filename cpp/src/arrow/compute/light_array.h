@@ -416,7 +416,9 @@ class ARROW_EXPORT ExecBatchBuilder {
   // without checking buffer bounds (useful with SIMD or fixed size memory loads
   // and stores).
   //
-  // The sequence of row_ids provided must be non-decreasing.
+  // The sequence of row_ids provided must be non-decreasing. In case of consecutive rows
+  // with the same row id, they are skipped all at once because they occupy the same
+  // space.
   //
   static int NumRowsToSkip(const std::shared_ptr<ArrayData>& column, int num_rows,
                            const uint16_t* row_ids, int num_tail_bytes_to_skip);
