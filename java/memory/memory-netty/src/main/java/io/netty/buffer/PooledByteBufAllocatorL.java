@@ -150,7 +150,7 @@ public class PooledByteBufAllocatorL {
         throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve direct arenas field.", e);
       }
 
-      this.chunkSize = directArenas[0].sizeClass.chunkSize;
+      this.chunkSize = metric().chunkSize();
 
       if (memoryLogger.isTraceEnabled()) {
         statusThread = new MemoryStatusThread(this);
