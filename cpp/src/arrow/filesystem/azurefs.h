@@ -44,6 +44,8 @@ class DataLakeServiceClient;
 
 namespace arrow::fs {
 
+class TestAzureFileSystem;
+
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
   /// \brief hostname[:port] of the Azure Blob Storage Service.
@@ -155,6 +157,9 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   std::unique_ptr<Impl> impl_;
 
   explicit AzureFileSystem(std::unique_ptr<Impl>&& impl);
+
+  friend class TestAzureFileSystem;
+  void ForceCachedHierarchicalNamespaceSupport(int hns_support);
 
  public:
   ~AzureFileSystem() override = default;
