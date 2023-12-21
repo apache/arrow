@@ -1577,10 +1577,8 @@ AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
   default_async_is_sync_ = false;
 }
 
-AzureFileSystem* AzureFileSystem::ForceCachedHierarchicalNamespaceSupport(
-    int hns_support) {
+void AzureFileSystem::ForceCachedHierarchicalNamespaceSupport(int hns_support) {
   impl_->ForceCachedHierarchicalNamespaceSupport(hns_support);
-  return this;
 }
 
 Result<std::shared_ptr<AzureFileSystem>> AzureFileSystem::Make(

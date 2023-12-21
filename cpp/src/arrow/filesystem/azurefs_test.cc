@@ -337,16 +337,6 @@ culpa qui officia deserunt mollit anim id est laborum.
   }
 };
 
-// A class that exists only to expose
-// AzureFileSystem::ForceCachedHierarchicalNamespaceSupport to unit tests.
-class AzureFileSystemForTesting : public AzureFileSystem {
- public:
-  AzureFileSystem* ForceCachedHierarchicalNamespaceSupport(HNSSupport hns_support) {
-    return AzureFileSystem::ForceCachedHierarchicalNamespaceSupport(
-        static_cast<int>(hns_support));
-  }
-};
-
 class TestAzureFileSystem : public ::testing::Test {
  protected:
   // Set in constructor
@@ -357,7 +347,7 @@ class TestAzureFileSystem : public ::testing::Test {
   bool set_up_succeeded_ = false;
   AzureOptions options_;
 
-  std::shared_ptr<FileSystem> fs_dont_use_directly_;  // use fs()
+  std::shared_ptr<AzureFileSystem> fs_dont_use_directly_;  // use fs()
   std::unique_ptr<Blobs::BlobServiceClient> blob_service_client_;
   std::unique_ptr<DataLake::DataLakeServiceClient> datalake_service_client_;
 
@@ -368,8 +358,9 @@ class TestAzureFileSystem : public ::testing::Test {
   virtual HNSSupport CachedHNSSupport(const BaseAzureEnv& env) const = 0;
 
   FileSystem* fs(HNSSupport cached_hns_support) const {
-    return static_cast<AzureFileSystemForTesting*>(fs_dont_use_directly_.get())
-        ->ForceCachedHierarchicalNamespaceSupport(cached_hns_support);
+    auto* fs_ptr = fs_dont_use_directly_.get();
+    fs_ptr->ForceCachedHierarchicalNamespaceSupport(static_cast<int>(cached_hns_support));
+    return fs_ptr;
   }
 
   FileSystem* fs() const {
