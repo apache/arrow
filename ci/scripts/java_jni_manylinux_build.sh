@@ -115,7 +115,7 @@ if [ "${ARROW_BUILD_TESTS}" = "ON" ]; then
       # ImportError: ../grpc/_cython/cygrpc.cpython-38-aarch64-linux-gnu.so:
       # undefined symbol: vtable for std::__cxx11::basic_ostringstream<
       #   char, std::char_traits<char>, std::allocator<char> >
-      exclude_tests="${exclude_tests}|arrow-gcsfs-test"
+      exclude_tests="${exclude_tests}|arrow-gcsfs-test|arrow-dataset-dataset-writer-test"
       ;;
   esac
   # unstable
