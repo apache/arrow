@@ -38,8 +38,9 @@ class BlobServiceClient;
 }
 
 namespace Azure::Storage::Files::DataLake {
+class DataLakeFileSystemClient;
 class DataLakeServiceClient;
-}
+}  // namespace Azure::Storage::Files::DataLake
 
 namespace arrow::fs {
 
@@ -101,6 +102,8 @@ struct ARROW_EXPORT AzureOptions {
   ~AzureOptions();
 
   Status ConfigureDefaultCredential(const std::string& account_name);
+
+  Status ConfigureWorkloadIdentityCredential(const std::string& account_name);
 
   Status ConfigureAccountKeyCredential(const std::string& account_name,
                                        const std::string& account_key);
