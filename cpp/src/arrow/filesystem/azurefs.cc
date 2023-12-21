@@ -1094,6 +1094,7 @@ class AzureFileSystem::Impl {
     }
   }
 
+ private:
   /// \pref location.container is not empty.
   template <typename ContainerClient>
   Status CheckDirExists(ContainerClient& container_client,
@@ -1113,7 +1114,6 @@ class AzureFileSystem::Impl {
     return Status::OK();
   }
 
- private:
   template <typename OnContainer>
   Status VisitContainers(const Core::Context& context, OnContainer&& on_container) const {
     Blobs::ListBlobContainersOptions options;
@@ -1328,6 +1328,7 @@ class AzureFileSystem::Impl {
     return ptr;
   }
 
+ private:
   /// This function cannot assume the filesystem/container already exists.
   ///
   /// \pre location.container is not empty.
@@ -1427,7 +1428,6 @@ class AzureFileSystem::Impl {
     return stream;
   }
 
- private:
   /// This function assumes the container already exists. So it can only be
   /// called after that has been verified.
   ///
@@ -1451,9 +1451,36 @@ class AzureFileSystem::Impl {
     }
   }
 
-  std::pair<int, Status> DeleteDirContentsWithoutHierarchicalNamespace(
+  /// \pre location.container is not empty.
+  /// \pre location.path is empty.
+  Status DeleteContainer(Blobs::BlobContainerClient& container_client,
+                         const AzureLocation& location) {
+    DCHECK(!location.container.empty());
+    DCHECK(location.path.empty());
+    try {
+      auto response = container_client.Delete();
+      if (response.Value.Deleted) {
+        return Status::OK();
+      } else {
+        return StatusFromErrorResponse(
+            container_client.GetUrl(), *response.RawResponse,
+            "Failed to delete a container: " + location.container);
+      }
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception)) {
+        return PathNotFound(location);
+      }
+      return ExceptionToStatus(exception,
+                               "Failed to delete a container: ", location.container, ": ",
+                               container_client.GetUrl());
+    }
+  }
+
+  /// \pre location.container is not empty.
+  std::pair<int, Status> DeleteDirContentsOnContainer(
       const Blobs::BlobContainerClient& container_client, const AzureLocation& location,
       bool missing_dir_ok) {
+    DCHECK(!location.container.empty());
     Blobs::ListBlobsOptions options;
     if (!location.path.empty()) {
       options.Prefix = internal::EnsureTrailingSlash(location.path);
@@ -1521,69 +1548,33 @@ class AzureFileSystem::Impl {
           }
         }
       }
+      return {num_potentially_deleted_blobs, Status::OK()};
     } catch (const Storage::StorageException& exception) {
       return {num_potentially_deleted_blobs,
               ExceptionToStatus(exception, "Failed to list blobs in a directory: ",
                                 location.path, ": ", container_client.GetUrl())};
     }
-    return {num_potentially_deleted_blobs, Status::OK()};
   }
 
- public:
-  Status DeleteDir(const AzureLocation& location) {
-    if (location.container.empty()) {
-      return Status::Invalid("DeleteDir requires a non-empty path.");
-    }
-
-    auto adlfs_client = datalake_service_client_->GetFileSystemClient(location.container);
-    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
-    if (hns_support == HNSSupport::kContainerNotFound) {
-      return PathNotFound(location);
-    }
-
-    if (location.path.empty()) {
-      auto container_client =
-          blob_service_client_->GetBlobContainerClient(location.container);
-      try {
-        auto response = container_client.Delete();
-        if (response.Value.Deleted) {
-          return Status::OK();
-        } else {
-          return StatusFromErrorResponse(
-              container_client.GetUrl(), *response.RawResponse,
-              "Failed to delete a container: " + location.container);
-        }
-      } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus(exception,
-                                 "Failed to delete a container: ", location.container,
-                                 ": ", container_client.GetUrl());
+  /// \pre location.container is not empty.
+  /// \pre location.path is not empty.
+  Status DeleteDirOnFileSystem(DataLake::DataLakeFileSystemClient& adlfs_client,
+                               const AzureLocation& location) {
+    DCHECK(!location.container.empty());
+    DCHECK(!location.path.empty());
+    auto directory_client = adlfs_client.GetDirectoryClient(location.path);
+    // XXX: should "directory not found" be considered an error?
+    try {
+      auto response = directory_client.DeleteRecursive();
+      if (response.Value.Deleted) {
+        return Status::OK();
+      } else {
+        return StatusFromErrorResponse(directory_client.GetUrl(), *response.RawResponse,
+                                       "Failed to delete a directory: " + location.path);
       }
-    }
-
-    if (hns_support == HNSSupport::kEnabled) {
-      auto directory_client = adlfs_client.GetDirectoryClient(location.path);
-      try {
-        auto response = directory_client.DeleteRecursive();
-        if (response.Value.Deleted) {
-          return Status::OK();
-        } else {
-          return StatusFromErrorResponse(
-              directory_client.GetUrl(), *response.RawResponse,
-              "Failed to delete a directory: " + location.path);
-        }
-      } catch (const Storage::StorageException& exception) {
-        return ExceptionToStatus(exception,
-                                 "Failed to delete a directory: ", location.path, ": ",
-                                 directory_client.GetUrl());
-      }
-    } else {
-      auto container_client =
-          blob_service_client_->GetBlobContainerClient(location.container);
-      Status status;
-      std::tie(std::ignore, status) =
-          DeleteDirContentsWithoutHierarchicalNamespace(container_client, location,
-                                                        /*missing_dir_ok=*/false);
-      return status;
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "Failed to delete a directory: ", location.path,
+                               ": ", directory_client.GetUrl());
     }
   }
 
@@ -1636,11 +1627,9 @@ class AzureFileSystem::Impl {
       }
       return Status::OK();
     } else {
-      auto container_client =
-          blob_service_client_->GetBlobContainerClient(location.container);
+      auto container_client = GetBlobContainerClient(location.container);
       auto [num_potentially_deleted_blobs, status] =
-          DeleteDirContentsWithoutHierarchicalNamespace(container_client, location,
-                                                        missing_dir_ok);
+          DeleteDirContentsOnContainer(container_client, location, missing_dir_ok);
       if (num_potentially_deleted_blobs > 0) {
         // If we potentially deleted some blobs, we need to ensure the empty directory
         // marker blob exists. Otherwise, we don't need to do anything because the
@@ -1785,7 +1774,30 @@ Status AzureFileSystem::CreateDir(const std::string& path, bool recursive) {
 
 Status AzureFileSystem::DeleteDir(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto location, AzureLocation::FromString(path));
-  return impl_->DeleteDir(location);
+  if (location.container.empty()) {
+    return Status::Invalid("DeleteDir requires a non-empty path.");
+  }
+  if (location.path.empty()) {
+    auto container_client = impl_->GetBlobContainerClient(location.container);
+    return impl_->DeleteContainer(container_client, location);
+  }
+
+  auto adlfs_client = impl_->GetFileSystemClient(location.container);
+  ARROW_ASSIGN_OR_RAISE(auto hns_support,
+                        impl_->HierarchicalNamespaceSupport(adlfs_client));
+  if (hns_support == HNSSupport::kContainerNotFound) {
+    return PathNotFound(location);
+  }
+  if (hns_support == HNSSupport::kEnabled) {
+    return impl_->DeleteDirOnFileSystem(adlfs_client, location);
+  }
+  DCHECK_EQ(hns_support, HNSSupport::kDisabled);
+  auto container_client = impl_->GetBlobContainerClient(location.container);
+  Status status;
+  std::tie(std::ignore, status) =
+      impl_->DeleteDirContentsOnContainer(container_client, location,
+                                          /*missing_dir_ok=*/false);
+  return status;
 }
 
 Status AzureFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
